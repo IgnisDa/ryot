@@ -6,11 +6,6 @@ You can specify configuration options via environment variables or via files (lo
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
 ([example](https://pro.ryot.io/backend/config)).
 
-!!! info
-
-    The defaults can be inspected in the
-    [config]({{ extra.file_path }}/libs/config/src/lib.rs) builder.
-
 ## Important parameters
 
 | Key / Environment variable                                              | Description                                                                                                            |
