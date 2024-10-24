@@ -133,18 +133,18 @@ have a valid metadata provider.
 #### Steps
 
 If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
-urls will be populated automatically. If you don't use komf you will either need to
-manually add the manga to your collection or you can perform the following steps.
+urls will be populated automatically. If you don't, you will either need to manually add
+the manga to your collection or you can perform the following steps.
 
-1. Navigate to the manga
-2. Open the edit tab
+1. Navigate to the manga and open the Edit tab
 3. Navigate to the Links tab
 4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
 
 Then perform these steps on Ryot
 
-1. Create the integration and select Komga as the source
-2. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
+1. Create an integration and select Komga as the source
+2. Provide your Base URL. It should look something like this `http://komga.acme.com` or
+   `http://127.0.0.1:25600`
 3. Provide your Username and Password.
 4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
