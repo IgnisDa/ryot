@@ -587,9 +587,8 @@ export default function Page() {
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Divider />
-							<Stack gap="xs">
-								<Text>The default measurements you want to keep track of</Text>
-								<SimpleGrid cols={2}>
+							<Input.Wrapper label="The default measurements you want to keep track of">
+								<SimpleGrid cols={2} mt="xs">
 									{Object.entries(
 										userPreferences.fitness.measurements.inbuilt,
 									).map(([name, isEnabled]) => (
@@ -608,7 +607,7 @@ export default function Page() {
 										/>
 									))}
 								</SimpleGrid>
-							</Stack>
+							</Input.Wrapper>
 							<JsonInput
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."
