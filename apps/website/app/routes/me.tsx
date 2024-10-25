@@ -251,6 +251,7 @@ export default function Index() {
 					onClick={(priceId) => {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
+							customer: { email: loaderData.customerDetails.email },
 						});
 					}}
 				/>
