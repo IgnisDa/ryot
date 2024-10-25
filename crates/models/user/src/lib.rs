@@ -96,6 +96,8 @@ pub struct UserFitnessFeaturesEnabledPreferences {
 pub struct UserExercisesPreferences {
     #[educe(Default = UserUnitSystem::Metric)]
     pub unit_system: UserUnitSystem,
+    #[educe(Default = true)]
+    pub show_details_while_editing: bool,
     pub set_rest_timers: SetRestTimersSettings,
 }
 

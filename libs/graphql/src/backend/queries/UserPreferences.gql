@@ -54,6 +54,7 @@ query UserPreferences {
 			}
 			exercises {
 				unitSystem
+				showDetailsWhileEditing
 				setRestTimers {
 					...SetRestTimersPart
 				}

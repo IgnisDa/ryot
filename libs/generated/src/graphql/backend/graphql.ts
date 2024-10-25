@@ -45,42 +45,14 @@ export type Scalars = {
   NaiveDateTime: { input: any; output: any; }
 };
 
-export type AccessLink = {
-  createdOn: Scalars['DateTime']['output'];
-  expiresOn?: Maybe<Scalars['DateTime']['output']>;
-  id: Scalars['String']['output'];
-  isAccountDefault?: Maybe<Scalars['Boolean']['output']>;
-  isDemo?: Maybe<Scalars['Boolean']['output']>;
-  isMutationAllowed?: Maybe<Scalars['Boolean']['output']>;
-  isRevoked?: Maybe<Scalars['Boolean']['output']>;
-  maximumUses?: Maybe<Scalars['Int']['output']>;
-  name: Scalars['String']['output'];
-  redirectTo?: Maybe<Scalars['String']['output']>;
-  timesUsed: Scalars['Int']['output'];
-};
-
-export type AnimeAiringScheduleSpecifics = {
-  airingAt: Scalars['NaiveDateTime']['output'];
-  episode: Scalars['Int']['output'];
-};
-
 export type AnimeAiringScheduleSpecificsInput = {
   airingAt: Scalars['NaiveDateTime']['input'];
   episode: Scalars['Int']['input'];
 };
 
-export type AnimeSpecifics = {
-  airingSchedule?: Maybe<Array<AnimeAiringScheduleSpecifics>>;
-  episodes?: Maybe<Scalars['Int']['output']>;
-};
-
 export type AnimeSpecificsInput = {
   airingSchedule?: InputMaybe<Array<AnimeAiringScheduleSpecificsInput>>;
   episodes?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type AudioBookSpecifics = {
-  runtime?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AudioBookSpecificsInput = {
@@ -110,10 +82,6 @@ export enum BackgroundJob {
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
 }
 
-export type BookSpecifics = {
-  pages?: Maybe<Scalars['Int']['output']>;
-};
-
 export type BookSpecificsInput = {
   pages?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -124,23 +92,6 @@ export type ChangeCollectionToEntityInput = {
   entityId: Scalars['String']['input'];
   entityLot: EntityLot;
   information?: InputMaybe<Scalars['JSON']['input']>;
-};
-
-export type Collection = {
-  createdOn: Scalars['DateTime']['output'];
-  description?: Maybe<Scalars['String']['output']>;
-  id: Scalars['String']['output'];
-  informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
-  lastUpdatedOn: Scalars['DateTime']['output'];
-  name: Scalars['String']['output'];
-  userId: Scalars['String']['output'];
-};
-
-export type CollectionContents = {
-  details: Collection;
-  results: MediaCollectionContentsResults;
-  reviews: Array<ReviewItem>;
-  user: User;
 };
 
 export type CollectionContentsFilter = {
@@ -167,14 +118,6 @@ export type CollectionContentsSortInput = {
   order?: GraphqlSortOrder;
 };
 
-export type CollectionExtraInformation = {
-  defaultValue?: Maybe<Scalars['String']['output']>;
-  description: Scalars['String']['output'];
-  lot: CollectionExtraInformationLot;
-  name: Scalars['String']['output'];
-  required?: Maybe<Scalars['Boolean']['output']>;
-};
-
 export type CollectionExtraInformationInput = {
   defaultValue?: InputMaybe<Scalars['String']['input']>;
   description: Scalars['String']['input'];
@@ -191,17 +134,6 @@ export enum CollectionExtraInformationLot {
   StringArray = 'STRING_ARRAY'
 }
 
-export type CollectionItem = {
-  collaborators: Array<IdAndNamedObject>;
-  count: Scalars['Int']['output'];
-  creator: IdAndNamedObject;
-  description?: Maybe<Scalars['String']['output']>;
-  id: Scalars['String']['output'];
-  informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
-  isDefault: Scalars['Boolean']['output'];
-  name: Scalars['String']['output'];
-};
-
 export type CommitMediaInput = {
   forceUpdate?: InputMaybe<Scalars['Boolean']['input']>;
   identifier: Scalars['String']['input'];
@@ -214,22 +146,6 @@ export type CommitPersonInput = {
   name: Scalars['String']['input'];
   source: MediaSource;
   sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
-};
-
-export type CoreDetails = {
-  backendErrors: Array<BackendError>;
-  docsLink: Scalars['String']['output'];
-  fileStorageEnabled: Scalars['Boolean']['output'];
-  isPro: Scalars['Boolean']['output'];
-  localAuthDisabled: Scalars['Boolean']['output'];
-  oidcEnabled: Scalars['Boolean']['output'];
-  pageLimit: Scalars['Int']['output'];
-  repositoryLink: Scalars['String']['output'];
-  signupAllowed: Scalars['Boolean']['output'];
-  smtpEnabled: Scalars['Boolean']['output'];
-  tokenValidForDays: Scalars['Int']['output'];
-  version: Scalars['String']['output'];
-  websiteUrl: Scalars['String']['output'];
 };
 
 export type CreateAccessLinkInput = {
@@ -321,56 +237,12 @@ export type DailyUserActivitiesInput = {
   startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
 
-export type DailyUserActivitiesResponse = {
-  groupedBy: DailyUserActivitiesResponseGroupedBy;
-  itemCount: Scalars['Int']['output'];
-  items: Array<DailyUserActivityItem>;
-  totalCount: Scalars['Int']['output'];
-  totalDuration: Scalars['Int']['output'];
-};
-
 export enum DailyUserActivitiesResponseGroupedBy {
   Day = 'DAY',
   Millennium = 'MILLENNIUM',
   Month = 'MONTH',
   Year = 'YEAR'
 }
-
-export type DailyUserActivityItem = {
-  animeCount: Scalars['Int']['output'];
-  audioBookCount: Scalars['Int']['output'];
-  bookCount: Scalars['Int']['output'];
-  day: Scalars['NaiveDate']['output'];
-  mangaCount: Scalars['Int']['output'];
-  measurementCount: Scalars['Int']['output'];
-  movieCount: Scalars['Int']['output'];
-  podcastCount: Scalars['Int']['output'];
-  showCount: Scalars['Int']['output'];
-  totalAudioBookDuration: Scalars['Int']['output'];
-  totalBookPages: Scalars['Int']['output'];
-  totalCollectionReviewCount: Scalars['Int']['output'];
-  totalCount: Scalars['Int']['output'];
-  totalDuration: Scalars['Int']['output'];
-  totalMetadataCount: Scalars['Int']['output'];
-  totalMetadataGroupReviewCount: Scalars['Int']['output'];
-  totalMetadataReviewCount: Scalars['Int']['output'];
-  totalMovieDuration: Scalars['Int']['output'];
-  totalPersonReviewCount: Scalars['Int']['output'];
-  totalPodcastDuration: Scalars['Int']['output'];
-  totalReviewCount: Scalars['Int']['output'];
-  totalShowDuration: Scalars['Int']['output'];
-  totalVideoGameDuration: Scalars['Int']['output'];
-  totalVisualNovelDuration: Scalars['Int']['output'];
-  totalWorkoutDistance: Scalars['Int']['output'];
-  totalWorkoutDuration: Scalars['Int']['output'];
-  totalWorkoutPersonalBests: Scalars['Int']['output'];
-  totalWorkoutReps: Scalars['Int']['output'];
-  totalWorkoutRestTime: Scalars['Int']['output'];
-  totalWorkoutWeight: Scalars['Int']['output'];
-  videoGameCount: Scalars['Int']['output'];
-  visualNovelCount: Scalars['Int']['output'];
-  workoutCount: Scalars['Int']['output'];
-};
 
 export enum DashboardElementLot {
   Activity = 'ACTIVITY',
@@ -440,14 +312,6 @@ export type DeployUrlAndKeyImportInput = {
 };
 
 /** The assets that were uploaded for an entity. */
-export type EntityAssets = {
-  /** The keys of the S3 images. */
-  images: Array<Scalars['String']['output']>;
-  /** The keys of the S3 videos. */
-  videos: Array<Scalars['String']['output']>;
-};
-
-/** The assets that were uploaded for an entity. */
 export type EntityAssetsInput = {
   /** The keys of the S3 images. */
   images: Array<Scalars['String']['input']>;
@@ -465,38 +329,9 @@ export enum EntityLot {
   WorkoutTemplate = 'WORKOUT_TEMPLATE'
 }
 
-export type EntityWithLot = {
-  entityId: Scalars['String']['output'];
-  entityLot: EntityLot;
-};
-
-export type Exercise = {
-  attributes: ExerciseAttributes;
-  createdByUserId?: Maybe<Scalars['String']['output']>;
-  equipment?: Maybe<ExerciseEquipment>;
-  force?: Maybe<ExerciseForce>;
-  id: Scalars['String']['output'];
-  level: ExerciseLevel;
-  lot: ExerciseLot;
-  mechanic?: Maybe<ExerciseMechanic>;
-  muscles: Array<ExerciseMuscle>;
-  source: ExerciseSource;
-};
-
-export type ExerciseAttributes = {
-  images: Array<Scalars['String']['output']>;
-  instructions: Array<Scalars['String']['output']>;
-};
-
 export type ExerciseAttributesInput = {
   images: Array<Scalars['String']['input']>;
   instructions: Array<Scalars['String']['input']>;
-};
-
-export type ExerciseBestSetRecord = {
-  exerciseIdx: Scalars['Int']['output'];
-  setIdx: Scalars['Int']['output'];
-  workoutId: Scalars['String']['output'];
 };
 
 export enum ExerciseEquipment {
@@ -513,15 +348,6 @@ export enum ExerciseEquipment {
   MedicineBall = 'MEDICINE_BALL',
   Other = 'OTHER'
 }
-
-export type ExerciseFilters = {
-  equipment: Array<ExerciseEquipment>;
-  force: Array<ExerciseForce>;
-  level: Array<ExerciseLevel>;
-  mechanic: Array<ExerciseMechanic>;
-  muscle: Array<ExerciseMuscle>;
-  type: Array<ExerciseLot>;
-};
 
 export enum ExerciseForce {
   Pull = 'PULL',
@@ -554,20 +380,6 @@ export type ExerciseListFilter = {
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscle?: InputMaybe<ExerciseMuscle>;
   type?: InputMaybe<ExerciseLot>;
-};
-
-export type ExerciseListItem = {
-  id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lastUpdatedOn?: Maybe<Scalars['DateTime']['output']>;
-  lot: ExerciseLot;
-  muscle?: Maybe<ExerciseMuscle>;
-  numTimesInteracted?: Maybe<Scalars['Int']['output']>;
-};
-
-export type ExerciseListResults = {
-  details: SearchDetails;
-  items: Array<ExerciseListItem>;
 };
 
 /** The different types of exercises that can be done. */
@@ -603,19 +415,6 @@ export enum ExerciseMuscle {
   Triceps = 'TRICEPS'
 }
 
-export type ExerciseParameters = {
-  downloadRequired: Scalars['Boolean']['output'];
-  /** All filters applicable to an exercises query. */
-  filters: ExerciseFilters;
-  /** Exercise type mapped to the personal bests possible. */
-  lotMapping: Array<ExerciseParametersLotMapping>;
-};
-
-export type ExerciseParametersLotMapping = {
-  bests: Array<WorkoutSetPersonalBest>;
-  lot: ExerciseLot;
-};
-
 export enum ExerciseSortBy {
   LastPerformed = 'LAST_PERFORMED',
   Name = 'NAME',
@@ -633,88 +432,9 @@ export type ExercisesListInput = {
   sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
-export type ExportJob = {
-  endedAt: Scalars['DateTime']['output'];
-  size: Scalars['Int']['output'];
-  startedAt: Scalars['DateTime']['output'];
-  url: Scalars['String']['output'];
-};
-
-export type GenreDetails = {
-  contents: IdResults;
-  details: GenreListItem;
-};
-
 export type GenreDetailsInput = {
   genreId: Scalars['String']['input'];
   page?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type GenreListItem = {
-  id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  numItems?: Maybe<Scalars['Int']['output']>;
-};
-
-export type GenreListResults = {
-  details: SearchDetails;
-  items: Array<GenreListItem>;
-};
-
-export type GraphqlCalendarEvent = {
-  animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
-  calendarEventId: Scalars['String']['output'];
-  date: Scalars['NaiveDate']['output'];
-  episodeName?: Maybe<Scalars['String']['output']>;
-  metadataId: Scalars['String']['output'];
-  metadataImage?: Maybe<Scalars['String']['output']>;
-  metadataLot: MediaLot;
-  metadataTitle: Scalars['String']['output'];
-  podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
-  showExtraInformation?: Maybe<SeenShowExtraInformation>;
-};
-
-export type GraphqlMediaAssets = {
-  images: Array<Scalars['String']['output']>;
-  videos: Array<GraphqlVideoAsset>;
-};
-
-export type GraphqlMetadataDetails = {
-  animeSpecifics?: Maybe<AnimeSpecifics>;
-  assets: GraphqlMediaAssets;
-  audioBookSpecifics?: Maybe<AudioBookSpecifics>;
-  bookSpecifics?: Maybe<BookSpecifics>;
-  creators: Array<MetadataCreatorGroupedByRole>;
-  description?: Maybe<Scalars['String']['output']>;
-  genres: Array<GenreListItem>;
-  group?: Maybe<GraphqlMetadataGroup>;
-  id: Scalars['String']['output'];
-  identifier: Scalars['String']['output'];
-  isNsfw?: Maybe<Scalars['Boolean']['output']>;
-  isPartial?: Maybe<Scalars['Boolean']['output']>;
-  lot: MediaLot;
-  mangaSpecifics?: Maybe<MangaSpecifics>;
-  movieSpecifics?: Maybe<MovieSpecifics>;
-  originalLanguage?: Maybe<Scalars['String']['output']>;
-  podcastSpecifics?: Maybe<PodcastSpecifics>;
-  productionStatus?: Maybe<Scalars['String']['output']>;
-  providerRating?: Maybe<Scalars['Decimal']['output']>;
-  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  showSpecifics?: Maybe<ShowSpecifics>;
-  source: MediaSource;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
-  suggestions: Array<Scalars['String']['output']>;
-  title: Scalars['String']['output'];
-  videoGameSpecifics?: Maybe<VideoGameSpecifics>;
-  visualNovelSpecifics?: Maybe<VisualNovelSpecifics>;
-  watchProviders: Array<WatchProvider>;
-};
-
-export type GraphqlMetadataGroup = {
-  id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  part: Scalars['Int']['output'];
 };
 
 export enum GraphqlSortOrder {
@@ -722,34 +442,10 @@ export enum GraphqlSortOrder {
   Desc = 'DESC'
 }
 
-export type GraphqlVideoAsset = {
-  source: MetadataVideoSource;
-  videoId: Scalars['String']['output'];
-};
-
 export enum GridPacking {
   Dense = 'DENSE',
   Normal = 'NORMAL'
 }
-
-export type GroupedCalendarEvent = {
-  date: Scalars['NaiveDate']['output'];
-  events: Array<GraphqlCalendarEvent>;
-};
-
-export type IdAndNamedObject = {
-  id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-};
-
-export type IdResults = {
-  details: SearchDetails;
-  items: Array<Scalars['String']['output']>;
-};
-
-export type ImportDetails = {
-  total: Scalars['Int']['output'];
-};
 
 /** The various steps in which media importing can fail */
 export enum ImportFailStep {
@@ -764,38 +460,6 @@ export enum ImportFailStep {
   /** Failed to save a seen history item */
   SeenHistoryConversion = 'SEEN_HISTORY_CONVERSION'
 }
-
-export type ImportFailedItem = {
-  error?: Maybe<Scalars['String']['output']>;
-  identifier: Scalars['String']['output'];
-  lot?: Maybe<MediaLot>;
-  step: ImportFailStep;
-};
-
-/** Comments left in replies to posted reviews. */
-export type ImportOrExportItemReviewComment = {
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  /** The user ids of all those who liked it. */
-  likedBy: Array<Scalars['String']['output']>;
-  text: Scalars['String']['output'];
-  user: IdAndNamedObject;
-};
-
-export type ImportReport = {
-  details?: Maybe<ImportResultResponse>;
-  finishedOn?: Maybe<Scalars['DateTime']['output']>;
-  id: Scalars['String']['output'];
-  source: ImportSource;
-  startedOn: Scalars['DateTime']['output'];
-  userId: Scalars['String']['output'];
-  wasSuccess?: Maybe<Scalars['Boolean']['output']>;
-};
-
-export type ImportResultResponse = {
-  failedItems: Array<ImportFailedItem>;
-  import: ImportDetails;
-};
 
 export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
@@ -812,18 +476,6 @@ export enum ImportSource {
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'
 }
-
-export type Integration = {
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
-  lot: IntegrationLot;
-  maximumProgress?: Maybe<Scalars['Decimal']['output']>;
-  minimumProgress?: Maybe<Scalars['Decimal']['output']>;
-  provider: IntegrationProvider;
-  syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
-};
 
 export enum IntegrationLot {
   Push = 'PUSH',
@@ -867,10 +519,6 @@ export type IntegrationSourceSpecificsInput = {
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
-export type LoginError = {
-  error: LoginErrorVariant;
-};
-
 export enum LoginErrorVariant {
   AccountDisabled = 'ACCOUNT_DISABLED',
   CredentialsMismatch = 'CREDENTIALS_MISMATCH',
@@ -878,27 +526,10 @@ export enum LoginErrorVariant {
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
-export type LoginResponse = {
-  apiKey: Scalars['String']['output'];
-};
-
-export type LoginResult = LoginError | LoginResponse;
-
-export type MangaSpecifics = {
-  chapters?: Maybe<Scalars['Decimal']['output']>;
-  url?: Maybe<Scalars['String']['output']>;
-  volumes?: Maybe<Scalars['Int']['output']>;
-};
-
 export type MangaSpecificsInput = {
   chapters?: InputMaybe<Scalars['Decimal']['input']>;
   url?: InputMaybe<Scalars['String']['input']>;
   volumes?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type MediaCollectionContentsResults = {
-  details: SearchDetails;
-  items: Array<EntityWithLot>;
 };
 
 export type MediaFilter = {
@@ -971,52 +602,10 @@ export enum MediaStateChanged {
   ReviewPosted = 'REVIEW_POSTED'
 }
 
-export type MetadataCreator = {
-  character?: Maybe<Scalars['String']['output']>;
-  id?: Maybe<Scalars['String']['output']>;
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-export type MetadataCreatorGroupedByRole = {
-  items: Array<MetadataCreator>;
-  name: Scalars['String']['output'];
-};
-
-export type MetadataGroup = {
-  description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
-  id: Scalars['String']['output'];
-  identifier: Scalars['String']['output'];
-  isPartial?: Maybe<Scalars['Boolean']['output']>;
-  lot: MediaLot;
-  parts: Scalars['Int']['output'];
-  source: MediaSource;
-  title: Scalars['String']['output'];
-};
-
-export type MetadataGroupDetails = {
-  contents: Array<Scalars['String']['output']>;
-  details: MetadataGroup;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
-};
-
 export type MetadataGroupSearchInput = {
   lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
-};
-
-export type MetadataGroupSearchItem = {
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-  parts?: Maybe<Scalars['Int']['output']>;
-};
-
-export type MetadataGroupSearchResults = {
-  details: SearchDetails;
-  items: Array<MetadataGroupSearchItem>;
 };
 
 export type MetadataGroupsListInput = {
@@ -1036,37 +625,10 @@ export type MetadataListInput = {
   take?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type MetadataPartialDetails = {
-  id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lot: MediaLot;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  title: Scalars['String']['output'];
-};
-
 export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
-};
-
-export type MetadataSearchItem = {
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  title: Scalars['String']['output'];
-};
-
-export type MetadataSearchItemResponse = {
-  databaseId?: Maybe<Scalars['String']['output']>;
-  /** Whether the user has interacted with this media item. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: MetadataSearchItem;
-};
-
-export type MetadataSearchResults = {
-  details: SearchDetails;
-  items: Array<MetadataSearchItemResponse>;
 };
 
 export enum MetadataVideoSource {
@@ -1075,376 +637,8 @@ export enum MetadataVideoSource {
   Youtube = 'YOUTUBE'
 }
 
-export type MovieSpecifics = {
-  runtime?: Maybe<Scalars['Int']['output']>;
-};
-
 export type MovieSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type MutationRoot = {
-  /** Add a entity to a collection if it is not there, otherwise do nothing. */
-  addEntityToCollection: Scalars['Boolean']['output'];
-  /** Fetch details about a media and create a media item in the database. */
-  commitMetadata: StringIdObject;
-  /** Fetch details about a media group and create a media group item in the database. */
-  commitMetadataGroup: StringIdObject;
-  /** Fetches details about a person and creates a person item in the database. */
-  commitPerson: StringIdObject;
-  /** Create or edit an access link. */
-  createAccessLink: StringIdObject;
-  /** Create a custom exercise. */
-  createCustomExercise: Scalars['String']['output'];
-  /** Create a custom media item. */
-  createCustomMetadata: StringIdObject;
-  /** Create a new collection for the logged in user or edit details of an existing one. */
-  createOrUpdateCollection: StringIdObject;
-  /** Create or update a review. */
-  createOrUpdateReview: StringIdObject;
-  /** Take a user workout, process it and commit it to database. */
-  createOrUpdateUserWorkout: Scalars['String']['output'];
-  /** Create or update a workout template. */
-  createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
-  /** Create, like or delete a comment on a review. */
-  createReviewComment: Scalars['Boolean']['output'];
-  /** Create an integration for the currently logged in user. */
-  createUserIntegration: StringIdObject;
-  /** Create a user measurement. */
-  createUserMeasurement: Scalars['DateTime']['output'];
-  /** Add a notification platform for the currently logged in user. */
-  createUserNotificationPlatform: Scalars['String']['output'];
-  /** Delete a collection. */
-  deleteCollection: Scalars['Boolean']['output'];
-  /** Delete a review if it belongs to the currently logged in user. */
-  deleteReview: Scalars['Boolean']['output'];
-  /** Delete an S3 object by the given key. */
-  deleteS3Object: Scalars['Boolean']['output'];
-  /** Delete a seen item from a user's history. */
-  deleteSeenItem: StringIdObject;
-  /** Delete a user. The account deleting the user must be an `Admin`. */
-  deleteUser: Scalars['Boolean']['output'];
-  /** Delete an integration for the currently logged in user. */
-  deleteUserIntegration: Scalars['Boolean']['output'];
-  /** Delete a user measurement. */
-  deleteUserMeasurement: Scalars['Boolean']['output'];
-  /** Delete a notification platform for the currently logged in user. */
-  deleteUserNotificationPlatform: Scalars['Boolean']['output'];
-  /** Delete a workout and remove all exercise associations. */
-  deleteUserWorkout: Scalars['Boolean']['output'];
-  /** Delete a workout template. */
-  deleteUserWorkoutTemplate: Scalars['Boolean']['output'];
-  /** Start a background job. */
-  deployBackgroundJob: Scalars['Boolean']['output'];
-  /**
-   * Deploy job to update progress of media items in bulk. For seen items in progress,
-   * progress is updated only if it has actually changed.
-   */
-  deployBulkProgressUpdate: Scalars['Boolean']['output'];
-  /** Deploy a job to export data for a user. */
-  deployExportJob: Scalars['Boolean']['output'];
-  /** Add job to import data from various sources. */
-  deployImportJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a metadata group's details. */
-  deployUpdateMetadataGroupJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a media item's metadata. */
-  deployUpdateMetadataJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a person's metadata. */
-  deployUpdatePersonJob: Scalars['Boolean']['output'];
-  /**
-   * Use this mutation to call a function that needs to be tested for implementation.
-   * It is only available in development mode.
-   */
-  developmentMutation: Scalars['Boolean']['output'];
-  /**
-   * Delete all history and reviews for a given media item and remove it from all
-   * collections for the user.
-   */
-  disassociateMetadata: Scalars['Boolean']['output'];
-  /** Generate an auth token without any expiry. */
-  generateAuthToken: Scalars['String']['output'];
-  /** Login a user using their username and password and return an auth token. */
-  loginUser: LoginResult;
-  /**
-   * Merge a media item into another. This will move all `seen`, `collection`
-   * and `review` associations with to the metadata.
-   */
-  mergeMetadata: Scalars['Boolean']['output'];
-  /** Get a presigned URL (valid for 10 minutes) for a given file name. */
-  presignedPutS3Url: PresignedPutUrlResponse;
-  /** Get an access token using an access link. */
-  processAccessLink: ProcessAccessLinkResult;
-  /**
-   * Create a new user for the service. Also set their `lot` as admin if
-   * they are the first user.
-   */
-  registerUser: RegisterResult;
-  /** Remove an entity from a collection if it is not there, otherwise do nothing. */
-  removeEntityFromCollection: StringIdObject;
-  /** Revoke an access link. */
-  revokeAccessLink: Scalars['Boolean']['output'];
-  /** Test all notification platforms for the currently logged in user. */
-  testUserNotificationPlatforms: Scalars['Boolean']['output'];
-  /** Update a custom exercise. */
-  updateCustomExercise: Scalars['Boolean']['output'];
-  /** Update the attributes of a seen item. */
-  updateSeenItem: Scalars['Boolean']['output'];
-  /** Update a user's profile details. */
-  updateUser: StringIdObject;
-  /** Update a user's exercise settings. */
-  updateUserExerciseSettings: Scalars['Boolean']['output'];
-  /** Update an integration for the currently logged in user. */
-  updateUserIntegration: Scalars['Boolean']['output'];
-  /** Edit a notification platform for the currently logged in user. */
-  updateUserNotificationPlatform: Scalars['Boolean']['output'];
-  /** Change a user's preferences. */
-  updateUserPreference: Scalars['Boolean']['output'];
-  /** Change the details about a user's workout. */
-  updateUserWorkoutAttributes: Scalars['Boolean']['output'];
-};
-
-
-export type MutationRootAddEntityToCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
-};
-
-
-export type MutationRootCommitMetadataArgs = {
-  input: CommitMediaInput;
-};
-
-
-export type MutationRootCommitMetadataGroupArgs = {
-  input: CommitMediaInput;
-};
-
-
-export type MutationRootCommitPersonArgs = {
-  input: CommitPersonInput;
-};
-
-
-export type MutationRootCreateAccessLinkArgs = {
-  input: CreateAccessLinkInput;
-};
-
-
-export type MutationRootCreateCustomExerciseArgs = {
-  input: ExerciseInput;
-};
-
-
-export type MutationRootCreateCustomMetadataArgs = {
-  input: CreateCustomMetadataInput;
-};
-
-
-export type MutationRootCreateOrUpdateCollectionArgs = {
-  input: CreateOrUpdateCollectionInput;
-};
-
-
-export type MutationRootCreateOrUpdateReviewArgs = {
-  input: CreateOrUpdateReviewInput;
-};
-
-
-export type MutationRootCreateOrUpdateUserWorkoutArgs = {
-  input: UserWorkoutInput;
-};
-
-
-export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
-  input: UserWorkoutInput;
-};
-
-
-export type MutationRootCreateReviewCommentArgs = {
-  input: CreateReviewCommentInput;
-};
-
-
-export type MutationRootCreateUserIntegrationArgs = {
-  input: CreateUserIntegrationInput;
-};
-
-
-export type MutationRootCreateUserMeasurementArgs = {
-  input: UserMeasurementInput;
-};
-
-
-export type MutationRootCreateUserNotificationPlatformArgs = {
-  input: CreateUserNotificationPlatformInput;
-};
-
-
-export type MutationRootDeleteCollectionArgs = {
-  collectionName: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteReviewArgs = {
-  reviewId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteS3ObjectArgs = {
-  key: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteSeenItemArgs = {
-  seenId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteUserArgs = {
-  toDeleteUserId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteUserIntegrationArgs = {
-  integrationId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteUserMeasurementArgs = {
-  timestamp: Scalars['DateTime']['input'];
-};
-
-
-export type MutationRootDeleteUserNotificationPlatformArgs = {
-  notificationId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteUserWorkoutArgs = {
-  workoutId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeleteUserWorkoutTemplateArgs = {
-  workoutTemplateId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployBackgroundJobArgs = {
-  jobName: BackgroundJob;
-};
-
-
-export type MutationRootDeployBulkProgressUpdateArgs = {
-  input: Array<ProgressUpdateInput>;
-};
-
-
-export type MutationRootDeployImportJobArgs = {
-  input: DeployImportJobInput;
-};
-
-
-export type MutationRootDeployUpdateMetadataGroupJobArgs = {
-  metadataGroupId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployUpdateMetadataJobArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployUpdatePersonJobArgs = {
-  personId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDisassociateMetadataArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type MutationRootLoginUserArgs = {
-  input: AuthUserInput;
-};
-
-
-export type MutationRootMergeMetadataArgs = {
-  mergeFrom: Scalars['String']['input'];
-  mergeInto: Scalars['String']['input'];
-};
-
-
-export type MutationRootPresignedPutS3UrlArgs = {
-  input: PresignedPutUrlInput;
-};
-
-
-export type MutationRootProcessAccessLinkArgs = {
-  input: ProcessAccessLinkInput;
-};
-
-
-export type MutationRootRegisterUserArgs = {
-  input: RegisterUserInput;
-};
-
-
-export type MutationRootRemoveEntityFromCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
-};
-
-
-export type MutationRootRevokeAccessLinkArgs = {
-  accessLinkId: Scalars['String']['input'];
-};
-
-
-export type MutationRootUpdateCustomExerciseArgs = {
-  input: UpdateCustomExerciseInput;
-};
-
-
-export type MutationRootUpdateSeenItemArgs = {
-  input: UpdateSeenItemInput;
-};
-
-
-export type MutationRootUpdateUserArgs = {
-  input: UpdateUserInput;
-};
-
-
-export type MutationRootUpdateUserExerciseSettingsArgs = {
-  input: UpdateUserExerciseSettings;
-};
-
-
-export type MutationRootUpdateUserIntegrationArgs = {
-  input: UpdateUserIntegrationInput;
-};
-
-
-export type MutationRootUpdateUserNotificationPlatformArgs = {
-  input: UpdateUserNotificationPlatformInput;
-};
-
-
-export type MutationRootUpdateUserPreferenceArgs = {
-  input: UpdateComplexJsonInput;
-};
-
-
-export type MutationRootUpdateUserWorkoutAttributesArgs = {
-  input: UpdateUserWorkoutAttributesInput;
-};
-
-export type NotificationPlatform = {
-  createdOn: Scalars['DateTime']['output'];
-  description: Scalars['String']['output'];
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lot: NotificationPlatformLot;
 };
 
 export enum NotificationPlatformLot {
@@ -1458,11 +652,6 @@ export enum NotificationPlatformLot {
   PushSafer = 'PUSH_SAFER',
   Telegram = 'TELEGRAM'
 }
-
-export type OidcTokenOutput = {
-  email: Scalars['String']['output'];
-  subject: Scalars['String']['output'];
-};
 
 export type OidcUserInput = {
   email: Scalars['String']['input'];
@@ -1488,59 +677,10 @@ export type PeopleSearchInput = {
   sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
 };
 
-export type PeopleSearchItem = {
-  birthYear?: Maybe<Scalars['Int']['output']>;
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-export type PeopleSearchResults = {
-  details: SearchDetails;
-  items: Array<PeopleSearchItem>;
-};
-
-export type Person = {
-  birthDate?: Maybe<Scalars['NaiveDate']['output']>;
-  createdOn: Scalars['DateTime']['output'];
-  deathDate?: Maybe<Scalars['NaiveDate']['output']>;
-  description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
-  gender?: Maybe<Scalars['String']['output']>;
-  id: Scalars['String']['output'];
-  identifier: Scalars['String']['output'];
-  isPartial?: Maybe<Scalars['Boolean']['output']>;
-  lastUpdatedOn: Scalars['DateTime']['output'];
-  name: Scalars['String']['output'];
-  place?: Maybe<Scalars['String']['output']>;
-  source: MediaSource;
-  website?: Maybe<Scalars['String']['output']>;
-};
-
 export enum PersonAndMetadataGroupsSortBy {
   MediaItems = 'MEDIA_ITEMS',
   Name = 'NAME'
 }
-
-export type PersonDetails = {
-  contents: Array<PersonDetailsGroupedByRole>;
-  details: Person;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
-};
-
-export type PersonDetailsGroupedByRole = {
-  /** The number of items in this role. */
-  count: Scalars['Int']['output'];
-  /** The media items in which this role was performed. */
-  items: Array<PersonDetailsItemWithCharacter>;
-  /** The name of the role performed. */
-  name: Scalars['String']['output'];
-};
-
-export type PersonDetailsItemWithCharacter = {
-  character?: Maybe<Scalars['String']['output']>;
-  metadataId: Scalars['String']['output'];
-};
 
 export type PersonSortInput = {
   by?: PersonAndMetadataGroupsSortBy;
@@ -1550,16 +690,6 @@ export type PersonSortInput = {
 export type PersonSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
-};
-
-export type PodcastEpisode = {
-  id: Scalars['String']['output'];
-  number: Scalars['Int']['output'];
-  overview?: Maybe<Scalars['String']['output']>;
-  publishDate: Scalars['NaiveDate']['output'];
-  runtime?: Maybe<Scalars['Int']['output']>;
-  thumbnail?: Maybe<Scalars['String']['output']>;
-  title: Scalars['String']['output'];
 };
 
 export type PodcastEpisodeInput = {
@@ -1572,11 +702,6 @@ export type PodcastEpisodeInput = {
   title: Scalars['String']['input'];
 };
 
-export type PodcastSpecifics = {
-  episodes: Array<PodcastEpisode>;
-  totalEpisodes: Scalars['Int']['output'];
-};
-
 export type PodcastSpecificsInput = {
   episodes: Array<PodcastEpisodeInput>;
   totalEpisodes: Scalars['Int']['input'];
@@ -1585,15 +710,6 @@ export type PodcastSpecificsInput = {
 export type PresignedPutUrlInput = {
   fileName: Scalars['String']['input'];
   prefix: Scalars['String']['input'];
-};
-
-export type PresignedPutUrlResponse = {
-  key: Scalars['String']['output'];
-  uploadUrl: Scalars['String']['output'];
-};
-
-export type ProcessAccessLinkError = {
-  error: ProcessAccessLinkErrorVariant;
 };
 
 export enum ProcessAccessLinkErrorVariant {
@@ -1606,24 +722,6 @@ export enum ProcessAccessLinkErrorVariant {
 export type ProcessAccessLinkInput = {
   id?: InputMaybe<Scalars['String']['input']>;
   username?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type ProcessAccessLinkResponse = {
-  apiKey: Scalars['String']['output'];
-  redirectTo?: Maybe<Scalars['String']['output']>;
-  tokenValidForDays: Scalars['Int']['output'];
-};
-
-export type ProcessAccessLinkResult = ProcessAccessLinkError | ProcessAccessLinkResponse;
-
-/** An exercise that has been processed and committed to the database. */
-export type ProcessedExercise = {
-  assets?: Maybe<EntityAssets>;
-  lot: ExerciseLot;
-  name: Scalars['String']['output'];
-  notes: Array<Scalars['String']['output']>;
-  sets: Array<WorkoutSetRecord>;
-  total?: Maybe<WorkoutOrExerciseTotals>;
 };
 
 export type ProgressUpdateInput = {
@@ -1640,275 +738,10 @@ export type ProgressUpdateInput = {
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type ProviderLanguageInformation = {
-  default: Scalars['String']['output'];
-  source: MediaSource;
-  supported: Array<Scalars['String']['output']>;
-};
-
-export type QueryRoot = {
-  /** Get the contents of a collection and respect visibility. */
-  collectionContents: CollectionContents;
-  /** Get some primary information about the service. */
-  coreDetails: CoreDetails;
-  /** Get daily user activities for the currently logged in user. */
-  dailyUserActivities: DailyUserActivitiesResponse;
-  /** Get details about an exercise. */
-  exerciseDetails: Exercise;
-  /** Get all the parameters related to exercises. */
-  exerciseParameters: ExerciseParameters;
-  /** Get a paginated list of exercises in the database. */
-  exercisesList: ExerciseListResults;
-  /** Get details about a genre present in the database. */
-  genreDetails: GenreDetails;
-  /** Get paginated list of genres. */
-  genresList: GenreListResults;
-  /** Get an authorization URL using the configured OIDC client. */
-  getOidcRedirectUrl: Scalars['String']['output'];
-  /** Get an access token using the configured OIDC client. */
-  getOidcToken: OidcTokenOutput;
-  /** Get a presigned URL (valid for 90 minutes) for a given key. */
-  getPresignedS3Url: Scalars['String']['output'];
-  /** Get all the import jobs deployed by the user. */
-  importReports: Array<ImportReport>;
-  /** Get a summary of all the media items that have been consumed by this user. */
-  latestUserSummary: DailyUserActivityItem;
-  /** Get details about a media present in the database. */
-  metadataDetails: GraphqlMetadataDetails;
-  /** Get details about a metadata group present in the database. */
-  metadataGroupDetails: MetadataGroupDetails;
-  /** Search for a list of groups from a given source. */
-  metadataGroupSearch: MetadataGroupSearchResults;
-  /** Get paginated list of metadata groups. */
-  metadataGroupsList: IdResults;
-  /** Get all the media items related to a user for a specific media type. */
-  metadataList: IdResults;
-  /** Get partial details about a media present in the database. */
-  metadataPartialDetails: MetadataPartialDetails;
-  /** Search for a list of media for a given type. */
-  metadataSearch: MetadataSearchResults;
-  /** Get paginated list of people. */
-  peopleList: IdResults;
-  /** Search for a list of people from a given source. */
-  peopleSearch: PeopleSearchResults;
-  /** Get details about a creator present in the database. */
-  personDetails: PersonDetails;
-  /** Get all languages supported by all the providers. */
-  providersLanguageInformation: Array<ProviderLanguageInformation>;
-  /** Get all access links generated by the currently logged in user. */
-  userAccessLinks: Array<AccessLink>;
-  /** Get user by OIDC issuer ID. */
-  userByOidcIssuerId?: Maybe<Scalars['String']['output']>;
-  /** Get calendar events for a user between a given date range. */
-  userCalendarEvents: Array<GroupedCalendarEvent>;
-  /** Get all collections for the currently logged in user. */
-  userCollectionsList: Array<CollectionItem>;
-  /** Get details about the currently logged in user. */
-  userDetails: UserDetailsResult;
-  /** Get information about an exercise for a user. */
-  userExerciseDetails: UserExerciseDetails;
-  /** Get all the export jobs for the current user. */
-  userExports: Array<ExportJob>;
-  /** Get all the integrations for the currently logged in user. */
-  userIntegrations: Array<Integration>;
-  /** Get all the measurements for a user. */
-  userMeasurementsList: Array<UserMeasurement>;
-  /** Get details that can be displayed to a user for a media. */
-  userMetadataDetails: UserMetadataDetails;
-  /** Get details that can be displayed to a user for a metadata group. */
-  userMetadataGroupDetails: UserMetadataGroupDetails;
-  /** Get all the notification platforms for the currently logged in user. */
-  userNotificationPlatforms: Array<NotificationPlatform>;
-  /** Get details that can be displayed to a user for a creator. */
-  userPersonDetails: UserPersonDetails;
-  /** Get a user's preferences. */
-  userPreferences: UserPreferences;
-  /** Get media recommendations for the currently logged in user. */
-  userRecommendations: Array<Scalars['String']['output']>;
-  /** Get upcoming calendar events for the given filter. */
-  userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
-  /** Get details about a workout. */
-  userWorkoutDetails: UserWorkoutDetails;
-  /** Get information about a workout template. */
-  userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
-  /** Get a paginated list of templates created by the user. */
-  userWorkoutTemplatesList: WorkoutTemplateListResults;
-  /** Get a paginated list of workouts done by the user. */
-  userWorkoutsList: WorkoutListResults;
-  /** Get details about all the users in the service. */
-  usersList: Array<User>;
-};
-
-
-export type QueryRootCollectionContentsArgs = {
-  input: CollectionContentsInput;
-};
-
-
-export type QueryRootDailyUserActivitiesArgs = {
-  input: DailyUserActivitiesInput;
-};
-
-
-export type QueryRootExerciseDetailsArgs = {
-  exerciseId: Scalars['String']['input'];
-};
-
-
-export type QueryRootExercisesListArgs = {
-  input: ExercisesListInput;
-};
-
-
-export type QueryRootGenreDetailsArgs = {
-  input: GenreDetailsInput;
-};
-
-
-export type QueryRootGenresListArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootGetOidcTokenArgs = {
-  code: Scalars['String']['input'];
-};
-
-
-export type QueryRootGetPresignedS3UrlArgs = {
-  key: Scalars['String']['input'];
-};
-
-
-export type QueryRootMetadataDetailsArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type QueryRootMetadataGroupDetailsArgs = {
-  metadataGroupId: Scalars['String']['input'];
-};
-
-
-export type QueryRootMetadataGroupSearchArgs = {
-  input: MetadataGroupSearchInput;
-};
-
-
-export type QueryRootMetadataGroupsListArgs = {
-  input: MetadataGroupsListInput;
-};
-
-
-export type QueryRootMetadataListArgs = {
-  input: MetadataListInput;
-};
-
-
-export type QueryRootMetadataPartialDetailsArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type QueryRootMetadataSearchArgs = {
-  input: MetadataSearchInput;
-};
-
-
-export type QueryRootPeopleListArgs = {
-  input: PeopleListInput;
-};
-
-
-export type QueryRootPeopleSearchArgs = {
-  input: PeopleSearchInput;
-};
-
-
-export type QueryRootPersonDetailsArgs = {
-  personId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserByOidcIssuerIdArgs = {
-  oidcIssuerId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserCalendarEventsArgs = {
-  input: UserCalendarEventInput;
-};
-
-
-export type QueryRootUserCollectionsListArgs = {
-  name?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryRootUserExerciseDetailsArgs = {
-  exerciseId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserMeasurementsListArgs = {
-  input: UserMeasurementsListInput;
-};
-
-
-export type QueryRootUserMetadataDetailsArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserMetadataGroupDetailsArgs = {
-  metadataGroupId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserPersonDetailsArgs = {
-  personId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserUpcomingCalendarEventsArgs = {
-  input: UserUpcomingCalendarEventInput;
-};
-
-
-export type QueryRootUserWorkoutDetailsArgs = {
-  workoutId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserWorkoutTemplateDetailsArgs = {
-  workoutTemplateId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserWorkoutTemplatesListArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootUserWorkoutsListArgs = {
-  input: SearchInput;
-};
-
-
-export type QueryRootUsersListArgs = {
-  query?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type RegisterError = {
-  error: RegisterErrorVariant;
-};
-
 export enum RegisterErrorVariant {
   Disabled = 'DISABLED',
   IdentifierAlreadyExists = 'IDENTIFIER_ALREADY_EXISTS'
 }
-
-export type RegisterResult = RegisterError | StringIdObject;
 
 export type RegisterUserInput = {
   /** If registration is disabled, this can be used to override it. */
@@ -1916,68 +749,9 @@ export type RegisterUserInput = {
   data: AuthUserInput;
 };
 
-export type ReviewItem = {
-  animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
-  comments: Array<ImportOrExportItemReviewComment>;
-  id: Scalars['String']['output'];
-  isSpoiler: Scalars['Boolean']['output'];
-  mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
-  podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
-  postedBy: IdAndNamedObject;
-  postedOn: Scalars['DateTime']['output'];
-  rating?: Maybe<Scalars['Decimal']['output']>;
-  seenItemsAssociatedWith: Array<Scalars['String']['output']>;
-  showExtraInformation?: Maybe<SeenShowExtraInformation>;
-  textOriginal?: Maybe<Scalars['String']['output']>;
-  textRendered?: Maybe<Scalars['String']['output']>;
-  visibility: Visibility;
-};
-
-export type SearchDetails = {
-  nextPage?: Maybe<Scalars['Int']['output']>;
-  total: Scalars['Int']['output'];
-};
-
 export type SearchInput = {
   page?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type Seen = {
-  animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
-  finishedOn?: Maybe<Scalars['NaiveDate']['output']>;
-  id: Scalars['String']['output'];
-  lastUpdatedOn: Scalars['DateTime']['output'];
-  mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
-  manualTimeSpent?: Maybe<Scalars['Decimal']['output']>;
-  metadataId: Scalars['String']['output'];
-  numTimesUpdated: Scalars['Int']['output'];
-  podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
-  progress: Scalars['Decimal']['output'];
-  providerWatchedOn?: Maybe<Scalars['String']['output']>;
-  reviewId?: Maybe<Scalars['String']['output']>;
-  showExtraInformation?: Maybe<SeenShowExtraInformation>;
-  startedOn?: Maybe<Scalars['NaiveDate']['output']>;
-  state: SeenState;
-  userId: Scalars['String']['output'];
-};
-
-export type SeenAnimeExtraInformation = {
-  episode?: Maybe<Scalars['Int']['output']>;
-};
-
-export type SeenMangaExtraInformation = {
-  chapter?: Maybe<Scalars['Decimal']['output']>;
-  volume?: Maybe<Scalars['Int']['output']>;
-};
-
-export type SeenPodcastExtraInformation = {
-  episode: Scalars['Int']['output'];
-};
-
-export type SeenShowExtraInformation = {
-  episode: Scalars['Int']['output'];
-  season: Scalars['Int']['output'];
 };
 
 export enum SeenState {
@@ -1995,13 +769,6 @@ export enum SetLot {
   WarmUp = 'WARM_UP'
 }
 
-export type SetRestTimersSettings = {
-  drop?: Maybe<Scalars['Int']['output']>;
-  failure?: Maybe<Scalars['Int']['output']>;
-  normal?: Maybe<Scalars['Int']['output']>;
-  warmup?: Maybe<Scalars['Int']['output']>;
-};
-
 /** Details about the statistics of the set performed. */
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
@@ -2013,16 +780,6 @@ export type SetStatisticInput = {
   weight?: InputMaybe<Scalars['Decimal']['input']>;
 };
 
-export type ShowEpisode = {
-  episodeNumber: Scalars['Int']['output'];
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  overview?: Maybe<Scalars['String']['output']>;
-  posterImages: Array<Scalars['String']['output']>;
-  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
-  runtime?: Maybe<Scalars['Int']['output']>;
-};
-
 export type ShowEpisodeSpecificsInput = {
   episodeNumber: Scalars['Int']['input'];
   id: Scalars['Int']['input'];
@@ -2031,17 +788,6 @@ export type ShowEpisodeSpecificsInput = {
   posterImages: Array<Scalars['String']['input']>;
   publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
   runtime?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type ShowSeason = {
-  backdropImages: Array<Scalars['String']['output']>;
-  episodes: Array<ShowEpisode>;
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  overview?: Maybe<Scalars['String']['output']>;
-  posterImages: Array<Scalars['String']['output']>;
-  publishDate?: Maybe<Scalars['NaiveDate']['output']>;
-  seasonNumber: Scalars['Int']['output'];
 };
 
 export type ShowSeasonSpecificsInput = {
@@ -2055,22 +801,11 @@ export type ShowSeasonSpecificsInput = {
   seasonNumber: Scalars['Int']['input'];
 };
 
-export type ShowSpecifics = {
-  runtime?: Maybe<Scalars['Int']['output']>;
-  seasons: Array<ShowSeason>;
-  totalEpisodes?: Maybe<Scalars['Int']['output']>;
-  totalSeasons?: Maybe<Scalars['Int']['output']>;
-};
-
 export type ShowSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type StringIdObject = {
-  id: Scalars['String']['output'];
 };
 
 export type StrongAppImportMapping = {
@@ -2141,45 +876,18 @@ export type UpdateUserWorkoutAttributesInput = {
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
-export type User = {
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lot: UserLot;
-  name: Scalars['String']['output'];
-  oidcIssuerId?: Maybe<Scalars['String']['output']>;
-};
-
 export type UserCalendarEventInput = {
   month: Scalars['Int']['input'];
   year: Scalars['Int']['input'];
-};
-
-export type UserCustomMeasurement = {
-  dataType: UserCustomMeasurementDataType;
-  name: Scalars['String']['output'];
 };
 
 export enum UserCustomMeasurementDataType {
   Decimal = 'DECIMAL'
 }
 
-export type UserDetailsError = {
-  error: UserDetailsErrorVariant;
-};
-
 export enum UserDetailsErrorVariant {
   AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
 }
-
-export type UserDetailsResult = User | UserDetailsError;
-
-export type UserExerciseDetails = {
-  collections: Array<Collection>;
-  details?: Maybe<UserToEntity>;
-  history?: Maybe<Array<UserToExerciseHistoryExtraInformation>>;
-  reviews: Array<ReviewItem>;
-};
 
 export type UserExerciseInput = {
   assets?: InputMaybe<EntityAssetsInput>;
@@ -2188,70 +896,10 @@ export type UserExerciseInput = {
   sets: Array<UserWorkoutSetRecord>;
 };
 
-export type UserExercisesPreferences = {
-  setRestTimers: SetRestTimersSettings;
-  unitSystem: UserUnitSystem;
-};
-
-export type UserFeaturesEnabledPreferences = {
-  fitness: UserFitnessFeaturesEnabledPreferences;
-  media: UserMediaFeaturesEnabledPreferences;
-  others: UserOthersFeaturesEnabledPreferences;
-};
-
-export type UserFitnessFeaturesEnabledPreferences = {
-  enabled: Scalars['Boolean']['output'];
-  measurements: Scalars['Boolean']['output'];
-  templates: Scalars['Boolean']['output'];
-  workouts: Scalars['Boolean']['output'];
-};
-
-export type UserFitnessPreferences = {
-  exercises: UserExercisesPreferences;
-  measurements: UserMeasurementsPreferences;
-};
-
-export type UserGeneralDashboardElement = {
-  hidden: Scalars['Boolean']['output'];
-  numElements?: Maybe<Scalars['Int']['output']>;
-  section: DashboardElementLot;
-};
-
-export type UserGeneralPreferences = {
-  dashboard: Array<UserGeneralDashboardElement>;
-  disableIntegrations: Scalars['Boolean']['output'];
-  disableNavigationAnimation: Scalars['Boolean']['output'];
-  disableReviews: Scalars['Boolean']['output'];
-  disableVideos: Scalars['Boolean']['output'];
-  disableWatchProviders: Scalars['Boolean']['output'];
-  displayNsfw: Scalars['Boolean']['output'];
-  gridPacking: GridPacking;
-  persistQueries: Scalars['Boolean']['output'];
-  reviewScale: UserReviewScale;
-  watchProviders: Array<UserGeneralWatchProvider>;
-};
-
-export type UserGeneralWatchProvider = {
-  lot: MediaLot;
-  values: Array<Scalars['String']['output']>;
-};
-
 export enum UserLot {
   Admin = 'ADMIN',
   Normal = 'NORMAL'
 }
-
-/** An export of a measurement taken at a point in time. */
-export type UserMeasurement = {
-  /** Any comment associated entered by the user. */
-  comment?: Maybe<Scalars['String']['output']>;
-  /** The name given to this measurement by the user. */
-  name?: Maybe<Scalars['String']['output']>;
-  /** The contents of the actual measurement. */
-  stats: UserMeasurementStats;
-  /** The date and time this measurement was made. */
-  timestamp: Scalars['DateTime']['output'];
-};
 
 /** The actual statistics that were logged in a user measurement. */
 export type UserMeasurementDataInput = {
@@ -2293,156 +941,9 @@ export type UserMeasurementInput = {
   timestamp: Scalars['DateTime']['input'];
 };
 
-/** The actual statistics that were logged in a user measurement. */
-export type UserMeasurementStats = {
-  abdominalSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  basalMetabolicRate?: Maybe<Scalars['Decimal']['output']>;
-  bicepsCircumference?: Maybe<Scalars['Decimal']['output']>;
-  bodyFat?: Maybe<Scalars['Decimal']['output']>;
-  bodyFatCaliper?: Maybe<Scalars['Decimal']['output']>;
-  bodyMassIndex?: Maybe<Scalars['Decimal']['output']>;
-  boneMass?: Maybe<Scalars['Decimal']['output']>;
-  calories?: Maybe<Scalars['Decimal']['output']>;
-  chestCircumference?: Maybe<Scalars['Decimal']['output']>;
-  chestSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  custom?: Maybe<Scalars['JSONObject']['output']>;
-  hipCircumference?: Maybe<Scalars['Decimal']['output']>;
-  leanBodyMass?: Maybe<Scalars['Decimal']['output']>;
-  muscle?: Maybe<Scalars['Decimal']['output']>;
-  neckCircumference?: Maybe<Scalars['Decimal']['output']>;
-  thighCircumference?: Maybe<Scalars['Decimal']['output']>;
-  thighSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  totalBodyWater?: Maybe<Scalars['Decimal']['output']>;
-  totalDailyEnergyExpenditure?: Maybe<Scalars['Decimal']['output']>;
-  visceralFat?: Maybe<Scalars['Decimal']['output']>;
-  waistCircumference?: Maybe<Scalars['Decimal']['output']>;
-  waistToHeightRatio?: Maybe<Scalars['Decimal']['output']>;
-  waistToHipRatio?: Maybe<Scalars['Decimal']['output']>;
-  weight?: Maybe<Scalars['Decimal']['output']>;
-};
-
-export type UserMeasurementsInBuiltPreferences = {
-  abdominalSkinfold: Scalars['Boolean']['output'];
-  basalMetabolicRate: Scalars['Boolean']['output'];
-  bicepsCircumference: Scalars['Boolean']['output'];
-  bodyFat: Scalars['Boolean']['output'];
-  bodyFatCaliper: Scalars['Boolean']['output'];
-  bodyMassIndex: Scalars['Boolean']['output'];
-  boneMass: Scalars['Boolean']['output'];
-  calories: Scalars['Boolean']['output'];
-  chestCircumference: Scalars['Boolean']['output'];
-  chestSkinfold: Scalars['Boolean']['output'];
-  hipCircumference: Scalars['Boolean']['output'];
-  leanBodyMass: Scalars['Boolean']['output'];
-  muscle: Scalars['Boolean']['output'];
-  neckCircumference: Scalars['Boolean']['output'];
-  thighCircumference: Scalars['Boolean']['output'];
-  thighSkinfold: Scalars['Boolean']['output'];
-  totalBodyWater: Scalars['Boolean']['output'];
-  totalDailyEnergyExpenditure: Scalars['Boolean']['output'];
-  visceralFat: Scalars['Boolean']['output'];
-  waistCircumference: Scalars['Boolean']['output'];
-  waistToHeightRatio: Scalars['Boolean']['output'];
-  waistToHipRatio: Scalars['Boolean']['output'];
-  weight: Scalars['Boolean']['output'];
-};
-
 export type UserMeasurementsListInput = {
   endTime?: InputMaybe<Scalars['DateTime']['input']>;
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
-};
-
-export type UserMeasurementsPreferences = {
-  custom: Array<UserCustomMeasurement>;
-  inbuilt: UserMeasurementsInBuiltPreferences;
-};
-
-export type UserMediaFeaturesEnabledPreferences = {
-  anime: Scalars['Boolean']['output'];
-  audioBook: Scalars['Boolean']['output'];
-  book: Scalars['Boolean']['output'];
-  enabled: Scalars['Boolean']['output'];
-  genres: Scalars['Boolean']['output'];
-  groups: Scalars['Boolean']['output'];
-  manga: Scalars['Boolean']['output'];
-  movie: Scalars['Boolean']['output'];
-  people: Scalars['Boolean']['output'];
-  podcast: Scalars['Boolean']['output'];
-  show: Scalars['Boolean']['output'];
-  videoGame: Scalars['Boolean']['output'];
-  visualNovel: Scalars['Boolean']['output'];
-};
-
-export type UserMediaNextEntry = {
-  chapter?: Maybe<Scalars['Decimal']['output']>;
-  episode?: Maybe<Scalars['Int']['output']>;
-  season?: Maybe<Scalars['Int']['output']>;
-  volume?: Maybe<Scalars['Int']['output']>;
-};
-
-export type UserMetadataDetails = {
-  /** The average rating of this media in this service. */
-  averageRating?: Maybe<Scalars['Decimal']['output']>;
-  /** The collections in which this media is present. */
-  collections: Array<Collection>;
-  /** Whether this media has been interacted with */
-  hasInteracted: Scalars['Boolean']['output'];
-  /** The seen history of this media. */
-  history: Array<Seen>;
-  /** The seen item if it is in progress. */
-  inProgress?: Maybe<Seen>;
-  /** The reasons why this metadata is related to this user */
-  mediaReason?: Maybe<Array<UserToMediaReason>>;
-  /** The next episode/chapter of this media. */
-  nextEntry?: Maybe<UserMediaNextEntry>;
-  /** The seen progress of this media if it is a podcast. */
-  podcastProgress?: Maybe<Array<UserMetadataDetailsEpisodeProgress>>;
-  /** The public reviews of this media. */
-  reviews: Array<ReviewItem>;
-  /** The number of users who have seen this media. */
-  seenByAllCount: Scalars['Int']['output'];
-  /** The number of times this user has seen this media. */
-  seenByUserCount: Scalars['Int']['output'];
-  /** The seen progress of this media if it is a show. */
-  showProgress?: Maybe<Array<UserMetadataDetailsShowSeasonProgress>>;
-};
-
-export type UserMetadataDetailsEpisodeProgress = {
-  episodeNumber: Scalars['Int']['output'];
-  timesSeen: Scalars['Int']['output'];
-};
-
-export type UserMetadataDetailsShowSeasonProgress = {
-  episodes: Array<UserMetadataDetailsEpisodeProgress>;
-  seasonNumber: Scalars['Int']['output'];
-  timesSeen: Scalars['Int']['output'];
-};
-
-export type UserMetadataGroupDetails = {
-  collections: Array<Collection>;
-  reviews: Array<ReviewItem>;
-};
-
-export type UserNotificationsPreferences = {
-  enabled: Scalars['Boolean']['output'];
-  toSend: Array<MediaStateChanged>;
-};
-
-export type UserOthersFeaturesEnabledPreferences = {
-  calendar: Scalars['Boolean']['output'];
-  collections: Scalars['Boolean']['output'];
-};
-
-export type UserPersonDetails = {
-  collections: Array<Collection>;
-  reviews: Array<ReviewItem>;
-};
-
-export type UserPreferences = {
-  featuresEnabled: UserFeaturesEnabledPreferences;
-  fitness: UserFitnessPreferences;
-  general: UserGeneralPreferences;
-  notifications: UserNotificationsPreferences;
 };
 
 export enum UserReviewScale {
@@ -2450,42 +951,6 @@ export enum UserReviewScale {
   OutOfHundred = 'OUT_OF_HUNDRED',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
-
-export type UserToEntity = {
-  collectionId?: Maybe<Scalars['String']['output']>;
-  createdOn: Scalars['DateTime']['output'];
-  exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;
-  exerciseId?: Maybe<Scalars['String']['output']>;
-  exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
-  lastUpdatedOn: Scalars['DateTime']['output'];
-  metadataGroupId?: Maybe<Scalars['String']['output']>;
-  metadataId?: Maybe<Scalars['String']['output']>;
-  personId?: Maybe<Scalars['String']['output']>;
-  userId: Scalars['String']['output'];
-};
-
-export type UserToExerciseBestSetExtraInformation = {
-  lot: WorkoutSetPersonalBest;
-  sets: Array<ExerciseBestSetRecord>;
-};
-
-export type UserToExerciseExtraInformation = {
-  history: Array<UserToExerciseHistoryExtraInformation>;
-  lifetimeStats: WorkoutOrExerciseTotals;
-  personalBests: Array<UserToExerciseBestSetExtraInformation>;
-  settings: UserToExerciseSettingsExtraInformation;
-};
-
-export type UserToExerciseHistoryExtraInformation = {
-  bestSet?: Maybe<WorkoutSetRecord>;
-  idx: Scalars['Int']['output'];
-  workoutEndOn: Scalars['DateTime']['output'];
-  workoutId: Scalars['String']['output'];
-};
-
-export type UserToExerciseSettingsExtraInformation = {
-  setRestTimers: SetRestTimersSettings;
-};
 
 export enum UserToMediaReason {
   Collection = 'COLLECTION',
@@ -2510,11 +975,6 @@ export type UserUpcomingCalendarEventInput = {
   nextMedia?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type UserWorkoutDetails = {
-  collections: Array<Collection>;
-  details: Workout;
-};
-
 export type UserWorkoutInput = {
   assets?: InputMaybe<EntityAssetsInput>;
   comment?: InputMaybe<Scalars['String']['input']>;
@@ -2537,15 +997,6 @@ export type UserWorkoutSetRecord = {
   statistic: SetStatisticInput;
 };
 
-export type UserWorkoutTemplateDetails = {
-  collections: Array<Collection>;
-  details: WorkoutTemplate;
-};
-
-export type VideoGameSpecifics = {
-  platforms: Array<Scalars['String']['output']>;
-};
-
 export type VideoGameSpecificsInput = {
   platforms: Array<Scalars['String']['input']>;
 };
@@ -2555,56 +1006,8 @@ export enum Visibility {
   Public = 'PUBLIC'
 }
 
-export type VisualNovelSpecifics = {
-  length?: Maybe<Scalars['Int']['output']>;
-};
-
 export type VisualNovelSpecificsInput = {
   length?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type WatchProvider = {
-  image?: Maybe<Scalars['String']['output']>;
-  languages: Array<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-/** A workout that was completed by the user. */
-export type Workout = {
-  duration: Scalars['Int']['output'];
-  endTime: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  information: WorkoutInformation;
-  name: Scalars['String']['output'];
-  repeatedFrom?: Maybe<Scalars['String']['output']>;
-  startTime: Scalars['DateTime']['output'];
-  summary: WorkoutSummary;
-  templateId?: Maybe<Scalars['String']['output']>;
-};
-
-/** Information about a workout done. */
-export type WorkoutInformation = {
-  assets?: Maybe<EntityAssets>;
-  comment?: Maybe<Scalars['String']['output']>;
-  exercises: Array<ProcessedExercise>;
-  supersets: Array<WorkoutSupersetsInformation>;
-};
-
-export type WorkoutListResults = {
-  details: SearchDetails;
-  items: Array<Workout>;
-};
-
-/** The totals of a workout and the different bests achieved. */
-export type WorkoutOrExerciseTotals = {
-  distance: Scalars['Decimal']['output'];
-  duration: Scalars['Decimal']['output'];
-  /** The number of personal bests achieved. */
-  personalBestsAchieved: Scalars['Int']['output'];
-  reps: Scalars['Decimal']['output'];
-  /** The total seconds that were logged in the rest timer. */
-  restTime: Scalars['Int']['output'];
-  weight: Scalars['Decimal']['output'];
 };
 
 /** The different types of personal bests that can be achieved on a set. */
@@ -2617,72 +1020,11 @@ export enum WorkoutSetPersonalBest {
   Weight = 'WEIGHT'
 }
 
-/** Details about the set performed. */
-export type WorkoutSetRecord = {
-  actualRestTime?: Maybe<Scalars['Int']['output']>;
-  confirmedAt?: Maybe<Scalars['DateTime']['output']>;
-  lot: SetLot;
-  note?: Maybe<Scalars['String']['output']>;
-  personalBests?: Maybe<Array<WorkoutSetPersonalBest>>;
-  restTime?: Maybe<Scalars['Int']['output']>;
-  statistic: WorkoutSetStatistic;
-  totals?: Maybe<WorkoutSetTotals>;
-};
-
-/** Details about the statistics of the set performed. */
-export type WorkoutSetStatistic = {
-  distance?: Maybe<Scalars['Decimal']['output']>;
-  duration?: Maybe<Scalars['Decimal']['output']>;
-  oneRm?: Maybe<Scalars['Decimal']['output']>;
-  pace?: Maybe<Scalars['Decimal']['output']>;
-  reps?: Maybe<Scalars['Decimal']['output']>;
-  volume?: Maybe<Scalars['Decimal']['output']>;
-  weight?: Maybe<Scalars['Decimal']['output']>;
-};
-
-export type WorkoutSetTotals = {
-  weight?: Maybe<Scalars['Decimal']['output']>;
-};
-
-export type WorkoutSummary = {
-  exercises: Array<WorkoutSummaryExercise>;
-  total?: Maybe<WorkoutOrExerciseTotals>;
-};
-
-/** The summary about an exercise done in a workout. */
-export type WorkoutSummaryExercise = {
-  bestSet?: Maybe<WorkoutSetRecord>;
-  lot?: Maybe<ExerciseLot>;
-  name: Scalars['String']['output'];
-  numSets: Scalars['Int']['output'];
-};
-
-export type WorkoutSupersetsInformation = {
-  /** A color that will be displayed on the frontend. */
-  color: Scalars['String']['output'];
-  /** The identifier of all the exercises which are in the same superset */
-  exercises: Array<Scalars['Int']['output']>;
-};
-
 export type WorkoutSupersetsInformationInput = {
   /** A color that will be displayed on the frontend. */
   color: Scalars['String']['input'];
   /** The identifier of all the exercises which are in the same superset */
   exercises: Array<Scalars['Int']['input']>;
-};
-
-export type WorkoutTemplate = {
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  information: WorkoutInformation;
-  name: Scalars['String']['output'];
-  summary: WorkoutSummary;
-  visibility: Visibility;
-};
-
-export type WorkoutTemplateListResults = {
-  details: SearchDetails;
-  items: Array<WorkoutTemplate>;
 };
 
 export type RegisterUserMutationVariables = Exact<{
@@ -3177,7 +1519,7 @@ export type UserPersonDetailsQuery = { userPersonDetails: { collections: Array<{
 export type UserPreferencesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserPreferencesQuery = { userPreferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, disableVideos: boolean, persistQueries: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ section: DashboardElementLot, hidden: boolean, numElements?: number | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } }, exercises: { unitSystem: UserUnitSystem, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } } }, notifications: { toSend: Array<MediaStateChanged>, enabled: boolean }, featuresEnabled: { others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, anime: boolean, audioBook: boolean, book: boolean, manga: boolean, movie: boolean, podcast: boolean, show: boolean, videoGame: boolean, visualNovel: boolean, people: boolean, groups: boolean, genres: boolean } } } };
+export type UserPreferencesQuery = { userPreferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, disableVideos: boolean, persistQueries: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ section: DashboardElementLot, hidden: boolean, numElements?: number | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } }, exercises: { unitSystem: UserUnitSystem, showDetailsWhileEditing: boolean, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } } }, notifications: { toSend: Array<MediaStateChanged>, enabled: boolean }, featuresEnabled: { others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, anime: boolean, audioBook: boolean, book: boolean, manga: boolean, movie: boolean, podcast: boolean, show: boolean, videoGame: boolean, visualNovel: boolean, people: boolean, groups: boolean, genres: boolean } } } };
 
 export type UserWorkoutDetailsQueryVariables = Exact<{
   workoutId: Scalars['String']['input'];
@@ -3439,7 +1781,7 @@ export const UserMeasurementsListDocument = {"kind":"Document","definitions":[{"
 export const UserMetadataDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserMetadataDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userMetadataDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mediaReason"}},{"kind":"Field","name":{"kind":"Name","value":"hasInteracted"}},{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CollectionPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"inProgress"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"history"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"averageRating"}},{"kind":"Field","name":{"kind":"Name","value":"reviews"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ReviewItemPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"seenByAllCount"}},{"kind":"Field","name":{"kind":"Name","value":"seenByUserCount"}},{"kind":"Field","name":{"kind":"Name","value":"nextEntry"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"season"}},{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"chapter"}}]}},{"kind":"Field","name":{"kind":"Name","value":"showProgress"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"timesSeen"}},{"kind":"Field","name":{"kind":"Name","value":"seasonNumber"}},{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodeNumber"}},{"kind":"Field","name":{"kind":"Name","value":"timesSeen"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastProgress"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodeNumber"}},{"kind":"Field","name":{"kind":"Name","value":"timesSeen"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenShowExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenShowExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"season"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenPodcastExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenAnimeExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenMangaExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"chapter"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CollectionPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Collection"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Seen"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"state"}},{"kind":"Field","name":{"kind":"Name","value":"progress"}},{"kind":"Field","name":{"kind":"Name","value":"reviewId"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"lastUpdatedOn"}},{"kind":"Field","name":{"kind":"Name","value":"manualTimeSpent"}},{"kind":"Field","name":{"kind":"Name","value":"numTimesUpdated"}},{"kind":"Field","name":{"kind":"Name","value":"providerWatchedOn"}},{"kind":"Field","name":{"kind":"Name","value":"showExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenShowExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"animeExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ReviewItemPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ReviewItem"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"postedOn"}},{"kind":"Field","name":{"kind":"Name","value":"isSpoiler"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"textOriginal"}},{"kind":"Field","name":{"kind":"Name","value":"textRendered"}},{"kind":"Field","name":{"kind":"Name","value":"seenItemsAssociatedWith"}},{"kind":"Field","name":{"kind":"Name","value":"postedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"comments"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"likedBy"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"showExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenShowExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"animeExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"}}]}}]}}]} as unknown as DocumentNode<UserMetadataDetailsQuery, UserMetadataDetailsQueryVariables>;
 export const UserMetadataGroupDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserMetadataGroupDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataGroupId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userMetadataGroupDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataGroupId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataGroupId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviews"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ReviewItemPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CollectionPart"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenShowExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenShowExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"season"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenPodcastExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenAnimeExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenMangaExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"chapter"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ReviewItemPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ReviewItem"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"postedOn"}},{"kind":"Field","name":{"kind":"Name","value":"isSpoiler"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"textOriginal"}},{"kind":"Field","name":{"kind":"Name","value":"textRendered"}},{"kind":"Field","name":{"kind":"Name","value":"seenItemsAssociatedWith"}},{"kind":"Field","name":{"kind":"Name","value":"postedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"comments"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"likedBy"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"showExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenShowExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"animeExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CollectionPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Collection"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}}]} as unknown as DocumentNode<UserMetadataGroupDetailsQuery, UserMetadataGroupDetailsQueryVariables>;
 export const UserPersonDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserPersonDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"personId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userPersonDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"personId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"personId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CollectionPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"reviews"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ReviewItemPart"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenShowExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenShowExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"season"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenPodcastExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenAnimeExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenMangaExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"chapter"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CollectionPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Collection"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ReviewItemPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ReviewItem"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"rating"}},{"kind":"Field","name":{"kind":"Name","value":"postedOn"}},{"kind":"Field","name":{"kind":"Name","value":"isSpoiler"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"textOriginal"}},{"kind":"Field","name":{"kind":"Name","value":"textRendered"}},{"kind":"Field","name":{"kind":"Name","value":"seenItemsAssociatedWith"}},{"kind":"Field","name":{"kind":"Name","value":"postedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"comments"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"text"}},{"kind":"Field","name":{"kind":"Name","value":"likedBy"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"showExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenShowExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"animeExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenAnimeExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenMangaExtraInformationPart"}}]}}]}}]} as unknown as DocumentNode<UserPersonDetailsQuery, UserPersonDetailsQueryVariables>;
-export const UserPreferencesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"general"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewScale"}},{"kind":"Field","name":{"kind":"Name","value":"gridPacking"}},{"kind":"Field","name":{"kind":"Name","value":"displayNsfw"}},{"kind":"Field","name":{"kind":"Name","value":"disableVideos"}},{"kind":"Field","name":{"kind":"Name","value":"persistQueries"}},{"kind":"Field","name":{"kind":"Name","value":"disableReviews"}},{"kind":"Field","name":{"kind":"Name","value":"disableIntegrations"}},{"kind":"Field","name":{"kind":"Name","value":"disableWatchProviders"}},{"kind":"Field","name":{"kind":"Name","value":"disableNavigationAnimation"}},{"kind":"Field","name":{"kind":"Name","value":"dashboard"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"section"}},{"kind":"Field","name":{"kind":"Name","value":"hidden"}},{"kind":"Field","name":{"kind":"Name","value":"numElements"}}]}},{"kind":"Field","name":{"kind":"Name","value":"watchProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"values"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"measurements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"custom"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"dataType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"inbuilt"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"bodyMassIndex"}},{"kind":"Field","name":{"kind":"Name","value":"totalBodyWater"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}},{"kind":"Field","name":{"kind":"Name","value":"leanBodyMass"}},{"kind":"Field","name":{"kind":"Name","value":"bodyFat"}},{"kind":"Field","name":{"kind":"Name","value":"boneMass"}},{"kind":"Field","name":{"kind":"Name","value":"visceralFat"}},{"kind":"Field","name":{"kind":"Name","value":"waistCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"waistToHeightRatio"}},{"kind":"Field","name":{"kind":"Name","value":"hipCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"waistToHipRatio"}},{"kind":"Field","name":{"kind":"Name","value":"chestCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"thighCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"bicepsCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"neckCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"bodyFatCaliper"}},{"kind":"Field","name":{"kind":"Name","value":"chestSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"abdominalSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"thighSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"basalMetabolicRate"}},{"kind":"Field","name":{"kind":"Name","value":"totalDailyEnergyExpenditure"}},{"kind":"Field","name":{"kind":"Name","value":"calories"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitSystem"}},{"kind":"Field","name":{"kind":"Name","value":"setRestTimers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SetRestTimersPart"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"notifications"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toSend"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}}]}},{"kind":"Field","name":{"kind":"Name","value":"featuresEnabled"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"others"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"calendar"}},{"kind":"Field","name":{"kind":"Name","value":"collections"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"workouts"}},{"kind":"Field","name":{"kind":"Name","value":"templates"}},{"kind":"Field","name":{"kind":"Name","value":"measurements"}}]}},{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"anime"}},{"kind":"Field","name":{"kind":"Name","value":"audioBook"}},{"kind":"Field","name":{"kind":"Name","value":"book"}},{"kind":"Field","name":{"kind":"Name","value":"manga"}},{"kind":"Field","name":{"kind":"Name","value":"movie"}},{"kind":"Field","name":{"kind":"Name","value":"podcast"}},{"kind":"Field","name":{"kind":"Name","value":"show"}},{"kind":"Field","name":{"kind":"Name","value":"videoGame"}},{"kind":"Field","name":{"kind":"Name","value":"visualNovel"}},{"kind":"Field","name":{"kind":"Name","value":"people"}},{"kind":"Field","name":{"kind":"Name","value":"groups"}},{"kind":"Field","name":{"kind":"Name","value":"genres"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SetRestTimersPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SetRestTimersSettings"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"drop"}},{"kind":"Field","name":{"kind":"Name","value":"warmup"}},{"kind":"Field","name":{"kind":"Name","value":"normal"}},{"kind":"Field","name":{"kind":"Name","value":"failure"}}]}}]} as unknown as DocumentNode<UserPreferencesQuery, UserPreferencesQueryVariables>;
+export const UserPreferencesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userPreferences"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"general"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewScale"}},{"kind":"Field","name":{"kind":"Name","value":"gridPacking"}},{"kind":"Field","name":{"kind":"Name","value":"displayNsfw"}},{"kind":"Field","name":{"kind":"Name","value":"disableVideos"}},{"kind":"Field","name":{"kind":"Name","value":"persistQueries"}},{"kind":"Field","name":{"kind":"Name","value":"disableReviews"}},{"kind":"Field","name":{"kind":"Name","value":"disableIntegrations"}},{"kind":"Field","name":{"kind":"Name","value":"disableWatchProviders"}},{"kind":"Field","name":{"kind":"Name","value":"disableNavigationAnimation"}},{"kind":"Field","name":{"kind":"Name","value":"dashboard"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"section"}},{"kind":"Field","name":{"kind":"Name","value":"hidden"}},{"kind":"Field","name":{"kind":"Name","value":"numElements"}}]}},{"kind":"Field","name":{"kind":"Name","value":"watchProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"values"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"measurements"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"custom"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"dataType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"inbuilt"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"bodyMassIndex"}},{"kind":"Field","name":{"kind":"Name","value":"totalBodyWater"}},{"kind":"Field","name":{"kind":"Name","value":"muscle"}},{"kind":"Field","name":{"kind":"Name","value":"leanBodyMass"}},{"kind":"Field","name":{"kind":"Name","value":"bodyFat"}},{"kind":"Field","name":{"kind":"Name","value":"boneMass"}},{"kind":"Field","name":{"kind":"Name","value":"visceralFat"}},{"kind":"Field","name":{"kind":"Name","value":"waistCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"waistToHeightRatio"}},{"kind":"Field","name":{"kind":"Name","value":"hipCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"waistToHipRatio"}},{"kind":"Field","name":{"kind":"Name","value":"chestCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"thighCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"bicepsCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"neckCircumference"}},{"kind":"Field","name":{"kind":"Name","value":"bodyFatCaliper"}},{"kind":"Field","name":{"kind":"Name","value":"chestSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"abdominalSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"thighSkinfold"}},{"kind":"Field","name":{"kind":"Name","value":"basalMetabolicRate"}},{"kind":"Field","name":{"kind":"Name","value":"totalDailyEnergyExpenditure"}},{"kind":"Field","name":{"kind":"Name","value":"calories"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"unitSystem"}},{"kind":"Field","name":{"kind":"Name","value":"showDetailsWhileEditing"}},{"kind":"Field","name":{"kind":"Name","value":"setRestTimers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SetRestTimersPart"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"notifications"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"toSend"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}}]}},{"kind":"Field","name":{"kind":"Name","value":"featuresEnabled"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"others"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"calendar"}},{"kind":"Field","name":{"kind":"Name","value":"collections"}}]}},{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"workouts"}},{"kind":"Field","name":{"kind":"Name","value":"templates"}},{"kind":"Field","name":{"kind":"Name","value":"measurements"}}]}},{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"anime"}},{"kind":"Field","name":{"kind":"Name","value":"audioBook"}},{"kind":"Field","name":{"kind":"Name","value":"book"}},{"kind":"Field","name":{"kind":"Name","value":"manga"}},{"kind":"Field","name":{"kind":"Name","value":"movie"}},{"kind":"Field","name":{"kind":"Name","value":"podcast"}},{"kind":"Field","name":{"kind":"Name","value":"show"}},{"kind":"Field","name":{"kind":"Name","value":"videoGame"}},{"kind":"Field","name":{"kind":"Name","value":"visualNovel"}},{"kind":"Field","name":{"kind":"Name","value":"people"}},{"kind":"Field","name":{"kind":"Name","value":"groups"}},{"kind":"Field","name":{"kind":"Name","value":"genres"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SetRestTimersPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SetRestTimersSettings"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"drop"}},{"kind":"Field","name":{"kind":"Name","value":"warmup"}},{"kind":"Field","name":{"kind":"Name","value":"normal"}},{"kind":"Field","name":{"kind":"Name","value":"failure"}}]}}]} as unknown as DocumentNode<UserPreferencesQuery, UserPreferencesQueryVariables>;
 export const UserWorkoutDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserWorkoutDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"workoutId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userWorkoutDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"workoutId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"workoutId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CollectionPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"endTime"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}},{"kind":"Field","name":{"kind":"Name","value":"templateId"}},{"kind":"Field","name":{"kind":"Name","value":"repeatedFrom"}},{"kind":"Field","name":{"kind":"Name","value":"summary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSummaryPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"information"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutInformationPart"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutOrExerciseTotals"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"restTime"}},{"kind":"Field","name":{"kind":"Name","value":"personalBestsAchieved"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetStatisticPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetStatistic"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"pace"}},{"kind":"Field","name":{"kind":"Name","value":"oneRm"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetRecordPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"personalBests"}},{"kind":"Field","name":{"kind":"Name","value":"statistic"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetStatisticPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityAssetsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityAssets"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"videos"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CollectionPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Collection"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSummaryPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSummary"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"numSets"}},{"kind":"Field","name":{"kind":"Name","value":"bestSet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetRecordPart"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"comment"}},{"kind":"Field","name":{"kind":"Name","value":"assets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityAssetsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"supersets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"exercises"}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"total"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"assets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityAssetsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"note"}},{"kind":"Field","name":{"kind":"Name","value":"restTime"}},{"kind":"Field","name":{"kind":"Name","value":"confirmedAt"}},{"kind":"Field","name":{"kind":"Name","value":"personalBests"}},{"kind":"Field","name":{"kind":"Name","value":"statistic"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetStatisticPart"}}]}}]}}]}}]}}]} as unknown as DocumentNode<UserWorkoutDetailsQuery, UserWorkoutDetailsQueryVariables>;
 export const UserWorkoutTemplateDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserWorkoutTemplateDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"workoutTemplateId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userWorkoutTemplateDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"workoutTemplateId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"workoutTemplateId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CollectionPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"summary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSummaryPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"information"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutInformationPart"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutOrExerciseTotals"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"restTime"}},{"kind":"Field","name":{"kind":"Name","value":"personalBestsAchieved"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetStatisticPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetStatistic"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"pace"}},{"kind":"Field","name":{"kind":"Name","value":"oneRm"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetRecordPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"personalBests"}},{"kind":"Field","name":{"kind":"Name","value":"statistic"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetStatisticPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"EntityAssetsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"EntityAssets"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"videos"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CollectionPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Collection"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"userId"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSummaryPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSummary"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"numSets"}},{"kind":"Field","name":{"kind":"Name","value":"bestSet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetRecordPart"}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"comment"}},{"kind":"Field","name":{"kind":"Name","value":"assets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityAssetsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"supersets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"exercises"}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}},{"kind":"Field","name":{"kind":"Name","value":"total"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"assets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"EntityAssetsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"sets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"note"}},{"kind":"Field","name":{"kind":"Name","value":"restTime"}},{"kind":"Field","name":{"kind":"Name","value":"confirmedAt"}},{"kind":"Field","name":{"kind":"Name","value":"personalBests"}},{"kind":"Field","name":{"kind":"Name","value":"statistic"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetStatisticPart"}}]}}]}}]}}]}}]} as unknown as DocumentNode<UserWorkoutTemplateDetailsQuery, UserWorkoutTemplateDetailsQueryVariables>;
 export const UserWorkoutTemplatesListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserWorkoutTemplatesList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userWorkoutTemplatesList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"summary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSummaryPart"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutOrExerciseTotals"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"restTime"}},{"kind":"Field","name":{"kind":"Name","value":"personalBestsAchieved"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetStatisticPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetStatistic"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reps"}},{"kind":"Field","name":{"kind":"Name","value":"pace"}},{"kind":"Field","name":{"kind":"Name","value":"oneRm"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}},{"kind":"Field","name":{"kind":"Name","value":"volume"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"distance"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSetRecordPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSetRecord"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"personalBests"}},{"kind":"Field","name":{"kind":"Name","value":"statistic"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetStatisticPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"WorkoutSummaryPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"WorkoutSummary"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutOrExerciseTotalsPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"exercises"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"numSets"}},{"kind":"Field","name":{"kind":"Name","value":"bestSet"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"WorkoutSetRecordPart"}}]}}]}}]}}]} as unknown as DocumentNode<UserWorkoutTemplatesListQuery, UserWorkoutTemplatesListQueryVariables>;
