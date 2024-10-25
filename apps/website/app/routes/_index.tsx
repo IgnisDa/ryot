@@ -50,9 +50,8 @@ import {
 	oauthClient,
 	prices,
 	sendEmail,
-	startUrl,
 } from "~/lib/config.server";
-import { cn } from "~/lib/utils";
+import { cn, startUrl } from "~/lib/utils";
 
 dayjs.extend(duration);
 

@@ -31,8 +31,8 @@ import {
 	sendEmail,
 	serverGqlService,
 	serverVariables,
-	startUrl,
 } from "~/lib/config.server";
+import { startUrl } from "~/lib/utils";
 
 const redirectToStartHere = () => redirect(startUrl);
 

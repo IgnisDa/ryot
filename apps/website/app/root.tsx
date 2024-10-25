@@ -17,7 +17,8 @@ import type {
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getUserIdFromCookie, honeypot, startUrl } from "./lib/config.server";
+import { getUserIdFromCookie, honeypot } from "./lib/config.server";
+import { startUrl } from "./lib/utils";
 
 export const links: LinksFunction = () => {
 	return [
