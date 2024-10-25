@@ -6220,6 +6220,7 @@ __metadata:
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
     mantine-datatable: "npm:7.12.4"
+    nanoid: "npm:5.0.7"
     postcss: "npm:8.4.47"
     postcss-preset-mantine: "npm:1.17.0"
     postcss-simple-vars: "npm:7.0.1"

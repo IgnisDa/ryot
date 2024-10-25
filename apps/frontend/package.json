@@ -47,6 +47,7 @@
 		"js-cookie": "3.0.5",
 		"jwt-decode": "4.0.0",
 		"mantine-datatable": "7.12.4",
+		"nanoid": "5.0.7",
 		"react": "18.3.1",
 		"react-confirm": "0.3.0-7",
 		"react-dom": "18.3.1",
