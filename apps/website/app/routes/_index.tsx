@@ -17,7 +17,7 @@ import {
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import Autoplay from "embla-carousel-autoplay";
-import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
@@ -320,7 +320,7 @@ export default function Page() {
 											/>
 											<InputOTP
 												maxLength={6}
-												pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
+												pattern={REGEXP_ONLY_DIGITS}
 												name="otpCode"
 											>
 												<InputOTPGroup>
