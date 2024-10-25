@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
 import {
 	type ActionFunctionArgs,
@@ -17,7 +18,6 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import Autoplay from "embla-carousel-autoplay";
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
-import { nanoid } from "nanoid";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
@@ -73,13 +73,20 @@ const otpCodesCache = new TTLCache<string, string>({
 	max: 1000,
 });
 
+const generateOtp = (length: number) => {
+	const max = 10 ** length;
+	const buffer = randomBytes(Math.ceil(length / 2));
+	const otp = Number.parseInt(buffer.toString("hex"), 16) % max;
+	return otp.toString().padStart(length, "0");
+};
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("sendLoginCode", async () => {
 			const { email } = processSubmission(formData, emailSchema);
-			const otpCode = nanoid(6);
+			const otpCode = generateOtp(6);
 			otpCodesCache.set(email, otpCode);
 			console.log(`OTP code for ${email} is ${otpCode}`);
 			await sendEmail(
