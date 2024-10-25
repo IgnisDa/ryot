@@ -12,8 +12,8 @@ impl MigrationTrait for Migration {
 UPDATE "user"
 SET "preferences" = jsonb_set(
     "preferences",
-    '{fitness,exercises,show_details_while_editing}',
-    'true'::jsonb
+    '{fitness,logging}',
+    '{"show_details_while_editing": true}'::jsonb
 );
         "#,
         )
