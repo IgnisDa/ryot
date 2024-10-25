@@ -6,7 +6,9 @@ import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
 import postgres from "postgres";
+import { $path } from "remix-routes";
 import { Honeypot } from "remix-utils/honeypot/server";
+import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import * as schema from "~/drizzle/schema.server";
@@ -139,3 +141,5 @@ export const serverGqlService = new GraphQLClient(
 );
 
 export const honeypot = new Honeypot();
+
+export const startUrl = withFragment($path("/"), "start-here");

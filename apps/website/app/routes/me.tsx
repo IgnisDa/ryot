@@ -13,9 +13,8 @@ import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
-import { $path } from "remix-routes";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
@@ -32,10 +31,10 @@ import {
 	sendEmail,
 	serverGqlService,
 	serverVariables,
+	startUrl,
 } from "~/lib/config.server";
 
-const redirectToStartHere = () =>
-	redirect(withFragment($path("/"), "start-here"));
+const redirectToStartHere = () => redirect(startUrl);
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userId = await getUserIdFromCookie(request);

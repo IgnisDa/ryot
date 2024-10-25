@@ -50,6 +50,7 @@ import {
 	oauthClient,
 	prices,
 	sendEmail,
+	startUrl,
 } from "~/lib/config.server";
 import { cn } from "~/lib/utils";
 
@@ -94,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				LoginCodeEmail.subject,
 				LoginCodeEmail({ code: otpCode }),
 			);
-			return redirect(withQuery(withFragment(".", "start-here"), { email }));
+			return redirect(withQuery(startUrl, { email }));
 		})
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);

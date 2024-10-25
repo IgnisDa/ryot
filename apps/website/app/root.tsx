@@ -17,7 +17,7 @@ import type {
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getUserIdFromCookie, honeypot } from "./lib/config.server";
+import { getUserIdFromCookie, honeypot, startUrl } from "./lib/config.server";
 
 export const links: LinksFunction = () => {
 	return [
@@ -83,11 +83,7 @@ export default function App() {
 						</Link>
 						<nav className="ml-auto flex gap-4 sm:gap-6">
 							<Link
-								to={
-									loaderData.isLoggedIn
-										? $path("/me")
-										: withFragment($path("/"), "start-here")
-								}
+								to={loaderData.isLoggedIn ? $path("/me") : startUrl}
 								className="text-sm font-medium hover:underline underline-offset-4"
 							>
 								Your account
