@@ -93,7 +93,16 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
 #[educe(Default)]
-pub struct UserExercisesPreferences {
+pub struct UserFitnessLoggingPreferences {
+    #[educe(Default = true)]
+    pub show_details_while_editing: bool,
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+)]
+#[educe(Default)]
+pub struct UserFitnessExercisesPreferences {
     #[educe(Default = UserUnitSystem::Metric)]
     pub unit_system: UserUnitSystem,
     pub set_rest_timers: SetRestTimersSettings,
@@ -160,7 +169,7 @@ pub struct UserCustomMeasurement {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
 #[educe(Default)]
-pub struct UserMeasurementsPreferences {
+pub struct UserFitnessMeasurementsPreferences {
     #[educe(Default(expression = vec![UserCustomMeasurement {
         name: "sugar_level".to_owned(),
         data_type: UserCustomMeasurementDataType::Decimal,
@@ -183,8 +192,9 @@ pub struct UserFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFitnessPreferences {
-    pub exercises: UserExercisesPreferences,
-    pub measurements: UserMeasurementsPreferences,
+    pub logging: UserFitnessLoggingPreferences,
+    pub exercises: UserFitnessExercisesPreferences,
+    pub measurements: UserFitnessMeasurementsPreferences,
 }
 
 #[derive(
