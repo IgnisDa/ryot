@@ -6,6 +6,7 @@ import {
 	SetLot,
 	type SetRestTimersSettings,
 	UserExerciseDetailsDocument,
+	type UserFitnessPreferences,
 	UserWorkoutDetailsDocument,
 	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
@@ -260,6 +261,7 @@ export const duplicateOldWorkout = async (
 	name: string,
 	workoutInformation: WorkoutInformation,
 	coreDetails: ReturnType<typeof useCoreDetails>,
+	userFitnessPreferences: UserFitnessPreferences,
 	params: {
 		repeatedFromId?: string;
 		templateId?: string;
@@ -284,7 +286,9 @@ export const duplicateOldWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: exerciseIdx === 0,
+			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing
+				? exerciseIdx === 0
+				: false,
 			images: [],
 			videos: [],
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
@@ -337,7 +341,7 @@ export const getRestTimerForSet = async (
 export const addExerciseToWorkout = async (
 	navigate: NavigateFunction,
 	currentWorkout: InProgressWorkout,
-	userPreferencesRestTimer: SetRestTimersSettings,
+	userFitnessPreferences: UserFitnessPreferences,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {
@@ -349,7 +353,7 @@ export const addExerciseToWorkout = async (
 		const restTimer = await getRestTimerForSet(
 			setLot,
 			ex.name,
-			userPreferencesRestTimer,
+			userFitnessPreferences.exercises.setRestTimers,
 		);
 		let sets: ExerciseSet[] = [
 			{
@@ -370,7 +374,7 @@ export const addExerciseToWorkout = async (
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: true,
+			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
 			exerciseId: ex.name,
 			lot: ex.lot,
 			sets,
