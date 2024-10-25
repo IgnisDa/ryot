@@ -589,16 +589,19 @@ impl UserService {
                                     _ => return Err(err()),
                                 },
                                 None => match right {
-                                    "show_details_while_editing" => {
-                                        preferences.fitness.exercises.show_details_while_editing =
-                                            value_bool.unwrap();
-                                    }
                                     "unit_system" => {
                                         preferences.fitness.exercises.unit_system =
                                             UserUnitSystem::from_str(&input.value).unwrap();
                                     }
                                     _ => return Err(err()),
                                 },
+                            },
+                            "logging" => match right {
+                                "show_details_while_editing" => {
+                                    preferences.fitness.logging.show_details_while_editing =
+                                        value_bool.unwrap();
+                                }
+                                _ => return Err(err()),
                             },
                             _ => return Err(err()),
                         }
