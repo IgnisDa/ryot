@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
 import { $path } from "remix-routes";
-import { P, match } from "ts-pattern";
+import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
@@ -34,30 +34,28 @@ import {
 	serverVariables,
 } from "~/lib/config.server";
 
+const redirectToStartHere = () =>
+	redirect(withFragment($path("/"), "start-here"));
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userId = await getUserIdFromCookie(request);
 	const isLoggedIn = !!userId;
-	if (!isLoggedIn) return redirect(withFragment($path("/"), "start-here"));
-	const planDetails = await match(userId)
-		.with(P.string, async (userId) => {
-			const customer = await db.query.customers.findFirst({
-				where: eq(customers.id, userId),
-				columns: {
-					email: true,
-					renewOn: true,
-					planType: true,
-					productType: true,
-					unkeyKeyId: true,
-					ryotUserId: true,
-				},
-			});
-			if (!customer) return undefined;
-			return customer;
-		})
-		.otherwise(() => undefined);
+	if (!isLoggedIn) return redirectToStartHere();
+	const customerDetails = await db.query.customers.findFirst({
+		where: eq(customers.id, userId),
+		columns: {
+			email: true,
+			renewOn: true,
+			planType: true,
+			productType: true,
+			unkeyKeyId: true,
+			ryotUserId: true,
+		},
+	});
+	if (!customerDetails) return redirectToStartHere();
 	return {
 		prices,
-		planDetails,
+		customerDetails,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
 	};
@@ -195,49 +193,49 @@ export default function Index() {
 
 	return (
 		<>
-			{loaderData.planDetails?.planType &&
-			loaderData.planDetails.productType ? (
+			{loaderData.customerDetails.planType &&
+			loaderData.customerDetails.productType ? (
 				<Card className="w-full max-w-md p-6 grid gap-6 m-auto mt-40">
 					<div className="grid grid-cols-2 gap-4">
 						<div className="col-span-2">
 							<Label>Email</Label>
 							<p className="text-muted-foreground">
-								{loaderData.planDetails.email}
+								{loaderData.customerDetails.email}
 							</p>
 						</div>
-						{loaderData.planDetails.renewOn ? (
+						{loaderData.customerDetails.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
 								<p className="text-muted-foreground">
-									Renews on {loaderData.planDetails.renewOn}
+									Renews on {loaderData.customerDetails.renewOn}
 								</p>
 							</div>
 						) : null}
 						<div>
 							<Label>Plan Type</Label>
 							<p className="text-muted-foreground">
-								{changeCase(loaderData.planDetails.planType)}
+								{changeCase(loaderData.customerDetails.planType)}
 							</p>
 						</div>
 						<div>
 							<Label>Product Type</Label>
 							<p className="text-muted-foreground">
-								{changeCase(loaderData.planDetails.productType)}
+								{changeCase(loaderData.customerDetails.productType)}
 							</p>
 						</div>
-						{loaderData.planDetails.ryotUserId ? (
+						{loaderData.customerDetails.ryotUserId ? (
 							<div>
 								<Label>User ID</Label>
 								<p className="text-muted-foreground">
-									{loaderData.planDetails.ryotUserId}
+									{loaderData.customerDetails.ryotUserId}
 								</p>
 							</div>
 						) : null}
-						{loaderData.planDetails.unkeyKeyId ? (
+						{loaderData.customerDetails.unkeyKeyId ? (
 							<div className="col-span-2">
 								<Label>Key ID</Label>
 								<p className="text-muted-foreground">
-									{loaderData.planDetails.unkeyKeyId}
+									{loaderData.customerDetails.unkeyKeyId}
 								</p>
 								<p className="text-xs text-gray-500">
 									(This is the key ID; the pro key has been sent to your email)
