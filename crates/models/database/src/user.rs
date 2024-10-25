@@ -26,7 +26,6 @@ pub struct Model {
     pub last_login_on: Option<DateTimeUtc>,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
-    #[graphql(skip)]
     pub preferences: UserPreferences,
     #[graphql(skip)]
     pub extra_information: Option<Json>,

@@ -7084,7 +7084,6 @@ dependencies = [
  "dependent-models",
  "media-models",
  "traits",
- "user-models",
  "user-service",
 ]
 

@@ -6,6 +6,101 @@ query UserDetails {
 			lot
 			name
 			oidcIssuerId
+			preferences {
+				general {
+					reviewScale
+					gridPacking
+					displayNsfw
+					disableVideos
+					persistQueries
+					disableReviews
+					disableIntegrations
+					disableWatchProviders
+					disableNavigationAnimation
+					dashboard {
+						section
+						hidden
+						numElements
+					}
+					watchProviders {
+						lot
+						values
+					}
+				}
+				fitness {
+					logging {
+						showDetailsWhileEditing
+					}
+					exercises {
+						unitSystem
+						setRestTimers {
+							...SetRestTimersPart
+						}
+					}
+					measurements {
+						custom {
+							name
+							dataType
+						}
+						inbuilt {
+							weight
+							bodyMassIndex
+							totalBodyWater
+							muscle
+							leanBodyMass
+							bodyFat
+							boneMass
+							visceralFat
+							waistCircumference
+							waistToHeightRatio
+							hipCircumference
+							waistToHipRatio
+							chestCircumference
+							thighCircumference
+							bicepsCircumference
+							neckCircumference
+							bodyFatCaliper
+							chestSkinfold
+							abdominalSkinfold
+							thighSkinfold
+							basalMetabolicRate
+							totalDailyEnergyExpenditure
+							calories
+						}
+					}
+				}
+				notifications {
+					toSend
+					enabled
+				}
+				featuresEnabled {
+					others {
+						calendar
+						collections
+					}
+					fitness {
+						enabled
+						workouts
+						templates
+						measurements
+					}
+					media {
+						enabled
+						anime
+						audioBook
+						book
+						manga
+						movie
+						podcast
+						show
+						videoGame
+						visualNovel
+						people
+						groups
+						genres
+					}
+				}
+			}
 		}
 	}
 }

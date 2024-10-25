@@ -11,7 +11,6 @@ use media_models::{
     UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
-use user_models::UserPreferences;
 use user_service::UserService;
 
 #[derive(Default)]
@@ -43,13 +42,6 @@ impl UserQuery {
     ) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         service.users_list(query).await
-    }
-
-    /// Get a user's preferences.
-    async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_preferences(&user_id).await
     }
 
     /// Get details about the currently logged in user.

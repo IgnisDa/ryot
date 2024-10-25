@@ -10,5 +10,4 @@ database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 media-models = { path = "../../models/media" }
 traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }
 user-service = { path = "../../services/user" }
