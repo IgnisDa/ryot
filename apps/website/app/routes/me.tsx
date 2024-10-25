@@ -171,23 +171,27 @@ export default function Index() {
 		initializePaddle({
 			token: loaderData.clientToken,
 			environment: loaderData.isSandbox ? "sandbox" : undefined,
-			eventCallback: (data) => {
-				if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
-					paddle?.Checkout.close();
-					const transactionId = data.data?.transaction_id;
-					if (!transactionId) throw new Error("Transaction ID not found");
-					submit(
-						{ transactionId },
-						{
-							method: "POST",
-							encType: "application/json",
-							action: withQuery(".", { intent: "processPurchase" }),
-						},
-					);
-				}
-			},
 		}).then((paddleInstance) => {
-			if (paddleInstance) setPaddle(paddleInstance);
+			if (paddleInstance) {
+				paddleInstance.Update({
+					eventCallback: (data) => {
+						if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+							paddleInstance.Checkout.close();
+							const transactionId = data.data?.transaction_id;
+							if (!transactionId) throw new Error("Transaction ID not found");
+							submit(
+								{ transactionId },
+								{
+									method: "POST",
+									encType: "application/json",
+									action: withQuery(".", { intent: "processPurchase" }),
+								},
+							);
+						}
+					},
+				});
+				setPaddle(paddleInstance);
+			}
 		});
 	}, []);
 
