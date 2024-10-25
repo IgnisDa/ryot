@@ -555,20 +555,6 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
-							<Switch
-								label="Show details and history while editing workouts/templates"
-								size="xs"
-								disabled={!!isEditDisabled}
-								defaultChecked={
-									userPreferences.fitness.exercises.showDetailsWhileEditing
-								}
-								onChange={(ev) => {
-									appendPref(
-										"fitness.exercises.show_details_while_editing",
-										String(ev.currentTarget.checked),
-									);
-								}}
-							/>
 							<Input.Wrapper
 								label="Default Rest Timers"
 								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
@@ -600,6 +586,21 @@ export default function Page() {
 									)}
 								</SimpleGrid>
 							</Input.Wrapper>
+							<Divider />
+							<Switch
+								label="Show details and history while editing workouts/templates"
+								size="xs"
+								disabled={!!isEditDisabled}
+								defaultChecked={
+									userPreferences.fitness.logging.showDetailsWhileEditing
+								}
+								onChange={(ev) => {
+									appendPref(
+										"fitness.logging.show_details_while_editing",
+										String(ev.currentTarget.checked),
+									);
+								}}
+							/>
 							<Divider />
 							<Input.Wrapper label="The default measurements you want to keep track of">
 								<SimpleGrid cols={2} mt="xs">
