@@ -21,6 +21,15 @@ query UserPreferences {
 			}
 		}
 		fitness {
+			logging {
+				showDetailsWhileEditing
+			}
+			exercises {
+				unitSystem
+				setRestTimers {
+					...SetRestTimersPart
+				}
+			}
 			measurements {
 				custom {
 					name
@@ -50,12 +59,6 @@ query UserPreferences {
 					basalMetabolicRate
 					totalDailyEnergyExpenditure
 					calories
-				}
-			}
-			exercises {
-				unitSystem
-				setRestTimers {
-					...SetRestTimersPart
 				}
 			}
 		}

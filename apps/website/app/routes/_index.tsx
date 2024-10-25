@@ -6,11 +6,7 @@ import {
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import {
-	getActionIntent,
-	processSubmission,
-	randomString,
-} from "@ryot/ts-utils";
+import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -21,6 +17,7 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import Autoplay from "embla-carousel-autoplay";
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
+import { nanoid } from "nanoid";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
@@ -82,7 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	return await match(intent)
 		.with("sendLoginCode", async () => {
 			const { email } = processSubmission(formData, emailSchema);
-			const otpCode = randomString(6);
+			const otpCode = nanoid(6);
 			otpCodesCache.set(email, otpCode);
 			console.log(`OTP code for ${email} is ${otpCode}`);
 			await sendEmail(

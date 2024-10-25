@@ -596,6 +596,13 @@ impl UserService {
                                     _ => return Err(err()),
                                 },
                             },
+                            "logging" => match right {
+                                "show_details_while_editing" => {
+                                    preferences.fitness.logging.show_details_while_editing =
+                                        value_bool.unwrap();
+                                }
+                                _ => return Err(err()),
+                            },
                             _ => return Err(err()),
                         }
                     }

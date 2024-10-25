@@ -517,7 +517,7 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
-						<Stack gap="xl">
+						<Stack>
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
@@ -586,9 +586,24 @@ export default function Page() {
 									)}
 								</SimpleGrid>
 							</Input.Wrapper>
-							<Stack gap="xs">
-								<Text>The default measurements you want to keep track of</Text>
-								<SimpleGrid cols={2}>
+							<Divider />
+							<Switch
+								label="Show details and history while editing workouts/templates"
+								size="xs"
+								disabled={!!isEditDisabled}
+								defaultChecked={
+									userPreferences.fitness.logging.showDetailsWhileEditing
+								}
+								onChange={(ev) => {
+									appendPref(
+										"fitness.logging.show_details_while_editing",
+										String(ev.currentTarget.checked),
+									);
+								}}
+							/>
+							<Divider />
+							<Input.Wrapper label="The default measurements you want to keep track of">
+								<SimpleGrid cols={2} mt="xs">
 									{Object.entries(
 										userPreferences.fitness.measurements.inbuilt,
 									).map(([name, isEnabled]) => (
@@ -607,7 +622,7 @@ export default function Page() {
 										/>
 									))}
 								</SimpleGrid>
-							</Stack>
+							</Input.Wrapper>
 							<JsonInput
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."
