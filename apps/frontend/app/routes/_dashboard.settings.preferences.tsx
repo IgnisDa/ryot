@@ -517,7 +517,7 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
-						<Stack gap="xl">
+						<Stack>
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
@@ -586,6 +586,7 @@ export default function Page() {
 									)}
 								</SimpleGrid>
 							</Input.Wrapper>
+							<Divider />
 							<Stack gap="xs">
 								<Text>The default measurements you want to keep track of</Text>
 								<SimpleGrid cols={2}>
