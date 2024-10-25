@@ -26,5 +26,5 @@ You can follow the below steps to obtain your own API keys and enable video game
 
 6. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 
-7. Set the `video_games.*` configuration variables in the environment as
-   described in the [configuration](../configuration.md#important-parameters) docs.
+7. Set the `VIDEO_GAMES_*` environment variables as described in the
+   [configuration](../configuration.md#important-parameters) docs.

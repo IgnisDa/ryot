@@ -139,9 +139,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.run();
 };
 
-const intentSchema = z.object({ intent: z.string() });
-
-const emailSchema = z.object({ email: z.string().email() }).merge(intentSchema);
+const emailSchema = z.object({ email: z.string().email() });
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
@@ -302,7 +300,7 @@ export default function Page() {
 								<Form
 									method="POST"
 									className="flex gap-2 flex-none"
-									action={withQuery(".", {
+									action={withQuery(".?index", {
 										intent: loaderData.query.email
 											? "registerWithEmail"
 											: "sendLoginCode",
@@ -348,7 +346,7 @@ export default function Page() {
 								<p className="text-xs">OR</p>
 								<Form
 									method="POST"
-									action={withQuery(".", { intent: "registerWithOidc" })}
+									action={withQuery(".?index", { intent: "registerWithOidc" })}
 								>
 									<Button
 										variant="outline"
@@ -440,7 +438,7 @@ export default function Page() {
 					) : (
 						<Form
 							method="POST"
-							action={withQuery(".", { intent: "contactSubmission" })}
+							action={withQuery(".?index", { intent: "contactSubmission" })}
 							className="flex flex-col items-center justify-center pt-12 gap-y-4 gap-x-4"
 						>
 							<HoneypotInputs />

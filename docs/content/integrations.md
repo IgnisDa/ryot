@@ -3,54 +3,10 @@
 Integrations can be used to continuously update your media progress or inform external
 services about changes. They can be of following types:
 
+- _Sink_: An external client publishes progress updates to the Ryot server.
 - _Yank_: Progress data is downloaded from an externally running server at a periodic
   interval.
-- _Sink_: An external client publishes progress updates to the Ryot server.
 - _Push_: Ryot sends data to an external service when an event occurs.
-
-## Yank integrations
-
-You can configure the interval at which the data is fetched from the external using the
-`integration.sync_every_minutes` configuration key. Defaults to `5` (minutes).
-
-### Audiobookshelf
-
-!!! warning
-
-      This will only import media that are in progress. Perform an
-      [import](./importing.md#audiobookshelf) if you want to import media that are finished.
-
-The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
-have a valid provider ID (Audible, ITunes or ISBN).
-
-1. Obtain an API token as described in the Audiobookshelf
-   [authentication](https://api.audiobookshelf.org/#authentication) docs.
-2. Go to your Ryot user settings and add the correct details as described in the
-   [yank](#yank-integrations) section.
-
-### Komga
-
-The [Komga](https://komga.org/) integration can sync all media if they
-have a valid metadata provider.
-
-#### Steps
-
-If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
-urls will be populated automatically. If you don't use komf you will either need to
-manually add the manga to your collection or you can perform the following steps.
-
-1. Navigate to the manga
-2. Open the edit tab
-3. Navigate to the Links tab
-4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
-
-Then perform these steps on Ryot
-
-1. Create the integration and select Komga as the source
-2. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
-3. Provide your Username and Password.
-4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
-   is unavailable and will fallback to title search otherwise.
 
 ## Sink integrations
 
@@ -144,10 +100,54 @@ TMDb ID attached to their metadata.
 
 The "Generic Json" can be used to import all possible data using a generic JSON data
 format. The format of the JSON file should be `CompleteExport` as described in the
-[exporting](guides/exporting.md#type-definition) documentation.
+[exporting](guides/exporting.md#type-definitions) documentation.
 
 You can use this to build integrations with other services that Ryot does not support
 natively.
+
+## Yank integrations
+
+You can configure the interval at which the data is fetched from the external source using
+the `INTEGRATION_SYNC_EVERY_MINUTES` environment variable. Defaults to `5`.
+
+### Audiobookshelf
+
+!!! warning
+
+      This will only import media that are in progress. Perform an
+      [import](./importing.md#audiobookshelf) if you want to import media that are finished.
+
+The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
+have a valid provider ID (Audible, ITunes or ISBN).
+
+1. Obtain an API token as described in the Audiobookshelf
+   [authentication](https://api.audiobookshelf.org/#authentication) docs.
+2. Go to your Ryot user settings and add the correct details as described in the
+   [yank](#yank-integrations) section.
+
+### Komga
+
+The [Komga](https://komga.org/) integration can sync all media if they
+have a valid metadata provider.
+
+#### Steps
+
+If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
+urls will be populated automatically. If you don't, you will either need to manually add
+the manga to your collection or you can perform the following steps.
+
+1. Navigate to the manga and open the Edit tab
+3. Navigate to the Links tab
+4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
+
+Then perform these steps on Ryot
+
+1. Create an integration and select Komga as the source
+2. Provide your Base URL. It should look something like this `http://komga.acme.com` or
+   `http://127.0.0.1:25600`
+3. Provide your Username and Password.
+4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
+   is unavailable and will fallback to title search otherwise.
 
 ## Push integrations
 
@@ -155,22 +155,21 @@ You can enable the following push integrations:
 
 ### Radarr
 
-Automatically add movies in the selected collections to Radarr.
+Events: `Item added to collection`
 
 1. Obtain your Radarr API key by going to the Radarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Sonarr
 
-Automatically add shows in the selected collections to Sonarr.
+Events: `Item added to collection`
 
 1. Obtain your Sonarr API key by going to the Sonarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Jellyfin
 
-Automatically mark movies and shows as watched in Jellyfin when you mark them as watched
-in Ryot.
+Events: `Item marked as completed`
 
 1. While creating the integration, you will be asked to provide your Jellyfin username and
    password.

@@ -25,7 +25,6 @@ export const customers = pgTable("customer", {
 		.notNull(),
 	oidcIssuerId: text("oidc_issuer_id").unique(),
 	paddleCustomerId: text("paddle_customer_id").unique(),
-	paddleFirstTransactionId: text("paddle_first_transaction_id").unique(),
 	productType: productTypes("product_type"),
 	planType: planTypes("plan_type"),
 	renewOn: date("renew_on"),

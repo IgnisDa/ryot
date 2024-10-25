@@ -472,10 +472,6 @@ export default function Page() {
 																	]),
 															)
 															.exhaustive();
-														notifications.show({
-															color: "green",
-															message: "Saved successfully",
-														});
 														Cookies.remove(workoutCookieName);
 														revalidator.revalidate();
 														if (loaderData.action === FitnessAction.LogWorkout)
