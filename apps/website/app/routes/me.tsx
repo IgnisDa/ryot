@@ -7,7 +7,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, redirect, useLoaderData, useSubmit } from "@remix-run/react";
 import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
-import { changeCase, getActionIntent, randomString } from "@ryot/ts-utils";
+import { changeCase, getActionIntent } from "@ryot/ts-utils";
+import { nanoid } from "nanoid";
 import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
@@ -93,7 +94,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.exhaustive();
 			const { ryotUserId, unkeyKeyId, data } = await match(productType)
 				.with("cloud", async () => {
-					const password = randomString(10);
+					const password = nanoid(10);
 					const { registerUser } = await serverGqlService.request(
 						RegisterUserDocument,
 						{
