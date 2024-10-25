@@ -1806,7 +1806,11 @@ const SetDisplay = (props: {
 														);
 													if (nextExerciseHasDetailsToShow) {
 														nextExercise.isCollapsed = false;
-														nextExercise.isShowDetailsOpen = true;
+														if (
+															userPreferences.fitness.logging
+																.showDetailsWhileEditing
+														)
+															nextExercise.isShowDetailsOpen = true;
 													}
 												}
 											}
