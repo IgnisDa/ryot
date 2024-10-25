@@ -174,6 +174,7 @@ export default function Index() {
 			environment: loaderData.isSandbox ? "sandbox" : undefined,
 			eventCallback: (data) => {
 				if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+					paddle?.Checkout.close();
 					const transactionId = data.data?.transaction_id;
 					if (!transactionId) throw new Error("Transaction ID not found");
 					submit(
