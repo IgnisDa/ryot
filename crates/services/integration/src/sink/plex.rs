@@ -1,5 +1,4 @@
 use anyhow::{bail, Context, Result};
-use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
@@ -113,8 +112,6 @@ impl PlexSinkIntegration {
     }
 
     pub async fn yank_progress(&self) -> Result<ImportResult> {
-        ryot_log!(debug, "Processing Plex payload {:#?}", self.payload);
-
         let payload = self.parse_payload(&self.payload)?;
 
         if let Some(plex_user) = &self.plex_user {
