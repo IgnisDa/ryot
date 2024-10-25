@@ -136,9 +136,8 @@ export const useDashboardLayoutData = () => {
 };
 
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
-export const useUserPreferences = () =>
-	useDashboardLayoutData().userPreferences;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
+export const useUserPreferences = () => useUserDetails().preferences;
 export const useUserCollections = () =>
 	useDashboardLayoutData().userCollections;
 

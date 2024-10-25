@@ -13,7 +13,6 @@ import {
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
-	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
@@ -181,13 +180,7 @@ export const getCachedExerciseParameters = async () => {
 
 export const getCachedUserPreferences = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return queryClient.ensureQueryData({
-		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
-		queryFn: () =>
-			serverGqlService
-				.authenticatedRequest(request, UserPreferencesDocument, undefined)
-				.then((data) => data.userPreferences),
-	});
+	return userDetails.preferences;
 };
 
 export const getCachedUserCollectionsList = async (request: Request) => {
