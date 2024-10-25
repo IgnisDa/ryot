@@ -6350,6 +6350,7 @@ __metadata:
     isbot: "npm:5.1.17"
     lodash: "npm:4.17.21"
     lucide-react: "npm:0.453.0"
+    nanoid: "npm:5.0.7"
     next-themes: "npm:0.3.0"
     nodemailer: "npm:6.9.15"
     openid-client: "npm:5.6.5"
@@ -13601,6 +13602,15 @@ __metadata:
     object-assign: "npm:^4.0.1"
     thenify-all: "npm:^1.0.0"
   checksum: 10/8427de0ece99a07e9faed3c0c6778820d7543e3776f9a84d22cf0ec0a8eb65f6e9aee9c9d353ff9a105ff62d33a9463c6ca638974cc652ee8140cd1e35951c87
+  languageName: node
+  linkType: hard
+
+"nanoid@npm:5.0.7":
+  version: 5.0.7
+  resolution: "nanoid@npm:5.0.7"
+  bin:
+    nanoid: bin/nanoid.js
+  checksum: 10/25ab0b0cf9082ae6747f0f55cec930e6c1cc5975103aa3a5fda44be5720eff57d9b25a8a9850274bfdde8def964b49bf03def71c6aa7ad1cba32787819b79f60
   languageName: node
   linkType: hard
 

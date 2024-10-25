@@ -38,6 +38,7 @@
 		"isbot": "5.1.17",
 		"lodash": "4.17.21",
 		"lucide-react": "0.453.0",
+		"nanoid": "5.0.7",
 		"next-themes": "0.3.0",
 		"nodemailer": "6.9.15",
 		"openid-client": "5.6.5",
