@@ -37,7 +37,6 @@ import {
 	changeCase,
 	getActionIntent,
 	processSubmission,
-	randomString,
 	truncate,
 } from "@ryot/ts-utils";
 import {
@@ -46,6 +45,7 @@ import {
 	IconRefresh,
 	IconTrash,
 } from "@tabler/icons-react";
+import { nanoid } from "nanoid";
 import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "remix-routes";
@@ -222,7 +222,7 @@ export default function Page() {
 								value={password}
 								onChange={(e) => setPassword(e.currentTarget.value)}
 								rightSection={
-									<ActionIcon onClick={() => setPassword(randomString(7))}>
+									<ActionIcon onClick={() => setPassword(nanoid(7))}>
 										<IconRefresh size={16} />
 									</ActionIcon>
 								}

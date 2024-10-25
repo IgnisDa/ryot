@@ -65,22 +65,6 @@ export const getInitials = (name: string) => {
 export const changeCase = (name: string) =>
 	startCase(camelCase(name.toLowerCase()));
 
-/**
- * Generate a random string of the given length.
- * Taken from: https://stackoverflow.com/a/1350278/11667450
- */
-export const randomString = (length: number) => {
-	let s = "";
-	const randomChar = () => {
-		const n = Math.floor(Math.random() * 62);
-		if (n < 10) return n; //1-10
-		if (n < 36) return String.fromCharCode(n + 55); //A-Z
-		return String.fromCharCode(n + 61); //a-z
-	};
-	while (s.length < length) s += randomChar();
-	return s;
-};
-
 export const processSubmission = <Schema extends ZodTypeAny>(
 	formData: FormData,
 	schema: Schema,

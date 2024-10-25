@@ -1,5 +1,4 @@
 use anyhow::{bail, Context, Result};
-use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
@@ -54,20 +53,20 @@ mod models {
 
 pub(crate) struct PlexSinkIntegration {
     payload: String,
-    plex_user: Option<String>,
     db: DatabaseConnection,
+    plex_user: Option<String>,
 }
 
 impl PlexSinkIntegration {
     pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
         Self {
+            db,
             payload,
             plex_user,
-            db,
         }
     }
 
-    fn parse_payload(payload: &str) -> Result<models::PlexWebhookPayload> {
+    fn parse_payload(&self, payload: &str) -> Result<models::PlexWebhookPayload> {
         let payload_regex = Regex::new(r"\{.*\}").unwrap();
         let json_payload = payload_regex
             .find(payload)
@@ -76,7 +75,10 @@ impl PlexSinkIntegration {
         serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
     }
 
-    fn get_tmdb_identifier(guids: &[models::PlexWebhookMetadataGuid]) -> Result<&str> {
+    fn get_tmdb_identifier<'a>(
+        &self,
+        guids: &'a [models::PlexWebhookMetadataGuid],
+    ) -> Result<&'a str> {
         guids
             .iter()
             .find(|g| g.id.starts_with("tmdb://"))
@@ -101,7 +103,7 @@ impl PlexSinkIntegration {
         }
     }
 
-    fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
+    fn calculate_progress(&self, payload: &models::PlexWebhookPayload) -> Result<Decimal> {
         match payload.metadata.view_offset {
             Some(offset) => Ok(offset / payload.metadata.duration * dec!(100)),
             None if payload.event_type == "media.scrobble" => Ok(dec!(100)),
@@ -110,9 +112,7 @@ impl PlexSinkIntegration {
     }
 
     pub async fn yank_progress(&self) -> Result<ImportResult> {
-        ryot_log!(debug, "Processing Plex payload {:#?}", self.payload);
-
-        let payload = Self::parse_payload(&self.payload)?;
+        let payload = self.parse_payload(&self.payload)?;
 
         if let Some(plex_user) = &self.plex_user {
             if *plex_user != payload.account.plex_user {
@@ -128,9 +128,9 @@ impl PlexSinkIntegration {
             _ => bail!("Ignoring event type {:#?}", payload.event_type),
         };
 
-        let identifier = Self::get_tmdb_identifier(&payload.metadata.guids)?;
+        let identifier = self.get_tmdb_identifier(&payload.metadata.guids)?;
         let (identifier, lot) = self.get_media_info(&payload.metadata, identifier).await?;
-        let progress = Self::calculate_progress(&payload)?;
+        let progress = self.calculate_progress(&payload)?;
 
         Ok(ImportResult {
             metadata: vec![ImportOrExportMediaItem {
