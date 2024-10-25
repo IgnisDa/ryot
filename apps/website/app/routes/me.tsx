@@ -199,7 +199,7 @@ export default function Index() {
 			loaderData.planDetails.productType ? (
 				<Card className="w-full max-w-md p-6 grid gap-6 m-auto mt-40">
 					<div className="grid grid-cols-2 gap-4">
-						<div>
+						<div className="col-span-2">
 							<Label>Email</Label>
 							<p className="text-muted-foreground">
 								{loaderData.planDetails.email}
@@ -234,10 +234,13 @@ export default function Index() {
 							</div>
 						) : null}
 						{loaderData.planDetails.unkeyKeyId ? (
-							<div>
+							<div className="col-span-2">
 								<Label>Key ID</Label>
 								<p className="text-muted-foreground">
 									{loaderData.planDetails.unkeyKeyId}
+								</p>
+								<p className="text-xs text-gray-500">
+									(This is the key ID; the pro key has been sent to your email)
 								</p>
 							</div>
 						) : null}
