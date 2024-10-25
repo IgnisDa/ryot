@@ -170,8 +170,8 @@ export default function Index() {
 
 	useEffect(() => {
 		initializePaddle({
-			environment: loaderData.isSandbox ? "sandbox" : undefined,
 			token: loaderData.clientToken,
+			environment: loaderData.isSandbox ? "sandbox" : undefined,
 			eventCallback: (data) => {
 				if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 					const transactionId = data.data?.transaction_id;
