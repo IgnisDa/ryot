@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import {
 	ActionIcon,
 	Avatar,
@@ -37,7 +38,6 @@ import {
 	changeCase,
 	getActionIntent,
 	processSubmission,
-	randomString,
 	truncate,
 } from "@ryot/ts-utils";
 import {
@@ -222,7 +222,7 @@ export default function Page() {
 								value={password}
 								onChange={(e) => setPassword(e.currentTarget.value)}
 								rightSection={
-									<ActionIcon onClick={() => setPassword(randomString(7))}>
+									<ActionIcon onClick={() => setPassword(nanoid(7))}>
 										<IconRefresh size={16} />
 									</ActionIcon>
 								}
