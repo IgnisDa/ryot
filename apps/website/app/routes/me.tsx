@@ -63,9 +63,10 @@ export default function Index() {
 						eventCallback: (data) => {
 							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 								paddleInstance.Checkout.close();
-								toast.success(
+								toast.loading(
 									"Purchase successful. Your order will be shipped shortly.",
 								);
+								setTimeout(() => window.location.reload(), 10000);
 							}
 						},
 					});
