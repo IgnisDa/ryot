@@ -165,9 +165,7 @@ export const createUnkeyKey = async (
 		name: email,
 		externalId: customerId,
 		apiId: serverVariables.UNKEY_API_ID,
-		meta: renewOn
-			? { expiry: formatDateToNaiveDate(renewOn.toDate()) }
-			: undefined,
+		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
 	});
 	if (created.error) throw new Error(created.error.message);
 	return created.result;

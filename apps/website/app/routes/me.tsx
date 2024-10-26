@@ -63,9 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.update(customers)
 				.set({ unkeyKeyId: created.keyId })
 				.where(eq(customers.id, customer.id));
-			const renewal = renewOn
-				? formatDateToNaiveDate(renewOn.toDate())
-				: undefined;
+			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
 			await sendEmail(
 				customer.email,
 				PurchaseCompleteEmail.subject,

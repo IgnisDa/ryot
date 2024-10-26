@@ -1,5 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import {
 	HumanizeDuration,
 	HumanizeDurationLanguage,
@@ -43,7 +43,7 @@ export const humanizeDuration = (
 /**
  * Format a `Date` into a Rust `NaiveDate`
  */
-export const formatDateToNaiveDate = (t: Date) => {
+export const formatDateToNaiveDate = (t: Date | Dayjs) => {
 	return dayjs(t).format("YYYY-MM-DD");
 };
 

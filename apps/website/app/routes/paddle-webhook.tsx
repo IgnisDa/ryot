@@ -129,9 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					};
 				})
 				.exhaustive();
-			const renewal = renewOn
-				? formatDateToNaiveDate(renewOn.toDate())
-				: undefined;
+			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
 			await sendEmail(
 				customer.email,
 				PurchaseCompleteEmail.subject,
@@ -150,9 +148,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.where(eq(customers.id, customer.id));
 		} else {
 			const renewal = getRenewOnFromPlanType(customer.planType);
-			const renewOn = renewal
-				? formatDateToNaiveDate(renewal.toDate())
-				: undefined;
+			const renewOn = renewal ? formatDateToNaiveDate(renewal) : undefined;
 			console.log(`Updating customer with renewOn: ${renewOn}`);
 			await db
 				.update(customers)
@@ -172,7 +168,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					meta: renewal
 						? {
 								expiry: formatDateToNaiveDate(
-									renewal.add(GRACE_PERIOD, "days").toDate(),
+									renewal.add(GRACE_PERIOD, "days"),
 								),
 							}
 						: undefined,
