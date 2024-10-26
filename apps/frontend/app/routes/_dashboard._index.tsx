@@ -34,6 +34,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	formatDateToNaiveDate,
 	humanizeDuration,
 	isBoolean,
 	isNumber,
@@ -632,8 +633,10 @@ const ActivitySection = () => {
 		const end = now.endOf("day");
 		const startDate = getDateFromTimeSpan(timeSpan);
 		return {
-			startDate: startDate?.format("YYYY-MM-DD"),
-			endDate: end.format("YYYY-MM-DD"),
+			startDate: startDate
+				? formatDateToNaiveDate(startDate.toDate())
+				: undefined,
+			endDate: formatDateToNaiveDate(end.toDate()),
 		};
 	}, [timeSpan]);
 	const { data: dailyUserActivitiesData } = useQuery({
