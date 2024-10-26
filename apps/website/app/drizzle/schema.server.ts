@@ -13,9 +13,13 @@ export const productTypes = pgEnum("product_type", ["cloud", "self_hosted"]);
 
 export const ProductTypes = z.enum(productTypes.enumValues);
 
+export type TProductTypes = z.infer<typeof ProductTypes>;
+
 export const planTypes = pgEnum("plan_type", ["monthly", "yearly", "lifetime"]);
 
 export const PlanTypes = z.enum(planTypes.enumValues);
+
+export type TPlanTypes = z.infer<typeof PlanTypes>;
 
 export const customers = pgTable("customer", {
 	id: uuid("id").notNull().primaryKey().defaultRandom(),

@@ -1,13 +1,16 @@
 import { EventName } from "@paddle/paddle-node-sdk";
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	RegisterUserDocument,
+	UpdateUserDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import { Unkey } from "@unkey/api";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { match } from "ts-pattern";
-import { customers } from "~/drizzle/schema.server";
+import { type TPlanTypes, customers } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
 	customDataSchema,
@@ -18,6 +21,15 @@ import {
 	serverGqlService,
 	serverVariables,
 } from "~/lib/config.server";
+
+const getRenewOnFromPlanType = (planType: TPlanTypes) =>
+	match(planType)
+		.with("lifetime", () => undefined)
+		.with("yearly", () => dayjs().add(1, "year"))
+		.with("monthly", () => dayjs().add(1, "month"))
+		.exhaustive();
+
+const formatDate = (date: Dayjs) => date.format("YYYY-MM-DD");
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
@@ -70,11 +82,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 
 			const { email, oidcIssuerId } = customer;
-			const renewOn = match(planType)
-				.with("lifetime", () => undefined)
-				.with("yearly", () => dayjs().add(1, "year"))
-				.with("monthly", () => dayjs().add(1, "month"))
-				.exhaustive();
+			const renewOn = getRenewOnFromPlanType(planType);
 			const { ryotUserId, unkeyKeyId, data } = await match(productType)
 				.with("cloud", async () => {
 					const password = nanoid(10);
@@ -126,7 +134,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					};
 				})
 				.exhaustive();
-			const renewal = renewOn ? renewOn.format("YYYY-MM-DD") : undefined;
+			const renewal = renewOn ? formatDate(renewOn) : undefined;
 			await sendEmail(
 				customer.email,
 				PurchaseCompleteEmail.subject,
@@ -143,7 +151,46 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					paddleCustomerId,
 				})
 				.where(eq(customers.id, customer.id));
+		} else {
+			const renewal = getRenewOnFromPlanType(customer.planType);
+			const renewOn = renewal ? formatDate(renewal) : undefined;
+			console.log(`Updating customer with renewOn: ${renewOn}`);
+			await db
+				.update(customers)
+				.set({ renewOn })
+				.where(eq(customers.id, customer.id));
+			if (customer.ryotUserId)
+				await serverGqlService.request(UpdateUserDocument, {
+					input: {
+						isDisabled: false,
+						userId: customer.ryotUserId,
+						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+					},
+				});
 		}
+	}
+
+	if (
+		eventData.eventType === EventName.SubscriptionCanceled ||
+		eventData.eventType === EventName.SubscriptionPaused
+	) {
+		const customerId = eventData.data.customerId;
+		const customer = await db.query.customers.findFirst({
+			where: eq(customers.paddleCustomerId, customerId),
+		});
+		if (!customer) return Response.json({ message: "No customer found" });
+		await db
+			.update(customers)
+			.set({ hasCancelled: true })
+			.where(eq(customers.id, customer.id));
+		if (customer.ryotUserId)
+			await serverGqlService.request(UpdateUserDocument, {
+				input: {
+					isDisabled: true,
+					userId: customer.ryotUserId,
+					adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+				},
+			});
 	}
 
 	return Response.json({ message: "Webhook ran successfully" });
