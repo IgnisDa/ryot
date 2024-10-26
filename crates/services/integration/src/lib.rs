@@ -196,6 +196,7 @@ impl IntegrationService {
                                 specifics.radarr_profile_id.unwrap(),
                                 entity_id,
                                 specifics.radarr_base_url.unwrap(),
+                                metadata.lot,
                                 metadata.title,
                                 specifics.radarr_root_folder_path.unwrap(),
                             );
@@ -207,6 +208,7 @@ impl IntegrationService {
                                 specifics.sonarr_profile_id.unwrap(),
                                 entity_id,
                                 specifics.sonarr_base_url.unwrap(),
+                                metadata.lot,
                                 metadata.title,
                                 specifics.sonarr_root_folder_path.unwrap(),
                             );

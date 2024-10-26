@@ -1,4 +1,5 @@
 use common_utils::ryot_log;
+use enums::MediaLot;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
@@ -13,6 +14,7 @@ pub(crate) struct SonarrPushIntegration {
     profile_id: i32,
     tvdb_id: String,
     base_url: String,
+    metadata_lot: MediaLot,
     metadata_title: String,
     root_folder_path: String,
 }
@@ -23,6 +25,7 @@ impl SonarrPushIntegration {
         profile_id: i32,
         tvdb_id: String,
         base_url: String,
+        metadata_lot: MediaLot,
         metadata_title: String,
         root_folder_path: String,
     ) -> Self {
@@ -31,12 +34,17 @@ impl SonarrPushIntegration {
             api_key,
             base_url,
             profile_id,
+            metadata_lot,
             metadata_title,
             root_folder_path,
         }
     }
 
     pub async fn push_progress(&self) -> anyhow::Result<()> {
+        if self.metadata_lot != MediaLot::Show {
+            ryot_log!(debug, "Not a show, skipping {:#?}", self.metadata_title);
+            return Ok(());
+        }
         let mut configuration = SonarrConfiguration::new();
         configuration.base_path = self.base_url.clone();
         configuration.api_key = Some(SonarrApiKey {
