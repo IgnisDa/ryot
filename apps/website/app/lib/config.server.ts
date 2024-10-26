@@ -131,7 +131,7 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 
 export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
-	if (!cookie) return null;
+	if (!cookie || Object.keys(cookie).length === 0) return null;
 	const customerId = z.string().parse(cookie);
 	return await db.query.customers.findFirst({
 		where: eq(schema.customers.id, customerId),
