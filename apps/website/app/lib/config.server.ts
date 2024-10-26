@@ -144,3 +144,9 @@ export const serverGqlService = new GraphQLClient(
 );
 
 export const honeypot = new Honeypot();
+
+export const customDataSchema = z.object({
+	customerId: z.string(),
+});
+
+export type CustomData = z.infer<typeof customDataSchema>;

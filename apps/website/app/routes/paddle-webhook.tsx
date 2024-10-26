@@ -10,6 +10,7 @@ import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
+	customDataSchema,
 	db,
 	getPaddleServerClient,
 	getProductAndPlanTypeByPriceId,
@@ -43,9 +44,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		console.log(
 			`Received transaction completed event for customer id: ${paddleCustomerId}`,
 		);
-		const customer = await db.query.customers.findFirst({
+		let customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, paddleCustomerId),
 		});
+		if (!customer) {
+			const parsed = customDataSchema.safeParse(eventData.data.customData);
+			if (parsed.success)
+				customer = await db.query.customers.findFirst({
+					where: eq(customers.id, parsed.data.customerId),
+				});
+		}
+
 		if (!customer)
 			return Response.json({
 				error: `No customer found for customer ID: ${paddleCustomerId}`,

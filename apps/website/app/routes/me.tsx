@@ -15,6 +15,7 @@ import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
+	type CustomData,
 	getCustomerFromCookie,
 	prices,
 	serverVariables,
@@ -134,6 +135,9 @@ export default function Index() {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							customer: { email: loaderData.customerDetails.email },
+							customData: {
+								customerId: loaderData.customerDetails.id,
+							} as CustomData,
 						});
 					}}
 				/>
