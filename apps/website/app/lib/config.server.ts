@@ -1,6 +1,7 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { createCookie } from "@remix-run/node";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
@@ -123,15 +124,18 @@ export const sendEmail = async (
 	return resp.messageId;
 };
 
-export const authCookie = createCookie("WebsiteAuth", {
+export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	maxAge: 60 * 60 * 24 * 365,
 	path: "/",
 });
 
-export const getUserIdFromCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("cookie"));
+export const getCustomerFromCookie = async (request: Request) => {
+	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
 	if (!cookie) return null;
-	return z.string().parse(cookie);
+	const customerId = z.string().parse(cookie);
+	return await db.query.customers.findFirst({
+		where: eq(schema.customers.id, customerId),
+	});
 };
 
 export const serverGqlService = new GraphQLClient(

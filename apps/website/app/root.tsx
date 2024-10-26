@@ -17,7 +17,7 @@ import type {
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getUserIdFromCookie, honeypot } from "./lib/config.server";
+import { getCustomerFromCookie, honeypot } from "./lib/config.server";
 import { startUrl } from "./lib/utils";
 
 export const links: LinksFunction = () => {
@@ -42,9 +42,9 @@ export const links: LinksFunction = () => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userId = await getUserIdFromCookie(request);
+	const customer = await getCustomerFromCookie(request);
 	return {
-		isLoggedIn: !!userId,
+		isLoggedIn: !!customer,
 		honeypotInputProps: honeypot.getInputProps(),
 	};
 };

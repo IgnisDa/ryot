@@ -5,7 +5,12 @@ import {
 	type LoaderFunctionArgs,
 	redirect,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useLoaderData,
+	useRouteLoaderData,
+} from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
@@ -43,15 +48,15 @@ import {
 } from "~/lib/components/ui/input-otp";
 import { Textarea } from "~/lib/components/ui/textarea";
 import {
-	authCookie,
 	db,
-	getUserIdFromCookie,
 	honeypot,
 	oauthClient,
 	prices,
 	sendEmail,
+	websiteAuthCookie,
 } from "~/lib/config.server";
 import { cn, startUrl } from "~/lib/utils";
+import type { loader as rootLoader } from "../root";
 
 dayjs.extend(duration);
 
@@ -64,8 +69,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const userId = await getUserIdFromCookie(request);
-	return { prices, query, isLoggedIn: !!userId };
+	return { prices, query };
 };
 
 const otpCodesCache = new TTLCache<string, string>({
@@ -112,7 +116,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			if (!customerId)
 				throw new Error("There was an error registering the user.");
 			return redirect($path("/me"), {
-				headers: { "set-cookie": await authCookie.serialize(customerId) },
+				headers: {
+					"set-cookie": await websiteAuthCookie.serialize(customerId),
+				},
 			});
 		})
 		.with("registerWithOidc", async () => {
@@ -156,6 +162,7 @@ const contactSubmissionSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
 
 	return (
 		<>
@@ -292,7 +299,7 @@ export default function Page() {
 						</p>
 					</div>
 					<div className="mx-auto w-full max-w-sm space-y-2">
-						{loaderData.isLoggedIn ? (
+						{rootLoaderData?.isLoggedIn ? (
 							<Link to={$path("/me")}>
 								<Button>
 									<IconPlayerPlay size={16} className="mr-2" />
@@ -417,7 +424,10 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			<Pricing prices={loaderData.prices} isLoggedIn={loaderData.isLoggedIn} />
+			<Pricing
+				prices={loaderData.prices}
+				isLoggedIn={rootLoaderData?.isLoggedIn}
+			/>
 			<section id="contact" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">

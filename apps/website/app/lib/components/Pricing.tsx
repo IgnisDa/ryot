@@ -14,7 +14,7 @@ import {
 
 export default function Pricing(props: {
 	prices: TPrices;
-	isLoggedIn: boolean;
+	isLoggedIn?: boolean;
 	onClick?: (priceId: string) => void;
 }) {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);

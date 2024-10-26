@@ -5,9 +5,9 @@ import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
 import {
 	OAUTH_CALLBACK_URL,
-	authCookie,
 	db,
 	oauthClient,
+	websiteAuthCookie,
 } from "~/lib/config.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -37,6 +37,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		.otherwise((value) => value.id);
 	if (!customerId) throw new Error("There was an error registering the user.");
 	return redirect($path("/me"), {
-		headers: { "set-cookie": await authCookie.serialize(customerId) },
+		headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },
 	});
 };

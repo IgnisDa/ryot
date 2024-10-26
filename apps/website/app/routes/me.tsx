@@ -6,42 +6,26 @@ import {
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, redirect, useLoaderData } from "@remix-run/react";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
-import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
-	authCookie,
-	db,
-	getUserIdFromCookie,
+	getCustomerFromCookie,
 	prices,
 	serverVariables,
+	websiteAuthCookie,
 } from "~/lib/config.server";
 import { startUrl } from "~/lib/utils";
 
 const redirectToStartHere = () => redirect(startUrl);
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userId = await getUserIdFromCookie(request);
-	const isLoggedIn = !!userId;
-	if (!isLoggedIn) return redirectToStartHere();
-	const customerDetails = await db.query.customers.findFirst({
-		where: eq(customers.id, userId),
-		columns: {
-			email: true,
-			renewOn: true,
-			planType: true,
-			productType: true,
-			unkeyKeyId: true,
-			ryotUserId: true,
-		},
-	});
+	const customerDetails = await getCustomerFromCookie(request);
 	if (!customerDetails) return redirectToStartHere();
 	return {
 		prices,
@@ -55,7 +39,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("logout", async () => {
-			const cookies = await authCookie.serialize("", { expires: new Date(0) });
+			const cookies = await websiteAuthCookie.serialize("", {
+				expires: new Date(0),
+			});
 			return Response.json({}, { headers: { "set-cookie": cookies } });
 		})
 		.run();
