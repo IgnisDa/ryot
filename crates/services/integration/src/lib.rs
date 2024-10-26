@@ -221,12 +221,12 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
-        let (seen, show_extra_information, metadata_title) = Seen::find_by_id(id)
+        let (seen, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
             .columns([seen::Column::UserId, seen::Column::ShowExtraInformation])
-            .columns([metadata::Column::Title])
-            .into_tuple::<(String, Option<SeenShowExtraInformation>, String)>()
+            .columns([metadata::Column::Title, metadata::Column::Lot])
+            .into_tuple::<(String, Option<SeenShowExtraInformation>, String, MediaLot)>()
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
@@ -244,6 +244,7 @@ impl IntegrationService {
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
                         specifics.jellyfin_push_password.unwrap(),
+                        &metadata_lot,
                         &metadata_title,
                         &show_extra_information,
                     );

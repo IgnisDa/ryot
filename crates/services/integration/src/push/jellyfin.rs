@@ -1,3 +1,5 @@
+use common_utils::ryot_log;
+use enums::MediaLot;
 use external_utils::jellyfin::{get_authenticated_client, ItemsResponse};
 use media_models::SeenShowExtraInformation;
 use serde_json::json;
@@ -7,6 +9,7 @@ pub(crate) struct JellyfinPushIntegration<'a> {
     base_url: String,
     username: String,
     password: String,
+    metadata_lot: &'a MediaLot,
     metadata_title: &'a String,
     show_extra_information: &'a Option<SeenShowExtraInformation>,
 }
@@ -16,6 +19,7 @@ impl<'a> JellyfinPushIntegration<'a> {
         base_url: String,
         username: String,
         password: String,
+        metadata_lot: &'a MediaLot,
         metadata_title: &'a String,
         show_extra_information: &'a Option<SeenShowExtraInformation>,
     ) -> Self {
@@ -23,12 +27,24 @@ impl<'a> JellyfinPushIntegration<'a> {
             base_url,
             username,
             password,
+            metadata_lot,
             metadata_title,
             show_extra_information,
         }
     }
 
     pub async fn push_progress(&self) -> anyhow::Result<()> {
+        match *self.metadata_lot {
+            MediaLot::Movie | MediaLot::Show => {}
+            _ => {
+                ryot_log!(
+                    debug,
+                    "Not pushing {:#?} progress for jellyfin push integration",
+                    self.metadata_lot
+                );
+                return Ok(());
+            }
+        }
         let (client, user_id) =
             get_authenticated_client(&self.base_url, &self.username, &self.password).await?;
         let json =
