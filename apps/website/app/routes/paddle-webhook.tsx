@@ -5,14 +5,16 @@ import {
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
+import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
-import dayjs, { type Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { match } from "ts-pattern";
 import { type TPlanTypes, customers } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
+	createUnkeyKey,
 	customDataSchema,
 	db,
 	getPaddleServerClient,
@@ -28,8 +30,6 @@ const getRenewOnFromPlanType = (planType: TPlanTypes) =>
 		.with("yearly", () => dayjs().add(1, "year"))
 		.with("monthly", () => dayjs().add(1, "month"))
 		.exhaustive();
-
-const formatDate = (date: Dayjs) => date.format("YYYY-MM-DD");
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
@@ -114,30 +114,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					};
 				})
 				.with("self_hosted", async () => {
-					const created = await unkey.keys.create({
-						name: email,
-						externalId: customer.id,
-						meta: renewOn
-							? {
-									expiry: renewOn
-										.add(GRACE_PERIOD, "days")
-										.format("YYYY-MM-DD"),
-								}
-							: undefined,
-						apiId: serverVariables.UNKEY_API_ID,
-					});
-					if (created.error) throw new Error(created.error.message);
+					const created = await createUnkeyKey(
+						email,
+						customer.id,
+						renewOn ? renewOn.add(GRACE_PERIOD, "days") : undefined,
+					);
 					return {
 						ryotUserId: null,
-						unkeyKeyId: created.result.keyId,
+						unkeyKeyId: created.keyId,
 						details: {
+							key: created.key,
 							__typename: "self_hosted" as const,
-							key: created.result.key,
 						},
 					};
 				})
 				.exhaustive();
-			const renewal = renewOn ? formatDate(renewOn) : undefined;
+			const renewal = renewOn
+				? formatDateToNaiveDate(renewOn.toDate())
+				: undefined;
 			await sendEmail(
 				customer.email,
 				PurchaseCompleteEmail.subject,
@@ -156,7 +150,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.where(eq(customers.id, customer.id));
 		} else {
 			const renewal = getRenewOnFromPlanType(customer.planType);
-			const renewOn = renewal ? formatDate(renewal) : undefined;
+			const renewOn = renewal
+				? formatDateToNaiveDate(renewal.toDate())
+				: undefined;
 			console.log(`Updating customer with renewOn: ${renewOn}`);
 			await db
 				.update(customers)
@@ -174,7 +170,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await unkey.keys.update({
 					keyId: customer.unkeyKeyId,
 					meta: renewal
-						? { expiry: renewal.add(GRACE_PERIOD, "days").format("YYYY-MM-DD") }
+						? {
+								expiry: formatDateToNaiveDate(
+									renewal.add(GRACE_PERIOD, "days").toDate(),
+								),
+							}
 						: undefined,
 				});
 		}

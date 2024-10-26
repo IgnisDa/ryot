@@ -5,19 +5,30 @@ import {
 } from "@paddle/paddle-js";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, redirect, useLoaderData } from "@remix-run/react";
-import { changeCase, getActionIntent } from "@ryot/ts-utils";
+import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
+import {
+	changeCase,
+	formatDateToNaiveDate,
+	getActionIntent,
+} from "@ryot/ts-utils";
+import dayjs from "dayjs";
+import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
 	type CustomData,
+	createUnkeyKey,
+	db,
 	getCustomerFromCookie,
 	prices,
+	sendEmail,
 	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
@@ -39,6 +50,33 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
+		.with("regenerateUnkeyKey", async () => {
+			const customer = await getCustomerFromCookie(request);
+			if (!customer || !customer.planType) throw new Error("No customer found");
+			const renewOn = customer.renewOn ? dayjs(customer.renewOn) : undefined;
+			const created = await createUnkeyKey(
+				customer.email,
+				customer.id,
+				renewOn,
+			);
+			await db
+				.update(customers)
+				.set({ unkeyKeyId: created.keyId })
+				.where(eq(customers.id, customer.id));
+			const renewal = renewOn
+				? formatDateToNaiveDate(renewOn.toDate())
+				: undefined;
+			await sendEmail(
+				customer.email,
+				PurchaseCompleteEmail.subject,
+				PurchaseCompleteEmail({
+					renewOn: renewal,
+					planType: customer.planType,
+					details: { __typename: "self_hosted", key: created.key },
+				}),
+			);
+			return Response.json({});
+		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
 				expires: new Date(0),
@@ -120,7 +158,26 @@ export default function Index() {
 						) : null}
 						{loaderData.customerDetails.unkeyKeyId ? (
 							<div className="col-span-2">
-								<Label>Key ID</Label>
+								<div className="flex items-center justify-between">
+									<Label>Key ID</Label>
+									<Form
+										method="POST"
+										action={withQuery(".", { intent: "regenerateUnkeyKey" })}
+									>
+										<button
+											type="submit"
+											className="text-xs underline text-right"
+											onClick={(e) => {
+												const yes = confirm(
+													"Are you sure you want to regenerate the unkey key? All old unkey keys will be invalidated.",
+												);
+												if (!yes) e.preventDefault();
+											}}
+										>
+											Regenerate
+										</button>
+									</Form>
+								</div>
 								<p className="text-muted-foreground">
 									{loaderData.customerDetails.unkeyKeyId}
 								</p>

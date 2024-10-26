@@ -1,6 +1,9 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { createCookie } from "@remix-run/node";
+import { formatDateToNaiveDate } from "@ryot/ts-utils";
+import { Unkey } from "@unkey/api";
+import type { Dayjs } from "dayjs";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
@@ -114,6 +117,7 @@ export const sendEmail = async (
 	});
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
+	console.log(`Sending email to ${recipient} with subject ${subject}`);
 	const resp = await client.sendMail({
 		text,
 		html,
@@ -150,3 +154,21 @@ export const customDataSchema = z.object({
 });
 
 export type CustomData = z.infer<typeof customDataSchema>;
+
+export const createUnkeyKey = async (
+	email: string,
+	customerId: string,
+	renewOn?: Dayjs,
+) => {
+	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+	const created = await unkey.keys.create({
+		name: email,
+		externalId: customerId,
+		apiId: serverVariables.UNKEY_API_ID,
+		meta: renewOn
+			? { expiry: formatDateToNaiveDate(renewOn.toDate()) }
+			: undefined,
+	});
+	if (created.error) throw new Error(created.error.message);
+	return created.result;
+};
