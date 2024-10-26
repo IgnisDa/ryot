@@ -1,5 +1,4 @@
 import { EventName } from "@paddle/paddle-node-sdk";
-import { logger } from "@remix-pwa/sw";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { eq } from "drizzle-orm";
 import invariant from "tiny-invariant";
@@ -29,7 +28,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			return Response.json({
 				error: "No customer ID found in transaction completed event",
 			});
-		logger.debug(
+		console.log(
 			`Received transaction completed event for customer id: ${customerId}`,
 		);
 		const customer = await db.query.customers.findFirst({
