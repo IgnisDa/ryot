@@ -115,8 +115,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				})
 				.with("self_hosted", async () => {
 					const created = await unkey.keys.create({
-						apiId: serverVariables.UNKEY_API_ID,
 						name: email,
+						externalId: customer.id,
 						meta: renewOn
 							? {
 									expiry: renewOn
@@ -124,6 +124,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 										.format("YYYY-MM-DD"),
 								}
 							: undefined,
+						apiId: serverVariables.UNKEY_API_ID,
 					});
 					if (created.error) throw new Error(created.error.message);
 					return {
