@@ -8,6 +8,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
@@ -348,27 +349,35 @@ export const FiltersModal = (props: {
 export const CollectionsFilter = (props: {
 	cookieName: string;
 	collections?: string[];
+	invertCollection?: boolean;
 }) => {
 	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (
-		<MultiSelect
-			placeholder="Select a collection"
-			defaultValue={props.collections}
-			data={[
-				{
-					group: "My collections",
-					items: collections.map((c) => ({
-						value: c.id.toString(),
-						label: c.name,
-					})),
-				},
-			]}
-			onChange={(v) => setP("collections", v.join(","))}
-			clearable
-			searchable
-		/>
+		<Flex gap="xs" align="center">
+			<MultiSelect
+				placeholder="Select a collection"
+				defaultValue={props.collections}
+				data={[
+					{
+						group: "My collections",
+						items: collections.map((c) => ({
+							value: c.id.toString(),
+							label: c.name,
+						})),
+					},
+				]}
+				onChange={(v) => setP("collections", v.join(","))}
+				clearable
+				searchable
+			/>
+			<Checkbox
+				label="Invert"
+				checked={props.invertCollection}
+				onChange={(e) => setP("invertCollection", String(e.target.checked))}
+			/>
+		</Flex>
 	);
 };
 

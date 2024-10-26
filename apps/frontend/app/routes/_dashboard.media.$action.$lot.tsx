@@ -3,7 +3,6 @@ import {
 	Box,
 	Button,
 	Center,
-	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -629,17 +628,11 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
-			<Flex gap="xs" align="center">
-				<CollectionsFilter
-					cookieName={loaderData.cookieName}
-					collections={loaderData.mediaList.url.collections}
-				/>
-				<Checkbox
-					label="Invert"
-					checked={loaderData.mediaList.url.invertCollection}
-					onChange={(e) => setP("invertCollection", String(e.target.checked))}
-				/>
-			</Flex>
+			<CollectionsFilter
+				cookieName={loaderData.cookieName}
+				collections={loaderData.mediaList.url.collections}
+				invertCollection={loaderData.mediaList.url.invertCollection}
+			/>
 		</>
 	);
 };
