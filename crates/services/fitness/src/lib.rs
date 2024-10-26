@@ -174,16 +174,15 @@ impl ExerciseService {
         workout_template_id: String,
     ) -> Result<bool> {
         pro_instance_guard(self.0.is_pro).await?;
-        if let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
+        let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
             .filter(workout_template::Column::UserId.eq(&user_id))
             .one(&self.0.db)
             .await?
-        {
-            wkt.delete(&self.0.db).await?;
-            Ok(true)
-        } else {
-            Err(Error::new("Workout template does not exist for user"))
-        }
+        else {
+            return Err(Error::new("Workout template does not exist for user"));
+        };
+        wkt.delete(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn exercise_parameters(&self) -> Result<ExerciseParameters> {
@@ -525,15 +524,14 @@ impl ExerciseService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        if let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+        let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
             .one(&self.0.db)
             .await?
-        {
-            m.delete(&self.0.db).await?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        else {
+            return Ok(false);
+        };
+        m.delete(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn create_or_update_user_workout(
@@ -550,28 +548,27 @@ impl ExerciseService {
         user_id: String,
         input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
-        if let Some(wkt) = Workout::find()
+        let Some(wkt) = Workout::find()
             .filter(workout::Column::UserId.eq(&user_id))
             .filter(workout::Column::Id.eq(input.id))
             .one(&self.0.db)
             .await?
-        {
-            let mut new_wkt: workout::ActiveModel = wkt.into();
-            if let Some(d) = input.start_time {
-                new_wkt.start_time = ActiveValue::Set(d);
-            }
-            if let Some(d) = input.end_time {
-                new_wkt.end_time = ActiveValue::Set(d);
-            }
-            if new_wkt.is_changed() {
-                new_wkt.update(&self.0.db).await?;
-                deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
-                Ok(true)
-            } else {
-                Ok(false)
-            }
+        else {
+            return Err(Error::new("Workout does not exist for user"));
+        };
+        let mut new_wkt: workout::ActiveModel = wkt.into();
+        if let Some(d) = input.start_time {
+            new_wkt.start_time = ActiveValue::Set(d);
+        }
+        if let Some(d) = input.end_time {
+            new_wkt.end_time = ActiveValue::Set(d);
+        }
+        if new_wkt.is_changed() {
+            new_wkt.update(&self.0.db).await?;
+            deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
+            Ok(true)
         } else {
-            Err(Error::new("Workout does not exist for user"))
+            Ok(false)
         }
     }
 

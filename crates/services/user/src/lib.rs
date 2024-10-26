@@ -217,24 +217,23 @@ impl UserService {
     ) -> Result<bool> {
         admin_account_guard(&self.0.db, &admin_user_id).await?;
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.0.db).await?;
-        if let Some(u) = maybe_user {
-            if self
-                .users_list(None)
-                .await?
-                .into_iter()
-                .filter(|u| u.lot == UserLot::Admin)
-                .collect_vec()
-                .len()
-                == 1
-                && u.lot == UserLot::Admin
-            {
-                return Ok(false);
-            }
-            u.delete(&self.0.db).await?;
-            Ok(true)
-        } else {
-            Ok(false)
+        let Some(u) = maybe_user else {
+            return Ok(false);
+        };
+        if self
+            .users_list(None)
+            .await?
+            .into_iter()
+            .filter(|u| u.lot == UserLot::Admin)
+            .collect_vec()
+            .len()
+            == 1
+            && u.lot == UserLot::Admin
+        {
+            return Ok(false);
         }
+        u.delete(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
@@ -981,14 +980,13 @@ impl UserService {
 
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token, &self.0.config.users.jwt_secret);
-        if let Ok(user_id) = found_token {
-            let user = user_by_id(&self.0.db, &user_id).await?;
-            Ok(UserDetailsResult::Ok(Box::new(user)))
-        } else {
-            Ok(UserDetailsResult::Error(UserDetailsError {
+        let Ok(user_id) = found_token else {
+            return Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
-            }))
-        }
+            }));
+        };
+        let user = user_by_id(&self.0.db, &user_id).await?;
+        Ok(UserDetailsResult::Ok(Box::new(user)))
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {

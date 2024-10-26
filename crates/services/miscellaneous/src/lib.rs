@@ -1770,42 +1770,40 @@ ORDER BY RANDOM() LIMIT 10;
         seen_id: String,
     ) -> Result<StringIdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.0.db).await.unwrap();
-        if let Some(si) = seen_item {
-            let cloned_seen = si.clone();
-            let (ssn, sen) = match &si.show_extra_information {
-                Some(d) => (Some(d.season), Some(d.episode)),
-                None => (None, None),
-            };
-            let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
-            let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
-            let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
-            let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-            let cache = ApplicationCacheKey::ProgressUpdateCache {
-                show_season_number: ssn,
-                manga_volume_number: mvn,
-                show_episode_number: sen,
-                anime_episode_number: aen,
-                manga_chapter_number: mcn,
-                podcast_episode_number: pen,
-                user_id: user_id.to_owned(),
-                metadata_id: si.metadata_id.clone(),
-            };
-            self.0.cache_service.delete(cache).await?;
-            let seen_id = si.id.clone();
-            let metadata_id = si.metadata_id.clone();
-            if &si.user_id != user_id {
-                return Err(Error::new(
-                    "This seen item does not belong to this user".to_owned(),
-                ));
-            }
-            si.delete(&self.0.db).await.trace_ok();
-            associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
-                .await?;
-            deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
-            Ok(StringIdObject { id: seen_id })
-        } else {
-            Err(Error::new("This seen item does not exist".to_owned()))
+        let Some(si) = seen_item else {
+            return Err(Error::new("This seen item does not exist".to_owned()));
+        };
+        let cloned_seen = si.clone();
+        let (ssn, sen) = match &si.show_extra_information {
+            Some(d) => (Some(d.season), Some(d.episode)),
+            None => (None, None),
+        };
+        let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
+        let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
+        let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
+        let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
+        let cache = ApplicationCacheKey::ProgressUpdateCache {
+            show_season_number: ssn,
+            manga_volume_number: mvn,
+            show_episode_number: sen,
+            anime_episode_number: aen,
+            manga_chapter_number: mcn,
+            podcast_episode_number: pen,
+            user_id: user_id.to_owned(),
+            metadata_id: si.metadata_id.clone(),
+        };
+        self.0.cache_service.delete(cache).await?;
+        let seen_id = si.id.clone();
+        let metadata_id = si.metadata_id.clone();
+        if &si.user_id != user_id {
+            return Err(Error::new(
+                "This seen item does not belong to this user".to_owned(),
+            ));
         }
+        si.delete(&self.0.db).await.trace_ok();
+        associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata).await?;
+        deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
+        Ok(StringIdObject { id: seen_id })
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {

@@ -358,24 +358,23 @@ pub async fn check_token(
     db: &DatabaseConnection,
 ) -> Result<bool> {
     let claims = user_claims_from_token(token, jwt_secret)?;
-    if let Some(access_link) = claims.access_link {
-        let access_link = AccessLink::find_by_id(access_link.id)
-            .one(db)
-            .await?
-            .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
-        if access_link.is_revoked.unwrap_or_default() {
-            return Err(Error::new(BackendError::SessionExpired.to_string()));
-        }
-        if is_mutation {
-            if !access_link.is_mutation_allowed.unwrap_or_default() {
-                return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
-            }
-            return Ok(true);
-        }
-        Ok(true)
-    } else {
-        Ok(true)
+    let Some(access_link) = claims.access_link else {
+        return Ok(true);
+    };
+    let access_link = AccessLink::find_by_id(access_link.id)
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
+    if access_link.is_revoked.unwrap_or_default() {
+        return Err(Error::new(BackendError::SessionExpired.to_string()));
     }
+    if is_mutation {
+        if !access_link.is_mutation_allowed.unwrap_or_default() {
+            return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
+        }
+        return Ok(true);
+    }
+    Ok(true)
 }
 
 pub async fn remove_entity_from_collection(
