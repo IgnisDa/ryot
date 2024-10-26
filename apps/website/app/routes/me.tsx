@@ -52,6 +52,8 @@ export default function Index() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [paddle, setPaddle] = useState<Paddle>();
 
+	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
+
 	useEffect(() => {
 		if (!paddle)
 			initializePaddle({
@@ -77,7 +79,8 @@ export default function Index() {
 
 	return (
 		<>
-			{loaderData.customerDetails.planType &&
+			{!loaderData.customerDetails.hasCancelled &&
+			loaderData.customerDetails.planType &&
 			loaderData.customerDetails.productType ? (
 				<Card className="w-full max-w-md p-6 grid gap-6 m-auto mt-40">
 					<div className="grid grid-cols-2 gap-4">
@@ -135,10 +138,13 @@ export default function Index() {
 					onClick={(priceId) => {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
-							customer: { email: loaderData.customerDetails.email },
+							customer: paddleCustomerId
+								? { id: paddleCustomerId }
+								: { email: loaderData.customerDetails.email },
 							customData: {
 								customerId: loaderData.customerDetails.id,
 							} as CustomData,
+							settings: paddleCustomerId ? { allowLogout: false } : undefined,
 						});
 					}}
 				/>
