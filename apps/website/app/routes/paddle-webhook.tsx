@@ -181,7 +181,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 	if (
 		eventType === EventName.SubscriptionCanceled ||
-		eventType === EventName.SubscriptionPaused
+		eventType === EventName.SubscriptionPaused ||
+		eventType === EventName.SubscriptionPastDue
 	) {
 		const customerId = data.customerId;
 		const customer = await db.query.customers.findFirst({
