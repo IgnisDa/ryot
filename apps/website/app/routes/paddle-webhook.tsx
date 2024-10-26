@@ -157,7 +157,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			console.log(`Updating customer with renewOn: ${renewOn}`);
 			await db
 				.update(customers)
-				.set({ renewOn })
+				.set({ renewOn, hasCancelled: null })
 				.where(eq(customers.id, customer.id));
 			if (customer.ryotUserId)
 				await serverGqlService.request(UpdateUserDocument, {
