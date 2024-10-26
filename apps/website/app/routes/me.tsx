@@ -4,15 +4,11 @@ import {
 	initializePaddle,
 } from "@paddle/paddle-js";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, redirect, useLoaderData, useSubmit } from "@remix-run/react";
-import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
-import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
+import { Form, redirect, useLoaderData } from "@remix-run/react";
 import { changeCase, getActionIntent } from "@ryot/ts-utils";
-import { Unkey } from "@unkey/api";
-import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
@@ -21,15 +17,10 @@ import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
-	GRACE_PERIOD,
 	authCookie,
 	db,
-	getPaddleServerClient,
-	getProductAndPlanTypeByPriceId,
 	getUserIdFromCookie,
 	prices,
-	sendEmail,
-	serverGqlService,
 	serverVariables,
 } from "~/lib/config.server";
 import { startUrl } from "~/lib/utils";
@@ -67,104 +58,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const cookies = await authCookie.serialize("", { expires: new Date(0) });
 			return Response.json({}, { headers: { "set-cookie": cookies } });
 		})
-		.with("processPurchase", async () => {
-			const userId = await getUserIdFromCookie(request);
-			if (!userId)
-				throw new Error("You must be logged in to buy a subscription");
-			const { transactionId }: { transactionId: string } = await request.json();
-			const paddleClient = getPaddleServerClient();
-			const transaction = await paddleClient.transactions.get(transactionId);
-			const priceId = transaction.details?.lineItems[0].priceId;
-			if (!priceId) throw new Error("Price ID not found");
-			const paddleCustomerId = transaction.customerId;
-			if (!paddleCustomerId) throw new Error("Paddle customer ID not found");
-			const customer = await db.query.customers.findFirst({
-				where: eq(customers.id, userId),
-			});
-			if (!customer) throw new Error("Customer not found");
-			const { email, oidcIssuerId } = customer;
-			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
-			const renewOn = match(planType)
-				.with("lifetime", () => undefined)
-				.with("yearly", () => dayjs().add(1, "year"))
-				.with("monthly", () => dayjs().add(1, "month"))
-				.exhaustive();
-			const { ryotUserId, unkeyKeyId, data } = await match(productType)
-				.with("cloud", async () => {
-					const password = nanoid(10);
-					const { registerUser } = await serverGqlService.request(
-						RegisterUserDocument,
-						{
-							input: {
-								adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-								data: oidcIssuerId
-									? { oidc: { email: email, issuerId: oidcIssuerId } }
-									: { password: { username: email, password: password } },
-							},
-						},
-					);
-					if (registerUser.__typename === "RegisterError") {
-						console.error(registerUser);
-						throw new Error("Failed to register user");
-					}
-					return {
-						ryotUserId: registerUser.id,
-						unkeyKeyId: null,
-						data: {
-							__typename: "cloud" as const,
-							auth: oidcIssuerId ? email : { username: email, password },
-						},
-					};
-				})
-				.with("self_hosted", async () => {
-					const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-					const created = await unkey.keys.create({
-						apiId: serverVariables.UNKEY_API_ID,
-						name: email,
-						meta: renewOn
-							? {
-									expiry: renewOn
-										.add(GRACE_PERIOD, "days")
-										.format("YYYY-MM-DD"),
-								}
-							: undefined,
-					});
-					if (created.error) throw new Error(created.error.message);
-					return {
-						ryotUserId: null,
-						unkeyKeyId: created.result.keyId,
-						data: {
-							__typename: "self_hosted" as const,
-							key: created.result.key,
-						},
-					};
-				})
-				.exhaustive();
-			const renewal = renewOn ? renewOn.format("YYYY-MM-DD") : undefined;
-			await sendEmail(
-				customer.email,
-				PurchaseCompleteEmail.subject,
-				PurchaseCompleteEmail({ planType, renewOn: renewal, data }),
-			);
-			await db
-				.update(customers)
-				.set({
-					planType,
-					ryotUserId,
-					unkeyKeyId,
-					productType,
-					renewOn: renewal,
-					paddleCustomerId,
-				})
-				.where(eq(customers.id, userId));
-			return Response.json({});
-		})
 		.run();
 };
 
 export default function Index() {
 	const loaderData = useLoaderData<typeof loader>();
-	const submit = useSubmit();
 	const [paddle, setPaddle] = useState<Paddle>();
 
 	useEffect(() => {
@@ -177,15 +75,8 @@ export default function Index() {
 					eventCallback: (data) => {
 						if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 							paddleInstance.Checkout.close();
-							const transactionId = data.data?.transaction_id;
-							if (!transactionId) throw new Error("Transaction ID not found");
-							submit(
-								{ transactionId },
-								{
-									method: "POST",
-									encType: "application/json",
-									action: withQuery(".", { intent: "processPurchase" }),
-								},
+							toast.success(
+								"Purchase successful. Your order will be shipped shortly.",
 							);
 						}
 					},
