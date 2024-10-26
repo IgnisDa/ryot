@@ -6319,6 +6319,7 @@ __metadata:
     "@radix-ui/react-slot": "npm:1.1.0"
     "@radix-ui/react-tooltip": "npm:1.1.3"
     "@react-email/components": "npm:0.0.25"
+    "@remix-pwa/sw": "npm:3.0.10"
     "@remix-run/dev": "npm:2.13.1"
     "@remix-run/node": "npm:2.13.1"
     "@remix-run/react": "npm:2.13.1"
