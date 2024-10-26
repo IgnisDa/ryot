@@ -833,32 +833,31 @@ pub async fn commit_metadata(
     input: CommitMediaInput,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
-    if let Some(m) = Metadata::find()
+    let Some(m) = Metadata::find()
         .filter(metadata::Column::Lot.eq(input.lot))
         .filter(metadata::Column::Source.eq(input.source))
         .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
         .one(&ss.db)
         .await?
-    {
-        let cached_metadata = CommitCache {
-            id: m.id.clone(),
-            lot: EntityLot::Metadata,
-        };
-        if ss.commit_cache.get(&cached_metadata).await.is_some() {
-            return Ok(m);
-        }
-        ss.commit_cache.insert(cached_metadata.clone(), ()).await;
-        if input.force_update.unwrap_or_default() {
-            ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
-            update_metadata_and_notify_users(&m.id, true, ss).await?;
-        }
-        ss.commit_cache.remove(&cached_metadata).await;
-        Ok(m)
-    } else {
+    else {
         let details = details_from_provider(input.lot, input.source, &input.identifier, ss).await?;
         let media = commit_metadata_internal(details, None, ss).await?;
-        Ok(media)
+        return Ok(media);
+    };
+    let cached_metadata = CommitCache {
+        id: m.id.clone(),
+        lot: EntityLot::Metadata,
+    };
+    if ss.commit_cache.get(&cached_metadata).await.is_some() {
+        return Ok(m);
     }
+    ss.commit_cache.insert(cached_metadata.clone(), ()).await;
+    if input.force_update.unwrap_or_default() {
+        ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
+        update_metadata_and_notify_users(&m.id, true, ss).await?;
+    }
+    ss.commit_cache.remove(&cached_metadata).await;
+    Ok(m)
 }
 
 pub async fn deploy_update_metadata_job(
