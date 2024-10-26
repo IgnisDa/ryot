@@ -66,24 +66,25 @@ export default function Index() {
 	const [paddle, setPaddle] = useState<Paddle>();
 
 	useEffect(() => {
-		initializePaddle({
-			token: loaderData.clientToken,
-			environment: loaderData.isSandbox ? "sandbox" : undefined,
-		}).then((paddleInstance) => {
-			if (paddleInstance) {
-				paddleInstance.Update({
-					eventCallback: (data) => {
-						if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
-							paddleInstance.Checkout.close();
-							toast.success(
-								"Purchase successful. Your order will be shipped shortly.",
-							);
-						}
-					},
-				});
-				setPaddle(paddleInstance);
-			}
-		});
+		if (!paddle)
+			initializePaddle({
+				token: loaderData.clientToken,
+				environment: loaderData.isSandbox ? "sandbox" : undefined,
+			}).then((paddleInstance) => {
+				if (paddleInstance) {
+					paddleInstance.Update({
+						eventCallback: (data) => {
+							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+								paddleInstance.Checkout.close();
+								toast.success(
+									"Purchase successful. Your order will be shipped shortly.",
+								);
+							}
+						},
+					});
+					setPaddle(paddleInstance);
+				}
+			});
 	}, []);
 
 	return (
