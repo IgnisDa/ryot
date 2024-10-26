@@ -74,6 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				error: `No customer found for customer ID: ${paddleCustomerId}`,
 			});
 
+		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 		if (!customer.planType) {
 			const priceId = data.details?.lineItems[0].priceId;
 			if (!priceId) return Response.json({ error: "Price ID not found" });
@@ -113,7 +114,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					};
 				})
 				.with("self_hosted", async () => {
-					const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 					const created = await unkey.keys.create({
 						apiId: serverVariables.UNKEY_API_ID,
 						name: email,
@@ -168,6 +168,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						userId: customer.ryotUserId,
 						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 					},
+				});
+			if (customer.unkeyKeyId)
+				await unkey.keys.update({
+					keyId: customer.unkeyKeyId,
+					meta: renewal
+						? { expiry: renewal.add(GRACE_PERIOD, "days").format("YYYY-MM-DD") }
+						: undefined,
 				});
 		}
 	}
