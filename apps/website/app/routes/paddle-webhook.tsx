@@ -34,7 +34,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		const customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, customerId),
 		});
-		console.log(customer);
+		if (!customer)
+			return Response.json({
+				error: `No customer found for customer ID: ${customerId}`,
+			});
 	}
 
 	return Response.json({ message: "Webhook ran successfully" });
