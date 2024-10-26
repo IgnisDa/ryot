@@ -1,4 +1,5 @@
-import { TransactionCompletedEvent } from "@paddle/paddle-node-sdk";
+import { EventName } from "@paddle/paddle-node-sdk";
+import { logger } from "@remix-pwa/sw";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { eq } from "drizzle-orm";
 import invariant from "tiny-invariant";
@@ -19,14 +20,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
 		paddleSignature,
 	);
-	if (!eventData) return Response.json({});
-	if (eventData.data instanceof TransactionCompletedEvent) {
-		const customerId = eventData.data.data.customerId;
-		if (!customerId) return Response.json({});
+	if (!eventData)
+		return Response.json({ error: "No event data found in request body" });
+
+	if (eventData.eventType === EventName.TransactionCompleted) {
+		const customerId = eventData.data.customerId;
+		if (!customerId)
+			return Response.json({
+				error: "No customer ID found in transaction completed event",
+			});
+		logger.debug(
+			`Received transaction completed event for customer id: ${customerId}`,
+		);
 		const customer = await db.query.customers.findFirst({
-			where: eq(customers.paddleCustomerId, eventData.data.data.customerId),
+			where: eq(customers.paddleCustomerId, customerId),
 		});
 		console.log(customer);
 	}
-	return Response.json({});
+
+	return Response.json({ message: "Webhook ran successfully" });
 };
