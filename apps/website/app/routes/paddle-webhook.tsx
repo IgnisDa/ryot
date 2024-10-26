@@ -195,5 +195,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 	}
 
+	if (eventType === EventName.SubscriptionResumed) {
+		const customerId = data.customerId;
+		const customer = await db.query.customers.findFirst({
+			where: eq(customers.paddleCustomerId, customerId),
+		});
+		if (!customer) return Response.json({ message: "No customer found" });
+		await db
+			.update(customers)
+			.set({ hasCancelled: null })
+			.where(eq(customers.id, customer.id));
+	}
+
 	return Response.json({ message: "Webhook ran successfully" });
 };
