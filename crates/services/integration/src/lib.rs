@@ -192,10 +192,10 @@ impl IntegrationService {
                     let _push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
                             let radarr = RadarrPushIntegration::new(
-                                specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
                                 entity_id,
+                                specifics.radarr_base_url.unwrap(),
                                 metadata.title,
                                 specifics.radarr_root_folder_path.unwrap(),
                             );
@@ -203,10 +203,10 @@ impl IntegrationService {
                         }
                         IntegrationProvider::Sonarr => {
                             let sonarr = SonarrPushIntegration::new(
-                                specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
                                 entity_id,
+                                specifics.sonarr_base_url.unwrap(),
                                 metadata.title,
                                 specifics.sonarr_root_folder_path.unwrap(),
                             );

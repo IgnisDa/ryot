@@ -9,20 +9,20 @@ use radarr_api_rs::{
 use traits::TraceOk;
 
 pub(crate) struct RadarrPushIntegration {
-    base_url: String,
     api_key: String,
     profile_id: i32,
     tmdb_id: String,
+    base_url: String,
     movie_title: String,
     root_folder_path: String,
 }
 
 impl RadarrPushIntegration {
     pub const fn new(
-        base_url: String,
         api_key: String,
         profile_id: i32,
         tmdb_id: String,
+        base_url: String,
         movie_title: String,
         root_folder_path: String,
     ) -> Self {

@@ -9,20 +9,20 @@ use sonarr_api_rs::{
 use traits::TraceOk;
 
 pub(crate) struct SonarrPushIntegration {
-    base_url: String,
     api_key: String,
     profile_id: i32,
     tvdb_id: String,
+    base_url: String,
     show_title: String,
     root_folder_path: String,
 }
 
 impl SonarrPushIntegration {
     pub const fn new(
-        base_url: String,
         api_key: String,
         profile_id: i32,
         tvdb_id: String,
+        base_url: String,
         show_title: String,
         root_folder_path: String,
     ) -> Self {
