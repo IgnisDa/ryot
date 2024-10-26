@@ -32,6 +32,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	if (!eventData)
 		return Response.json({ error: "No event data found in request body" });
 
+	console.log(`Received event: ${eventData.eventType}`);
+
 	if (eventData.eventType === EventName.TransactionCompleted) {
 		const paddleCustomerId = eventData.data.customerId;
 		if (!paddleCustomerId)
