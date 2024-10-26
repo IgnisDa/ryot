@@ -45,10 +45,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	if (!eventData)
 		return Response.json({ error: "No event data found in request body" });
 
-	console.log(`Received event: ${eventData.eventType}`);
+	const { eventType, data } = eventData;
 
-	if (eventData.eventType === EventName.TransactionCompleted) {
-		const paddleCustomerId = eventData.data.customerId;
+	console.log(`Received event: ${eventType}`);
+
+	if (eventType === EventName.TransactionCompleted) {
+		const paddleCustomerId = data.customerId;
 		if (!paddleCustomerId)
 			return Response.json({
 				error: "No customer ID found in transaction completed event",
@@ -60,7 +62,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			where: eq(customers.paddleCustomerId, paddleCustomerId),
 		});
 		if (!customer) {
-			const parsed = customDataSchema.safeParse(eventData.data.customData);
+			const parsed = customDataSchema.safeParse(data.customData);
 			if (parsed.success)
 				customer = await db.query.customers.findFirst({
 					where: eq(customers.id, parsed.data.customerId),
@@ -73,7 +75,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 
 		if (!customer.planType) {
-			const priceId = eventData.data.details?.lineItems[0].priceId;
+			const priceId = data.details?.lineItems[0].priceId;
 			if (!priceId) return Response.json({ error: "Price ID not found" });
 
 			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
@@ -83,7 +85,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 			const { email, oidcIssuerId } = customer;
 			const renewOn = getRenewOnFromPlanType(planType);
-			const { ryotUserId, unkeyKeyId, data } = await match(productType)
+			const { ryotUserId, unkeyKeyId, details } = await match(productType)
 				.with("cloud", async () => {
 					const password = nanoid(10);
 					const { registerUser } = await serverGqlService.request(
@@ -104,7 +106,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					return {
 						ryotUserId: registerUser.id,
 						unkeyKeyId: null,
-						data: {
+						details: {
 							__typename: "cloud" as const,
 							auth: oidcIssuerId ? email : { username: email, password },
 						},
@@ -127,7 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					return {
 						ryotUserId: null,
 						unkeyKeyId: created.result.keyId,
-						data: {
+						details: {
 							__typename: "self_hosted" as const,
 							key: created.result.key,
 						},
@@ -138,7 +140,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await sendEmail(
 				customer.email,
 				PurchaseCompleteEmail.subject,
-				PurchaseCompleteEmail({ planType, renewOn: renewal, data }),
+				PurchaseCompleteEmail({ planType, renewOn: renewal, details }),
 			);
 			await db
 				.update(customers)
@@ -171,10 +173,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	}
 
 	if (
-		eventData.eventType === EventName.SubscriptionCanceled ||
-		eventData.eventType === EventName.SubscriptionPaused
+		eventType === EventName.SubscriptionCanceled ||
+		eventType === EventName.SubscriptionPaused
 	) {
-		const customerId = eventData.data.customerId;
+		const customerId = data.customerId;
 		const customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, customerId),
 		});
