@@ -33,6 +33,7 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_ISSUER_URL: z.string(),
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	PADDLE_SANDBOX: zx.BoolAsString.optional(),
 });
 
