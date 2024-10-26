@@ -23,6 +23,7 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
+	rem,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import {
@@ -355,29 +356,32 @@ export const CollectionsFilter = (props: {
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (
-		<Flex gap="xs" align="center">
-			<MultiSelect
-				placeholder="Select a collection"
-				defaultValue={props.collections}
-				data={[
-					{
-						group: "My collections",
-						items: collections.map((c) => ({
-							value: c.id.toString(),
-							label: c.name,
-						})),
-					},
-				]}
-				onChange={(v) => setP("collections", v.join(","))}
-				clearable
-				searchable
-			/>
-			<Checkbox
-				label="Invert"
-				checked={props.invertCollection}
-				onChange={(e) => setP("invertCollection", String(e.target.checked))}
-			/>
-		</Flex>
+		<MultiSelect
+			flex={1}
+			clearable
+			searchable
+			rightSectionPointerEvents="all"
+			rightSectionWidth={rem(100)}
+			defaultValue={props.collections}
+			placeholder="Select a collection"
+			onChange={(v) => setP("collections", v.join(","))}
+			data={[
+				{
+					group: "My collections",
+					items: collections.map((c) => ({
+						value: c.id.toString(),
+						label: c.name,
+					})),
+				},
+			]}
+			rightSection={
+				<Checkbox
+					label="Invert"
+					checked={props.invertCollection}
+					onChange={(e) => setP("invertCollection", String(e.target.checked))}
+				/>
+			}
+		/>
 	);
 };
 
