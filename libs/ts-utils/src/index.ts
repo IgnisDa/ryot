@@ -43,9 +43,8 @@ export const humanizeDuration = (
 /**
  * Format a `Date` into a Rust `NaiveDate`
  */
-export const formatDateToNaiveDate = (t: Date | Dayjs) => {
-	return dayjs(t).format("YYYY-MM-DD");
-};
+export const formatDateToNaiveDate = (t: Date | Dayjs) =>
+	dayjs(t).format("YYYY-MM-DD");
 
 /**
  * Generate initials for a given string.
@@ -53,10 +52,10 @@ export const formatDateToNaiveDate = (t: Date | Dayjs) => {
 export const getInitials = (name: string) => {
 	const rgx = new RegExp(/(\p{L}{1})\p{L}+/gu);
 	const initials = [...name.matchAll(rgx)];
-	const actuals = (
+	const actualValues = (
 		(initials.shift()?.[1] || "") + (initials.pop()?.[1] || "")
 	).toUpperCase();
-	return actuals;
+	return actualValues;
 };
 
 /**
