@@ -65,8 +65,7 @@ pub fn ilike_sql(value: &str) -> String {
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
     let mut user = User::find_by_id(user_id)
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
         .ok_or_else(|| Error::new("No user found"))?;
     let preferences = &mut user.preferences;
     preferences.features_enabled.media.anime =
