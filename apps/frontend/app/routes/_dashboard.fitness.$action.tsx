@@ -86,6 +86,7 @@ import {
 	IconReorder,
 	IconReplace,
 	IconTrash,
+	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
@@ -1629,6 +1630,27 @@ const SetDisplay = (props: {
 							}}
 						>
 							{!set.note ? "Add" : "Remove"} note
+						</Menu.Item>
+						<Menu.Item
+							fz="xs"
+							leftSection={<IconZzz size={14} />}
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const hasRestTimer = !!set.restTimer;
+										if (hasRestTimer)
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].restTimer = undefined;
+										else
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].restTimer = { duration: 60 };
+									}),
+								);
+							}}
+						>
+							{!set.restTimer ? "Add" : "Remove"} timer
 						</Menu.Item>
 						<Menu.Item
 							color="red"
