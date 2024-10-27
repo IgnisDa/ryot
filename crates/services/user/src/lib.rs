@@ -217,24 +217,23 @@ impl UserService {
     ) -> Result<bool> {
         admin_account_guard(&self.0.db, &admin_user_id).await?;
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.0.db).await?;
-        if let Some(u) = maybe_user {
-            if self
-                .users_list(None)
-                .await?
-                .into_iter()
-                .filter(|u| u.lot == UserLot::Admin)
-                .collect_vec()
-                .len()
-                == 1
-                && u.lot == UserLot::Admin
-            {
-                return Ok(false);
-            }
-            u.delete(&self.0.db).await?;
-            Ok(true)
-        } else {
-            Ok(false)
+        let Some(u) = maybe_user else {
+            return Ok(false);
+        };
+        if self
+            .users_list(None)
+            .await?
+            .into_iter()
+            .filter(|u| u.lot == UserLot::Admin)
+            .collect_vec()
+            .len()
+            == 1
+            && u.lot == UserLot::Admin
+        {
+            return Ok(false);
         }
+        u.delete(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
@@ -322,42 +321,40 @@ impl UserService {
             AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
             AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
         };
-        match User::find().filter(filter).one(&self.0.db).await.unwrap() {
-            None => Ok(LoginResult::Error(LoginError {
+        let Some(user) = User::find().filter(filter).one(&self.0.db).await? else {
+            return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::UsernameDoesNotExist,
-            })),
-            Some(user) => {
-                if user.is_disabled.unwrap_or_default() {
+            }));
+        };
+        if user.is_disabled.unwrap_or_default() {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::AccountDisabled,
+            }));
+        }
+        if self.0.config.users.validate_password {
+            if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+                if let Some(hashed_password) = &user.password {
+                    let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+                    if Argon2::default()
+                        .verify_password(password.as_bytes(), &parsed_hash)
+                        .is_err()
+                    {
+                        return Ok(LoginResult::Error(LoginError {
+                            error: LoginErrorVariant::CredentialsMismatch,
+                        }));
+                    }
+                } else {
                     return Ok(LoginResult::Error(LoginError {
-                        error: LoginErrorVariant::AccountDisabled,
+                        error: LoginErrorVariant::IncorrectProviderChosen,
                     }));
                 }
-                if self.0.config.users.validate_password {
-                    if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
-                        if let Some(hashed_password) = &user.password {
-                            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
-                            if Argon2::default()
-                                .verify_password(password.as_bytes(), &parsed_hash)
-                                .is_err()
-                            {
-                                return Ok(LoginResult::Error(LoginError {
-                                    error: LoginErrorVariant::CredentialsMismatch,
-                                }));
-                            }
-                        } else {
-                            return Ok(LoginResult::Error(LoginError {
-                                error: LoginErrorVariant::IncorrectProviderChosen,
-                            }));
-                        }
-                    }
-                }
-                let jwt_key = self.generate_auth_token(user.id.clone()).await?;
-                let mut user: user::ActiveModel = user.into();
-                user.last_login_on = ActiveValue::Set(Some(Utc::now()));
-                user.update(&self.0.db).await?;
-                Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
+        let jwt_key = self.generate_auth_token(user.id.clone()).await?;
+        let mut user: user::ActiveModel = user.into();
+        user.last_login_on = ActiveValue::Set(Some(Utc::now()));
+        user.update(&self.0.db).await?;
+        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
 
     pub async fn update_user(
@@ -405,9 +402,7 @@ impl UserService {
         let user_model = user_by_id(&self.0.db, &user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property.is_empty() {
-            true => {
-                preferences = UserPreferences::default();
-            }
+            true => preferences = UserPreferences::default(),
             false => {
                 let (left, right) = input.property.split_once('.').ok_or_else(err)?;
                 let value_bool = input.value.parse::<bool>();
@@ -975,20 +970,16 @@ impl UserService {
         Ok(true)
     }
 
-    pub async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        user_preferences_by_id(user_id, &self.0).await
-    }
-
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token, &self.0.config.users.jwt_secret);
-        if let Ok(user_id) = found_token {
-            let user = user_by_id(&self.0.db, &user_id).await?;
-            Ok(UserDetailsResult::Ok(Box::new(user)))
-        } else {
-            Ok(UserDetailsResult::Error(UserDetailsError {
+        let Ok(user_id) = found_token else {
+            return Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
-            }))
-        }
+            }));
+        };
+        let mut user = user_by_id(&self.0.db, &user_id).await?;
+        user.preferences = user_preferences_by_id(&user_id, &self.0).await?;
+        Ok(UserDetailsResult::Ok(Box::new(user)))
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
@@ -1011,40 +1002,36 @@ impl UserService {
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        match self.0.oidc_client.as_ref() {
-            Some(client) => {
-                let (authorize_url, _, _) = client
-                    .authorize_url(
-                        AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
-                        CsrfToken::new_random,
-                        Nonce::new_random,
-                    )
-                    .add_scope(Scope::new("email".to_string()))
-                    .url();
-                Ok(authorize_url.to_string())
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
+        let Some(client) = self.0.oidc_client.as_ref() else {
+            return Err(Error::new("OIDC client not configured"));
+        };
+        let (authorize_url, _, _) = client
+            .authorize_url(
+                AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
+                CsrfToken::new_random,
+                Nonce::new_random,
+            )
+            .add_scope(Scope::new("email".to_string()))
+            .url();
+        Ok(authorize_url.to_string())
     }
 
     pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        match self.0.oidc_client.as_ref() {
-            Some(client) => {
-                let token = client
-                    .exchange_code(AuthorizationCode::new(code))
-                    .request_async(async_http_client)
-                    .await?;
-                let id_token = token.id_token().unwrap();
-                let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
-                let subject = claims.subject().to_string();
-                let email = claims
-                    .email()
-                    .map(|e| e.to_string())
-                    .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
-                Ok(OidcTokenOutput { subject, email })
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
+        let Some(client) = self.0.oidc_client.as_ref() else {
+            return Err(Error::new("OIDC client not configured"));
+        };
+        let token = client
+            .exchange_code(AuthorizationCode::new(code))
+            .request_async(async_http_client)
+            .await?;
+        let id_token = token.id_token().unwrap();
+        let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
+        let subject = claims.subject().to_string();
+        let email = claims
+            .email()
+            .map(|e| e.to_string())
+            .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
+        Ok(OidcTokenOutput { subject, email })
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {

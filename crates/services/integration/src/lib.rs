@@ -192,21 +192,25 @@ impl IntegrationService {
                     let _push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
                             let radarr = RadarrPushIntegration::new(
-                                specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
-                                specifics.radarr_root_folder_path.unwrap(),
                                 entity_id,
+                                specifics.radarr_base_url.unwrap(),
+                                metadata.lot,
+                                metadata.title,
+                                specifics.radarr_root_folder_path.unwrap(),
                             );
                             radarr.push_progress().await
                         }
                         IntegrationProvider::Sonarr => {
                             let sonarr = SonarrPushIntegration::new(
-                                specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
-                                specifics.sonarr_root_folder_path.unwrap(),
                                 entity_id,
+                                specifics.sonarr_base_url.unwrap(),
+                                metadata.lot,
+                                metadata.title,
+                                specifics.sonarr_root_folder_path.unwrap(),
                             );
                             sonarr.push_progress().await
                         }
@@ -219,12 +223,12 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
-        let (seen, show_extra_information, metadata_title) = Seen::find_by_id(id)
+        let (seen, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
             .columns([seen::Column::UserId, seen::Column::ShowExtraInformation])
-            .columns([metadata::Column::Title])
-            .into_tuple::<(String, Option<SeenShowExtraInformation>, String)>()
+            .columns([metadata::Column::Title, metadata::Column::Lot])
+            .into_tuple::<(String, Option<SeenShowExtraInformation>, String, MediaLot)>()
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
@@ -242,6 +246,7 @@ impl IntegrationService {
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
                         specifics.jellyfin_push_password.unwrap(),
+                        &metadata_lot,
                         &metadata_title,
                         &show_extra_information,
                     );

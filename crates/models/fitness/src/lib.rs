@@ -593,7 +593,7 @@ pub struct UserWorkoutInput {
 
 impl UserWorkoutSetRecord {
     /// Set the invalid statistics to `None` according to the type of exercise.
-    pub fn remove_invalids(&mut self, exercise_lot: &ExerciseLot) {
+    pub fn clean_values(&mut self, exercise_lot: &ExerciseLot) {
         let mut stats = WorkoutSetStatistic {
             ..Default::default()
         };

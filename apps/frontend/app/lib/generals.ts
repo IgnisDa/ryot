@@ -345,9 +345,6 @@ const usersQueryKeys = createQueryKeys("users", {
 	details: (token: string) => ({
 		queryKey: ["userDetails", token],
 	}),
-	preferences: (userId: string) => ({
-		queryKey: ["userPreferences", userId],
-	}),
 });
 
 const mediaQueryKeys = createQueryKeys("media", {

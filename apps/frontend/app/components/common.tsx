@@ -8,6 +8,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
@@ -22,6 +23,7 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
+	rem,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import {
@@ -348,14 +350,21 @@ export const FiltersModal = (props: {
 export const CollectionsFilter = (props: {
 	cookieName: string;
 	collections?: string[];
+	invertCollection?: boolean;
 }) => {
 	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (
 		<MultiSelect
-			placeholder="Select a collection"
+			flex={1}
+			clearable
+			searchable
+			rightSectionWidth={rem(100)}
+			rightSectionPointerEvents="all"
 			defaultValue={props.collections}
+			placeholder="Select a collection"
+			onChange={(v) => setP("collections", v.join(","))}
 			data={[
 				{
 					group: "My collections",
@@ -365,9 +374,13 @@ export const CollectionsFilter = (props: {
 					})),
 				},
 			]}
-			onChange={(v) => setP("collections", v.join(","))}
-			clearable
-			searchable
+			rightSection={
+				<Checkbox
+					label="Invert"
+					checked={props.invertCollection}
+					onChange={(e) => setP("invertCollection", String(e.target.checked))}
+				/>
+			}
 		/>
 	);
 };

@@ -195,20 +195,18 @@ pub async fn user_workout_details(
         .filter(workout::Column::UserId.eq(user_id))
         .one(&ss.db)
         .await?;
-    match maybe_workout {
-        None => Err(Error::new(
+    let Some(e) = maybe_workout else {
+        return Err(Error::new(
             "Workout with the given ID could not be found for this user.",
-        )),
-        Some(e) => {
-            let collections =
-                entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
-            let details = e.graphql_representation(&ss.file_storage_service).await?;
-            Ok(UserWorkoutDetails {
-                details,
-                collections,
-            })
-        }
-    }
+        ));
+    };
+    let collections =
+        entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
+    let details = e.graphql_representation(&ss.file_storage_service).await?;
+    Ok(UserWorkoutDetails {
+        details,
+        collections,
+    })
 }
 
 pub async fn user_workout_template_details(
@@ -219,24 +217,22 @@ pub async fn user_workout_template_details(
     let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
         .one(db)
         .await?;
-    match maybe_template {
-        None => Err(Error::new(
+    let Some(details) = maybe_template else {
+        return Err(Error::new(
             "Workout template with the given ID could not be found.",
-        )),
-        Some(details) => {
-            let collections = entity_in_collections(
-                db,
-                user_id,
-                &workout_template_id,
-                EntityLot::WorkoutTemplate,
-            )
-            .await?;
-            Ok(UserWorkoutTemplateDetails {
-                details,
-                collections,
-            })
-        }
-    }
+        ));
+    };
+    let collections = entity_in_collections(
+        db,
+        user_id,
+        &workout_template_id,
+        EntityLot::WorkoutTemplate,
+    )
+    .await?;
+    Ok(UserWorkoutTemplateDetails {
+        details,
+        collections,
+    })
 }
 
 pub fn apply_collection_filter<E, C, D>(
@@ -358,24 +354,23 @@ pub async fn check_token(
     db: &DatabaseConnection,
 ) -> Result<bool> {
     let claims = user_claims_from_token(token, jwt_secret)?;
-    if let Some(access_link) = claims.access_link {
-        let access_link = AccessLink::find_by_id(access_link.id)
-            .one(db)
-            .await?
-            .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
-        if access_link.is_revoked.unwrap_or_default() {
-            return Err(Error::new(BackendError::SessionExpired.to_string()));
-        }
-        if is_mutation {
-            if !access_link.is_mutation_allowed.unwrap_or_default() {
-                return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
-            }
-            return Ok(true);
-        }
-        Ok(true)
-    } else {
-        Ok(true)
+    let Some(access_link) = claims.access_link else {
+        return Ok(true);
+    };
+    let access_link = AccessLink::find_by_id(access_link.id)
+        .one(db)
+        .await?
+        .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
+    if access_link.is_revoked.unwrap_or_default() {
+        return Err(Error::new(BackendError::SessionExpired.to_string()));
     }
+    if is_mutation {
+        if !access_link.is_mutation_allowed.unwrap_or_default() {
+            return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
+        }
+        return Ok(true);
+    }
+    Ok(true)
 }
 
 pub async fn remove_entity_from_collection(

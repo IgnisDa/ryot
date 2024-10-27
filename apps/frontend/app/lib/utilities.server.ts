@@ -13,7 +13,6 @@ import {
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
-	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
@@ -100,45 +99,36 @@ export const serverGqlService = new AuthenticatedGraphQLClient(
 	{ headers: { Connection: "keep-alive" } },
 );
 
-export const getCookieValue = (request: Request, cookieName: string) => {
-	return parse(request.headers.get("cookie") || "")[cookieName];
-};
+export const getCookieValue = (request: Request, cookieName: string) =>
+	parse(request.headers.get("cookie") || "")[cookieName];
 
-export const getAuthorizationCookie = (request: Request) => {
-	return getCookieValue(request, AUTH_COOKIE_NAME);
-};
+export const getAuthorizationCookie = (request: Request) =>
+	getCookieValue(request, AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
-	const { userDetails } = await getCachedUserDetails(request);
+	const userDetails = await getCachedUserDetails(request);
+	const getResponseInit = async (toastMessage: string) => ({
+		status: 302,
+		headers: combineHeaders(
+			await createToastHeaders({ type: "error", message: toastMessage }),
+			getLogoutCookies(),
+		),
+	});
 	if (!userDetails || userDetails.__typename === "UserDetailsError") {
 		const nextUrl = withoutHost(request.url);
-		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
-			status: 302,
-			headers: combineHeaders(
-				await createToastHeaders({
-					type: "error",
-					message: "You must be logged in to view this page",
-				}),
-				getLogoutCookies(),
-			),
-		});
+		throw redirect(
+			$path("/auth", { [redirectToQueryParam]: nextUrl }),
+			await getResponseInit("You must be logged in to view this page"),
+		);
 	}
+	if (userDetails.isDisabled)
+		throw redirect(
+			$path("/auth"),
+			await getResponseInit("This account has been disabled"),
+		);
+
 	return userDetails;
 };
-
-const expectedServerVariables = z.object({
-	DISABLE_TELEMETRY: z
-		.string()
-		.optional()
-		.transform((v) => v === "true"),
-	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
-	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
-	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
-	FRONTEND_OIDC_BUTTON_LABEL: z
-		.string()
-		.default("Continue with OpenID Connect"),
-	FRONTEND_DASHBOARD_MESSAGE: z.string().optional(),
-});
 
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
@@ -169,20 +159,19 @@ export const MetadataSpecificsSchema = z.object({
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
-		queryFn: () => serverGqlService.request(CoreDetailsDocument),
+		queryFn: () =>
+			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
 	});
 };
 
-export const getCachedUserDetails = async (request: Request) => {
+const getCachedUserDetails = async (request: Request) => {
 	const token = getAuthorizationCookie(request);
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token ?? "").queryKey,
 		queryFn: () =>
-			serverGqlService.authenticatedRequest(
-				request,
-				UserDetailsDocument,
-				undefined,
-			),
+			serverGqlService
+				.authenticatedRequest(request, UserDetailsDocument, undefined)
+				.then((d) => d.userDetails),
 	});
 };
 
@@ -198,13 +187,7 @@ export const getCachedExerciseParameters = async () => {
 
 export const getCachedUserPreferences = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return queryClient.ensureQueryData({
-		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
-		queryFn: () =>
-			serverGqlService
-				.authenticatedRequest(request, UserPreferencesDocument, undefined)
-				.then((data) => data.userPreferences),
-	});
+	return userDetails.preferences;
 };
 
 export const getCachedUserCollectionsList = async (request: Request) => {
@@ -294,8 +277,6 @@ export const s3FileUploader = (prefix: string) =>
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
 
-export const serverVariables = expectedServerVariables.parse(process.env);
-
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		sameSite: "lax",
@@ -363,7 +344,7 @@ export const getCookiesForApplication = async (
 	token: string,
 	tokenValidForDays?: number,
 ) => {
-	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
+	const [coreDetails] = await Promise.all([getCachedCoreDetails()]);
 	const maxAge =
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
@@ -422,9 +403,9 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 	totalResults: number,
 	currentPage: number,
 ) => {
-	const { coreDetails } = await getCachedCoreDetails();
+	const coreDetails = await getCachedCoreDetails();
 	const { searchParams } = new URL(request.url);
-	const totalPages = Math.ceil(totalResults / coreDetails.pageLimit);
+	const totalPages = Math.ceil(totalResults / coreDetails.frontend.pageSize);
 	if (currentPage > totalPages && currentPage !== 1) {
 		searchParams.set(pageQueryParam, "1");
 		throw redirect(`?${searchParams.toString()}`);

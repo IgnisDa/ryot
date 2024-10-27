@@ -116,22 +116,18 @@ pub async fn import(
                     visibility: None,
                 });
             }
-            let mut reviews = vec![];
-            if review.is_some() || rating.is_some() {
-                reviews.push(ImportOrExportItemRating {
-                    review,
-                    rating,
-                    ..Default::default()
-                });
-            }
             media.push(ImportOrExportMediaItem {
-                source_id: record.title.clone(),
                 lot,
                 source,
                 identifier,
-                seen_history,
-                reviews,
                 collections,
+                seen_history,
+                source_id: record.title.clone(),
+                reviews: vec![ImportOrExportItemRating {
+                    review,
+                    rating,
+                    ..Default::default()
+                }],
             });
         } else {
             failed_items.push(ImportFailedItem {

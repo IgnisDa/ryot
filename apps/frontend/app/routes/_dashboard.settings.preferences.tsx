@@ -118,7 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		);
 	}
 	queryClient.removeQueries({
-		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
+		queryKey: queryFactory.users.details(userDetails.id).queryKey,
 	});
 	const toastHeaders = await createToastHeaders({
 		message: "Preferences updated",

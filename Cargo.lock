@@ -1392,6 +1392,7 @@ name = "config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-graphql",
  "common-utils",
  "env-utils",
  "schematic",
@@ -1741,6 +1742,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "config",
  "database-models",
  "enums",
  "fitness-models",
@@ -7084,7 +7086,6 @@ dependencies = [
  "dependent-models",
  "media-models",
  "traits",
- "user-models",
  "user-service",
 ]
 

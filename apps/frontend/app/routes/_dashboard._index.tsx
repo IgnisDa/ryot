@@ -34,6 +34,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	formatDateToNaiveDate,
 	humanizeDuration,
 	isBoolean,
 	isNumber,
@@ -174,12 +175,15 @@ export default function Page() {
 	const dashboardLayoutData = useDashboardLayoutData();
 	const latestUserSummary = loaderData.latestUserSummary;
 
+	const dashboardMessage =
+		dashboardLayoutData.coreDetails.frontend.dashboardMessage;
+
 	return (
 		<Container>
 			<Stack gap={32}>
-				{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE ? (
+				{dashboardMessage ? (
 					<Alert variant="default" icon={<IconInfoCircle />}>
-						{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE}
+						{dashboardMessage}
 					</Alert>
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
@@ -632,8 +636,10 @@ const ActivitySection = () => {
 		const end = now.endOf("day");
 		const startDate = getDateFromTimeSpan(timeSpan);
 		return {
-			startDate: startDate?.format("YYYY-MM-DD"),
-			endDate: end.format("YYYY-MM-DD"),
+			startDate: startDate
+				? formatDateToNaiveDate(startDate.toDate())
+				: undefined,
+			endDate: formatDateToNaiveDate(end.toDate()),
 		};
 	}, [timeSpan]);
 	const { data: dailyUserActivitiesData } = useQuery({
