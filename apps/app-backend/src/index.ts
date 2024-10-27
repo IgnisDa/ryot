@@ -4,6 +4,7 @@ import "dotenv/config";
 import { Hono } from "hono";
 import { auth, type MaybeAuthType } from "./auth";
 import { withSession } from "./auth/middleware";
+import { config } from "./config";
 import { migrateDB } from "./db";
 import {
 	initializeQueues,
@@ -35,9 +36,12 @@ const main = async () => {
 	await initializeQueues();
 	await initializeWorkers();
 
-	const server = serve({ fetch: app.fetch }, (c) => {
-		console.info(`Server listening on port ${c.port}...`);
-	});
+	const server = serve(
+		{ port: Number.parseInt(config.PORT, 10), fetch: app.fetch },
+		(c) => {
+			console.info(`Server listening on port ${c.port}...`);
+		},
+	);
 
 	const shutdown = async () => {
 		console.info("Shutting down server...");
