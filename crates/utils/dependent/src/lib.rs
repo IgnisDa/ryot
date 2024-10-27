@@ -1599,15 +1599,12 @@ pub async fn create_or_update_workout(
         if ex.sets.is_empty() {
             bail!("This exercise has no associated sets")
         }
-        let db_ex = match Exercise::find_by_id(ex.exercise_id.clone())
+        let Some(db_ex) = Exercise::find_by_id(ex.exercise_id.clone())
             .one(&ss.db)
             .await?
-        {
-            None => {
-                ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
-                continue;
-            }
-            Some(e) => e,
+        else {
+            ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
+            continue;
         };
         let mut sets = vec![];
         let mut totals = WorkoutOrExerciseTotals::default();
@@ -1670,7 +1667,7 @@ pub async fn create_or_update_workout(
                 );
             }
             first_set_of_exercise_confirmed_at = set.confirmed_at;
-            set.remove_invalids(&db_ex.lot);
+            set.clean_values(&db_ex.lot);
             if let Some(r) = set.statistic.reps {
                 totals.reps += r;
                 if let Some(w) = set.statistic.weight {

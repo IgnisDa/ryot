@@ -280,13 +280,12 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn generic_metadata(&self, metadata_id: &String) -> Result<MetadataBaseData> {
-        let mut meta = match Metadata::find_by_id(metadata_id)
+        let Some(mut meta) = Metadata::find_by_id(metadata_id)
             .one(&self.0.db)
             .await
             .unwrap()
-        {
-            Some(m) => m,
-            None => return Err(Error::new("The record does not exist".to_owned())),
+        else {
+            return Err(Error::new("The record does not exist".to_owned()));
         };
         let genres = meta
             .find_related(Genre)
@@ -1291,13 +1290,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        let seen = match Seen::find_by_id(input.seen_id)
+        let Some(seen) = Seen::find_by_id(input.seen_id)
             .one(&self.0.db)
             .await
             .unwrap()
-        {
-            Some(s) => s,
-            None => return Err(Error::new("No seen found for this user and metadata")),
+        else {
+            return Err(Error::new("No seen found for this user and metadata"));
         };
         if seen.user_id != user_id {
             return Err(Error::new("No seen found for this user and metadata"));

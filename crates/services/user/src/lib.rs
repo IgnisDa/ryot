@@ -321,42 +321,40 @@ impl UserService {
             AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
             AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
         };
-        match User::find().filter(filter).one(&self.0.db).await.unwrap() {
-            None => Ok(LoginResult::Error(LoginError {
+        let Some(user) = User::find().filter(filter).one(&self.0.db).await? else {
+            return Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::UsernameDoesNotExist,
-            })),
-            Some(user) => {
-                if user.is_disabled.unwrap_or_default() {
+            }));
+        };
+        if user.is_disabled.unwrap_or_default() {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::AccountDisabled,
+            }));
+        }
+        if self.0.config.users.validate_password {
+            if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+                if let Some(hashed_password) = &user.password {
+                    let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+                    if Argon2::default()
+                        .verify_password(password.as_bytes(), &parsed_hash)
+                        .is_err()
+                    {
+                        return Ok(LoginResult::Error(LoginError {
+                            error: LoginErrorVariant::CredentialsMismatch,
+                        }));
+                    }
+                } else {
                     return Ok(LoginResult::Error(LoginError {
-                        error: LoginErrorVariant::AccountDisabled,
+                        error: LoginErrorVariant::IncorrectProviderChosen,
                     }));
                 }
-                if self.0.config.users.validate_password {
-                    if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
-                        if let Some(hashed_password) = &user.password {
-                            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
-                            if Argon2::default()
-                                .verify_password(password.as_bytes(), &parsed_hash)
-                                .is_err()
-                            {
-                                return Ok(LoginResult::Error(LoginError {
-                                    error: LoginErrorVariant::CredentialsMismatch,
-                                }));
-                            }
-                        } else {
-                            return Ok(LoginResult::Error(LoginError {
-                                error: LoginErrorVariant::IncorrectProviderChosen,
-                            }));
-                        }
-                    }
-                }
-                let jwt_key = self.generate_auth_token(user.id.clone()).await?;
-                let mut user: user::ActiveModel = user.into();
-                user.last_login_on = ActiveValue::Set(Some(Utc::now()));
-                user.update(&self.0.db).await?;
-                Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
+        let jwt_key = self.generate_auth_token(user.id.clone()).await?;
+        let mut user: user::ActiveModel = user.into();
+        user.last_login_on = ActiveValue::Set(Some(Utc::now()));
+        user.update(&self.0.db).await?;
+        Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
     }
 
     pub async fn update_user(
@@ -404,9 +402,7 @@ impl UserService {
         let user_model = user_by_id(&self.0.db, &user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property.is_empty() {
-            true => {
-                preferences = UserPreferences::default();
-            }
+            true => preferences = UserPreferences::default(),
             false => {
                 let (left, right) = input.property.split_once('.').ok_or_else(err)?;
                 let value_bool = input.value.parse::<bool>();

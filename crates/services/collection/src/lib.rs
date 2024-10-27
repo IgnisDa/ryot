@@ -141,9 +141,8 @@ impl CollectionService {
             .one(&self.0.db)
             .await
             .unwrap();
-        let collection = match maybe_collection {
-            Some(c) => c,
-            None => return Err(Error::new("Collection not found".to_owned())),
+        let Some(collection) = maybe_collection else {
+            return Err(Error::new("Collection not found".to_owned()));
         };
 
         let take = input

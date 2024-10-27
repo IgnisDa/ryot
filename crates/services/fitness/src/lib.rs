@@ -617,23 +617,21 @@ impl ExerciseService {
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        let wkt = match Workout::find_by_id(workout_id)
+        let Some(wkt) = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(&user_id))
             .one(&self.0.db)
             .await?
-        {
-            Some(wkt) => wkt,
-            None => return Err(Error::new("Workout does not exist for user")),
+        else {
+            return Err(Error::new("Workout does not exist for user"));
         };
         for (idx, ex) in wkt.information.exercises.iter().enumerate() {
-            let association = match UserToEntity::find()
+            let Some(association) = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
                 .one(&self.0.db)
                 .await?
-            {
-                None => continue,
-                Some(assoc) => assoc,
+            else {
+                continue;
             };
             let mut ei = association
                 .exercise_extra_information
@@ -740,11 +738,8 @@ impl ExerciseService {
             }
         }
         for image in old_exercise.attributes.internal_images {
-            match image {
-                StoredUrl::S3(key) => {
-                    self.0.file_storage_service.delete_object(key).await;
-                }
-                _ => continue,
+            if let StoredUrl::S3(key) = image {
+                self.0.file_storage_service.delete_object(key).await;
             }
         }
         self.create_custom_exercise(user_id, input.update.clone())

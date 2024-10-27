@@ -195,17 +195,14 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     let mut final_data = vec![];
     for (idx, d) in data.into_iter().enumerate() {
-        let media_type = match d.media_type {
-            Some(m) => m.clone(),
-            None => {
-                failed_items.push(ImportFailedItem {
-                    lot: None,
-                    step: ImportFailStep::ItemDetailsFromSource,
-                    identifier: d.id.to_string(),
-                    error: Some("No media type".to_string()),
-                });
-                continue;
-            }
+        let Some(media_type) = d.media_type else {
+            failed_items.push(ImportFailedItem {
+                lot: None,
+                step: ImportFailStep::ItemDetailsFromSource,
+                identifier: d.id.to_string(),
+                error: Some("No media type".to_string()),
+            });
+            continue;
         };
         let lot = MediaLot::from(media_type.clone());
         let rsp = client
