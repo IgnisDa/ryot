@@ -3,14 +3,25 @@ query CoreDetails {
 		isPro
 		version
 		docsLink
-		pageLimit
 		websiteUrl
 		smtpEnabled
 		oidcEnabled
 		signupAllowed
 		repositoryLink
+		disableTelemetry
+		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
-		tokenValidForDays
+		frontend {
+			url
+			pageSize
+			oidcButtonLabel
+			dashboardMessage
+			umami {
+				domains
+				scriptUrl
+				websiteId
+			}
+		}
 	}
 }

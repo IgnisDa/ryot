@@ -246,16 +246,17 @@ ORDER BY RANDOM() LIMIT 10;
             is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
+            frontend: self.0.config.frontend.clone(),
             website_url: "https://ryot.io".to_owned(),
             oidc_enabled: self.0.oidc_client.is_some(),
-            page_limit: self.0.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),
+            disable_telemetry: self.0.config.disable_telemetry,
             smtp_enabled: self.0.config.server.smtp.is_enabled(),
             signup_allowed: self.0.config.users.allow_registration,
             local_auth_disabled: self.0.config.users.disable_local_auth,
-            token_valid_for_days: self.0.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
+            token_valid_for_days: self.0.config.users.token_valid_for_days,
         }
     }
 

@@ -1,5 +1,6 @@
 use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
+use config::FrontendConfig;
 use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
@@ -149,17 +150,18 @@ pub struct MetadataBaseData {
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub is_pro: bool,
-    pub page_limit: i32,
     pub version: String,
     pub docs_link: String,
     pub oidc_enabled: bool,
     pub smtp_enabled: bool,
     pub website_url: String,
     pub signup_allowed: bool,
+    pub disable_telemetry: bool,
     pub repository_link: String,
+    pub frontend: FrontendConfig,
     pub token_valid_for_days: i32,
-    pub file_storage_enabled: bool,
     pub local_auth_disabled: bool,
+    pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
 }
 
