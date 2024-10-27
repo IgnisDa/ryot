@@ -361,9 +361,9 @@ export const CollectionsFilter = (props: {
 			clearable
 			searchable
 			rightSectionPointerEvents="all"
-			rightSectionWidth={rem(100)}
 			defaultValue={props.collections}
 			placeholder="Select a collection"
+			rightSectionWidth={rem(100)}
 			onChange={(v) => setP("collections", v.join(","))}
 			data={[
 				{
