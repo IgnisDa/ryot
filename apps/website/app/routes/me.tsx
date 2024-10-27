@@ -34,11 +34,9 @@ import {
 } from "~/lib/config.server";
 import { startUrl } from "~/lib/utils";
 
-const redirectToStartHere = () => redirect(startUrl);
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const customerDetails = await getCustomerFromCookie(request);
-	if (!customerDetails) return redirectToStartHere();
+	if (!customerDetails) return redirect(startUrl);
 	return {
 		prices,
 		customerDetails,
