@@ -67,23 +67,22 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
         .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("No user found"))?;
-    let preferences = &mut user.preferences;
-    preferences.features_enabled.media.anime =
-        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
-    preferences.features_enabled.media.audio_book =
-        ss.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
-    preferences.features_enabled.media.book =
-        ss.config.books.is_enabled() && preferences.features_enabled.media.book;
-    preferences.features_enabled.media.show =
-        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
-    preferences.features_enabled.media.manga =
-        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
-    preferences.features_enabled.media.movie =
-        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
-    preferences.features_enabled.media.podcast =
-        ss.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
-    preferences.features_enabled.media.video_game =
-        ss.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
+    let config = &ss.config;
+    let features_enabled = &mut user.preferences.features_enabled;
+    features_enabled.media.anime =
+        config.anime_and_manga.is_enabled() && features_enabled.media.anime;
+    features_enabled.media.audio_book =
+        config.audio_books.is_enabled() && features_enabled.media.audio_book;
+    features_enabled.media.book = config.books.is_enabled() && features_enabled.media.book;
+    features_enabled.media.show =
+        config.movies_and_shows.is_enabled() && features_enabled.media.show;
+    features_enabled.media.manga =
+        config.anime_and_manga.is_enabled() && features_enabled.media.manga;
+    features_enabled.media.movie =
+        config.movies_and_shows.is_enabled() && features_enabled.media.movie;
+    features_enabled.media.podcast = config.podcasts.is_enabled() && features_enabled.media.podcast;
+    features_enabled.media.video_game =
+        config.video_games.is_enabled() && features_enabled.media.video_game;
     Ok(user)
 }
 
