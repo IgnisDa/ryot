@@ -107,19 +107,26 @@ export const getAuthorizationCookie = (request: Request) =>
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const userDetails = await getCachedUserDetails(request);
+	const getResponseInit = async (toastMessage: string) => ({
+		status: 302,
+		headers: combineHeaders(
+			await createToastHeaders({ type: "error", message: toastMessage }),
+			getLogoutCookies(),
+		),
+	});
 	if (!userDetails || userDetails.__typename === "UserDetailsError") {
 		const nextUrl = withoutHost(request.url);
-		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
-			status: 302,
-			headers: combineHeaders(
-				await createToastHeaders({
-					type: "error",
-					message: "You must be logged in to view this page",
-				}),
-				getLogoutCookies(),
-			),
-		});
+		throw redirect(
+			$path("/auth", { [redirectToQueryParam]: nextUrl }),
+			await getResponseInit("You must be logged in to view this page"),
+		);
 	}
+	if (userDetails.isDisabled)
+		throw redirect(
+			$path("/auth"),
+			await getResponseInit("This account has been disabled"),
+		);
+
 	return userDetails;
 };
 
@@ -157,7 +164,7 @@ export const getCachedCoreDetails = async () => {
 	});
 };
 
-export const getCachedUserDetails = async (request: Request) => {
+const getCachedUserDetails = async (request: Request) => {
 	const token = getAuthorizationCookie(request);
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token ?? "").queryKey,
