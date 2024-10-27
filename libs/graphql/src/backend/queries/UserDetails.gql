@@ -5,6 +5,7 @@ query UserDetails {
 			id
 			lot
 			name
+			isDisabled
 			oidcIssuerId
 			preferences {
 				general {
