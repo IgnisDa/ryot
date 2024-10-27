@@ -1002,40 +1002,36 @@ impl UserService {
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        match self.0.oidc_client.as_ref() {
-            Some(client) => {
-                let (authorize_url, _, _) = client
-                    .authorize_url(
-                        AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
-                        CsrfToken::new_random,
-                        Nonce::new_random,
-                    )
-                    .add_scope(Scope::new("email".to_string()))
-                    .url();
-                Ok(authorize_url.to_string())
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
+        let Some(client) = self.0.oidc_client.as_ref() else {
+            return Err(Error::new("OIDC client not configured"));
+        };
+        let (authorize_url, _, _) = client
+            .authorize_url(
+                AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
+                CsrfToken::new_random,
+                Nonce::new_random,
+            )
+            .add_scope(Scope::new("email".to_string()))
+            .url();
+        Ok(authorize_url.to_string())
     }
 
     pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        match self.0.oidc_client.as_ref() {
-            Some(client) => {
-                let token = client
-                    .exchange_code(AuthorizationCode::new(code))
-                    .request_async(async_http_client)
-                    .await?;
-                let id_token = token.id_token().unwrap();
-                let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
-                let subject = claims.subject().to_string();
-                let email = claims
-                    .email()
-                    .map(|e| e.to_string())
-                    .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
-                Ok(OidcTokenOutput { subject, email })
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
+        let Some(client) = self.0.oidc_client.as_ref() else {
+            return Err(Error::new("OIDC client not configured"));
+        };
+        let token = client
+            .exchange_code(AuthorizationCode::new(code))
+            .request_async(async_http_client)
+            .await?;
+        let id_token = token.id_token().unwrap();
+        let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
+        let subject = claims.subject().to_string();
+        let email = claims
+            .email()
+            .map(|e| e.to_string())
+            .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
+        Ok(OidcTokenOutput { subject, email })
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
