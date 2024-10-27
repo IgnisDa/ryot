@@ -15,7 +15,12 @@ export const ProductTypes = z.enum(productTypes.enumValues);
 
 export type TProductTypes = z.infer<typeof ProductTypes>;
 
-export const planTypes = pgEnum("plan_type", ["monthly", "yearly", "lifetime"]);
+export const planTypes = pgEnum("plan_type", [
+	"free",
+	"monthly",
+	"yearly",
+	"lifetime",
+]);
 
 export const PlanTypes = z.enum(planTypes.enumValues);
 

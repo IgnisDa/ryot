@@ -47,14 +47,14 @@ export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
 
 export const pricesSchema = z.array(
 	z.object({
-		type: z.string(),
+		type: z.nativeEnum(ProductTypes.Values),
 		prices: z.array(
 			z.object({
-				name: z.string(),
-				linkToGithub: z.boolean().optional(),
-				priceId: z.string().optional(),
-				amount: z.number().optional(),
 				trial: z.number().optional(),
+				amount: z.number().optional(),
+				priceId: z.string().optional(),
+				linkToGithub: z.boolean().optional(),
+				name: z.nativeEnum(PlanTypes.Values),
 			}),
 		),
 	}),
@@ -67,16 +67,10 @@ export const prices = pricesSchema.parse(
 );
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of prices) {
-		for (const price of product.prices) {
-			if (price.priceId === priceId) {
-				return {
-					productType: ProductTypes.parse(product.type),
-					planType: PlanTypes.parse(price.name),
-				};
-			}
-		}
-	}
+	for (const product of prices)
+		for (const price of product.prices)
+			if (price.priceId === priceId)
+				return { productType: product.type, planType: price.name };
 	throw new Error("Price ID not found");
 };
 
