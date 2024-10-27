@@ -175,12 +175,15 @@ export default function Page() {
 	const dashboardLayoutData = useDashboardLayoutData();
 	const latestUserSummary = loaderData.latestUserSummary;
 
+	const dashboardMessage =
+		dashboardLayoutData.coreDetails.frontend.dashboardMessage;
+
 	return (
 		<Container>
 			<Stack gap={32}>
-				{dashboardLayoutData.coreDetails.frontend.dashboardMessage ? (
+				{dashboardMessage ? (
 					<Alert variant="default" icon={<IconInfoCircle />}>
-						{dashboardLayoutData.coreDetails.frontend.dashboardMessage}
+						{dashboardMessage}
 					</Alert>
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
