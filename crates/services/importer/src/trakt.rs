@@ -253,16 +253,16 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMediaItem, ImportF
     };
     match identifier {
         Some(identifier) => Ok(ImportOrExportMediaItem {
-            source_id: source_id.to_string(),
             lot,
-            identifier: identifier.to_string(),
             source: MediaSource::Tmdb,
+            source_id: source_id.to_string(),
+            identifier: identifier.to_string(),
             ..Default::default()
         }),
         None => Err(ImportFailedItem {
             lot: None,
-            step: ImportFailStep::ItemDetailsFromSource,
             identifier: "".to_owned(),
+            step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item does not have an associated TMDB id".to_owned()),
         }),
     }

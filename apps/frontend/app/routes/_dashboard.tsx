@@ -134,7 +134,6 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	serverVariables as envData,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
@@ -152,13 +151,11 @@ const discordLink = "https://discord.gg/D9XTg2a7R8";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
-		[
-			getCachedUserPreferences(request),
-			getCachedUserCollectionsList(request),
-			getCachedCoreDetails(),
-		],
-	);
+	const [userPreferences, userCollections, coreDetails] = await Promise.all([
+		getCachedUserPreferences(request),
+		getCachedUserCollectionsList(request),
+		getCachedCoreDetails(),
+	]);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
@@ -250,16 +247,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
 
 	const shouldHaveUmami =
-		envData.FRONTEND_UMAMI_SCRIPT_URL &&
-		envData.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envData.DISABLE_TELEMETRY &&
+		coreDetails.frontend.umami.scriptUrl &&
+		coreDetails.frontend.umami.websiteId &&
+		!coreDetails.disableTelemetry &&
 		!isDemo;
 
 	const workoutInProgress = isWorkoutActive(request);
 
 	return {
 		isDemo,
-		envData,
 		mediaLinks,
 		userDetails,
 		coreDetails,
@@ -762,9 +758,9 @@ export default function Layout() {
 			{loaderData.shouldHaveUmami ? (
 				<script
 					defer
-					src={loaderData.envData.FRONTEND_UMAMI_SCRIPT_URL}
-					data-website-id={loaderData.envData.FRONTEND_UMAMI_WEBSITE_ID}
-					data-domains={loaderData.envData.FRONTEND_UMAMI_DOMAINS}
+					src={loaderData.coreDetails.frontend.umami.scriptUrl}
+					data-domains={loaderData.coreDetails.frontend.umami.domains}
+					data-website-id={loaderData.coreDetails.frontend.umami.websiteId}
 				/>
 			) : null}
 		</>

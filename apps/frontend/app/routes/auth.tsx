@@ -43,7 +43,6 @@ import {
 	getCookiesForApplication,
 	redirectWithToast,
 	serverGqlService,
-	serverVariables,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -79,14 +78,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			);
 		throw redirect($path("/"));
 	}
-	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
+	const [coreDetails] = await Promise.all([getCachedCoreDetails()]);
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
-		oidcButtonLabel: serverVariables.FRONTEND_OIDC_BUTTON_LABEL,
+		signupAllowed: coreDetails.signupAllowed,
 		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
-		signupAllowed: coreDetails.signupAllowed,
+		oidcButtonLabel: coreDetails.frontend.oidcButtonLabel,
 	};
 };
 

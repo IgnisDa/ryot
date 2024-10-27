@@ -1,4 +1,5 @@
 use common_utils::ryot_log;
+use enums::MediaLot;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
@@ -9,31 +10,41 @@ use sonarr_api_rs::{
 use traits::TraceOk;
 
 pub(crate) struct SonarrPushIntegration {
-    base_url: String,
     api_key: String,
     profile_id: i32,
-    root_folder_path: String,
     tvdb_id: String,
+    base_url: String,
+    metadata_lot: MediaLot,
+    metadata_title: String,
+    root_folder_path: String,
 }
 
 impl SonarrPushIntegration {
     pub const fn new(
-        base_url: String,
         api_key: String,
         profile_id: i32,
-        root_folder_path: String,
         tvdb_id: String,
+        base_url: String,
+        metadata_lot: MediaLot,
+        metadata_title: String,
+        root_folder_path: String,
     ) -> Self {
         Self {
-            base_url,
-            api_key,
-            profile_id,
-            root_folder_path,
             tvdb_id,
+            api_key,
+            base_url,
+            profile_id,
+            metadata_lot,
+            metadata_title,
+            root_folder_path,
         }
     }
 
     pub async fn push_progress(&self) -> anyhow::Result<()> {
+        if self.metadata_lot != MediaLot::Show {
+            ryot_log!(debug, "Not a show, skipping {:#?}", self.metadata_title);
+            return Ok(());
+        }
         let mut configuration = SonarrConfiguration::new();
         configuration.base_path = self.base_url.clone();
         configuration.api_key = Some(SonarrApiKey {
@@ -47,6 +58,7 @@ impl SonarrPushIntegration {
         resource.root_folder_path = Some(Some(self.root_folder_path.clone()));
         resource.monitored = Some(true);
         resource.season_folder = Some(true);
+        resource.title = Some(Some(self.metadata_title.clone()));
         let mut options = SonarrAddSeriesOptions::new();
         options.search_for_missing_episodes = Some(true);
         resource.add_options = Some(Box::new(options));

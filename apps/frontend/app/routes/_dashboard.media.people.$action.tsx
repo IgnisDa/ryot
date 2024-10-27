@@ -439,17 +439,11 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
-			<Flex gap="xs" align="center">
-				<CollectionsFilter
-					cookieName={loaderData.cookieName}
-					collections={loaderData.peopleList.url.collections}
-				/>
-				<Checkbox
-					label="Invert"
-					checked={loaderData.peopleList.url.invertCollection}
-					onChange={(e) => setP("invertCollection", String(e.target.checked))}
-				/>
-			</Flex>
+			<CollectionsFilter
+				cookieName={loaderData.cookieName}
+				collections={loaderData.peopleList.url.collections}
+				invertCollection={loaderData.peopleList.url.invertCollection}
+			/>
 		</>
 	);
 };

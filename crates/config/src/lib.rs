@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use async_graphql::SimpleObject;
 use common_utils::{IsFeatureEnabled, PROJECT_NAME};
 use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
@@ -278,7 +279,7 @@ impl IsFeatureEnabled for FileStorageConfig {
 
 /// The configuration related to Umami analytics. More information
 /// [here](https://umami.is/docs/tracker-configuration).
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
 pub struct FrontendUmamiConfig {
     /// For example: https://umami.is/script.js.
@@ -287,7 +288,7 @@ pub struct FrontendUmamiConfig {
     pub domains: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[derive(Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.

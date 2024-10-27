@@ -144,11 +144,10 @@ struct MetadataSearchResponse<T> {
 
 impl MangaUpdatesService {
     fn extract_status(&self, input: Option<String>) -> (Option<i32>, Option<String>) {
-        if input.is_none() {
+        let Some(input) = input else {
             return (None, None);
-        }
+        };
 
-        let input = input.unwrap();
         let first_part = input.split("<BR>").next().unwrap_or("").trim();
         let parts: Vec<&str> = first_part.split_whitespace().collect();
 

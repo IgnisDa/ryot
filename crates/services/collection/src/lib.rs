@@ -141,9 +141,8 @@ impl CollectionService {
             .one(&self.0.db)
             .await
             .unwrap();
-        let collection = match maybe_collection {
-            Some(c) => c,
-            None => return Err(Error::new("Collection not found".to_owned())),
+        let Some(collection) = maybe_collection else {
+            return Err(Error::new("Collection not found".to_owned()));
         };
 
         let take = input
@@ -294,15 +293,11 @@ impl CollectionService {
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
             .one(&self.0.db)
             .await?;
-        let resp = if let Some(c) = collection {
-            Collection::delete_by_id(c.id)
-                .exec(&self.0.db)
-                .await
-                .is_ok()
-        } else {
-            false
+        let Some(c) = collection else {
+            return Ok(false);
         };
-        Ok(resp)
+        let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
+        Ok(resp.is_ok())
     }
 
     pub async fn add_entity_to_collection(

@@ -93,14 +93,12 @@ mod komga_series {
         ///
         /// returns: The ID number if the extraction is successful
         fn extract_id(&self, url: String) -> Option<String> {
-            if let Ok(parsed_url) = Url::parse(&url) {
+            Url::parse(&url).ok().and_then(|parsed_url| {
                 parsed_url
                     .path_segments()
                     .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
                     .map(String::from)
-            } else {
-                None
-            }
+            })
         }
 
         /// Extracts the list of providers with a MediaSource,ID Tuple
