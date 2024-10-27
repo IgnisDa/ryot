@@ -178,9 +178,9 @@ export default function Page() {
 	return (
 		<Container>
 			<Stack gap={32}>
-				{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE ? (
+				{dashboardLayoutData.coreDetails.frontend.dashboardMessage ? (
 					<Alert variant="default" icon={<IconInfoCircle />}>
-						{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE}
+						{dashboardLayoutData.coreDetails.frontend.dashboardMessage}
 					</Alert>
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
