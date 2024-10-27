@@ -360,10 +360,10 @@ export const CollectionsFilter = (props: {
 			flex={1}
 			clearable
 			searchable
+			rightSectionWidth={rem(100)}
 			rightSectionPointerEvents="all"
 			defaultValue={props.collections}
 			placeholder="Select a collection"
-			rightSectionWidth={rem(100)}
 			onChange={(v) => setP("collections", v.join(","))}
 			data={[
 				{
