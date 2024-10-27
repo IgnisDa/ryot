@@ -8,7 +8,7 @@ use database_models::{
     prelude::{CollectionToEntity, Integration, Metadata, Seen, UserToEntity},
     seen, user_to_entity,
 };
-use database_utils::user_preferences_by_id;
+use database_utils::user_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
@@ -97,7 +97,7 @@ impl IntegrationService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
-        let preferences = user_preferences_by_id(&integration.user_id, &self.0).await?;
+        let preferences = user_by_id(&integration.user_id, &self.0).await?.preferences;
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
@@ -259,7 +259,7 @@ impl IntegrationService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
-        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
             return Ok(false);
         }

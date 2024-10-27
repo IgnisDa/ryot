@@ -22,7 +22,6 @@ use database_models::{
 use database_utils::{
     add_entity_to_collection, admin_account_guard, create_or_update_collection,
     deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
-    user_preferences_by_id,
 };
 use dependent_models::ImportResult;
 use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, Visibility};
@@ -706,7 +705,7 @@ pub async fn queue_media_state_changed_notification_for_user(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let (msg, change) = notification;
-    let notification_preferences = user_preferences_by_id(user_id, ss).await?.notifications;
+    let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
         queue_notifications_to_user_platforms(user_id, msg, &ss.db)
             .await
@@ -883,7 +882,7 @@ pub async fn deploy_background_job(
         | BackgroundJob::UpdateAllExercises
         | BackgroundJob::RecalculateCalendarEvents
         | BackgroundJob::PerformBackgroundTasks => {
-            admin_account_guard(&ss.db, user_id).await?;
+            admin_account_guard(user_id, ss).await?;
         }
         _ => {}
     }
@@ -939,7 +938,7 @@ pub async fn post_review(
     input: CreateOrUpdateReviewInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
-    let preferences = user_preferences_by_id(user_id, ss).await?;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     if preferences.general.disable_reviews {
         return Err(Error::new("Reviews are disabled"));
     }
@@ -1029,7 +1028,7 @@ pub async fn post_review(
             EntityLot::Exercise => id.clone(),
             EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
         };
-        let user = user_by_id(&ss.db, &insert.user_id.unwrap()).await?;
+        let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
             ss.perform_core_application_job(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
@@ -1868,7 +1867,7 @@ pub async fn process_import(
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResultResponse> {
     let mut import = import;
-    let preferences = user_by_id(&ss.db, user_id).await?.preferences;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     for m in import.metadata.iter_mut() {
         m.seen_history.sort_by(|a, b| {
             a.ended_on
