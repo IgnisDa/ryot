@@ -126,6 +126,18 @@ export default function Index() {
 								{loaderData.customerDetails.email}
 							</p>
 						</div>
+						<div>
+							<Label>Product Type</Label>
+							<p className="text-muted-foreground">
+								{changeCase(loaderData.customerDetails.productType)}
+							</p>
+						</div>
+						<div>
+							<Label>Plan Type</Label>
+							<p className="text-muted-foreground">
+								{changeCase(loaderData.customerDetails.planType)}
+							</p>
+						</div>
 						{loaderData.customerDetails.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
@@ -134,18 +146,6 @@ export default function Index() {
 								</p>
 							</div>
 						) : null}
-						<div>
-							<Label>Plan Type</Label>
-							<p className="text-muted-foreground">
-								{changeCase(loaderData.customerDetails.planType)}
-							</p>
-						</div>
-						<div>
-							<Label>Product Type</Label>
-							<p className="text-muted-foreground">
-								{changeCase(loaderData.customerDetails.productType)}
-							</p>
-						</div>
 						{loaderData.customerDetails.ryotUserId ? (
 							<div>
 								<Label>User ID</Label>
