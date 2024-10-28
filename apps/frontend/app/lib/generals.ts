@@ -71,7 +71,7 @@ export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 export const redirectToQueryParam = "redirectTo";
 export const pageQueryParam = "page";
-export const AUTH_COOKIE_NAME = "Auth";
+export const FRONTEND_AUTH_COOKIE_NAME = "Auth";
 export const toastKey = "Toast";
 export const PRO_REQUIRED_MESSAGE = "Ryot pro is required to use this feature";
 
@@ -324,7 +324,7 @@ export const clientGqlService = new GraphQLClient(
 	`${applicationBaseUrl}/backend/graphql`,
 	{
 		headers: () => {
-			const data = Cookies.get(AUTH_COOKIE_NAME);
+			const data = Cookies.get(FRONTEND_AUTH_COOKIE_NAME);
 			return { authorization: data ? `Bearer ${data}` : "" };
 		},
 	},

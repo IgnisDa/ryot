@@ -30,7 +30,7 @@ import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
-	AUTH_COOKIE_NAME,
+	FRONTEND_AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
 	FitnessAction,
 	dayjsLib,
@@ -103,7 +103,7 @@ export const getCookieValue = (request: Request, cookieName: string) =>
 	parse(request.headers.get("cookie") || "")[cookieName];
 
 export const getAuthorizationCookie = (request: Request) =>
-	getCookieValue(request, AUTH_COOKIE_NAME);
+	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const userDetails = await getCachedUserDetails(request);
@@ -349,13 +349,15 @@ export const getCookiesForApplication = async (
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
 	return combineHeaders({
-		"set-cookie": serialize(AUTH_COOKIE_NAME, token, options),
+		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options),
 	});
 };
 
 export const getLogoutCookies = () => {
 	return combineHeaders({
-		"set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }),
+		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, "", {
+			expires: new Date(0),
+		}),
 	});
 };
 
