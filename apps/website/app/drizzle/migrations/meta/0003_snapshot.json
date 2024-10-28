@@ -1,5 +1,5 @@
 {
-	"id": "381bb7cc-06f9-4a98-8e96-40a0b2882073",
+	"id": "606551ca-2277-4f7c-a916-7be8a145bc9f",
 	"prevId": "706194d8-7177-4603-9a70-49955b7b2c2f",
 	"version": "7",
 	"dialect": "postgresql",
@@ -155,7 +155,7 @@
 		"public.plan_type": {
 			"name": "plan_type",
 			"schema": "public",
-			"values": ["monthly", "yearly", "lifetime"]
+			"values": ["free", "monthly", "yearly", "lifetime"]
 		},
 		"public.product_type": {
 			"name": "product_type",
