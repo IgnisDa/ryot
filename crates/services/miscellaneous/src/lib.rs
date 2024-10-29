@@ -72,7 +72,8 @@ use media_models::{
     ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput,
     UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventFetchInput,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
@@ -776,9 +777,9 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         only_monitored: bool,
-        start_date: Option<NaiveDate>,
-        end_date: Option<NaiveDate>,
         media_limit: Option<u64>,
+        end_date: Option<NaiveDate>,
+        start_date: Option<NaiveDate>,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
@@ -896,7 +897,7 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
-            .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None)
+            .get_calendar_events(user_id, false, None, Some(end_date), Some(start_date))
             .await?;
         let grouped_events = events
             .into_iter()
@@ -916,14 +917,14 @@ ORDER BY RANDOM() LIMIT 10;
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         let from_date = Utc::now().date_naive();
-        let (media_limit, to_date) = match input {
-            UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
-            UserUpcomingCalendarEventInput::NextDays(d) => {
+        let (media_limit, to_date) = match input.fetch {
+            UserUpcomingCalendarEventFetchInput::NextMedia(l) => (Some(l), None),
+            UserUpcomingCalendarEventFetchInput::NextDays(d) => {
                 (None, from_date.checked_add_days(Days::new(d)))
             }
         };
         let events = self
-            .get_calendar_events(user_id, true, to_date, Some(from_date), media_limit)
+            .get_calendar_events(user_id, true, media_limit, Some(from_date), to_date)
             .await?;
         Ok(events)
     }
