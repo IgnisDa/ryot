@@ -876,11 +876,11 @@ ORDER BY RANDOM() LIMIT 10;
         let mut events = vec![];
         for evt in all_events {
             let mut calc = GraphqlCalendarEvent {
-                calendar_event_id: evt.id,
                 date: evt.date,
-                metadata_id: evt.metadata_id,
-                metadata_title: evt.m_title,
                 metadata_lot: evt.m_lot,
+                calendar_event_id: evt.id,
+                metadata_title: evt.m_title,
+                metadata_id: evt.metadata_id,
                 ..Default::default()
             };
             let mut image = None;
