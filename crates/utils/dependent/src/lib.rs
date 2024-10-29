@@ -637,6 +637,7 @@ pub async fn update_metadata(
                 ss,
             )
             .await?;
+            ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
             notifications
         }
         Err(e) => {
@@ -649,7 +650,6 @@ pub async fn update_metadata(
             vec![]
         }
     };
-    ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
     Ok(notifications)
 }
 
