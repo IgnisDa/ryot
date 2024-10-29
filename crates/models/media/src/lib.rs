@@ -10,7 +10,6 @@ use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, UserLot, Visibility,
 };
-use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{
@@ -720,34 +719,6 @@ pub enum MetadataVideoSource {
 pub struct MetadataVideo {
     pub identifier: StoredUrl,
     pub source: MetadataVideoSource,
-}
-
-pub async fn first_metadata_image_as_url(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Option<String> {
-    if let Some(images) = value {
-        if let Some(i) = images.first().cloned() {
-            Some(file_storage_service.get_stored_asset(i.url).await)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-pub async fn metadata_images_as_urls(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Vec<String> {
-    let mut images = vec![];
-    if let Some(imgs) = value {
-        for i in imgs.clone() {
-            images.push(file_storage_service.get_stored_asset(i.url).await);
-        }
-    }
-    images
 }
 
 /// Comments left in replies to posted reviews.

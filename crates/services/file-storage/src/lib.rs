@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
 use common_models::StoredUrl;
+use media_models::MetadataImage;
 use nanoid::nanoid;
 
 #[derive(Debug)]
@@ -111,5 +112,30 @@ impl FileStorageService {
             StoredUrl::Url(u) => u,
             StoredUrl::S3(u) => self.get_presigned_url(u).await,
         }
+    }
+
+    pub async fn first_metadata_image_as_url(
+        &self,
+        value: &Option<Vec<MetadataImage>>,
+    ) -> Option<String> {
+        if let Some(images) = value {
+            if let Some(i) = images.first().cloned() {
+                Some(self.get_stored_asset(i.url).await)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub async fn metadata_images_as_urls(&self, value: &Option<Vec<MetadataImage>>) -> Vec<String> {
+        let mut images = vec![];
+        if let Some(imgs) = value {
+            for i in imgs.clone() {
+                images.push(self.get_stored_asset(i.url).await);
+            }
+        }
+        images
     }
 }

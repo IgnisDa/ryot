@@ -57,13 +57,12 @@ use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaGeneralFilter,
-    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
+    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataDetails, MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
@@ -262,7 +261,11 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
-        let images = metadata_images_as_urls(&meta.images, &self.0.file_storage_service).await;
+        let images = self
+            .0
+            .file_storage_service
+            .metadata_images_as_urls(&meta.images)
+            .await;
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
             for v in vids.clone() {
@@ -323,7 +326,11 @@ ORDER BY RANDOM() LIMIT 10;
             .await?;
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
-            let image = first_metadata_image_as_url(&cr.images, &self.0.file_storage_service).await;
+            let image = self
+                .0
+                .file_storage_service
+                .first_metadata_image_as_url(&cr.images)
+                .await;
             let creator = MetadataCreator {
                 image,
                 name: cr.name,
@@ -410,8 +417,11 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap()
             .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
-        metadata.image =
-            first_metadata_image_as_url(&metadata.images, &self.0.file_storage_service).await;
+        metadata.image = self
+            .0
+            .file_storage_service
+            .first_metadata_image_as_url(&metadata.images)
+            .await;
         Ok(metadata)
     }
 
@@ -907,8 +917,11 @@ ORDER BY RANDOM() LIMIT 10;
             };
 
             if image.is_none() {
-                image =
-                    first_metadata_image_as_url(&evt.m_images, &self.0.file_storage_service).await
+                image = self
+                    .0
+                    .file_storage_service
+                    .first_metadata_image_as_url(&evt.m_images)
+                    .await;
             }
             calc.metadata_image = image;
             calc.episode_name = title;
@@ -2258,8 +2271,11 @@ ORDER BY RANDOM() LIMIT 10;
             .one(&self.0.db)
             .await?
             .unwrap();
-        details.display_images =
-            metadata_images_as_urls(&details.images, &self.0.file_storage_service).await;
+        details.display_images = self
+            .0
+            .file_storage_service
+            .metadata_images_as_urls(&details.images)
+            .await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(person_id))
             .order_by_asc(metadata_to_person::Column::Index)
