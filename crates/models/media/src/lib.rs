@@ -120,19 +120,6 @@ pub struct PodcastSpecifics {
     pub total_episodes: usize,
 }
 
-impl PodcastSpecifics {
-    pub fn episode_by_number(&self, episode_number: i32) -> Option<&PodcastEpisode> {
-        self.episodes.iter().find(|e| e.number == episode_number)
-    }
-
-    pub fn episode_by_name(&self, name: &str) -> Option<i32> {
-        self.episodes
-            .iter()
-            .find(|e| e.title == name)
-            .map(|e| e.number)
-    }
-}
-
 #[derive(
     Debug,
     PartialEq,

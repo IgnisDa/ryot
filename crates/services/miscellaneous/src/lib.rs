@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use application_utils::{get_current_date, graphql_to_db_order};
+use application_utils::{get_current_date, get_podcast_episode_by_number, graphql_to_db_order};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
@@ -896,7 +896,7 @@ ORDER BY RANDOM() LIMIT 10;
                 calc.show_extra_information = Some(s);
             } else if let Some(p) = evt.metadata_podcast_extra_information {
                 if let Some(po) = evt.m_podcast_specifics {
-                    if let Some(ep) = po.episode_by_number(p.episode) {
+                    if let Some(ep) = get_podcast_episode_by_number(&po, p.episode) {
                         image = ep.thumbnail.clone();
                         title = Some(ep.title.clone());
                     }
@@ -2529,7 +2529,9 @@ ORDER BY RANDOM() LIMIT 10;
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
-                        if let Some(ep) = podcast_info.episode_by_number(podcast.episode) {
+                        if let Some(ep) =
+                            get_podcast_episode_by_number(podcast_info, podcast.episode)
+                        {
                             if ep.publish_date == cal_event.date {
                                 need_to_delete = false;
                             }

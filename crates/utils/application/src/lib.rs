@@ -10,7 +10,7 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
-use media_models::GraphqlSortOrder;
+use media_models::{GraphqlSortOrder, PodcastEpisode, PodcastSpecifics};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
@@ -90,4 +90,18 @@ pub fn graphql_to_db_order(value: GraphqlSortOrder) -> Order {
         GraphqlSortOrder::Desc => Order::Desc,
         GraphqlSortOrder::Asc => Order::Asc,
     }
+}
+
+pub fn get_podcast_episode_by_number(
+    val: &PodcastSpecifics,
+    episode_number: i32,
+) -> Option<&PodcastEpisode> {
+    val.episodes.iter().find(|e| e.number == episode_number)
+}
+
+pub fn get_podcast_episode_number_by_name(val: &PodcastSpecifics, name: &str) -> Option<i32> {
+    val.episodes
+        .iter()
+        .find(|e| e.title == name)
+        .map(|e| e.number)
 }
