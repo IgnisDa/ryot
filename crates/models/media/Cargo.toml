@@ -9,6 +9,7 @@ boilermates = { workspace = true }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 enums = { path = "../../enums" }
+file-storage-service = { path = "../../services/file-storage" }
 rust_decimal = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }

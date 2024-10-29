@@ -2351,7 +2351,6 @@ dependencies = [
  "aws-sdk-s3",
  "chrono",
  "common-models",
- "media-models",
  "nanoid",
 ]
 
@@ -3739,6 +3738,7 @@ dependencies = [
  "chrono",
  "common-models",
  "enums",
+ "file-storage-service",
  "rust_decimal",
  "schematic",
  "sea-orm",

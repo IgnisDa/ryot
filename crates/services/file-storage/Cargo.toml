@@ -7,5 +7,4 @@ edition = "2021"
 aws-sdk-s3 = { workspace = true }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
-media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
