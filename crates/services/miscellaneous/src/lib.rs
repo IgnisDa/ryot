@@ -778,6 +778,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         only_monitored: bool,
         media_limit: Option<u64>,
+        deduplicate: Option<bool>,
         end_date: Option<NaiveDate>,
         start_date: Option<NaiveDate>,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
@@ -897,7 +898,7 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
-            .get_calendar_events(user_id, false, None, Some(end_date), Some(start_date))
+            .get_calendar_events(user_id, false, None, None, Some(end_date), Some(start_date))
             .await?;
         let grouped_events = events
             .into_iter()
@@ -924,7 +925,14 @@ ORDER BY RANDOM() LIMIT 10;
             }
         };
         let events = self
-            .get_calendar_events(user_id, true, media_limit, Some(from_date), to_date)
+            .get_calendar_events(
+                user_id,
+                true,
+                media_limit,
+                input.deduplicate,
+                Some(from_date),
+                to_date,
+            )
             .await?;
         Ok(events)
     }
