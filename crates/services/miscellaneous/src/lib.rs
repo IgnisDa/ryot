@@ -43,9 +43,10 @@ use dependent_models::{
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
     create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    deploy_update_metadata_job, first_metadata_image_as_url, get_metadata_provider,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
     queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
@@ -57,13 +58,12 @@ use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaGeneralFilter,
-    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
+    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataDetails, MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,

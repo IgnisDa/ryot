@@ -26,6 +26,7 @@ use database_utils::{
 };
 use dependent_models::ImportResult;
 use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, Visibility};
+use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
@@ -74,6 +75,34 @@ use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+
+pub async fn first_metadata_image_as_url(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &FileStorageService,
+) -> Option<String> {
+    if let Some(images) = value {
+        if let Some(i) = images.first().cloned() {
+            Some(file_storage_service.get_stored_asset(i.url).await)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+pub async fn metadata_images_as_urls(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &FileStorageService,
+) -> Vec<String> {
+    let mut images = vec![];
+    if let Some(imgs) = value {
+        for i in imgs.clone() {
+            images.push(file_storage_service.get_stored_asset(i.url).await);
+        }
+    }
+    images
+}
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
     Ok(OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await)
