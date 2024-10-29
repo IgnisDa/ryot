@@ -2,7 +2,7 @@ import { logoUrl } from "~/lib/utils";
 
 export default function Page() {
 	return (
-		<section id="features">
+		<div>
 			<div className="bg-muted py-32">
 				<img
 					alt="Ryot"
@@ -18,6 +18,6 @@ export default function Page() {
 					</h2>
 				</div>
 			</div>
-		</section>
+		</div>
 	);
 }
