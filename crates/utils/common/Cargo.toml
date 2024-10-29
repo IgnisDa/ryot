@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-graphql = { workspace = true }
 chrono = { workspace = true }
 compile-time = "=0.2.0"
 const-str = { workspace = true }
 env-utils = { path = "../env" }
 reqwest = { workspace = true }
+serde = { workspace = true }

@@ -1,11 +1,12 @@
-use std::{collections::HashSet, fmt};
+use std::collections::HashSet;
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
+use common_utils::deserialize_date;
 use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, UserLot, Visibility,
@@ -16,7 +17,7 @@ use sea_orm::{
     prelude::{Date, DateTimeUtc},
     EnumIter, FromJsonQueryResult, FromQueryResult, Order,
 };
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
@@ -157,40 +158,6 @@ pub struct PodcastEpisode {
     #[serde(alias = "pub_date_ms", deserialize_with = "deserialize_date")]
     pub publish_date: NaiveDate,
     pub thumbnail: Option<String>,
-}
-
-fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    struct JsonStringVisitor;
-
-    impl<'de> de::Visitor<'de> for JsonStringVisitor {
-        type Value = NaiveDate;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a number")
-        }
-
-        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            DateTime::from_timestamp_millis(v.try_into().unwrap())
-                .ok_or_else(|| E::custom("Could not convert timestamp"))
-                .map(|d| d.date_naive())
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                .map_err(|_| E::custom("Could not convert timestamp"))
-        }
-    }
-
-    deserializer.deserialize_any(JsonStringVisitor)
 }
 
 #[derive(

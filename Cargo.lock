@@ -1344,11 +1344,13 @@ dependencies = [
 name = "common-utils"
 version = "0.1.0"
 dependencies = [
+ "async-graphql",
  "chrono",
  "compile-time",
  "const-str",
  "env-utils",
  "reqwest 0.12.8",
+ "serde",
 ]
 
 [[package]]
@@ -3738,6 +3740,7 @@ dependencies = [
  "boilermates",
  "chrono",
  "common-models",
+ "common-utils",
  "enums",
  "rust_decimal",
  "schematic",
