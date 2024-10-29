@@ -15,7 +15,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{
     prelude::{Date, DateTimeUtc},
-    EnumIter, FromJsonQueryResult, FromQueryResult, Order,
+    EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -1285,15 +1285,6 @@ pub enum GraphqlSortOrder {
     Desc,
     #[default]
     Asc,
-}
-
-impl From<GraphqlSortOrder> for Order {
-    fn from(value: GraphqlSortOrder) -> Self {
-        match value {
-            GraphqlSortOrder::Desc => Self::Desc,
-            GraphqlSortOrder::Asc => Self::Asc,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]

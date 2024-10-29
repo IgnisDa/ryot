@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use application_utils::get_current_date;
+use application_utils::{get_current_date, graphql_to_db_order};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
@@ -977,7 +977,7 @@ ORDER BY RANDOM() LIMIT 10;
         let order_by = input
             .sort
             .clone()
-            .map(|a| Order::from(a.order))
+            .map(|a| graphql_to_db_order(a.order))
             .unwrap_or(Order::Asc);
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
@@ -2117,7 +2117,7 @@ ORDER BY RANDOM() LIMIT 10;
                     PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
                     PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
-                ord.order.into(),
+                graphql_to_db_order(ord.order),
             ),
         };
         let take = input
@@ -2193,7 +2193,7 @@ ORDER BY RANDOM() LIMIT 10;
                     PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
                     PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
-                ord.order.into(),
+                graphql_to_db_order(ord.order),
             ),
         };
         let take = input

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
@@ -224,7 +225,7 @@ impl CollectionService {
                             Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
                         ])),
                     },
-                    sort.order.into(),
+                    graphql_to_db_order(sort.order),
                 )
                 .paginate(&self.0.db, take);
             let mut items = vec![];

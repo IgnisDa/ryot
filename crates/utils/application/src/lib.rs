@@ -10,10 +10,12 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
+use media_models::GraphqlSortOrder;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
 };
+use sea_orm::Order;
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
     jwt_service::verify(token, jwt_secret)
@@ -81,4 +83,11 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
 
 pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
     Utc::now().with_timezone(timezone).date_naive()
+}
+
+pub fn graphql_to_db_order(value: GraphqlSortOrder) -> Order {
+    match value {
+        GraphqlSortOrder::Desc => Order::Desc,
+        GraphqlSortOrder::Asc => Order::Asc,
+    }
 }

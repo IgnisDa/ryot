@@ -246,7 +246,9 @@ dependencies = [
  "config",
  "file-storage-service",
  "jwt-service",
+ "media-models",
  "reqwest 0.12.8",
+ "sea-orm",
 ]
 
 [[package]]
@@ -1277,6 +1279,7 @@ dependencies = [
 name = "collection-service"
 version = "0.1.0"
 dependencies = [
+ "application-utils",
  "async-graphql",
  "common-models",
  "database-models",
@@ -1344,7 +1347,6 @@ dependencies = [
 name = "common-utils"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
  "chrono",
  "compile-time",
  "const-str",
