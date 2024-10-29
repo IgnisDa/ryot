@@ -1679,7 +1679,6 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	publishDate?: string | null;
 }) => {
 	const [parent] = useAutoAnimate();
-	const [displayOverview, setDisplayOverview] = useDisclosure(false);
 	const swt = (t: string) => (
 		<Text size="xs" c="dimmed">
 			{t}
@@ -1696,11 +1695,6 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 			: null,
 		props.publishDate ? swt(dayjsLib(props.publishDate).format("ll")) : null,
 		props.numEpisodes ? swt(`${props.numEpisodes} episodes`) : null,
-		props.overview ? (
-			<Anchor key="overview" size="xs" onClick={setDisplayOverview.toggle}>
-				{displayOverview ? "Hide" : "Show"} overview
-			</Anchor>
-		) : null,
 	].filter((s) => s !== null);
 	const display =
 		filteredElements.length > 0
@@ -1727,23 +1721,23 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
 				<Group wrap="nowrap">
 					<Indicator
+						size={16}
+						offset={7}
+						color="cyan"
 						disabled={!isSeen}
+						position="bottom-end"
+						style={{ zIndex: 0 }}
 						label={
 							props.displayIndicator === 1
 								? "Seen"
 								: `Seen × ${props.displayIndicator}`
 						}
-						offset={7}
-						position="bottom-end"
-						size={16}
-						color="cyan"
-						style={{ zIndex: 0 }}
 					>
 						<Avatar
-							src={props.posterImages[0]}
-							name={props.name}
-							radius="xl"
 							size="lg"
+							radius="xl"
+							name={props.name}
+							src={props.posterImages[0]}
 							imageProps={{ loading: "lazy" }}
 						/>
 					</Indicator>
@@ -1758,13 +1752,13 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 			<Box hiddenFrom="md">
 				<DisplayDetails />
 			</Box>
-			{props.overview && displayOverview ? (
+			{props.overview ? (
 				<Text
 					size="sm"
 					c="dimmed"
+					lineClamp={5}
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
 					dangerouslySetInnerHTML={{ __html: props.overview }}
-					lineClamp={5}
 				/>
 			) : null}
 		</Stack>
