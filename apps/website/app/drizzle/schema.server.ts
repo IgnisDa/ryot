@@ -1,6 +1,5 @@
 import {
 	boolean,
-	date,
 	pgEnum,
 	pgTable,
 	text,
@@ -36,7 +35,6 @@ export const customers = pgTable("customer", {
 	paddleCustomerId: text("paddle_customer_id").unique(),
 	productType: productTypes("product_type"),
 	planType: planTypes("plan_type"),
-	renewOn: date("renew_on"),
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
 	hasCancelled: boolean("has_cancelled"),
