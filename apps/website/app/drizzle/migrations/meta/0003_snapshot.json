@@ -1,5 +1,5 @@
 {
-	"id": "0c64b2ae-3b5b-4061-9891-cfcb23ef9c5a",
+	"id": "606551ca-2277-4f7c-a916-7be8a145bc9f",
 	"prevId": "706194d8-7177-4603-9a70-49955b7b2c2f",
 	"version": "7",
 	"dialect": "postgresql",
@@ -100,6 +100,12 @@
 					"name": "plan_type",
 					"type": "plan_type",
 					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"renew_on": {
+					"name": "renew_on",
+					"type": "date",
 					"primaryKey": false,
 					"notNull": false
 				},
