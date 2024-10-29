@@ -59,6 +59,7 @@ pub use m20230502_create_genre::{
 pub use m20230504_create_collection::Collection as AliasedCollection;
 pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230822_create_exercise::Exercise as AliasedExercise;
+pub use m20230912_create_calendar_event::CalendarEvent as AliasedCalendarEvent;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 

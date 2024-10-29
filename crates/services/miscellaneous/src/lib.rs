@@ -75,7 +75,8 @@ use media_models::{
     UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
-    AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
+    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
+    AliasedUserToEntity,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -784,66 +785,92 @@ ORDER BY RANDOM() LIMIT 10;
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             id: String,
-            m_lot: MediaLot,
             date: NaiveDate,
+            m_lot: MediaLot,
             m_title: String,
             metadata_id: String,
             m_images: Option<Vec<MetadataImage>>,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
-            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
             metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
         }
-        let all_events = CalendarEvent::find()
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
-                "m_lot",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
-                "m_title",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
-                "m_images",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
-                "m_show_specifics",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
-                "m_podcast_specifics",
-            )
-            .filter(
-                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId)).eq(user_id),
-            )
-            .inner_join(Metadata)
-            .join_rev(
-                JoinType::Join,
-                UserToEntity::belongs_to(CalendarEvent)
-                    .from(user_to_entity::Column::MetadataId)
-                    .to(calendar_event::Column::MetadataId)
-                    .on_condition(move |left, _right| {
-                        Condition::all().add_option(match only_monitored {
-                            true => Some(Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
-                                PgFunc::any(Expr::col((left, user_to_entity::Column::MediaReason))),
-                            )),
-                            false => None,
-                        })
+
+        let stmt = Query::select()
+            .column(Asterisk)
+            .from_subquery(
+                CalendarEvent::find()
+                    .apply_if(deduplicate, |query, _v| {
+                        query
+                            .distinct_on([(
+                                AliasedCalendarEvent::Table,
+                                AliasedCalendarEvent::MetadataId,
+                            )])
+                            .order_by_asc(Expr::col((
+                                AliasedCalendarEvent::Table,
+                                AliasedCalendarEvent::MetadataId,
+                            )))
                     })
-                    .into(),
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
+                        "m_lot",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
+                        "m_title",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
+                        "m_images",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
+                        "m_show_specifics",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
+                        "m_podcast_specifics",
+                    )
+                    .filter(
+                        Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                            .eq(&user_id),
+                    )
+                    .inner_join(Metadata)
+                    .join_rev(
+                        JoinType::Join,
+                        UserToEntity::belongs_to(CalendarEvent)
+                            .from(user_to_entity::Column::MetadataId)
+                            .to(calendar_event::Column::MetadataId)
+                            .on_condition(move |left, _right| {
+                                Condition::all().add_option(match only_monitored {
+                                    true => Some(
+                                        Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
+                                            PgFunc::any(Expr::col((
+                                                left,
+                                                user_to_entity::Column::MediaReason,
+                                            ))),
+                                        ),
+                                    ),
+                                    false => None,
+                                })
+                            })
+                            .into(),
+                    )
+                    .order_by_asc(calendar_event::Column::Date)
+                    .apply_if(end_date, |q, v| {
+                        q.filter(calendar_event::Column::Date.gte(v))
+                    })
+                    .apply_if(start_date, |q, v| {
+                        q.filter(calendar_event::Column::Date.lte(v))
+                    })
+                    .limit(media_limit)
+                    .into_query(),
+                Alias::new("sub_query"),
             )
-            .order_by_asc(calendar_event::Column::Date)
-            .apply_if(end_date, |q, v| {
-                q.filter(calendar_event::Column::Date.gte(v))
-            })
-            .apply_if(start_date, |q, v| {
-                q.filter(calendar_event::Column::Date.lte(v))
-            })
-            .limit(media_limit)
-            .into_model::<CalEvent>()
+            .order_by(Alias::new("date"), Order::Asc)
+            .to_owned();
+        let all_events = CalEvent::find_by_statement(self.get_db_stmt(stmt))
             .all(&self.0.db)
             .await?;
         let mut events = vec![];
