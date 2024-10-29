@@ -1,6 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use application_utils::{get_podcast_episode_by_number, GraphqlRepresentation};
+use application_utils::{
+    get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
+};
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::Utc;
@@ -655,9 +657,9 @@ pub async fn calculate_user_activities_and_summary(
         if let (Some(show_seen), Some(show_extra)) =
             (seen.show_specifics, seen.show_extra_information)
         {
-            if let Some(runtime) = show_seen
-                .get_episode(show_extra.season, show_extra.episode)
-                .and_then(|(_, e)| e.runtime)
+            if let Some(runtime) =
+                get_show_episode_by_numbers(&show_seen, show_extra.season, show_extra.episode)
+                    .and_then(|(_, e)| e.runtime)
             {
                 activity.show_duration += runtime;
             }

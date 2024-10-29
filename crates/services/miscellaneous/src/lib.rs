@@ -4,7 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use application_utils::{get_current_date, get_podcast_episode_by_number, graphql_to_db_order};
+use application_utils::{
+    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
+    graphql_to_db_order,
+};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
@@ -888,7 +891,7 @@ ORDER BY RANDOM() LIMIT 10;
 
             if let Some(s) = evt.metadata_show_extra_information {
                 if let Some(sh) = evt.m_show_specifics {
-                    if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                    if let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode) {
                         image = ep.poster_images.first().cloned();
                         title = Some(ep.name.clone());
                     }
@@ -2516,7 +2519,8 @@ ORDER BY RANDOM() LIMIT 10;
                 let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
-                        if let Some((season, ep)) = show_info.get_episode(show.season, show.episode)
+                        if let Some((season, ep)) =
+                            get_show_episode_by_numbers(show_info, show.season, show.episode)
                         {
                             if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
                                 if let Some(publish_date) = ep.publish_date {
