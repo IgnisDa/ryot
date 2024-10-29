@@ -1512,18 +1512,11 @@ pub struct UserCalendarEventInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
-pub enum UserUpcomingCalendarEventFetchInput {
+pub enum UserUpcomingCalendarEventInput {
     /// The number of media to select
     NextMedia(u64),
     /// The number of days to select
     NextDays(u64),
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct UserUpcomingCalendarEventInput {
-    pub fetch: UserUpcomingCalendarEventFetchInput,
-    /// Only one episode of a show/podcast is selected
-    pub deduplicate: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

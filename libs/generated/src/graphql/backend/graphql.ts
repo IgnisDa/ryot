@@ -2532,17 +2532,11 @@ export enum UserUnitSystem {
   Metric = 'METRIC'
 }
 
-export type UserUpcomingCalendarEventFetchInput = {
+export type UserUpcomingCalendarEventInput = {
   /** The number of days to select */
   nextDays?: InputMaybe<Scalars['Int']['input']>;
   /** The number of media to select */
   nextMedia?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type UserUpcomingCalendarEventInput = {
-  /** Only one episode of a show/podcast is selected */
-  deduplicate?: InputMaybe<Scalars['Boolean']['input']>;
-  fetch: UserUpcomingCalendarEventFetchInput;
 };
 
 export type UserWorkoutDetails = {
