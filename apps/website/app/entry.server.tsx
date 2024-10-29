@@ -14,15 +14,12 @@ const migrationClient = postgres(serverVariables.DATABASE_URL, { max: 1 });
 migrate(drizzle(migrationClient), {
 	migrationsFolder: "app/drizzle/migrations",
 })
-	.then(() => {
-		migrationClient.end();
-		console.log("Database migrations complete");
-	})
+	.then(() => console.log("Database migrations complete"))
 	.catch((error) => {
 		console.error("Database migrations failed", error);
-		migrationClient.end();
 		process.exit(1);
-	});
+	})
+	.finally(() => migrationClient.end());
 
 const ABORT_DELAY = 5_000;
 
