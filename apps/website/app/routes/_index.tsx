@@ -21,7 +21,6 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
-import Autoplay from "embla-carousel-autoplay";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
@@ -33,13 +32,6 @@ import { zx } from "zodix";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
-import {
-	Carousel,
-	CarouselContent,
-	CarouselItem,
-	CarouselNext,
-	CarouselPrevious,
-} from "~/lib/components/ui/carousel";
 import { Input } from "~/lib/components/ui/input";
 import {
 	InputOTP,
@@ -239,52 +231,46 @@ export default function Page() {
 				</div>
 			</section>
 			<section
-				id="showcase"
+				id="testimonials"
 				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
 			>
-				<div className="container space-y-12 px-4 md:px-6">
-					<div className="flex flex-col items-center justify-center space-y-4 text-center">
-						<div className="space-y-2">
-							<div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm bg-white">
-								Ease of Use
-							</div>
-							<h1 className="lg:leading-tighter text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl xl:text-[3.4rem] 2xl:text-[3.75rem]">
-								Focus on What Matters
-							</h1>
-						</div>
+				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6 lg:gap-10">
+					<div className="space-y-3">
+						<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+							Trusted by Thousands
+						</h2>
+						<p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+							Ryot is trusted by thousands of users worldwide to track their
+							media, fitness, and more. Join them and upgrade your tracking
+							experience today.
+						</p>
 					</div>
-					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
-						<CarouselContent>
-							{showCarouselContents.map((carousel) => (
-								<CarouselItem key={carousel.text} className="flex flex-col">
-									<p className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-										{carousel.text}
-									</p>
-									<div className="my-auto">
-										<Image
-											src={carousel.image}
-											alt={carousel.alt}
-											className={cn(
-												carousel.smallImage && "hidden md:block",
-												"max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl",
-											)}
-										/>
-										{carousel.smallImage ? (
-											<Image
-												src={carousel.smallImage}
-												alt={carousel.alt}
-												className="md:hidden"
-											/>
-										) : null}
-									</div>
-								</CarouselItem>
-							))}
-						</CarouselContent>
-						<div className="hidden md:block">
-							<CarouselPrevious />
-							<CarouselNext />
+					<div className="divide-y rounded-lg border">
+						<div className="mx-auto md:flex w-full items-center justify-center p-4 sm:p-8 space-y-4 gap-x-4">
+							<Image
+								src="https://cdn.fosstodon.org/accounts/avatars/110/575/489/884/720/641/original/7312eb6f27068401.jpeg"
+								alt="Fosstodon logo"
+								className="size-20 rounded-full flex-none"
+							/>
+							<p>
+								I love how easy it is to quickly add a game, book, movie or show
+								after I'm finished and write a short review. It's probably the
+								most used software on my home server, and has greatly encouraged
+								me to watch more movies! IgnisDa has put a great amount of
+								attention to detail into this software, and is always available
+								for help any step of the way! -{" "}
+								<a
+									href="https://fosstodon.org/@beppi"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="hover:underline"
+								>
+									<strong>@beppi</strong>
+								</a>
+							</p>
 						</div>
-					</Carousel>
+						<div className="grid w-full grid-cols-3 items-stretch justify-center divide" />
+					</div>
 				</div>
 			</section>
 			<section id="start-here" className="w-full py-12 md:py-24 lg:py-32">
@@ -381,58 +367,15 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			<section
-				id="testimonials"
-				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
-			>
-				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6 lg:gap-10">
-					<div className="space-y-3">
-						<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-							Trusted by Thousands
-						</h2>
-						<p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-							Ryot is trusted by thousands of users worldwide to track their
-							media, fitness, and more. Join them and upgrade your tracking
-							experience today.
-						</p>
-					</div>
-					<div className="divide-y rounded-lg border">
-						<div className="mx-auto md:flex w-full items-center justify-center p-4 sm:p-8 space-y-4 gap-x-4">
-							<Image
-								src="https://cdn.fosstodon.org/accounts/avatars/110/575/489/884/720/641/original/7312eb6f27068401.jpeg"
-								alt="Fosstodon logo"
-								className="size-20 rounded-full flex-none"
-							/>
-							<p>
-								I love how easy it is to quickly add a game, book, movie or show
-								after I'm finished and write a short review. It's probably the
-								most used software on my home server, and has greatly encouraged
-								me to watch more movies! IgnisDa has put a great amount of
-								attention to detail into this software, and is always available
-								for help any step of the way! -{" "}
-								<a
-									href="https://fosstodon.org/@beppi"
-									target="_blank"
-									rel="noopener noreferrer"
-									className="hover:underline"
-								>
-									<strong>@beppi</strong>
-								</a>
-							</p>
-						</div>
-						<div className="grid w-full grid-cols-3 items-stretch justify-center divide" />
-					</div>
-				</div>
-			</section>
 			<Pricing
 				prices={loaderData.prices}
 				isLoggedIn={rootLoaderData?.isLoggedIn}
 			/>
-			<section id="contact" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
+			<section id="contact" className="w-full py-12 md:py-24 lg:py-32">
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">
 						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
+							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-muted">
 								Contact Us
 							</div>
 							<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
@@ -474,11 +417,14 @@ export default function Page() {
 					)}
 				</div>
 			</section>
-			<section id="community" className="w-full py-12 md:py-24 lg:py-32">
+			<section
+				id="community"
+				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
+			>
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">
 						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-muted">
+							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
 								Open Source
 							</div>
 							<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
@@ -570,22 +516,3 @@ const Image = ({ src, alt, className }: ImageProps) => (
 		)}
 	/>
 );
-
-const showCarouselContents = [
-	{
-		text: "You can selectively enable or disable the facets you want to track. Spend less time learning the platform and more time tracking what matters to you. Get started in minutes.",
-		image: "/group.png",
-		smallImage: "/desktop.png",
-		alt: "Grouped images",
-	},
-	{
-		text: "Share your profile data with friends and family without compromising your privacy. Ryot allows you to create access links with limited access so that others can view your favorite movies without logging in.",
-		image: "/sharing.png",
-		alt: "Sharing images",
-	},
-	{
-		text: "Browse your favorite genres and get recommendations based on your preferences. Ryot uses advanced algorithms to suggest movies, shows, and books you might like.",
-		image: "/genres.png",
-		alt: "Genres images",
-	},
-];
