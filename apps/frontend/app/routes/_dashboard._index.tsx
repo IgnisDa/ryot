@@ -129,7 +129,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		serverGqlService.authenticatedRequest(
 			request,
 			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: takeUpcoming } },
+			{ input: { fetch: { nextMedia: takeUpcoming }, deduplicate: true } },
 		),
 		serverGqlService.authenticatedRequest(
 			request,
