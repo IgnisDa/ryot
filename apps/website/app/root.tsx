@@ -18,7 +18,7 @@ import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
 import { getCustomerFromCookie, honeypot } from "./lib/config.server";
-import { startUrl } from "./lib/utils";
+import { logoUrl, startUrl } from "./lib/utils";
 
 export const links: LinksFunction = () => {
 	return [
@@ -75,11 +75,7 @@ export default function App() {
 				<div className="flex flex-col min-h-dvh">
 					<header className="px-4 lg:px-6 h-14 flex items-center">
 						<Link to={$path("/")} className="flex items-center justify-center">
-							<img
-								src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png"
-								alt="Ryot"
-								className="size-10 mr-2"
-							/>
+							<img alt="Ryot" src={logoUrl} className="size-10 mr-2" />
 							<span className="text-xl hidden md:block">Ryot</span>
 						</Link>
 						<nav className="ml-auto flex gap-4 sm:gap-6">
