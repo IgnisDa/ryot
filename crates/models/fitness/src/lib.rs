@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use application_utils::GraphqlRepresentation;
-use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
-use async_trait::async_trait;
+use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
-use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::{ConfigEnum, Schematic};
@@ -154,22 +151,6 @@ pub struct ExerciseListItem {
     pub image: Option<String>,
     #[graphql(skip)]
     pub muscles: Vec<ExerciseMuscle>,
-}
-
-#[async_trait]
-impl GraphqlRepresentation for ExerciseListItem {
-    async fn graphql_representation(
-        self,
-        file_storage_service: &FileStorageService,
-    ) -> GraphqlResult<Self> {
-        let mut converted_exercise = self.clone();
-        if let Some(img) = self.attributes.internal_images.first() {
-            converted_exercise.image =
-                Some(file_storage_service.get_stored_asset(img.clone()).await)
-        }
-        converted_exercise.muscle = self.muscles.first().cloned();
-        Ok(converted_exercise)
-    }
 }
 
 /// The totals of a workout and the different bests achieved.

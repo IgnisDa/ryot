@@ -2363,14 +2363,11 @@ dependencies = [
 name = "fitness-models"
 version = "0.1.0"
 dependencies = [
- "application-utils",
  "async-graphql",
- "async-trait",
  "common-models",
  "derive_more 1.0.0",
  "educe 0.6.0",
  "enums",
- "file-storage-service",
  "rust_decimal",
  "rust_decimal_macros",
  "schematic",
