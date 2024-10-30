@@ -44,6 +44,12 @@ the entire database and emailing the file.
 docker exec -u postgres -i ryot-db pg_dump -Fc --no-acl --no-owner > /tmp/ryot.file.sql
 ```
 
+To restore the above dump, run the following command:
+
+```bash
+docker exec -u postgres -i ryot-db pg_restore -U postgres -d postgres < /tmp/ryot.file.sql
+```
+
 ## Type definitions
 
 ```ts
