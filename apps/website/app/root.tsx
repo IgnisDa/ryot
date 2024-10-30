@@ -80,16 +80,22 @@ export default function App() {
 						</Link>
 						<nav className="ml-auto flex gap-4 sm:gap-6">
 							<Link
-								to={loaderData.isLoggedIn ? $path("/me") : startUrl}
-								className="text-sm font-medium hover:underline underline-offset-4"
+								to={$path("/features")}
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
 							>
-								Your account
+								Features
 							</Link>
 							<Link
 								to={withFragment($path("/"), "pricing")}
 								className="text-sm font-medium hover:underline underline-offset-4"
 							>
 								Pricing
+							</Link>
+							<Link
+								to={loaderData.isLoggedIn ? $path("/me") : startUrl}
+								className="text-sm font-medium hover:underline underline-offset-4"
+							>
+								Your account
 							</Link>
 							<a
 								target="_blank"
