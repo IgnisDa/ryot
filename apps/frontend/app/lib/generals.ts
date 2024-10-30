@@ -311,8 +311,8 @@ export const getMetadataIcon = (lot: MediaLot) => {
 		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
 		.with(MediaLot.AudioBook, () => IconHeadphones)
 		.with(MediaLot.Podcast, () => IconMicrophone)
-		.with(MediaLot.Manga, () => IconDeviceTvOld)
-		.with(MediaLot.Anime, () => IconBooks)
+		.with(MediaLot.Anime, () => IconDeviceTvOld)
+		.with(MediaLot.Manga, () => IconBooks)
 		.with(MediaLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };
