@@ -2,24 +2,15 @@ import { PassThrough } from "node:stream";
 import type { AppLoadContext, EntryContext } from "@remix-run/node";
 import { createReadableStreamFromReadable } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
-import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { isbot } from "isbot";
-import postgres from "postgres";
 import { renderToPipeableStream } from "react-dom/server";
-import { serverVariables } from "./lib/config.server";
+import { db } from "./lib/config.server";
 
-const migrationClient = postgres(serverVariables.DATABASE_URL, { max: 1 });
-
-migrate(drizzle(migrationClient), {
-	migrationsFolder: "app/drizzle/migrations",
-})
-	.then(() => console.log("Database migrations complete"))
-	.catch((error) => {
-		console.error("Database migrations failed", error);
-		process.exit(1);
-	})
-	.finally(() => migrationClient.end());
+migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {
+	console.error("Database migrations failed", error);
+	process.exit(1);
+});
 
 const ABORT_DELAY = 5_000;
 

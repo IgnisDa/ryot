@@ -9,7 +9,6 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
-import postgres from "postgres";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -74,7 +73,7 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 	throw new Error("Price ID not found");
 };
 
-export const db = drizzle(postgres(serverVariables.DATABASE_URL), {
+export const db = drizzle(serverVariables.DATABASE_URL, {
 	schema,
 	logger: serverVariables.NODE_ENV === "development",
 });
