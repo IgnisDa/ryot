@@ -1,17 +1,13 @@
 use std::collections::HashMap;
 
-use application_utils::GraphqlRepresentation;
-use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
-use async_trait::async_trait;
+use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
-use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
@@ -154,22 +150,6 @@ pub struct ExerciseListItem {
     pub image: Option<String>,
     #[graphql(skip)]
     pub muscles: Vec<ExerciseMuscle>,
-}
-
-#[async_trait]
-impl GraphqlRepresentation for ExerciseListItem {
-    async fn graphql_representation(
-        self,
-        file_storage_service: &FileStorageService,
-    ) -> GraphqlResult<Self> {
-        let mut converted_exercise = self.clone();
-        if let Some(img) = self.attributes.internal_images.first() {
-            converted_exercise.image =
-                Some(file_storage_service.get_stored_asset(img.clone()).await)
-        }
-        converted_exercise.muscle = self.muscles.first().cloned();
-        Ok(converted_exercise)
-    }
 }
 
 /// The totals of a workout and the different bests achieved.
@@ -317,41 +297,6 @@ pub struct WorkoutSetRecord {
     pub totals: Option<WorkoutSetTotals>,
     pub confirmed_at: Option<DateTimeUtc>,
     pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
-}
-
-impl WorkoutSetRecord {
-    // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
-    pub fn calculate_one_rm(&self) -> Option<Decimal> {
-        let mut val =
-            (self.statistic.weight? * dec!(36.0)).checked_div(dec!(37.0) - self.statistic.reps?);
-        if let Some(v) = val {
-            if v <= dec!(0) {
-                val = None;
-            }
-        };
-        val
-    }
-
-    pub fn calculate_volume(&self) -> Option<Decimal> {
-        Some(self.statistic.weight? * self.statistic.reps?)
-    }
-
-    pub fn calculate_pace(&self) -> Option<Decimal> {
-        self.statistic
-            .distance?
-            .checked_div(self.statistic.duration?)
-    }
-
-    pub fn get_personal_best(&self, pb_type: &WorkoutSetPersonalBest) -> Option<Decimal> {
-        match pb_type {
-            WorkoutSetPersonalBest::Weight => self.statistic.weight,
-            WorkoutSetPersonalBest::Time => self.statistic.duration,
-            WorkoutSetPersonalBest::Reps => self.statistic.reps,
-            WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
-            WorkoutSetPersonalBest::Volume => self.calculate_volume(),
-            WorkoutSetPersonalBest::Pace => self.calculate_pace(),
-        }
-    }
 }
 
 #[derive(
@@ -589,30 +534,6 @@ pub struct UserWorkoutInput {
     pub update_workout_id: Option<String>,
     pub update_workout_template_id: Option<String>,
     pub supersets: Vec<WorkoutSupersetsInformation>,
-}
-
-impl UserWorkoutSetRecord {
-    /// Set the invalid statistics to `None` according to the type of exercise.
-    pub fn clean_values(&mut self, exercise_lot: &ExerciseLot) {
-        let mut stats = WorkoutSetStatistic {
-            ..Default::default()
-        };
-        match exercise_lot {
-            ExerciseLot::Duration => stats.duration = self.statistic.duration,
-            ExerciseLot::DistanceAndDuration => {
-                stats.distance = self.statistic.distance;
-                stats.duration = self.statistic.duration;
-            }
-            ExerciseLot::RepsAndWeight => {
-                stats.reps = self.statistic.reps;
-                stats.weight = self.statistic.weight;
-            }
-            ExerciseLot::Reps => {
-                stats.reps = self.statistic.reps;
-            }
-        }
-        self.statistic = stats;
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

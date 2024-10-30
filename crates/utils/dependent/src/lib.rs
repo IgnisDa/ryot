@@ -24,13 +24,17 @@ use database_utils::{
     deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
 };
 use dependent_models::ImportResult;
-use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, Visibility};
+use enums::{
+    EntityLot, ExerciseLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    Visibility,
+};
+use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
     WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -73,6 +77,34 @@ use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+
+pub async fn first_metadata_image_as_url(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &FileStorageService,
+) -> Option<String> {
+    if let Some(images) = value {
+        if let Some(i) = images.first().cloned() {
+            Some(file_storage_service.get_stored_asset(i.url).await)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+pub async fn metadata_images_as_urls(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &FileStorageService,
+) -> Vec<String> {
+    let mut images = vec![];
+    if let Some(imgs) = value {
+        for i in imgs.clone() {
+            images.push(file_storage_service.get_stored_asset(i.url).await);
+        }
+    }
+    images
+}
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
     Ok(OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await)
@@ -1555,8 +1587,67 @@ fn get_index_of_highest_pb(
 ) -> Option<usize> {
     let record = records
         .iter()
-        .max_by_key(|record| record.get_personal_best(pb_type).unwrap_or(dec!(0)));
+        .max_by_key(|record| get_personal_best(record, pb_type).unwrap_or(dec!(0)));
     record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
+}
+
+// DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
+fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
+    let mut val =
+        (value.statistic.weight? * dec!(36.0)).checked_div(dec!(37.0) - value.statistic.reps?);
+    if let Some(v) = val {
+        if v <= dec!(0) {
+            val = None;
+        }
+    };
+    val
+}
+
+fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
+    Some(value.statistic.weight? * value.statistic.reps?)
+}
+
+fn calculate_pace(value: &WorkoutSetRecord) -> Option<Decimal> {
+    value
+        .statistic
+        .distance?
+        .checked_div(value.statistic.duration?)
+}
+
+fn get_personal_best(
+    value: &WorkoutSetRecord,
+    pb_type: &WorkoutSetPersonalBest,
+) -> Option<Decimal> {
+    match pb_type {
+        WorkoutSetPersonalBest::Weight => value.statistic.weight,
+        WorkoutSetPersonalBest::Time => value.statistic.duration,
+        WorkoutSetPersonalBest::Reps => value.statistic.reps,
+        WorkoutSetPersonalBest::OneRm => calculate_one_rm(value),
+        WorkoutSetPersonalBest::Volume => calculate_volume(value),
+        WorkoutSetPersonalBest::Pace => calculate_pace(value),
+    }
+}
+
+/// Set the invalid statistics to `None` according to the type of exercise.
+fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
+    let mut stats = WorkoutSetStatistic {
+        ..Default::default()
+    };
+    match exercise_lot {
+        ExerciseLot::Duration => stats.duration = value.statistic.duration,
+        ExerciseLot::DistanceAndDuration => {
+            stats.distance = value.statistic.distance;
+            stats.duration = value.statistic.duration;
+        }
+        ExerciseLot::RepsAndWeight => {
+            stats.reps = value.statistic.reps;
+            stats.weight = value.statistic.weight;
+        }
+        ExerciseLot::Reps => {
+            stats.reps = value.statistic.reps;
+        }
+    }
+    value.statistic = stats;
 }
 
 /// Create a workout in the database and also update user and exercise associations.
@@ -1666,7 +1757,7 @@ pub async fn create_or_update_workout(
                 );
             }
             first_set_of_exercise_confirmed_at = set.confirmed_at;
-            set.clean_values(&db_ex.lot);
+            clean_values(set, &db_ex.lot);
             if let Some(r) = set.statistic.reps {
                 totals.reps += r;
                 if let Some(w) = set.statistic.weight {
@@ -1693,9 +1784,9 @@ pub async fn create_or_update_workout(
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
             };
-            value.statistic.one_rm = value.calculate_one_rm();
-            value.statistic.pace = value.calculate_pace();
-            value.statistic.volume = value.calculate_volume();
+            value.statistic.one_rm = calculate_one_rm(&value);
+            value.statistic.pace = calculate_pace(&value);
+            value.statistic.volume = calculate_volume(&value);
             sets.push(value);
         }
         let mut personal_bests = association
@@ -1722,7 +1813,9 @@ pub async fn create_or_update_workout(
                 {
                     let workout_set =
                         workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
-                    if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
+                    if get_personal_best(set, best_type)
+                        > get_personal_best(&workout_set, best_type)
+                    {
                         if let Some(ref mut set_personal_bests) = set.personal_bests {
                             set_personal_bests.push(*best_type);
                         }

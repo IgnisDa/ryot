@@ -1,23 +1,23 @@
-use std::{collections::HashSet, fmt};
+use std::collections::HashSet;
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
+use common_utils::deserialize_date;
 use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, UserLot, Visibility,
 };
-use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{
     prelude::{Date, DateTimeUtc},
-    EnumIter, FromJsonQueryResult, FromQueryResult, Order,
+    EnumIter, FromJsonQueryResult, FromQueryResult,
 };
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
@@ -120,19 +120,6 @@ pub struct PodcastSpecifics {
     pub total_episodes: usize,
 }
 
-impl PodcastSpecifics {
-    pub fn episode_by_number(&self, episode_number: i32) -> Option<&PodcastEpisode> {
-        self.episodes.iter().find(|e| e.number == episode_number)
-    }
-
-    pub fn episode_by_name(&self, name: &str) -> Option<i32> {
-        self.episodes
-            .iter()
-            .find(|e| e.title == name)
-            .map(|e| e.number)
-    }
-}
-
 #[derive(
     Debug,
     PartialEq,
@@ -160,40 +147,6 @@ pub struct PodcastEpisode {
     pub thumbnail: Option<String>,
 }
 
-fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    struct JsonStringVisitor;
-
-    impl<'de> de::Visitor<'de> for JsonStringVisitor {
-        type Value = NaiveDate;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a number")
-        }
-
-        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            DateTime::from_timestamp_millis(v.try_into().unwrap())
-                .ok_or_else(|| E::custom("Could not convert timestamp"))
-                .map(|d| d.date_naive())
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                .map_err(|_| E::custom("Could not convert timestamp"))
-        }
-    }
-
-    deserializer.deserialize_any(JsonStringVisitor)
-}
-
 #[derive(
     Debug,
     PartialEq,
@@ -212,24 +165,6 @@ pub struct ShowSpecifics {
     pub runtime: Option<i32>,
     pub total_seasons: Option<usize>,
     pub total_episodes: Option<usize>,
-}
-
-impl ShowSpecifics {
-    pub fn get_episode(
-        &self,
-        season_number: i32,
-        episode_number: i32,
-    ) -> Option<(&ShowSeason, &ShowEpisode)> {
-        self.seasons
-            .iter()
-            .find(|s| s.season_number == season_number)
-            .and_then(|s| {
-                s.episodes
-                    .iter()
-                    .find(|e| e.episode_number == episode_number)
-                    .map(|e| (s, e))
-            })
-    }
 }
 
 #[derive(
@@ -720,34 +655,6 @@ pub enum MetadataVideoSource {
 pub struct MetadataVideo {
     pub identifier: StoredUrl,
     pub source: MetadataVideoSource,
-}
-
-pub async fn first_metadata_image_as_url(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Option<String> {
-    if let Some(images) = value {
-        if let Some(i) = images.first().cloned() {
-            Some(file_storage_service.get_stored_asset(i.url).await)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-pub async fn metadata_images_as_urls(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Vec<String> {
-    let mut images = vec![];
-    if let Some(imgs) = value {
-        for i in imgs.clone() {
-            images.push(file_storage_service.get_stored_asset(i.url).await);
-        }
-    }
-    images
 }
 
 /// Comments left in replies to posted reviews.
@@ -1347,15 +1254,6 @@ pub enum GraphqlSortOrder {
     Desc,
     #[default]
     Asc,
-}
-
-impl From<GraphqlSortOrder> for Order {
-    fn from(value: GraphqlSortOrder) -> Self {
-        match value {
-            GraphqlSortOrder::Desc => Self::Desc,
-            GraphqlSortOrder::Asc => Self::Asc,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]

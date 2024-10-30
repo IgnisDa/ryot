@@ -408,10 +408,17 @@ impl ExerciseService {
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
-            let gql_repr = ex
-                .graphql_representation(&self.0.file_storage_service)
-                .await?;
-            items.push(gql_repr);
+            let mut converted_exercise = ex.clone();
+            if let Some(img) = ex.attributes.internal_images.first() {
+                converted_exercise.image = Some(
+                    self.0
+                        .file_storage_service
+                        .get_stored_asset(img.clone())
+                        .await,
+                )
+            }
+            converted_exercise.muscle = ex.muscles.first().cloned();
+            items.push(converted_exercise);
         }
         let next_page =
             if total - ((input.search.page.unwrap()) * self.0.config.frontend.page_size) > 0 {

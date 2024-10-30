@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use anyhow::anyhow;
-use application_utils::get_base_http_client;
+use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
@@ -118,10 +118,9 @@ where
                                         ..Default::default()
                                     })
                                     .await?;
-                                    if let Some(pe) = podcast
-                                        .podcast_specifics
-                                        .and_then(|p| p.episode_by_name(&episode.title))
-                                    {
+                                    if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
+                                        get_podcast_episode_number_by_name(&p, &episode.title)
+                                    }) {
                                         to_return.push(pe);
                                     }
                                 }

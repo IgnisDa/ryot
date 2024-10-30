@@ -4,7 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use application_utils::get_current_date;
+use application_utils::{
+    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
+    graphql_to_db_order,
+};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
@@ -42,9 +45,10 @@ use dependent_models::{
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
     create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    deploy_update_metadata_job, first_metadata_image_as_url, get_metadata_provider,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
     queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
@@ -56,13 +60,12 @@ use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaGeneralFilter,
-    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
+    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataDetails, MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
@@ -74,7 +77,8 @@ use media_models::{
     UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
-    AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
+    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
+    AliasedUserToEntity,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -771,80 +775,107 @@ ORDER BY RANDOM() LIMIT 10;
         start_date: Option<NaiveDate>,
         end_date: Option<NaiveDate>,
         media_limit: Option<u64>,
+        deduplicate: Option<bool>,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             id: String,
-            m_lot: MediaLot,
             date: NaiveDate,
+            m_lot: MediaLot,
             m_title: String,
             metadata_id: String,
             m_images: Option<Vec<MetadataImage>>,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
-            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
             metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
         }
-        let all_events = CalendarEvent::find()
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
-                "m_lot",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
-                "m_title",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
-                "m_images",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
-                "m_show_specifics",
-            )
-            .column_as(
-                Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
-                "m_podcast_specifics",
-            )
-            .filter(
-                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId)).eq(user_id),
-            )
-            .inner_join(Metadata)
-            .join_rev(
-                JoinType::Join,
-                UserToEntity::belongs_to(CalendarEvent)
-                    .from(user_to_entity::Column::MetadataId)
-                    .to(calendar_event::Column::MetadataId)
-                    .on_condition(move |left, _right| {
-                        Condition::all().add_option(match only_monitored {
-                            true => Some(Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
-                                PgFunc::any(Expr::col((left, user_to_entity::Column::MediaReason))),
-                            )),
-                            false => None,
-                        })
+
+        let stmt = Query::select()
+            .column(Asterisk)
+            .from_subquery(
+                CalendarEvent::find()
+                    .apply_if(deduplicate, |query, _v| {
+                        query
+                            .distinct_on([(
+                                AliasedCalendarEvent::Table,
+                                AliasedCalendarEvent::MetadataId,
+                            )])
+                            .order_by_asc(Expr::col((
+                                AliasedCalendarEvent::Table,
+                                AliasedCalendarEvent::MetadataId,
+                            )))
                     })
-                    .into(),
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
+                        "m_lot",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
+                        "m_title",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
+                        "m_images",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
+                        "m_show_specifics",
+                    )
+                    .column_as(
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
+                        "m_podcast_specifics",
+                    )
+                    .filter(
+                        Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                            .eq(&user_id),
+                    )
+                    .inner_join(Metadata)
+                    .join_rev(
+                        JoinType::Join,
+                        UserToEntity::belongs_to(CalendarEvent)
+                            .from(user_to_entity::Column::MetadataId)
+                            .to(calendar_event::Column::MetadataId)
+                            .on_condition(move |left, _right| {
+                                Condition::all().add_option(match only_monitored {
+                                    true => Some(
+                                        Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
+                                            PgFunc::any(Expr::col((
+                                                left,
+                                                user_to_entity::Column::MediaReason,
+                                            ))),
+                                        ),
+                                    ),
+                                    false => None,
+                                })
+                            })
+                            .into(),
+                    )
+                    .order_by_asc(calendar_event::Column::Date)
+                    .apply_if(end_date, |q, v| {
+                        q.filter(calendar_event::Column::Date.gte(v))
+                    })
+                    .apply_if(start_date, |q, v| {
+                        q.filter(calendar_event::Column::Date.lte(v))
+                    })
+                    .limit(media_limit)
+                    .into_query(),
+                Alias::new("sub_query"),
             )
-            .order_by_asc(calendar_event::Column::Date)
-            .apply_if(end_date, |q, v| {
-                q.filter(calendar_event::Column::Date.gte(v))
-            })
-            .apply_if(start_date, |q, v| {
-                q.filter(calendar_event::Column::Date.lte(v))
-            })
-            .limit(media_limit)
-            .into_model::<CalEvent>()
+            .order_by(Alias::new("date"), Order::Asc)
+            .to_owned();
+        let all_events = CalEvent::find_by_statement(self.get_db_stmt(stmt))
             .all(&self.0.db)
             .await?;
         let mut events = vec![];
         for evt in all_events {
             let mut calc = GraphqlCalendarEvent {
-                calendar_event_id: evt.id,
                 date: evt.date,
-                metadata_id: evt.metadata_id,
-                metadata_title: evt.m_title,
                 metadata_lot: evt.m_lot,
+                calendar_event_id: evt.id,
+                metadata_title: evt.m_title,
+                metadata_id: evt.metadata_id,
                 ..Default::default()
             };
             let mut image = None;
@@ -852,7 +883,7 @@ ORDER BY RANDOM() LIMIT 10;
 
             if let Some(s) = evt.metadata_show_extra_information {
                 if let Some(sh) = evt.m_show_specifics {
-                    if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
+                    if let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode) {
                         image = ep.poster_images.first().cloned();
                         title = Some(ep.name.clone());
                     }
@@ -860,7 +891,7 @@ ORDER BY RANDOM() LIMIT 10;
                 calc.show_extra_information = Some(s);
             } else if let Some(p) = evt.metadata_podcast_extra_information {
                 if let Some(po) = evt.m_podcast_specifics {
-                    if let Some(ep) = po.episode_by_number(p.episode) {
+                    if let Some(ep) = get_podcast_episode_by_number(&po, p.episode) {
                         image = ep.thumbnail.clone();
                         title = Some(ep.title.clone());
                     }
@@ -888,7 +919,7 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
-            .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None)
+            .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None, None)
             .await?;
         let grouped_events = events
             .into_iter()
@@ -915,7 +946,14 @@ ORDER BY RANDOM() LIMIT 10;
             }
         };
         let events = self
-            .get_calendar_events(user_id, true, to_date, Some(from_date), media_limit)
+            .get_calendar_events(
+                user_id,
+                true,
+                to_date,
+                Some(from_date),
+                media_limit,
+                Some(true),
+            )
             .await?;
         Ok(events)
     }
@@ -934,7 +972,7 @@ ORDER BY RANDOM() LIMIT 10;
         let order_by = input
             .sort
             .clone()
-            .map(|a| Order::from(a.order))
+            .map(|a| graphql_to_db_order(a.order))
             .unwrap_or(Order::Asc);
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
@@ -2074,7 +2112,7 @@ ORDER BY RANDOM() LIMIT 10;
                     PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
                     PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
-                ord.order.into(),
+                graphql_to_db_order(ord.order),
             ),
         };
         let take = input
@@ -2150,7 +2188,7 @@ ORDER BY RANDOM() LIMIT 10;
                     PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
                     PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
-                ord.order.into(),
+                graphql_to_db_order(ord.order),
             ),
         };
         let take = input
@@ -2473,7 +2511,8 @@ ORDER BY RANDOM() LIMIT 10;
                 let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
-                        if let Some((season, ep)) = show_info.get_episode(show.season, show.episode)
+                        if let Some((season, ep)) =
+                            get_show_episode_by_numbers(show_info, show.season, show.episode)
                         {
                             if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
                                 if let Some(publish_date) = ep.publish_date {
@@ -2486,7 +2525,9 @@ ORDER BY RANDOM() LIMIT 10;
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
-                        if let Some(ep) = podcast_info.episode_by_number(podcast.episode) {
+                        if let Some(ep) =
+                            get_podcast_episode_by_number(podcast_info, podcast.episode)
+                        {
                             if ep.publish_date == cal_event.date {
                                 need_to_delete = false;
                             }

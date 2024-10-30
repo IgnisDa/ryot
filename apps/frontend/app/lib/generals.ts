@@ -79,15 +79,14 @@ export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
 
-export const getDateFromTimeSpan = (timeSpan: TimeSpan) => {
-	return match(timeSpan)
+export const getDateFromTimeSpan = (timeSpan: TimeSpan) =>
+	match(timeSpan)
 		.with(TimeSpan.Last7Days, () => dayjs().subtract(7, "days"))
 		.with(TimeSpan.Last30Days, () => dayjs().subtract(30, "days"))
 		.with(TimeSpan.Last90Days, () => dayjs().subtract(90, "days"))
 		.with(TimeSpan.Last365Days, () => dayjs().subtract(365, "days"))
 		.with(TimeSpan.AllTime, () => null)
 		.exhaustive();
-};
 
 export enum FitnessEntity {
 	Workouts = "workouts",
@@ -126,7 +125,7 @@ export const sendNotificationToServiceWorker = (
 	body: string,
 	tag?: AppServiceWorkerNotificationTag,
 	data?: AppServiceWorkerNotificationData,
-) => {
+) =>
 	navigator.serviceWorker.ready.then((registration) => {
 		registration.showNotification(title, {
 			tag,
@@ -136,7 +135,6 @@ export const sendNotificationToServiceWorker = (
 			icon: LOGO_IMAGE_URL,
 		});
 	});
-};
 
 export type AppServiceWorkerMessageData = {
 	event: "remove-timer-completed-notification";
@@ -145,7 +143,7 @@ export type AppServiceWorkerMessageData = {
 export const postMessageToServiceWorker = (
 	message: AppServiceWorkerMessageData,
 ) => {
-	if (navigator.serviceWorker.controller)
+	if (navigator.serviceWorker?.controller)
 		navigator.serviceWorker.controller.postMessage(message);
 };
 
@@ -254,8 +252,8 @@ export enum Verb {
 	Read = 0,
 }
 
-export const getVerb = (verb: Verb, lot: MediaLot) => {
-	return match(verb)
+export const getVerb = (verb: Verb, lot: MediaLot) =>
+	match(verb)
 		.with(Verb.Read, () => {
 			return match(lot)
 				.with(MediaLot.Book, MediaLot.Manga, () => "read")
@@ -277,7 +275,6 @@ export const getVerb = (verb: Verb, lot: MediaLot) => {
 				});
 		})
 		.otherwise(() => "");
-};
 
 /**
  * Generate a random color based on a seed.
@@ -286,9 +283,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) => {
 export const generateColor = (seed: number) => {
 	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
 	let newColor = color.toString(16);
-	while (newColor.length < 6) {
-		newColor = `0${color}`;
-	}
+	while (newColor.length < 6) newColor = `0${color}`;
 	return `#${newColor}`;
 };
 
@@ -297,25 +292,22 @@ export const generateColor = (seed: number) => {
  */
 export const getStringAsciiValue = (input: string) => {
 	let total = 0;
-	for (let i = 0; i < input.length; i++) {
-		total += input.charCodeAt(i);
-	}
+	for (let i = 0; i < input.length; i++) total += input.charCodeAt(i);
 	return total;
 };
 
-export const getMetadataIcon = (lot: MediaLot) => {
-	return match(lot)
+export const getMetadataIcon = (lot: MediaLot) =>
+	match(lot)
 		.with(MediaLot.Book, () => IconBook)
+		.with(MediaLot.Manga, () => IconBooks)
 		.with(MediaLot.Movie, () => IconDeviceTv)
-		.with(MediaLot.Show, () => IconDeviceDesktop)
-		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
-		.with(MediaLot.AudioBook, () => IconHeadphones)
-		.with(MediaLot.Podcast, () => IconMicrophone)
-		.with(MediaLot.Manga, () => IconDeviceTvOld)
-		.with(MediaLot.Anime, () => IconBooks)
+		.with(MediaLot.Anime, () => IconDeviceTvOld)
 		.with(MediaLot.VisualNovel, () => IconBook2)
+		.with(MediaLot.Show, () => IconDeviceDesktop)
+		.with(MediaLot.Podcast, () => IconMicrophone)
+		.with(MediaLot.AudioBook, () => IconHeadphones)
+		.with(MediaLot.VideoGame, () => IconBrandAppleArcade)
 		.exhaustive();
-};
 
 export const applicationBaseUrl =
 	typeof window !== "undefined" ? window.location.origin : "";

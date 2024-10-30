@@ -1,6 +1,9 @@
+use std::{convert::TryInto, fmt};
+
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
+use serde::de;
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
@@ -72,4 +75,38 @@ pub fn convert_naive_to_utc(d: NaiveDate) -> DateTime<Utc> {
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
+}
+
+pub fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    struct JsonStringVisitor;
+
+    impl<'de> de::Visitor<'de> for JsonStringVisitor {
+        type Value = NaiveDate;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a number")
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            DateTime::from_timestamp_millis(v.try_into().unwrap())
+                .ok_or_else(|| E::custom("Could not convert timestamp"))
+                .map(|d| d.date_naive())
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            NaiveDate::parse_from_str(v, "%Y-%m-%d")
+                .map_err(|_| E::custom("Could not convert timestamp"))
+        }
+    }
+
+    deserializer.deserialize_any(JsonStringVisitor)
 }
