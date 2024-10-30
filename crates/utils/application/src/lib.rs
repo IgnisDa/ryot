@@ -10,10 +10,14 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
+use media_models::{
+    GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
 };
+use sea_orm::Order;
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
     jwt_service::verify(token, jwt_secret)
@@ -81,4 +85,41 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
 
 pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
     Utc::now().with_timezone(timezone).date_naive()
+}
+
+pub fn graphql_to_db_order(value: GraphqlSortOrder) -> Order {
+    match value {
+        GraphqlSortOrder::Desc => Order::Desc,
+        GraphqlSortOrder::Asc => Order::Asc,
+    }
+}
+
+pub fn get_show_episode_by_numbers(
+    val: &ShowSpecifics,
+    season_number: i32,
+    episode_number: i32,
+) -> Option<(&ShowSeason, &ShowEpisode)> {
+    val.seasons
+        .iter()
+        .find(|s| s.season_number == season_number)
+        .and_then(|s| {
+            s.episodes
+                .iter()
+                .find(|e| e.episode_number == episode_number)
+                .map(|e| (s, e))
+        })
+}
+
+pub fn get_podcast_episode_by_number(
+    val: &PodcastSpecifics,
+    episode_number: i32,
+) -> Option<&PodcastEpisode> {
+    val.episodes.iter().find(|e| e.number == episode_number)
+}
+
+pub fn get_podcast_episode_number_by_name(val: &PodcastSpecifics, name: &str) -> Option<i32> {
+    val.episodes
+        .iter()
+        .find(|e| e.title == name)
+        .map(|e| e.number)
 }

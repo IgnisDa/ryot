@@ -47,8 +47,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = "=1.0.89"
-apalis = { version = "=0.5.3", features = ["cron", "limit"] }
+anyhow = "=1.0.91"
+apalis = { version = "=0.5.5", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.1"
 async-graphql = { version = "=7.0.11", features = [
     "chrono",
@@ -57,7 +57,7 @@ async-graphql = { version = "=7.0.11", features = [
     "tracing",
 ] }
 async-trait = "=0.1.83"
-aws-sdk-s3 = { version = "=1.54.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.58.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.7", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.38"
@@ -82,7 +82,7 @@ markdown = "=1.0.0-alpha.21"
 moka = { version = "=0.12.8", features = ["future"] }
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
-regex = "=1.11.0"
+regex = "=1.11.1"
 rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 schematic = { version = "=0.17.5", features = [
@@ -99,7 +99,7 @@ schematic = { version = "=0.17.5", features = [
     "validate",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "=1.0.1", features = [
+sea-orm = { version = "=1.1.0", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -110,17 +110,17 @@ sea-orm = { version = "=1.0.1", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.0.1"
-sea-query = "=0.31.1"
-serde = { version = "=1.0.210", features = ["derive"] }
-serde_json = "=1.0.128"
+sea-orm-migration = "=1.1.0"
+sea-query = "=0.32.0"
+serde = { version = "=1.0.214", features = ["derive"] }
+serde_json = "=1.0.132"
 serde_with = { version = "=3.11.0", features = ["chrono_0_4"] }
 slug = "=0.1.6"
 strum = { version = "=0.26.3", features = ["derive"] }
-reqwest = { version = "=0.12.8", features = ["json", "stream"] }
-tokio = { version = "=1.40.0", features = ["full"] }
+reqwest = { version = "=0.12.9", features = ["json", "stream"] }
+tokio = { version = "=1.41.0", features = ["full"] }
 tracing = { version = "=0.1.40", features = ["attributes"] }
-uuid = { version = "=1.10.0", features = ["v4"], default-features = false }
+uuid = { version = "=1.11.0", features = ["v4"], default-features = false }
 
 [profile.release]
 lto = true

@@ -9,3 +9,4 @@ compile-time = "=0.2.0"
 const-str = { workspace = true }
 env-utils = { path = "../env" }
 reqwest = { workspace = true }
+serde = { workspace = true }

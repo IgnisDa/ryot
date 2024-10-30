@@ -13,4 +13,6 @@ common-utils = { path = "../common" }
 config = { path = "../../config" }
 file-storage-service = { path = "../../services/file-storage" }
 jwt-service = { path = "../../services/jwt" }
+media-models = { path = "../../models/media" }
 reqwest = { workspace = true }
+sea-orm = { workspace = true }

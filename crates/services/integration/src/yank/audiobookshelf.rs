@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use anyhow::{anyhow, Result};
-use application_utils::get_base_http_client;
+use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result as GqlResult;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
@@ -108,7 +108,7 @@ impl AudiobookshelfYankIntegration {
                             .unwrap();
                             match podcast
                                 .podcast_specifics
-                                .and_then(|p| p.episode_by_name(&pe.title))
+                                .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))
                             {
                                 Some(episode) => (
                                     format!("{}/{}", item.id, pe.id),
