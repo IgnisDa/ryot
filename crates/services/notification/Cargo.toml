@@ -9,7 +9,7 @@ askama = "0.12.1"
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 convert_case = { workspace = true }
-lettre = "=0.11.8"
+lettre = "=0.11.10"
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
