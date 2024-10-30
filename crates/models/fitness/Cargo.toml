@@ -10,7 +10,6 @@ derive_more = { workspace = true }
 educe = { workspace = true }
 enums = { path = "../../enums" }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }

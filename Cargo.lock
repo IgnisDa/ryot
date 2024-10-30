@@ -2369,7 +2369,6 @@ dependencies = [
  "educe 0.6.0",
  "enums",
  "rust_decimal",
- "rust_decimal_macros",
  "schematic",
  "sea-orm",
  "serde",
