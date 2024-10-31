@@ -29,6 +29,7 @@ import {
 	LucideShare,
 	LucideSquareStack,
 	LucideTimer,
+	LucideToggleLeft,
 	LucideVibrate,
 	LucideWatch,
 } from "lucide-react";
@@ -264,6 +265,10 @@ const dataToDisplay = [
 				icon: LucideAmpersands,
 				text: "Add collaborators to your collections to allow them to add to them",
 				isPro: true,
+			},
+			{
+				icon: LucideToggleLeft,
+				text: "Dark and light mode, because Ryot is at your fingertips the whole time",
 			},
 			{
 				icon: LucideBadgeInfo,
