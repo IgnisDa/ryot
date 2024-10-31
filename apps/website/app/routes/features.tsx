@@ -28,6 +28,7 @@ import {
 	LucideSquareStack,
 	LucideTimer,
 	LucideVibrate,
+	LucideWatch,
 } from "lucide-react";
 import { logoUrl } from "~/lib/utils";
 
@@ -122,6 +123,11 @@ const dataToDisplay = [
 			{
 				icon: LucideChartColumnBig,
 				text: "Consolidated activity and statistics graphs and views across all your media",
+			},
+			{
+				icon: LucideWatch,
+				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
+				isPro: true,
 			},
 			{
 				icon: LucideMegaphone,
