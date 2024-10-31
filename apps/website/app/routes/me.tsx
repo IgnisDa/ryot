@@ -60,11 +60,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const customer = await getCustomerFromCookie(request);
 			if (!customer || !customer.planType) throw new Error("No customer found");
 			const renewOn = customer.renewOn ? dayjs(customer.renewOn) : undefined;
-			const created = await createUnkeyKey(
-				customer.email,
-				customer.id,
-				renewOn,
-			);
+			const created = await createUnkeyKey(customer, renewOn);
 			await db
 				.update(customers)
 				.set({ unkeyKeyId: created.keyId })

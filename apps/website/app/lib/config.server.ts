@@ -149,14 +149,13 @@ export const customDataSchema = z.object({
 export type CustomData = z.infer<typeof customDataSchema>;
 
 export const createUnkeyKey = async (
-	email: string,
-	customerId: string,
+	customer: typeof schema.customers.$inferSelect,
 	renewOn?: Dayjs,
 ) => {
 	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 	const created = await unkey.keys.create({
-		name: email,
-		externalId: customerId,
+		name: customer.email,
+		externalId: customer.id,
 		apiId: serverVariables.UNKEY_API_ID,
 		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
 	});

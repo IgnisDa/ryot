@@ -115,8 +115,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				})
 				.with("self_hosted", async () => {
 					const created = await createUnkeyKey(
-						email,
-						customer.id,
+						customer,
 						renewOn ? renewOn.add(GRACE_PERIOD, "days") : undefined,
 					);
 					return {
