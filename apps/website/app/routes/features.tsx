@@ -52,7 +52,7 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 export default function Page() {
 	return (
 		<div>
-			<div className="bg-muted py-32">
+			<div className="bg-muted py-20 md:py-32">
 				<img
 					alt="Ryot"
 					src={logoUrl}
@@ -71,11 +71,11 @@ export default function Page() {
 				<div
 					key={data.heading}
 					className={cn(
-						"py-10 space-y-8",
+						"py-10 space-y-4 md:space-y-8",
 						index % 2 === 1 ? "bg-muted" : "bg-white",
 					)}
 				>
-					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase">
+					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase underline underline-offset-4">
 						{data.heading}
 					</h2>
 					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
@@ -85,7 +85,7 @@ export default function Page() {
 									<img
 										src={`/features/${image}`}
 										alt={`${data.heading}-${index + 1}`}
-										className="mx-auto rounded-xl max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
+										className="mx-auto rounded-xl md:max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
 									/>
 								</CarouselItem>
 							))}
@@ -95,7 +95,7 @@ export default function Page() {
 							<CarouselNext />
 						</div>
 					</Carousel>
-					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
+					<div className="px-2 md:px-0 mx-auto grid items-start gap-5 md:gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
 						{data.features.map((f) => (
 							<div
 								className="flex items-center justify-center gap-x-3 h-full"
@@ -103,13 +103,16 @@ export default function Page() {
 							>
 								<div
 									className={cn(
-										f.isPro && "border border-green-400 rounded-md p-2",
+										"p-2 border rounded-md",
+										f.isPro
+											? "border-black bg-green-200/20"
+											: "border-transparent",
 									)}
 								>
 									<f.icon className="size-6 flex-none mx-auto" />
 									{f.isPro ? (
-										<div className="text-green-700 text-xs mt-2 text-center">
-											Pro
+										<div className="text-green-700 text-[10px] mt-2 text-center font-semibold">
+											PRO
 										</div>
 									) : null}
 								</div>
