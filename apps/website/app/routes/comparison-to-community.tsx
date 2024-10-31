@@ -1,3 +1,4 @@
+import { cn } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	Carousel,
@@ -6,7 +7,6 @@ import {
 	CarouselNext,
 	CarouselPrevious,
 } from "~/lib/components/ui/carousel";
-import { cn } from "~/lib/utils";
 
 export default function Page() {
 	return (

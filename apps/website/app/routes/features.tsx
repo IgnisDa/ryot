@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { cn } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	LucideAmpersands,
@@ -38,7 +39,7 @@ import {
 	CarouselNext,
 	CarouselPrevious,
 } from "~/lib/components/ui/carousel";
-import { cn, logoUrl } from "~/lib/utils";
+import { logoUrl } from "~/lib/utils";
 
 export const loader = (_args: LoaderFunctionArgs) => {
 	return {};

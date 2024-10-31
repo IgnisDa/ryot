@@ -1,4 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
+import { type ClassValue, clsx } from "clsx";
 import dayjs, { type Dayjs } from "dayjs";
 import {
 	HumanizeDuration,
@@ -25,6 +26,7 @@ import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 import truncate from "lodash/truncate";
+import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
 import type { ZodTypeAny, output } from "zod";
 
@@ -84,6 +86,10 @@ export const getActionIntent = (request: Request) => {
 	invariant(intent);
 	return intent;
 };
+
+export function cn(...inputs: ClassValue[]) {
+	return twMerge(clsx(inputs));
+}
 
 export {
 	camelCase,

@@ -12,7 +12,7 @@ import {
 	useRouteLoaderData,
 } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils";
+import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -47,7 +47,7 @@ import {
 	sendEmail,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { cn, startUrl } from "~/lib/utils";
+import { startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
 
 dayjs.extend(duration);
