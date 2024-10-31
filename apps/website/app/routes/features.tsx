@@ -244,7 +244,12 @@ const dataToDisplay = [
 	},
 	{
 		heading: "Other Goodies",
-		images: ["sharing.png"],
+		images: [
+			"sharing.png",
+			"recommendations.png",
+			"sharing-form.png",
+			"supercharged-collections.png",
+		],
 		features: [
 			{
 				icon: LucideShare,
