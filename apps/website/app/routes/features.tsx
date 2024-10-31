@@ -1,10 +1,14 @@
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
+	LucideAmpersands,
+	LucideBadgeInfo,
 	LucideBellDot,
+	LucideBookHeart,
 	LucideCalendarRange,
 	LucideCandy,
 	LucideChartColumnBig,
 	LucideChartLine,
+	LucideCog,
 	LucideDatabaseZap,
 	LucideDumbbell,
 	LucideImageUp,
@@ -20,6 +24,7 @@ import {
 	LucideRefreshCcwDot,
 	LucideRuler,
 	LucideScale3D,
+	LucideShare,
 	LucideSquareStack,
 	LucideTimer,
 	LucideVibrate,
@@ -59,10 +64,21 @@ export default function Page() {
 						<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
 							{data.features.map((f) => (
 								<div
-									className="flex items-center justify-center gap-x-3 m-auto"
+									className="flex items-center justify-center gap-x-3 h-full"
 									key={f.text}
 								>
-									<f.icon className="size-6 flex-none" />
+									<div
+										className={
+											f.isPro ? "border border-green-400 rounded-md p-2" : ""
+										}
+									>
+										<f.icon className="size-6 flex-none mx-auto" />
+										{f.isPro ? (
+											<div className="text-green-700 text-xs mt-2 text-center">
+												Pro
+											</div>
+										) : null}
+									</div>
 									<p className="text-muted-foreground">{f.text}</p>
 								</div>
 							))}
@@ -80,11 +96,16 @@ const dataToDisplay = [
 		features: [
 			{
 				icon: LucideNotebookTabs,
-				text: "Track your progress for media (movies, shows, books, podcasts, games, anime, manga, music, visual novels)",
+				text: "Track everything you want: movies, shows, books, podcasts, games, anime, manga, music, visual novels",
 			},
 			{
 				icon: LucideLibraryBig,
 				text: "Add media to your watchlist, favorite or any other custom collection",
+			},
+			{
+				icon: LucideBookHeart,
+				text: "Get recommendations based on your favorites and watch history",
+				isPro: true,
 			},
 			{
 				icon: LucideNotebookPen,
@@ -162,6 +183,7 @@ const dataToDisplay = [
 			{
 				icon: LucideLayoutTemplate,
 				text: "Create templates to pre plan workouts beforehand",
+				isPro: true,
 			},
 			{
 				icon: LucideChartLine,
@@ -174,6 +196,30 @@ const dataToDisplay = [
 			{
 				icon: LucideScale3D,
 				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
+			},
+		],
+	},
+	{
+		heading: "Other Goodies",
+		features: [
+			{
+				icon: LucideShare,
+				text: "Share access links to your data with your friends and family",
+				isPro: true,
+			},
+			{
+				icon: LucideCog,
+				text: "Fine grained preferences to customize exactly what you want to track",
+			},
+			{
+				icon: LucideAmpersands,
+				text: "Add collaborators to your collections to allow them to add to them",
+				isPro: true,
+			},
+			{
+				icon: LucideBadgeInfo,
+				text: "Add custom information to your collections to make them more personalized",
+				isPro: true,
 			},
 		],
 	},
