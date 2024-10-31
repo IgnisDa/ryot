@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import clsx from "clsx";
+import Autoplay from "embla-carousel-autoplay";
 import {
 	LucideAmpersands,
 	LucideBadgeInfo,
@@ -31,7 +31,14 @@ import {
 	LucideVibrate,
 	LucideWatch,
 } from "lucide-react";
-import { logoUrl } from "~/lib/utils";
+import {
+	Carousel,
+	CarouselContent,
+	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
+} from "~/lib/components/ui/carousel";
+import { cn, logoUrl } from "~/lib/utils";
 
 export const loader = (_args: LoaderFunctionArgs) => {
 	return {};
@@ -62,7 +69,7 @@ export default function Page() {
 			{dataToDisplay.map((data, index) => (
 				<div
 					key={data.heading}
-					className={clsx(
+					className={cn(
 						"py-10 space-y-8",
 						index % 2 === 1 ? "bg-muted" : "bg-white",
 					)}
@@ -70,6 +77,23 @@ export default function Page() {
 					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase">
 						{data.heading}
 					</h2>
+					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
+						<CarouselContent>
+							{data.images.map((image, index) => (
+								<CarouselItem key={image} className="flex flex-col space-y-4">
+									<img
+										src={`/features/${image}`}
+										alt={`${data.heading}-${index + 1}`}
+										className="mx-auto rounded-xl max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
+									/>
+								</CarouselItem>
+							))}
+						</CarouselContent>
+						<div className="hidden md:block">
+							<CarouselPrevious />
+							<CarouselNext />
+						</div>
+					</Carousel>
 					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
 						{data.features.map((f) => (
 							<div
@@ -77,7 +101,7 @@ export default function Page() {
 								key={f.text}
 							>
 								<div
-									className={clsx(
+									className={cn(
 										f.isPro && "border border-green-400 rounded-md p-2",
 									)}
 								>
@@ -101,6 +125,7 @@ export default function Page() {
 const dataToDisplay = [
 	{
 		heading: "Media Tracking",
+		images: ["desktop.png", "genres.png", "group.png"],
 		features: [
 			{
 				icon: LucideNotebookTabs,
@@ -172,6 +197,7 @@ const dataToDisplay = [
 	},
 	{
 		heading: "Fitness Tracking",
+		images: ["sharing.png"],
 		features: [
 			{
 				icon: LucideDumbbell,
@@ -214,6 +240,7 @@ const dataToDisplay = [
 	},
 	{
 		heading: "Other Goodies",
+		images: ["sharing.png"],
 		features: [
 			{
 				icon: LucideShare,
