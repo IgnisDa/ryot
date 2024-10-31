@@ -43,6 +43,7 @@ import {
 import {
 	camelCase,
 	changeCase,
+	cn,
 	isNumber,
 	snakeCase,
 	startCase,
@@ -54,7 +55,6 @@ import {
 	IconGripVertical,
 	IconRotate360,
 } from "@tabler/icons-react";
-import clsx from "clsx";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -666,7 +666,7 @@ const EditDashboardElement = (props: {
 					p="xs"
 					ref={provided.innerRef}
 					{...provided.draggableProps}
-					className={clsx({ [classes.itemDragging]: snapshot.isDragging })}
+					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
 				>
 					<Group justify="space-between">
 						<Group>

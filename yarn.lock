@@ -6294,6 +6294,7 @@ __metadata:
     remix-development-tools: "npm:4.7.3"
     remix-routes: "npm:1.7.7"
     remix-utils: "npm:7.7.0"
+    tailwind-merge: "npm:2.5.4"
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.2"
     ts-pattern: "npm:5.5.0"

@@ -30,8 +30,8 @@ import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
-	FRONTEND_AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
+	FRONTEND_AUTH_COOKIE_NAME,
 	FitnessAction,
 	dayjsLib,
 	emptyDecimalString,
