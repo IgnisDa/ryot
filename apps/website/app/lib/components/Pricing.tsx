@@ -56,10 +56,7 @@ export default function Pricing(props: {
 						</span>
 						.{" "}
 						{selectedProductType.type === "self_hosted" ? (
-							<Link
-								to={$path("/comparison-to-community")}
-								className="text-blue-400 underline"
-							>
+							<Link to={$path("/features")} className="text-blue-400 underline">
 								See differences.
 							</Link>
 						) : null}
@@ -67,7 +64,7 @@ export default function Pricing(props: {
 					<div className="mx-auto flex justify-center items-center gap-8 text-center flex-wrap">
 						{selectedProductType.prices.map((p) => (
 							<div
-								className="grid gap-y-3 border rounded-xl py-3 w-72"
+								className="grid gap-y-3 border rounded-xl py-3 w-72 bg-white"
 								key={p.name}
 							>
 								<p className="text-3xl">{changeCase(p.name)}</p>
