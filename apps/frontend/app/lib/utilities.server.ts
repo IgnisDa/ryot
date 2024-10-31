@@ -23,6 +23,7 @@ import {
 	type RequestDocument,
 	type Variables,
 } from "graphql-request";
+import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -156,6 +157,14 @@ export const MetadataSpecificsSchema = z.object({
 	mangaVolumeNumber: emptyNumberString,
 });
 
+export const getDecodedJwt = (request: Request) => {
+	const token = getAuthorizationCookie(request) ?? "";
+	return jwtDecode<{
+		sub: string;
+		access_link?: { id: string; is_demo?: boolean };
+	}>(token);
+};
+
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
@@ -165,9 +174,9 @@ export const getCachedCoreDetails = async () => {
 };
 
 const getCachedUserDetails = async (request: Request) => {
-	const token = getAuthorizationCookie(request);
+	const decodedJwt = getDecodedJwt(request);
 	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.users.details(token ?? "").queryKey,
+		queryKey: queryFactory.users.details(decodedJwt.sub).queryKey,
 		queryFn: () =>
 			serverGqlService
 				.authenticatedRequest(request, UserDetailsDocument, undefined)

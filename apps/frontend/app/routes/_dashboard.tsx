@@ -99,7 +99,6 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { jwtDecode } from "jwt-decode";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
@@ -134,10 +133,10 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
+	getDecodedJwt,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -240,9 +239,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		request.headers.get("cookie") || "",
 	);
 
-	const decodedCookie = jwtDecode<{
-		access_link?: { id: string; is_demo?: boolean };
-	}>(getAuthorizationCookie(request) ?? "");
+	const decodedCookie = getDecodedJwt(request);
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
 
