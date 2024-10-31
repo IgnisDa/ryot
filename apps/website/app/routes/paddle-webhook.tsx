@@ -26,7 +26,7 @@ import {
 
 const getRenewOnFromPlanType = (planType: TPlanTypes) =>
 	match(planType)
-		.with("lifetime", () => undefined)
+		.with("free", "lifetime", () => undefined)
 		.with("yearly", () => dayjs().add(1, "year"))
 		.with("monthly", () => dayjs().add(1, "month"))
 		.exhaustive();
