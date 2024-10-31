@@ -4,7 +4,12 @@ import {
 	LucideCalendarRange,
 	LucideCandy,
 	LucideChartColumnBig,
+	LucideChartLine,
+	LucideDatabaseZap,
+	LucideDumbbell,
+	LucideImageUp,
 	LucideImport,
+	LucideLayoutTemplate,
 	LucideLibraryBig,
 	LucideMegaphone,
 	LucideMessageSquareText,
@@ -13,6 +18,10 @@ import {
 	LucidePackageOpen,
 	LucideProjector,
 	LucideRefreshCcwDot,
+	LucideRuler,
+	LucideScale3D,
+	LucideSquareStack,
+	LucideTimer,
 	LucideVibrate,
 } from "lucide-react";
 import { logoUrl } from "~/lib/utils";
@@ -124,6 +133,47 @@ const dataToDisplay = [
 			{
 				icon: LucideCandy,
 				text: "Suggestions that cater to your tastes based on your watch history",
+			},
+		],
+	},
+	{
+		heading: "Fitness Tracking",
+		features: [
+			{
+				icon: LucideDumbbell,
+				text: "Hit the gym and track workouts in realtime",
+			},
+			{
+				icon: LucideDatabaseZap,
+				text: "Dataset of over 800 exercises with instructions (and the ability to add your own)",
+			},
+			{
+				icon: LucideTimer,
+				text: "Add rest timers to each set you complete",
+			},
+			{
+				icon: LucideImageUp,
+				text: "Create supersets and upload images for each exercise to track progression",
+			},
+			{
+				icon: LucideSquareStack,
+				text: "Inline history and images of exercises while logging an active workout",
+			},
+			{
+				icon: LucideLayoutTemplate,
+				text: "Create templates to pre plan workouts beforehand",
+			},
+			{
+				icon: LucideChartLine,
+				text: "Graphs of progress for exercises to visualize your progress over time",
+			},
+			{
+				icon: LucideRuler,
+				text: "Keep track of your measurements like body weight, sugar level etc.",
+			},
+			{
+				icon: LucideScale3D,
+				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
 			},
 		],
 	},
