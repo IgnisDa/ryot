@@ -3,7 +3,11 @@ import {
 	type Paddle,
 	initializePaddle,
 } from "@paddle/paddle-js";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import { Form, redirect, useLoaderData } from "@remix-run/react";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import {
@@ -43,6 +47,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
 	};
+};
+
+export const meta = (_args: MetaArgs<typeof loader>) => {
+	return [{ title: "My account | Ryot" }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

@@ -1,4 +1,14 @@
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+
 const email = "ignisda2001@gmail.com";
+
+export const loader = (_args: LoaderFunctionArgs) => {
+	return {};
+};
+
+export const meta = (_args: MetaArgs<typeof loader>) => {
+	return [{ title: "Terms and conditions | Ryot" }];
+};
 
 export default function Index() {
 	return (

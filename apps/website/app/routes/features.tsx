@@ -1,4 +1,13 @@
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { logoUrl } from "~/lib/utils";
+
+export const loader = (_args: LoaderFunctionArgs) => {
+	return {};
+};
+
+export const meta = (_args: MetaArgs<typeof loader>) => {
+	return [{ title: "Features | Ryot" }];
+};
 
 export default function Page() {
 	return (
