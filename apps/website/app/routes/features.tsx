@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import clsx from "clsx";
 import {
 	LucideAmpersands,
 	LucideBadgeInfo,
@@ -58,35 +59,41 @@ export default function Page() {
 					</h2>
 				</div>
 			</div>
-			<div className="space-y-10 py-10">
-				{dataToDisplay.map((data) => (
-					<div key={data.heading}>
-						<h2 className="text-center text-2xl sm:text-3xl">{data.heading}</h2>
-						<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
-							{data.features.map((f) => (
+			{dataToDisplay.map((data, index) => (
+				<div
+					key={data.heading}
+					className={clsx(
+						"py-10 space-y-8",
+						index % 2 === 1 ? "bg-muted" : "bg-white",
+					)}
+				>
+					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase">
+						{data.heading}
+					</h2>
+					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
+						{data.features.map((f) => (
+							<div
+								className="flex items-center justify-center gap-x-3 h-full"
+								key={f.text}
+							>
 								<div
-									className="flex items-center justify-center gap-x-3 h-full"
-									key={f.text}
+									className={clsx(
+										f.isPro && "border border-green-400 rounded-md p-2",
+									)}
 								>
-									<div
-										className={
-											f.isPro ? "border border-green-400 rounded-md p-2" : ""
-										}
-									>
-										<f.icon className="size-6 flex-none mx-auto" />
-										{f.isPro ? (
-											<div className="text-green-700 text-xs mt-2 text-center">
-												Pro
-											</div>
-										) : null}
-									</div>
-									<p className="text-muted-foreground">{f.text}</p>
+									<f.icon className="size-6 flex-none mx-auto" />
+									{f.isPro ? (
+										<div className="text-green-700 text-xs mt-2 text-center">
+											Pro
+										</div>
+									) : null}
 								</div>
-							))}
-						</div>
+								<p className="text-muted-foreground">{f.text}</p>
+							</div>
+						))}
 					</div>
-				))}
-			</div>
+				</div>
+			))}
 		</div>
 	);
 }
