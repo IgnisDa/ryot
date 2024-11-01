@@ -101,7 +101,7 @@ export default function App() {
 								target="_blank"
 								href="https://docs.ryot.io"
 								rel="noopener noreferrer"
-								className="text-sm font-medium hover:underline underline-offset-4"
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
 							>
 								Documentation
 							</a>
