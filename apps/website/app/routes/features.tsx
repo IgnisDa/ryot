@@ -202,7 +202,12 @@ const dataToDisplay = [
 	},
 	{
 		heading: "Fitness Tracking",
-		images: ["sharing.png"],
+		images: [
+			"current-workout.png",
+			"measurements-graph.png",
+			"logged-workout.png",
+			"exercise-dataset.png",
+		],
 		features: [
 			{
 				icon: LucideDumbbell,
