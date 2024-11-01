@@ -46,7 +46,8 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
-import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
+import { BaseMediaDisplayItem } from "~/components/common";
+import { PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
