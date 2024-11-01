@@ -79,23 +79,25 @@ export default function Page() {
 					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase underline underline-offset-4">
 						{data.heading}
 					</h2>
-					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
-						<CarouselContent>
-							{data.images.map((image, index) => (
-								<CarouselItem key={image} className="flex flex-col space-y-4">
-									<img
-										src={`/features/${image}`}
-										alt={`${data.heading}-${index + 1}`}
-										className="mx-auto rounded-xl md:max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
-									/>
-								</CarouselItem>
-							))}
-						</CarouselContent>
-						<div className="hidden md:block">
-							<CarouselPrevious />
-							<CarouselNext />
-						</div>
-					</Carousel>
+					{data.images.length > 0 ? (
+						<Carousel plugins={[Autoplay({ delay: 5000 })]}>
+							<CarouselContent>
+								{data.images.map((image, index) => (
+									<CarouselItem key={image} className="flex flex-col space-y-4">
+										<img
+											src={`/features/${image}`}
+											alt={`${data.heading}-${index + 1}`}
+											className="mx-auto rounded-xl md:max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
+										/>
+									</CarouselItem>
+								))}
+							</CarouselContent>
+							<div className="hidden md:block">
+								<CarouselPrevious />
+								<CarouselNext />
+							</div>
+						</Carousel>
+					) : null}
 					<div className="px-2 md:px-0 mx-auto grid items-start gap-5 md:gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
 						{data.features.map((f) => (
 							<div
