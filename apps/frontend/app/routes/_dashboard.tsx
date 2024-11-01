@@ -1573,6 +1573,7 @@ const AddEntityToCollectionForm = ({
 			method="POST"
 			onSubmit={(e) => {
 				submit(e);
+				refreshUserMetadataDetails(addEntityToCollectionData.entityId);
 				closeAddEntityToCollectionModal();
 			}}
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
