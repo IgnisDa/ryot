@@ -213,7 +213,7 @@ export default function Index() {
 			<Form
 				method="POST"
 				action={withQuery(".", { intent: "logout" })}
-				className="flex w-full items-end justify-end px-4 md:px-10 pb-6"
+				className="flex w-full items-end justify-end mt-4 md:mt-0 md:px-10 pb-6"
 			>
 				<Button type="submit">Sign out</Button>
 			</Form>
