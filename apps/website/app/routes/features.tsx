@@ -37,8 +37,6 @@ import {
 	Carousel,
 	CarouselContent,
 	CarouselItem,
-	CarouselNext,
-	CarouselPrevious,
 } from "~/lib/components/ui/carousel";
 import { logoUrl } from "~/lib/utils";
 
@@ -80,7 +78,10 @@ export default function Page() {
 						{data.heading}
 					</h2>
 					{data.images.length > 0 ? (
-						<Carousel plugins={[Autoplay({ delay: 5000 })]}>
+						<Carousel
+							plugins={[Autoplay({ delay: 5000 })]}
+							className="w-screen"
+						>
 							<CarouselContent>
 								{data.images.map((image, index) => (
 									<CarouselItem key={image} className="flex flex-col space-y-4">
@@ -92,10 +93,6 @@ export default function Page() {
 									</CarouselItem>
 								))}
 							</CarouselContent>
-							<div className="hidden md:block">
-								<CarouselPrevious />
-								<CarouselNext />
-							</div>
 						</Carousel>
 					) : null}
 					<div className="px-2 md:px-0 mx-auto grid items-start gap-5 md:gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
