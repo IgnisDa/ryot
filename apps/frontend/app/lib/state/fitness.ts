@@ -71,6 +71,7 @@ export type InProgressWorkout = {
 	comment?: string;
 	endTime?: string;
 	startTime: string;
+	isCompleted?: true;
 	templateId?: string;
 	videos: Array<string>;
 	repeatedFrom?: string;

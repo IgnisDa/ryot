@@ -428,6 +428,11 @@ export default function Page() {
 														});
 														return;
 													}
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.isCompleted = true;
+														}),
+													);
 													const yes = await confirmWrapper({
 														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
