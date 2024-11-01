@@ -17,7 +17,8 @@ import type {
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getUserIdFromCookie, honeypot } from "./lib/config.server";
+import { getCustomerFromCookie, honeypot } from "./lib/config.server";
+import { logoUrl, startUrl } from "./lib/utils";
 
 export const links: LinksFunction = () => {
 	return [
@@ -41,9 +42,9 @@ export const links: LinksFunction = () => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const userId = await getUserIdFromCookie(request);
+	const customer = await getCustomerFromCookie(request);
 	return {
-		isLoggedIn: !!userId,
+		isLoggedIn: !!customer,
 		honeypotInputProps: honeypot.getInputProps(),
 	};
 };
@@ -74,29 +75,27 @@ export default function App() {
 				<div className="flex flex-col min-h-dvh">
 					<header className="px-4 lg:px-6 h-14 flex items-center">
 						<Link to={$path("/")} className="flex items-center justify-center">
-							<img
-								src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png"
-								alt="Ryot"
-								className="size-10 mr-2"
-							/>
+							<img alt="Ryot" src={logoUrl} className="size-10 mr-2" />
 							<span className="text-xl hidden md:block">Ryot</span>
 						</Link>
 						<nav className="ml-auto flex gap-4 sm:gap-6">
 							<Link
-								to={
-									loaderData.isLoggedIn
-										? $path("/me")
-										: withFragment($path("/"), "start-here")
-								}
-								className="text-sm font-medium hover:underline underline-offset-4"
+								to={$path("/features")}
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
 							>
-								Your account
+								Features
 							</Link>
 							<Link
 								to={withFragment($path("/"), "pricing")}
 								className="text-sm font-medium hover:underline underline-offset-4"
 							>
 								Pricing
+							</Link>
+							<Link
+								to={loaderData.isLoggedIn ? $path("/me") : startUrl}
+								className="text-sm font-medium hover:underline underline-offset-4"
+							>
+								Your account
 							</Link>
 							<a
 								target="_blank"

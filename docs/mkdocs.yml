@@ -4,7 +4,7 @@ site_name: Ryot Documentation
 site_url: https://docs.ryot.io
 site_description: Ryot Documentation
 repo_url: https://github.com/ignisda/ryot
-dev_addr: 0.0.0.0:8000
+dev_addr: 0.0.0.0:8200
 docs_dir: content
 
 theme:

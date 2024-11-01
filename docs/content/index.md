@@ -1,5 +1,7 @@
 # Installation
 
+Use the following docker-compose file:
+
 ```yaml
 services:
   ryot-db:
@@ -19,6 +21,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
       - TZ=Europe/Amsterdam
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
     ports:
       - "8000:8000"
     pull_policy: always
@@ -29,13 +32,12 @@ volumes:
 ```
 
 If you would like to run the pro version, please check [below](#upgrading-to-pro). To see
-the features of the pro version, check the [features page]({{extra.main_website_url
-}}).
+the features of the pro version, check the [features page]({{extra.main_website_url}}).
 
 ## Upgrading to Pro
 
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
-You can get a key by purchasing it from the [website]({{ extra.main_website_url }}).
+You can get a key by purchasing it from the [website]({{extra.main_website_url}}).
 
 Once you have the key, you can set it in the `docker-compose.yml` file:
 

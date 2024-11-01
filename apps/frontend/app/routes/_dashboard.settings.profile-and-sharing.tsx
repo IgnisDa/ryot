@@ -288,15 +288,20 @@ export default function Page() {
 														visiting {applicationBaseUrl}/u/{userDetails.name}
 													</Text>
 												</Box>
-												<Button
-													w="30%"
-													type="submit"
-													variant="light"
-													disabled={isEditDisabled}
-													color={hasDefaultAccountLink ? "blue" : "green"}
+												<Tooltip
+													disabled={!isEditDisabled}
+													label="Can not change default access links for demo user"
 												>
-													{hasDefaultAccountLink ? "Disable" : "Enable"}
-												</Button>
+													<Button
+														w="30%"
+														type="submit"
+														variant="light"
+														disabled={isEditDisabled}
+														color={hasDefaultAccountLink ? "blue" : "green"}
+													>
+														{hasDefaultAccountLink ? "Disable" : "Enable"}
+													</Button>
+												</Tooltip>
 											</Group>
 										</Form>
 									</Paper>

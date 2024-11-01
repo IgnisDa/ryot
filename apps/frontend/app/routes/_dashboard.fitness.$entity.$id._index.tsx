@@ -247,6 +247,7 @@ export default function Page() {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
 			loaderData.entityName,
+			params.action,
 			loaderData.information,
 			coreDetails,
 			userPreferences.fitness,

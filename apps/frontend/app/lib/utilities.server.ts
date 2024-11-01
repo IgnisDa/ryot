@@ -23,6 +23,7 @@ import {
 	type RequestDocument,
 	type Variables,
 } from "graphql-request";
+import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -30,9 +31,7 @@ import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
-	AUTH_COOKIE_NAME,
-	CurrentWorkoutKey,
-	FitnessAction,
+	FRONTEND_AUTH_COOKIE_NAME,
 	dayjsLib,
 	emptyDecimalString,
 	emptyNumberString,
@@ -103,7 +102,7 @@ export const getCookieValue = (request: Request, cookieName: string) =>
 	parse(request.headers.get("cookie") || "")[cookieName];
 
 export const getAuthorizationCookie = (request: Request) =>
-	getCookieValue(request, AUTH_COOKIE_NAME);
+	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const userDetails = await getCachedUserDetails(request);
@@ -156,6 +155,14 @@ export const MetadataSpecificsSchema = z.object({
 	mangaVolumeNumber: emptyNumberString,
 });
 
+export const getDecodedJwt = (request: Request) => {
+	const token = getAuthorizationCookie(request) ?? "";
+	return jwtDecode<{
+		sub: string;
+		access_link?: { id: string; is_demo?: boolean };
+	}>(token);
+};
+
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
@@ -165,9 +172,9 @@ export const getCachedCoreDetails = async () => {
 };
 
 const getCachedUserDetails = async (request: Request) => {
-	const token = getAuthorizationCookie(request);
+	const decodedJwt = getDecodedJwt(request);
 	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.users.details(token ?? "").queryKey,
+		queryKey: queryFactory.users.details(decodedJwt.sub).queryKey,
 		queryFn: () =>
 			serverGqlService
 				.authenticatedRequest(request, UserDetailsDocument, undefined)
@@ -349,13 +356,15 @@ export const getCookiesForApplication = async (
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
 	return combineHeaders({
-		"set-cookie": serialize(AUTH_COOKIE_NAME, token, options),
+		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options),
 	});
 };
 
 export const getLogoutCookies = () => {
 	return combineHeaders({
-		"set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }),
+		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, "", {
+			expires: new Date(0),
+		}),
 	});
 };
 
@@ -365,20 +374,6 @@ export const extendResponseHeaders = (
 ) => {
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
-};
-
-export const getWorkoutCookieValue = (request: Request) => {
-	return parse(request.headers.get("cookie") || "")[CurrentWorkoutKey];
-};
-
-export const isWorkoutActive = (request: Request) => {
-	const cookieValue = getWorkoutCookieValue(request);
-	const inProgress =
-		cookieValue &&
-		[FitnessAction.LogWorkout, FitnessAction.UpdateWorkout]
-			.map(String)
-			.includes(cookieValue);
-	return inProgress;
 };
 
 export const getEnhancedCookieName = async (path: string, request: Request) => {

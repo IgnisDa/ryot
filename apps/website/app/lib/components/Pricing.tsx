@@ -14,18 +14,18 @@ import {
 
 export default function Pricing(props: {
 	prices: TPrices;
-	isLoggedIn: boolean;
+	isLoggedIn?: boolean;
 	onClick?: (priceId: string) => void;
 }) {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
 	const selectedProductType = props.prices[selectedProductTypeIndex];
 
 	return (
-		<section id="pricing" className="w-full py-12 md:py-24 lg:py-32">
+		<section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
 			<div className="container space-y-12 px-4 md:px-6">
 				<div className="flex flex-col items-center justify-center space-y-4 text-center">
 					<div className="space-y-2">
-						<div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm">
+						<div className="inline-block rounded-lg bg-white px-3 py-1 text-sm">
 							Pricing
 						</div>
 						<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
@@ -56,10 +56,7 @@ export default function Pricing(props: {
 						</span>
 						.{" "}
 						{selectedProductType.type === "self_hosted" ? (
-							<Link
-								to={$path("/comparison-to-community")}
-								className="text-blue-400 underline"
-							>
+							<Link to={$path("/features")} className="text-blue-400 underline">
 								See differences.
 							</Link>
 						) : null}
@@ -67,7 +64,7 @@ export default function Pricing(props: {
 					<div className="mx-auto flex justify-center items-center gap-8 text-center flex-wrap">
 						{selectedProductType.prices.map((p) => (
 							<div
-								className="grid gap-y-3 border rounded-xl py-3 w-72"
+								className="grid gap-y-3 border rounded-xl py-3 w-72 bg-white"
 								key={p.name}
 							>
 								<p className="text-3xl">{changeCase(p.name)}</p>

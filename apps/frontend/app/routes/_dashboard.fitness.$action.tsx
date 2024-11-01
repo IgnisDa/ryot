@@ -86,12 +86,12 @@ import {
 	IconReorder,
 	IconReplace,
 	IconTrash,
+	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import Cookies from "js-cookie";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
@@ -109,7 +109,6 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	CurrentWorkoutKey,
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
@@ -146,25 +145,11 @@ import {
 	useMeasurementsDrawerOpen,
 	useTimerAtom,
 } from "~/lib/state/fitness";
-import { isWorkoutActive, redirectWithToast } from "~/lib/utilities.server";
 
-const workoutCookieName = CurrentWorkoutKey;
-
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, {
 		action: z.nativeEnum(FitnessAction),
 	});
-	await match(action)
-		.with(FitnessAction.LogWorkout, FitnessAction.UpdateWorkout, async () => {
-			const inProgress = isWorkoutActive(request);
-			if (!inProgress)
-				throw await redirectWithToast($path("/"), {
-					type: "error",
-					message: "No workout in progress",
-				});
-		})
-		.with(FitnessAction.CreateTemplate, async () => {})
-		.exhaustive();
 	return {
 		action,
 		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,
@@ -427,6 +412,11 @@ export default function Page() {
 														});
 														return;
 													}
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.currentActionOrCompleted = true;
+														}),
+													);
 													const yes = await confirmWrapper({
 														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
@@ -472,11 +462,6 @@ export default function Page() {
 																	]),
 															)
 															.exhaustive();
-														notifications.show({
-															color: "green",
-															message: "Saved successfully",
-														});
-														Cookies.remove(workoutCookieName);
 														revalidator.revalidate();
 														if (loaderData.action === FitnessAction.LogWorkout)
 															events.createWorkout();
@@ -515,7 +500,6 @@ export default function Page() {
 												}
 												navigate($path("/"), { replace: true });
 												revalidator.revalidate();
-												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}
 										}}
@@ -1633,6 +1617,27 @@ const SetDisplay = (props: {
 							}}
 						>
 							{!set.note ? "Add" : "Remove"} note
+						</Menu.Item>
+						<Menu.Item
+							fz="xs"
+							leftSection={<IconZzz size={14} />}
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const hasRestTimer = !!set.restTimer;
+										if (hasRestTimer)
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].restTimer = undefined;
+										else
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].restTimer = { duration: 60 };
+									}),
+								);
+							}}
+						>
+							{!set.restTimer ? "Add" : "Remove"} timer
 						</Menu.Item>
 						<Menu.Item
 							color="red"

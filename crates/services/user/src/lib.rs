@@ -14,7 +14,7 @@ use database_models::{
 use database_utils::{
     admin_account_guard, create_or_update_collection,
     deploy_job_to_calculate_user_activities_and_summary, ilike_sql, pro_instance_guard,
-    revoke_access_link, user_by_id, user_preferences_by_id,
+    revoke_access_link, user_by_id,
 };
 use dependent_models::UserDetailsResult;
 use enum_meta::Meta;
@@ -57,7 +57,7 @@ pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
     pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
             .general
             .dashboard
@@ -215,7 +215,7 @@ impl UserService {
         admin_user_id: String,
         to_delete_user_id: String,
     ) -> Result<bool> {
-        admin_account_guard(&self.0.db, &admin_user_id).await?;
+        admin_account_guard(&admin_user_id, &self.0).await?;
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.0.db).await?;
         let Some(u) = maybe_user else {
             return Ok(false);
@@ -399,7 +399,7 @@ impl UserService {
         input: UpdateComplexJsonInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = user_by_id(&self.0.db, &user_id).await?;
+        let user_model = user_by_id(&user_id, &self.0).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property.is_empty() {
             true => preferences = UserPreferences::default(),
@@ -977,8 +977,7 @@ impl UserService {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
             }));
         };
-        let mut user = user_by_id(&self.0.db, &user_id).await?;
-        user.preferences = user_preferences_by_id(&user_id, &self.0).await?;
+        let user = user_by_id(&user_id, &self.0).await?;
         Ok(UserDetailsResult::Ok(Box::new(user)))
     }
 

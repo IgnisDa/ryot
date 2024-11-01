@@ -43,6 +43,7 @@ import {
 import {
 	camelCase,
 	changeCase,
+	cn,
 	isNumber,
 	snakeCase,
 	startCase,
@@ -54,7 +55,6 @@ import {
 	IconGripVertical,
 	IconRotate360,
 } from "@tabler/icons-react";
-import clsx from "clsx";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -65,11 +65,11 @@ import {
 	useComplexJsonUpdate,
 	useConfirmSubmit,
 	useDashboardLayoutData,
+	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -81,8 +81,7 @@ const searchSchema = z.object({
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchSchema);
-	const workoutInProgress = isWorkoutActive(request);
-	return { query, workoutInProgress };
+	return { query };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -131,6 +130,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [watchProviders, setWatchProviders] = useState(
 		userPreferences.general.watchProviders.map((wp) => ({
 			...wp,
@@ -153,7 +153,7 @@ export default function Page() {
 				<Affix
 					position={{
 						bottom: rem(45),
-						right: rem(loaderData.workoutInProgress ? 100 : 40),
+						right: rem(isFitnessActionActive ? 100 : 40),
 					}}
 				>
 					<Form
@@ -666,7 +666,7 @@ const EditDashboardElement = (props: {
 					p="xs"
 					ref={provided.innerRef}
 					{...provided.draggableProps}
-					className={clsx({ [classes.itemDragging]: snapshot.isDragging })}
+					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
 				>
 					<Group justify="space-between">
 						<Group>

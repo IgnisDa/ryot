@@ -37,7 +37,6 @@ use database_utils::{
     add_entity_to_collection, apply_collection_filter, calculate_user_activities_and_summary,
     entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
     item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
-    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -549,14 +548,8 @@ ORDER BY RANDOM() LIMIT 10;
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews = item_reviews(
-            &self.0.db,
-            &user_id,
-            &metadata_id,
-            EntityLot::Metadata,
-            true,
-        )
-        .await?;
+        let reviews =
+            item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, &self.0).await?;
         let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.0.db).await?;
         let in_progress = history
             .iter()
@@ -741,8 +734,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews =
-            item_reviews(&self.0.db, &user_id, &person_id, EntityLot::Person, true).await?;
+        let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
@@ -764,11 +756,11 @@ ORDER BY RANDOM() LIMIT 10;
         )
         .await?;
         let reviews = item_reviews(
-            &self.0.db,
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
             true,
+            &self.0,
         )
         .await?;
         Ok(UserMetadataGroupDetails {
@@ -972,7 +964,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
-        let preferences = user_preferences_by_id(&user_id, &self.0).await?;
+        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
 
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
@@ -1570,7 +1562,7 @@ ORDER BY RANDOM() LIMIT 10;
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -1645,7 +1637,7 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -1673,7 +1665,7 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -2486,7 +2478,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .unwrap();
             comment.liked_by.remove(&user_id);
         } else {
-            let user = user_by_id(&self.0.db, &user_id).await?;
+            let user = user_by_id(&user_id, &self.0).await?;
             comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),

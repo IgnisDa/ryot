@@ -1,11 +1,14 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { createCookie } from "@remix-run/node";
+import { formatDateToNaiveDate } from "@ryot/ts-utils";
+import { Unkey } from "@unkey/api";
+import type { Dayjs } from "dayjs";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
-import postgres from "postgres";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -33,6 +36,7 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_ISSUER_URL: z.string(),
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	PADDLE_SANDBOX: zx.BoolAsString.optional(),
 });
 
@@ -42,14 +46,14 @@ export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
 
 export const pricesSchema = z.array(
 	z.object({
-		type: z.string(),
+		type: z.nativeEnum(ProductTypes.Values),
 		prices: z.array(
 			z.object({
-				name: z.string(),
-				linkToGithub: z.boolean().optional(),
-				priceId: z.string().optional(),
-				amount: z.number().optional(),
 				trial: z.number().optional(),
+				amount: z.number().optional(),
+				priceId: z.string().optional(),
+				linkToGithub: z.boolean().optional(),
+				name: z.nativeEnum(PlanTypes.Values),
 			}),
 		),
 	}),
@@ -62,20 +66,14 @@ export const prices = pricesSchema.parse(
 );
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of prices) {
-		for (const price of product.prices) {
-			if (price.priceId === priceId) {
-				return {
-					productType: ProductTypes.parse(product.type),
-					planType: PlanTypes.parse(price.name),
-				};
-			}
-		}
-	}
+	for (const product of prices)
+		for (const price of product.prices)
+			if (price.priceId === priceId)
+				return { productType: product.type, planType: price.name };
 	throw new Error("Price ID not found");
 };
 
-export const db = drizzle(postgres(serverVariables.DATABASE_URL), {
+export const db = drizzle(serverVariables.DATABASE_URL, {
 	schema,
 	logger: serverVariables.NODE_ENV === "development",
 });
@@ -112,6 +110,7 @@ export const sendEmail = async (
 	});
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
+	console.log(`Sending email to ${recipient} with subject ${subject}`);
 	const resp = await client.sendMail({
 		text,
 		html,
@@ -122,15 +121,18 @@ export const sendEmail = async (
 	return resp.messageId;
 };
 
-export const authCookie = createCookie("WebsiteAuth", {
+export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	maxAge: 60 * 60 * 24 * 365,
 	path: "/",
 });
 
-export const getUserIdFromCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("cookie"));
-	if (!cookie) return null;
-	return z.string().parse(cookie);
+export const getCustomerFromCookie = async (request: Request) => {
+	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
+	if (!cookie || Object.keys(cookie).length === 0) return null;
+	const customerId = z.string().parse(cookie);
+	return await db.query.customers.findFirst({
+		where: eq(schema.customers.id, customerId),
+	});
 };
 
 export const serverGqlService = new GraphQLClient(
@@ -139,3 +141,24 @@ export const serverGqlService = new GraphQLClient(
 );
 
 export const honeypot = new Honeypot();
+
+export const customDataSchema = z.object({
+	customerId: z.string(),
+});
+
+export type CustomData = z.infer<typeof customDataSchema>;
+
+export const createUnkeyKey = async (
+	customer: typeof schema.customers.$inferSelect,
+	renewOn?: Dayjs,
+) => {
+	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+	const created = await unkey.keys.create({
+		name: customer.email,
+		externalId: customer.id,
+		apiId: serverVariables.UNKEY_API_ID,
+		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
+	});
+	if (created.error) throw new Error(created.error.message);
+	return created.result;
+};

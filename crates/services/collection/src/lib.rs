@@ -262,11 +262,11 @@ impl CollectionService {
             .await?
             .unwrap();
         let reviews = item_reviews(
-            &self.0.db,
             &collection.user_id,
             &input.collection_id,
             EntityLot::Collection,
             true,
+            &self.0,
         )
         .await?;
         Ok(CollectionContents {

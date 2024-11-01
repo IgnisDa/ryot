@@ -1,12 +1,18 @@
+import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
 	redirect,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useLoaderData,
+	useRouteLoaderData,
+} from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils";
+import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -15,9 +21,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
-import Autoplay from "embla-carousel-autoplay";
-import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
-import { nanoid } from "nanoid";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
@@ -28,13 +32,6 @@ import { zx } from "zodix";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
-import {
-	Carousel,
-	CarouselContent,
-	CarouselItem,
-	CarouselNext,
-	CarouselPrevious,
-} from "~/lib/components/ui/carousel";
 import { Input } from "~/lib/components/ui/input";
 import {
 	InputOTP,
@@ -43,15 +40,15 @@ import {
 } from "~/lib/components/ui/input-otp";
 import { Textarea } from "~/lib/components/ui/textarea";
 import {
-	authCookie,
 	db,
-	getUserIdFromCookie,
 	honeypot,
 	oauthClient,
 	prices,
 	sendEmail,
+	websiteAuthCookie,
 } from "~/lib/config.server";
-import { cn } from "~/lib/utils";
+import { startUrl } from "~/lib/utils";
+import type { loader as rootLoader } from "../root";
 
 dayjs.extend(duration);
 
@@ -64,8 +61,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const userId = await getUserIdFromCookie(request);
-	return { prices, query, isLoggedIn: !!userId };
+	return { prices, query };
 };
 
 const otpCodesCache = new TTLCache<string, string>({
@@ -73,13 +69,20 @@ const otpCodesCache = new TTLCache<string, string>({
 	max: 1000,
 });
 
+const generateOtp = (length: number) => {
+	const max = 10 ** length;
+	const buffer = randomBytes(Math.ceil(length / 2));
+	const otp = Number.parseInt(buffer.toString("hex"), 16) % max;
+	return otp.toString().padStart(length, "0");
+};
+
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("sendLoginCode", async () => {
 			const { email } = processSubmission(formData, emailSchema);
-			const otpCode = nanoid(6);
+			const otpCode = generateOtp(6);
 			otpCodesCache.set(email, otpCode);
 			console.log(`OTP code for ${email} is ${otpCode}`);
 			await sendEmail(
@@ -87,7 +90,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				LoginCodeEmail.subject,
 				LoginCodeEmail({ code: otpCode }),
 			);
-			return redirect(withQuery(withFragment(".", "start-here"), { email }));
+			return redirect(withQuery(startUrl, { email }));
 		})
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
@@ -105,7 +108,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			if (!customerId)
 				throw new Error("There was an error registering the user.");
 			return redirect($path("/me"), {
-				headers: { "set-cookie": await authCookie.serialize(customerId) },
+				headers: {
+					"set-cookie": await websiteAuthCookie.serialize(customerId),
+				},
 			});
 		})
 		.with("registerWithOidc", async () => {
@@ -136,9 +141,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.run();
 };
 
-const intentSchema = z.object({ intent: z.string() });
-
-const emailSchema = z.object({ email: z.string().email() }).merge(intentSchema);
+const emailSchema = z.object({ email: z.string().email() });
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
@@ -151,6 +154,7 @@ const contactSubmissionSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
 
 	return (
 		<>
@@ -227,149 +231,6 @@ export default function Page() {
 				</div>
 			</section>
 			<section
-				id="showcase"
-				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
-			>
-				<div className="container space-y-12 px-4 md:px-6">
-					<div className="flex flex-col items-center justify-center space-y-4 text-center">
-						<div className="space-y-2">
-							<div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm bg-white">
-								Ease of Use
-							</div>
-							<h1 className="lg:leading-tighter text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl xl:text-[3.4rem] 2xl:text-[3.75rem]">
-								Focus on What Matters
-							</h1>
-						</div>
-					</div>
-					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
-						<CarouselContent>
-							{showCarouselContents.map((carousel) => (
-								<CarouselItem key={carousel.text} className="flex flex-col">
-									<p className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-										{carousel.text}
-									</p>
-									<div className="my-auto">
-										<Image
-											src={carousel.image}
-											alt={carousel.alt}
-											className={cn(
-												carousel.smallImage && "hidden md:block",
-												"max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl",
-											)}
-										/>
-										{carousel.smallImage ? (
-											<Image
-												src={carousel.smallImage}
-												alt={carousel.alt}
-												className="md:hidden"
-											/>
-										) : null}
-									</div>
-								</CarouselItem>
-							))}
-						</CarouselContent>
-						<div className="hidden md:block">
-							<CarouselPrevious />
-							<CarouselNext />
-						</div>
-					</Carousel>
-				</div>
-			</section>
-			<section id="start-here" className="w-full py-12 md:py-24 lg:py-32">
-				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
-					<div className="space-y-3">
-						<h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">
-							Upgrade Your Tracking Experience
-						</h2>
-						<p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-							Ryot's powerful features make it the ultimate solution for
-							effortless tracking and data management.
-						</p>
-					</div>
-					<div className="mx-auto w-full max-w-sm space-y-2">
-						{loaderData.isLoggedIn ? (
-							<Link to={$path("/me")}>
-								<Button>
-									<IconPlayerPlay size={16} className="mr-2" />
-									<span>Get started</span>
-								</Button>
-							</Link>
-						) : (
-							<>
-								<Form
-									method="POST"
-									className="flex gap-2 flex-none"
-									action={withQuery(".", {
-										intent: loaderData.query.email
-											? "registerWithEmail"
-											: "sendLoginCode",
-									})}
-								>
-									{loaderData.query.email ? (
-										<>
-											<input
-												readOnly
-												name="email"
-												type="hidden"
-												value={loaderData.query.email}
-											/>
-											<InputOTP
-												maxLength={6}
-												pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
-												name="otpCode"
-											>
-												<InputOTPGroup>
-													<InputOTPSlot index={0} />
-													<InputOTPSlot index={1} />
-													<InputOTPSlot index={2} />
-													<InputOTPSlot index={3} />
-													<InputOTPSlot index={4} />
-													<InputOTPSlot index={5} />
-												</InputOTPGroup>
-											</InputOTP>
-										</>
-									) : (
-										<Input
-											type="email"
-											name="email"
-											placeholder="Enter your email"
-											className="max-w-lg flex-1"
-										/>
-									)}
-									<Button type="submit">
-										{loaderData.query.email
-											? "Verify login code"
-											: "Start Your Free Trial"}
-									</Button>
-								</Form>
-								<p className="text-xs">OR</p>
-								<Form
-									method="POST"
-									action={withQuery(".", { intent: "registerWithOidc" })}
-								>
-									<Button
-										variant="outline"
-										className="inline-flex h-10 items-center justify-center rounded-md px-8 text-sm font-medium"
-									>
-										<IconBrandGoogleFilled className="mr-2 h-4 w-4" />
-										Sign in with Google
-									</Button>
-								</Form>
-								<p className="text-xs text-muted-foreground">
-									Sign up to get started with Ryot.{" "}
-									<Link
-										to={$path("/terms")}
-										className="underline underline-offset-2"
-									>
-										Terms &amp; Conditions
-									</Link>
-								</p>
-							</>
-						)}
-					</div>
-				</div>
-			</section>
-			<section
 				id="testimonials"
 				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
 			>
@@ -412,12 +273,109 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
-			<Pricing prices={loaderData.prices} isLoggedIn={loaderData.isLoggedIn} />
-			<section id="contact" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
+			<section id="start-here" className="w-full py-12 md:py-24 lg:py-32">
+				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
+					<div className="space-y-3">
+						<h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">
+							Upgrade Your Tracking Experience
+						</h2>
+						<p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+							Ryot's powerful features make it the ultimate solution for
+							effortless tracking and data management.
+						</p>
+					</div>
+					<div className="mx-auto w-full max-w-sm space-y-2">
+						{rootLoaderData?.isLoggedIn ? (
+							<Link to={$path("/me")}>
+								<Button>
+									<IconPlayerPlay size={16} className="mr-2" />
+									<span>Get started</span>
+								</Button>
+							</Link>
+						) : (
+							<>
+								<Form
+									method="POST"
+									className="flex gap-2 flex-none"
+									action={withQuery(".?index", {
+										intent: loaderData.query.email
+											? "registerWithEmail"
+											: "sendLoginCode",
+									})}
+								>
+									{loaderData.query.email ? (
+										<>
+											<input
+												readOnly
+												name="email"
+												type="hidden"
+												value={loaderData.query.email}
+											/>
+											<InputOTP
+												maxLength={6}
+												pattern={REGEXP_ONLY_DIGITS}
+												name="otpCode"
+											>
+												<InputOTPGroup>
+													<InputOTPSlot index={0} />
+													<InputOTPSlot index={1} />
+													<InputOTPSlot index={2} />
+													<InputOTPSlot index={3} />
+													<InputOTPSlot index={4} />
+													<InputOTPSlot index={5} />
+												</InputOTPGroup>
+											</InputOTP>
+										</>
+									) : (
+										<Input
+											type="email"
+											name="email"
+											placeholder="Enter your email"
+											className="max-w-lg flex-1"
+										/>
+									)}
+									<Button type="submit">
+										{loaderData.query.email
+											? "Verify login code"
+											: "Start Your Free Trial"}
+									</Button>
+								</Form>
+								<p className="text-xs">OR</p>
+								<Form
+									method="POST"
+									action={withQuery(".?index", { intent: "registerWithOidc" })}
+								>
+									<Button
+										variant="outline"
+										className="inline-flex h-10 items-center justify-center rounded-md px-8 text-sm font-medium"
+									>
+										<IconBrandGoogleFilled className="mr-2 h-4 w-4" />
+										Sign in with Google
+									</Button>
+								</Form>
+								<p className="text-xs text-muted-foreground">
+									Sign up to get started with Ryot.{" "}
+									<Link
+										to={$path("/terms")}
+										className="underline underline-offset-2"
+									>
+										Terms &amp; Conditions
+									</Link>
+								</p>
+							</>
+						)}
+					</div>
+				</div>
+			</section>
+			<Pricing
+				prices={loaderData.prices}
+				isLoggedIn={rootLoaderData?.isLoggedIn}
+			/>
+			<section id="contact" className="w-full py-12 md:py-24 lg:py-32">
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">
 						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
+							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-muted">
 								Contact Us
 							</div>
 							<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
@@ -437,7 +395,7 @@ export default function Page() {
 					) : (
 						<Form
 							method="POST"
-							action={withQuery(".", { intent: "contactSubmission" })}
+							action={withQuery(".?index", { intent: "contactSubmission" })}
 							className="flex flex-col items-center justify-center pt-12 gap-y-4 gap-x-4"
 						>
 							<HoneypotInputs />
@@ -459,11 +417,14 @@ export default function Page() {
 					)}
 				</div>
 			</section>
-			<section id="community" className="w-full py-12 md:py-24 lg:py-32">
+			<section
+				id="community"
+				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
+			>
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">
 						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-muted">
+							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
 								Open Source
 							</div>
 							<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
@@ -555,22 +516,3 @@ const Image = ({ src, alt, className }: ImageProps) => (
 		)}
 	/>
 );
-
-const showCarouselContents = [
-	{
-		text: "You can selectively enable or disable the facets you want to track. Spend less time learning the platform and more time tracking what matters to you. Get started in minutes.",
-		image: "/group.png",
-		smallImage: "/desktop.png",
-		alt: "Grouped images",
-	},
-	{
-		text: "Share your profile data with friends and family without compromising your privacy. Ryot allows you to create access links with limited access so that others can view your favorite movies without logging in.",
-		image: "/sharing.png",
-		alt: "Sharing images",
-	},
-	{
-		text: "Browse your favorite genres and get recommendations based on your preferences. Ryot uses advanced algorithms to suggest movies, shows, and books you might like.",
-		image: "/genres.png",
-		alt: "Genres images",
-	},
-];

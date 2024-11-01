@@ -67,7 +67,7 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
   and fitness
 - ✅ Import data from Goodreads, Trakt, Strong App [etc](https://docs.ryot.io/importing.html)
 - ✅ Integration with Jellyfin, Kodi, Plex, Emby, Audiobookshelf [etc](https://docs.ryot.io/integrations.html)
-- ✅ [Supports](https://docs.ryot.io/guides/openid.html) OpenID Connect
+- ✅ [Supports](https://docs.ryot.io/guides/authentication.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled

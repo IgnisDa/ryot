@@ -46,7 +46,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use user_models::{UserPreferences, UserReviewScale};
+use user_models::UserReviewScale;
 use uuid::Uuid;
 
 pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String) -> Result<bool> {
@@ -64,40 +64,32 @@ pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
 }
 
-pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<user::Model> {
-    User::find_by_id(user_id)
-        .one(db)
-        .await
-        .unwrap()
-        .ok_or_else(|| Error::new("No user found"))
+pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
+    let mut user = User::find_by_id(user_id)
+        .one(&ss.db)
+        .await?
+        .ok_or_else(|| Error::new("No user found"))?;
+    let config = &ss.config;
+    let features_enabled = &mut user.preferences.features_enabled;
+    features_enabled.media.anime =
+        config.anime_and_manga.is_enabled() && features_enabled.media.anime;
+    features_enabled.media.audio_book =
+        config.audio_books.is_enabled() && features_enabled.media.audio_book;
+    features_enabled.media.book = config.books.is_enabled() && features_enabled.media.book;
+    features_enabled.media.show =
+        config.movies_and_shows.is_enabled() && features_enabled.media.show;
+    features_enabled.media.manga =
+        config.anime_and_manga.is_enabled() && features_enabled.media.manga;
+    features_enabled.media.movie =
+        config.movies_and_shows.is_enabled() && features_enabled.media.movie;
+    features_enabled.media.podcast = config.podcasts.is_enabled() && features_enabled.media.podcast;
+    features_enabled.media.video_game =
+        config.video_games.is_enabled() && features_enabled.media.video_game;
+    Ok(user)
 }
 
-pub async fn user_preferences_by_id(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<UserPreferences> {
-    let mut preferences = user_by_id(&ss.db, user_id).await?.preferences;
-    preferences.features_enabled.media.anime =
-        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
-    preferences.features_enabled.media.audio_book =
-        ss.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
-    preferences.features_enabled.media.book =
-        ss.config.books.is_enabled() && preferences.features_enabled.media.book;
-    preferences.features_enabled.media.show =
-        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
-    preferences.features_enabled.media.manga =
-        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
-    preferences.features_enabled.media.movie =
-        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
-    preferences.features_enabled.media.podcast =
-        ss.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
-    preferences.features_enabled.media.video_game =
-        ss.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
-    Ok(preferences)
-}
-
-pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> Result<()> {
-    let main_user = user_by_id(db, user_id).await?;
+pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
+    let main_user = user_by_id(user_id, ss).await?;
     if main_user.lot != UserLot::Admin {
         return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
     }
@@ -401,12 +393,12 @@ pub async fn remove_entity_from_collection(
 }
 
 pub async fn item_reviews(
-    db: &DatabaseConnection,
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
     // DEV: Setting this to true will return ALL user's reviews + public reviews by others
     get_public: bool,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
         EntityLot::Metadata => review::Column::MetadataId,
@@ -426,7 +418,7 @@ pub async fn item_reviews(
         .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
         .filter(column.eq(entity_id))
-        .all(db)
+        .all(&ss.db)
         .await
         .unwrap();
     let mut reviews = vec![];
@@ -434,7 +426,7 @@ pub async fn item_reviews(
         let user = user.unwrap();
         let rating = match true {
             true => {
-                let preferences = user_by_id(db, user_id).await?.preferences;
+                let preferences = user_by_id(user_id, ss).await?.preferences;
                 review.rating.map(|s| {
                     s.checked_div(match preferences.general.review_scale {
                         UserReviewScale::OutOfFive => dec!(20),
@@ -453,7 +445,7 @@ pub async fn item_reviews(
             .column(seen::Column::Id)
             .filter(seen::Column::ReviewId.eq(&review.id))
             .into_tuple::<String>()
-            .all(db)
+            .all(&ss.db)
             .await?;
         let to_push = ReviewItem {
             rating,

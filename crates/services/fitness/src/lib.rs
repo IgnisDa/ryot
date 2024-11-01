@@ -256,14 +256,8 @@ impl ExerciseService {
     ) -> Result<UserExerciseDetails> {
         let collections =
             entity_in_collections(&self.0.db, &user_id, &exercise_id, EntityLot::Exercise).await?;
-        let reviews = item_reviews(
-            &self.0.db,
-            &user_id,
-            &exercise_id,
-            EntityLot::Exercise,
-            true,
-        )
-        .await?;
+        let reviews =
+            item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, &self.0).await?;
         let mut resp = UserExerciseDetails {
             details: None,
             history: None,

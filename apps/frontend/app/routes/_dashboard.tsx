@@ -99,7 +99,6 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { jwtDecode } from "jwt-decode";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
@@ -120,6 +119,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWatchProviders,
+	useIsFitnessActionActive,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -134,11 +134,10 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
-	isWorkoutActive,
+	getDecodedJwt,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -240,9 +239,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		request.headers.get("cookie") || "",
 	);
 
-	const decodedCookie = jwtDecode<{
-		access_link?: { id: string; is_demo?: boolean };
-	}>(getAuthorizationCookie(request) ?? "");
+	const decodedCookie = getDecodedJwt(request);
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
 
@@ -251,8 +248,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		coreDetails.frontend.umami.websiteId &&
 		!coreDetails.disableTelemetry &&
 		!isDemo;
-
-	const workoutInProgress = isWorkoutActive(request);
 
 	return {
 		isDemo,
@@ -264,7 +259,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences,
 		shouldHaveUmami,
 		userCollections,
-		workoutInProgress,
 		currentColorScheme,
 		isAccessLinkSession,
 	};
@@ -352,6 +346,7 @@ export default function Layout() {
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const submit = useConfirmSubmit();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -405,7 +400,7 @@ export default function Layout() {
 
 	return (
 		<>
-			{loaderData.workoutInProgress &&
+			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (
