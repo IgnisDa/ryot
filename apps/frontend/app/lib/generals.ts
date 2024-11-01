@@ -66,7 +66,6 @@ export const emptyDecimalString = z
 	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
 	.nullable();
 
-export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 export const redirectToQueryParam = "redirectTo";

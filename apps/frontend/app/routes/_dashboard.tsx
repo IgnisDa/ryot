@@ -119,6 +119,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWatchProviders,
+	useIsWorkoutActive,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -137,7 +138,6 @@ import {
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
 	getDecodedJwt,
-	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -249,8 +249,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		!coreDetails.disableTelemetry &&
 		!isDemo;
 
-	const workoutInProgress = isWorkoutActive(request);
-
 	return {
 		isDemo,
 		mediaLinks,
@@ -261,7 +259,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userPreferences,
 		shouldHaveUmami,
 		userCollections,
-		workoutInProgress,
 		currentColorScheme,
 		isAccessLinkSession,
 	};
@@ -349,6 +346,7 @@ export default function Layout() {
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const submit = useConfirmSubmit();
+	const isWorkoutActive = useIsWorkoutActive();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -402,7 +400,7 @@ export default function Layout() {
 
 	return (
 		<>
-			{loaderData.workoutInProgress &&
+			{isWorkoutActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (

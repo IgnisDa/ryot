@@ -31,9 +31,7 @@ import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
-	CurrentWorkoutKey,
 	FRONTEND_AUTH_COOKIE_NAME,
-	FitnessAction,
 	dayjsLib,
 	emptyDecimalString,
 	emptyNumberString,
@@ -376,20 +374,6 @@ export const extendResponseHeaders = (
 ) => {
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
-};
-
-export const getWorkoutCookieValue = (request: Request) => {
-	return parse(request.headers.get("cookie") || "")[CurrentWorkoutKey];
-};
-
-export const isWorkoutActive = (request: Request) => {
-	const cookieValue = getWorkoutCookieValue(request);
-	const inProgress =
-		cookieValue &&
-		[FitnessAction.LogWorkout, FitnessAction.UpdateWorkout]
-			.map(String)
-			.includes(cookieValue);
-	return inProgress;
 };
 
 export const getEnhancedCookieName = async (path: string, request: Request) => {

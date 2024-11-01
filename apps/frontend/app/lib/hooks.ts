@@ -18,8 +18,7 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {
-	CurrentWorkoutKey,
-	type FitnessAction,
+	FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getStringAsciiValue,
@@ -104,10 +103,6 @@ export const useGetWorkoutStarter = () => {
 
 	const fn = (wkt: InProgressWorkout, action: FitnessAction) => {
 		setCurrentWorkout(wkt);
-		Cookies.set(CurrentWorkoutKey, action, {
-			expires: 2,
-			sameSite: "Strict",
-		});
 		navigate($path("/fitness/:action", { action }));
 		revalidator.revalidate();
 	};
@@ -207,4 +202,14 @@ export const useComplexJsonUpdate = () => {
 	};
 
 	return { reset, appendPref, toUpdatePreferences };
+};
+
+export const useIsWorkoutActive = () => {
+	const [currentWorkout] = useCurrentWorkout();
+	const action = currentWorkout?.currentActionOrCompleted;
+	return (
+		action !== undefined &&
+		action !== true &&
+		[FitnessAction.LogWorkout, FitnessAction.UpdateWorkout].includes(action)
+	);
 };

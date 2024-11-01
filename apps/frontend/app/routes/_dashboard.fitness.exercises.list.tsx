@@ -48,6 +48,7 @@ import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useIsWorkoutActive,
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -55,7 +56,6 @@ import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
 	getEnhancedCookieName,
-	getWorkoutCookieValue,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -91,7 +91,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const workoutInProgress = !!getWorkoutCookieValue(request);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [exerciseParameters, { exercisesList }] = await Promise.all([
@@ -126,7 +125,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		totalPages,
 		cookieName,
 		exercisesList,
-		workoutInProgress,
 		exerciseParameters,
 	};
 };
@@ -140,6 +138,7 @@ export default function Page() {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const isWorkoutActive = useIsWorkoutActive();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -159,7 +158,7 @@ export default function Page() {
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
-		loaderData.workoutInProgress &&
+		isWorkoutActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
 	return (

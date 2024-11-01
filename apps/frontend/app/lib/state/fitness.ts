@@ -20,13 +20,12 @@ import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import Cookies from "js-cookie";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
-	CurrentWorkoutKey,
+	type FitnessAction,
 	clientGqlService,
 	dayjsLib,
 	getTimeOfDay,
@@ -71,7 +70,6 @@ export type InProgressWorkout = {
 	comment?: string;
 	endTime?: string;
 	startTime: string;
-	isCompleted?: true;
 	templateId?: string;
 	videos: Array<string>;
 	repeatedFrom?: string;
@@ -81,12 +79,13 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
+	currentActionOrCompleted: FitnessAction | true;
 };
 
 type CurrentWorkout = InProgressWorkout | null;
 
 const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	CurrentWorkoutKey,
+	"CurrentWorkout",
 	null,
 );
 
@@ -102,13 +101,16 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 	return exercise?.sets[setIdx];
 };
 
-export const getDefaultWorkout = (): InProgressWorkout => {
+export const getDefaultWorkout = (
+	fitnessEntity: FitnessAction,
+): InProgressWorkout => {
 	const date = new Date();
 	return {
 		images: [],
 		videos: [],
 		supersets: [],
 		exercises: [],
+		currentActionOrCompleted: fitnessEntity,
 		startTime: date.toISOString(),
 		name: `${getTimeOfDay(date.getHours())} Workout`,
 	};
@@ -260,6 +262,7 @@ export const useMeasurementsDrawerOpen = () =>
 
 export const duplicateOldWorkout = async (
 	name: string,
+	fitnessEntity: FitnessAction,
 	workoutInformation: WorkoutInformation,
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	userFitnessPreferences: UserFitnessPreferences,
@@ -270,7 +273,7 @@ export const duplicateOldWorkout = async (
 		updateWorkoutTemplateId?: string;
 	},
 ) => {
-	const inProgress = getDefaultWorkout();
+	const inProgress = getDefaultWorkout(fitnessEntity);
 	inProgress.name = name;
 	inProgress.repeatedFrom = params.repeatedFromId;
 	inProgress.templateId = params.templateId;
@@ -346,6 +349,7 @@ export const addExerciseToWorkout = async (
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {
+	if (currentWorkout.currentActionOrCompleted === true) return;
 	const draft = createDraft(currentWorkout);
 	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
@@ -391,11 +395,11 @@ export const addExerciseToWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
-	const currentEntity = Cookies.get(CurrentWorkoutKey);
-	if (!currentEntity) return;
 	navigate(
 		withFragment(
-			$path("/fitness/:action", { action: currentEntity }),
+			$path("/fitness/:action", {
+				action: currentWorkout.currentActionOrCompleted,
+			}),
 			idxOfNextExercise.toString(),
 		),
 	);

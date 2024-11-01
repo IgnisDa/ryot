@@ -65,11 +65,11 @@ import {
 	useComplexJsonUpdate,
 	useConfirmSubmit,
 	useDashboardLayoutData,
+	useIsWorkoutActive,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -81,8 +81,7 @@ const searchSchema = z.object({
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchSchema);
-	const workoutInProgress = isWorkoutActive(request);
-	return { query, workoutInProgress };
+	return { query };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -131,6 +130,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const isWorkoutActive = useIsWorkoutActive();
 	const [watchProviders, setWatchProviders] = useState(
 		userPreferences.general.watchProviders.map((wp) => ({
 			...wp,
@@ -153,7 +153,7 @@ export default function Page() {
 				<Affix
 					position={{
 						bottom: rem(45),
-						right: rem(loaderData.workoutInProgress ? 100 : 40),
+						right: rem(isWorkoutActive ? 100 : 40),
 					}}
 				>
 					<Form

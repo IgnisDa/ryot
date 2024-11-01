@@ -156,16 +156,14 @@ export default function Page() {
 								});
 								return;
 							}
-							startWorkout(
-								getDefaultWorkout(),
-								match(loaderData.entity)
-									.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
-									.with(
-										FitnessEntity.Templates,
-										() => FitnessAction.CreateTemplate,
-									)
-									.exhaustive(),
-							);
+							const action = match(loaderData.entity)
+								.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
+								.with(
+									FitnessEntity.Templates,
+									() => FitnessAction.CreateTemplate,
+								)
+								.exhaustive();
+							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>
 						<IconPlus size={16} />

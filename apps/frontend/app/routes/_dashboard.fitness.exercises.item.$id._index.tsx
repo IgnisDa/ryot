@@ -82,6 +82,7 @@ import {
 } from "~/lib/generals";
 import {
 	useComplexJsonUpdate,
+	useIsWorkoutActive,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -95,7 +96,6 @@ import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	getCachedExerciseParameters,
-	getWorkoutCookieValue,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -110,7 +110,6 @@ const paramsSchema = { id: z.string() };
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const workoutInProgress = !!getWorkoutCookieValue(request);
 	const [exerciseParameters, { exerciseDetails }, { userExerciseDetails }] =
 		await Promise.all([
 			getCachedExerciseParameters(),
@@ -125,7 +124,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		query,
 		exerciseId,
 		exerciseDetails,
-		workoutInProgress,
 		exerciseParameters,
 		userExerciseDetails,
 	};
@@ -173,6 +171,7 @@ export default function Page() {
 		loaderData.userExerciseDetails.details?.exerciseNumTimesInteracted || 0;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
+	const isWorkoutActive = useIsWorkoutActive();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
 		"ExerciseChartTimeSpan",
@@ -636,7 +635,7 @@ export default function Page() {
 						) : null}
 					</Tabs>
 				</Stack>
-				{currentWorkout && loaderData.workoutInProgress ? (
+				{currentWorkout && isWorkoutActive ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
 						<ActionIcon
 							color="blue"

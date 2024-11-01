@@ -92,7 +92,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import Cookies from "js-cookie";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
@@ -110,7 +109,6 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	CurrentWorkoutKey,
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
@@ -147,25 +145,11 @@ import {
 	useMeasurementsDrawerOpen,
 	useTimerAtom,
 } from "~/lib/state/fitness";
-import { isWorkoutActive, redirectWithToast } from "~/lib/utilities.server";
 
-const workoutCookieName = CurrentWorkoutKey;
-
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, {
 		action: z.nativeEnum(FitnessAction),
 	});
-	await match(action)
-		.with(FitnessAction.LogWorkout, FitnessAction.UpdateWorkout, async () => {
-			const inProgress = isWorkoutActive(request);
-			if (!inProgress)
-				throw await redirectWithToast($path("/"), {
-					type: "error",
-					message: "No workout in progress",
-				});
-		})
-		.with(FitnessAction.CreateTemplate, async () => {})
-		.exhaustive();
 	return {
 		action,
 		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,
@@ -430,7 +414,7 @@ export default function Page() {
 													}
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
-															draft.isCompleted = true;
+															draft.currentActionOrCompleted = true;
 														}),
 													);
 													const yes = await confirmWrapper({
@@ -478,7 +462,6 @@ export default function Page() {
 																	]),
 															)
 															.exhaustive();
-														Cookies.remove(workoutCookieName);
 														revalidator.revalidate();
 														if (loaderData.action === FitnessAction.LogWorkout)
 															events.createWorkout();
@@ -517,7 +500,6 @@ export default function Page() {
 												}
 												navigate($path("/"), { replace: true });
 												revalidator.revalidate();
-												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}
 										}}
