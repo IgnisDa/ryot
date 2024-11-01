@@ -393,23 +393,19 @@ export const BaseMediaDisplayItem = (props: {
 							/>
 							{props.progress ? (
 								<Paper
-									w={5}
+									h={5}
 									bg="red"
 									left={0}
 									bottom={0}
 									pos="absolute"
-									h={`${props.progress}%`}
+									w={`${props.progress}%`}
 								/>
 							) : null}
 						</Paper>
 					</Tooltip>
 				</SurroundingElement>
 				{props.imageOverlay?.topLeft ? (
-					<Center
-						top={5}
-						left={props.progress ? 8 : 5}
-						{...defaultOverlayProps}
-					>
+					<Center top={5} left={5} {...defaultOverlayProps}>
 						{props.imageOverlay.topLeft}
 					</Center>
 				) : null}
@@ -420,15 +416,19 @@ export const BaseMediaDisplayItem = (props: {
 				) : null}
 				{props.imageOverlay?.bottomLeft ? (
 					<Center
-						bottom={5}
-						left={props.progress ? 8 : 5}
+						left={5}
+						bottom={props.progress ? 8 : 5}
 						{...defaultOverlayProps}
 					>
 						{props.imageOverlay.bottomLeft}
 					</Center>
 				) : null}
 				{props.imageOverlay?.bottomRight ? (
-					<Center bottom={5} right={5} {...defaultOverlayProps}>
+					<Center
+						right={5}
+						bottom={props.progress ? 8 : 5}
+						{...defaultOverlayProps}
+					>
 						{props.imageOverlay.bottomRight}
 					</Center>
 				) : null}
