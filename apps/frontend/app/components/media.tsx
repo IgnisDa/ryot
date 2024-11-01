@@ -128,9 +128,12 @@ export const MetadataDisplayItem = (props: {
 		inViewport,
 	);
 	const averageRating = userMetadataDetails?.averageRating;
-	const history = (userMetadataDetails?.history || []).filter(
+	const completedHistory = (userMetadataDetails?.history || []).filter(
 		(h) => h.state === SeenState.Completed,
 	);
+	const currentProgress = userMetadataDetails?.history.find(
+		(h) => h.state === SeenState.InProgress,
+	)?.progress;
 	const surroundReason = (
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
@@ -153,11 +156,12 @@ export const MetadataDisplayItem = (props: {
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
-			name={props.name ?? metadataDetails?.title}
+			progress={currentProgress}
 			altName={props.altName}
-			isLoading={isMetadataDetailsLoading}
-			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			imageUrl={metadataDetails?.image}
+			isLoading={isMetadataDetailsLoading}
+			name={props.name ?? metadataDetails?.title}
+			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			labels={
 				metadataDetails
 					? {
@@ -171,8 +175,8 @@ export const MetadataDisplayItem = (props: {
 									? changeCase(snakeCase(metadataDetails.lot))
 									: undefined) ||
 								(props.rightLabelHistory ? (
-									history.length > 0 ? (
-										`${history.length} time${history.length === 1 ? "" : "s"}`
+									completedHistory.length > 0 ? (
+										`${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
 									) : null
 								) : (
 									<Text c={hasInteracted ? "yellow" : undefined}>

@@ -328,20 +328,21 @@ const blackBgStyles = {
 } satisfies MantineStyleProp;
 
 export const BaseMediaDisplayItem = (props: {
-	isLoading: boolean;
 	name?: string;
 	altName?: string;
+	progress?: string;
+	isLoading: boolean;
+	nameRight?: ReactNode;
 	imageUrl?: string | null;
+	innerRef?: Ref<HTMLDivElement>;
+	labels?: { right?: ReactNode; left?: ReactNode };
+	onImageClickBehavior: string | (() => Promise<void>);
 	imageOverlay?: {
 		topRight?: ReactNode;
 		topLeft?: ReactNode;
 		bottomRight?: ReactNode;
 		bottomLeft?: ReactNode;
 	};
-	labels?: { right?: ReactNode; left?: ReactNode };
-	onImageClickBehavior: string | (() => Promise<void>);
-	nameRight?: ReactNode;
-	innerRef?: Ref<HTMLDivElement>;
 }) => {
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
@@ -363,37 +364,52 @@ export const BaseMediaDisplayItem = (props: {
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip label={props.name} position="top">
-						<Image
-							src={props.imageUrl}
-							radius="md"
-							style={{
-								cursor: "pointer",
-								...match(gridPacking)
-									.with(GridPacking.Normal, () => ({ height: 260 }))
-									.with(GridPacking.Dense, () => ({ height: 180 }))
-									.exhaustive(),
-							}}
-							alt={`Image for ${props.name}`}
-							className={classes.mediaImage}
-							styles={{
-								root: {
-									transitionProperty: "transform",
-									transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-									transitionDuration: "150ms",
-								},
-							}}
-							fallbackSrc={useFallbackImageUrl(
-								props.isLoading
-									? "Loading..."
-									: props.name
-										? getInitials(props.name)
-										: undefined,
-							)}
-						/>
+						<Paper style={{ overflow: "hidden" }} pos="relative" radius="md">
+							<Image
+								src={props.imageUrl}
+								style={{
+									cursor: "pointer",
+									...match(gridPacking)
+										.with(GridPacking.Normal, () => ({ height: 260 }))
+										.with(GridPacking.Dense, () => ({ height: 180 }))
+										.exhaustive(),
+								}}
+								alt={`Image for ${props.name}`}
+								className={classes.mediaImage}
+								styles={{
+									root: {
+										transitionProperty: "transform",
+										transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+										transitionDuration: "150ms",
+									},
+								}}
+								fallbackSrc={useFallbackImageUrl(
+									props.isLoading
+										? "Loading..."
+										: props.name
+											? getInitials(props.name)
+											: undefined,
+								)}
+							/>
+							{props.progress ? (
+								<Paper
+									w={5}
+									bg="red"
+									left={0}
+									bottom={0}
+									pos="absolute"
+									h={`${props.progress}%`}
+								/>
+							) : null}
+						</Paper>
 					</Tooltip>
 				</SurroundingElement>
 				{props.imageOverlay?.topLeft ? (
-					<Center top={5} left={5} {...defaultOverlayProps}>
+					<Center
+						top={5}
+						left={props.progress ? 8 : 5}
+						{...defaultOverlayProps}
+					>
 						{props.imageOverlay.topLeft}
 					</Center>
 				) : null}
@@ -403,7 +419,11 @@ export const BaseMediaDisplayItem = (props: {
 					</Center>
 				) : null}
 				{props.imageOverlay?.bottomLeft ? (
-					<Center bottom={5} left={5} {...defaultOverlayProps}>
+					<Center
+						bottom={5}
+						left={props.progress ? 8 : 5}
+						{...defaultOverlayProps}
+					>
 						{props.imageOverlay.bottomLeft}
 					</Center>
 				) : null}
@@ -440,7 +460,7 @@ export const BaseMediaDisplayItem = (props: {
 							{props.labels?.right}
 						</Text>
 					</Flex>
-					<Flex justify="space-between" align="center" mb="xs">
+					<Flex mb="xs" align="center" justify="space-between">
 						<Text w="100%" truncate fw="bold">
 							{props.altName ?? props.name}
 						</Text>
