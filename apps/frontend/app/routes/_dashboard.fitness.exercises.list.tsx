@@ -48,7 +48,7 @@ import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
-	useIsWorkoutActive,
+	useIsFitnessActionActive,
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -138,7 +138,7 @@ export default function Page() {
 	const navigate = useNavigate();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const isWorkoutActive = useIsWorkoutActive();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -158,7 +158,7 @@ export default function Page() {
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
-		isWorkoutActive &&
+		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
 	return (

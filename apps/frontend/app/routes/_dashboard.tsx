@@ -119,7 +119,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWatchProviders,
-	useIsWorkoutActive,
+	useIsFitnessActionActive,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -346,7 +346,7 @@ export default function Layout() {
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const submit = useConfirmSubmit();
-	const isWorkoutActive = useIsWorkoutActive();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -400,7 +400,7 @@ export default function Layout() {
 
 	return (
 		<>
-			{isWorkoutActive &&
+			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (

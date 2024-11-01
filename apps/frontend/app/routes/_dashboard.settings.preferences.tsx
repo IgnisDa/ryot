@@ -65,7 +65,7 @@ import {
 	useComplexJsonUpdate,
 	useConfirmSubmit,
 	useDashboardLayoutData,
-	useIsWorkoutActive,
+	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -130,7 +130,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
-	const isWorkoutActive = useIsWorkoutActive();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [watchProviders, setWatchProviders] = useState(
 		userPreferences.general.watchProviders.map((wp) => ({
 			...wp,
@@ -153,7 +153,7 @@ export default function Page() {
 				<Affix
 					position={{
 						bottom: rem(45),
-						right: rem(isWorkoutActive ? 100 : 40),
+						right: rem(isFitnessActionActive ? 100 : 40),
 					}}
 				>
 					<Form

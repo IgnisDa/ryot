@@ -204,12 +204,12 @@ export const useComplexJsonUpdate = () => {
 	return { reset, appendPref, toUpdatePreferences };
 };
 
-export const useIsWorkoutActive = () => {
+export const useIsFitnessActionActive = () => {
 	const [currentWorkout] = useCurrentWorkout();
 	const action = currentWorkout?.currentActionOrCompleted;
 	return (
 		action !== undefined &&
 		action !== true &&
-		[FitnessAction.LogWorkout, FitnessAction.UpdateWorkout].includes(action)
+		[FitnessAction.LogWorkout, FitnessAction.CreateTemplate].includes(action)
 	);
 };

@@ -82,7 +82,7 @@ import {
 } from "~/lib/generals";
 import {
 	useComplexJsonUpdate,
-	useIsWorkoutActive,
+	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -171,7 +171,7 @@ export default function Page() {
 		loaderData.userExerciseDetails.details?.exerciseNumTimesInteracted || 0;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
-	const isWorkoutActive = useIsWorkoutActive();
+	const isFitnessActionActive = useIsFitnessActionActive();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
 		"ExerciseChartTimeSpan",
@@ -635,7 +635,7 @@ export default function Page() {
 						) : null}
 					</Tabs>
 				</Stack>
-				{currentWorkout && isWorkoutActive ? (
+				{currentWorkout && isFitnessActionActive ? (
 					<Affix position={{ bottom: rem(40), right: rem(30) }}>
 						<ActionIcon
 							color="blue"
