@@ -8,16 +8,19 @@ import {
 	Badge,
 	Box,
 	Button,
+	Center,
 	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
+	type MantineStyleProp,
 	Modal,
 	MultiSelect,
 	Paper,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Text,
 	TextInput,
@@ -47,7 +50,13 @@ import {
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getInitials,
+	isNumber,
+	isString,
+	snakeCase,
+} from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
@@ -64,7 +73,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
@@ -310,6 +319,137 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 			</Tooltip>
 		</Alert>
 	) : null;
+};
+
+const blackBgStyles = {
+	backgroundColor: "rgba(0, 0, 0, 0.75)",
+	borderRadius: 3,
+	padding: 2,
+} satisfies MantineStyleProp;
+
+export const BaseMediaDisplayItem = (props: {
+	isLoading: boolean;
+	name?: string;
+	altName?: string;
+	imageUrl?: string | null;
+	imageOverlay?: {
+		topRight?: ReactNode;
+		topLeft?: ReactNode;
+		bottomRight?: ReactNode;
+		bottomLeft?: ReactNode;
+	};
+	labels?: { right?: ReactNode; left?: ReactNode };
+	onImageClickBehavior: string | (() => Promise<void>);
+	nameRight?: ReactNode;
+	innerRef?: Ref<HTMLDivElement>;
+}) => {
+	const userPreferences = useUserPreferences();
+	const gridPacking = userPreferences.general.gridPacking;
+	const SurroundingElement = (iProps: { children: ReactNode }) =>
+		isString(props.onImageClickBehavior) ? (
+			<Anchor component={Link} to={props.onImageClickBehavior}>
+				{iProps.children}
+			</Anchor>
+		) : (
+			<Box onClick={props.onImageClickBehavior}>{iProps.children}</Box>
+		);
+	const defaultOverlayProps = {
+		style: { zIndex: 10, ...blackBgStyles },
+		pos: "absolute",
+	} as const;
+
+	return (
+		<Flex justify="space-between" direction="column" ref={props.innerRef}>
+			<Box pos="relative" w="100%">
+				<SurroundingElement>
+					<Tooltip label={props.name} position="top">
+						<Image
+							src={props.imageUrl}
+							radius="md"
+							style={{
+								cursor: "pointer",
+								...match(gridPacking)
+									.with(GridPacking.Normal, () => ({ height: 260 }))
+									.with(GridPacking.Dense, () => ({ height: 180 }))
+									.exhaustive(),
+							}}
+							alt={`Image for ${props.name}`}
+							className={classes.mediaImage}
+							styles={{
+								root: {
+									transitionProperty: "transform",
+									transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+									transitionDuration: "150ms",
+								},
+							}}
+							fallbackSrc={useFallbackImageUrl(
+								props.isLoading
+									? "Loading..."
+									: props.name
+										? getInitials(props.name)
+										: undefined,
+							)}
+						/>
+					</Tooltip>
+				</SurroundingElement>
+				{props.imageOverlay?.topLeft ? (
+					<Center top={5} left={5} {...defaultOverlayProps}>
+						{props.imageOverlay.topLeft}
+					</Center>
+				) : null}
+				{props.imageOverlay?.topRight ? (
+					<Center top={5} right={5} {...defaultOverlayProps}>
+						{props.imageOverlay.topRight}
+					</Center>
+				) : null}
+				{props.imageOverlay?.bottomLeft ? (
+					<Center bottom={5} left={5} {...defaultOverlayProps}>
+						{props.imageOverlay.bottomLeft}
+					</Center>
+				) : null}
+				{props.imageOverlay?.bottomRight ? (
+					<Center bottom={5} right={5} {...defaultOverlayProps}>
+						{props.imageOverlay.bottomRight}
+					</Center>
+				) : null}
+			</Box>
+			{props.isLoading ? (
+				<>
+					<Skeleton height={22} mt={10} />
+					<Skeleton height={22} mt={8} />
+				</>
+			) : (
+				<Flex
+					w="100%"
+					direction="column"
+					mt={2}
+					px={match(gridPacking)
+						.with(GridPacking.Normal, () => ({ base: 6, md: 3 }))
+						.with(GridPacking.Dense, () => ({ md: 2 }))
+						.exhaustive()}
+				>
+					<Flex w="100%" direction="row" justify="space-between">
+						<Text
+							size="sm"
+							c="dimmed"
+							visibleFrom={gridPacking === GridPacking.Dense ? "md" : undefined}
+						>
+							{props.labels?.left}
+						</Text>
+						<Text c="dimmed" size="sm">
+							{props.labels?.right}
+						</Text>
+					</Flex>
+					<Flex justify="space-between" align="center" mb="xs">
+						<Text w="100%" truncate fw="bold">
+							{props.altName ?? props.name}
+						</Text>
+						{props.nameRight}
+					</Flex>
+				</Flex>
+			)}
+		</Flex>
+	);
 };
 
 export const FiltersModal = (props: {
