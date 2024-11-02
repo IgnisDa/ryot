@@ -21,13 +21,17 @@ export const Route = createFileRoute("/")({ component: App });
 
 const api = hc<AppType>("/api");
 
-const defaultCode = `console.log("hello from sandbox");
-const total = 21 + 21;
+const defaultCode = `console.log("calling addNumbers in host API...");
 
-return {
-  total,
-  now: new Date().toISOString(),
-};`;
+const result = await addNumbers(21, 21);
+
+if (result.success === true) {
+  console.log("sum from db:", result.data);
+  return result;
+}
+
+console.log("addNumbers failed:", result.error);
+return result;`;
 
 type SandboxRunResponse = {
 	durationMs: number;
@@ -115,7 +119,7 @@ function App() {
 						<Title order={2}>Sandbox Playground</Title>
 						<Text c="dimmed">
 							Write JavaScript for an async function body. Use `return` for
-							value and `console.log` for logs.
+							value and `console.log` for logs. Host helper: `addNumbers(a, b)`.
 						</Text>
 					</Stack>
 
