@@ -32,7 +32,7 @@ import type {
 } from "@remix-run/node";
 import { Form, data, useLoaderData } from "@remix-run/react";
 import {
-	type DashboardElementLot,
+	DashboardElementLot,
 	GridPacking,
 	MediaLot,
 	MediaStateChanged,
@@ -646,6 +646,12 @@ export default function Page() {
 	);
 }
 
+const EDITABLE_NUM_ELEMENTS = [
+	DashboardElementLot.Upcoming,
+	DashboardElementLot.InProgress,
+	DashboardElementLot.Recommendations,
+];
+
 const EditDashboardElement = (props: {
 	isEditDisabled: boolean;
 	lot: DashboardElementLot;
@@ -704,13 +710,13 @@ const EditDashboardElement = (props: {
 							}}
 						/>
 					</Group>
-					{isNumber(focusedElement.numElements) ? (
+					{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
 						<Flex>
 							<NumberInput
-								label="Number of elements"
 								size="xs"
-								defaultValue={focusedElement.numElements}
+								label="Number of elements"
 								disabled={!!props.isEditDisabled}
+								defaultValue={focusedElement.numElements || undefined}
 								onChange={(num) => {
 									if (isNumber(num)) {
 										const newDashboardData = Array.from(
