@@ -6,7 +6,6 @@ import {
 	Button,
 	Container,
 	Divider,
-	Flex,
 	Group,
 	Input,
 	JsonInput,
@@ -651,6 +650,7 @@ const EDITABLE_NUM_ELEMENTS = [
 	DashboardElementLot.InProgress,
 	DashboardElementLot.Recommendations,
 ];
+const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 
 const EditDashboardElement = (props: {
 	isEditDisabled: boolean;
@@ -710,8 +710,8 @@ const EditDashboardElement = (props: {
 							}}
 						/>
 					</Group>
-					{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
-						<Flex>
+					<Group gap="xl">
+						{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
 							<NumberInput
 								size="xs"
 								label="Number of elements"
@@ -730,8 +730,28 @@ const EditDashboardElement = (props: {
 									}
 								}}
 							/>
-						</Flex>
-					) : null}
+						) : null}
+						{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+							<Switch
+								mt="md"
+								label="Deduplicate media"
+								disabled={!!props.isEditDisabled}
+								defaultChecked={focusedElement.deduplicateMedia || undefined}
+								onChange={(ev) => {
+									const newValue = ev.currentTarget.checked;
+									const newDashboardData = Array.from(
+										userPreferences.general.dashboard,
+									);
+									newDashboardData[focusedElementIndex].deduplicateMedia =
+										newValue;
+									props.appendPref(
+										"general.dashboard",
+										JSON.stringify(newDashboardData),
+									);
+								}}
+							/>
+						) : null}
+					</Group>
 				</Paper>
 			)}
 		</Draggable>
