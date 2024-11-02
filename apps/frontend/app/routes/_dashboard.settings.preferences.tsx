@@ -674,7 +674,7 @@ const EditDashboardElement = (props: {
 					{...provided.draggableProps}
 					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
 				>
-					<Group justify="space-between">
+					<Group justify="space-between" wrap="nowrap">
 						<Group>
 							<div
 								{...provided.dragHandleProps}
@@ -690,7 +690,9 @@ const EditDashboardElement = (props: {
 									stroke={1.5}
 								/>
 							</div>
-							<Title order={3}>{changeCase(props.lot)}</Title>
+							<Text fw="bold" fz={{ md: "lg", lg: "xl" }}>
+								{changeCase(props.lot)}
+							</Text>
 						</Group>
 						<Switch
 							label="Hidden"
@@ -710,7 +712,7 @@ const EditDashboardElement = (props: {
 							}}
 						/>
 					</Group>
-					<Group gap="xl">
+					<Group gap="xl" wrap="nowrap">
 						{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
 							<NumberInput
 								size="xs"
@@ -733,10 +735,12 @@ const EditDashboardElement = (props: {
 						) : null}
 						{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
 							<Switch
-								mt="md"
+								size="xs"
 								label="Deduplicate media"
 								disabled={!!props.isEditDisabled}
 								defaultChecked={focusedElement.deduplicateMedia || undefined}
+								styles={{ description: { width: rem(200) } }}
+								description="If there's more than one episode of a media, keep the first one"
 								onChange={(ev) => {
 									const newValue = ev.currentTarget.checked;
 									const newDashboardData = Array.from(
