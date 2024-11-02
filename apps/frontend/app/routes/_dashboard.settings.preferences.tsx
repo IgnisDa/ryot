@@ -764,11 +764,11 @@ const EditDashboardElement = (props: {
 
 const reorder = <T,>(
 	array: Array<T>,
-	{ from, to }: { from: number; to: number },
+	details: { from: number; to: number },
 ) => {
 	const cloned = [...array];
-	const item = array[from];
-	cloned.splice(from, 1);
-	cloned.splice(to, 0, item);
+	const item = array[details.from];
+	cloned.splice(details.from, 1);
+	cloned.splice(details.to, 0, item);
 	return cloned;
 };
