@@ -26,6 +26,7 @@ import {
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
+import localeData from "dayjs/plugin/localeData";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
@@ -43,11 +44,12 @@ declare global {
 	}
 }
 
-dayjs.extend(relativeTime);
-dayjs.extend(duration);
-dayjs.extend(localizedFormat);
 dayjs.extend(utc);
+dayjs.extend(duration);
 dayjs.extend(timezone);
+dayjs.extend(localeData);
+dayjs.extend(relativeTime);
+dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
