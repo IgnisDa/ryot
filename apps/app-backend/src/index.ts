@@ -17,9 +17,20 @@ export type AppType = typeof route;
 
 const main = async () => {
 	await migrateDB();
-	serve({ fetch: app.fetch }, (c) => {
+	const server = serve({ fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
 	});
+
+	const shutdown = () => {
+		console.info("Shutting down server...");
+		server.close(() => {
+			console.info("Server closed");
+			process.exit(0);
+		});
+	};
+
+	process.on("SIGINT", shutdown);
+	process.on("SIGTERM", shutdown);
 };
 
 main().catch((err) => {
