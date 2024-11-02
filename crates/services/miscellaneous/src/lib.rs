@@ -1135,7 +1135,7 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            progress_update(seen, &user_id, false, &self.0)
+            progress_update(&user_id, false, seen, &self.0)
                 .await
                 .trace_ok();
         }

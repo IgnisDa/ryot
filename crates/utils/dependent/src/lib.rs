@@ -1293,10 +1293,10 @@ pub async fn handle_after_media_seen_tasks(
 }
 
 pub async fn progress_update(
-    input: ProgressUpdateInput,
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
     respect_cache: bool,
+    input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
     let cache = ApplicationCacheKey::ProgressUpdateCache {
@@ -2020,6 +2020,8 @@ pub async fn process_import(
                 Some(dec!(100))
             };
             if let Err(e) = progress_update(
+                user_id,
+                respect_cache,
                 ProgressUpdateInput {
                     metadata_id: metadata.id.clone(),
                     progress,
@@ -2033,8 +2035,6 @@ pub async fn process_import(
                     provider_watched_on: seen.provider_watched_on.clone(),
                     change_state: None,
                 },
-                user_id,
-                respect_cache,
                 ss,
             )
             .await
