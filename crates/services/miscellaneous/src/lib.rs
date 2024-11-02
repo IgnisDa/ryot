@@ -111,7 +111,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
-use user_models::UserReviewScale;
+use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
@@ -797,7 +797,7 @@ ORDER BY RANDOM() LIMIT 10;
             .column(Asterisk)
             .from_subquery(
                 CalendarEvent::find()
-                    .apply_if(deduplicate, |query, _v| {
+                    .apply_if(deduplicate.filter(|&d| d), |query, _v| {
                         query
                             .distinct_on([(
                                 AliasedCalendarEvent::Table,
@@ -946,6 +946,11 @@ ORDER BY RANDOM() LIMIT 10;
                 (None, from_date.checked_add_days(Days::new(d)))
             }
         };
+        let preferences = user_by_id(&user_id, &self.0).await?.preferences.general;
+        let element = preferences
+            .dashboard
+            .iter()
+            .find(|e| matches!(e.section, DashboardElementLot::Upcoming));
         let events = self
             .get_calendar_events(
                 user_id,
@@ -953,7 +958,7 @@ ORDER BY RANDOM() LIMIT 10;
                 to_date,
                 Some(from_date),
                 media_limit,
-                Some(true),
+                element.and_then(|e| e.deduplicate_media),
             )
             .await?;
         Ok(events)
