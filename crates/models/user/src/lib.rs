@@ -257,9 +257,10 @@ pub enum DashboardElementLot {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserGeneralDashboardElement {
-    pub section: DashboardElementLot,
     pub hidden: bool,
     pub num_elements: Option<u64>,
+    pub section: DashboardElementLot,
+    pub deduplicate_media: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -305,13 +306,14 @@ pub struct UserGeneralPreferences {
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![
         UserGeneralDashboardElement {
-            section: DashboardElementLot::Upcoming,
             num_elements: Some(8),
+            deduplicate_media: Some(true),
+            section: DashboardElementLot::Upcoming,
             ..Default::default()
         },
         UserGeneralDashboardElement {
-            section: DashboardElementLot::InProgress,
             num_elements: Some(8),
+            section: DashboardElementLot::InProgress,
             ..Default::default()
         },
         UserGeneralDashboardElement {
@@ -319,8 +321,8 @@ pub struct UserGeneralPreferences {
             ..Default::default()
         },
         UserGeneralDashboardElement {
-            section: DashboardElementLot::Recommendations,
             num_elements: Some(8),
+            section: DashboardElementLot::Recommendations,
             ..Default::default()
         },
         UserGeneralDashboardElement {

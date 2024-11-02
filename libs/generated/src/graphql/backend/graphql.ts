@@ -2251,6 +2251,7 @@ export type UserFitnessPreferences = {
 };
 
 export type UserGeneralDashboardElement = {
+  deduplicateMedia?: Maybe<Scalars['Boolean']['output']>;
   hidden: Scalars['Boolean']['output'];
   numElements?: Maybe<Scalars['Int']['output']>;
   section: DashboardElementLot;
