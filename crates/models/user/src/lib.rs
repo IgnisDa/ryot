@@ -238,11 +238,14 @@ pub enum UserReviewScale {
     ThreePointSmiley,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[derive(
+    Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
+)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DashboardElementLot {
     Upcoming,
     InProgress,
+    #[default]
     Summary,
     Recommendations,
     Activity,
@@ -250,7 +253,7 @@ pub enum DashboardElementLot {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserGeneralDashboardElement {
@@ -303,28 +306,26 @@ pub struct UserGeneralPreferences {
     #[educe(Default(expression = vec![
         UserGeneralDashboardElement {
             section: DashboardElementLot::Upcoming,
-            hidden: false,
             num_elements: Some(8),
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::InProgress,
-            hidden: false,
             num_elements: Some(8),
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::Summary,
-            hidden: false,
-            num_elements: None,
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::Recommendations,
-            hidden: false,
             num_elements: Some(8),
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::Activity,
-            hidden: false,
-            num_elements: None,
+            ..Default::default()
         },
     ]))]
     pub dashboard: Vec<UserGeneralDashboardElement>,
