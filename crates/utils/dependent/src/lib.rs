@@ -2086,8 +2086,8 @@ pub async fn process_import(
     for (idx, item) in import.metadata_groups.into_iter().enumerate() {
         ryot_log!(
             debug,
-            "Importing media group with identifier = {iden}",
-            iden = &item.title
+            "Importing media group with identifier = {identifier}",
+            identifier = &item.title
         );
         let rev_length = item.reviews.len();
         let data =
