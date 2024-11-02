@@ -6,7 +6,6 @@ import {
 	Button,
 	Container,
 	Divider,
-	Flex,
 	Group,
 	Input,
 	JsonInput,
@@ -32,7 +31,7 @@ import type {
 } from "@remix-run/node";
 import { Form, data, useLoaderData } from "@remix-run/react";
 import {
-	type DashboardElementLot,
+	DashboardElementLot,
 	GridPacking,
 	MediaLot,
 	MediaStateChanged,
@@ -646,6 +645,13 @@ export default function Page() {
 	);
 }
 
+const EDITABLE_NUM_ELEMENTS = [
+	DashboardElementLot.Upcoming,
+	DashboardElementLot.InProgress,
+	DashboardElementLot.Recommendations,
+];
+const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
+
 const EditDashboardElement = (props: {
 	isEditDisabled: boolean;
 	lot: DashboardElementLot;
@@ -668,7 +674,7 @@ const EditDashboardElement = (props: {
 					{...provided.draggableProps}
 					className={cn({ [classes.itemDragging]: snapshot.isDragging })}
 				>
-					<Group justify="space-between">
+					<Group justify="space-between" wrap="nowrap">
 						<Group>
 							<div
 								{...provided.dragHandleProps}
@@ -684,7 +690,9 @@ const EditDashboardElement = (props: {
 									stroke={1.5}
 								/>
 							</div>
-							<Title order={3}>{changeCase(props.lot)}</Title>
+							<Text fw="bold" fz={{ md: "lg", lg: "xl" }}>
+								{changeCase(props.lot)}
+							</Text>
 						</Group>
 						<Switch
 							label="Hidden"
@@ -704,13 +712,13 @@ const EditDashboardElement = (props: {
 							}}
 						/>
 					</Group>
-					{isNumber(focusedElement.numElements) ? (
-						<Flex>
+					<Group gap="xl" wrap="nowrap">
+						{EDITABLE_NUM_ELEMENTS.includes(props.lot) ? (
 							<NumberInput
-								label="Number of elements"
 								size="xs"
-								defaultValue={focusedElement.numElements}
+								label="Number of elements"
 								disabled={!!props.isEditDisabled}
+								defaultValue={focusedElement.numElements || undefined}
 								onChange={(num) => {
 									if (isNumber(num)) {
 										const newDashboardData = Array.from(
@@ -724,8 +732,30 @@ const EditDashboardElement = (props: {
 									}
 								}}
 							/>
-						</Flex>
-					) : null}
+						) : null}
+						{EDITABLE_DEDUPLICATE_MEDIA.includes(props.lot) ? (
+							<Switch
+								size="xs"
+								label="Deduplicate media"
+								disabled={!!props.isEditDisabled}
+								defaultChecked={focusedElement.deduplicateMedia || undefined}
+								styles={{ description: { width: rem(200) } }}
+								description="If there's more than one episode of a media, keep the first one"
+								onChange={(ev) => {
+									const newValue = ev.currentTarget.checked;
+									const newDashboardData = Array.from(
+										userPreferences.general.dashboard,
+									);
+									newDashboardData[focusedElementIndex].deduplicateMedia =
+										newValue;
+									props.appendPref(
+										"general.dashboard",
+										JSON.stringify(newDashboardData),
+									);
+								}}
+							/>
+						) : null}
+					</Group>
 				</Paper>
 			)}
 		</Draggable>
@@ -734,11 +764,11 @@ const EditDashboardElement = (props: {
 
 const reorder = <T,>(
 	array: Array<T>,
-	{ from, to }: { from: number; to: number },
+	details: { from: number; to: number },
 ) => {
 	const cloned = [...array];
-	const item = array[from];
-	cloned.splice(from, 1);
-	cloned.splice(to, 0, item);
+	const item = array[details.from];
+	cloned.splice(details.from, 1);
+	cloned.splice(details.to, 0, item);
 	return cloned;
 };

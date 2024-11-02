@@ -15,6 +15,7 @@ import {
 	formatDateToNaiveDate,
 	getActionIntent,
 } from "@ryot/ts-utils";
+import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
@@ -59,6 +60,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("regenerateUnkeyKey", async () => {
 			const customer = await getCustomerFromCookie(request);
 			if (!customer || !customer.planType) throw new Error("No customer found");
+			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
+			const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
+			await unkey.keys.update({ keyId: customer.unkeyKeyId, enabled: false });
 			const renewOn = customer.renewOn ? dayjs(customer.renewOn) : undefined;
 			const created = await createUnkeyKey(customer, renewOn);
 			await db
@@ -209,7 +213,7 @@ export default function Index() {
 			<Form
 				method="POST"
 				action={withQuery(".", { intent: "logout" })}
-				className="flex w-full items-end justify-end px-4 md:px-10 pb-6"
+				className="flex w-full items-end justify-end mt-4 md:mt-0 md:px-10 pb-6"
 			>
 				<Button type="submit">Sign out</Button>
 			</Form>

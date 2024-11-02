@@ -19,9 +19,10 @@ query UserDetails {
 					disableWatchProviders
 					disableNavigationAnimation
 					dashboard {
-						section
 						hidden
+						section
 						numElements
+						deduplicateMedia
 					}
 					watchProviders {
 						lot

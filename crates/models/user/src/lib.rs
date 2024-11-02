@@ -238,11 +238,14 @@ pub enum UserReviewScale {
     ThreePointSmiley,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
+#[derive(
+    Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
+)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DashboardElementLot {
     Upcoming,
     InProgress,
+    #[default]
     Summary,
     Recommendations,
     Activity,
@@ -250,13 +253,14 @@ pub enum DashboardElementLot {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct UserGeneralDashboardElement {
-    pub section: DashboardElementLot,
     pub hidden: bool,
     pub num_elements: Option<u64>,
+    pub section: DashboardElementLot,
+    pub deduplicate_media: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -302,29 +306,28 @@ pub struct UserGeneralPreferences {
     pub disable_navigation_animation: bool,
     #[educe(Default(expression = vec![
         UserGeneralDashboardElement {
-            section: DashboardElementLot::Upcoming,
-            hidden: false,
             num_elements: Some(8),
+            deduplicate_media: Some(true),
+            section: DashboardElementLot::Upcoming,
+            ..Default::default()
         },
         UserGeneralDashboardElement {
-            section: DashboardElementLot::InProgress,
-            hidden: false,
             num_elements: Some(8),
+            section: DashboardElementLot::InProgress,
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::Summary,
-            hidden: false,
-            num_elements: None,
+            ..Default::default()
         },
         UserGeneralDashboardElement {
-            section: DashboardElementLot::Recommendations,
-            hidden: false,
             num_elements: Some(8),
+            section: DashboardElementLot::Recommendations,
+            ..Default::default()
         },
         UserGeneralDashboardElement {
             section: DashboardElementLot::Activity,
-            hidden: false,
-            num_elements: None,
+            ..Default::default()
         },
     ]))]
     pub dashboard: Vec<UserGeneralDashboardElement>,

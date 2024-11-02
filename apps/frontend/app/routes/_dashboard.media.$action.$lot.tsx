@@ -55,11 +55,12 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	ApplicationGrid,
+	BaseMediaDisplayItem,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
-import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media";
 import {
 	Verb,
 	commaDelimitedString,

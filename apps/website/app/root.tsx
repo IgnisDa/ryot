@@ -81,7 +81,7 @@ export default function App() {
 						<nav className="ml-auto flex gap-4 sm:gap-6">
 							<Link
 								to={$path("/features")}
-								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
+								className="text-sm font-medium hover:underline underline-offset-4"
 							>
 								Features
 							</Link>
@@ -107,7 +107,7 @@ export default function App() {
 							</a>
 							<Link
 								to={withFragment($path("/"), "contact")}
-								className="text-sm font-medium hover:underline underline-offset-4"
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
 							>
 								Contact Us
 							</Link>

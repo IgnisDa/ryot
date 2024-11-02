@@ -44,6 +44,7 @@ import type { ComponentType, ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
+import { BaseMediaDisplayItem } from "~/components/common";
 import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
 import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
@@ -52,7 +53,6 @@ import {
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
-import { BaseMediaDisplayItem } from "./media";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
