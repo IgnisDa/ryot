@@ -5,7 +5,8 @@
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"dev": "tsx watch src/index.ts",
-		"db:generate": "drizzle-kit generate"
+		"db:generate": "drizzle-kit generate",
+		"build": "tsup --config tsup.config.ts"
 	},
 	"dependencies": {
 		"@hono/node-server": "1.19.9",
@@ -18,6 +19,7 @@
 	"devDependencies": {
 		"dotenv": "17.3.1",
 		"drizzle-kit": "0.31.9",
+		"tsup": "8.5.1",
 		"tsx": "4.21.0",
 		"typescript": "5.9.3"
 	}
