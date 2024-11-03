@@ -68,8 +68,8 @@ export default function Page() {
 	const calendar = generateCalendar(loaderData.year, loaderData.month);
 
 	return (
-		<Container size="sm">
-			<Stack>
+		<Container size="sm" h="100%" mt="auto">
+			<Stack gap="sm">
 				<SimpleGrid cols={7} spacing={{ base: "xs", md: "md" }}>
 					{weekdays.map((wkd) => (
 						<Paper
@@ -91,7 +91,7 @@ export default function Page() {
 							<Fragment key={index.toString()}>
 								<Paper
 									withBorder={day !== null}
-									p={{ base: 6, md: "md" }}
+									p={{ base: 6, md: "xs" }}
 									radius={day === null ? undefined : "lg"}
 									shadow={day === null ? undefined : "xl"}
 								>
