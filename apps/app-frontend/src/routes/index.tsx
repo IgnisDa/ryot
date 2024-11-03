@@ -10,16 +10,13 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import type { AppType } from "@ryot/app-backend";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { hc } from "hono/client";
 import { useEffect, useState } from "react";
+import { useApiClient } from "@/hooks/api";
 import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/")({ component: App });
-
-const api = hc<AppType>("/api");
 
 const defaultCode = `console.log("calling addNumbers in host API...");
 
@@ -98,6 +95,7 @@ const parseSandboxResponse = (payload: unknown): SandboxRunResponse => {
 };
 
 function App() {
+	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const [code, setCode] = useState(defaultCode);
 
@@ -107,7 +105,7 @@ function App() {
 
 	const runMutation = useMutation({
 		mutationFn: async (scriptCode: string) => {
-			const response = await api.protected.sandbox.run.$post({
+			const response = await apiClient.protected.sandbox.run.$post({
 				json: { code: scriptCode },
 			});
 			const payload = await response.json();
