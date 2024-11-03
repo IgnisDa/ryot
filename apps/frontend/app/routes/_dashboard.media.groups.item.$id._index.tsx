@@ -80,11 +80,6 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.metadataGroupDetails.details.displayImages}
-				entityDetails={{
-					id: loaderData.metadataGroupId,
-					lot: EntityLot.MetadataGroup,
-					isPartial: loaderData.metadataGroupDetails.details.isPartial,
-				}}
 				externalLink={{
 					source: loaderData.metadataGroupDetails.details.source,
 					lot: loaderData.metadataGroupDetails.details.lot,
