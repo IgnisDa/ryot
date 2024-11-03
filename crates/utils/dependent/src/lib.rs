@@ -39,9 +39,9 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitCache, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, ImportOrExportItemRating, MetadataDetails, MetadataImage,
-    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
+    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,
@@ -875,19 +875,10 @@ pub async fn commit_metadata(
         let media = commit_metadata_internal(details, None, ss).await?;
         return Ok(media);
     };
-    let cached_metadata = CommitCache {
-        id: m.id.clone(),
-        lot: EntityLot::Metadata,
-    };
-    if ss.commit_cache.get(&cached_metadata).await.is_some() {
-        return Ok(m);
-    }
-    ss.commit_cache.insert(cached_metadata.clone(), ()).await;
     if input.force_update.unwrap_or_default() {
         ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
         update_metadata_and_notify_users(&m.id, true, ss).await?;
     }
-    ss.commit_cache.remove(&cached_metadata).await;
     Ok(m)
 }
 
