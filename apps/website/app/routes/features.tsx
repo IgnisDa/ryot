@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { cn } from "@ryot/ts-utils";
+import { cn, snakeCase } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	LucideAmpersands,
@@ -69,6 +69,7 @@ export default function Page() {
 			{dataToDisplay.map((data, index) => (
 				<div
 					key={data.heading}
+					id={snakeCase(data.heading)}
 					className={cn(
 						"py-10 space-y-4 md:space-y-8",
 						index % 2 === 1 ? "bg-muted" : "bg-white",
