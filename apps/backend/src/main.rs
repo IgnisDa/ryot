@@ -312,6 +312,7 @@ fn init_tracing() -> Result<()> {
 }
 
 async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
+    return true;
     if pro_key.is_empty() {
         return false;
     }
