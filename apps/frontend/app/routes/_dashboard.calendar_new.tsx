@@ -10,11 +10,20 @@ import {
 } from "@mantine/core";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { UserCalendarEventsDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type CalendarEventPartFragment,
+	MediaLot,
+	UserCalendarEventsDocument,
+	type UserCalendarEventsQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { Fragment } from "react/jsx-runtime";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { ApplicationGrid } from "~/components/common";
+import { MetadataDisplayItem } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
@@ -52,7 +61,7 @@ export default function Page() {
 	const date = dayjsLib(loaderData.query.date);
 
 	return (
-		<Container size="sm" h="100%" mt="auto">
+		<Container>
 			<Stack>
 				<Group justify="space-between">
 					<Title order={3} td="underline">
@@ -81,14 +90,17 @@ export default function Page() {
 					</Button.Group>
 				</Group>
 				{loaderData.userCalendarEvents.length > 0 ? (
-					<Box>
+					<Stack>
 						<Box>
 							<Text display="inline" fw="bold">
 								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
 							</Text>{" "}
 							items found
 						</Box>
-					</Box>
+						{loaderData.userCalendarEvents.map((ce) => (
+							<CalendarEvent key={ce.date} data={ce} />
+						))}
+					</Stack>
 				) : (
 					<Text fs="italic">No events in this time period</Text>
 				)}
@@ -96,3 +108,46 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const CalendarEvent = (props: {
+	data: UserCalendarEventsQuery["userCalendarEvents"][number];
+}) => {
+	const date = dayjsLib(props.data.date);
+
+	return (
+		<Fragment data-calendar-date={props.data.date}>
+			<Group justify="space-between">
+				<Text>{date.format("D MMMM")}</Text>
+				<Text>{date.format("dddd")}</Text>
+			</Group>
+			<ApplicationGrid>
+				{props.data.events.map((evt) => (
+					<DisplayCalendarEvent key={evt.calendarEventId} calEvent={evt} />
+				))}
+			</ApplicationGrid>
+		</Fragment>
+	);
+};
+
+const DisplayCalendarEvent = ({
+	calEvent,
+}: { calEvent: CalendarEventPartFragment }) => {
+	return (
+		<MetadataDisplayItem
+			altName={calEvent.episodeName || calEvent.metadataTitle}
+			metadataId={calEvent.metadataId}
+			noLeftLabel
+			rightLabel={`${match(calEvent.metadataLot)
+				.with(
+					MediaLot.Show,
+					() =>
+						`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
+				)
+				.with(
+					MediaLot.Podcast,
+					() => `EP-${calEvent.podcastExtraInformation?.episode}`,
+				)
+				.otherwise(() => "")}`}
+		/>
+	);
+};
