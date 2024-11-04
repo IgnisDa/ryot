@@ -90,7 +90,7 @@ export default function Page() {
 					</Button.Group>
 				</Group>
 				{loaderData.userCalendarEvents.length > 0 ? (
-					<Stack>
+					<Stack gap={4}>
 						<Box>
 							<Text display="inline" fw="bold">
 								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
@@ -115,10 +115,19 @@ const CalendarEvent = (props: {
 	const date = dayjsLib(props.data.date);
 
 	return (
-		<Fragment data-calendar-date={props.data.date}>
-			<Group justify="space-between">
-				<Text>{date.format("D MMMM")}</Text>
-				<Text>{date.format("dddd")}</Text>
+		<Fragment>
+			<Group data-calendar-date={props.data.date}>
+				<Text fz={{ base: "h1" }} fw="bold">
+					{date.format("D")}
+				</Text>
+				<Stack gap={2}>
+					<Text size="sm" style={{ lineHeight: "0.9" }}>
+						{date.format("MMMM")}
+					</Text>
+					<Text size="sm" fw="bold">
+						{date.format("dddd")}
+					</Text>
+				</Stack>
 			</Group>
 			<ApplicationGrid>
 				{props.data.events.map((evt) => (
