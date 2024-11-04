@@ -1,27 +1,29 @@
 import {
 	ActionIcon,
-	Anchor,
 	Box,
 	Button,
-	Card,
 	Container,
 	Group,
 	Stack,
 	Text,
 	Title,
-	Tooltip,
 } from "@mantine/core";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
+	type CalendarEventPartFragment,
+	MediaLot,
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, snakeCase, startCase, sum, truncate } from "@ryot/ts-utils";
+import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { $path } from "remix-routes";
+import { Fragment } from "react/jsx-runtime";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { ApplicationGrid } from "~/components/common";
+import { MetadataDisplayItem } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
@@ -46,7 +48,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			input: { month: date.month() + 1, year: date.year() },
 		}),
 	]);
-	return { query, userCalendarEvents, cookieName };
+	return { userCalendarEvents, cookieName, query };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -59,7 +61,7 @@ export default function Page() {
 	const date = dayjsLib(loaderData.query.date);
 
 	return (
-		<Container size="xs">
+		<Container>
 			<Stack>
 				<Group justify="space-between">
 					<Title order={3} td="underline">
@@ -88,7 +90,7 @@ export default function Page() {
 					</Button.Group>
 				</Group>
 				{loaderData.userCalendarEvents.length > 0 ? (
-					<Box>
+					<Stack gap={4}>
 						<Box>
 							<Text display="inline" fw="bold">
 								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
@@ -96,9 +98,9 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.userCalendarEvents.map((ce) => (
-							<CalendarEvent day={ce} key={ce.date} />
+							<CalendarEvent key={ce.date} data={ce} />
 						))}
-					</Box>
+					</Stack>
 				) : (
 					<Text fs="italic">No events in this time period</Text>
 				)}
@@ -108,64 +110,53 @@ export default function Page() {
 }
 
 const CalendarEvent = (props: {
-	day: UserCalendarEventsQuery["userCalendarEvents"][number];
+	data: UserCalendarEventsQuery["userCalendarEvents"][number];
 }) => {
-	const date = dayjsLib(props.day.date);
+	const date = dayjsLib(props.data.date);
 
 	return (
-		<Card
-			data-calendar-date={props.day.date}
-			withBorder
-			radius="sm"
-			padding="xs"
-			mt="sm"
-		>
-			<Card.Section withBorder p="sm">
-				<Group justify="space-between">
-					<Text>{date.format("D MMMM")}</Text>
-					<Text>{date.format("dddd")}</Text>
-				</Group>
-			</Card.Section>
-			{props.day.events.map((evt) => (
-				<Group
-					key={evt.calendarEventId}
-					data-calendar-event-id={evt.calendarEventId}
-					justify="space-between"
-					align="end"
-				>
-					<Text mt="sm" size="sm">
-						<Tooltip label={evt.metadataTitle} disabled={!evt.episodeName}>
-							<Anchor
-								component={Link}
-								to={$path("/media/item/:id", {
-									id: evt.metadataId,
-								})}
-							>
-								{truncate(evt.episodeName ?? evt.metadataTitle, { length: 40 })}
-							</Anchor>
-						</Tooltip>{" "}
-						{isNumber(evt.showExtraInformation?.season) ? (
-							<Text span c="dimmed" size="sm">
-								(S{evt.showExtraInformation.season}-E
-								{evt.showExtraInformation.episode})
-							</Text>
-						) : null}
-						{isNumber(evt.podcastExtraInformation?.episode) ? (
-							<Text span c="dimmed" size="sm">
-								(EP-{evt.podcastExtraInformation.episode})
-							</Text>
-						) : null}
-						{isNumber(evt.animeExtraInformation?.episode) ? (
-							<Text span c="dimmed" size="sm">
-								(EP-{evt.animeExtraInformation.episode})
-							</Text>
-						) : null}
+		<Fragment>
+			<Group data-calendar-date={props.data.date}>
+				<Text fz={{ base: "h1" }} fw="bold">
+					{date.format("D")}
+				</Text>
+				<Stack gap={2}>
+					<Text size="sm" style={{ lineHeight: "0.9" }}>
+						{date.format("MMMM")}
 					</Text>
-					<Text size="sm" c="dimmed">
-						{startCase(snakeCase(evt.metadataLot))}
+					<Text size="sm" fw="bold">
+						{date.format("dddd")}
 					</Text>
-				</Group>
-			))}
-		</Card>
+				</Stack>
+			</Group>
+			<ApplicationGrid>
+				{props.data.events.map((evt) => (
+					<DisplayCalendarEvent key={evt.calendarEventId} calEvent={evt} />
+				))}
+			</ApplicationGrid>
+		</Fragment>
+	);
+};
+
+const DisplayCalendarEvent = ({
+	calEvent,
+}: { calEvent: CalendarEventPartFragment }) => {
+	return (
+		<MetadataDisplayItem
+			altName={calEvent.episodeName || calEvent.metadataTitle}
+			metadataId={calEvent.metadataId}
+			noLeftLabel
+			rightLabel={`${match(calEvent.metadataLot)
+				.with(
+					MediaLot.Show,
+					() =>
+						`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
+				)
+				.with(
+					MediaLot.Podcast,
+					() => `EP-${calEvent.podcastExtraInformation?.episode}`,
+				)
+				.otherwise(() => "")}`}
+		/>
 	);
 };
