@@ -1,14 +1,17 @@
 import {
 	ActionIcon,
+	Box,
 	Button,
 	Container,
 	Group,
 	Stack,
+	Text,
 	Title,
 } from "@mantine/core";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { UserCalendarEventsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -77,6 +80,18 @@ export default function Page() {
 						</ActionIcon>
 					</Button.Group>
 				</Group>
+				{loaderData.userCalendarEvents.length > 0 ? (
+					<Box>
+						<Box>
+							<Text display="inline" fw="bold">
+								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
+							</Text>{" "}
+							items found
+						</Box>
+					</Box>
+				) : (
+					<Text fs="italic">No events in this time period</Text>
+				)}
 			</Stack>
 		</Container>
 	);
