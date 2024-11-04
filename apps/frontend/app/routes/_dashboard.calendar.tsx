@@ -143,9 +143,8 @@ const DisplayCalendarEvent = ({
 }: { calEvent: CalendarEventPartFragment }) => {
 	return (
 		<MetadataDisplayItem
-			altName={calEvent.episodeName || calEvent.metadataTitle}
 			metadataId={calEvent.metadataId}
-			noLeftLabel
+			altName={calEvent.episodeName || calEvent.metadataTitle}
 			rightLabel={`${match(calEvent.metadataLot)
 				.with(
 					MediaLot.Show,
