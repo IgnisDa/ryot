@@ -336,7 +336,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						e.seasonNumber === submission.showSeasonNumber &&
 						e.episodeNumber === submission.showEpisodeNumber,
 				);
-				invariant(selectedEpisodeIndex !== -1);
 				const firstEpisodeOfShow = allEpisodesInShow[0];
 				const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
 					episode: firstEpisodeOfShow.episodeNumber,
@@ -347,7 +346,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						e.seasonNumber === lastSeenEpisode.season &&
 						e.episodeNumber === lastSeenEpisode.episode,
 				);
-				invariant(lastSeenEpisodeIndex !== -1);
 				const firstEpisodeIndexToMark =
 					lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
