@@ -129,17 +129,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    let app_services = create_app_services(
-        is_pro,
-        db.clone(),
-        s3_client,
-        config,
-        &perform_application_job_storage,
-        &perform_core_application_job_storage,
-        tz,
-    )
-    .await;
-
     perform_application_job_storage
         .enqueue(ApplicationJob::SyncIntegrationsData)
         .await
@@ -155,6 +144,17 @@ async fn main() -> Result<()> {
             .await
             .unwrap();
     }
+
+    let app_services = create_app_services(
+        is_pro,
+        db,
+        tz,
+        s3_client,
+        config,
+        &perform_application_job_storage,
+        &perform_core_application_job_storage,
+    )
+    .await;
 
     if cfg!(debug_assertions) {
         use dependent_models::CompleteExport;
@@ -198,93 +198,81 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_4 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
     let statistics_service_1 = app_services.statistics_service.clone();
     let integration_service_1 = app_services.integration_service.clone();
     let integration_service_2 = app_services.integration_service.clone();
     let integration_service_3 = app_services.integration_service.clone();
+    let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
 
-    let monitor = async {
-        Monitor::<TokioExecutor>::new()
-            .register_with_count(
-                1,
-                WorkerBuilder::new("background_jobs")
-                    .stream(
-                        // every day
-                        CronStream::new_with_timezone(
-                            Schedule::from_str("0 0 0 * * *").unwrap(),
-                            tz,
-                        )
+    let monitor = Monitor::<TokioExecutor>::new()
+        .register_with_count(
+            1,
+            WorkerBuilder::new("background_jobs")
+                .stream(
+                    // every day
+                    CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz)
                         .into_stream(),
+                )
+                .layer(ApalisTraceLayer::new())
+                .data(miscellaneous_service_1.clone())
+                .build_fn(background_jobs),
+        )
+        .register_with_count(
+            1,
+            WorkerBuilder::new("sync_integrations_data")
+                .stream(
+                    CronStream::new_with_timezone(
+                        Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
+                        tz,
                     )
-                    .layer(ApalisTraceLayer::new())
-                    .data(miscellaneous_service_2.clone())
-                    .build_fn(background_jobs),
-            )
-            .register_with_count(
-                1,
-                WorkerBuilder::new("sync_integrations_data")
-                    .stream(
-                        CronStream::new_with_timezone(
-                            Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes))
-                                .unwrap(),
-                            tz,
-                        )
-                        .into_stream(),
-                    )
-                    .layer(ApalisTraceLayer::new())
-                    .data(integration_service_1.clone())
-                    .build_fn(sync_integrations_data),
-            )
-            // application jobs
-            .register_with_count(
-                1,
-                WorkerBuilder::new("perform_core_application_job")
-                    .layer(ApalisTraceLayer::new())
-                    .data(miscellaneous_service_5.clone())
-                    .data(integration_service_2.clone())
-                    .source(perform_core_application_job_storage)
-                    .build_fn(perform_core_application_job),
-            )
-            .register_with_count(
-                3,
-                WorkerBuilder::new("perform_application_job")
-                    .data(importer_service_1.clone())
-                    .data(integration_service_3.clone())
-                    .data(exporter_service_1.clone())
-                    .data(miscellaneous_service_4.clone())
-                    .data(exercise_service_1.clone())
-                    .data(statistics_service_1.clone())
-                    .source(perform_application_job_storage)
-                    // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
-                    .chain(|s| {
-                        s.layer(BufferLayer::new(1024))
-                            .layer(ApalisRateLimitLayer::new(
-                                rate_limit_count,
-                                Duration::new(5, 0),
-                            ))
-                            .layer(ApalisTraceLayer::new())
-                    })
-                    .build_fn(perform_application_job),
-            )
-            .run()
-            .await
-            .unwrap();
-    };
+                    .into_stream(),
+                )
+                .layer(ApalisTraceLayer::new())
+                .data(integration_service_1.clone())
+                .build_fn(sync_integrations_data),
+        )
+        // application jobs
+        .register_with_count(
+            1,
+            WorkerBuilder::new("perform_core_application_job")
+                .layer(ApalisTraceLayer::new())
+                .data(integration_service_2.clone())
+                .data(miscellaneous_service_3.clone())
+                .source(perform_core_application_job_storage)
+                .build_fn(perform_core_application_job),
+        )
+        .register_with_count(
+            3,
+            WorkerBuilder::new("perform_application_job")
+                .data(exercise_service_1.clone())
+                .data(exporter_service_1.clone())
+                .data(importer_service_1.clone())
+                .data(statistics_service_1.clone())
+                .data(integration_service_3.clone())
+                .data(miscellaneous_service_2.clone())
+                .source(perform_application_job_storage)
+                // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
+                .chain(|s| {
+                    s.layer(BufferLayer::new(1024))
+                        .layer(ApalisRateLimitLayer::new(
+                            rate_limit_count,
+                            Duration::new(5, 0),
+                        ))
+                        .layer(ApalisTraceLayer::new())
+                })
+                .build_fn(perform_application_job),
+        )
+        .run();
 
-    let http = async {
-        axum::serve(listener, app_services.app_router.into_make_service())
-            .await
-            .unwrap();
-    };
+    let http = axum::serve(listener, app_services.app_router.into_make_service());
 
     if disable_background_jobs {
-        join!(http);
+        let _ = join!(http);
     } else {
-        join!(monitor, http);
+        let _ = join!(monitor, http);
     }
 
     Ok(())

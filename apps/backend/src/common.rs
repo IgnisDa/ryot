@@ -59,11 +59,11 @@ pub struct AppServices {
 pub async fn create_app_services(
     is_pro: bool,
     db: DatabaseConnection,
+    timezone: chrono_tz::Tz,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
     perform_application_job: &MemoryStorage<ApplicationJob>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-    timezone: chrono_tz::Tz,
 ) -> AppServices {
     let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
@@ -99,16 +99,16 @@ pub async fn create_app_services(
         EmptySubscription,
     )
     .extension(Tracing)
-    .data(miscellaneous_service.clone())
+    .data(db.clone())
+    .data(config.clone())
+    .data(user_service.clone())
     .data(importer_service.clone())
     .data(exporter_service.clone())
     .data(exercise_service.clone())
-    .data(file_storage_service.clone())
     .data(statistics_service.clone())
     .data(collection_service.clone())
-    .data(user_service.clone())
-    .data(config.clone())
-    .data(db.clone())
+    .data(file_storage_service.clone())
+    .data(miscellaneous_service.clone())
     .finish();
 
     let cors_origins = config
@@ -161,9 +161,9 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
             Ok(issuer_url) => {
                 match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
-                    Ok(provider) => Some(
+                    Ok(provider_metadata) => Some(
                         CoreClient::from_provider_metadata(
-                            provider,
+                            provider_metadata,
                             ClientId::new(config.server.oidc.client_id.clone()),
                             Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
                         )
