@@ -692,8 +692,8 @@ pub async fn get_users_and_cte_monitoring_entity(
 ) -> Result<Vec<(String, Uuid)>> {
     let all_entities = MonitoredEntity::find()
         .select_only()
-        .column(monitored_entity::Column::CollectionToEntityId)
         .column(monitored_entity::Column::UserId)
+        .column(monitored_entity::Column::CollectionToEntityId)
         .filter(monitored_entity::Column::EntityId.eq(entity_id))
         .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
         .into_tuple::<(String, Uuid)>()
