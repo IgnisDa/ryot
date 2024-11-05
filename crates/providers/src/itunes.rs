@@ -3,6 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{NamedObject, SearchDetails};
+use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -21,7 +22,6 @@ static URL: &str = "https://itunes.apple.com";
 pub struct ITunesService {
     client: Client,
     language: String,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for ITunesService {
@@ -35,12 +35,11 @@ impl MediaProviderLanguages for ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::ITunesConfig) -> Self {
         let client = get_base_http_client(None);
         Self {
             client,
             language: config.locale.clone(),
-            page_limit,
         }
     }
 }
@@ -204,14 +203,14 @@ impl MediaProvider for ITunesService {
 
         let resp = resp
             .into_iter()
-            .skip(((page - 1) * self.page_limit).try_into().unwrap())
-            .take(self.page_limit.try_into().unwrap())
+            .skip(((page - 1) * PAGE_SIZE).try_into().unwrap())
+            .take(PAGE_SIZE.try_into().unwrap())
             .collect_vec();
 
         Ok(SearchResults {
             details: SearchDetails {
                 total,
-                next_page: if total > page * self.page_limit {
+                next_page: if total > page * PAGE_SIZE {
                     Some(page + 1)
                 } else {
                     None

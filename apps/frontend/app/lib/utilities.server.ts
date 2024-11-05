@@ -412,7 +412,7 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 ) => {
 	const coreDetails = await getCachedCoreDetails();
 	const { searchParams } = new URL(request.url);
-	const totalPages = Math.ceil(totalResults / coreDetails.frontend.pageSize);
+	const totalPages = Math.ceil(totalResults / coreDetails.pageSize);
 	if (currentPage > totalPages && currentPage !== 1) {
 		searchParams.set(pageQueryParam, "1");
 		throw redirect(`?${searchParams.toString()}`);

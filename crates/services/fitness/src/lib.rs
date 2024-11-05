@@ -6,7 +6,7 @@ use background::ApplicationJob;
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, StoredUrl,
 };
-use common_utils::ryot_log;
+use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
     collection_to_entity, exercise,
     prelude::{
@@ -70,12 +70,9 @@ impl ExerciseService {
             .order_by_desc(workout_template::Column::CreatedOn);
         let total = query.clone().count(&self.0.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(
-            &self.0.db,
-            self.0.config.frontend.page_size.try_into().unwrap(),
-        );
+        let data = query.paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
-        let next_page = if total - (page * self.0.config.frontend.page_size) > 0 {
+        let next_page = if total - (page * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None
@@ -294,12 +291,9 @@ impl ExerciseService {
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.0.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(
-            &self.0.db,
-            self.0.config.frontend.page_size.try_into().unwrap(),
-        );
+        let data = query.paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
-        let next_page = if total - (page * self.0.config.frontend.page_size) > 0 {
+        let next_page = if total - (page * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None
@@ -399,10 +393,9 @@ impl ExerciseService {
             .order_by_asc(exercise::Column::Id);
         let total = query.clone().count(&self.0.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query.into_model::<ExerciseListItem>().paginate(
-            &self.0.db,
-            self.0.config.frontend.page_size.try_into().unwrap(),
-        );
+        let data = query
+            .into_model::<ExerciseListItem>()
+            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let mut items = vec![];
         for ex in data
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
@@ -420,12 +413,11 @@ impl ExerciseService {
             converted_exercise.muscle = ex.muscles.first().cloned();
             items.push(converted_exercise);
         }
-        let next_page =
-            if total - ((input.search.page.unwrap()) * self.0.config.frontend.page_size) > 0 {
-                Some(input.search.page.unwrap() + 1)
-            } else {
-                None
-            };
+        let next_page = if total - ((input.search.page.unwrap()) * PAGE_SIZE) > 0 {
+            Some(input.search.page.unwrap() + 1)
+        } else {
+            None
+        };
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,

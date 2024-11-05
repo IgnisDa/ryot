@@ -294,9 +294,6 @@ pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
     #[setting(default = "https://pro.ryot.io")]
     pub url: String,
-    /// The number of items to display in a list view.
-    #[setting(default = 20)]
-    pub page_size: i32,
     /// The button label for OIDC authentication.
     #[setting(default = "Continue with OpenID Connect")]
     pub oidc_button_label: String,

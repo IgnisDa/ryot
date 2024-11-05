@@ -282,11 +282,7 @@ impl IntegrationService {
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         integration.sync_to_owned_collection,
-                        GoogleBooksService::new(
-                            &self.0.config.books.google_books,
-                            self.0.config.frontend.page_size,
-                        )
-                        .await,
+                        GoogleBooksService::new(&self.0.config.books.google_books).await,
                     );
                     audiobookshelf
                         .yank_progress(|input| commit_metadata(input, &self.0))

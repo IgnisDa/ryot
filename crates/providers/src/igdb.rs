@@ -5,7 +5,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
-use common_utils::{ryot_log, TEMP_DIR};
+use common_utils::{ryot_log, PAGE_SIZE, TEMP_DIR};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -162,7 +162,6 @@ pub struct IgdbService {
     image_url: String,
     image_size: String,
     config: config::VideoGameConfig,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for IgdbService {
@@ -176,12 +175,11 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &config::VideoGameConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::VideoGameConfig) -> Self {
         Self {
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
             config: config.clone(),
-            page_limit,
         }
     }
 }
@@ -205,8 +203,8 @@ offset: {offset};
             "#,
             fields = COLLECTION_FIELDS,
             query = query,
-            limit = self.page_limit,
-            offset = (page.unwrap_or(1) - 1) * self.page_limit
+            limit = PAGE_SIZE,
+            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{}/collections", URL))
@@ -308,8 +306,8 @@ offset: {offset};
             "#,
             fields = COMPANY_FIELDS,
             query = query,
-            limit = self.page_limit,
-            offset = (page.unwrap_or(1) - 1) * self.page_limit
+            limit = PAGE_SIZE,
+            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{}/companies", URL))
@@ -479,8 +477,8 @@ limit {limit};
 offset: {offset};
             "#,
             field = GAME_FIELDS,
-            limit = self.page_limit,
-            offset = (page - 1) * self.page_limit
+            limit = PAGE_SIZE,
+            offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{}/games", URL))

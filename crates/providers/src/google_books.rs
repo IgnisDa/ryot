@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::SearchDetails;
-use common_utils::convert_date_to_year;
+use common_utils::{convert_date_to_year, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -24,7 +24,6 @@ static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {
     client: Client,
-    page_limit: i32,
     pass_raw_query: bool,
 }
 
@@ -39,14 +38,13 @@ impl MediaProviderLanguages for GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub async fn new(config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::GoogleBooksConfig) -> Self {
         let client = get_base_http_client(Some(vec![(
             HeaderName::from_static("x-goog-api-key"),
             HeaderValue::from_str(&config.api_key).unwrap(),
         )]));
         Self {
             client,
-            page_limit,
             pass_raw_query: config.pass_raw_query,
         }
     }
@@ -113,7 +111,7 @@ impl MediaProvider for GoogleBooksService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let index = (page - 1) * self.page_limit;
+        let index = (page - 1) * PAGE_SIZE;
         let rsp = self
             .client
             .get(URL)
@@ -122,7 +120,7 @@ impl MediaProvider for GoogleBooksService {
                     true => query.to_owned(),
                     false => format!("intitle:{}", query)
                 },
-                "maxResults": self.page_limit,
+                "maxResults": PAGE_SIZE,
                 "printType": "books",
                 "startIndex": index
             }))
@@ -151,7 +149,7 @@ impl MediaProvider for GoogleBooksService {
                 }
             })
             .collect();
-        let next_page = if search.total_items - ((page) * self.page_limit) > 0 {
+        let next_page = if search.total_items - ((page) * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None

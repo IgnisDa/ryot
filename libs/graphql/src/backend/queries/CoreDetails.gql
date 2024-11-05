@@ -3,6 +3,7 @@ query CoreDetails {
 		isPro
 		version
 		docsLink
+		pageSize
 		websiteUrl
 		smtpEnabled
 		oidcEnabled
@@ -14,7 +15,6 @@ query CoreDetails {
 		fileStorageEnabled
 		frontend {
 			url
-			pageSize
 			oidcButtonLabel
 			dashboardMessage
 			umami {

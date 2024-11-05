@@ -3,6 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::SearchDetails;
+use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -21,7 +22,6 @@ static URL: &str = "https://api.mangaupdates.com/v1";
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {
     client: Client,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for MangaUpdatesService {
@@ -35,9 +35,9 @@ impl MediaProviderLanguages for MangaUpdatesService {
 }
 
 impl MangaUpdatesService {
-    pub async fn new(_config: &config::MangaUpdatesConfig, page_limit: i32) -> Self {
+    pub async fn new(_config: &config::MangaUpdatesConfig) -> Self {
         let client = get_base_http_client(None);
-        Self { client, page_limit }
+        Self { client }
     }
 }
 
@@ -178,7 +178,7 @@ impl MediaProvider for MangaUpdatesService {
             .post(format!("{}/authors/search", URL))
             .json(&serde_json::json!({
                 "search": query,
-                "perpage": self.page_limit,
+                "perpage": PAGE_SIZE,
                 "page": page.unwrap_or(1)
             }))
             .send()
@@ -200,7 +200,7 @@ impl MediaProvider for MangaUpdatesService {
         Ok(SearchResults {
             details: SearchDetails {
                 total: data.total_hits,
-                next_page: if data.total_hits - ((page.unwrap_or(1)) * self.page_limit) > 0 {
+                next_page: if data.total_hits - ((page.unwrap_or(1)) * PAGE_SIZE) > 0 {
                     Some(page.unwrap_or(1) + 1)
                 } else {
                     None
@@ -381,7 +381,7 @@ impl MediaProvider for MangaUpdatesService {
             .post(format!("{}/series/search", URL))
             .json(&serde_json::json!({
                 "search": query,
-                "perpage": self.page_limit,
+                "perpage": PAGE_SIZE,
                 "page": page
             }))
             .send()
@@ -400,7 +400,7 @@ impl MediaProvider for MangaUpdatesService {
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
-        let next_page = if search.total_hits - ((page) * self.page_limit) > 0 {
+        let next_page = if search.total_hits - ((page) * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None

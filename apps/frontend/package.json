@@ -33,6 +33,7 @@
 		"buffer": "6.0.3",
 		"clsx": "2.1.1",
 		"cookie": "1.0.1",
+		"crypto-js": "4.2.0",
 		"dayjs": "1.11.13",
 		"dotenv": "16.4.5",
 		"embla-carousel-react": "7.1.0",

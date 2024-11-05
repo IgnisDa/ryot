@@ -150,6 +150,7 @@ pub struct MetadataBaseData {
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub is_pro: bool,
+    pub page_size: i32,
     pub version: String,
     pub docs_link: String,
     pub oidc_enabled: bool,

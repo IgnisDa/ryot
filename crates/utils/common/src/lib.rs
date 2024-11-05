@@ -25,6 +25,7 @@ pub const TEMP_DIR: &str = "tmp";
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
+pub const PAGE_SIZE: i32 = 20;
 
 #[macro_export]
 macro_rules! ryot_log {

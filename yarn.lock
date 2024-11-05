@@ -6046,6 +6046,7 @@ __metadata:
     buffer: "npm:6.0.3"
     clsx: "npm:2.1.1"
     cookie: "npm:1.0.1"
+    crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.13"
     dotenv: "npm:16.4.5"
     embla-carousel-react: "npm:7.1.0"
@@ -6172,7 +6173,7 @@ __metadata:
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.17.0"
     "@tailwindcss/typography": "npm:0.5.15"
-    "@types/crypto-js": "npm:^4.2.2"
+    "@types/crypto-js": "npm:4.2.2"
     "@types/lodash": "npm:4.17.13"
     "@types/nodemailer": "npm:6.4.16"
     "@types/react": "npm:18.3.12"
@@ -6495,7 +6496,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/crypto-js@npm:4.2.2, @types/crypto-js@npm:^4.2.2":
+"@types/crypto-js@npm:4.2.2":
   version: 4.2.2
   resolution: "@types/crypto-js@npm:4.2.2"
   checksum: 10/a40fc5a9219fd33f54ba3e094c5e5ab2904d3106681a76f1029bb038976591e9c8959099963bf4474fde21c2d8d00c1f896445206a3a58f85588f9cb1bd96a9a

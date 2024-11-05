@@ -629,11 +629,7 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(
-        config: &config::TmdbConfig,
-        timezone: Arc<chrono_tz::Tz>,
-        _page_limit: i32,
-    ) -> Self {
+    pub async fn new(config: &config::TmdbConfig, timezone: Arc<chrono_tz::Tz>) -> Self {
         let (client, settings) = get_client_config(&config.access_token).await;
         Self {
             base: TmdbService {
@@ -983,11 +979,7 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(
-        config: &config::TmdbConfig,
-        timezone: Arc<chrono_tz::Tz>,
-        _page_limit: i32,
-    ) -> Self {
+    pub async fn new(config: &config::TmdbConfig, timezone: Arc<chrono_tz::Tz>) -> Self {
         let (client, settings) = get_client_config(&config.access_token).await;
         Self {
             base: TmdbService {

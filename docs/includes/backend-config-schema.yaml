@@ -89,10 +89,6 @@ frontend:
   # @envvar FRONTEND_OIDC_BUTTON_LABEL
   oidc_button_label: "Continue with OpenID Connect"
 
-  # The number of items to display in a list view.
-  # @envvar FRONTEND_PAGE_SIZE
-  page_size: 20
-
   # Settings related to Umami analytics.
   umami:
     # @envvar FRONTEND_UMAMI_DOMAINS

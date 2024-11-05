@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{NamedObject, SearchDetails};
-use common_utils::{convert_date_to_year, convert_string_to_date};
+use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -52,15 +52,13 @@ impl MediaProvider for NonMediaMalService {}
 #[derive(Debug, Clone)]
 pub struct MalAnimeService {
     base: MalService,
-    page_limit: i32,
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::MalConfig) -> Self {
         let client = get_client_config(&config.client_id).await;
         Self {
             base: MalService { client },
-            page_limit,
         }
     }
 }
@@ -78,8 +76,7 @@ impl MediaProvider for MalAnimeService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total, next_page) =
-            search(&self.base.client, "anime", query, page, self.page_limit).await?;
+        let (items, total, next_page) = search(&self.base.client, "anime", query, page).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
@@ -90,15 +87,13 @@ impl MediaProvider for MalAnimeService {
 #[derive(Debug, Clone)]
 pub struct MalMangaService {
     base: MalService,
-    page_limit: i32,
 }
 
 impl MalMangaService {
-    pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::MalConfig) -> Self {
         let client = get_client_config(&config.client_id).await;
         Self {
             base: MalService { client },
-            page_limit,
         }
     }
 }
@@ -116,8 +111,7 @@ impl MediaProvider for MalMangaService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total, next_page) =
-            search(&self.base.client, "manga", query, page, self.page_limit).await?;
+        let (items, total, next_page) = search(&self.base.client, "manga", query, page).await?;
         Ok(SearchResults {
             details: SearchDetails { total, next_page },
             items,
@@ -137,10 +131,9 @@ async fn search(
     media_type: &str,
     q: &str,
     page: Option<i32>,
-    limit: i32,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
-    let offset = (page - 1) * limit;
+    let offset = (page - 1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
         next: Option<String>,
@@ -152,7 +145,7 @@ async fn search(
     }
     let search: SearchResponse = client
         .get(format!("{}/{}", URL, media_type))
-        .query(&json!({ "q": q, "limit": limit, "offset": offset, "fields": "start_date" }))
+        .query(&json!({ "q": q, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
         .send()
         .await
         .map_err(|e| anyhow!(e))?

@@ -107,11 +107,11 @@ pub async fn metadata_images_as_urls(
 }
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
-    Ok(OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await)
+    Ok(OpenlibraryService::new(&config.books.openlibrary).await)
 }
 
 pub async fn get_isbn_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
-    Ok(GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await)
+    Ok(GoogleBooksService::new(&config.books.google_books).await)
 }
 
 pub async fn get_tmdb_non_media_service(
@@ -132,77 +132,40 @@ pub async fn get_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(Error::new("This source is not supported".to_owned()));
     let service: Provider = match source {
-        MediaSource::Vndb => {
-            Box::new(VndbService::new(&ss.config.visual_novels, ss.config.frontend.page_size).await)
-        }
+        MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
-        MediaSource::Itunes => Box::new(
-            ITunesService::new(&ss.config.podcasts.itunes, ss.config.frontend.page_size).await,
-        ),
+        MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
         MediaSource::GoogleBooks => Box::new(get_isbn_service(&ss.config).await?),
-        MediaSource::Audible => Box::new(
-            AudibleService::new(&ss.config.audio_books.audible, ss.config.frontend.page_size).await,
-        ),
-        MediaSource::Listennotes => Box::new(
-            ListennotesService::new(&ss.config.podcasts, ss.config.frontend.page_size).await,
-        ),
+        MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
+        MediaSource::Listennotes => Box::new(ListennotesService::new(&ss.config.podcasts).await),
         MediaSource::Tmdb => match lot {
             MediaLot::Show => Box::new(
-                TmdbShowService::new(
-                    &ss.config.movies_and_shows.tmdb,
-                    Arc::new(ss.timezone),
-                    ss.config.frontend.page_size,
-                )
-                .await,
+                TmdbShowService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone)).await,
             ),
             MediaLot::Movie => Box::new(
-                TmdbMovieService::new(
-                    &ss.config.movies_and_shows.tmdb,
-                    Arc::new(ss.timezone),
-                    ss.config.frontend.page_size,
-                )
-                .await,
+                TmdbMovieService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone))
+                    .await,
             ),
             _ => return err(),
         },
         MediaSource::Anilist => match lot {
-            MediaLot::Anime => Box::new(
-                AnilistAnimeService::new(
-                    &ss.config.anime_and_manga.anilist,
-                    ss.config.frontend.page_size,
-                )
-                .await,
-            ),
-            MediaLot::Manga => Box::new(
-                AnilistMangaService::new(
-                    &ss.config.anime_and_manga.anilist,
-                    ss.config.frontend.page_size,
-                )
-                .await,
-            ),
+            MediaLot::Anime => {
+                Box::new(AnilistAnimeService::new(&ss.config.anime_and_manga.anilist).await)
+            }
+            MediaLot::Manga => {
+                Box::new(AnilistMangaService::new(&ss.config.anime_and_manga.anilist).await)
+            }
             _ => return err(),
         },
         MediaSource::Mal => match lot {
-            MediaLot::Anime => Box::new(
-                MalAnimeService::new(&ss.config.anime_and_manga.mal, ss.config.frontend.page_size)
-                    .await,
-            ),
-            MediaLot::Manga => Box::new(
-                MalMangaService::new(&ss.config.anime_and_manga.mal, ss.config.frontend.page_size)
-                    .await,
-            ),
+            MediaLot::Anime => Box::new(MalAnimeService::new(&ss.config.anime_and_manga.mal).await),
+            MediaLot::Manga => Box::new(MalMangaService::new(&ss.config.anime_and_manga.mal).await),
             _ => return err(),
         },
-        MediaSource::Igdb => {
-            Box::new(IgdbService::new(&ss.config.video_games, ss.config.frontend.page_size).await)
+        MediaSource::Igdb => Box::new(IgdbService::new(&ss.config.video_games).await),
+        MediaSource::MangaUpdates => {
+            Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
-        MediaSource::MangaUpdates => Box::new(
-            MangaUpdatesService::new(
-                &ss.config.anime_and_manga.manga_updates,
-                ss.config.frontend.page_size,
-            )
-            .await,
-        ),
         MediaSource::Custom => return err(),
     };
     Ok(service)

@@ -3,7 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use common_models::SearchDetails;
-use common_utils::ryot_log;
+use common_utils::{ryot_log, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -76,7 +76,6 @@ pub struct OpenlibraryService {
     image_url: String,
     image_size: String,
     client: Client,
-    page_limit: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -103,13 +102,12 @@ impl MediaProviderLanguages for OpenlibraryService {
 }
 
 impl OpenlibraryService {
-    pub async fn new(config: &config::OpenlibraryConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::OpenlibraryConfig) -> Self {
         let client = get_base_http_client(None);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
-            page_limit,
         }
     }
 }
@@ -184,8 +182,8 @@ impl MediaProvider for OpenlibraryService {
             .get(format!("{}/search/authors.json", URL))
             .query(&json!({
                 "q": query.to_owned(),
-                "offset": (page - 1) * self.page_limit,
-                "limit": self.page_limit,
+                "offset": (page - 1) * PAGE_SIZE,
+                "limit": PAGE_SIZE,
             }))
             .send()
             .await
@@ -204,7 +202,7 @@ impl MediaProvider for OpenlibraryService {
         let data = SearchResults {
             details: SearchDetails {
                 total: search.num_found,
-                next_page: if search.num_found - ((page) * self.page_limit) > 0 {
+                next_page: if search.num_found - ((page) * PAGE_SIZE) > 0 {
                     Some(page + 1)
                 } else {
                     None
@@ -489,8 +487,8 @@ impl MediaProvider for OpenlibraryService {
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
-                "offset": (page - 1) * self.page_limit,
-                "limit": self.page_limit,
+                "offset": (page - 1) * PAGE_SIZE,
+                "limit": PAGE_SIZE,
                 "type": "work".to_owned(),
             }))
             .send()
@@ -521,7 +519,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = if search.num_found - ((page) * self.page_limit) > 0 {
+        let next_page = if search.num_found - ((page) * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None

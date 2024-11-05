@@ -5,6 +5,7 @@ use async_graphql::{Error, Result};
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
 };
+use common_utils::PAGE_SIZE;
 use database_models::{
     collection, collection_to_entity,
     prelude::{
@@ -146,9 +147,7 @@ impl CollectionService {
             return Err(Error::new("Collection not found".to_owned()));
         };
 
-        let take = input
-            .take
-            .unwrap_or_else(|| self.0.config.frontend.page_size.try_into().unwrap());
+        let take = input.take.unwrap_or_else(|| PAGE_SIZE.try_into().unwrap());
         let results = if take != 0 {
             let paginator = CollectionToEntity::find()
                 .left_join(Metadata)

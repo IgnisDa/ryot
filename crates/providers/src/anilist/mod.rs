@@ -3,6 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{SearchDetails, StoredUrl};
+use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -80,7 +81,6 @@ struct StudioQuery;
 pub struct AnilistService {
     client: Client,
     preferred_language: AnilistPreferredLanguage,
-    page_size: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -94,11 +94,10 @@ impl MediaProviderLanguages for AnilistService {
 }
 
 impl AnilistService {
-    async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
+    async fn new(config: &config::AnilistConfig) -> Self {
         let client = get_base_http_client(None);
         Self {
             client,
-            page_size,
             preferred_language: config.preferred_language.clone(),
         }
     }
@@ -110,9 +109,9 @@ pub struct NonMediaAnilistService {
 }
 
 impl NonMediaAnilistService {
-    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
+    pub async fn new(config: &config::AnilistConfig) -> Self {
         Self {
-            base: AnilistService::new(page_size, config).await,
+            base: AnilistService::new(config).await,
         }
     }
 }
@@ -150,7 +149,7 @@ impl MediaProvider for NonMediaAnilistService {
             let variables = studio_search_query::Variables {
                 page: page.unwrap_or(1).into(),
                 search: query.to_owned(),
-                per_page: self.base.page_size.into(),
+                per_page: PAGE_SIZE.into(),
             };
             let body = StudioSearchQuery::build_query(variables);
             let search = self
@@ -169,7 +168,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * self.base.page_size) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * PAGE_SIZE) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None
@@ -193,7 +192,7 @@ impl MediaProvider for NonMediaAnilistService {
             let variables = staff_search_query::Variables {
                 page: page.unwrap_or(1).into(),
                 search: query.to_owned(),
-                per_page: self.base.page_size.into(),
+                per_page: PAGE_SIZE.into(),
             };
             let body = StaffSearchQuery::build_query(variables);
             let search = self
@@ -212,7 +211,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * self.base.page_size) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * PAGE_SIZE) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None
@@ -455,9 +454,9 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
+    pub async fn new(config: &config::AnilistConfig) -> Self {
         Self {
-            base: AnilistService::new(page_size, config).await,
+            base: AnilistService::new(config).await,
         }
     }
 }
@@ -481,7 +480,7 @@ impl MediaProvider for AnilistAnimeService {
             media_search_query::MediaType::ANIME,
             query,
             page,
-            self.base.page_size,
+            PAGE_SIZE,
             display_nsfw,
             &self.base.preferred_language,
         )
@@ -499,9 +498,9 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
+    pub async fn new(config: &config::AnilistConfig) -> Self {
         Self {
-            base: AnilistService::new(page_size, config).await,
+            base: AnilistService::new(config).await,
         }
     }
 }
@@ -525,7 +524,7 @@ impl MediaProvider for AnilistMangaService {
             media_search_query::MediaType::MANGA,
             query,
             page,
-            self.base.page_size,
+            PAGE_SIZE,
             display_nsfw,
             &self.base.preferred_language,
         )

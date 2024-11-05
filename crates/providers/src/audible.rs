@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{NamedObject, SearchDetails};
-use common_utils::{convert_date_to_year, convert_string_to_date};
+use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
@@ -132,7 +132,6 @@ pub struct AudibleService {
     url: String,
     client: Client,
     locale: String,
-    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AudibleService {
@@ -163,13 +162,12 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products", suffix)
     }
 
-    pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::AudibleConfig) -> Self {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(None);
         Self {
             url,
             client,
-            page_limit,
             locale: config.locale.clone(),
         }
     }
@@ -206,7 +204,7 @@ impl MediaProvider for AudibleService {
             })
             .collect_vec();
         let total_items = data.len();
-        let pages = Pages::new(total_items, self.page_limit.try_into().unwrap());
+        let pages = Pages::new(total_items, PAGE_SIZE.try_into().unwrap());
         let selected_page = pages.with_offset(req_internal_page);
         let items = data[selected_page.start..selected_page.end + 1].to_vec();
         let has_next_page = pages.page_count() > internal_page;
@@ -372,7 +370,7 @@ impl MediaProvider for AudibleService {
             .get(&self.url)
             .query(&SearchQuery {
                 title: query.to_owned(),
-                num_results: self.page_limit,
+                num_results: PAGE_SIZE,
                 page: page - 1,
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
@@ -394,7 +392,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = if search.total_results - ((page) * self.page_limit) > 0 {
+        let next_page = if search.total_results - ((page) * PAGE_SIZE) > 0 {
             Some(page + 1)
         } else {
             None

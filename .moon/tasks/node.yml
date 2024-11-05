@@ -25,10 +25,10 @@ fileGroups:
     - "**/*.mdx"
 
   remix:
-    - 'app/**/*'
-    - 'public/**/*'
-    - 'env.d.ts'
-    - 'remix.config.*'
+    - "app/**/*"
+    - "public/**/*"
+    - "env.d.ts"
+    - "remix.config.*"
 
 tasks:
   lint:

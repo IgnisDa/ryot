@@ -50,8 +50,10 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import CryptoJS from "crypto-js";
 import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
+import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
@@ -70,7 +72,6 @@ import {
 } from "~/lib/generals";
 import {
 	useCoreDetails,
-	useDashboardLayoutData,
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -172,20 +173,32 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
-	const dashboardLayoutData = useDashboardLayoutData();
 	const latestUserSummary = loaderData.latestUserSummary;
 
-	const dashboardMessage =
-		dashboardLayoutData.coreDetails.frontend.dashboardMessage;
+	const dashboardMessage = coreDetails.frontend.dashboardMessage;
+
+	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
+		`AlertDismissed-${CryptoJS.SHA256(dashboardMessage)}`,
+		"false",
+	);
 
 	return (
 		<Container>
 			<Stack gap={32}>
-				{dashboardMessage ? (
-					<Alert variant="default" icon={<IconInfoCircle />}>
-						{dashboardMessage}
-					</Alert>
-				) : null}
+				<ClientOnly>
+					{() =>
+						dashboardMessage && isAlertDismissed === "false" ? (
+							<Alert
+								withCloseButton
+								variant="default"
+								icon={<IconInfoCircle />}
+								onClose={() => setIsAlertDismissed("true")}
+							>
+								{dashboardMessage}
+							</Alert>
+						) : null
+					}
+				</ClientOnly>
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>

@@ -17,7 +17,8 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -246,6 +247,7 @@ ORDER BY RANDOM() LIMIT 10;
             files_enabled = false;
         }
         CoreDetails {
+            page_size: PAGE_SIZE,
             is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
@@ -984,9 +986,7 @@ ORDER BY RANDOM() LIMIT 10;
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let take = input
-            .take
-            .unwrap_or(self.0.config.frontend.page_size as u64);
+        let take = input.take.unwrap_or(PAGE_SIZE as u64);
         let page: u64 = input
             .search
             .clone()
@@ -1681,58 +1681,28 @@ ORDER BY RANDOM() LIMIT 10;
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MediaSource::Vndb => Box::new(
-                VndbService::new(
-                    &self.0.config.visual_novels,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
-            ),
+            MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
-            MediaSource::Itunes => Box::new(
-                ITunesService::new(
-                    &self.0.config.podcasts.itunes,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
-            ),
-            MediaSource::GoogleBooks => Box::new(
-                GoogleBooksService::new(
-                    &self.0.config.books.google_books,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
-            ),
-            MediaSource::Audible => Box::new(
-                AudibleService::new(
-                    &self.0.config.audio_books.audible,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
-            ),
-            MediaSource::Listennotes => Box::new(
-                ListennotesService::new(&self.0.config.podcasts, self.0.config.frontend.page_size)
-                    .await,
-            ),
-            MediaSource::Igdb => Box::new(
-                IgdbService::new(&self.0.config.video_games, self.0.config.frontend.page_size)
-                    .await,
-            ),
+            MediaSource::Itunes => {
+                Box::new(ITunesService::new(&self.0.config.podcasts.itunes).await)
+            }
+            MediaSource::GoogleBooks => {
+                Box::new(GoogleBooksService::new(&self.0.config.books.google_books).await)
+            }
+            MediaSource::Audible => {
+                Box::new(AudibleService::new(&self.0.config.audio_books.audible).await)
+            }
+            MediaSource::Listennotes => {
+                Box::new(ListennotesService::new(&self.0.config.podcasts).await)
+            }
+            MediaSource::Igdb => Box::new(IgdbService::new(&self.0.config.video_games).await),
             MediaSource::MangaUpdates => Box::new(
-                MangaUpdatesService::new(
-                    &self.0.config.anime_and_manga.manga_updates,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
+                MangaUpdatesService::new(&self.0.config.anime_and_manga.manga_updates).await,
             ),
             MediaSource::Tmdb => Box::new(get_tmdb_non_media_service(&self.0).await?),
-            MediaSource::Anilist => Box::new(
-                NonMediaAnilistService::new(
-                    &self.0.config.anime_and_manga.anilist,
-                    self.0.config.frontend.page_size,
-                )
-                .await,
-            ),
+            MediaSource::Anilist => {
+                Box::new(NonMediaAnilistService::new(&self.0.config.anime_and_manga.anilist).await)
+            }
             MediaSource::Mal => Box::new(NonMediaMalService::new().await),
             MediaSource::Custom => return err(),
         };
@@ -2072,10 +2042,10 @@ ORDER BY RANDOM() LIMIT 10;
                 Expr::col(genre::Column::Name).into(),
             ]))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
-        let paginator = query.clone().into_model::<GenreListItem>().paginate(
-            &self.0.db,
-            self.0.config.frontend.page_size.try_into().unwrap(),
-        );
+        let paginator = query
+            .clone()
+            .into_model::<GenreListItem>()
+            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2121,9 +2091,7 @@ ORDER BY RANDOM() LIMIT 10;
                 graphql_to_db_order(ord.order),
             ),
         };
-        let take = input
-            .take
-            .unwrap_or(self.0.config.frontend.page_size.try_into().unwrap());
+        let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
         let paginator = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
@@ -2197,9 +2165,7 @@ ORDER BY RANDOM() LIMIT 10;
                 graphql_to_db_order(ord.order),
             ),
         };
-        let take = input
-            .take
-            .unwrap_or(self.0.config.frontend.page_size.try_into().unwrap());
+        let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
         let creators_paginator = Person::find()
             .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
@@ -2325,7 +2291,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap();
         let paginator = MetadataToGenre::find()
             .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-            .paginate(&self.0.db, self.0.config.frontend.page_size as u64);
+            .paginate(&self.0.db, PAGE_SIZE as u64);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,

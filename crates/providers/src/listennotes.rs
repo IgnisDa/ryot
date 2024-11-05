@@ -5,7 +5,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::SearchDetails;
-use common_utils::{convert_naive_to_utc, TEMP_DIR};
+use common_utils::{convert_naive_to_utc, PAGE_SIZE, TEMP_DIR};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -36,7 +36,6 @@ struct Settings {
 pub struct ListennotesService {
     url: String,
     client: Client,
-    page_limit: i32,
     settings: Settings,
 }
 
@@ -51,7 +50,7 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &config::PodcastConfig, page_limit: i32) -> Self {
+    pub async fn new(config: &config::PodcastConfig) -> Self {
         let url = env::var("LISTENNOTES_API_URL")
             .unwrap_or_else(|_| URL.to_owned())
             .as_str()
@@ -61,7 +60,6 @@ impl ListennotesService {
             url,
             client,
             settings,
-            page_limit,
         }
     }
 }
@@ -159,7 +157,7 @@ impl MediaProvider for ListennotesService {
             .get(format!("{}/search", self.url))
             .query(&json!({
                 "q": query.to_owned(),
-                "offset": (page - 1) * self.page_limit,
+                "offset": (page - 1) * PAGE_SIZE,
                 "type": "podcast"
             }))
             .send()

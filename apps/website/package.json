@@ -59,7 +59,7 @@
 	"devDependencies": {
 		"@remix-run/dev": "2.13.1",
 		"@tailwindcss/typography": "0.5.15",
-		"@types/crypto-js": "^4.2.2",
+		"@types/crypto-js": "4.2.2",
 		"@types/lodash": "4.17.13",
 		"@types/nodemailer": "6.4.16",
 		"@types/react": "18.3.12",
