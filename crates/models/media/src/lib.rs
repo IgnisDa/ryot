@@ -1545,9 +1545,3 @@ pub struct DailyUserActivityItem {
     pub total_count: i64,
     pub total_duration: i64,
 }
-
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-pub struct CommitCache {
-    pub id: String,
-    pub lot: EntityLot,
-}

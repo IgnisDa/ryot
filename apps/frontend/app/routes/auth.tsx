@@ -14,6 +14,7 @@ import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
 	type MetaArgs,
+	data,
 	redirect,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
@@ -102,8 +103,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				schema: registerSchema,
 			});
 			if (submission.status !== "success")
-				return Response.json({} as const, {
-					status: 400,
+				return data({} as const, {
 					headers: await createToastHeaders({
 						type: "error",
 						message:
@@ -133,8 +133,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						() => "This username already exists",
 					)
 					.exhaustive();
-				return Response.json({} as const, {
-					status: 400,
+				return data({} as const, {
 					headers: await createToastHeaders({ message, type: "error" }),
 				});
 			}
@@ -176,7 +175,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					() => "The provider chosen was incorrect",
 				)
 				.exhaustive();
-			return Response.json({} as const, {
+			return data({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
 		})

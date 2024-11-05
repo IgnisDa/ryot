@@ -40,6 +40,7 @@ import type {
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
+	DeployUpdateMetadataJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	MediaLot,
@@ -157,6 +158,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			{ metadataId },
 		),
 	]);
+	if (metadataDetails.isPartial)
+		await serverGqlService.request(DeployUpdateMetadataJobDocument, {
+			metadataId,
+		});
 	return { query, metadataId, metadataDetails, userMetadataDetails };
 };
 
@@ -314,11 +319,6 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.metadataDetails.assets.images}
-				entityDetails={{
-					id: loaderData.metadataId,
-					lot: EntityLot.Metadata,
-					isPartial: loaderData.metadataDetails.isPartial,
-				}}
 				externalLink={{
 					source: loaderData.metadataDetails.source,
 					lot: loaderData.metadataDetails.lot,

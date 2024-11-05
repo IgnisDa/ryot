@@ -12,7 +12,6 @@ use axum::{
 };
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
-use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
 use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
@@ -28,7 +27,6 @@ use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
-use moka::future::Cache;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
@@ -48,13 +46,13 @@ use user_service::UserService;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub miscellaneous_service: Arc<MiscellaneousService>,
+    pub app_router: Router,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub integration_service: Arc<IntegrationService>,
     pub statistics_service: Arc<StatisticsService>,
-    pub app_router: Router,
+    pub integration_service: Arc<IntegrationService>,
+    pub miscellaneous_service: Arc<MiscellaneousService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -73,9 +71,6 @@ pub async fn create_app_services(
         config.file_storage.s3_bucket_name.clone(),
     ));
     let cache_service = CacheService::new(&db);
-    let commit_cache = Cache::builder()
-        .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
-        .build();
     let supporting_service = Arc::new(
         SupportingService::new(
             is_pro,
@@ -84,7 +79,6 @@ pub async fn create_app_services(
             cache_service,
             config.clone(),
             oidc_client,
-            commit_cache,
             file_storage_service.clone(),
             perform_application_job,
             perform_core_application_job,

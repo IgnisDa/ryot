@@ -14,6 +14,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
+	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
@@ -57,6 +58,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			personId,
 		}),
 	]);
+	if (personDetails.details.isPartial)
+		await serverGqlService.request(DeployUpdatePersonJobDocument, {
+			personId,
+		});
 	return { query, personId, userPersonDetails, personDetails };
 };
 
@@ -82,11 +87,6 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.personDetails.details.displayImages}
-				entityDetails={{
-					id: loaderData.personId,
-					lot: EntityLot.Person,
-					isPartial: loaderData.personDetails.details.isPartial,
-				}}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.sourceUrl,

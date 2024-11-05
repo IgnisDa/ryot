@@ -11,7 +11,5 @@ cache-service = { path = "../../services/cache" }
 chrono-tz = { workspace = true }
 config = { path = "../../config" }
 file-storage-service = { path = "../../services/file-storage" }
-media-models = { path = "../../models/media" }
-moka = { workspace = true }
 openidconnect = { workspace = true }
 sea-orm = { workspace = true }

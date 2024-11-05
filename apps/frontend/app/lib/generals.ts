@@ -43,11 +43,11 @@ declare global {
 	}
 }
 
-dayjs.extend(relativeTime);
-dayjs.extend(duration);
-dayjs.extend(localizedFormat);
 dayjs.extend(utc);
+dayjs.extend(duration);
 dayjs.extend(timezone);
+dayjs.extend(relativeTime);
+dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 

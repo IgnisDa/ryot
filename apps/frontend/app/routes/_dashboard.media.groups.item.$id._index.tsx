@@ -13,6 +13,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
+	DeployUpdateMetadataGroupJobDocument,
 	EntityLot,
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
@@ -58,6 +59,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{ metadataGroupId },
 			),
 		]);
+	if (metadataGroupDetails.details.isPartial)
+		await serverGqlService.request(DeployUpdateMetadataGroupJobDocument, {
+			metadataGroupId,
+		});
 	return {
 		query,
 		metadataGroupId,
@@ -80,11 +85,6 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.metadataGroupDetails.details.displayImages}
-				entityDetails={{
-					id: loaderData.metadataGroupId,
-					lot: EntityLot.MetadataGroup,
-					isPartial: loaderData.metadataGroupDetails.details.isPartial,
-				}}
 				externalLink={{
 					source: loaderData.metadataGroupDetails.details.source,
 					lot: loaderData.metadataGroupDetails.details.lot,

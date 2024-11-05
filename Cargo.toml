@@ -79,7 +79,6 @@ itertools = "=0.13.0"
 futures = "=0.3.31"
 hashbag = "=0.1.12"
 markdown = "=1.0.0-alpha.21"
-moka = { version = "=0.12.8", features = ["future"] }
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
 regex = "=1.11.1"

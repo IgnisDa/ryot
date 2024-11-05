@@ -39,9 +39,9 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitCache, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, ImportOrExportItemRating, MetadataDetails, MetadataImage,
-    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
+    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,
@@ -692,8 +692,8 @@ pub async fn get_users_and_cte_monitoring_entity(
 ) -> Result<Vec<(String, Uuid)>> {
     let all_entities = MonitoredEntity::find()
         .select_only()
-        .column(monitored_entity::Column::CollectionToEntityId)
         .column(monitored_entity::Column::UserId)
+        .column(monitored_entity::Column::CollectionToEntityId)
         .filter(monitored_entity::Column::EntityId.eq(entity_id))
         .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
         .into_tuple::<(String, Uuid)>()
@@ -875,19 +875,10 @@ pub async fn commit_metadata(
         let media = commit_metadata_internal(details, None, ss).await?;
         return Ok(media);
     };
-    let cached_metadata = CommitCache {
-        id: m.id.clone(),
-        lot: EntityLot::Metadata,
-    };
-    if ss.commit_cache.get(&cached_metadata).await.is_some() {
-        return Ok(m);
-    }
-    ss.commit_cache.insert(cached_metadata.clone(), ()).await;
     if input.force_update.unwrap_or_default() {
         ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
         update_metadata_and_notify_users(&m.id, true, ss).await?;
     }
-    ss.commit_cache.remove(&cached_metadata).await;
     Ok(m)
 }
 
@@ -1293,10 +1284,10 @@ pub async fn handle_after_media_seen_tasks(
 }
 
 pub async fn progress_update(
-    input: ProgressUpdateInput,
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
     respect_cache: bool,
+    input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
     let cache = ApplicationCacheKey::ProgressUpdateCache {
@@ -2020,6 +2011,8 @@ pub async fn process_import(
                 Some(dec!(100))
             };
             if let Err(e) = progress_update(
+                user_id,
+                respect_cache,
                 ProgressUpdateInput {
                     metadata_id: metadata.id.clone(),
                     progress,
@@ -2033,8 +2026,6 @@ pub async fn process_import(
                     provider_watched_on: seen.provider_watched_on.clone(),
                     change_state: None,
                 },
-                user_id,
-                respect_cache,
                 ss,
             )
             .await
@@ -2086,8 +2077,8 @@ pub async fn process_import(
     for (idx, item) in import.metadata_groups.into_iter().enumerate() {
         ryot_log!(
             debug,
-            "Importing media group with identifier = {iden}",
-            iden = &item.title
+            "Importing media group with identifier = {identifier}",
+            identifier = &item.title
         );
         let rev_length = item.reviews.len();
         let data =

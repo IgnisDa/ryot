@@ -5,8 +5,6 @@ use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use file_storage_service::FileStorageService;
-use media_models::CommitCache;
-use moka::future::Cache;
 use openidconnect::core::CoreClient;
 use sea_orm::DatabaseConnection;
 
@@ -17,7 +15,6 @@ pub struct SupportingService {
     pub cache_service: CacheService,
     pub config: Arc<config::AppConfig>,
     pub oidc_client: Option<CoreClient>,
-    pub commit_cache: Cache<CommitCache, ()>,
     pub file_storage_service: Arc<FileStorageService>,
 
     perform_application_job: MemoryStorage<ApplicationJob>,
@@ -33,7 +30,6 @@ impl SupportingService {
         cache_service: CacheService,
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
-        commit_cache: Cache<CommitCache, ()>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
@@ -43,7 +39,6 @@ impl SupportingService {
             is_pro,
             timezone,
             oidc_client,
-            commit_cache,
             cache_service,
             db: db.clone(),
             file_storage_service,
