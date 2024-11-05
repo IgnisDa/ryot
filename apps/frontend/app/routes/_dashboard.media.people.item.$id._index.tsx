@@ -14,6 +14,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
+	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
@@ -57,6 +58,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			personId,
 		}),
 	]);
+	if (personDetails.details.isPartial)
+		await serverGqlService.request(DeployUpdatePersonJobDocument, {
+			personId,
+		});
 	return { query, personId, userPersonDetails, personDetails };
 };
 

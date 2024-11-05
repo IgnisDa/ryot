@@ -13,6 +13,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
+	DeployUpdateMetadataGroupJobDocument,
 	EntityLot,
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
@@ -58,6 +59,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{ metadataGroupId },
 			),
 		]);
+	if (metadataGroupDetails.details.isPartial)
+		await serverGqlService.request(DeployUpdateMetadataGroupJobDocument, {
+			metadataGroupId,
+		});
 	return {
 		query,
 		metadataGroupId,
