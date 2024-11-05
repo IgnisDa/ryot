@@ -1,3 +1,4 @@
+// biome-ignore lint/style/useNodejsImportProtocol: this is a dependency
 import { Buffer } from "buffer";
 import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";

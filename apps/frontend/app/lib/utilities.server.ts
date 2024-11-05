@@ -105,28 +105,40 @@ export const getAuthorizationCookie = (request: Request) =>
 	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
-	const userDetails = await getCachedUserDetails(request);
-	const getResponseInit = async (toastMessage: string) => ({
-		status: 302,
-		headers: combineHeaders(
-			await createToastHeaders({ type: "error", message: toastMessage }),
-			getLogoutCookies(),
-		),
-	});
-	if (!userDetails || userDetails.__typename === "UserDetailsError") {
-		const nextUrl = withoutHost(request.url);
-		throw redirect(
-			$path("/auth", { [redirectToQueryParam]: nextUrl }),
-			await getResponseInit("You must be logged in to view this page"),
-		);
-	}
-	if (userDetails.isDisabled)
-		throw redirect(
-			$path("/auth"),
-			await getResponseInit("This account has been disabled"),
-		);
+	try {
+		const userDetails = await getCachedUserDetails(request);
+		const getResponseInit = async (toastMessage: string) => ({
+			status: 302,
+			headers: combineHeaders(
+				await createToastHeaders({ type: "error", message: toastMessage }),
+				getLogoutCookies(),
+			),
+		});
+		if (!userDetails || userDetails.__typename === "UserDetailsError") {
+			const nextUrl = withoutHost(request.url);
+			throw redirect(
+				$path("/auth", { [redirectToQueryParam]: nextUrl }),
+				await getResponseInit("You must be logged in to view this page"),
+			);
+		}
+		if (userDetails.isDisabled)
+			throw redirect(
+				$path("/auth"),
+				await getResponseInit("This account has been disabled"),
+			);
 
-	return userDetails;
+		return userDetails;
+	} catch {
+		throw redirect($path("/auth"), {
+			headers: combineHeaders(
+				await createToastHeaders({
+					type: "error",
+					message: "Your session has expired",
+				}),
+				getLogoutCookies(),
+			),
+		});
+	}
 };
 
 /**
