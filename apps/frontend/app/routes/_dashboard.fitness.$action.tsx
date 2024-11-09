@@ -952,6 +952,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [currentTimer, _] = useTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
@@ -998,6 +999,10 @@ const ExerciseDisplay = (props: {
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
+
+	const didLastSetOfExerciseActivateTimer =
+		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
+		currentTimer?.triggeredBy?.setIdx === exercise.sets.length - 1;
 
 	return (
 		<>
@@ -1117,27 +1122,56 @@ const ExerciseDisplay = (props: {
 								{exercise.exerciseId}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
-								<ActionIcon
-									variant="transparent"
-									style={{
-										transition: "rotate 0.3s",
-										rotate: exercise.isCollapsed ? "180deg" : undefined,
-									}}
-									color={match(exerciseProgress)
-										.with("complete", () => "green")
-										.with("in-progress", () => "blue")
-										.otherwise(() => undefined)}
-									onClick={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].isCollapsed =
-													!exercise.isCollapsed;
-											}),
-										);
-									}}
-								>
-									<IconChevronUp />
-								</ActionIcon>
+								{didLastSetOfExerciseActivateTimer ? (
+									<RingProgress
+										roundCaps
+										thickness={2}
+										size={36}
+										sections={[
+											{
+												value:
+													(dayjsLib(currentTimer.endAt).diff(
+														dayjsLib(),
+														"seconds",
+													) *
+														100) /
+													currentTimer.totalTime,
+												color: "blue",
+											},
+										]}
+										label={
+											<Text ta="center" size="xs">
+												{dayjsLib
+													.duration(
+														dayjsLib(currentTimer.endAt).diff(dayjsLib()),
+													)
+													.format("ss")}
+											</Text>
+										}
+									/>
+								) : (
+									<ActionIcon
+										variant="transparent"
+										style={{
+											transition: "rotate 0.3s",
+											rotate: exercise.isCollapsed ? "180deg" : undefined,
+										}}
+										color={match(exerciseProgress)
+											.with("complete", () => "green")
+											.with("in-progress", () => "blue")
+											.otherwise(() => undefined)}
+										onClick={() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[props.exerciseIdx].isCollapsed =
+														!exercise.isCollapsed;
+												}),
+											);
+										}}
+									>
+										<IconChevronUp />
+									</ActionIcon>
+								)}
 								<Menu.Target>
 									<ActionIcon color="blue">
 										<IconDotsVertical size={20} />
