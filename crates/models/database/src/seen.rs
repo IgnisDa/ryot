@@ -100,9 +100,12 @@ impl ActiveModelBehavior for ActiveModel {
     {
         let state = self.state.clone().unwrap();
         let progress = self.progress.clone().unwrap();
+        let finished_on = self.finished_on.clone().unwrap();
         if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
-            self.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
+            if finished_on.is_none() {
+                self.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
+            }
         }
         if insert {
             self.id = ActiveValue::Set(format!("see_{}", nanoid!(12)));
