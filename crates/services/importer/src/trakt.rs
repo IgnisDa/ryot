@@ -75,7 +75,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     for list in lists.iter_mut() {
         let rsp = client
-            .get(&format!("{}/lists/{}/items", url, list.ids.trakt))
+            .get(format!("{}/lists/{}/items", url, list.ids.trakt))
             .send()
             .await
             .unwrap();

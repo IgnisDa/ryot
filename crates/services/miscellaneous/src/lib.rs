@@ -2517,8 +2517,10 @@ ORDER BY RANDOM() LIMIT 10;
                             });
                         }
                     }
-                } else if cal_event.date == meta.publish_date.unwrap() {
-                    need_to_delete = false;
+                } else if let Some(date) = meta.publish_date {
+                    if cal_event.date == date {
+                        need_to_delete = false;
+                    }
                 };
 
                 if need_to_delete {

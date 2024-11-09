@@ -191,7 +191,7 @@ impl AudiobookshelfYankIntegration {
                 .unwrap();
             for library in libraries_resp.libraries {
                 let items = client
-                    .get(&format!("libraries/{}/items", library.id))
+                    .get(format!("libraries/{}/items", library.id))
                     .send()
                     .await
                     .map_err(|e| anyhow!(e))?

@@ -1434,20 +1434,21 @@ pub async fn progress_update(
             } else {
                 None
             };
-            let finished_on = if action == ProgressUpdateAction::JustStarted {
-                None
-            } else {
-                input.date
+            let finished_on = match action {
+                ProgressUpdateAction::JustStarted => None,
+                _ => input.date,
             };
             ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
-            let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted) {
-                (
+            let (progress, mut started_on) = match action {
+                ProgressUpdateAction::JustStarted => (
                     input.progress.unwrap_or(dec!(0)),
                     Some(Utc::now().date_naive()),
-                )
-            } else {
-                (dec!(100), None)
+                ),
+                _ => (dec!(100), None),
             };
+            if matches!(action, ProgressUpdateAction::InThePast) && input.start_date.is_some() {
+                started_on = input.start_date;
+            }
             ryot_log!(debug, "Progress update percentage = {:?}", progress);
             let seen_insert = seen::ActiveModel {
                 progress: ActiveValue::Set(progress),
@@ -1830,6 +1831,12 @@ pub async fn create_or_update_workout(
             },
         ));
     }
+    input.supersets.retain(|s| {
+        s.exercises.len() > 1
+            && s.exercises
+                .iter()
+                .all(|s| exercises.get(*s as usize).is_some())
+    });
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
         end_time,
@@ -1977,17 +1984,18 @@ pub async fn process_import(
                 user_id,
                 respect_cache,
                 ProgressUpdateInput {
-                    metadata_id: metadata.id.clone(),
                     progress,
+                    change_state: None,
                     date: seen.ended_on,
+                    start_date: seen.started_on,
+                    metadata_id: metadata.id.clone(),
                     show_season_number: seen.show_season_number,
                     show_episode_number: seen.show_episode_number,
-                    podcast_episode_number: seen.podcast_episode_number,
+                    manga_volume_number: seen.manga_volume_number,
                     anime_episode_number: seen.anime_episode_number,
                     manga_chapter_number: seen.manga_chapter_number,
-                    manga_volume_number: seen.manga_volume_number,
+                    podcast_episode_number: seen.podcast_episode_number,
                     provider_watched_on: seen.provider_watched_on.clone(),
-                    change_state: None,
                 },
                 ss,
             )

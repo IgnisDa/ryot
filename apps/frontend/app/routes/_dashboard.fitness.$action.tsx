@@ -44,12 +44,7 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
@@ -178,7 +173,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
-	const revalidator = useRevalidator();
+	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
@@ -283,34 +278,7 @@ export default function Page() {
 								onClose={() => setSupersetModalOpened(null)}
 							/>
 							<Stack ref={parent}>
-								<TextInput
-									size="sm"
-									label="Name"
-									placeholder="A name for your workout"
-									value={currentWorkout.name}
-									required
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.name = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
-								<Textarea
-									size="sm"
-									minRows={2}
-									label="Comment"
-									placeholder="Your thoughts about this workout"
-									value={currentWorkout.comment}
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.comment = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
+								<NameAndCommentInputs />
 								<Group>
 									<WorkoutDurationTimer />
 									<StatDisplay
@@ -397,10 +365,11 @@ export default function Page() {
 									{currentWorkout.exercises.length > 0 ? (
 										<>
 											<Button
+												radius="md"
 												color="green"
 												variant="subtle"
-												radius="md"
 												size="compact-sm"
+												loading={isSaveBtnLoading}
 												onClick={async () => {
 													if (!currentWorkout.name) {
 														notifications.show({
@@ -413,17 +382,19 @@ export default function Page() {
 														});
 														return;
 													}
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.currentActionOrCompleted = true;
-														}),
-													);
 													const yes = await confirmWrapper({
 														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
+														setIsSaveBtnLoading(true);
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.currentActionOrCompleted = true;
+															}),
+														);
+														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
 															loaderData.isCreatingTemplate,
@@ -437,41 +408,50 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														const [entityId, fitnessEntity] = await match(
-															loaderData.isCreatingTemplate,
-														)
-															.with(true, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutTemplateDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkoutTemplate,
-																		FitnessEntity.Templates,
-																	]),
+														try {
+															const [entityId, fitnessEntity] = await match(
+																loaderData.isCreatingTemplate,
 															)
-															.with(false, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkout,
-																		FitnessEntity.Workouts,
-																	]),
+																.with(true, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutTemplateDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkoutTemplate,
+																			FitnessEntity.Templates,
+																		]),
+																)
+																.with(false, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkout,
+																			FitnessEntity.Workouts,
+																		]),
+																)
+																.exhaustive();
+															if (
+																loaderData.action === FitnessAction.LogWorkout
 															)
-															.exhaustive();
-														revalidator.revalidate();
-														if (loaderData.action === FitnessAction.LogWorkout)
-															events.createWorkout();
-														navigate(
-															$path("/fitness/:entity/:id", {
-																entity: fitnessEntity,
-																id: entityId,
-															}),
-														);
+																events.createWorkout();
+															navigate(
+																$path("/fitness/:entity/:id", {
+																	entity: fitnessEntity,
+																	id: entityId,
+																}),
+															);
+														} catch (e) {
+															notifications.show({
+																color: "red",
+																message: `Error while saving workout: ${JSON.stringify(e)}`,
+															});
+															setIsSaveBtnLoading(false);
+														}
 													}
 												}}
 											>
@@ -500,7 +480,6 @@ export default function Page() {
 														deleteUploadedAsset(asset.key);
 												}
 												navigate($path("/"), { replace: true });
-												revalidator.revalidate();
 												setCurrentWorkout(RESET);
 											}
 										}}
@@ -555,6 +534,53 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const NameAndCommentInputs = () => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
+
+	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
+	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
+
+	useDidUpdate(() => {
+		if (name)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.name = name;
+				}),
+			);
+	}, [name]);
+
+	useDidUpdate(() => {
+		if (comment)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.comment = comment;
+				}),
+			);
+	}, [comment]);
+
+	return (
+		<>
+			<TextInput
+				size="sm"
+				required
+				label="Name"
+				defaultValue={name}
+				placeholder="A name for your workout"
+				onChange={(e) => setName(e.currentTarget.value)}
+			/>
+			<Textarea
+				size="sm"
+				minRows={2}
+				label="Comment"
+				defaultValue={comment}
+				placeholder="Your thoughts about this workout"
+				onChange={(e) => setComment(e.currentTarget.value)}
+			/>
+		</>
+	);
+};
 
 const StatDisplay = (props: {
 	name: string;
@@ -926,6 +952,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [currentTimer, _] = useTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
@@ -965,11 +992,25 @@ const ExerciseDisplay = (props: {
 
 	if (!currentWorkout) return null;
 
-	const isExerciseComplete =
-		getProgressOfExercise(currentWorkout, props.exerciseIdx) === "complete";
+	const exerciseProgress = getProgressOfExercise(
+		currentWorkout,
+		props.exerciseIdx,
+	);
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
+
+	const didLastSetOfExerciseActivateTimer =
+		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
+		currentTimer?.triggeredBy?.setIdx === exercise.sets.length - 1;
+
+	const toggleExerciseCollapse = () => {
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.exercises[props.exerciseIdx].isCollapsed = !exercise.isCollapsed;
+			}),
+		);
+	};
 
 	return (
 		<>
@@ -1089,24 +1130,26 @@ const ExerciseDisplay = (props: {
 								{exercise.exerciseId}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
-								<ActionIcon
-									variant="transparent"
-									style={{
-										transition: "rotate 0.3s",
-										rotate: exercise.isCollapsed ? "180deg" : undefined,
-									}}
-									color={isExerciseComplete ? "green" : undefined}
-									onClick={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].isCollapsed =
-													!exercise.isCollapsed;
-											}),
-										);
-									}}
-								>
-									<IconChevronUp />
-								</ActionIcon>
+								{didLastSetOfExerciseActivateTimer ? (
+									<DisplayLastExerciseSetRestTimer
+										toggleExerciseCollapse={toggleExerciseCollapse}
+									/>
+								) : (
+									<ActionIcon
+										variant="transparent"
+										style={{
+											transition: "rotate 0.3s",
+											rotate: exercise.isCollapsed ? "180deg" : undefined,
+										}}
+										color={match(exerciseProgress)
+											.with("complete", () => "green")
+											.with("in-progress", () => "blue")
+											.otherwise(() => undefined)}
+										onClick={() => toggleExerciseCollapse()}
+									>
+										<IconChevronUp />
+									</ActionIcon>
+								)}
 								<Menu.Target>
 									<ActionIcon color="blue">
 										<IconDotsVertical size={20} />
@@ -1447,6 +1490,38 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Paper>
 		</>
+	);
+};
+
+const DisplayLastExerciseSetRestTimer = (props: {
+	toggleExerciseCollapse: () => void;
+}) => {
+	const [currentTimer] = useTimerAtom();
+	forceUpdateEverySecond();
+
+	if (!currentTimer) return null;
+
+	return (
+		<RingProgress
+			roundCaps
+			size={30}
+			thickness={2}
+			style={{ cursor: "pointer" }}
+			onClick={() => props.toggleExerciseCollapse()}
+			sections={[
+				{
+					value:
+						(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+						currentTimer.totalTime,
+					color: "blue",
+				},
+			]}
+			label={
+				<Text ta="center" size="xs">
+					{Math.ceil(dayjsLib(currentTimer.endAt).diff(dayjsLib()) / 1000)}
+				</Text>
+			}
+		/>
 	);
 };
 

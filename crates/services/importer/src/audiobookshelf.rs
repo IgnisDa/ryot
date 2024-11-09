@@ -52,7 +52,7 @@ where
             query["filter"] = json!(format!("progress.{}", BASE64.encode(b"finished")));
         }
         let finished_items = client
-            .get(&format!("{}/libraries/{}/items", url, library.id))
+            .get(format!("{}/libraries/{}/items", url, library.id))
             .query(&query)
             .send()
             .await
@@ -188,7 +188,7 @@ async fn get_item_details(
         query["episode"] = json!(episode);
     }
     let item = client
-        .get(&format!("{}/items/{}", url, id))
+        .get(format!("{}/items/{}", url, id))
         .query(&query)
         .send()
         .await
