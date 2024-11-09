@@ -533,13 +533,20 @@ const NameAndCommentInputs = () => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
 
-	const [comment, setComment] = useDebouncedState(
-		currentWorkout?.comment || "",
-		500,
-	);
+	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
+	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
 
 	useDidUpdate(() => {
-		if (currentWorkout && comment)
+		if (name)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.name = name;
+				}),
+			);
+	}, [name]);
+
+	useDidUpdate(() => {
+		if (comment)
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.comment = comment;
@@ -553,15 +560,9 @@ const NameAndCommentInputs = () => {
 				size="sm"
 				required
 				label="Name"
-				value={currentWorkout.name}
+				defaultValue={name}
 				placeholder="A name for your workout"
-				onChange={(e) =>
-					setCurrentWorkout(
-						produce(currentWorkout, (draft) => {
-							draft.name = e.currentTarget.value;
-						}),
-					)
-				}
+				onChange={(e) => setName(e.currentTarget.value)}
 			/>
 			<Textarea
 				size="sm"
