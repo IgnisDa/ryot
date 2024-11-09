@@ -1506,6 +1506,7 @@ const DisplayLastExerciseSetRestTimer = (props: {
 			roundCaps
 			size={30}
 			thickness={2}
+			style={{ cursor: "pointer" }}
 			onClick={() => props.toggleExerciseCollapse()}
 			sections={[
 				{
