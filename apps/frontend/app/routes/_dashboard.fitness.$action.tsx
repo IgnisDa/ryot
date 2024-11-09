@@ -44,12 +44,7 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
@@ -178,7 +173,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
-	const revalidator = useRevalidator();
+	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
@@ -370,10 +365,11 @@ export default function Page() {
 									{currentWorkout.exercises.length > 0 ? (
 										<>
 											<Button
+												radius="md"
 												color="green"
 												variant="subtle"
-												radius="md"
 												size="compact-sm"
+												loading={isSaveBtnLoading}
 												onClick={async () => {
 													if (!currentWorkout.name) {
 														notifications.show({
@@ -386,17 +382,19 @@ export default function Page() {
 														});
 														return;
 													}
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.currentActionOrCompleted = true;
-														}),
-													);
 													const yes = await confirmWrapper({
 														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
+														setIsSaveBtnLoading(true);
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.currentActionOrCompleted = true;
+															}),
+														);
+														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
 															loaderData.isCreatingTemplate,
@@ -410,41 +408,50 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														const [entityId, fitnessEntity] = await match(
-															loaderData.isCreatingTemplate,
-														)
-															.with(true, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutTemplateDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkoutTemplate,
-																		FitnessEntity.Templates,
-																	]),
+														try {
+															const [entityId, fitnessEntity] = await match(
+																loaderData.isCreatingTemplate,
 															)
-															.with(false, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkout,
-																		FitnessEntity.Workouts,
-																	]),
+																.with(true, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutTemplateDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkoutTemplate,
+																			FitnessEntity.Templates,
+																		]),
+																)
+																.with(false, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkout,
+																			FitnessEntity.Workouts,
+																		]),
+																)
+																.exhaustive();
+															if (
+																loaderData.action === FitnessAction.LogWorkout
 															)
-															.exhaustive();
-														revalidator.revalidate();
-														if (loaderData.action === FitnessAction.LogWorkout)
-															events.createWorkout();
-														navigate(
-															$path("/fitness/:entity/:id", {
-																entity: fitnessEntity,
-																id: entityId,
-															}),
-														);
+																events.createWorkout();
+															navigate(
+																$path("/fitness/:entity/:id", {
+																	entity: fitnessEntity,
+																	id: entityId,
+																}),
+															);
+														} catch (e) {
+															notifications.show({
+																color: "red",
+																message: `Error while saving workout: ${JSON.stringify(e)}`,
+															});
+															setIsSaveBtnLoading(false);
+														}
 													}
 												}}
 											>
@@ -473,7 +480,6 @@ export default function Page() {
 														deleteUploadedAsset(asset.key);
 												}
 												navigate($path("/"), { replace: true });
-												revalidator.revalidate();
 												setCurrentWorkout(RESET);
 											}
 										}}
