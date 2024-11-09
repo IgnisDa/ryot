@@ -111,6 +111,28 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 			...WorkoutSetRecordPart
 		}
 	}
+	focused {
+		lots {
+			lot
+			exercises
+		}
+		levels {
+			level
+			exercises
+		}
+		forces {
+			force
+			exercises
+		}
+		muscles {
+			muscle
+			exercises
+		}
+		equipments {
+			equipment
+			exercises
+		}
+	}
 }
 
 fragment CollectionPart on Collection {
