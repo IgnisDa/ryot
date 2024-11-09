@@ -283,6 +283,7 @@ pub enum ExerciseForce {
     PartialEq,
     Default,
     ConfigEnum,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -324,6 +325,7 @@ pub enum ExerciseMechanic {
     PartialEq,
     Default,
     ConfigEnum,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -366,6 +368,7 @@ pub enum ExerciseEquipment {
     EnumIter,
     ConfigEnum,
     Default,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
