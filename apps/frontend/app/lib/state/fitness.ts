@@ -25,6 +25,7 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
+	CURRENT_WORKOUT_KEY,
 	type FitnessAction,
 	clientGqlService,
 	dayjsLib,
@@ -85,7 +86,7 @@ export type InProgressWorkout = {
 type CurrentWorkout = InProgressWorkout | null;
 
 const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	"CurrentWorkout",
+	CURRENT_WORKOUT_KEY,
 	null,
 );
 

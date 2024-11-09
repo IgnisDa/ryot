@@ -73,6 +73,7 @@ export const pageQueryParam = "page";
 export const FRONTEND_AUTH_COOKIE_NAME = "Auth";
 export const toastKey = "Toast";
 export const PRO_REQUIRED_MESSAGE = "Ryot pro is required to use this feature";
+export const CURRENT_WORKOUT_KEY = "CurrentWorkout";
 
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },

@@ -105,6 +105,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
+	CURRENT_WORKOUT_KEY,
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
@@ -389,10 +390,15 @@ export default function Page() {
 													});
 													if (yes) {
 														setIsSaveBtnLoading(true);
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
+														const newValue = produce(
+															currentWorkout,
+															(draft) => {
 																draft.currentActionOrCompleted = true;
-															}),
+															},
+														);
+														localStorage.setItem(
+															CURRENT_WORKOUT_KEY,
+															JSON.stringify(newValue),
 														);
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
@@ -439,11 +445,9 @@ export default function Page() {
 																loaderData.action === FitnessAction.LogWorkout
 															)
 																events.createWorkout();
-															navigate(
-																$path("/fitness/:entity/:id", {
-																	entity: fitnessEntity,
-																	id: entityId,
-																}),
+															window.location.href = $path(
+																"/fitness/:entity/:id",
+																{ id: entityId, entity: fitnessEntity },
 															);
 														} catch (e) {
 															notifications.show({
