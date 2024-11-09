@@ -62,7 +62,6 @@ pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20230912_create_calendar_event::CalendarEvent as AliasedCalendarEvent;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-pub use m20240904_create_monitored_entity::MonitoredEntity as AliasedMonitoredEntity;
 
 pub struct Migrator;
 

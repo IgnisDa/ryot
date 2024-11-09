@@ -4,15 +4,6 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-#[derive(Iden)]
-pub enum MonitoredEntity {
-    Table,
-    UserId,
-    EntityId,
-    EntityLot,
-    OriginCollectionId,
-}
-
 pub static MONITORED_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
     CREATE VIEW monitored_entity AS
     SELECT
