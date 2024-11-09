@@ -122,9 +122,11 @@ export const parseSearchQuery = <Schema extends ZodTypeAny>(
 	request: Request,
 	schema: Schema,
 ): output<Schema> => {
-	const entries = Object.fromEntries(
-		new URL(request.url).searchParams.entries(),
-	);
+	const entries: Record<string, string> = {};
+	const searchParams = new URL(request.url).searchParams;
+	searchParams.forEach((value, key) => {
+		entries[key] = value;
+	});
 	return schema.parse(entries);
 };
 
