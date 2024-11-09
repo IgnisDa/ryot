@@ -488,10 +488,9 @@ pub struct WorkoutSummaryExercise {
     SimpleObject,
     Schematic,
 )]
-#[serde(rename_all = "snake_case")]
 pub struct WorkoutForceFocusedSummary {
-    pub exercises: Vec<usize>,
     pub force: ExerciseForce,
+    pub exercises: Vec<usize>,
 }
 
 #[derive(
@@ -506,7 +505,6 @@ pub struct WorkoutForceFocusedSummary {
     SimpleObject,
     Schematic,
 )]
-#[serde(rename_all = "snake_case")]
 pub struct WorkoutMuscleFocusedSummary {
     pub exercises: Vec<usize>,
     pub muscle: ExerciseMuscle,
