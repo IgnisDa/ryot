@@ -490,7 +490,7 @@ pub struct WorkoutSummaryExercise {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutForceFocusedSummary {
-    pub exercises: Vec<i32>,
+    pub exercises: Vec<usize>,
     pub force: ExerciseForce,
 }
 
@@ -508,7 +508,7 @@ pub struct WorkoutForceFocusedSummary {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutMuscleFocusedSummary {
-    pub exercises: Vec<i32>,
+    pub exercises: Vec<usize>,
     pub muscle: ExerciseMuscle,
 }
 
@@ -529,8 +529,8 @@ pub struct WorkoutSummary {
     // DEV: This is nullable because it is also used for the workout templates
     pub total: Option<WorkoutOrExerciseTotals>,
     pub exercises: Vec<WorkoutSummaryExercise>,
-    // pub forces_focused: Vec<WorkoutForceFocusedSummary>,
-    // pub muscles_focused: Vec<WorkoutMuscleFocusedSummary>,
+    pub forces_focused: Vec<WorkoutForceFocusedSummary>,
+    pub muscles_focused: Vec<WorkoutMuscleFocusedSummary>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

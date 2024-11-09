@@ -25,6 +25,7 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_or_update_workout, create_user_measurement, db_workout_to_workout_input,
+    get_focused_workout_summary,
 };
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
@@ -97,10 +98,7 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         pro_instance_guard(self.0.is_pro).await?;
-        let mut summary = WorkoutSummary {
-            total: None,
-            exercises: vec![],
-        };
+        let mut summary = WorkoutSummary::default();
         let mut information = WorkoutInformation {
             assets: None,
             exercises: vec![],
@@ -137,6 +135,11 @@ impl ExerciseService {
                 name: exercise.exercise_id,
             });
         }
+        let processed_exercises = information.exercises.clone();
+        let (forces_focused, muscles_focused) =
+            get_focused_workout_summary(&processed_exercises, &self.0).await;
+        summary.forces_focused = forces_focused;
+        summary.muscles_focused = muscles_focused;
         let template = workout_template::ActiveModel {
             id: match input.update_workout_template_id {
                 Some(id) => ActiveValue::Set(id),

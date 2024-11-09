@@ -306,8 +306,32 @@ export interface WorkoutSummaryExercise {
 	num_sets: number;
 }
 
+export type ExerciseForce = 'pull' | 'push' | 'static';
+
+export interface WorkoutForceFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'pull'
+	 * @type {'pull' | 'push' | 'static'}
+	 */
+	force: ExerciseForce;
+}
+
+export type ExerciseMuscle = 'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps';
+
+export interface WorkoutMuscleFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'abdominals'
+	 * @type {'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps'}
+	 */
+	muscle: ExerciseMuscle;
+}
+
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
+	forces_focused: WorkoutForceFocusedSummary[];
+	muscles_focused: WorkoutMuscleFocusedSummary[];
 	total: WorkoutOrExerciseTotals | null;
 }
 

@@ -11,8 +11,8 @@ use common_models::{
 };
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    collection_to_entity, genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-    metadata_to_person, monitored_entity, person,
+    collection_to_entity, exercise, genre, metadata, metadata_group, metadata_to_genre,
+    metadata_to_metadata, metadata_to_person, monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
@@ -33,8 +33,9 @@ use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
-    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    WorkoutForceFocusedSummary, WorkoutInformation, WorkoutMuscleFocusedSummary,
+    WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic,
+    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -1605,6 +1606,40 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
     value.statistic = stats;
 }
 
+pub async fn get_focused_workout_summary(
+    exercises: &Vec<ProcessedExercise>,
+    ss: &Arc<SupportingService>,
+) -> (
+    Vec<WorkoutForceFocusedSummary>,
+    Vec<WorkoutMuscleFocusedSummary>,
+) {
+    let db_exercises = Exercise::find()
+        .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.name.clone())))
+        .all(&ss.db)
+        .await
+        .unwrap();
+    let mut forces = HashMap::new();
+    let mut muscles = HashMap::new();
+    for (idx, ex) in exercises.iter().enumerate() {
+        let exercise = db_exercises.iter().find(|e| e.id == ex.name).unwrap();
+        if let Some(force) = exercise.force {
+            forces.entry(force).or_insert(vec![]).push(idx);
+        }
+        exercise.muscles.iter().for_each(|m| {
+            muscles.entry(*m).or_insert(vec![]).push(idx);
+        });
+    }
+    let forces = forces
+        .into_iter()
+        .map(|(force, exercises)| WorkoutForceFocusedSummary { force, exercises })
+        .collect();
+    let muscles = muscles
+        .into_iter()
+        .map(|(muscle, exercises)| WorkoutMuscleFocusedSummary { muscle, exercises })
+        .collect();
+    (forces, muscles)
+}
+
 /// Create a workout in the database and also update user and exercise associations.
 pub async fn create_or_update_workout(
     input: UserWorkoutInput,
@@ -1838,6 +1873,9 @@ pub async fn create_or_update_workout(
                 .all(|s| exercises.get(*s as usize).is_some())
     });
     let summary_total = workout_totals.into_iter().sum();
+    let processed_exercises = exercises.clone().into_iter().map(|(_, _, ex)| ex).collect();
+    let (forces_focused, muscles_focused) =
+        get_focused_workout_summary(&processed_exercises, &ss).await;
     let model = workout::Model {
         end_time,
         name: input.name,
@@ -1846,6 +1884,8 @@ pub async fn create_or_update_workout(
         start_time: input.start_time,
         repeated_from: input.repeated_from,
         summary: WorkoutSummary {
+            forces_focused,
+            muscles_focused,
             total: Some(summary_total),
             exercises: exercises
                 .clone()
@@ -1862,7 +1902,7 @@ pub async fn create_or_update_workout(
             assets: input.assets,
             comment: input.comment,
             supersets: input.supersets,
-            exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
+            exercises: processed_exercises,
         },
         template_id: input.template_id,
         duration: 0,

@@ -209,13 +209,16 @@ pub enum ImportSource {
     FromJsonQueryResult,
     Eq,
     PartialEq,
-    Display,
     EnumIter,
     PartialOrd,
     Ord,
+    Default,
+    ConfigEnum,
+    Hash,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {
+    #[default]
     Abdominals,
     Abductors,
     Adductors,
@@ -240,7 +243,19 @@ pub enum ExerciseMuscle {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Enum,
+    Copy,
+    Deserialize,
+    DeriveActiveEnum,
+    EnumIter,
+    Eq,
+    PartialEq,
+    Default,
+    ConfigEnum,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -249,6 +264,7 @@ pub enum ExerciseMuscle {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseForce {
+    #[default]
     Pull,
     Push,
     Static,
