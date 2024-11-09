@@ -283,34 +283,7 @@ export default function Page() {
 								onClose={() => setSupersetModalOpened(null)}
 							/>
 							<Stack ref={parent}>
-								<TextInput
-									size="sm"
-									label="Name"
-									placeholder="A name for your workout"
-									value={currentWorkout.name}
-									required
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.name = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
-								<Textarea
-									size="sm"
-									minRows={2}
-									label="Comment"
-									placeholder="Your thoughts about this workout"
-									value={currentWorkout.comment}
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.comment = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
+								<NameAndCommentInputs />
 								<Group>
 									<WorkoutDurationTimer />
 									<StatDisplay
@@ -555,6 +528,52 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const NameAndCommentInputs = () => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
+
+	const [comment, setComment] = useDebouncedState(
+		currentWorkout?.comment || "",
+		500,
+	);
+
+	useDidUpdate(() => {
+		if (currentWorkout && comment)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.comment = comment;
+				}),
+			);
+	}, [comment]);
+
+	return (
+		<>
+			<TextInput
+				size="sm"
+				required
+				label="Name"
+				value={currentWorkout.name}
+				placeholder="A name for your workout"
+				onChange={(e) =>
+					setCurrentWorkout(
+						produce(currentWorkout, (draft) => {
+							draft.name = e.currentTarget.value;
+						}),
+					)
+				}
+			/>
+			<Textarea
+				size="sm"
+				minRows={2}
+				label="Comment"
+				defaultValue={comment}
+				placeholder="Your thoughts about this workout"
+				onChange={(e) => setComment(e.currentTarget.value)}
+			/>
+		</>
+	);
+};
 
 const StatDisplay = (props: {
 	name: string;
