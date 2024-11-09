@@ -5,6 +5,12 @@ import { Hono } from "hono";
 import { auth, type MaybeAuthType } from "./auth";
 import { withSession } from "./auth/middleware";
 import { migrateDB } from "./db";
+import {
+	initializeQueues,
+	initializeWorkers,
+	shutdownQueues,
+	shutdownWorkers,
+} from "./queue";
 import { protectedApi } from "./routes/protected";
 
 const apiApp = new Hono<{ Variables: MaybeAuthType }>();
@@ -26,12 +32,17 @@ app.use("*", serveStatic({ path: "./client/_shell.html" }));
 
 const main = async () => {
 	await migrateDB();
+	await initializeQueues();
+	await initializeWorkers();
+
 	const server = serve({ fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
 	});
 
-	const shutdown = () => {
+	const shutdown = async () => {
 		console.info("Shutting down server...");
+		await shutdownWorkers();
+		await shutdownQueues();
 		server.close(() => {
 			console.info("Server closed");
 			process.exit(0);
