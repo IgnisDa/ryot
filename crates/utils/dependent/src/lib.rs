@@ -1446,10 +1446,8 @@ pub async fn progress_update(
                 ),
                 _ => (dec!(100), None),
             };
-            if matches!(action, ProgressUpdateAction::InThePast) {
-                if input.start_date.is_some() {
-                    started_on = input.start_date;
-                }
+            if matches!(action, ProgressUpdateAction::InThePast) && input.start_date.is_some() {
+                started_on = input.start_date;
             }
             ryot_log!(debug, "Progress update percentage = {:?}", progress);
             let seen_insert = seen::ActiveModel {

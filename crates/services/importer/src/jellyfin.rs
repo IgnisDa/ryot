@@ -21,7 +21,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
-        .get(&format!("{}/Users/{}/Items", base_url, user_id))
+        .get(format!("{}/Users/{}/Items", base_url, user_id))
         .query(&query)
         .send()
         .await
@@ -42,7 +42,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
                     if tmdb_id.is_none() {
                         let details = client
-                            .get(&format!("{}/Items/{}", base_url, series_id))
+                            .get(format!("{}/Items/{}", base_url, series_id))
                             .send()
                             .await
                             .unwrap()
