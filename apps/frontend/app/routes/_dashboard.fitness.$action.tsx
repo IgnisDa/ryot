@@ -965,8 +965,10 @@ const ExerciseDisplay = (props: {
 
 	if (!currentWorkout) return null;
 
-	const isExerciseComplete =
-		getProgressOfExercise(currentWorkout, props.exerciseIdx) === "complete";
+	const exerciseProgress = getProgressOfExercise(
+		currentWorkout,
+		props.exerciseIdx,
+	);
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
@@ -1095,7 +1097,10 @@ const ExerciseDisplay = (props: {
 										transition: "rotate 0.3s",
 										rotate: exercise.isCollapsed ? "180deg" : undefined,
 									}}
-									color={isExerciseComplete ? "green" : undefined}
+									color={match(exerciseProgress)
+										.with("complete", () => "green")
+										.with("in-progress", () => "blue")
+										.otherwise(() => undefined)}
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
