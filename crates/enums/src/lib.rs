@@ -271,7 +271,18 @@ pub enum ExerciseForce {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Enum,
+    Copy,
+    Deserialize,
+    DeriveActiveEnum,
+    EnumIter,
+    Eq,
+    PartialEq,
+    Default,
+    ConfigEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -280,6 +291,7 @@ pub enum ExerciseForce {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseLevel {
+    #[default]
     Beginner,
     Expert,
     Intermediate,
@@ -300,7 +312,18 @@ pub enum ExerciseMechanic {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
+    Debug,
+    Clone,
+    Serialize,
+    Enum,
+    Copy,
+    Deserialize,
+    DeriveActiveEnum,
+    EnumIter,
+    Eq,
+    PartialEq,
+    Default,
+    ConfigEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -310,6 +333,7 @@ pub enum ExerciseMechanic {
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseEquipment {
     Bands,
+    #[default]
     Barbell,
     BodyOnly,
     Cable,
@@ -341,6 +365,7 @@ pub enum ExerciseEquipment {
     Copy,
     EnumIter,
     ConfigEnum,
+    Default,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -352,6 +377,7 @@ pub enum ExerciseLot {
     Duration,
     DistanceAndDuration,
     Reps,
+    #[default]
     RepsAndWeight,
 }
 

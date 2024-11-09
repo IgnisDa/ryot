@@ -488,6 +488,57 @@ pub struct WorkoutSummaryExercise {
     SimpleObject,
     Schematic,
 )]
+pub struct WorkoutLotFocusedSummary {
+    pub lot: ExerciseLot,
+    pub exercises: Vec<usize>,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Default,
+    SimpleObject,
+    Schematic,
+)]
+pub struct WorkoutLevelFocusedSummary {
+    pub level: ExerciseLevel,
+    pub exercises: Vec<usize>,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Default,
+    SimpleObject,
+    Schematic,
+)]
+pub struct WorkoutEquipmentFocusedSummary {
+    pub exercises: Vec<usize>,
+    pub equipment: ExerciseEquipment,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Default,
+    SimpleObject,
+    Schematic,
+)]
 pub struct WorkoutForceFocusedSummary {
     pub force: ExerciseForce,
     pub exercises: Vec<usize>,
@@ -524,8 +575,11 @@ pub struct WorkoutMuscleFocusedSummary {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutFocusedSummary {
+    pub lots: Vec<WorkoutLotFocusedSummary>,
+    pub levels: Vec<WorkoutLevelFocusedSummary>,
     pub forces: Vec<WorkoutForceFocusedSummary>,
     pub muscles: Vec<WorkoutMuscleFocusedSummary>,
+    pub equipments: Vec<WorkoutEquipmentFocusedSummary>,
 }
 
 #[derive(
