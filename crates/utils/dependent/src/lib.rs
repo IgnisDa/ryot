@@ -33,10 +33,10 @@ use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutFocusedSummary, WorkoutForceFocusedSummary, WorkoutInformation,
-    WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary, WorkoutMuscleFocusedSummary,
-    WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
+    WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
+    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
+    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
