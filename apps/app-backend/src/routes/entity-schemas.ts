@@ -6,7 +6,6 @@ import type { AuthType } from "../auth";
 import { db } from "../db";
 import { entitySchema, sandboxScript } from "../db/schema";
 import { getSandboxService } from "../sandbox";
-import { httpCall } from "../sandbox/host-functions";
 
 const schemaSearchParams = z.object({
 	schemaSlug: z.string().trim().min(1),
@@ -90,7 +89,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>().post(
 		const sandbox = getSandboxService();
 		const result = await sandbox.run({
 			code: script.code,
-			apiFunctions: { httpCall },
+			apiFunctions: {},
 			context: {
 				page: body.page,
 				query: body.query,
