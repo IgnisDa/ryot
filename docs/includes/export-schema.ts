@@ -328,10 +328,14 @@ export interface WorkoutMuscleFocusedSummary {
 	muscle: ExerciseMuscle;
 }
 
+export interface WorkoutFocusedSummary {
+	forces: WorkoutForceFocusedSummary[];
+	muscles: WorkoutMuscleFocusedSummary[];
+}
+
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	forces_focused: WorkoutForceFocusedSummary[];
-	muscles_focused: WorkoutMuscleFocusedSummary[];
+	focused: WorkoutFocusedSummary;
 	total: WorkoutOrExerciseTotals | null;
 }
 

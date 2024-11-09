@@ -136,10 +136,7 @@ impl ExerciseService {
             });
         }
         let processed_exercises = information.exercises.clone();
-        let (forces_focused, muscles_focused) =
-            get_focused_workout_summary(&processed_exercises, &self.0).await;
-        summary.forces_focused = forces_focused;
-        summary.muscles_focused = muscles_focused;
+        summary.focused = get_focused_workout_summary(&processed_exercises, &self.0).await;
         let template = workout_template::ActiveModel {
             id: match input.update_workout_template_id {
                 Some(id) => ActiveValue::Set(id),

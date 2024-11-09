@@ -525,12 +525,29 @@ pub struct WorkoutMuscleFocusedSummary {
     Schematic,
 )]
 #[serde(rename_all = "snake_case")]
+pub struct WorkoutFocusedSummary {
+    pub forces: Vec<WorkoutForceFocusedSummary>,
+    pub muscles: Vec<WorkoutMuscleFocusedSummary>,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Default,
+    SimpleObject,
+    Schematic,
+)]
+#[serde(rename_all = "snake_case")]
 pub struct WorkoutSummary {
+    pub focused: WorkoutFocusedSummary,
     // DEV: This is nullable because it is also used for the workout templates
     pub total: Option<WorkoutOrExerciseTotals>,
     pub exercises: Vec<WorkoutSummaryExercise>,
-    pub forces_focused: Vec<WorkoutForceFocusedSummary>,
-    pub muscles_focused: Vec<WorkoutMuscleFocusedSummary>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

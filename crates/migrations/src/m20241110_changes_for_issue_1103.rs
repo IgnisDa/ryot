@@ -11,7 +11,7 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(&format!(
                 r#"
 UPDATE "{x}"
-SET "summary" = jsonb_set(jsonb_set("summary", '{{muscles_focused}}', '[]'::jsonb), '{{forces_focused}}', '[]'::jsonb);
+SET "summary" = jsonb_set("summary", '{{focused}}', '{{"muscles":[], "forces":[]}}'::jsonb);
                     "#,
             ))
             .await?;

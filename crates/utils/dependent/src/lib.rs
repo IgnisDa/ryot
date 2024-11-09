@@ -33,9 +33,9 @@ use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutForceFocusedSummary, WorkoutInformation, WorkoutMuscleFocusedSummary,
-    WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetStatistic,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    WorkoutFocusedSummary, WorkoutForceFocusedSummary, WorkoutInformation,
+    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
+    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -1609,10 +1609,7 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
 pub async fn get_focused_workout_summary(
     exercises: &Vec<ProcessedExercise>,
     ss: &Arc<SupportingService>,
-) -> (
-    Vec<WorkoutForceFocusedSummary>,
-    Vec<WorkoutMuscleFocusedSummary>,
-) {
+) -> WorkoutFocusedSummary {
     let db_exercises = Exercise::find()
         .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.name.clone())))
         .all(&ss.db)
@@ -1639,7 +1636,7 @@ pub async fn get_focused_workout_summary(
         .map(|(muscle, exercises)| WorkoutMuscleFocusedSummary { muscle, exercises })
         .sorted_by_key(|f| Reverse(f.exercises.len()))
         .collect();
-    (forces, muscles)
+    WorkoutFocusedSummary { forces, muscles }
 }
 
 /// Create a workout in the database and also update user and exercise associations.
@@ -1876,8 +1873,7 @@ pub async fn create_or_update_workout(
     });
     let summary_total = workout_totals.into_iter().sum();
     let processed_exercises = exercises.clone().into_iter().map(|(_, _, ex)| ex).collect();
-    let (forces_focused, muscles_focused) =
-        get_focused_workout_summary(&processed_exercises, &ss).await;
+    let focused = get_focused_workout_summary(&processed_exercises, &ss).await;
     let model = workout::Model {
         end_time,
         name: input.name,
@@ -1886,8 +1882,7 @@ pub async fn create_or_update_workout(
         start_time: input.start_time,
         repeated_from: input.repeated_from,
         summary: WorkoutSummary {
-            forces_focused,
-            muscles_focused,
+            focused,
             total: Some(summary_total),
             exercises: exercises
                 .clone()
