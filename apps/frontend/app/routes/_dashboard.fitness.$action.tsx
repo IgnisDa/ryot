@@ -1004,6 +1004,14 @@ const ExerciseDisplay = (props: {
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdx === exercise.sets.length - 1;
 
+	const toggleExerciseCollapse = () => {
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.exercises[props.exerciseIdx].isCollapsed = !exercise.isCollapsed;
+			}),
+		);
+	};
+
 	return (
 		<>
 			<Modal
@@ -1123,31 +1131,8 @@ const ExerciseDisplay = (props: {
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didLastSetOfExerciseActivateTimer ? (
-									<RingProgress
-										roundCaps
-										thickness={2}
-										size={36}
-										sections={[
-											{
-												value:
-													(dayjsLib(currentTimer.endAt).diff(
-														dayjsLib(),
-														"seconds",
-													) *
-														100) /
-													currentTimer.totalTime,
-												color: "blue",
-											},
-										]}
-										label={
-											<Text ta="center" size="xs">
-												{dayjsLib
-													.duration(
-														dayjsLib(currentTimer.endAt).diff(dayjsLib()),
-													)
-													.format("ss")}
-											</Text>
-										}
+									<DisplayLastExerciseSetRestTimer
+										toggleExerciseCollapse={toggleExerciseCollapse}
 									/>
 								) : (
 									<ActionIcon
@@ -1160,14 +1145,7 @@ const ExerciseDisplay = (props: {
 											.with("complete", () => "green")
 											.with("in-progress", () => "blue")
 											.otherwise(() => undefined)}
-										onClick={() => {
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													draft.exercises[props.exerciseIdx].isCollapsed =
-														!exercise.isCollapsed;
-												}),
-											);
-										}}
+										onClick={() => toggleExerciseCollapse()}
 									>
 										<IconChevronUp />
 									</ActionIcon>
@@ -1512,6 +1490,37 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Paper>
 		</>
+	);
+};
+
+const DisplayLastExerciseSetRestTimer = (props: {
+	toggleExerciseCollapse: () => void;
+}) => {
+	const [currentTimer] = useTimerAtom();
+	forceUpdateEverySecond();
+
+	if (!currentTimer) return null;
+
+	return (
+		<RingProgress
+			roundCaps
+			size={30}
+			thickness={2}
+			onClick={() => props.toggleExerciseCollapse()}
+			sections={[
+				{
+					value:
+						(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+						currentTimer.totalTime,
+					color: "blue",
+				},
+			]}
+			label={
+				<Text ta="center" size="xs">
+					{Math.ceil(dayjsLib(currentTimer.endAt).diff(dayjsLib()) / 1000)}
+				</Text>
+			}
+		/>
 	);
 };
 
