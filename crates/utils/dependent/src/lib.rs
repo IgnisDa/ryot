@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::zip, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, iter::zip, sync::Arc};
 
 use anyhow::{bail, Result as AnyhowResult};
 use application_utils::get_current_date;
@@ -1632,10 +1632,12 @@ pub async fn get_focused_workout_summary(
     let forces = forces
         .into_iter()
         .map(|(force, exercises)| WorkoutForceFocusedSummary { force, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
         .collect();
     let muscles = muscles
         .into_iter()
         .map(|(muscle, exercises)| WorkoutMuscleFocusedSummary { muscle, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
         .collect();
     (forces, muscles)
 }
