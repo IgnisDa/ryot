@@ -78,8 +78,8 @@ use media_models::{
     UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
-    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
-    AliasedUserToEntity,
+    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedMonitoredEntity,
+    AliasedReview, AliasedSeen,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -831,23 +831,23 @@ ORDER BY RANDOM() LIMIT 10;
                         "m_podcast_specifics",
                     )
                     .filter(
-                        Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
-                            .eq(&user_id),
+                        Expr::col((
+                            AliasedMonitoredEntity::Table,
+                            AliasedMonitoredEntity::UserId,
+                        ))
+                        .eq(&user_id),
                     )
                     .inner_join(Metadata)
                     .join_rev(
                         JoinType::Join,
-                        UserToEntity::belongs_to(CalendarEvent)
-                            .from(user_to_entity::Column::MetadataId)
+                        MonitoredEntity::belongs_to(CalendarEvent)
+                            .from(monitored_entity::Column::EntityId)
                             .to(calendar_event::Column::MetadataId)
-                            .on_condition(move |left, _right| {
+                            .on_condition(move |left, right| {
                                 Condition::all().add_option(match only_monitored {
                                     true => Some(
-                                        Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
-                                            PgFunc::any(Expr::col((
-                                                left,
-                                                user_to_entity::Column::MediaReason,
-                                            ))),
+                                        Expr::col((left, monitored_entity::Column::EntityId)).eq(
+                                            Expr::col((right, calendar_event::Column::MetadataId)),
                                         ),
                                     ),
                                     false => None,
