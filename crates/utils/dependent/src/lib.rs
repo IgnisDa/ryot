@@ -1833,6 +1833,12 @@ pub async fn create_or_update_workout(
             },
         ));
     }
+    input.supersets.retain(|s| {
+        s.exercises.len() > 1
+            && s.exercises
+                .iter()
+                .all(|s| exercises.get(*s as usize).is_some())
+    });
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
         end_time,
