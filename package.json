@@ -15,15 +15,8 @@
 		"typescript": "5.9.3"
 	},
 	"workspaces": [
-		"apps/app-backend",
-		"apps/app-frontend",
-		"apps/browser-extension",
-		"apps/docs",
-		"apps/website",
-		"libs/generated",
-		"libs/graphql",
-		"libs/transactional",
-		"libs/ts-utils",
-		"tests"
+		"apps/*",
+		"libs/*",
+		"tests*"
 	]
 }
