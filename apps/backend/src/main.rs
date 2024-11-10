@@ -299,50 +299,6 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
-    if pro_key.is_empty() {
-        return false;
-    }
-
-    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
-
-    #[skip_serializing_none]
-    #[derive(Debug, Serialize, Clone, Deserialize)]
-    struct Meta {
-        expiry: Option<NaiveDate>,
-    }
-
-    let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, UNKEY_API_ID);
-    let validated_key = match unkey_client.verify_key(verify_request).await {
-        Ok(verify_response) => {
-            if !verify_response.valid {
-                ryot_log!(debug, "Pro key is no longer valid.");
-                return false;
-            }
-            verify_response
-        }
-        Err(verify_error) => {
-            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
-            return false;
-        }
-    };
-    let key_meta = validated_key
-        .meta
-        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
-    ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-    if let Some(meta) = key_meta {
-        if let Some(expiry) = meta.expiry {
-            if compilation_time > &convert_naive_to_utc(expiry) {
-                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
-                return false;
-            }
-        }
-    }
-    ryot_log!(info, "Pro key verified successfully");
-    true
-}
-
 // upgrade from v6 ONLY IF APPLICABLE
 async fn migrate_from_v6(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
@@ -397,4 +353,48 @@ END $$;
     )
     .await?;
     Ok(())
+}
+
+async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
+    if pro_key.is_empty() {
+        return false;
+    }
+
+    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
+
+    #[skip_serializing_none]
+    #[derive(Debug, Serialize, Clone, Deserialize)]
+    struct Meta {
+        expiry: Option<NaiveDate>,
+    }
+
+    let unkey_client = Client::new("public");
+    let verify_request = VerifyKeyRequest::new(pro_key, UNKEY_API_ID);
+    let validated_key = match unkey_client.verify_key(verify_request).await {
+        Ok(verify_response) => {
+            if !verify_response.valid {
+                ryot_log!(debug, "Pro key is no longer valid.");
+                return false;
+            }
+            verify_response
+        }
+        Err(verify_error) => {
+            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+            return false;
+        }
+    };
+    let key_meta = validated_key
+        .meta
+        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+    ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+    if let Some(meta) = key_meta {
+        if let Some(expiry) = meta.expiry {
+            if compilation_time > &convert_naive_to_utc(expiry) {
+                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+                return false;
+            }
+        }
+    }
+    ryot_log!(info, "Pro key verified successfully");
+    true
 }
