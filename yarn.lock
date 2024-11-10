@@ -1873,10 +1873,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@drizzle-team/brocli@npm:^0.10.1":
-  version: 0.10.1
-  resolution: "@drizzle-team/brocli@npm:0.10.1"
-  checksum: 10/4f14ca31b2fe3561cbf8e71e119fb6d7f78123f63b404ee631bbae2fc756eaf3eded222f30e70d92203ec0679b6ae8685183dbff9e9e8547e70fdcf608a66013
+"@drizzle-team/brocli@npm:^0.10.2":
+  version: 0.10.2
+  resolution: "@drizzle-team/brocli@npm:0.10.2"
+  checksum: 10/c8d664fac9b075406ba7ddb17ab4aaf5aae6c99e371adc30a4d7972061aa9863f10e61584ab795da3a8471fdb46d234bb095133c05dfc113cd94b4ee97884e05
   languageName: node
   linkType: hard
 
@@ -5894,8 +5894,8 @@ __metadata:
     clsx: "npm:2.1.1"
     crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.13"
-    drizzle-kit: "npm:0.26.2"
-    drizzle-orm: "npm:0.35.3"
+    drizzle-kit: "npm:0.28.0"
+    drizzle-orm: "npm:0.36.1"
     embla-carousel-autoplay: "npm:8.3.1"
     embla-carousel-react: "npm:8.3.1"
     graphql: "npm:16.9.0"
@@ -8493,27 +8493,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-kit@npm:0.26.2":
-  version: 0.26.2
-  resolution: "drizzle-kit@npm:0.26.2"
+"drizzle-kit@npm:0.28.0":
+  version: 0.28.0
+  resolution: "drizzle-kit@npm:0.28.0"
   dependencies:
-    "@drizzle-team/brocli": "npm:^0.10.1"
+    "@drizzle-team/brocli": "npm:^0.10.2"
     "@esbuild-kit/esm-loader": "npm:^2.5.5"
     esbuild: "npm:^0.19.7"
     esbuild-register: "npm:^3.5.0"
   bin:
     drizzle-kit: bin.cjs
-  checksum: 10/6d499a9a55761efa42c37e1416905a8c53602784ee92526af226060fc96736dc758c56cc2327432e7892278015f342d1da0eb814a0336f0f4ea85a836ab6c82e
+  checksum: 10/d3f9a36ea206f14243deefe3e492968be5e1b0cf2c84bfae675f420b046fa19d67a0743e349df4b01c8d16a324c20befd48138aca0f8eb38e610d20bbb034c16
   languageName: node
   linkType: hard
 
-"drizzle-orm@npm:0.35.3":
-  version: 0.35.3
-  resolution: "drizzle-orm@npm:0.35.3"
+"drizzle-orm@npm:0.36.1":
+  version: 0.36.1
+  resolution: "drizzle-orm@npm:0.36.1"
   peerDependencies:
     "@aws-sdk/client-rds-data": ">=3"
     "@cloudflare/workers-types": ">=3"
-    "@electric-sql/pglite": ">=0.1.1"
+    "@electric-sql/pglite": ">=0.2.0"
     "@libsql/client": ">=0.10.0"
     "@libsql/client-wasm": ">=0.10.0"
     "@neondatabase/serverless": ">=0.1"
@@ -8547,6 +8547,8 @@ __metadata:
     "@electric-sql/pglite":
       optional: true
     "@libsql/client":
+      optional: true
+    "@libsql/client-wasm":
       optional: true
     "@neondatabase/serverless":
       optional: true
@@ -8596,7 +8598,7 @@ __metadata:
       optional: true
     sqlite3:
       optional: true
-  checksum: 10/d91b5bb85983508e838e12f75b5463ca87b4dad31e55026dfeeeba9153226d86eb7743b8cedc0a7c8e609e2930f4b7ffff426416c4a939dd0f0e6b6c581b39f0
+  checksum: 10/705c077a3bc34877a7dfa76c77e0a43858606b50a31ef90f1643ec6ad62fe49151d127c0fcbe6b0b7b04983a8a3984ca944a69288e41f36193ef4708a1f16ecf
   languageName: node
   linkType: hard
 
