@@ -16,6 +16,7 @@ const schemaParams = z.object({
 const schemaSearchBody = z.object({
 	query: z.string().trim().min(1),
 	page: z.number().int().min(1).default(1),
+	search_script_slug: z.string().trim().min(1).optional(),
 });
 
 const schemaImportBody = z.object({
@@ -131,6 +132,28 @@ const getScriptCode = async (scriptId: string, userId: string) => {
 	return script;
 };
 
+const getScriptBySlug = async (scriptSlug: string, userId: string) => {
+	const [userOwned] = await db
+		.select({ code: sandboxScript.code })
+		.from(sandboxScript)
+		.where(
+			and(eq(sandboxScript.slug, scriptSlug), eq(sandboxScript.userId, userId)),
+		)
+		.limit(1);
+
+	if (userOwned) return userOwned;
+
+	const [builtin] = await db
+		.select({ code: sandboxScript.code })
+		.from(sandboxScript)
+		.where(
+			and(eq(sandboxScript.slug, scriptSlug), isNull(sandboxScript.userId)),
+		)
+		.limit(1);
+
+	return builtin;
+};
+
 export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 	.post(
 		"/:schemaSlug/search",
@@ -146,7 +169,9 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 			if (!schema.searchSandboxScriptId)
 				return c.json({ error: "Entity schema search is not configured" }, 400);
 
-			const script = await getScriptCode(schema.searchSandboxScriptId, user.id);
+			const script = body.search_script_slug
+				? await getScriptBySlug(body.search_script_slug, user.id)
+				: await getScriptCode(schema.searchSandboxScriptId, user.id);
 			if (!script) return c.json({ error: "Search script not found" }, 404);
 
 			const sandbox = getSandboxService();
