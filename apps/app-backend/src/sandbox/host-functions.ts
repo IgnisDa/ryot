@@ -1,3 +1,5 @@
+import { type Config, config } from "../config";
+
 type HttpCallOptions = {
 	body?: string;
 	headers?: Record<string, string>;
@@ -20,6 +22,18 @@ type HttpCallFailure = {
 };
 
 export type HttpCallResult = HttpCallFailure | HttpCallSuccess;
+
+type ConfigValueSuccess = {
+	success: true;
+	data: Config[keyof Config];
+};
+
+type ConfigValueFailure = {
+	error: string;
+	success: false;
+};
+
+export type ConfigValueResult = ConfigValueFailure | ConfigValueSuccess;
 
 const httpCallTimeoutMs = 8_000;
 
@@ -68,6 +82,26 @@ const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 	}
 
 	return parsed;
+};
+
+const isConfigKey = (key: string): key is keyof Config =>
+	Object.hasOwn(config, key);
+
+export const getConfigValue = (key: unknown): ConfigValueResult => {
+	if (typeof key !== "string" || !key.trim())
+		return {
+			success: false,
+			error: "getConfigValue expects a non-empty key string",
+		};
+
+	const trimmedKey = key.trim();
+	if (!isConfigKey(trimmedKey))
+		return {
+			success: false,
+			error: `Config key "${trimmedKey}" does not exist`,
+		};
+
+	return { success: true, data: config[trimmedKey] };
 };
 
 export const httpCall = async (
