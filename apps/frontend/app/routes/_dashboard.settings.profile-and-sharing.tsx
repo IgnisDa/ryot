@@ -381,7 +381,10 @@ const DisplayAccessLink = (props: {
 						</Text>
 						<Text size="sm">
 							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
-							Used: {props.accessLink.timesUsed}
+							Used:{" "}
+							{new Intl.NumberFormat("en-US", {
+								notation: "compact",
+							}).format(props.accessLink.timesUsed)}
 						</Text>
 						{optionalDetails ? <Text size="xs">{optionalDetails}</Text> : null}
 					</Box>
