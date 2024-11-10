@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Indicator,
 	Modal,
 	NumberInput,
 	Paper,
@@ -68,14 +69,16 @@ import {
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
+	getDecodedJwt,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const decodedJwt = getDecodedJwt(request);
 	const [{ userAccessLinks }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
 	]);
-	return { userAccessLinks };
+	return { userAccessLinks, activeAccessLinkId: decodedJwt?.access_link?.id };
 };
 
 export const meta = (_args: MetaArgs) => {
@@ -351,6 +354,7 @@ const DisplayAccessLink = (props: {
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
+	const loaderData = useLoaderData<typeof loader>();
 
 	const accessLinkUrl = `${applicationBaseUrl}/${
 		props.accessLink.isAccountDefault
@@ -376,12 +380,20 @@ const DisplayAccessLink = (props: {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Text fw="bold" span>
-							{props.accessLink.name}
-						</Text>
+						<Indicator
+							inline
+							disabled={loaderData.activeAccessLinkId !== props.accessLink.id}
+						>
+							<Text fw="bold" span>
+								{props.accessLink.name}
+							</Text>
+						</Indicator>
 						<Text size="sm">
 							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
-							Used: {props.accessLink.timesUsed}
+							Used:{" "}
+							{new Intl.NumberFormat("en-US", {
+								notation: "compact",
+							}).format(props.accessLink.timesUsed)}
 						</Text>
 						{optionalDetails ? <Text size="xs">{optionalDetails}</Text> : null}
 					</Box>

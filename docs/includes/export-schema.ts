@@ -275,7 +275,10 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
-	/** @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'} */
+	/**
+	 * @default 'reps_and_weight'
+	 * @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'}
+	 */
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
@@ -301,13 +304,76 @@ export interface WorkoutInformation {
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
 	best_set: WorkoutSetRecord | null;
+	/** @default 'reps_and_weight' */
 	lot: ExerciseLot | null;
 	name: string;
 	num_sets: number;
 }
 
+export type ExerciseEquipment = 'bands' | 'barbell' | 'body_only' | 'cable' | 'dumbbell' | 'exercise_ball' | 'ez_curl_bar' | 'foam_roll' | 'kettlebells' | 'machine' | 'medicine_ball' | 'other';
+
+export interface WorkoutEquipmentFocusedSummary {
+	/**
+	 * @default 'barbell'
+	 * @type {'bands' | 'barbell' | 'body_only' | 'cable' | 'dumbbell' | 'exercise_ball' | 'ez_curl_bar' | 'foam_roll' | 'kettlebells' | 'machine' | 'medicine_ball' | 'other'}
+	 */
+	equipment: ExerciseEquipment;
+	exercises: number[];
+}
+
+export type ExerciseForce = 'pull' | 'push' | 'static';
+
+export interface WorkoutForceFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'pull'
+	 * @type {'pull' | 'push' | 'static'}
+	 */
+	force: ExerciseForce;
+}
+
+export type ExerciseLevel = 'beginner' | 'expert' | 'intermediate';
+
+export interface WorkoutLevelFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'beginner'
+	 * @type {'beginner' | 'expert' | 'intermediate'}
+	 */
+	level: ExerciseLevel;
+}
+
+export interface WorkoutLotFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'reps_and_weight'
+	 * @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'}
+	 */
+	lot: ExerciseLot;
+}
+
+export type ExerciseMuscle = 'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps';
+
+export interface WorkoutMuscleFocusedSummary {
+	exercises: number[];
+	/**
+	 * @default 'abdominals'
+	 * @type {'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps'}
+	 */
+	muscle: ExerciseMuscle;
+}
+
+export interface WorkoutFocusedSummary {
+	equipments: WorkoutEquipmentFocusedSummary[];
+	forces: WorkoutForceFocusedSummary[];
+	levels: WorkoutLevelFocusedSummary[];
+	lots: WorkoutLotFocusedSummary[];
+	muscles: WorkoutMuscleFocusedSummary[];
+}
+
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
+	focused: WorkoutFocusedSummary;
 	total: WorkoutOrExerciseTotals | null;
 }
 

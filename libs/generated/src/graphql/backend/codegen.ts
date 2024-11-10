@@ -24,6 +24,9 @@ const config: CodegenConfig = {
 				fragmentMasking: false,
 			},
 		},
+		"src/graphql/backend/types.generated.ts": {
+			plugins: ["typescript"],
+		},
 	},
 	ignoreNoDocuments: true,
 	overwrite: true,
