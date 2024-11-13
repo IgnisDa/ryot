@@ -209,7 +209,6 @@ export const useIsFitnessActionActive = () => {
 	const action = currentWorkout?.currentActionOrCompleted;
 	return (
 		action !== undefined &&
-		action !== true &&
 		[FitnessAction.LogWorkout, FitnessAction.CreateTemplate].includes(action)
 	);
 };

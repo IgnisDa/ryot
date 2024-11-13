@@ -105,7 +105,6 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	CURRENT_WORKOUT_KEY,
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
@@ -390,16 +389,6 @@ export default function Page() {
 													});
 													if (yes) {
 														setIsSaveBtnLoading(true);
-														const newValue = produce(
-															currentWorkout,
-															(draft) => {
-																draft.currentActionOrCompleted = true;
-															},
-														);
-														localStorage.setItem(
-															CURRENT_WORKOUT_KEY,
-															JSON.stringify(newValue),
-														);
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
@@ -445,9 +434,12 @@ export default function Page() {
 																loaderData.action === FitnessAction.LogWorkout
 															)
 																events.createWorkout();
-															window.location.href = $path(
-																"/fitness/:entity/:id",
-																{ id: entityId, entity: fitnessEntity },
+															setCurrentWorkout(RESET);
+															navigate(
+																$path("/fitness/:entity/:id", {
+																	id: entityId,
+																	entity: fitnessEntity,
+																}),
 															);
 														} catch (e) {
 															notifications.show({
@@ -1004,9 +996,8 @@ const ExerciseDisplay = (props: {
 		s.exercises.includes(exercise.identifier),
 	);
 
-	const didLastSetOfExerciseActivateTimer =
-		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
-		currentTimer?.triggeredBy?.setIdx === exercise.sets.length - 1;
+	const didExerciseActivateTimer =
+		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;
 
 	const toggleExerciseCollapse = () => {
 		setCurrentWorkout(
@@ -1134,26 +1125,23 @@ const ExerciseDisplay = (props: {
 								{exercise.exerciseId}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
-								{didLastSetOfExerciseActivateTimer ? (
-									<DisplayLastExerciseSetRestTimer
-										toggleExerciseCollapse={toggleExerciseCollapse}
-									/>
-								) : (
-									<ActionIcon
-										variant="transparent"
-										style={{
-											transition: "rotate 0.3s",
-											rotate: exercise.isCollapsed ? "180deg" : undefined,
-										}}
-										color={match(exerciseProgress)
-											.with("complete", () => "green")
-											.with("in-progress", () => "blue")
-											.otherwise(() => undefined)}
-										onClick={() => toggleExerciseCollapse()}
-									>
-										<IconChevronUp />
-									</ActionIcon>
-								)}
+								{didExerciseActivateTimer ? (
+									<DisplayLastExerciseSetRestTimer />
+								) : null}
+								<ActionIcon
+									variant="transparent"
+									style={{
+										transition: "rotate 0.3s",
+										rotate: exercise.isCollapsed ? "180deg" : undefined,
+									}}
+									color={match(exerciseProgress)
+										.with("complete", () => "green")
+										.with("in-progress", () => "blue")
+										.otherwise(() => undefined)}
+									onClick={() => toggleExerciseCollapse()}
+								>
+									<IconChevronUp />
+								</ActionIcon>
 								<Menu.Target>
 									<ActionIcon color="blue">
 										<IconDotsVertical size={20} />
@@ -1497,9 +1485,7 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const DisplayLastExerciseSetRestTimer = (props: {
-	toggleExerciseCollapse: () => void;
-}) => {
+const DisplayLastExerciseSetRestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 	forceUpdateEverySecond();
 
@@ -1511,7 +1497,6 @@ const DisplayLastExerciseSetRestTimer = (props: {
 			size={30}
 			thickness={2}
 			style={{ cursor: "pointer" }}
-			onClick={() => props.toggleExerciseCollapse()}
 			sections={[
 				{
 					value:

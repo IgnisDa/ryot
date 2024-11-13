@@ -80,7 +80,7 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
-	currentActionOrCompleted: FitnessAction | true;
+	currentActionOrCompleted: FitnessAction;
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -350,7 +350,6 @@ export const addExerciseToWorkout = async (
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {
-	if (currentWorkout.currentActionOrCompleted === true) return;
 	const draft = createDraft(currentWorkout);
 	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
