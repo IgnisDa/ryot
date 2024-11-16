@@ -22,7 +22,7 @@ export class SandboxService {
 	}
 
 	async stop() {
-		this.bridgeServer.clearSessions();
+		await this.bridgeServer.clearSessions();
 		await this.bridgeServer.stop();
 		await this.runnerManager.remove();
 	}
@@ -42,7 +42,7 @@ export class SandboxService {
 		const executionId = generateId();
 		const token = randomBytes(32).toString("hex");
 
-		this.bridgeServer.addSession(executionId, {
+		await this.bridgeServer.addSession(executionId, {
 			token,
 			apiFunctions,
 			expiresAt: Date.now() + timeoutMs + 2000,
@@ -134,7 +134,7 @@ export class SandboxService {
 				error: error instanceof Error ? error.message : String(error),
 			};
 		} finally {
-			this.bridgeServer.removeSession(executionId);
+			await this.bridgeServer.removeSession(executionId);
 		}
 	}
 }
