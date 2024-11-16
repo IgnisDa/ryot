@@ -40,7 +40,12 @@ const main = async () => {
 		console.info(`Server listening on port ${c.port}...`);
 	});
 
+	let isShuttingDown = false;
+
 	const shutdown = async () => {
+		if (isShuttingDown) return;
+		isShuttingDown = true;
+
 		console.info("Shutting down server...");
 		await shutdownWorkers();
 		await shutdownQueues();
