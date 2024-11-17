@@ -128,9 +128,9 @@ export class SandboxService {
 		const token = randomBytes(32).toString("hex");
 
 		await this.bridgeServer.addSession(executionId, {
-			userId: options.userId,
 			token,
 			apiFunctions,
+			userId: options.userId,
 			expiresAt: Date.now() + timeoutMs + 2000,
 		});
 
