@@ -1,5 +1,5 @@
 {
-	"id": "dc56d2f8-a26d-42b0-9039-3ac2a0127f41",
+	"id": "cfac60f9-c642-48fe-8474-07df466325fa",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -523,14 +523,14 @@
 					"notNull": true,
 					"default": false
 				},
-				"search_script_id": {
-					"name": "search_script_id",
+				"user_id": {
+					"name": "user_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
 				},
-				"user_id": {
-					"name": "user_id",
+				"search_sandbox_script_id": {
+					"name": "search_sandbox_script_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -573,11 +573,11 @@
 					"method": "btree",
 					"with": {}
 				},
-				"entity_schema_search_script_id_idx": {
-					"name": "entity_schema_search_script_id_idx",
+				"entity_schema_search_sandbox_script_id_idx": {
+					"name": "entity_schema_search_sandbox_script_id_idx",
 					"columns": [
 						{
-							"expression": "search_script_id",
+							"expression": "search_sandbox_script_id",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -590,20 +590,20 @@
 				}
 			},
 			"foreignKeys": {
-				"entity_schema_search_script_id_sandbox_script_id_fk": {
-					"name": "entity_schema_search_script_id_sandbox_script_id_fk",
-					"tableFrom": "entity_schema",
-					"tableTo": "sandbox_script",
-					"columnsFrom": ["search_script_id"],
-					"columnsTo": ["id"],
-					"onDelete": "set null",
-					"onUpdate": "no action"
-				},
 				"entity_schema_user_id_user_id_fk": {
 					"name": "entity_schema_user_id_user_id_fk",
 					"tableFrom": "entity_schema",
 					"tableTo": "user",
 					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"entity_schema_search_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "entity_schema_search_sandbox_script_id_sandbox_script_id_fk",
+					"tableFrom": "entity_schema",
+					"tableTo": "sandbox_script",
+					"columnsFrom": ["search_sandbox_script_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
