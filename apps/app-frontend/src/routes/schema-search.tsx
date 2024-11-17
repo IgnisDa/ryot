@@ -88,10 +88,7 @@ function SchemaSearchPage() {
 			const response = await api.protected["entity-schemas"][
 				":schemaSlug"
 			].search.$post({
-				json: {
-					page,
-					query: query.trim(),
-				},
+				json: { page, query: query.trim() },
 				param: { schemaSlug: schemaSlug.trim() },
 			});
 
@@ -121,8 +118,8 @@ function SchemaSearchPage() {
 
 					<Group grow align="start">
 						<TextInput
-							label="Schema slug"
 							value={schemaSlug}
+							label="Schema slug"
 							onChange={(event) => setSchemaSlug(event.currentTarget.value)}
 						/>
 						<TextInput
@@ -170,8 +167,8 @@ function SchemaSearchPage() {
 								<Stack gap="sm">
 									{item.image ? (
 										<Image
-											radius="sm"
 											h={180}
+											radius="sm"
 											fit="contain"
 											src={item.image}
 											alt={item.title}
