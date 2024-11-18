@@ -213,13 +213,6 @@ export default function Page() {
 											) : null}
 											{workout.summary.total ? (
 												<>
-													<DisplayStat
-														icon={<IconWeight size={16} />}
-														data={displayWeightWithUnit(
-															unitSystem,
-															workout.summary.total.weight,
-														)}
-													/>
 													{Number(
 														workout.summary.total.personalBestsAchieved,
 													) !== 0 ? (
@@ -228,6 +221,13 @@ export default function Page() {
 															data={`${workout.summary.total.personalBestsAchieved} PRs`}
 														/>
 													) : null}
+													<DisplayStat
+														icon={<IconWeight size={16} />}
+														data={displayWeightWithUnit(
+															unitSystem,
+															workout.summary.total.weight,
+														)}
+													/>
 												</>
 											) : null}
 										</Group>
