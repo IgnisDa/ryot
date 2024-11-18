@@ -214,8 +214,8 @@ const DisplayListItem = ({ data }: { data: DataItem }) => {
 			gap="xs"
 			ref={parent}
 			key={data.id}
-			pl={{ md: "md" }}
 			data-workout-id={data.id}
+			px={{ base: "xs", md: "md" }}
 		>
 			<Group wrap="nowrap" justify="space-between">
 				<Box>
