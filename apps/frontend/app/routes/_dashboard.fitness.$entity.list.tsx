@@ -2,7 +2,6 @@ import {
 	Accordion,
 	ActionIcon,
 	Anchor,
-	Box,
 	Center,
 	Container,
 	Flex,
@@ -23,7 +22,6 @@ import {
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconClock,
-	IconLink,
 	IconLock,
 	IconPlus,
 	IconTrophy,
@@ -183,69 +181,57 @@ export default function Page() {
 									value={workout.id}
 									data-workout-id={workout.id}
 								>
-									<Center>
-										<Accordion.Control>
-											<Group wrap="nowrap">
-												<Text fz={{ base: "sm", md: "md" }}>
-													{truncate(workout.name, { length: 20 })}
-												</Text>
-												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-													{dayjsLib(workout.timestamp).format("LL")}
-												</Text>
-											</Group>
-											<Group mt="xs">
-												{workout.detail ? (
-													<DisplayStat
-														icon={match(loaderData.entity)
-															.with(FitnessEntity.Workouts, () => (
-																<IconClock size={16} />
-															))
-															.with(FitnessEntity.Templates, () => (
-																<IconLock size={16} />
-															))
-															.exhaustive()}
-														data={workout.detail}
-													/>
-												) : null}
-												{workout.summary.total ? (
-													<>
-														<DisplayStat
-															icon={<IconWeight size={16} />}
-															data={displayWeightWithUnit(
-																unitSystem,
-																workout.summary.total.weight,
-															)}
-														/>
-														<Box visibleFrom="md">
-															{Number(
-																workout.summary.total.personalBestsAchieved,
-															) !== 0 ? (
-																<DisplayStat
-																	icon={<IconTrophy size={16} />}
-																	data={`${workout.summary.total.personalBestsAchieved} PRs`}
-																/>
-															) : null}
-														</Box>
-													</>
-												) : null}
-											</Group>
-										</Accordion.Control>
-										<Anchor
-											component={Link}
-											to={$path("/fitness/:entity/:id", {
-												entity: loaderData.entity,
-												id: workout.id,
-											})}
-											pr="md"
-										>
-											<Text fz="xs" ta="right" visibleFrom="sm">
-												View details
+									<Accordion.Control pr={0}>
+										<Group wrap="nowrap">
+											<Anchor
+												component={Link}
+												fz={{ base: "sm", md: "md" }}
+												to={$path("/fitness/:entity/:id", {
+													entity: loaderData.entity,
+													id: workout.id,
+												})}
+											>
+												{truncate(workout.name, { length: 20 })}
+											</Anchor>
+											<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+												{dayjsLib(workout.timestamp).format("LL")}
 											</Text>
-											<Box hiddenFrom="sm">
-												<IconLink size={16} />
-											</Box>
-										</Anchor>
-									</Center>
+										</Group>
+										<Group mt="xs">
+											{workout.detail ? (
+												<DisplayStat
+													icon={match(loaderData.entity)
+														.with(FitnessEntity.Workouts, () => (
+															<IconClock size={16} />
+														))
+														.with(FitnessEntity.Templates, () => (
+															<IconLock size={16} />
+														))
+														.exhaustive()}
+													data={workout.detail}
+												/>
+											) : null}
+											{workout.summary.total ? (
+												<>
+													<DisplayStat
+														icon={<IconWeight size={16} />}
+														data={displayWeightWithUnit(
+															unitSystem,
+															workout.summary.total.weight,
+														)}
+													/>
+													{Number(
+														workout.summary.total.personalBestsAchieved,
+													) !== 0 ? (
+														<DisplayStat
+															icon={<IconTrophy size={16} />}
+															data={`${workout.summary.total.personalBestsAchieved} PRs`}
+														/>
+													) : null}
+												</>
+											) : null}
+										</Group>
+									</Accordion.Control>
 									<Accordion.Panel>
 										<Group justify="space-between">
 											<Text fw="bold">Exercise</Text>
