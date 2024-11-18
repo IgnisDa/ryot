@@ -193,7 +193,7 @@ export default function Page() {
 													{dayjsLib(workout.timestamp).format("LL")}
 												</Text>
 											</Group>
-											<Stack mt="xs" gap={1}>
+											<Group mt="xs">
 												{workout.detail ? (
 													<DisplayStat
 														icon={match(loaderData.entity)
@@ -208,7 +208,7 @@ export default function Page() {
 													/>
 												) : null}
 												{workout.summary.total ? (
-													<Group>
+													<>
 														<DisplayStat
 															icon={<IconWeight size={16} />}
 															data={displayWeightWithUnit(
@@ -216,17 +216,19 @@ export default function Page() {
 																workout.summary.total.weight,
 															)}
 														/>
-														{Number(
-															workout.summary.total.personalBestsAchieved,
-														) !== 0 ? (
-															<DisplayStat
-																icon={<IconTrophy size={16} />}
-																data={`${workout.summary.total.personalBestsAchieved} PRs`}
-															/>
-														) : null}
-													</Group>
+														<Box visibleFrom="md">
+															{Number(
+																workout.summary.total.personalBestsAchieved,
+															) !== 0 ? (
+																<DisplayStat
+																	icon={<IconTrophy size={16} />}
+																	data={`${workout.summary.total.personalBestsAchieved} PRs`}
+																/>
+															) : null}
+														</Box>
+													</>
 												) : null}
-											</Stack>
+											</Group>
 										</Accordion.Control>
 										<Anchor
 											component={Link}
@@ -282,7 +284,7 @@ const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}
-			<Text size="sm" span>
+			<Text fz={{ base: "xs", md: "sm" }} span>
 				{props.data}
 			</Text>
 		</Flex>
