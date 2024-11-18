@@ -188,7 +188,7 @@ export default function Page() {
 										value={workout.id}
 										data-workout-id={workout.id}
 									>
-										<Accordion.Control>
+										<Accordion.Control pl={{ base: "xs", md: "md" }}>
 											<Group wrap="nowrap">
 												<Anchor
 													component={Link}
