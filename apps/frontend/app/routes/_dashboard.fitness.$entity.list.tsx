@@ -2,6 +2,7 @@ import {
 	Accordion,
 	ActionIcon,
 	Anchor,
+	Box,
 	Center,
 	Container,
 	Flex,
@@ -24,6 +25,7 @@ import {
 	IconClock,
 	IconLock,
 	IconPlus,
+	IconRoad,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
@@ -35,6 +37,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import {
+	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
@@ -228,6 +231,17 @@ export default function Page() {
 															workout.summary.total.weight,
 														)}
 													/>
+													{Number(workout.summary.total.distance) !== 0 ? (
+														<Box visibleFrom="md">
+															<DisplayStat
+																icon={<IconRoad size={16} />}
+																data={displayDistanceWithUnit(
+																	unitSystem,
+																	workout.summary.total.distance,
+																)}
+															/>
+														</Box>
+													) : null}
 												</>
 											) : null}
 										</Group>
