@@ -1,5 +1,5 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-	Accordion,
 	ActionIcon,
 	Anchor,
 	Box,
@@ -12,6 +12,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -22,6 +23,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
+	IconChevronDown,
+	IconChevronUp,
 	IconClock,
 	IconLock,
 	IconPlus,
@@ -175,11 +178,11 @@ export default function Page() {
 					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.itemList.items.length > 0 ? (
-					<Accordion multiple>
+					<Stack gap="lg">
 						{loaderData.itemList.items.map((workout) => (
 							<DisplayListItem key={workout.id} data={workout} />
 						))}
-					</Accordion>
+					</Stack>
 				) : (
 					<Text>No {loaderData.entity} found</Text>
 				)}
@@ -201,84 +204,103 @@ type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
 const DisplayListItem = ({ data }: { data: DataItem }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
+	const [parent] = useAutoAnimate();
+	const [showDetails, setShowDetails] = useDisclosure(false);
 
 	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
 
 	return (
-		<Accordion.Item key={data.id} value={data.id} data-workout-id={data.id}>
-			<Accordion.Control pl={{ base: "xs", md: "md" }}>
-				<Group wrap="nowrap">
-					<Anchor
-						component={Link}
-						fz={{ base: "sm", md: "md" }}
-						to={$path("/fitness/:entity/:id", {
-							entity: loaderData.entity,
-							id: data.id,
-						})}
-					>
-						{truncate(data.name, { length: 20 })}
-					</Anchor>
-					<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-						{dayjsLib(data.timestamp).format("LL")}
-					</Text>
-				</Group>
-				<Group mt="xs">
-					{data.detail ? (
-						<DisplayStat
-							icon={match(loaderData.entity)
-								.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
-								.with(FitnessEntity.Templates, () => <IconLock size={16} />)
-								.exhaustive()}
-							data={data.detail}
-						/>
-					) : null}
-					{data.summary.total ? (
-						<>
-							{personalBestsAchieved !== 0 ? (
-								<DisplayStat
-									icon={<IconTrophy size={16} />}
-									data={`${personalBestsAchieved} PR${
-										personalBestsAchieved > 1 ? "s" : ""
-									}`}
-								/>
-							) : null}
+		<Stack
+			gap="xs"
+			ref={parent}
+			key={data.id}
+			pl={{ md: "md" }}
+			data-workout-id={data.id}
+		>
+			<Group wrap="nowrap" justify="space-between">
+				<Box>
+					<Group wrap="nowrap">
+						<Anchor
+							component={Link}
+							fz={{ base: "sm", md: "md" }}
+							to={$path("/fitness/:entity/:id", {
+								entity: loaderData.entity,
+								id: data.id,
+							})}
+						>
+							{truncate(data.name, { length: 20 })}
+						</Anchor>
+						<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+							{dayjsLib(data.timestamp).format("LL")}
+						</Text>
+					</Group>
+					<Group mt="xs">
+						{data.detail ? (
 							<DisplayStat
-								icon={<IconWeight size={16} />}
-								data={displayWeightWithUnit(
-									unitSystem,
-									data.summary.total.weight,
-								)}
+								icon={match(loaderData.entity)
+									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
+									.exhaustive()}
+								data={data.detail}
 							/>
-							{Number(data.summary.total.distance) !== 0 ? (
-								<Box visibleFrom="md">
+						) : null}
+						{data.summary.total ? (
+							<>
+								{personalBestsAchieved !== 0 ? (
 									<DisplayStat
-										icon={<IconRoad size={16} />}
-										data={displayDistanceWithUnit(
-											unitSystem,
-											data.summary.total.distance,
-										)}
+										icon={<IconTrophy size={16} />}
+										data={`${personalBestsAchieved} PR${
+											personalBestsAchieved > 1 ? "s" : ""
+										}`}
 									/>
-								</Box>
-							) : null}
-						</>
-					) : null}
-				</Group>
-			</Accordion.Control>
-			<Accordion.Panel>
-				<Group justify="space-between">
-					<Text fw="bold">Exercise</Text>
-					{loaderData.entity === FitnessEntity.Workouts ? (
-						<Text fw="bold">Best set</Text>
-					) : null}
-				</Group>
-				{data.summary.exercises.map((exercise, idx) => (
-					<ExerciseDisplay
-						exercise={exercise}
-						key={`${idx}-${exercise.name}`}
-					/>
-				))}
-			</Accordion.Panel>
-		</Accordion.Item>
+								) : null}
+								<DisplayStat
+									icon={<IconWeight size={16} />}
+									data={displayWeightWithUnit(
+										unitSystem,
+										data.summary.total.weight,
+									)}
+								/>
+								{Number(data.summary.total.distance) !== 0 ? (
+									<Box visibleFrom="md">
+										<DisplayStat
+											icon={<IconRoad size={16} />}
+											data={displayDistanceWithUnit(
+												unitSystem,
+												data.summary.total.distance,
+											)}
+										/>
+									</Box>
+								) : null}
+							</>
+						) : null}
+					</Group>
+				</Box>
+				<ActionIcon onClick={() => setShowDetails.toggle()}>
+					{showDetails ? (
+						<IconChevronUp size={16} />
+					) : (
+						<IconChevronDown size={16} />
+					)}
+				</ActionIcon>
+			</Group>
+			{showDetails ? (
+				<Box px={{ base: "xs", md: "md" }}>
+					<Group justify="space-between">
+						<Text fw="bold">Exercise</Text>
+						{loaderData.entity === FitnessEntity.Workouts ? (
+							<Text fw="bold">Best set</Text>
+						) : null}
+					</Group>
+					{data.summary.exercises.map((exercise, idx) => (
+						<ExerciseDisplay
+							exercise={exercise}
+							key={`${idx}-${exercise.name}`}
+						/>
+					))}
+				</Box>
+			) : null}
+		</Stack>
 	);
 };
 
