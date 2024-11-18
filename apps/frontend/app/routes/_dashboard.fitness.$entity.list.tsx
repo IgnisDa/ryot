@@ -177,91 +177,96 @@ export default function Page() {
 				/>
 				{loaderData.itemList.items.length > 0 ? (
 					<>
-						<Accordion multiple chevronPosition="left">
-							{loaderData.itemList.items.map((workout) => (
-								<Accordion.Item
-									key={workout.id}
-									value={workout.id}
-									data-workout-id={workout.id}
-								>
-									<Accordion.Control pr={0}>
-										<Group wrap="nowrap">
-											<Anchor
-												component={Link}
-												fz={{ base: "sm", md: "md" }}
-												to={$path("/fitness/:entity/:id", {
-													entity: loaderData.entity,
-													id: workout.id,
-												})}
-											>
-												{truncate(workout.name, { length: 20 })}
-											</Anchor>
-											<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-												{dayjsLib(workout.timestamp).format("LL")}
-											</Text>
-										</Group>
-										<Group mt="xs">
-											{workout.detail ? (
-												<DisplayStat
-													icon={match(loaderData.entity)
-														.with(FitnessEntity.Workouts, () => (
-															<IconClock size={16} />
-														))
-														.with(FitnessEntity.Templates, () => (
-															<IconLock size={16} />
-														))
-														.exhaustive()}
-													data={workout.detail}
-												/>
-											) : null}
-											{workout.summary.total ? (
-												<>
-													{Number(
-														workout.summary.total.personalBestsAchieved,
-													) !== 0 ? (
-														<DisplayStat
-															icon={<IconTrophy size={16} />}
-															data={`${workout.summary.total.personalBestsAchieved} PRs`}
-														/>
-													) : null}
+						<Accordion multiple>
+							{loaderData.itemList.items.map((workout) => {
+								const personalBestsAchieved =
+									workout.summary.total?.personalBestsAchieved || 0;
+
+								return (
+									<Accordion.Item
+										key={workout.id}
+										value={workout.id}
+										data-workout-id={workout.id}
+									>
+										<Accordion.Control>
+											<Group wrap="nowrap">
+												<Anchor
+													component={Link}
+													fz={{ base: "sm", md: "md" }}
+													to={$path("/fitness/:entity/:id", {
+														entity: loaderData.entity,
+														id: workout.id,
+													})}
+												>
+													{truncate(workout.name, { length: 20 })}
+												</Anchor>
+												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+													{dayjsLib(workout.timestamp).format("LL")}
+												</Text>
+											</Group>
+											<Group mt="xs">
+												{workout.detail ? (
 													<DisplayStat
-														icon={<IconWeight size={16} />}
-														data={displayWeightWithUnit(
-															unitSystem,
-															workout.summary.total.weight,
-														)}
+														icon={match(loaderData.entity)
+															.with(FitnessEntity.Workouts, () => (
+																<IconClock size={16} />
+															))
+															.with(FitnessEntity.Templates, () => (
+																<IconLock size={16} />
+															))
+															.exhaustive()}
+														data={workout.detail}
 													/>
-													{Number(workout.summary.total.distance) !== 0 ? (
-														<Box visibleFrom="md">
+												) : null}
+												{workout.summary.total ? (
+													<>
+														{personalBestsAchieved !== 0 ? (
 															<DisplayStat
-																icon={<IconRoad size={16} />}
-																data={displayDistanceWithUnit(
-																	unitSystem,
-																	workout.summary.total.distance,
-																)}
+																icon={<IconTrophy size={16} />}
+																data={`${personalBestsAchieved} PR${
+																	personalBestsAchieved > 1 ? "s" : ""
+																}`}
 															/>
-														</Box>
-													) : null}
-												</>
-											) : null}
-										</Group>
-									</Accordion.Control>
-									<Accordion.Panel>
-										<Group justify="space-between">
-											<Text fw="bold">Exercise</Text>
-											{loaderData.entity === FitnessEntity.Workouts ? (
-												<Text fw="bold">Best set</Text>
-											) : null}
-										</Group>
-										{workout.summary.exercises.map((exercise, idx) => (
-											<ExerciseDisplay
-												exercise={exercise}
-												key={`${idx}-${exercise.name}`}
-											/>
-										))}
-									</Accordion.Panel>
-								</Accordion.Item>
-							))}
+														) : null}
+														<DisplayStat
+															icon={<IconWeight size={16} />}
+															data={displayWeightWithUnit(
+																unitSystem,
+																workout.summary.total.weight,
+															)}
+														/>
+														{Number(workout.summary.total.distance) !== 0 ? (
+															<Box visibleFrom="md">
+																<DisplayStat
+																	icon={<IconRoad size={16} />}
+																	data={displayDistanceWithUnit(
+																		unitSystem,
+																		workout.summary.total.distance,
+																	)}
+																/>
+															</Box>
+														) : null}
+													</>
+												) : null}
+											</Group>
+										</Accordion.Control>
+										<Accordion.Panel>
+											<Group justify="space-between">
+												<Text fw="bold">Exercise</Text>
+												{loaderData.entity === FitnessEntity.Workouts ? (
+													<Text fw="bold">Best set</Text>
+												) : null}
+											</Group>
+											{workout.summary.exercises.map((exercise, idx) => (
+												<ExerciseDisplay
+													exercise={exercise}
+													key={`${idx}-${exercise.name}`}
+												/>
+											))}
+										</Accordion.Panel>
+									</Accordion.Item>
+								);
+							})}
 						</Accordion>
 					</>
 				) : (
