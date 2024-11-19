@@ -1,10 +1,12 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { Sparkline } from "@mantine/charts";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Pagination,
@@ -17,6 +19,8 @@ import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
+	UserWorkoutDetailsDocument,
+	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
@@ -32,6 +36,7 @@ import {
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -48,6 +53,7 @@ import {
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
 	dayjsLib,
 	pageQueryParam,
 } from "~/lib/generals";
@@ -179,8 +185,8 @@ export default function Page() {
 				/>
 				{loaderData.itemList.items.length > 0 ? (
 					<Stack gap="lg">
-						{loaderData.itemList.items.map((workout) => (
-							<DisplayListItem key={workout.id} data={workout} />
+						{loaderData.itemList.items.map((workout, index) => (
+							<DisplayListItem key={workout.id} data={workout} index={index} />
 						))}
 					</Stack>
 				) : (
@@ -201,106 +207,137 @@ export default function Page() {
 
 type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
 
-const DisplayListItem = ({ data }: { data: DataItem }) => {
+const DisplayListItem = ({
+	data,
+	index,
+}: { data: DataItem; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
 
+	const { data: entityInformation } = useQuery({
+		queryKey: ["fitnessEntityDetails", data.id],
+		queryFn: () =>
+			match(loaderData.entity)
+				.with(FitnessEntity.Workouts, () =>
+					clientGqlService
+						.request(UserWorkoutDetailsDocument, { workoutId: data.id })
+						.then((data) => data.userWorkoutDetails.details.information),
+				)
+				.with(FitnessEntity.Templates, () =>
+					clientGqlService
+						.request(UserWorkoutTemplateDetailsDocument, {
+							workoutTemplateId: data.id,
+						})
+						.then(
+							(data) => data.userWorkoutTemplateDetails.details.information,
+						),
+				)
+				.exhaustive(),
+	});
+
 	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
+	const repsData = (entityInformation?.exercises || [])
+		.map((e) => Number.parseInt(e.total?.reps || "0"))
+		.filter(Boolean);
 
 	return (
-		<Stack
-			gap="xs"
-			ref={parent}
-			key={data.id}
-			data-workout-id={data.id}
-			px={{ base: "xs", md: "md" }}
-		>
-			<Group wrap="nowrap" justify="space-between">
-				<Box>
-					<Group wrap="nowrap">
-						<Anchor
-							component={Link}
-							fz={{ base: "sm", md: "md" }}
-							to={$path("/fitness/:entity/:id", {
-								entity: loaderData.entity,
-								id: data.id,
-							})}
-						>
-							{truncate(data.name, { length: 20 })}
-						</Anchor>
-						<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-							{dayjsLib(data.timestamp).format("LL")}
-						</Text>
-					</Group>
-					<Group mt="xs">
-						{data.detail ? (
-							<DisplayStat
-								icon={match(loaderData.entity)
-									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
-									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
-									.exhaustive()}
-								data={data.detail}
-							/>
-						) : null}
-						{data.summary.total ? (
-							<>
-								{personalBestsAchieved !== 0 ? (
-									<DisplayStat
-										icon={<IconTrophy size={16} />}
-										data={`${personalBestsAchieved} PR${
-											personalBestsAchieved > 1 ? "s" : ""
-										}`}
-									/>
-								) : null}
+		<>
+			{index !== 0 ? <Divider /> : null}
+			<Stack
+				gap="xs"
+				ref={parent}
+				key={data.id}
+				data-workout-id={data.id}
+				px={{ base: "xs", md: "md" }}
+			>
+				<Group wrap="nowrap" justify="space-between">
+					<Box>
+						<Group wrap="nowrap">
+							<Anchor
+								component={Link}
+								fz={{ base: "sm", md: "md" }}
+								to={$path("/fitness/:entity/:id", {
+									entity: loaderData.entity,
+									id: data.id,
+								})}
+							>
+								{truncate(data.name, { length: 20 })}
+							</Anchor>
+							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+								{dayjsLib(data.timestamp).format("LL")}
+							</Text>
+						</Group>
+						<Group mt="xs">
+							{data.detail ? (
 								<DisplayStat
-									icon={<IconWeight size={16} />}
-									data={displayWeightWithUnit(
-										unitSystem,
-										data.summary.total.weight,
-									)}
+									icon={match(loaderData.entity)
+										.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+										.with(FitnessEntity.Templates, () => <IconLock size={16} />)
+										.exhaustive()}
+									data={data.detail}
 								/>
-								{Number(data.summary.total.distance) !== 0 ? (
-									<Box visibleFrom="md">
+							) : null}
+							{data.summary.total ? (
+								<>
+									{personalBestsAchieved !== 0 ? (
 										<DisplayStat
-											icon={<IconRoad size={16} />}
-											data={displayDistanceWithUnit(
-												unitSystem,
-												data.summary.total.distance,
-											)}
+											icon={<IconTrophy size={16} />}
+											data={`${personalBestsAchieved} PR${
+												personalBestsAchieved > 1 ? "s" : ""
+											}`}
 										/>
-									</Box>
-								) : null}
-							</>
-						) : null}
-					</Group>
-				</Box>
-				<ActionIcon onClick={() => setShowDetails.toggle()}>
-					{showDetails ? (
-						<IconChevronUp size={16} />
-					) : (
-						<IconChevronDown size={16} />
-					)}
-				</ActionIcon>
-			</Group>
-			{showDetails ? (
-				<Box px={{ base: "xs", md: "md" }}>
-					<Group justify="space-between">
-						<Text fw="bold">Exercise</Text>
-						{loaderData.entity === FitnessEntity.Workouts ? (
-							<Text fw="bold">Best set</Text>
-						) : null}
-					</Group>
-					{data.summary.exercises.map((exercise, idx) => (
-						<ExerciseDisplay
-							exercise={exercise}
-							key={`${idx}-${exercise.name}`}
-						/>
-					))}
-				</Box>
-			) : null}
-		</Stack>
+									) : null}
+									<DisplayStat
+										icon={<IconWeight size={16} />}
+										data={displayWeightWithUnit(
+											unitSystem,
+											data.summary.total.weight,
+										)}
+									/>
+									{Number(data.summary.total.distance) !== 0 ? (
+										<Box visibleFrom="md">
+											<DisplayStat
+												icon={<IconRoad size={16} />}
+												data={displayDistanceWithUnit(
+													unitSystem,
+													data.summary.total.distance,
+												)}
+											/>
+										</Box>
+									) : null}
+								</>
+							) : null}
+						</Group>
+					</Box>
+					<ActionIcon onClick={() => setShowDetails.toggle()}>
+						{showDetails ? (
+							<IconChevronUp size={16} />
+						) : (
+							<IconChevronDown size={16} />
+						)}
+					</ActionIcon>
+				</Group>
+				<Sparkline h={{ base: 30, md: 60 }} data={repsData} color="teal" />
+				{showDetails ? (
+					<Box px={{ base: "xs", md: "md" }}>
+						<Group justify="space-between">
+							<Text fw="bold">Exercise</Text>
+							{loaderData.entity === FitnessEntity.Workouts ? (
+								<Text fw="bold">Best set</Text>
+							) : null}
+						</Group>
+						{data.summary.exercises.map((exercise, idx) => (
+							<ExerciseDisplay
+								exercise={exercise}
+								key={`${idx}-${exercise.name}`}
+							/>
+						))}
+					</Box>
+				) : null}
+			</Stack>
+		</>
 	);
 };
 
