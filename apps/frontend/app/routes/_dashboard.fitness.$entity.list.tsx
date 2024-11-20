@@ -320,7 +320,7 @@ const DisplayListItem = ({
 					</ActionIcon>
 				</Group>
 				{repsData.length >= 3 ? (
-					<Sparkline h={{ base: 30, md: 60 }} data={repsData} color="teal" />
+					<Sparkline h="60" data={repsData} color="teal" />
 				) : null}
 				{showDetails ? (
 					<Box px={{ base: "xs", md: "md" }}>
