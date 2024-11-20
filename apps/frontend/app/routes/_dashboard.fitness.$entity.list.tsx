@@ -14,7 +14,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -215,6 +215,7 @@ const DisplayListItem = ({
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
+	const { inViewport, ref } = useInViewport();
 
 	const { data: entityInformation } = useQuery({
 		queryKey: ["fitnessEntityDetails", data.id],
@@ -235,6 +236,7 @@ const DisplayListItem = ({
 						),
 				)
 				.exhaustive(),
+		enabled: inViewport,
 	});
 
 	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
@@ -319,9 +321,11 @@ const DisplayListItem = ({
 						)}
 					</ActionIcon>
 				</Group>
-				{repsData.length >= 3 ? (
-					<Sparkline h="60" data={repsData} color="teal" />
-				) : null}
+				<Box ref={ref}>
+					{repsData.length >= 3 ? (
+						<Sparkline h="60" data={repsData} color="teal" />
+					) : null}
+				</Box>
 				{showDetails ? (
 					<Box px={{ base: "xs", md: "md" }}>
 						<Group justify="space-between">
