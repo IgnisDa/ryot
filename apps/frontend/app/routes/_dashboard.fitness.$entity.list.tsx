@@ -1,10 +1,12 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { Sparkline } from "@mantine/charts";
 import {
-	Accordion,
 	ActionIcon,
 	Anchor,
 	Box,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Pagination,
@@ -12,23 +14,29 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
+	UserWorkoutDetailsDocument,
+	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
+	IconChevronDown,
+	IconChevronUp,
 	IconClock,
-	IconLink,
 	IconLock,
 	IconPlus,
+	IconRoad,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -37,6 +45,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import {
+	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
@@ -44,6 +53,7 @@ import {
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
 	dayjsLib,
 	pageQueryParam,
 } from "~/lib/generals";
@@ -135,7 +145,6 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
-	const unitSystem = useUserUnitSystem();
 
 	return (
 		<Container size="xs">
@@ -175,93 +184,11 @@ export default function Page() {
 					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.itemList.items.length > 0 ? (
-					<>
-						<Accordion multiple chevronPosition="left">
-							{loaderData.itemList.items.map((workout) => (
-								<Accordion.Item
-									key={workout.id}
-									value={workout.id}
-									data-workout-id={workout.id}
-								>
-									<Center>
-										<Accordion.Control>
-											<Group wrap="nowrap">
-												<Text fz={{ base: "sm", md: "md" }}>
-													{truncate(workout.name, { length: 20 })}
-												</Text>
-												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-													{dayjsLib(workout.timestamp).format("LL")}
-												</Text>
-											</Group>
-											<Stack mt="xs" gap={1}>
-												{workout.detail ? (
-													<DisplayStat
-														icon={match(loaderData.entity)
-															.with(FitnessEntity.Workouts, () => (
-																<IconClock size={16} />
-															))
-															.with(FitnessEntity.Templates, () => (
-																<IconLock size={16} />
-															))
-															.exhaustive()}
-														data={workout.detail}
-													/>
-												) : null}
-												{workout.summary.total ? (
-													<Group>
-														<DisplayStat
-															icon={<IconWeight size={16} />}
-															data={displayWeightWithUnit(
-																unitSystem,
-																workout.summary.total.weight,
-															)}
-														/>
-														{Number(
-															workout.summary.total.personalBestsAchieved,
-														) !== 0 ? (
-															<DisplayStat
-																icon={<IconTrophy size={16} />}
-																data={`${workout.summary.total.personalBestsAchieved} PRs`}
-															/>
-														) : null}
-													</Group>
-												) : null}
-											</Stack>
-										</Accordion.Control>
-										<Anchor
-											component={Link}
-											to={$path("/fitness/:entity/:id", {
-												entity: loaderData.entity,
-												id: workout.id,
-											})}
-											pr="md"
-										>
-											<Text fz="xs" ta="right" visibleFrom="sm">
-												View details
-											</Text>
-											<Box hiddenFrom="sm">
-												<IconLink size={16} />
-											</Box>
-										</Anchor>
-									</Center>
-									<Accordion.Panel>
-										<Group justify="space-between">
-											<Text fw="bold">Exercise</Text>
-											{loaderData.entity === FitnessEntity.Workouts ? (
-												<Text fw="bold">Best set</Text>
-											) : null}
-										</Group>
-										{workout.summary.exercises.map((exercise, idx) => (
-											<ExerciseDisplay
-												exercise={exercise}
-												key={`${idx}-${exercise.name}`}
-											/>
-										))}
-									</Accordion.Panel>
-								</Accordion.Item>
-							))}
-						</Accordion>
-					</>
+					<Stack gap="lg">
+						{loaderData.itemList.items.map((workout, index) => (
+							<DisplayListItem key={workout.id} data={workout} index={index} />
+						))}
+					</Stack>
 				) : (
 					<Text>No {loaderData.entity} found</Text>
 				)}
@@ -278,11 +205,153 @@ export default function Page() {
 	);
 }
 
+type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
+
+const DisplayListItem = ({
+	data,
+	index,
+}: { data: DataItem; index: number }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const unitSystem = useUserUnitSystem();
+	const [parent] = useAutoAnimate();
+	const [showDetails, setShowDetails] = useDisclosure(false);
+	const { inViewport, ref } = useInViewport();
+
+	const { data: entityInformation } = useQuery({
+		queryKey: ["fitnessEntityDetails", data.id],
+		queryFn: () =>
+			match(loaderData.entity)
+				.with(FitnessEntity.Workouts, () =>
+					clientGqlService
+						.request(UserWorkoutDetailsDocument, { workoutId: data.id })
+						.then((data) => data.userWorkoutDetails.details.information),
+				)
+				.with(FitnessEntity.Templates, () =>
+					clientGqlService
+						.request(UserWorkoutTemplateDetailsDocument, {
+							workoutTemplateId: data.id,
+						})
+						.then(
+							(data) => data.userWorkoutTemplateDetails.details.information,
+						),
+				)
+				.exhaustive(),
+		enabled: inViewport,
+	});
+
+	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
+	const repsData = (entityInformation?.exercises || [])
+		.map((e) => Number.parseInt(e.total?.reps || "0"))
+		.filter(Boolean);
+
+	return (
+		<>
+			{index !== 0 ? <Divider /> : null}
+			<Stack
+				gap="xs"
+				ref={parent}
+				key={data.id}
+				data-workout-id={data.id}
+				px={{ base: "xs", md: "md" }}
+			>
+				<Group wrap="nowrap" justify="space-between">
+					<Box>
+						<Group wrap="nowrap">
+							<Anchor
+								component={Link}
+								fz={{ base: "sm", md: "md" }}
+								to={$path("/fitness/:entity/:id", {
+									entity: loaderData.entity,
+									id: data.id,
+								})}
+							>
+								{truncate(data.name, { length: 20 })}
+							</Anchor>
+							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
+								{dayjsLib(data.timestamp).format("LL")}
+							</Text>
+						</Group>
+						<Group mt="xs">
+							{data.detail ? (
+								<DisplayStat
+									icon={match(loaderData.entity)
+										.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+										.with(FitnessEntity.Templates, () => <IconLock size={16} />)
+										.exhaustive()}
+									data={data.detail}
+								/>
+							) : null}
+							{data.summary.total ? (
+								<>
+									{personalBestsAchieved !== 0 ? (
+										<DisplayStat
+											icon={<IconTrophy size={16} />}
+											data={`${personalBestsAchieved} PR${
+												personalBestsAchieved > 1 ? "s" : ""
+											}`}
+										/>
+									) : null}
+									<DisplayStat
+										icon={<IconWeight size={16} />}
+										data={displayWeightWithUnit(
+											unitSystem,
+											data.summary.total.weight,
+										)}
+									/>
+									{Number(data.summary.total.distance) !== 0 ? (
+										<Box visibleFrom="md">
+											<DisplayStat
+												icon={<IconRoad size={16} />}
+												data={displayDistanceWithUnit(
+													unitSystem,
+													data.summary.total.distance,
+												)}
+											/>
+										</Box>
+									) : null}
+								</>
+							) : null}
+						</Group>
+					</Box>
+					<ActionIcon onClick={() => setShowDetails.toggle()}>
+						{showDetails ? (
+							<IconChevronUp size={16} />
+						) : (
+							<IconChevronDown size={16} />
+						)}
+					</ActionIcon>
+				</Group>
+				<Box ref={ref}>
+					{repsData.length >= 3 ? (
+						<Sparkline h="60" data={repsData} color="teal" />
+					) : null}
+				</Box>
+				{showDetails ? (
+					<Box px={{ base: "xs", md: "md" }}>
+						<Group justify="space-between">
+							<Text fw="bold">Exercise</Text>
+							{loaderData.entity === FitnessEntity.Workouts ? (
+								<Text fw="bold">Best set</Text>
+							) : null}
+						</Group>
+						{data.summary.exercises.map((exercise, idx) => (
+							<ExerciseDisplay
+								exercise={exercise}
+								key={`${idx}-${exercise.name}`}
+							/>
+						))}
+					</Box>
+				) : null}
+			</Stack>
+		</>
+	);
+};
+
 const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}
-			<Text size="sm" span>
+			<Text fz={{ base: "xs", md: "sm" }} span>
 				{props.data}
 			</Text>
 		</Flex>

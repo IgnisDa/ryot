@@ -37,7 +37,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 	const paddleClient = getPaddleServerClient();
 	const requestBody = await request.text();
-	const eventData = paddleClient.webhooks.unmarshal(
+	const eventData = await paddleClient.webhooks.unmarshal(
 		requestBody,
 		serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
 		paddleSignature,

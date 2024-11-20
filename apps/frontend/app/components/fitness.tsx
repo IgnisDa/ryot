@@ -33,8 +33,8 @@ import {
 	IconClock,
 	IconInfoCircle,
 	type IconProps,
+	IconRoad,
 	IconRotateClockwise,
-	IconRun,
 	IconTrophy,
 	IconWeight,
 	IconZzz,
@@ -327,7 +327,7 @@ export const ExerciseHistory = (props: {
 												)}
 											/>
 											<DisplayExerciseAttributes
-												icon={IconRun}
+												icon={IconRoad}
 												label="distance"
 												quantity={exercise.total.distance}
 												value={displayDistanceWithUnit(

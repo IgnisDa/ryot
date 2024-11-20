@@ -46,7 +46,7 @@ import {
 	IconPencil,
 	IconPlayerPlay,
 	IconRepeat,
-	IconRun,
+	IconRoad,
 	IconTemplate,
 	IconTrash,
 	IconTrophy,
@@ -518,7 +518,7 @@ export default function Page() {
 									) : null}
 									{Number(loaderData.summary.total.distance) > 0 ? (
 										<DisplayStat
-											icon={<IconRun size={16} />}
+											icon={<IconRoad size={16} />}
 											data={displayDistanceWithUnit(
 												unitSystem,
 												loaderData.summary.total.distance,
