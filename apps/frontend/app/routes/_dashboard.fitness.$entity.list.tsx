@@ -14,7 +14,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -184,9 +184,13 @@ export default function Page() {
 					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.itemList.items.length > 0 ? (
-					<Stack gap="lg">
+					<Stack gap="xs">
 						{loaderData.itemList.items.map((workout, index) => (
-							<DisplayListItem key={workout.id} data={workout} index={index} />
+							<DisplayWorkoutListItem
+								index={index}
+								data={workout}
+								key={workout.id}
+							/>
 						))}
 					</Stack>
 				) : (
@@ -207,7 +211,7 @@ export default function Page() {
 
 type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
 
-const DisplayListItem = ({
+const DisplayWorkoutListItem = ({
 	data,
 	index,
 }: { data: DataItem; index: number }) => {
@@ -215,7 +219,6 @@ const DisplayListItem = ({
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
-	const { inViewport, ref } = useInViewport();
 
 	const { data: entityInformation } = useQuery({
 		queryKey: ["fitnessEntityDetails", data.id],
@@ -236,7 +239,6 @@ const DisplayListItem = ({
 						),
 				)
 				.exhaustive(),
-		enabled: inViewport,
 	});
 
 	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
@@ -291,13 +293,15 @@ const DisplayListItem = ({
 											}`}
 										/>
 									) : null}
-									<DisplayStat
-										icon={<IconWeight size={16} />}
-										data={displayWeightWithUnit(
-											unitSystem,
-											data.summary.total.weight,
-										)}
-									/>
+									{Number(data.summary.total.weight) !== 0 ? (
+										<DisplayStat
+											icon={<IconWeight size={16} />}
+											data={displayWeightWithUnit(
+												unitSystem,
+												data.summary.total.weight,
+											)}
+										/>
+									) : null}
 									{Number(data.summary.total.distance) !== 0 ? (
 										<Box visibleFrom="md">
 											<DisplayStat
@@ -321,11 +325,9 @@ const DisplayListItem = ({
 						)}
 					</ActionIcon>
 				</Group>
-				<Box ref={ref}>
-					{repsData.length >= 3 ? (
-						<Sparkline h="60" data={repsData} color="teal" />
-					) : null}
-				</Box>
+				{repsData.length >= 3 ? (
+					<Sparkline h="60" data={repsData} color="teal" />
+				) : null}
 				{showDetails ? (
 					<Box px={{ base: "xs", md: "md" }}>
 						<Group justify="space-between">
