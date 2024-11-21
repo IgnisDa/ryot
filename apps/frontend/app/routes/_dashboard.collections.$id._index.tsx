@@ -345,7 +345,14 @@ const FiltersModalForm = () => {
 				placeholder="Select an entity type"
 				defaultValue={loaderData.query.entityLot}
 				data={Object.values(EntityLot)
-					.filter((o) => o !== EntityLot.Collection)
+					.filter(
+						(o) =>
+							![
+								EntityLot.Collection,
+								EntityLot.Review,
+								EntityLot.UserMeasurement,
+							].includes(o),
+					)
 					.map((o) => ({
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
