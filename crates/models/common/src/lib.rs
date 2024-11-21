@@ -219,8 +219,17 @@ pub enum ApplicationCacheKey {
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
-pub struct DailyUserActivityHourCount {
-    pub hour: u8,
+pub struct DailyUserActivityHourRecordEntity {
+    pub entity_id: String,
     pub entity_lot: EntityLot,
     pub metadata_lot: Option<MediaLot>,
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
+pub struct DailyUserActivityHourRecord {
+    pub hour: u8,
+    pub count: u64,
+    pub entities: Vec<DailyUserActivityHourRecordEntity>,
 }
