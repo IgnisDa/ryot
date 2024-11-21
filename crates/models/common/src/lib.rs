@@ -1,7 +1,7 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
 use enum_meta::{meta, Meta};
-use enums::EntityLot;
+use enums::{EntityLot, MediaLot};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
@@ -214,4 +214,13 @@ pub enum ApplicationCacheKey {
         manga_chapter_number: Option<Decimal>,
         manga_volume_number: Option<i32>,
     },
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
+pub struct DailyUserActivityHourCount {
+    pub hour: u8,
+    pub entity_lot: EntityLot,
+    pub metadata_lot: Option<MediaLot>,
 }
