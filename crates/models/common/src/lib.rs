@@ -229,6 +229,7 @@ pub struct DailyUserActivityHourRecordEntity {
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
 pub struct DailyUserActivityHourRecord {
+    // DEV: The hour in UTC time
     pub hour: u32,
     pub entities: Vec<DailyUserActivityHourRecordEntity>,
 }
