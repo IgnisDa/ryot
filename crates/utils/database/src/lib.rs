@@ -5,10 +5,10 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
-use chrono::Utc;
+use chrono::{Timelike, Utc};
 use common_models::{
-    BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
-    StringIdObject,
+    BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
+    DailyUserActivityHourRecordEntity, DefaultCollection, IdAndNamedObject, StringIdObject,
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
@@ -603,10 +603,13 @@ pub async fn calculate_user_activities_and_summary(
     let mut activities = HashMap::new();
 
     fn get_activity_count<'a>(
-        entity_id: String,
         activities: &'a mut HashMap<Date, daily_user_activity::Model>,
         user_id: &'a String,
         date: Date,
+        entity_id: String,
+        entity_lot: EntityLot,
+        metadata_lot: Option<MediaLot>,
+        timestamp: DateTimeUtc,
     ) -> &'a mut daily_user_activity::Model {
         ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
         let existing = activities
@@ -616,7 +619,26 @@ pub async fn calculate_user_activities_and_summary(
                 user_id: user_id.to_owned(),
                 ..Default::default()
             });
-        existing.entity_ids.push(entity_id);
+        existing.entity_ids.push(entity_id.clone());
+        let hour = timestamp.hour();
+        let maybe_idx = existing.hour_records.iter().position(|hr| hr.hour == hour);
+        if let Some(idx) = maybe_idx {
+            let hr = existing.hour_records.get_mut(idx).unwrap();
+            hr.entities.push(DailyUserActivityHourRecordEntity {
+                entity_id,
+                entity_lot,
+                metadata_lot,
+            });
+        } else {
+            existing.hour_records.push(DailyUserActivityHourRecord {
+                hour,
+                entities: vec![DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
+                    metadata_lot,
+                }],
+            });
+        }
         existing
     }
 
@@ -656,7 +678,15 @@ pub async fn calculate_user_activities_and_summary(
     while let Some(seen) = seen_stream.try_next().await? {
         let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
         let date = seen.finished_on.unwrap_or(default_date);
-        let activity = get_activity_count(seen.seen_id, &mut activities, user_id, date);
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            date,
+            seen.seen_id,
+            EntityLot::Metadata,
+            Some(seen.metadata_lot),
+            seen.last_updated_on,
+        );
         if let (Some(show_seen), Some(show_extra)) =
             (seen.show_specifics, seen.show_extra_information)
         {
@@ -715,12 +745,20 @@ pub async fn calculate_user_activities_and_summary(
         .filter(workout::Column::EndTime.gte(start_from))
         .stream(db)
         .await?;
-    while let Some(item) = workout_stream.try_next().await? {
-        let date = item.end_time.date_naive();
-        let activity = get_activity_count(item.id, &mut activities, user_id, date);
+    while let Some(workout) = workout_stream.try_next().await? {
+        let date = workout.end_time.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            date,
+            workout.id,
+            EntityLot::Workout,
+            None,
+            workout.start_time,
+        );
         activity.workout_count += 1;
-        activity.workout_duration += item.duration / 60;
-        let workout_total = item.summary.total.unwrap();
+        activity.workout_duration += workout.duration / 60;
+        let workout_total = workout.summary.total.unwrap();
         activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
         activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
         activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
@@ -733,10 +771,17 @@ pub async fn calculate_user_activities_and_summary(
         .filter(user_measurement::Column::Timestamp.gte(start_from))
         .stream(db)
         .await?;
-    while let Some(item) = measurement_stream.try_next().await? {
-        let date = item.timestamp.date_naive();
-        let activity =
-            get_activity_count(item.timestamp.to_string(), &mut activities, user_id, date);
+    while let Some(measurement) = measurement_stream.try_next().await? {
+        let date = measurement.timestamp.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            date,
+            measurement.timestamp.to_string(),
+            EntityLot::UserMeasurement,
+            None,
+            measurement.timestamp,
+        );
         activity.measurement_count += 1;
     }
 
@@ -745,10 +790,18 @@ pub async fn calculate_user_activities_and_summary(
         .filter(review::Column::PostedOn.gte(start_from))
         .stream(db)
         .await?;
-    while let Some(item) = review_stream.try_next().await? {
-        let date = item.posted_on.date_naive();
-        let activity = get_activity_count(item.id, &mut activities, user_id, date);
-        match item.entity_lot {
+    while let Some(review) = review_stream.try_next().await? {
+        let date = review.posted_on.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            date,
+            review.id,
+            EntityLot::Review,
+            None,
+            review.posted_on,
+        );
+        match review.entity_lot {
             EntityLot::Person => activity.person_review_count += 1,
             EntityLot::Exercise => activity.exercise_review_count += 1,
             EntityLot::Metadata => activity.metadata_review_count += 1,

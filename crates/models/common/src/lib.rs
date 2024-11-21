@@ -229,7 +229,6 @@ pub struct DailyUserActivityHourRecordEntity {
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
 pub struct DailyUserActivityHourRecord {
-    pub hour: u8,
-    pub count: u64,
+    pub hour: u32,
     pub entities: Vec<DailyUserActivityHourRecordEntity>,
 }
