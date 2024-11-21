@@ -811,7 +811,7 @@ pub async fn calculate_user_activities_and_summary(
         }
     }
 
-    for (_, activity) in activities {
+    for (_, activity) in activities.iter_mut() {
         if let Some(entity) = DailyUserActivity::find()
             .filter(daily_user_activity::Column::Date.eq(activity.date))
             .filter(daily_user_activity::Column::UserId.eq(user_id))
@@ -845,7 +845,8 @@ pub async fn calculate_user_activities_and_summary(
             + activity.show_duration
             + activity.visual_novel_duration
             + activity.video_game_duration;
-        let mut model: daily_user_activity::ActiveModel = activity.into();
+        activity.hour_records.sort_by_key(|hr| hr.hour);
+        let mut model: daily_user_activity::ActiveModel = activity.clone().into();
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);
