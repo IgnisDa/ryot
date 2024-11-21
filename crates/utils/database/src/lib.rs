@@ -834,8 +834,10 @@ pub async fn calculate_user_activities_and_summary(
             + activity.book_count
             + activity.video_game_count
             + activity.visual_novel_count;
-        let total_count =
-            total_metadata_count + activity.measurement_count + activity.workout_count;
+        let total_count = total_metadata_count
+            + activity.measurement_count
+            + activity.workout_count
+            + total_review_count;
         let total_duration = activity.workout_duration
             + activity.audio_book_duration
             + activity.podcast_duration
