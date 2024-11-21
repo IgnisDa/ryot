@@ -134,7 +134,7 @@ fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Colum
         EntityLot::Exercise => CteColAlias::ExerciseId,
         EntityLot::Workout => CteColAlias::WorkoutId,
         EntityLot::WorkoutTemplate => CteColAlias::WorkoutTemplateId,
-        EntityLot::Collection => unreachable!(),
+        EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
     }
 }
 
@@ -314,15 +314,22 @@ pub async fn add_entity_to_collection(
             EntityLot::WorkoutTemplate => {
                 created_collection.workout_template_id = ActiveValue::Set(Some(id))
             }
-            EntityLot::Collection => unreachable!(),
+            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                unreachable!()
+            }
         }
         let created = created_collection.insert(&ss.db).await?;
         ryot_log!(debug, "Created collection to entity: {:?}", created);
-        if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate
-        {
-            associate_user_with_entity(&ss.db, user_id, input.entity_id, input.entity_lot)
-                .await
-                .ok();
+        match input.entity_lot {
+            EntityLot::Workout
+            | EntityLot::WorkoutTemplate
+            | EntityLot::Review
+            | EntityLot::UserMeasurement => {}
+            _ => {
+                associate_user_with_entity(&ss.db, user_id, input.entity_id, input.entity_lot)
+                    .await
+                    .ok();
+            }
         }
         created
     };
@@ -406,7 +413,10 @@ pub async fn item_reviews(
         EntityLot::Person => review::Column::PersonId,
         EntityLot::Exercise => review::Column::ExerciseId,
         EntityLot::Collection => review::Column::CollectionId,
-        EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
+        EntityLot::Workout
+        | EntityLot::WorkoutTemplate
+        | EntityLot::Review
+        | EntityLot::UserMeasurement => unreachable!(),
     };
     let all_reviews = Review::find()
         .filter(match get_public {

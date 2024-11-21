@@ -2830,6 +2830,7 @@ ORDER BY RANDOM() LIMIT 10;
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
             EntityLot::WorkoutTemplate => format!("fitness/templates/{}", id),
+            EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
         };
         url = format!("{}/{}", self.0.config.frontend.url, url);
         if let Some(tab) = default_tab {

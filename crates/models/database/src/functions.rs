@@ -21,7 +21,11 @@ where
         EntityLot::Person => user_to_entity::Column::PersonId,
         EntityLot::Exercise => user_to_entity::Column::ExerciseId,
         EntityLot::MetadataGroup => user_to_entity::Column::MetadataGroupId,
-        EntityLot::Collection | EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
+        EntityLot::Collection
+        | EntityLot::Workout
+        | EntityLot::WorkoutTemplate
+        | EntityLot::Review
+        | EntityLot::UserMeasurement => unreachable!(),
     };
     UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
@@ -58,7 +62,11 @@ where
                 EntityLot::MetadataGroup => {
                     user_to_meta.metadata_group_id = ActiveValue::Set(Some(entity_id))
                 }
-                EntityLot::Collection | EntityLot::Workout | EntityLot::WorkoutTemplate => {
+                EntityLot::Collection
+                | EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {
                     unreachable!()
                 }
             }

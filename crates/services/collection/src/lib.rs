@@ -202,7 +202,9 @@ impl CollectionService {
                         EntityLot::WorkoutTemplate => {
                             collection_to_entity::Column::WorkoutTemplateId.is_not_null()
                         }
-                        EntityLot::Collection => unreachable!(),
+                        EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                            unreachable!()
+                        }
                     };
                     query.filter(f)
                 })

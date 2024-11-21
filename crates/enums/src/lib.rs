@@ -122,6 +122,8 @@ pub enum EntityLot {
     Collection,
     Workout,
     WorkoutTemplate,
+    Review,
+    UserMeasurement,
 }
 
 // The different possible states of a seen item.
