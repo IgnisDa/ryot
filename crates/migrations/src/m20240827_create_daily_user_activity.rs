@@ -51,6 +51,7 @@ pub enum DailyUserActivity {
     TotalReviewCount,
     TotalCount,
     TotalDuration,
+    HourRecords,
 }
 
 #[async_trait::async_trait]
@@ -109,6 +110,12 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::TotalReviewCount))
                     .col(integer_not_null(DailyUserActivity::TotalCount))
                     .col(integer_not_null(DailyUserActivity::TotalDuration))
+                    .col(
+                        ColumnDef::new(DailyUserActivity::HourRecords)
+                            .json_binary()
+                            .not_null()
+                            .default(Expr::cust("'[]'")),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")
