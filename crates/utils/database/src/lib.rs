@@ -609,6 +609,7 @@ pub async fn calculate_user_activities_and_summary(
         existing.entity_ids.push(entity_id);
         existing
     }
+
     let mut seen_stream = Seen::find()
         .filter(seen::Column::UserId.eq(user_id))
         .filter(seen::Column::State.eq(SeenState::Completed))
