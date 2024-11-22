@@ -623,12 +623,13 @@ pub async fn calculate_user_activities_and_summary(
         let hour = timestamp.hour();
         let maybe_idx = existing.hour_records.iter().position(|hr| hr.hour == hour);
         if let Some(idx) = maybe_idx {
-            let hr = existing.hour_records.get_mut(idx).unwrap();
-            hr.entities.push(DailyUserActivityHourRecordEntity {
-                entity_id,
-                entity_lot,
-                metadata_lot,
-            });
+            existing.hour_records.get_mut(idx).unwrap().entities.push(
+                DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
+                    metadata_lot,
+                },
+            );
         } else {
             existing.hour_records.push(DailyUserActivityHourRecord {
                 hour,
