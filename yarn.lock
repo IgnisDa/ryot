@@ -7002,6 +7002,8 @@ __metadata:
   dependencies:
     "@types/bun": "npm:latest"
     better-auth: "npm:1.4.18"
+    drizzle-kit: "npm:0.31.9"
+    drizzle-orm: "npm:0.45.1"
     hono: "npm:4.12.1"
   languageName: unknown
   linkType: soft
