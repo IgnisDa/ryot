@@ -1614,7 +1614,7 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
 }
 
 pub async fn get_focused_workout_summary(
-    exercises: &Vec<ProcessedExercise>,
+    exercises: &[ProcessedExercise],
     ss: &Arc<SupportingService>,
 ) -> WorkoutFocusedSummary {
     let db_exercises = Exercise::find()
@@ -1911,8 +1911,12 @@ pub async fn create_or_update_workout(
                 .all(|s| exercises.get(*s as usize).is_some())
     });
     let summary_total = workout_totals.into_iter().sum();
-    let processed_exercises = exercises.clone().into_iter().map(|(_, _, ex)| ex).collect();
-    let focused = get_focused_workout_summary(&processed_exercises, &ss).await;
+    let processed_exercises = exercises
+        .clone()
+        .into_iter()
+        .map(|(_, _, ex)| ex)
+        .collect_vec();
+    let focused = get_focused_workout_summary(&processed_exercises, ss).await;
     let model = workout::Model {
         end_time,
         name: input.name,
