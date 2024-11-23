@@ -1101,7 +1101,7 @@ const ExerciseDisplay = (props: {
 			<Paper
 				radius={0}
 				style={{
-					scrollMargin: 16,
+					scrollMargin: "60px",
 					borderLeft: partOfSuperset
 						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
 						: undefined,

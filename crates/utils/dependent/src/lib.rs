@@ -987,7 +987,10 @@ pub async fn post_review(
         }
         EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
         EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
+        EntityLot::Workout
+        | EntityLot::WorkoutTemplate
+        | EntityLot::Review
+        | EntityLot::UserMeasurement => unreachable!(),
     };
     if let Some(s) = input.is_spoiler {
         review_obj.is_spoiler = ActiveValue::Set(s);
@@ -1014,7 +1017,10 @@ pub async fn post_review(
             EntityLot::Person => Person::find_by_id(&id).one(&ss.db).await?.unwrap().name,
             EntityLot::Collection => Collection::find_by_id(&id).one(&ss.db).await?.unwrap().name,
             EntityLot::Exercise => id.clone(),
-            EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
+            EntityLot::Workout
+            | EntityLot::WorkoutTemplate
+            | EntityLot::Review
+            | EntityLot::UserMeasurement => unreachable!(),
         };
         let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
         // DEV: Do not send notification if updating a review
@@ -1608,7 +1614,7 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
 }
 
 pub async fn get_focused_workout_summary(
-    exercises: &Vec<ProcessedExercise>,
+    exercises: &[ProcessedExercise],
     ss: &Arc<SupportingService>,
 ) -> WorkoutFocusedSummary {
     let db_exercises = Exercise::find()
@@ -1905,8 +1911,12 @@ pub async fn create_or_update_workout(
                 .all(|s| exercises.get(*s as usize).is_some())
     });
     let summary_total = workout_totals.into_iter().sum();
-    let processed_exercises = exercises.clone().into_iter().map(|(_, _, ex)| ex).collect();
-    let focused = get_focused_workout_summary(&processed_exercises, &ss).await;
+    let processed_exercises = exercises
+        .clone()
+        .into_iter()
+        .map(|(_, _, ex)| ex)
+        .collect_vec();
+    let focused = get_focused_workout_summary(&processed_exercises, ss).await;
     let model = workout::Model {
         end_time,
         name: input.name,

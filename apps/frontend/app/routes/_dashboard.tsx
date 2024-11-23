@@ -995,17 +995,18 @@ const MetadataInProgressUpdateForm = ({
 						style={{ flexGrow: 1 }}
 					/>
 					<NumberInput
+						w="20%"
+						min={0}
+						step={1}
+						max={100}
+						hideControls
 						value={value}
+						onFocus={(e) => e.target.select()}
+						rightSection={<IconPercentage size={16} />}
 						onChange={(v) => {
 							if (v) setValue(Number(v));
 							else setValue(undefined);
 						}}
-						max={100}
-						min={0}
-						step={1}
-						w="20%"
-						hideControls
-						rightSection={<IconPercentage size={16} />}
 					/>
 				</Group>
 				{total ? (
@@ -1019,8 +1020,9 @@ const MetadataInProgressUpdateForm = ({
 								step={1}
 								flex={1}
 								hideControls
-								max={Number(total)}
 								leftSection={updateIcon}
+								max={Number(total)}
+								onFocus={(e) => e.target.select()}
 								defaultValue={((Number(total) || 1) * (value || 1)) / 100}
 								onChange={(v) => {
 									const value = (Number(v) / (Number(total) || 1)) * 100;

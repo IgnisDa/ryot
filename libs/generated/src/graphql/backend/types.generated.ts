@@ -451,6 +451,8 @@ export enum EntityLot {
   Metadata = 'METADATA',
   MetadataGroup = 'METADATA_GROUP',
   Person = 'PERSON',
+  Review = 'REVIEW',
+  UserMeasurement = 'USER_MEASUREMENT',
   Workout = 'WORKOUT',
   WorkoutTemplate = 'WORKOUT_TEMPLATE'
 }

@@ -268,8 +268,8 @@ export default function Page() {
 											<Link
 												onClick={(e) => {
 													if (allowAddingExerciseToWorkout) return;
-													e.preventDefault();
 													if (currentWorkout) {
+														e.preventDefault();
 														setCurrentWorkout(
 															produce(currentWorkout, (draft) => {
 																if (
