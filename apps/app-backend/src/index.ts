@@ -37,8 +37,8 @@ const main = async () => {
 	await migrateDB();
 	await initializeRedis();
 	await initializeQueues();
-	await initializeWorkers();
 	await initializeSandboxService();
+	await initializeWorkers();
 
 	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
