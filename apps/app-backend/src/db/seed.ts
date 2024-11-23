@@ -1,18 +1,18 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
-import { animePropertiesJsonSchema } from "../lib/zod/anime";
-import { bookPropertiesJsonSchema } from "../lib/zod/book";
-import { mangaPropertiesJsonSchema } from "../lib/zod/manga";
-import googleBooksBookDetailsScriptCode from "../sandbox/scripts/google-books-book-details-source.txt";
-import googleBooksBookSearchScriptCode from "../sandbox/scripts/google-books-book-search-source.txt";
-import hardcoverBookDetailsScriptCode from "../sandbox/scripts/hardcover-book-details-source.txt";
-import hardcoverBookSearchScriptCode from "../sandbox/scripts/hardcover-book-search-source.txt";
-import myanimelistAnimeDetailsScriptCode from "../sandbox/scripts/myanimelist-anime-details-source.txt";
-import myanimelistAnimeSearchScriptCode from "../sandbox/scripts/myanimelist-anime-search-source.txt";
-import myanimelistMangaDetailsScriptCode from "../sandbox/scripts/myanimelist-manga-details-source.txt";
-import myanimelistMangaSearchScriptCode from "../sandbox/scripts/myanimelist-manga-search-source.txt";
-import openLibraryBookDetailsScriptCode from "../sandbox/scripts/openlibrary-book-details-source.txt";
-import openLibraryBookSearchScriptCode from "../sandbox/scripts/openlibrary-book-search-source.txt";
+import { animePropertiesJsonSchema } from "~/lib/zod/anime";
+import { bookPropertiesJsonSchema } from "~/lib/zod/book";
+import { mangaPropertiesJsonSchema } from "~/lib/zod/manga";
+import googleBooksBookDetailsScriptCode from "~/sandbox/scripts/google-books-book-details-source.txt";
+import googleBooksBookSearchScriptCode from "~/sandbox/scripts/google-books-book-search-source.txt";
+import hardcoverBookDetailsScriptCode from "~/sandbox/scripts/hardcover-book-details-source.txt";
+import hardcoverBookSearchScriptCode from "~/sandbox/scripts/hardcover-book-search-source.txt";
+import myanimelistAnimeDetailsScriptCode from "~/sandbox/scripts/myanimelist-anime-details-source.txt";
+import myanimelistAnimeSearchScriptCode from "~/sandbox/scripts/myanimelist-anime-search-source.txt";
+import myanimelistMangaDetailsScriptCode from "~/sandbox/scripts/myanimelist-manga-details-source.txt";
+import myanimelistMangaSearchScriptCode from "~/sandbox/scripts/myanimelist-manga-search-source.txt";
+import openLibraryBookDetailsScriptCode from "~/sandbox/scripts/openlibrary-book-details-source.txt";
+import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-search-source.txt";
 import { db } from ".";
 import {
 	entitySchema,
