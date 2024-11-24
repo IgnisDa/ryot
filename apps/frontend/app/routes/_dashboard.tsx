@@ -83,13 +83,13 @@ import {
 	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
+	IconChevronsLeft,
 	IconChevronsRight,
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
 	IconEyeglass,
 	IconHome2,
-	IconLayoutSidebarLeftCollapse,
 	IconLogout,
 	IconMoodEmpty,
 	IconMoodHappy,
@@ -670,9 +670,10 @@ export default function Layout() {
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
 						<Button
-							variant="default"
+							color="gray"
+							variant="subtle"
+							leftSection={<IconChevronsLeft />}
 							onClick={() => setSidebarCollapsed(true)}
-							leftSection={<IconLayoutSidebarLeftCollapse />}
 						>
 							Collapse
 						</Button>
