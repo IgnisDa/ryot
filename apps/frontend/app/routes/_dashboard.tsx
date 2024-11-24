@@ -83,6 +83,8 @@ import {
 	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
+	IconChevronsLeft,
+	IconChevronsRight,
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
@@ -365,6 +367,12 @@ export default function Layout() {
 		},
 		getInitialValueInEffect: true,
 	});
+	const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useLocalStorage(
+		{
+			key: "DesktopSidebarCollapsed",
+			defaultValue: false,
+		},
+	);
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -561,11 +569,25 @@ export default function Layout() {
 				padding={0}
 				layout="alt"
 				navbar={{
-					width: { sm: 220, lg: 250 },
 					breakpoint: "sm",
-					collapsed: { mobile: !opened },
+					width: { sm: 220, lg: 250 },
+					collapsed: { mobile: !opened, desktop: desktopSidebarCollapsed },
 				}}
 			>
+				{desktopSidebarCollapsed ? (
+					<ActionIcon
+						left={0}
+						size="lg"
+						top="50%"
+						pos="fixed"
+						visibleFrom="sm"
+						variant="default"
+						style={{ zIndex: 20 }}
+						onClick={() => setDesktopSidebarCollapsed(false)}
+					>
+						<IconChevronsRight size={30} />
+					</ActionIcon>
+				) : null}
 				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
 					<Flex justify="end" hiddenFrom="sm">
 						<Burger
@@ -651,6 +673,14 @@ export default function Layout() {
 						/>
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
+						<Button
+							color="gray"
+							variant="subtle"
+							leftSection={<IconChevronsLeft />}
+							onClick={() => setDesktopSidebarCollapsed(true)}
+						>
+							Collapse
+						</Button>
 						{loaderData.isAccessLinkSession ? (
 							<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
 								<Button leftSection={<IconEyeglass />} disabled>
