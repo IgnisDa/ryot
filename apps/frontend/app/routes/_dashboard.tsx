@@ -582,6 +582,7 @@ export default function Layout() {
 						pos="fixed"
 						visibleFrom="sm"
 						variant="default"
+						style={{ zIndex: 20 }}
 						onClick={() => setDesktopSidebarCollapsed(false)}
 					>
 						<IconChevronsRight size={30} />
