@@ -37,8 +37,32 @@ const bookEventSchemas = [
 const bookPropertiesSchema = {
 	type: "object",
 	properties: {
-		pages: { type: "number" },
 		isCompilation: { type: "boolean" },
+		pages: { type: ["number", "null"] },
+		description: { type: ["string", "null"] },
+		publish_year: { type: ["number", "null"] },
+		genres: { type: "array", items: { type: "string" } },
+		source_url: { type: ["string", "null"], format: "uri" },
+		people: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					role: { type: "string" },
+					source: { type: "string" },
+					identifier: { type: "string" },
+				},
+			},
+		},
+		assets: {
+			type: "object",
+			properties: {
+				remote_images: {
+					type: "array",
+					items: { type: "string", format: "uri" },
+				},
+			},
+		},
 	},
 };
 
@@ -111,10 +135,9 @@ export const seedEntitySchemas = async () => {
 			.set(bookSchemaValues)
 			.where(eq(entitySchema.id, existingBookSchema.id));
 	else
-		await db.insert(entitySchema).values({
-			...bookSchemaValues,
-			id: generateId(),
-		});
+		await db
+			.insert(entitySchema)
+			.values({ ...bookSchemaValues, id: generateId() });
 
 	console.info("Entity schemas seeded successfully");
 };
