@@ -687,6 +687,7 @@ export default function Layout() {
 					<Flex direction="column" justify="center" gap="md">
 						<Button
 							color="gray"
+							visibleFrom="sm"
 							variant="subtle"
 							leftSection={<IconChevronsLeft />}
 							onClick={() => {
