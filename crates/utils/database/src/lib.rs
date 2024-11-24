@@ -16,8 +16,8 @@ use database_models::{
     functions::associate_user_with_entity,
     metadata,
     prelude::{
-        AccessLink, Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen,
-        User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
+        AccessLink, Collection, CollectionToEntity, DailyUserActivity, Exercise, Metadata, Review,
+        Seen, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
@@ -765,6 +765,15 @@ pub async fn calculate_user_activities_and_summary(
         activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
         activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
         activity.workout_rest_time += workout_total.rest_time as i32;
+        for exercise in workout.information.exercises {
+            let db_exercise = Exercise::find_by_id(exercise.name.clone())
+                .one(db)
+                .await?
+                .unwrap();
+            activity.workout_exercises.push(db_exercise.id);
+            activity.workout_muscles.extend(db_exercise.muscles);
+            activity.workout_equipments.extend(db_exercise.equipment);
+        }
     }
 
     let mut measurement_stream = UserMeasurement::find()
