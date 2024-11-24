@@ -145,6 +145,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import type { LoaderFunctionArgs } from "@remix-run/node";
+import { ClientOnly } from "remix-utils/client-only";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
@@ -373,10 +374,11 @@ export default function Layout() {
 			defaultValue: false,
 		},
 	);
+	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
+		useDisclosure(false);
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const [opened, { toggle }] = useDisclosure(false);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
@@ -571,7 +573,10 @@ export default function Layout() {
 				navbar={{
 					breakpoint: "sm",
 					width: { sm: 220, lg: 250 },
-					collapsed: { mobile: !opened, desktop: desktopSidebarCollapsed },
+					collapsed: {
+						mobile: !mobileNavbarOpened,
+						desktop: desktopSidebarCollapsed,
+					},
 				}}
 			>
 				{desktopSidebarCollapsed ? (
@@ -591,8 +596,8 @@ export default function Layout() {
 				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
 					<Flex justify="end" hiddenFrom="sm">
 						<Burger
-							opened={opened}
-							onClick={toggle}
+							opened={mobileNavbarOpened}
+							onClick={toggleMobileNavbar}
 							color={theme.colors.gray[6]}
 						/>
 					</Flex>
@@ -602,7 +607,7 @@ export default function Layout() {
 							icon={IconHome2}
 							href={$path("/")}
 							opened={false}
-							toggle={toggle}
+							toggle={toggleMobileNavbar}
 							setOpened={() => {}}
 						/>
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
@@ -611,7 +616,7 @@ export default function Layout() {
 								icon={IconDeviceSpeaker}
 								links={loaderData.mediaLinks}
 								opened={openedLinkGroups?.media || false}
-								toggle={toggle}
+								toggle={toggleMobileNavbar}
 								setOpened={(k) =>
 									setOpenedLinkGroups(
 										produce(openedLinkGroups, (draft) => {
@@ -626,7 +631,7 @@ export default function Layout() {
 								label="Fitness"
 								icon={IconStretching}
 								opened={openedLinkGroups?.fitness || false}
-								toggle={toggle}
+								toggle={toggleMobileNavbar}
 								setOpened={(k) =>
 									setOpenedLinkGroups(
 										produce(openedLinkGroups, (draft) => {
@@ -643,7 +648,7 @@ export default function Layout() {
 								icon={IconCalendar}
 								href={$path("/calendar")}
 								opened={false}
-								toggle={toggle}
+								toggle={toggleMobileNavbar}
 								setOpened={() => {}}
 							/>
 						) : null}
@@ -653,7 +658,7 @@ export default function Layout() {
 								icon={IconArchive}
 								href={$path("/collections/list")}
 								opened={false}
-								toggle={toggle}
+								toggle={toggleMobileNavbar}
 								setOpened={() => {}}
 							/>
 						) : null}
@@ -661,7 +666,7 @@ export default function Layout() {
 							label="Settings"
 							icon={IconSettings}
 							opened={openedLinkGroups?.settings || false}
-							toggle={toggle}
+							toggle={toggleMobileNavbar}
 							setOpened={(k) =>
 								setOpenedLinkGroups(
 									produce(openedLinkGroups, (draft) => {
@@ -755,8 +760,8 @@ export default function Layout() {
 							</Group>
 						</Link>
 						<Burger
-							opened={opened}
-							onClick={toggle}
+							opened={mobileNavbarOpened}
+							onClick={toggleMobileNavbar}
 							color={theme.colors.gray[6]}
 						/>
 					</Flex>
@@ -851,16 +856,20 @@ const LinksGroup = ({
 						<Box ml="md">{label}</Box>
 					</Box>
 					{hasLinks ? (
-						<ChevronIcon
-							className={classes.chevron}
-							size={16}
-							stroke={1.5}
-							style={{
-								transform: opened
-									? `rotate(${dir === "rtl" ? -90 : 90}deg)`
-									: "none",
-							}}
-						/>
+						<ClientOnly>
+							{() => (
+								<ChevronIcon
+									className={classes.chevron}
+									size={16}
+									stroke={1.5}
+									style={{
+										transform: opened
+											? `rotate(${dir === "rtl" ? -90 : 90}deg)`
+											: "none",
+									}}
+								/>
+							)}
+						</ClientOnly>
 					) : null}
 				</Group>
 			</UnstyledButton>
