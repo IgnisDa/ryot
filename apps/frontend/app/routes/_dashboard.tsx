@@ -56,6 +56,7 @@ import {
 	useLoaderData,
 	useLocation,
 	useNavigate,
+	useRevalidator,
 	useRouteError,
 } from "@remix-run/react";
 import {
@@ -139,6 +140,7 @@ import {
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
+	getCookieValue,
 	getDecodedJwt,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -148,8 +150,10 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { ClientOnly } from "remix-utils/client-only";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
+import Cookies from "js-cookie";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
+const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
@@ -158,6 +162,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		getCachedUserCollectionsList(request),
 		getCachedCoreDetails(),
 	]);
+	const desktopSidebarCollapsed = getCookieValue(
+		request,
+		desktopSidebarCollapsedCookie,
+	);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
@@ -264,6 +272,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userCollections,
 		currentColorScheme,
 		isAccessLinkSession,
+		desktopSidebarCollapsed,
 	};
 };
 
@@ -348,6 +357,7 @@ export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
+	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
@@ -368,12 +378,6 @@ export default function Layout() {
 		},
 		getInitialValueInEffect: true,
 	});
-	const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useLocalStorage(
-		{
-			key: "DesktopSidebarCollapsed",
-			defaultValue: false,
-		},
-	);
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
 	const theme = useMantineTheme();
@@ -575,11 +579,11 @@ export default function Layout() {
 					width: { sm: 220, lg: 250 },
 					collapsed: {
 						mobile: !mobileNavbarOpened,
-						desktop: desktopSidebarCollapsed,
+						desktop: loaderData.desktopSidebarCollapsed === "true",
 					},
 				}}
 			>
-				{desktopSidebarCollapsed ? (
+				{loaderData.desktopSidebarCollapsed ? (
 					<ActionIcon
 						left={0}
 						size="lg"
@@ -588,7 +592,10 @@ export default function Layout() {
 						visibleFrom="sm"
 						variant="default"
 						style={{ zIndex: 20 }}
-						onClick={() => setDesktopSidebarCollapsed(false)}
+						onClick={() => {
+							Cookies.remove(desktopSidebarCollapsedCookie);
+							revalidate();
+						}}
 					>
 						<IconChevronsRight size={30} />
 					</ActionIcon>
@@ -682,7 +689,10 @@ export default function Layout() {
 							color="gray"
 							variant="subtle"
 							leftSection={<IconChevronsLeft />}
-							onClick={() => setDesktopSidebarCollapsed(true)}
+							onClick={() => {
+								Cookies.set(desktopSidebarCollapsedCookie, "true");
+								revalidate();
+							}}
 						>
 							Collapse
 						</Button>
