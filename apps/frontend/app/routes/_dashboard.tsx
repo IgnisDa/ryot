@@ -367,6 +367,10 @@ export default function Layout() {
 		},
 		getInitialValueInEffect: true,
 	});
+	const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage({
+		key: "SidebarCollapsed",
+		defaultValue: false,
+	});
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -399,10 +403,6 @@ export default function Layout() {
 					$path("/media/people/:action", { action: "list" }),
 					$path("/media/groups/:action", { action: "list" }),
 				].includes(location.pathname));
-	const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage({
-		key: "SidebarCollapsed",
-		defaultValue: false,
-	});
 
 	return (
 		<>
@@ -575,11 +575,10 @@ export default function Layout() {
 				{sidebarCollapsed ? (
 					<ActionIcon
 						left={0}
-						size="xl"
+						size="lg"
 						top="50%"
 						pos="fixed"
-						color="violet"
-						variant="light"
+						variant="default"
 						onClick={() => setSidebarCollapsed(false)}
 					>
 						<IconChevronsRight size={30} />
