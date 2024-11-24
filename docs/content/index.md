@@ -50,3 +50,12 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
 If the key is invalid or your subscription has expired, the server will automatically start
 with the community version. Since the two versions are compatible, you can switch between
 them by simply fixing the key and restarting the server.
+
+## Telemetry
+
+Ryot collects anonymous usage data to help me prioritize features. It uses a self-hosted
+[Umami](https://umami.is/) instance to collect this data. In addition to page views, a
+few events are also tracked and you can find them in the [source code](https://github.com/IgnisDa/ryot/blob/6722ceb913a9c2fd67392d5812b76a30036142d1/apps/frontend/app/lib/hooks.ts#L140-L174).
+
+You can opt out of this by setting a configuration parameter as described
+[here](./configuration.md#important-parameters).
