@@ -580,6 +580,7 @@ export default function Layout() {
 						size="lg"
 						top="50%"
 						pos="fixed"
+						visibleFrom="sm"
 						variant="default"
 						onClick={() => setDesktopSidebarCollapsed(false)}
 					>
