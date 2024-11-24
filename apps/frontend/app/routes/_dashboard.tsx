@@ -367,10 +367,12 @@ export default function Layout() {
 		},
 		getInitialValueInEffect: true,
 	});
-	const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage({
-		key: "SidebarCollapsed",
-		defaultValue: false,
-	});
+	const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useLocalStorage(
+		{
+			key: "DesktopSidebarCollapsed",
+			defaultValue: false,
+		},
+	);
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -569,17 +571,17 @@ export default function Layout() {
 				navbar={{
 					breakpoint: "sm",
 					width: { sm: 220, lg: 250 },
-					collapsed: { mobile: !opened, desktop: sidebarCollapsed },
+					collapsed: { mobile: !opened, desktop: desktopSidebarCollapsed },
 				}}
 			>
-				{sidebarCollapsed ? (
+				{desktopSidebarCollapsed ? (
 					<ActionIcon
 						left={0}
 						size="lg"
 						top="50%"
 						pos="fixed"
 						variant="default"
-						onClick={() => setSidebarCollapsed(false)}
+						onClick={() => setDesktopSidebarCollapsed(false)}
 					>
 						<IconChevronsRight size={30} />
 					</ActionIcon>
@@ -673,7 +675,7 @@ export default function Layout() {
 							color="gray"
 							variant="subtle"
 							leftSection={<IconChevronsLeft />}
-							onClick={() => setSidebarCollapsed(true)}
+							onClick={() => setDesktopSidebarCollapsed(true)}
 						>
 							Collapse
 						</Button>
