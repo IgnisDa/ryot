@@ -147,10 +147,10 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import type { LoaderFunctionArgs } from "@remix-run/node";
+import Cookies from "js-cookie";
 import { ClientOnly } from "remix-utils/client-only";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
-import Cookies from "js-cookie";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
