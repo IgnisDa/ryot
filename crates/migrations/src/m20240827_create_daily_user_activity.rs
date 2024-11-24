@@ -52,6 +52,9 @@ pub enum DailyUserActivity {
     TotalCount,
     TotalDuration,
     HourRecords,
+    WorkoutMuscles,
+    WorkoutExercises,
+    WorkoutEquipments,
 }
 
 #[async_trait::async_trait]
@@ -115,6 +118,24 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null()
                             .default(Expr::cust("'[]'")),
+                    )
+                    .col(
+                        ColumnDef::new(DailyUserActivity::WorkoutMuscles)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default(Expr::cust("'{}'")),
+                    )
+                    .col(
+                        ColumnDef::new(DailyUserActivity::WorkoutExercises)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default(Expr::cust("'{}'")),
+                    )
+                    .col(
+                        ColumnDef::new(DailyUserActivity::WorkoutEquipments)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default(Expr::cust("'{}'")),
                     )
                     .foreign_key(
                         ForeignKey::create()
