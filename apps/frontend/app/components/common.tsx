@@ -507,7 +507,7 @@ export const ReviewItemDisplay = (props: {
 				<Group justify="space-between">
 					<Flex align="center" gap="sm">
 						<Avatar color="cyan" radius="xl">
-							{getInitials(props.review.postedBy?.name || "")}{" "}
+							{getInitials(props.review.postedBy?.name || "")}
 						</Avatar>
 						<Box>
 							<Text>{props.review.postedBy?.name}</Text>
