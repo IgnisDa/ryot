@@ -30,7 +30,6 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Exercise::Table)
                     .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
-                    .col(ColumnDef::new(Exercise::Muscles).json_binary().not_null())
                     .col(ColumnDef::new(Exercise::Lot).text().not_null())
                     .col(ColumnDef::new(Exercise::Level).text().not_null())
                     .col(ColumnDef::new(Exercise::Force).text())
@@ -44,6 +43,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(Exercise::Muscles)
+                            .array(ColumnType::Text)
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")

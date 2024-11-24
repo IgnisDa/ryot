@@ -20,6 +20,27 @@ impl MigrationTrait for Migration {
                 .await?;
             }
         }
+        db.execute_unprepared(
+            r#"
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'exercise'
+          AND column_name = 'muscles'
+          AND data_type = 'jsonb'
+    ) THEN
+        ALTER TABLE exercise ADD COLUMN muscles_text_array text[];
+        UPDATE exercise
+        SET muscles_text_array = ARRAY(SELECT jsonb_array_elements_text(muscles));
+        ALTER TABLE exercise DROP COLUMN muscles;
+        ALTER TABLE exercise RENAME COLUMN muscles_text_array TO muscles;
+    END IF;
+END $$;
+        "#,
+        )
+        .await?;
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use async_graphql::Enum;
 use schematic::ConfigEnum;
-use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -209,15 +209,18 @@ pub enum ImportSource {
     Enum,
     Copy,
     Deserialize,
-    FromJsonQueryResult,
+    DeriveActiveEnum,
+    EnumIter,
     Eq,
     PartialEq,
-    EnumIter,
-    PartialOrd,
-    Ord,
     Default,
     ConfigEnum,
     Hash,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {

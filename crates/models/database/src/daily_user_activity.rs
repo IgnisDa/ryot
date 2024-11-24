@@ -48,8 +48,8 @@ pub struct Model {
     pub total_duration: i32,
     #[sea_orm(column_type = "Json")]
     pub hour_records: Vec<DailyUserActivityHourRecord>,
-    pub workout_muscles: Vec<ExerciseMuscle>,
     pub workout_exercises: Vec<String>,
+    pub workout_muscles: Vec<ExerciseMuscle>,
     pub workout_equipments: Vec<ExerciseEquipment>,
 }
 

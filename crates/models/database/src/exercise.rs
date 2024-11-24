@@ -38,7 +38,6 @@ pub struct Model {
     pub equipment: Option<ExerciseEquipment>,
     #[graphql(skip_input)]
     pub source: ExerciseSource,
-    #[sea_orm(column_type = "Json")]
     pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
     #[graphql(skip_input)]
