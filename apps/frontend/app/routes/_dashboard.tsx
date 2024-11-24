@@ -83,6 +83,7 @@ import {
 	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
+	IconChevronsRight,
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
@@ -571,6 +572,19 @@ export default function Layout() {
 					collapsed: { mobile: !opened, desktop: sidebarCollapsed },
 				}}
 			>
+				{sidebarCollapsed ? (
+					<ActionIcon
+						left={0}
+						size="xl"
+						top="50%"
+						pos="fixed"
+						color="violet"
+						variant="light"
+						onClick={() => setSidebarCollapsed(false)}
+					>
+						<IconChevronsRight size={30} />
+					</ActionIcon>
+				) : null}
 				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
 					<Flex justify="end" hiddenFrom="sm">
 						<Burger
@@ -658,8 +672,8 @@ export default function Layout() {
 					<Flex direction="column" justify="center" gap="md">
 						<Button
 							variant="default"
+							onClick={() => setSidebarCollapsed(true)}
 							leftSection={<IconLayoutSidebarLeftCollapse />}
-							onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
 						>
 							Collapse
 						</Button>
