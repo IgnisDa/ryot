@@ -88,6 +88,7 @@ import {
 	IconDeviceTv,
 	IconEyeglass,
 	IconHome2,
+	IconLayoutSidebarLeftCollapse,
 	IconLogout,
 	IconMoodEmpty,
 	IconMoodHappy,
@@ -397,6 +398,10 @@ export default function Layout() {
 					$path("/media/people/:action", { action: "list" }),
 					$path("/media/groups/:action", { action: "list" }),
 				].includes(location.pathname));
+	const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage({
+		key: "SidebarCollapsed",
+		defaultValue: false,
+	});
 
 	return (
 		<>
@@ -561,9 +566,9 @@ export default function Layout() {
 				padding={0}
 				layout="alt"
 				navbar={{
-					width: { sm: 220, lg: 250 },
 					breakpoint: "sm",
-					collapsed: { mobile: !opened },
+					width: { sm: 220, lg: 250 },
+					collapsed: { mobile: !opened, desktop: sidebarCollapsed },
 				}}
 			>
 				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
@@ -651,6 +656,13 @@ export default function Layout() {
 						/>
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
+						<Button
+							variant="default"
+							leftSection={<IconLayoutSidebarLeftCollapse />}
+							onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+						>
+							Collapse
+						</Button>
 						{loaderData.isAccessLinkSession ? (
 							<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
 								<Button leftSection={<IconEyeglass />} disabled>
