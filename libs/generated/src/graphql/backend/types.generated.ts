@@ -655,6 +655,8 @@ export type ExternalIdentifiers = {
 export type FitnessAnalytics = {
   __typename?: 'FitnessAnalytics';
   hours: Array<FitnessAnalyticsHour>;
+  measurementCount: Scalars['Int']['output'];
+  workoutCount: Scalars['Int']['output'];
   workoutDistance: Scalars['Int']['output'];
   workoutEquipments: Array<FitnessAnalyticsEquipment>;
   workoutExercises: Array<FitnessAnalyticsExercise>;

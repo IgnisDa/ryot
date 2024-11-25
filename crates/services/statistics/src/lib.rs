@@ -242,9 +242,11 @@ impl StatisticsService {
         #[sea_orm(entity = "DailyUserActivity")]
         pub struct CustomFitnessAnalytics {
             pub workout_reps: i32,
+            pub workout_count: i32,
             pub workout_weight: i32,
             pub workout_distance: i32,
             pub workout_rest_time: i32,
+            pub measurement_count: i32,
             pub workout_personal_bests: i32,
             pub workout_exercises: Vec<String>,
             pub workout_muscles: Vec<ExerciseMuscle>,
@@ -281,9 +283,11 @@ impl StatisticsService {
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
         let workout_reps = items.iter().map(|i| i.workout_reps).sum();
+        let workout_count = items.iter().map(|i| i.workout_count).sum();
         let workout_weight = items.iter().map(|i| i.workout_weight).sum();
         let workout_distance = items.iter().map(|i| i.workout_distance).sum();
         let workout_rest_time = items.iter().map(|i| i.workout_rest_time).sum();
+        let measurement_count = items.iter().map(|i| i.measurement_count).sum();
         let workout_personal_bests = items.iter().map(|i| i.workout_personal_bests).sum();
         let workout_muscles = items
             .iter()
@@ -321,11 +325,13 @@ impl StatisticsService {
         Ok(FitnessAnalytics {
             hours,
             workout_reps,
+            workout_count,
             workout_weight,
             workout_muscles,
             workout_distance,
             workout_rest_time,
             workout_exercises,
+            measurement_count,
             workout_equipments,
             workout_personal_bests,
         })
