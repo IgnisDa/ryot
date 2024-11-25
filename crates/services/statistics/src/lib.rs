@@ -4,7 +4,7 @@ use async_graphql::Result;
 use common_models::DateRangeInput;
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
-use dependent_models::{DailyUserActivitiesResponse, FitnessAnalytics};
+use dependent_models::{CoreFitnessAnalytics, DailyUserActivitiesResponse, FitnessAnalytics};
 use media_models::{
     DailyUserActivitiesInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
 };
@@ -231,6 +231,18 @@ impl StatisticsService {
         user_id: &String,
         input: DateRangeInput,
     ) -> Result<FitnessAnalytics> {
+        let items = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .apply_if(input.start_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.gte(v))
+            })
+            .apply_if(input.end_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.lte(v))
+            })
+            .into_partial_model::<CoreFitnessAnalytics>()
+            .all(&self.0.db)
+            .await?;
+        dbg!(items);
         todo!()
     }
 }

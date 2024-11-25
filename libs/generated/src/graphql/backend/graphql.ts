@@ -234,6 +234,17 @@ export type CoreDetails = {
   websiteUrl: Scalars['String']['output'];
 };
 
+export type CoreFitnessAnalytics = {
+  workoutDistance: Scalars['Int']['output'];
+  workoutEquipments: Array<ExerciseEquipment>;
+  workoutExercises: Array<Scalars['String']['output']>;
+  workoutMuscles: Array<ExerciseMuscle>;
+  workoutPersonalBests: Scalars['Int']['output'];
+  workoutReps: Scalars['Int']['output'];
+  workoutRestTime: Scalars['Int']['output'];
+  workoutWeight: Scalars['Int']['output'];
+};
+
 export type CreateAccessLinkInput = {
   expiresOn?: InputMaybe<Scalars['DateTime']['input']>;
   isAccountDefault?: InputMaybe<Scalars['Boolean']['input']>;
@@ -651,6 +662,16 @@ export type ExportJob = {
 
 export type ExternalIdentifiers = {
   tvdbId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type FitnessAnalytics = {
+  core: CoreFitnessAnalytics;
+  hours: Array<FitnessAnalyticsHour>;
+};
+
+export type FitnessAnalyticsHour = {
+  count: Scalars['Int']['output'];
+  hour: Scalars['Int']['output'];
 };
 
 export type FrontendConfig = {
@@ -1695,6 +1716,8 @@ export type QueryRoot = {
   exerciseParameters: ExerciseParameters;
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseListResults;
+  /** Get the fitness analytics for the currently logged in user. */
+  fitnessAnalytics: FitnessAnalytics;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
@@ -1791,6 +1814,11 @@ export type QueryRootExerciseDetailsArgs = {
 
 export type QueryRootExercisesListArgs = {
   input: ExercisesListInput;
+};
+
+
+export type QueryRootFitnessAnalyticsArgs = {
+  input: DateRangeInput;
 };
 
 
@@ -3389,6 +3417,13 @@ export type DailyUserActivitiesQueryVariables = Exact<{
 
 export type DailyUserActivitiesQuery = { dailyUserActivities: { groupedBy: DailyUserActivitiesResponseGroupedBy, totalCount: number, totalDuration: number, items: Array<{ day: string, totalReviewCount: number, workoutCount: number, measurementCount: number, audioBookCount: number, animeCount: number, bookCount: number, podcastCount: number, mangaCount: number, showCount: number, movieCount: number, videoGameCount: number, visualNovelCount: number }> } };
 
+export type FitnessAnalyticsQueryVariables = Exact<{
+  input: DateRangeInput;
+}>;
+
+
+export type FitnessAnalyticsQuery = { fitnessAnalytics: { hours: Array<{ hour: number, count: number }>, core: { workoutReps: number, workoutWeight: number, workoutDistance: number, workoutRestTime: number, workoutPersonalBests: number, workoutExercises: Array<string>, workoutMuscles: Array<ExerciseMuscle>, workoutEquipments: Array<ExerciseEquipment> } } };
+
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
 export type SeenShowExtraInformationPartFragment = { episode: number, season: number };
@@ -3531,3 +3566,4 @@ export const MetadataGroupsListDocument = {"kind":"Document","definitions":[{"ki
 export const PeopleListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PeopleList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PeopleListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"peopleList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]} as unknown as DocumentNode<PeopleListQuery, PeopleListQueryVariables>;
 export const UserAccessLinksDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserAccessLinks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userAccessLinks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"isDemo"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"expiresOn"}},{"kind":"Field","name":{"kind":"Name","value":"timesUsed"}},{"kind":"Field","name":{"kind":"Name","value":"isRevoked"}},{"kind":"Field","name":{"kind":"Name","value":"maximumUses"}},{"kind":"Field","name":{"kind":"Name","value":"isAccountDefault"}},{"kind":"Field","name":{"kind":"Name","value":"isMutationAllowed"}}]}}]}}]} as unknown as DocumentNode<UserAccessLinksQuery, UserAccessLinksQueryVariables>;
 export const DailyUserActivitiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DailyUserActivities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DailyUserActivitiesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"dailyUserActivities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"groupedBy"}},{"kind":"Field","name":{"kind":"Name","value":"totalCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalDuration"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"totalReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"workoutCount"}},{"kind":"Field","name":{"kind":"Name","value":"measurementCount"}},{"kind":"Field","name":{"kind":"Name","value":"audioBookCount"}},{"kind":"Field","name":{"kind":"Name","value":"animeCount"}},{"kind":"Field","name":{"kind":"Name","value":"bookCount"}},{"kind":"Field","name":{"kind":"Name","value":"podcastCount"}},{"kind":"Field","name":{"kind":"Name","value":"mangaCount"}},{"kind":"Field","name":{"kind":"Name","value":"showCount"}},{"kind":"Field","name":{"kind":"Name","value":"movieCount"}},{"kind":"Field","name":{"kind":"Name","value":"videoGameCount"}},{"kind":"Field","name":{"kind":"Name","value":"visualNovelCount"}}]}}]}}]}}]} as unknown as DocumentNode<DailyUserActivitiesQuery, DailyUserActivitiesQueryVariables>;
+export const FitnessAnalyticsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"FitnessAnalytics"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateRangeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fitnessAnalytics"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"hours"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"hour"}},{"kind":"Field","name":{"kind":"Name","value":"count"}}]}},{"kind":"Field","name":{"kind":"Name","value":"core"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"workoutReps"}},{"kind":"Field","name":{"kind":"Name","value":"workoutWeight"}},{"kind":"Field","name":{"kind":"Name","value":"workoutDistance"}},{"kind":"Field","name":{"kind":"Name","value":"workoutRestTime"}},{"kind":"Field","name":{"kind":"Name","value":"workoutPersonalBests"}},{"kind":"Field","name":{"kind":"Name","value":"workoutExercises"}},{"kind":"Field","name":{"kind":"Name","value":"workoutMuscles"}},{"kind":"Field","name":{"kind":"Name","value":"workoutEquipments"}}]}}]}}]}}]} as unknown as DocumentNode<FitnessAnalyticsQuery, FitnessAnalyticsQueryVariables>;

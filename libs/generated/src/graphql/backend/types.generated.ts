@@ -219,6 +219,18 @@ export type CoreDetails = {
   websiteUrl: Scalars['String']['output'];
 };
 
+export type CoreFitnessAnalytics = {
+  __typename?: 'CoreFitnessAnalytics';
+  workoutDistance: Scalars['Int']['output'];
+  workoutEquipments: Array<ExerciseEquipment>;
+  workoutExercises: Array<Scalars['String']['output']>;
+  workoutMuscles: Array<ExerciseMuscle>;
+  workoutPersonalBests: Scalars['Int']['output'];
+  workoutReps: Scalars['Int']['output'];
+  workoutRestTime: Scalars['Int']['output'];
+  workoutWeight: Scalars['Int']['output'];
+};
+
 export type CreateAccessLinkInput = {
   expiresOn?: InputMaybe<Scalars['DateTime']['input']>;
   isAccountDefault?: InputMaybe<Scalars['Boolean']['input']>;
@@ -650,6 +662,18 @@ export type ExportJob = {
 export type ExternalIdentifiers = {
   __typename?: 'ExternalIdentifiers';
   tvdbId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type FitnessAnalytics = {
+  __typename?: 'FitnessAnalytics';
+  core: CoreFitnessAnalytics;
+  hours: Array<FitnessAnalyticsHour>;
+};
+
+export type FitnessAnalyticsHour = {
+  __typename?: 'FitnessAnalyticsHour';
+  count: Scalars['Int']['output'];
+  hour: Scalars['Int']['output'];
 };
 
 export type FrontendConfig = {
@@ -1745,6 +1769,8 @@ export type QueryRoot = {
   exerciseParameters: ExerciseParameters;
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseListResults;
+  /** Get the fitness analytics for the currently logged in user. */
+  fitnessAnalytics: FitnessAnalytics;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
@@ -1841,6 +1867,11 @@ export type QueryRootExerciseDetailsArgs = {
 
 export type QueryRootExercisesListArgs = {
   input: ExercisesListInput;
+};
+
+
+export type QueryRootFitnessAnalyticsArgs = {
+  input: DateRangeInput;
 };
 
 

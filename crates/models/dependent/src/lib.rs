@@ -236,7 +236,7 @@ pub struct UserWorkoutTemplateDetails {
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "DailyUserActivity")]
-pub struct FitnessAnalytics {
+pub struct CoreFitnessAnalytics {
     pub workout_reps: i32,
     pub workout_weight: i32,
     pub workout_distance: i32,
@@ -245,5 +245,18 @@ pub struct FitnessAnalytics {
     pub workout_exercises: Vec<String>,
     pub workout_muscles: Vec<ExerciseMuscle>,
     pub workout_equipments: Vec<ExerciseEquipment>,
+    #[graphql(skip)]
     pub hour_records: Vec<DailyUserActivityHourRecord>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize, FromQueryResult)]
+pub struct FitnessAnalyticsHour {
+    pub hour: u32,
+    pub count: u32,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct FitnessAnalytics {
+    pub core: CoreFitnessAnalytics,
+    pub hours: Vec<FitnessAnalyticsHour>,
 }

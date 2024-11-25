@@ -178,3 +178,22 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
 		}
 	}
 }
+
+query FitnessAnalytics($input: DateRangeInput!) {
+  fitnessAnalytics(input: $input) {
+    hours {
+      hour
+      count
+    }
+    core {
+      workoutReps
+      workoutWeight
+      workoutDistance
+      workoutRestTime
+      workoutPersonalBests
+      workoutExercises
+      workoutMuscles
+      workoutEquipments
+    }
+  }
+}
