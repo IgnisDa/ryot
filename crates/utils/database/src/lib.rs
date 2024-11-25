@@ -112,10 +112,10 @@ pub async fn user_measurements_list(
 ) -> Result<Vec<user_measurement::Model>> {
     let resp = UserMeasurement::find()
         .apply_if(input.start_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.lte(v))
+            query.filter(user_measurement::Column::Timestamp.gte(v))
         })
         .apply_if(input.end_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.gte(v))
+            query.filter(user_measurement::Column::Timestamp.lte(v))
         })
         .filter(user_measurement::Column::UserId.eq(user_id))
         .order_by_asc(user_measurement::Column::Timestamp)

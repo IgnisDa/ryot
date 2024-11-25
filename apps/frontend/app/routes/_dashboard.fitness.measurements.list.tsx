@@ -69,15 +69,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
-	const endTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
+	const startTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
 	const [{ userMeasurementsList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
 			UserMeasurementsListDocument,
 			{
 				input: {
-					startTime: now.toISOString(),
-					endTime: endTime?.toISOString(),
+					endTime: now.toISOString(),
+					startTime: startTime?.toISOString(),
 				},
 			},
 		),
