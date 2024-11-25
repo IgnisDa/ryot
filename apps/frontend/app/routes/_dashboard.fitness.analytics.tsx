@@ -3,13 +3,14 @@ import {
 	Button,
 	Container,
 	Flex,
+	Group,
 	Menu,
 	Modal,
+	NumberInput,
 	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
-	Title,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
@@ -134,29 +135,67 @@ export default function Page() {
 						</Menu>
 					</SimpleGrid>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						<ChartContainer title="Muscles used">
-							<PieChart
-								size={250}
-								withLabels
-								withTooltip
-								strokeWidth={0}
-								labelsType="percent"
-								tooltipDataSource="segment"
-								data={loaderData.fitnessAnalytics.workoutMuscles.map(
-									(item) => ({
-										value: item.count,
-										name: changeCase(item.muscle),
-										color: generateColor(getStringAsciiValue(item.muscle)),
-									}),
-								)}
-							/>
-						</ChartContainer>
+						<MusclesChart />
 					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>
 	);
 }
+
+const MusclesChart = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const data = loaderData.fitnessAnalytics.workoutMuscles;
+	const [count, setCount] = useState(data.length > 7 ? 7 : data.length);
+
+	return (
+		<ChartContainer
+			count={count}
+			setCount={setCount}
+			totalItems={data.length}
+			title="Muscles worked out"
+		>
+			<PieChart
+				size={250}
+				withLabels
+				withTooltip
+				strokeWidth={0.5}
+				labelsType="percent"
+				tooltipDataSource="segment"
+				data={data.slice(0, count).map((item) => ({
+					value: item.count,
+					name: changeCase(item.muscle),
+					color: generateColor(getStringAsciiValue(item.muscle)),
+				}))}
+			/>
+		</ChartContainer>
+	);
+};
+
+const ChartContainer = (props: {
+	title: string;
+	count: number;
+	totalItems: number;
+	children: ReactNode;
+	setCount: (count: number) => void;
+}) => (
+	<Paper withBorder p="xs">
+		<Flex align="center" direction="column" gap={{ md: "md" }}>
+			<Group wrap="nowrap" w="100%" gap="xl" justify="center">
+				<Text size="lg">{props.title}</Text>
+				<NumberInput
+					w={60}
+					min={2}
+					size="xs"
+					value={props.count}
+					max={props.totalItems}
+					onChange={(v) => props.setCount(Number(v))}
+				/>
+			</Group>
+			{props.children}
+		</Flex>
+	</Paper>
+);
 
 const CustomDateSelectModal = (props: {
 	opened: boolean;
@@ -198,19 +237,5 @@ const CustomDateSelectModal = (props: {
 				</Button>
 			</Stack>
 		</Modal>
-	);
-};
-
-const ChartContainer = (props: {
-	title: string;
-	children: ReactNode;
-}) => {
-	return (
-		<Paper withBorder p="xs">
-			<Flex align="center" direction="column" gap="md">
-				<Title order={2}>{props.title}</Title>
-				{props.children}
-			</Flex>
-		</Paper>
 	);
 };
