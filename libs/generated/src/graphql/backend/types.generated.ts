@@ -368,6 +368,7 @@ export enum DashboardElementLot {
   Upcoming = 'UPCOMING'
 }
 
+/** The start date must be before the end date. */
 export type DateRangeInput = {
   endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
   startDate?: InputMaybe<Scalars['NaiveDate']['input']>;

@@ -235,6 +235,7 @@ pub struct DailyUserActivityHourRecord {
     pub entities: Vec<DailyUserActivityHourRecordEntity>,
 }
 
+/// The start date must be before the end date.
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct DateRangeInput {
     pub end_date: Option<NaiveDate>,
