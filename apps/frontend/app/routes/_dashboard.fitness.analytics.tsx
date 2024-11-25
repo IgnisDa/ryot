@@ -16,7 +16,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, {});
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const cookieName = await getEnhancedCookieName("fitness.analytics", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	return { query };
