@@ -8,6 +8,7 @@ pub enum ApplicationCache {
     Table,
     Id,
     Key,
+    Value,
     ExpiresAt,
     CreatedAt,
 }
@@ -39,6 +40,7 @@ impl MigrationTrait for Migration {
                             .unique_key(),
                     )
                     .col(ColumnDef::new(ApplicationCache::ExpiresAt).timestamp_with_time_zone())
+                    .col(ColumnDef::new(ApplicationCache::Value).json_binary())
                     .to_owned(),
             )
             .await?;

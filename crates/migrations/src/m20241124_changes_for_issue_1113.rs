@@ -41,6 +41,10 @@ END $$;
         "#,
         )
         .await?;
+        if !manager.has_column("application_cache", "value").await? {
+            db.execute_unprepared(r#"ALTER TABLE "application_cache" ADD COLUMN "value" JSONB;"#)
+                .await?;
+        }
         Ok(())
     }
 
