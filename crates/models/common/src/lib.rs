@@ -2,7 +2,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{meta, Meta};
-use enums::{EntityLot, MediaLot};
+use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle, MediaLot};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
@@ -240,4 +240,59 @@ pub struct DailyUserActivityHourRecord {
 pub struct DateRangeInput {
     pub end_date: Option<NaiveDate>,
     pub start_date: Option<NaiveDate>,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct FitnessAnalyticsExercise {
+    pub count: u32,
+    pub exercise: String,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct FitnessAnalyticsMuscle {
+    pub count: u32,
+    pub muscle: ExerciseMuscle,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct FitnessAnalyticsEquipment {
+    pub count: u32,
+    pub equipment: ExerciseEquipment,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct FitnessAnalyticsHour {
+    pub hour: u32,
+    pub count: u32,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct FitnessAnalytics {
+    pub workout_reps: i32,
+    pub workout_weight: i32,
+    pub workout_count: i32,
+    pub workout_distance: i32,
+    pub workout_rest_time: i32,
+    pub measurement_count: i32,
+    pub workout_personal_bests: i32,
+    pub hours: Vec<FitnessAnalyticsHour>,
+    pub workout_muscles: Vec<FitnessAnalyticsMuscle>,
+    pub workout_exercises: Vec<FitnessAnalyticsExercise>,
+    pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
+pub enum ApplicationCacheValue {
+    FitnessAnalytics(FitnessAnalytics),
 }

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::DateRangeInput;
-use dependent_models::{DailyUserActivitiesResponse, FitnessAnalytics};
+use common_models::{DateRangeInput, FitnessAnalytics};
+use dependent_models::DailyUserActivitiesResponse;
 use media_models::{DailyUserActivitiesInput, DailyUserActivityItem};
 use statistics_service::StatisticsService;
 use traits::AuthProvider;

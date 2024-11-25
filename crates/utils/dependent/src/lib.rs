@@ -1479,7 +1479,7 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(cache, ss.config.server.progress_update_threshold)
+            .set_with_expiry(cache, ss.config.server.progress_update_threshold, None)
             .await?;
     }
     if seen.state == SeenState::Completed {

@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use chrono::{Duration, Utc};
-use common_models::ApplicationCacheKey;
+use common_models::{ApplicationCacheKey, ApplicationCacheValue};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
@@ -22,18 +22,21 @@ impl CacheService {
         &self,
         key: ApplicationCacheKey,
         expiry_hours: i64,
+        value: Option<ApplicationCacheValue>,
     ) -> Result<Uuid> {
         let now = Utc::now();
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
+            value: ActiveValue::Set(value),
             created_at: ActiveValue::Set(now),
+            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
             .on_conflict(
                 OnConflict::column(application_cache::Column::Key)
                     .update_columns([
+                        application_cache::Column::Value,
                         application_cache::Column::ExpiresAt,
                         application_cache::Column::CreatedAt,
                     ])
@@ -46,7 +49,7 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get(&self, key: ApplicationCacheKey) -> Result<Option<()>> {
+    pub async fn get(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
         let cache = ApplicationCache::find()
             .filter(application_cache::Column::Key.eq(key))
             .one(&self.db)
@@ -57,7 +60,7 @@ impl CacheService {
                     .expires_at
                     .map_or(false, |expires_at| expires_at > Utc::now())
             })
-            .map(|_| ()))
+            .and_then(|m| m.value))
     }
 
     pub async fn delete(&self, key: ApplicationCacheKey) -> Result<bool> {

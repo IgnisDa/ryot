@@ -5,7 +5,7 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::{ExerciseEquipment, ExerciseMuscle, UserToMediaReason};
+use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
@@ -17,7 +17,6 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -232,43 +231,4 @@ pub struct DailyUserActivitiesResponse {
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
     pub collections: Vec<collection::Model>,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
-pub struct FitnessAnalyticsExercise {
-    pub count: u32,
-    pub exercise: String,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
-pub struct FitnessAnalyticsMuscle {
-    pub count: u32,
-    pub muscle: ExerciseMuscle,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
-pub struct FitnessAnalyticsEquipment {
-    pub count: u32,
-    pub equipment: ExerciseEquipment,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize, FromQueryResult)]
-pub struct FitnessAnalyticsHour {
-    pub hour: u32,
-    pub count: u32,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
-pub struct FitnessAnalytics {
-    pub workout_reps: i32,
-    pub workout_weight: i32,
-    pub workout_count: i32,
-    pub workout_distance: i32,
-    pub workout_rest_time: i32,
-    pub measurement_count: i32,
-    pub workout_personal_bests: i32,
-    pub hours: Vec<FitnessAnalyticsHour>,
-    pub workout_muscles: Vec<FitnessAnalyticsMuscle>,
-    pub workout_exercises: Vec<FitnessAnalyticsExercise>,
-    pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
 }

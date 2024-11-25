@@ -1733,7 +1733,6 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "schematic",
- "sea-orm",
  "serde",
  "serde_with 3.11.0",
 ]

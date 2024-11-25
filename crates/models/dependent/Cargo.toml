@@ -14,6 +14,5 @@ media-models = { path = "../media" }
 fitness-models = { path = "../fitness" }
 rust_decimal = { workspace = true }
 schematic = { workspace = true }
-sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }

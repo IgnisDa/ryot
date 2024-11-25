@@ -1,13 +1,13 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
-use common_models::{DailyUserActivityHourRecord, DateRangeInput};
-use database_models::{daily_user_activity, prelude::DailyUserActivity};
-use database_utils::calculate_user_activities_and_summary;
-use dependent_models::{
-    DailyUserActivitiesResponse, FitnessAnalytics, FitnessAnalyticsEquipment,
+use common_models::{
+    DailyUserActivityHourRecord, DateRangeInput, FitnessAnalytics, FitnessAnalyticsEquipment,
     FitnessAnalyticsExercise, FitnessAnalyticsHour, FitnessAnalyticsMuscle,
 };
+use database_models::{daily_user_activity, prelude::DailyUserActivity};
+use database_utils::calculate_user_activities_and_summary;
+use dependent_models::DailyUserActivitiesResponse;
 use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
