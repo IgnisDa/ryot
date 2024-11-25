@@ -1,10 +1,15 @@
-use std::{fmt::Write, sync::Arc};
+use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::DateRangeInput;
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
-use dependent_models::{CoreFitnessAnalytics, DailyUserActivitiesResponse, FitnessAnalytics};
+use dependent_models::{
+    CoreFitnessAnalytics, DailyUserActivitiesResponse, FitnessAnalytics, FitnessAnalyticsHour,
+};
+use enums::EntityLot;
+use hashbag::HashBag;
+use itertools::Itertools;
 use media_models::{
     DailyUserActivitiesInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
 };
@@ -242,7 +247,24 @@ impl StatisticsService {
             .into_partial_model::<CoreFitnessAnalytics>()
             .all(&self.0.db)
             .await?;
-        dbg!(items);
+        let mut hours_bag = HashBag::new();
+        items.iter().for_each(|i| {
+            for record in i.hour_records.iter() {
+                for entity in record.entities.iter() {
+                    if entity.entity_lot == EntityLot::Workout {
+                        hours_bag.insert(record.hour);
+                    }
+                }
+            }
+        });
+        let hours = hours_bag
+            .into_iter()
+            .map(|(hour, count)| FitnessAnalyticsHour {
+                hour,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
         todo!()
     }
 }
