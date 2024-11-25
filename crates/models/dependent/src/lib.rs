@@ -1,11 +1,11 @@
 use async_graphql::{InputObject, OutputType, SimpleObject, Union};
-use common_models::{BackendError, SearchDetails};
+use common_models::{BackendError, DailyUserActivityHourRecord, SearchDetails};
 use config::FrontendConfig;
 use database_models::{
-    collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
-    user_to_entity, workout, workout_template,
+    collection, exercise, metadata, metadata_group, person, prelude::DailyUserActivity, seen, user,
+    user_measurement, user_to_entity, workout, workout_template,
 };
-use enums::UserToMediaReason;
+use enums::{ExerciseEquipment, ExerciseMuscle, UserToMediaReason};
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
@@ -17,6 +17,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
+use sea_orm::{DerivePartialModel, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -231,4 +232,18 @@ pub struct DailyUserActivitiesResponse {
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
     pub collections: Vec<collection::Model>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize, DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "DailyUserActivity")]
+pub struct FitnessAnalytics {
+    pub workout_reps: i32,
+    pub workout_weight: i32,
+    pub workout_distance: i32,
+    pub workout_rest_time: i32,
+    pub workout_personal_bests: i32,
+    pub workout_exercises: Vec<String>,
+    pub workout_muscles: Vec<ExerciseMuscle>,
+    pub workout_equipments: Vec<ExerciseEquipment>,
+    pub hour_records: Vec<DailyUserActivityHourRecord>,
 }
