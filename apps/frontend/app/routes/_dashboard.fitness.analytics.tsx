@@ -1,23 +1,27 @@
+import { PieChart } from "@mantine/charts";
 import {
 	Button,
 	Container,
+	Flex,
 	Menu,
 	Modal,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
+	Title,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { formatDateToNaiveDate } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, generateColor, getStringAsciiValue } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -27,13 +31,13 @@ import {
 
 const TIME_RANGES = [
 	"Yesterday",
-	"This Week",
-	"This Month",
-	"This Year",
 	"Past 7 Days",
 	"Past 30 Days",
 	"Past 6 Months",
 	"Past 12 Months",
+	"This Week",
+	"This Month",
+	"This Year",
 	"Custom",
 ] as const;
 
@@ -129,7 +133,27 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</SimpleGrid>
-					{JSON.stringify(loaderData.fitnessAnalytics, null, 4)}
+					<SimpleGrid cols={{ base: 1, md: 2 }}>
+						<Paper withBorder p="xs">
+							<Flex align="center" direction="column" gap="md">
+								<Title order={2}>Muscles used</Title>
+								<PieChart
+									size={250}
+									withLabels
+									withTooltip
+									labelsType="percent"
+									tooltipDataSource="segment"
+									data={loaderData.fitnessAnalytics.workoutMuscles.map(
+										(item) => ({
+											value: item.count,
+											name: changeCase(item.muscle),
+											color: generateColor(getStringAsciiValue(item.muscle)),
+										}),
+									)}
+								/>
+							</Flex>
+						</Paper>
+					</SimpleGrid>
 				</Stack>
 			</Container>
 		</>
