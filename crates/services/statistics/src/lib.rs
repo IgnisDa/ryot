@@ -1,9 +1,10 @@
 use std::{fmt::Write, sync::Arc};
 
 use async_graphql::Result;
+use common_models::DateRangeInput;
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
-use dependent_models::DailyUserActivitiesResponse;
+use dependent_models::{DailyUserActivitiesResponse, FitnessAnalytics};
 use media_models::{
     DailyUserActivitiesInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
 };
@@ -223,5 +224,13 @@ impl StatisticsService {
         calculate_from_beginning: bool,
     ) -> Result<()> {
         calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+    }
+
+    pub async fn fitness_analytics(
+        &self,
+        user_id: &String,
+        input: DateRangeInput,
+    ) -> Result<FitnessAnalytics> {
+        todo!()
     }
 }

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use dependent_models::DailyUserActivitiesResponse;
+use common_models::DateRangeInput;
+use dependent_models::{DailyUserActivitiesResponse, FitnessAnalytics};
 use media_models::{DailyUserActivitiesInput, DailyUserActivityItem};
 use statistics_service::StatisticsService;
 use traits::AuthProvider;
@@ -29,5 +30,16 @@ impl StatisticsQuery {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
+    }
+
+    /// Get the fitness analytics for the currently logged in user.
+    async fn fitness_analytics(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: DateRangeInput,
+    ) -> Result<FitnessAnalytics> {
+        let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.fitness_analytics(&user_id, input).await
     }
 }
