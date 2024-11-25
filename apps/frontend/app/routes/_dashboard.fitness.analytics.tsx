@@ -41,6 +41,7 @@ const TIME_RANGES = [
 	"This Week",
 	"This Month",
 	"This Year",
+	"All Time",
 	"Custom",
 ] as const;
 
@@ -62,6 +63,7 @@ const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
 		.with("Past 30 Days", () => dayjsLib().subtract(30, "day"))
 		.with("Past 6 Months", () => dayjsLib().subtract(6, "month"))
 		.with("Past 12 Months", () => dayjsLib().subtract(12, "month"))
+		.with("All Time", () => dayjsLib().subtract(2000, "year"))
 		.with("Custom", () => undefined)
 		.exhaustive();
 
