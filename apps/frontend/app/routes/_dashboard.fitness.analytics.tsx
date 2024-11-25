@@ -10,6 +10,7 @@ import {
 import { DatePicker } from "@mantine/dates";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
 import { useState } from "react";
@@ -21,6 +22,7 @@ import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const TIME_RANGES = [
@@ -64,7 +66,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const startDate =
 		query.startDate || formatDateToNaiveDate(getStartTime(range) || new Date());
 	const endDate = query.endDate || formatDateToNaiveDate(dayjsLib());
-	return { range, startDate, endDate, cookieName };
+	console.log(startDate, endDate);
+	const { fitnessAnalytics } = await serverGqlService.authenticatedRequest(
+		request,
+		FitnessAnalyticsDocument,
+		{ input: { startDate, endDate } },
+	);
+	return { range, startDate, endDate, cookieName, fitnessAnalytics };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -121,6 +129,7 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</SimpleGrid>
+					{JSON.stringify(loaderData.fitnessAnalytics, null, 4)}
 				</Stack>
 			</Container>
 		</>
