@@ -662,7 +662,7 @@ const ActivitySection = () => {
 		queryFn: async () => {
 			const { dailyUserActivities } = await clientGqlService.request(
 				DailyUserActivitiesDocument,
-				{ input: { startDate, endDate } },
+				{ input: { dateRange: { startDate, endDate } } },
 			);
 			const trackSeries = mapValues(MediaColors, () => false);
 			const data = dailyUserActivities.items.map((d) => {
