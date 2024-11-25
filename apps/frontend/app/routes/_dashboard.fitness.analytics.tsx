@@ -33,6 +33,8 @@ const TIME_RANGES = [
 ] as const;
 
 const searchParamsSchema = z.object({
+	startDate: z.string().optional(),
+	endDate: z.string().optional(),
 	range: z.enum(TIME_RANGES).optional(),
 });
 
@@ -51,12 +53,13 @@ const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
 		.exhaustive();
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
+	const range = query.range ?? "Past 30 Days";
 	const cookieName = await getEnhancedCookieName("fitness.analytics", request);
-	let { range } = zx.parseQuery(request, searchParamsSchema);
-	range = range ?? "Past 30 Days";
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const startDate = formatDateToNaiveDate(getStartTime(range));
-	const endDate = formatDateToNaiveDate(dayjsLib());
+	const startDate =
+		query.startDate || formatDateToNaiveDate(getStartTime(range));
+	const endDate = query.endDate || formatDateToNaiveDate(dayjsLib());
 	return { range, startDate, endDate, cookieName };
 };
 
