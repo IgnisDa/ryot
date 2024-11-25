@@ -2351,6 +2351,7 @@ export type UserFitnessExercisesPreferences = {
 
 export type UserFitnessFeaturesEnabledPreferences = {
   __typename?: 'UserFitnessFeaturesEnabledPreferences';
+  analytics: Scalars['Boolean']['output'];
   enabled: Scalars['Boolean']['output'];
   measurements: Scalars['Boolean']['output'];
   templates: Scalars['Boolean']['output'];

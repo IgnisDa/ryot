@@ -87,6 +87,8 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     pub workouts: bool,
     #[educe(Default = true)]
     pub templates: bool,
+    #[educe(Default = true)]
+    pub analytics: bool,
 }
 
 #[derive(

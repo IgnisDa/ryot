@@ -632,6 +632,10 @@ impl UserService {
                                     preferences.features_enabled.fitness.templates =
                                         value_bool.unwrap()
                                 }
+                                "analytics" => {
+                                    preferences.features_enabled.fitness.analytics =
+                                        value_bool.unwrap()
+                                }
                                 _ => return Err(err()),
                             },
                             "media" => {

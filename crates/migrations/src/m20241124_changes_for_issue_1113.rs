@@ -45,6 +45,10 @@ END $$;
             db.execute_unprepared(r#"ALTER TABLE "application_cache" ADD COLUMN "value" JSONB;"#)
                 .await?;
         }
+        db.execute_unprepared(r#"
+UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fitness,analytics}', 'true');
+            "#)
+                .await?;
         Ok(())
     }
 

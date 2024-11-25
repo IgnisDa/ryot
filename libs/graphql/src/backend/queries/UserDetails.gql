@@ -84,6 +84,7 @@ query UserDetails {
 						enabled
 						workouts
 						templates
+						analytics
 						measurements
 					}
 					media {
