@@ -215,7 +215,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => v !== "enabled")
+			.filter(([v, _]) => !["enabled", "analytics"].includes(v))
 			.map(([name, enabled]) => ({ name, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -223,10 +223,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				href: joinURL("/fitness", f.name, "list"),
 			})) || []),
 		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-	].map((link) => ({
-		label: link.label,
-		link: link.href,
-	}));
+		userPreferences.featuresEnabled.fitness.analytics
+			? { label: "Analytics", href: $path("/fitness/analytics") }
+			: undefined,
+	]
+		.filter((link) => link !== undefined)
+		.map((link) => ({ label: link.label, link: link.href }));
 
 	const settingsLinks = [
 		{ label: "Preferences", link: $path("/settings/preferences") },
