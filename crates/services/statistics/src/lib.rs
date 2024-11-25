@@ -2,8 +2,9 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    DailyUserActivityHourRecord, DateRangeInput, FitnessAnalytics, FitnessAnalyticsEquipment,
-    FitnessAnalyticsExercise, FitnessAnalyticsHour, FitnessAnalyticsMuscle,
+    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivityHourRecord, DateRangeInput,
+    FitnessAnalytics, FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
+    FitnessAnalyticsMuscle,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
@@ -238,6 +239,15 @@ impl StatisticsService {
         user_id: &String,
         input: DateRangeInput,
     ) -> Result<FitnessAnalytics> {
+        let cache_key = ApplicationCacheKey::FitnessAnalytics {
+            date_range: input.clone(),
+            user_id: user_id.to_owned(),
+        };
+        if let Some(ApplicationCacheValue::FitnessAnalytics(cached)) =
+            self.0.cache_service.get(cache_key.clone()).await?
+        {
+            return Ok(cached);
+        }
         #[derive(Debug, DerivePartialModel, FromQueryResult)]
         #[sea_orm(entity = "DailyUserActivity")]
         pub struct CustomFitnessAnalytics {
@@ -322,7 +332,7 @@ impl StatisticsService {
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        Ok(FitnessAnalytics {
+        let response = FitnessAnalytics {
             hours,
             workout_reps,
             workout_count,
@@ -334,6 +344,15 @@ impl StatisticsService {
             measurement_count,
             workout_equipments,
             workout_personal_bests,
-        })
+        };
+        self.0
+            .cache_service
+            .set_with_expiry(
+                cache_key,
+                2,
+                Some(ApplicationCacheValue::FitnessAnalytics(response.clone())),
+            )
+            .await?;
+        Ok(response)
     }
 }

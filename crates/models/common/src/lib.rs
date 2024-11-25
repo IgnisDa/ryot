@@ -215,6 +215,10 @@ pub enum ApplicationCacheKey {
         manga_chapter_number: Option<Decimal>,
         manga_volume_number: Option<i32>,
     },
+    FitnessAnalytics {
+        user_id: String,
+        date_range: DateRangeInput,
+    },
 }
 
 #[derive(
@@ -236,7 +240,7 @@ pub struct DailyUserActivityHourRecord {
 }
 
 /// The start date must be before the end date.
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, Eq, PartialEq)]
 pub struct DateRangeInput {
     pub end_date: Option<NaiveDate>,
     pub start_date: Option<NaiveDate>,
