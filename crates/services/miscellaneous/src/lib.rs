@@ -856,10 +856,10 @@ ORDER BY RANDOM() LIMIT 10;
                             .into(),
                     )
                     .order_by_asc(calendar_event::Column::Date)
-                    .apply_if(end_date, |q, v| {
+                    .apply_if(start_date, |q, v| {
                         q.filter(calendar_event::Column::Date.gte(v))
                     })
-                    .apply_if(start_date, |q, v| {
+                    .apply_if(end_date, |q, v| {
                         q.filter(calendar_event::Column::Date.lte(v))
                     })
                     .limit(media_limit)
@@ -920,7 +920,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
+        let (start_date, end_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
             .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None, None)
             .await?;
@@ -941,11 +941,11 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let from_date = Utc::now().date_naive();
-        let (media_limit, to_date) = match input {
+        let start_date = Utc::now().date_naive();
+        let (media_limit, end_date) = match input {
             UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
             UserUpcomingCalendarEventInput::NextDays(d) => {
-                (None, from_date.checked_add_days(Days::new(d)))
+                (None, start_date.checked_add_days(Days::new(d)))
             }
         };
         let preferences = user_by_id(&user_id, &self.0).await?.preferences.general;
@@ -957,8 +957,8 @@ ORDER BY RANDOM() LIMIT 10;
             .get_calendar_events(
                 user_id,
                 true,
-                to_date,
-                Some(from_date),
+                Some(start_date),
+                end_date,
                 media_limit,
                 element.and_then(|e| e.deduplicate_media),
             )
