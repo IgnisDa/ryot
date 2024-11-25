@@ -1,4 +1,4 @@
-import { PieChart } from "@mantine/charts";
+import { BarChart, PieChart } from "@mantine/charts";
 import {
 	Button,
 	Container,
@@ -140,6 +140,7 @@ export default function Page() {
 					</SimpleGrid>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
 						<MusclesChart />
+						<ExercisesChart />
 					</SimpleGrid>
 				</Stack>
 			</Container>
@@ -179,6 +180,38 @@ const MusclesChart = () => {
 	);
 };
 
+const ExercisesChart = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const data = loaderData.fitnessAnalytics.workoutExercises;
+	const [count, setCount] = useLocalStorage(
+		"FitnessAnalyticsExercisesChartCount",
+		data.length > 7 ? 7 : data.length,
+	);
+
+	return (
+		<ChartContainer
+			count={count}
+			setCount={setCount}
+			title="Exercises done"
+			totalItems={data.length}
+		>
+			<BarChart
+				h={300}
+				withTooltip
+				dataKey="name"
+				tickLine="none"
+				gridAxis="none"
+				tooltipAnimationDuration={500}
+				series={[{ name: "value", label: "Times done", color: "teal" }]}
+				data={data.slice(0, count).map((item) => ({
+					value: item.count,
+					name: changeCase(item.exercise),
+				}))}
+			/>
+		</ChartContainer>
+	);
+};
+
 const ChartContainer = (props: {
 	title: string;
 	count: number;
@@ -189,7 +222,7 @@ const ChartContainer = (props: {
 	<ClientOnly>
 		{() => (
 			<Paper withBorder p="xs">
-				<Flex align="center" direction="column" gap={{ md: "md" }}>
+				<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
 					<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 						<Text size="lg">{props.title}</Text>
 						<NumberInput
