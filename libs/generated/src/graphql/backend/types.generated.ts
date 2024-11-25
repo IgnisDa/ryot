@@ -219,18 +219,6 @@ export type CoreDetails = {
   websiteUrl: Scalars['String']['output'];
 };
 
-export type CoreFitnessAnalytics = {
-  __typename?: 'CoreFitnessAnalytics';
-  workoutDistance: Scalars['Int']['output'];
-  workoutEquipments: Array<ExerciseEquipment>;
-  workoutExercises: Array<Scalars['String']['output']>;
-  workoutMuscles: Array<ExerciseMuscle>;
-  workoutPersonalBests: Scalars['Int']['output'];
-  workoutReps: Scalars['Int']['output'];
-  workoutRestTime: Scalars['Int']['output'];
-  workoutWeight: Scalars['Int']['output'];
-};
-
 export type CreateAccessLinkInput = {
   expiresOn?: InputMaybe<Scalars['DateTime']['input']>;
   isAccountDefault?: InputMaybe<Scalars['Boolean']['input']>;
@@ -666,14 +654,39 @@ export type ExternalIdentifiers = {
 
 export type FitnessAnalytics = {
   __typename?: 'FitnessAnalytics';
-  core: CoreFitnessAnalytics;
   hours: Array<FitnessAnalyticsHour>;
+  workoutDistance: Scalars['Int']['output'];
+  workoutEquipments: Array<FitnessAnalyticsEquipment>;
+  workoutExercises: Array<FitnessAnalyticsExercise>;
+  workoutMuscles: Array<FitnessAnalyticsMuscle>;
+  workoutPersonalBests: Scalars['Int']['output'];
+  workoutReps: Scalars['Int']['output'];
+  workoutRestTime: Scalars['Int']['output'];
+  workoutWeight: Scalars['Int']['output'];
+};
+
+export type FitnessAnalyticsEquipment = {
+  __typename?: 'FitnessAnalyticsEquipment';
+  count: Scalars['Int']['output'];
+  equipment: ExerciseEquipment;
+};
+
+export type FitnessAnalyticsExercise = {
+  __typename?: 'FitnessAnalyticsExercise';
+  count: Scalars['Int']['output'];
+  exercise: Scalars['String']['output'];
 };
 
 export type FitnessAnalyticsHour = {
   __typename?: 'FitnessAnalyticsHour';
   count: Scalars['Int']['output'];
   hour: Scalars['Int']['output'];
+};
+
+export type FitnessAnalyticsMuscle = {
+  __typename?: 'FitnessAnalyticsMuscle';
+  count: Scalars['Int']['output'];
+  muscle: ExerciseMuscle;
 };
 
 export type FrontendConfig = {

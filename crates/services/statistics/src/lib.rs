@@ -1,13 +1,14 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
-use common_models::DateRangeInput;
+use common_models::{DailyUserActivityHourRecord, DateRangeInput};
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
 use dependent_models::{
-    CoreFitnessAnalytics, DailyUserActivitiesResponse, FitnessAnalytics, FitnessAnalyticsHour,
+    DailyUserActivitiesResponse, FitnessAnalytics, FitnessAnalyticsEquipment,
+    FitnessAnalyticsExercise, FitnessAnalyticsHour, FitnessAnalyticsMuscle,
 };
-use enums::EntityLot;
+use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
@@ -16,7 +17,8 @@ use media_models::{
 use sea_orm::{
     prelude::Expr,
     sea_query::{Alias, Func},
-    ColumnTrait, EntityTrait, Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait,
 };
 use supporting_service::SupportingService;
 
@@ -236,6 +238,19 @@ impl StatisticsService {
         user_id: &String,
         input: DateRangeInput,
     ) -> Result<FitnessAnalytics> {
+        #[derive(Debug, DerivePartialModel, FromQueryResult)]
+        #[sea_orm(entity = "DailyUserActivity")]
+        pub struct CustomFitnessAnalytics {
+            pub workout_reps: i32,
+            pub workout_weight: i32,
+            pub workout_distance: i32,
+            pub workout_rest_time: i32,
+            pub workout_personal_bests: i32,
+            pub workout_exercises: Vec<String>,
+            pub workout_muscles: Vec<ExerciseMuscle>,
+            pub workout_equipments: Vec<ExerciseEquipment>,
+            pub hour_records: Vec<DailyUserActivityHourRecord>,
+        }
         let items = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .apply_if(input.start_date, |query, v| {
@@ -244,7 +259,7 @@ impl StatisticsService {
             .apply_if(input.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
-            .into_partial_model::<CoreFitnessAnalytics>()
+            .into_partial_model::<CustomFitnessAnalytics>()
             .all(&self.0.db)
             .await?;
         let mut hours_bag = HashBag::new();
@@ -265,6 +280,54 @@ impl StatisticsService {
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        todo!()
+        let workout_reps = items.iter().map(|i| i.workout_reps).sum();
+        let workout_weight = items.iter().map(|i| i.workout_weight).sum();
+        let workout_distance = items.iter().map(|i| i.workout_distance).sum();
+        let workout_rest_time = items.iter().map(|i| i.workout_rest_time).sum();
+        let workout_personal_bests = items.iter().map(|i| i.workout_personal_bests).sum();
+        let workout_muscles = items
+            .iter()
+            .flat_map(|i| i.workout_muscles.clone())
+            .collect::<HashBag<ExerciseMuscle>>()
+            .into_iter()
+            .map(|(muscle, count)| FitnessAnalyticsMuscle {
+                muscle,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let workout_exercises = items
+            .iter()
+            .flat_map(|i| i.workout_exercises.clone())
+            .collect::<HashBag<String>>()
+            .into_iter()
+            .map(|(exercise_id, count)| FitnessAnalyticsExercise {
+                exercise: exercise_id,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let workout_equipments = items
+            .iter()
+            .flat_map(|i| i.workout_equipments.clone())
+            .collect::<HashBag<ExerciseEquipment>>()
+            .into_iter()
+            .map(|(equipment, count)| FitnessAnalyticsEquipment {
+                equipment,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        Ok(FitnessAnalytics {
+            hours,
+            workout_reps,
+            workout_weight,
+            workout_muscles,
+            workout_distance,
+            workout_rest_time,
+            workout_exercises,
+            workout_equipments,
+            workout_personal_bests,
+        })
     }
 }

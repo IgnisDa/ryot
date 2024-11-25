@@ -181,19 +181,26 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
 
 query FitnessAnalytics($input: DateRangeInput!) {
   fitnessAnalytics(input: $input) {
+    workoutReps
+    workoutWeight
+    workoutDistance
+    workoutRestTime
+    workoutPersonalBests
     hours {
       hour
       count
     }
-    core {
-      workoutReps
-      workoutWeight
-      workoutDistance
-      workoutRestTime
-      workoutPersonalBests
-      workoutExercises
-      workoutMuscles
-      workoutEquipments
+    workoutExercises {
+      count
+      exercise
+    }
+    workoutMuscles {
+      count
+      muscle
+    }
+    workoutEquipments {
+      count
+      equipment
     }
   }
 }

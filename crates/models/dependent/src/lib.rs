@@ -1,9 +1,9 @@
 use async_graphql::{InputObject, OutputType, SimpleObject, Union};
-use common_models::{BackendError, DailyUserActivityHourRecord, SearchDetails};
+use common_models::{BackendError, SearchDetails};
 use config::FrontendConfig;
 use database_models::{
-    collection, exercise, metadata, metadata_group, person, prelude::DailyUserActivity, seen, user,
-    user_measurement, user_to_entity, workout, workout_template,
+    collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
+    user_to_entity, workout, workout_template,
 };
 use enums::{ExerciseEquipment, ExerciseMuscle, UserToMediaReason};
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
@@ -17,7 +17,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{DerivePartialModel, FromQueryResult};
+use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -234,19 +234,22 @@ pub struct UserWorkoutTemplateDetails {
     pub collections: Vec<collection::Model>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, DerivePartialModel, FromQueryResult)]
-#[sea_orm(entity = "DailyUserActivity")]
-pub struct CoreFitnessAnalytics {
-    pub workout_reps: i32,
-    pub workout_weight: i32,
-    pub workout_distance: i32,
-    pub workout_rest_time: i32,
-    pub workout_personal_bests: i32,
-    pub workout_exercises: Vec<String>,
-    pub workout_muscles: Vec<ExerciseMuscle>,
-    pub workout_equipments: Vec<ExerciseEquipment>,
-    #[graphql(skip)]
-    pub hour_records: Vec<DailyUserActivityHourRecord>,
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct FitnessAnalyticsExercise {
+    pub count: u32,
+    pub exercise: String,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct FitnessAnalyticsMuscle {
+    pub count: u32,
+    pub muscle: ExerciseMuscle,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct FitnessAnalyticsEquipment {
+    pub count: u32,
+    pub equipment: ExerciseEquipment,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, FromQueryResult)]
@@ -257,6 +260,13 @@ pub struct FitnessAnalyticsHour {
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct FitnessAnalytics {
-    pub core: CoreFitnessAnalytics,
+    pub workout_reps: i32,
+    pub workout_weight: i32,
+    pub workout_distance: i32,
+    pub workout_rest_time: i32,
+    pub workout_personal_bests: i32,
     pub hours: Vec<FitnessAnalyticsHour>,
+    pub workout_muscles: Vec<FitnessAnalyticsMuscle>,
+    pub workout_exercises: Vec<FitnessAnalyticsExercise>,
+    pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
 }
