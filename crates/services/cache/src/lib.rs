@@ -60,7 +60,8 @@ impl CacheService {
                     .expires_at
                     .map_or(false, |expires_at| expires_at > Utc::now())
             })
-            .and_then(|m| m.value))
+            .and_then(|m| m.value)
+            .inspect(|key| ryot_log!(debug, "Found application cache with key = {key:?}")))
     }
 
     pub async fn delete(&self, key: ApplicationCacheKey) -> Result<bool> {
