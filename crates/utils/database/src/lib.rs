@@ -828,8 +828,10 @@ pub async fn calculate_user_activities_and_summary(
             .one(db)
             .await?
         {
+            ryot_log!(debug, "Deleting activity = {:#?}", activity.date);
             entity.delete(db).await?;
         }
+        ryot_log!(debug, "Inserting activity = {:#?}", activity.date);
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
             + activity.metadata_group_review_count
