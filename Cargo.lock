@@ -1327,6 +1327,7 @@ name = "common-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "chrono",
  "educe",
  "enum_meta",
  "enums",

@@ -31,10 +31,10 @@ impl StatisticsService {
         }
         let precondition = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .apply_if(input.end_date, |query, v| {
+            .apply_if(input.date_range.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
-            .apply_if(input.start_date, |query, v| {
+            .apply_if(input.date_range.start_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
             .select_only();

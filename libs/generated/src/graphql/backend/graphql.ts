@@ -318,9 +318,8 @@ export type CreateUserNotificationPlatformInput = {
 };
 
 export type DailyUserActivitiesInput = {
-  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  dateRange: DateRangeInput;
   groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
-  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
 
 export type DailyUserActivitiesResponse = {
@@ -381,6 +380,11 @@ export enum DashboardElementLot {
   Summary = 'SUMMARY',
   Upcoming = 'UPCOMING'
 }
+
+export type DateRangeInput = {
+  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+};
 
 export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];

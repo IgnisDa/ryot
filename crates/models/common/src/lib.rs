@@ -1,4 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
+use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{meta, Meta};
 use enums::{EntityLot, MediaLot};
@@ -232,4 +233,10 @@ pub struct DailyUserActivityHourRecord {
     // DEV: The hour in UTC time
     pub hour: u32,
     pub entities: Vec<DailyUserActivityHourRecordEntity>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+pub struct DateRangeInput {
+    pub end_date: Option<NaiveDate>,
+    pub start_date: Option<NaiveDate>,
 }

@@ -4,7 +4,8 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
+    CollectionExtraInformation, DateRangeInput, IdAndNamedObject, SearchInput, StoredUrl,
+    StringIdObject,
 };
 use common_utils::deserialize_date;
 use enums::{
@@ -1506,8 +1507,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct DailyUserActivitiesInput {
-    pub end_date: Option<NaiveDate>,
-    pub start_date: Option<NaiveDate>,
+    pub date_range: DateRangeInput,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
