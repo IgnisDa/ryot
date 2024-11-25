@@ -29,4 +29,4 @@ Google Books.
 6.  Click on "Create" and copy the API key.
 
 7. Set the `BOOKS_GOOGLE_BOOKS_API_KEY` environment variable as described in the
-   [configuration](../configuration.md#important-parameters) docs.
+   [configuration](../configuration.md) docs.
