@@ -17,7 +17,7 @@ import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -134,25 +134,23 @@ export default function Page() {
 						</Menu>
 					</SimpleGrid>
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						<Paper withBorder p="xs">
-							<Flex align="center" direction="column" gap="md">
-								<Title order={2}>Muscles used</Title>
-								<PieChart
-									size={250}
-									withLabels
-									withTooltip
-									labelsType="percent"
-									tooltipDataSource="segment"
-									data={loaderData.fitnessAnalytics.workoutMuscles.map(
-										(item) => ({
-											value: item.count,
-											name: changeCase(item.muscle),
-											color: generateColor(getStringAsciiValue(item.muscle)),
-										}),
-									)}
-								/>
-							</Flex>
-						</Paper>
+						<ChartContainer title="Muscles used">
+							<PieChart
+								size={250}
+								withLabels
+								withTooltip
+								strokeWidth={0}
+								labelsType="percent"
+								tooltipDataSource="segment"
+								data={loaderData.fitnessAnalytics.workoutMuscles.map(
+									(item) => ({
+										value: item.count,
+										name: changeCase(item.muscle),
+										color: generateColor(getStringAsciiValue(item.muscle)),
+									}),
+								)}
+							/>
+						</ChartContainer>
 					</SimpleGrid>
 				</Stack>
 			</Container>
@@ -200,5 +198,19 @@ const CustomDateSelectModal = (props: {
 				</Button>
 			</Stack>
 		</Modal>
+	);
+};
+
+const ChartContainer = (props: {
+	title: string;
+	children: ReactNode;
+}) => {
+	return (
+		<Paper withBorder p="xs">
+			<Flex align="center" direction="column" gap="md">
+				<Title order={2}>{props.title}</Title>
+				{props.children}
+			</Flex>
+		</Paper>
 	);
 };
