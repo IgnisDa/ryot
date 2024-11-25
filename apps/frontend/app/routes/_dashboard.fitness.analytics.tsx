@@ -198,9 +198,9 @@ const ExercisesChart = () => {
 			<BarChart
 				h={300}
 				withTooltip
+				gridAxis="x"
 				dataKey="name"
 				tickLine="none"
-				gridAxis="none"
 				tooltipAnimationDuration={500}
 				series={[{ name: "value", label: "Times done", color: "teal" }]}
 				data={data.slice(0, count).map((item) => ({
