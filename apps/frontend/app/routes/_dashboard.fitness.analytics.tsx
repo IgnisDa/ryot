@@ -19,7 +19,9 @@ import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphq
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { dayjsLib, generateColor, getStringAsciiValue } from "~/lib/generals";
@@ -146,7 +148,10 @@ export default function Page() {
 const MusclesChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const data = loaderData.fitnessAnalytics.workoutMuscles;
-	const [count, setCount] = useState(data.length > 7 ? 7 : data.length);
+	const [count, setCount] = useLocalStorage(
+		"FitnessAnalyticsMusclesChartCount",
+		data.length > 7 ? 7 : data.length,
+	);
 
 	return (
 		<ChartContainer
@@ -179,22 +184,26 @@ const ChartContainer = (props: {
 	children: ReactNode;
 	setCount: (count: number) => void;
 }) => (
-	<Paper withBorder p="xs">
-		<Flex align="center" direction="column" gap={{ md: "md" }}>
-			<Group wrap="nowrap" w="100%" gap="xl" justify="center">
-				<Text size="lg">{props.title}</Text>
-				<NumberInput
-					w={60}
-					min={2}
-					size="xs"
-					value={props.count}
-					max={props.totalItems}
-					onChange={(v) => props.setCount(Number(v))}
-				/>
-			</Group>
-			{props.children}
-		</Flex>
-	</Paper>
+	<ClientOnly>
+		{() => (
+			<Paper withBorder p="xs">
+				<Flex align="center" direction="column" gap={{ md: "md" }}>
+					<Group wrap="nowrap" w="100%" gap="xl" justify="center">
+						<Text size="lg">{props.title}</Text>
+						<NumberInput
+							w={60}
+							min={2}
+							size="xs"
+							value={props.count}
+							max={props.totalItems}
+							onChange={(v) => props.setCount(Number(v))}
+						/>
+					</Group>
+					{props.children}
+				</Flex>
+			</Paper>
+		)}
+	</ClientOnly>
 );
 
 const CustomDateSelectModal = (props: {
