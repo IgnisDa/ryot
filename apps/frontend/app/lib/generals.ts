@@ -296,6 +296,11 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
+export const selectRandomElement = <T>(array: T[], input: string): T => {
+	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+	return array[(getStringAsciiValue(input) + array.length) % array.length];
+};
+
 export const getMetadataIcon = (lot: MediaLot) =>
 	match(lot)
 		.with(MediaLot.Book, () => IconBook)

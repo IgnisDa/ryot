@@ -24,8 +24,8 @@ import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib, generateColor, getStringAsciiValue } from "~/lib/generals";
-import { useAppSearchParam } from "~/lib/hooks";
+import { dayjsLib, selectRandomElement } from "~/lib/generals";
+import { useAppSearchParam, useGetMantineColors } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
@@ -150,6 +150,7 @@ export default function Page() {
 
 const MusclesChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const colors = useGetMantineColors();
 	const data = loaderData.fitnessAnalytics.workoutMuscles;
 	const [count, setCount] = useLocalStorage(
 		"FitnessAnalyticsMusclesChartCount",
@@ -173,7 +174,7 @@ const MusclesChart = () => {
 				data={data.slice(0, count).map((item) => ({
 					value: item.count,
 					name: changeCase(item.muscle),
-					color: generateColor(getStringAsciiValue(item.muscle)),
+					color: selectRandomElement(colors, item.muscle),
 				}))}
 			/>
 		</ChartContainer>
@@ -182,6 +183,7 @@ const MusclesChart = () => {
 
 const ExercisesChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const colors = useGetMantineColors();
 	const data = loaderData.fitnessAnalytics.workoutExercises;
 	const [count, setCount] = useLocalStorage(
 		"FitnessAnalyticsExercisesChartCount",
@@ -202,10 +204,11 @@ const ExercisesChart = () => {
 				gridAxis="none"
 				tickLine="none"
 				tooltipAnimationDuration={500}
-				series={[{ name: "value", label: "Times done", color: "teal" }]}
+				series={[{ name: "value", label: "Times done" }]}
 				data={data.slice(0, count).map((item) => ({
 					value: item.count,
 					name: changeCase(item.exercise),
+					color: selectRandomElement(colors, item.exercise),
 				}))}
 			/>
 		</ChartContainer>
