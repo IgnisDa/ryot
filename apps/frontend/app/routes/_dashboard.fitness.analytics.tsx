@@ -102,7 +102,7 @@ export default function Page() {
 			<Container>
 				<Stack>
 					<SimpleGrid cols={{ base: 2 }} style={{ alignItems: "center" }}>
-						<Text fz={{ base: "lg", md: "h1" }} ta={{ md: "center" }} fw="bold">
+						<Text fz={{ base: "lg", md: "h1" }} fw="bold">
 							Fitness Analytics
 						</Text>
 						<Menu position="bottom-end">
