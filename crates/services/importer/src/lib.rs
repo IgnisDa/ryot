@@ -7,12 +7,13 @@ use common_models::BackgroundJob;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use dependent_utils::{
-    commit_metadata, deploy_background_job, get_isbn_service, get_tmdb_non_media_service,
-    process_import,
+    commit_metadata, deploy_background_job, get_google_books_service, get_openlibrary_service,
+    get_tmdb_non_media_service, process_import,
 };
-use enums::ImportSource;
+use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{DeployImportJobInput, ImportOrExportMediaItem};
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -73,7 +74,8 @@ impl ImporterService {
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.generic_csv.unwrap(),
-                &get_isbn_service(&self.0.config).await.unwrap(),
+                &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),
@@ -81,13 +83,15 @@ impl ImporterService {
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
                 input.generic_csv.unwrap(),
-                &get_isbn_service(&self.0.config).await.unwrap(),
+                &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
-                &get_isbn_service(&self.0.config).await.unwrap(),
+                &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
                 |input| commit_metadata(input, &self.0),
             )
             .await
@@ -163,5 +167,21 @@ pub mod utils {
             .local_minus_utc();
         let offset = Duration::try_seconds(offset.into()).unwrap();
         DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
+    }
+
+    pub async fn get_identifier_from_book_isbn(
+        isbn: &str,
+        google_books_service: &GoogleBooksService,
+        open_library_service: &OpenlibraryService,
+    ) -> Option<(String, MediaSource)> {
+        let mut identifier = None;
+        let mut source = MediaSource::GoogleBooks;
+        if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+            identifier = Some(id);
+        } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+            identifier = Some(id);
+            source = MediaSource::Openlibrary;
+        }
+        identifier.map(|id| (id, source))
     }
 }
