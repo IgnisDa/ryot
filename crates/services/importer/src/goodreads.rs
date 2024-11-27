@@ -79,7 +79,7 @@ pub async fn import(
             continue;
         }
         let Some((identifier, source)) =
-            utils::get_identifier_from_isbn(&isbn, &google_books_service, &open_library_service)
+            utils::get_identifier_from_isbn(&isbn, google_books_service, open_library_service)
                 .await
         else {
             failed_items.push(ImportFailedItem {

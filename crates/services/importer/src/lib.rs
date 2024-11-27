@@ -176,9 +176,9 @@ pub mod utils {
     ) -> Option<(String, MediaSource)> {
         let mut identifier = None;
         let mut source = MediaSource::GoogleBooks;
-        if let Some(id) = google_books_service.id_from_isbn(&isbn).await {
+        if let Some(id) = google_books_service.id_from_isbn(isbn).await {
             identifier = Some(id);
-        } else if let Some(id) = open_library_service.id_from_isbn(&isbn).await {
+        } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
             identifier = Some(id);
             source = MediaSource::Openlibrary;
         }
