@@ -119,12 +119,7 @@ pub async fn get_google_books_service(config: &config::AppConfig) -> Result<Goog
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
-    Ok(NonMediaTmdbService::new(
-        &ss.config.movies_and_shows.tmdb.access_token,
-        ss.config.movies_and_shows.tmdb.locale.clone(),
-        Arc::new(ss.timezone),
-    )
-    .await)
+    Ok(NonMediaTmdbService::new(ss.clone()).await)
 }
 
 pub async fn get_metadata_provider(
@@ -141,13 +136,8 @@ pub async fn get_metadata_provider(
         MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
         MediaSource::Listennotes => Box::new(ListennotesService::new(ss.clone()).await),
         MediaSource::Tmdb => match lot {
-            MediaLot::Show => Box::new(
-                TmdbShowService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone)).await,
-            ),
-            MediaLot::Movie => Box::new(
-                TmdbMovieService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone))
-                    .await,
-            ),
+            MediaLot::Show => Box::new(TmdbShowService::new(ss.clone()).await),
+            MediaLot::Movie => Box::new(TmdbMovieService::new(ss.clone()).await),
             _ => return err(),
         },
         MediaSource::Anilist => match lot {

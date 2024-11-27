@@ -1,7 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
-    path::PathBuf,
     sync::Arc,
 };
 
@@ -9,10 +7,11 @@ use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_current_date};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
-use common_utils::{
-    convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
+use common_models::{
+    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, SearchDetails, StoredUrl,
+    TmdbLanguage, TmdbSettings,
 };
+use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -34,22 +33,10 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use supporting_service::SupportingService;
 use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://api.themoviedb.org/3";
-static FILE: &str = "tmdb.json";
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Settings {
-    image_url: String,
-    languages: Vec<TmdbLanguage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbLanguage {
-    iso_639_1: String,
-    english_name: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
@@ -179,12 +166,28 @@ struct TmdbNonMediaEntity {
     place_of_birth: Option<String>,
 }
 
-#[derive(Debug, Clone)]
 pub struct TmdbService {
     client: Client,
     language: String,
-    settings: Settings,
-    timezone: Arc<chrono_tz::Tz>,
+    settings: TmdbSettings,
+    supporting_service: Arc<SupportingService>,
+}
+
+impl TmdbService {
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
+        let access_token = &ss.config.movies_and_shows.tmdb.access_token;
+        let client: Client = get_base_http_client(Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
+        )]));
+        let settings = get_settings(&client, &ss).await.unwrap();
+        Self {
+            client,
+            settings,
+            language: ss.config.movies_and_shows.tmdb.locale.clone(),
+            supporting_service: ss,
+        }
+    }
 }
 
 impl TmdbService {
@@ -351,7 +354,7 @@ impl TmdbService {
         struct TmdbChangesResponse {
             changes: Vec<serde_json::Value>,
         }
-        let end_date = get_current_date(&self.timezone);
+        let end_date = get_current_date(&self.supporting_service.timezone);
         let start_date = since.date_naive();
         let changes = self
             .client
@@ -396,21 +399,14 @@ impl MediaProviderLanguages for TmdbService {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct NonMediaTmdbService {
     base: TmdbService,
 }
 
 impl NonMediaTmdbService {
-    pub async fn new(access_token: &str, language: String, timezone: Arc<chrono_tz::Tz>) -> Self {
-        let (client, settings) = get_client_config(access_token).await;
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
         Self {
-            base: TmdbService {
-                client,
-                language,
-                settings,
-                timezone,
-            },
+            base: TmdbService::new(ss).await,
         }
     }
 }
@@ -424,6 +420,13 @@ impl MediaProvider for NonMediaTmdbService {
         source_specifics: &Option<PersonSourceSpecifics>,
         display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
+        let language = &self
+            .base
+            .supporting_service
+            .config
+            .movies_and_shows
+            .tmdb
+            .locale;
         let type_ = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -437,9 +440,9 @@ impl MediaProvider for NonMediaTmdbService {
             .client
             .get(format!("{}/search/{}", URL, type_))
             .query(&json!({
-                "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language,
+                "language": language,
+                "query": query.to_owned(),
                 "include_adult": display_nsfw,
             }))
             .send()
@@ -623,21 +626,14 @@ impl NonMediaTmdbService {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct TmdbMovieService {
     base: TmdbService,
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &config::TmdbConfig, timezone: Arc<chrono_tz::Tz>) -> Self {
-        let (client, settings) = get_client_config(&config.access_token).await;
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
         Self {
-            base: TmdbService {
-                client,
-                language: config.locale.clone(),
-                settings,
-                timezone,
-            },
+            base: TmdbService::new(ss).await,
         }
     }
 }
@@ -973,21 +969,14 @@ impl MediaProvider for TmdbMovieService {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct TmdbShowService {
     base: TmdbService,
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &config::TmdbConfig, timezone: Arc<chrono_tz::Tz>) -> Self {
-        let (client, settings) = get_client_config(&config.access_token).await;
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
         Self {
-            base: TmdbService {
-                client,
-                language: config.locale.clone(),
-                settings,
-                timezone,
-            },
+            base: TmdbService::new(ss).await,
         }
     }
 }
@@ -1315,47 +1304,6 @@ impl MediaProvider for TmdbShowService {
     }
 }
 
-async fn get_client_config(access_token: &str) -> (Client, Settings) {
-    let client: Client = get_base_http_client(Some(vec![(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
-    )]));
-    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
-    let tmdb_settings = if !path.exists() {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let rsp = client
-            .get(format!("{}/configuration", URL))
-            .send()
-            .await
-            .unwrap();
-        let data_1: TmdbConfiguration = rsp.json().await.unwrap();
-        let rsp = client
-            .get(format!("{}/configuration/languages", URL))
-            .send()
-            .await
-            .unwrap();
-        let data_2: Vec<TmdbLanguage> = rsp.json().await.unwrap();
-        let tmdb_settings = Settings {
-            image_url: data_1.images.secure_base_url,
-            languages: data_2,
-        };
-        let data_to_write = serde_json::to_string(&tmdb_settings);
-        fs::write(path, data_to_write.unwrap()).unwrap();
-        tmdb_settings
-    } else {
-        let data = fs::read_to_string(path).unwrap();
-        serde_json::from_str(&data).unwrap()
-    };
-    (client, tmdb_settings)
-}
-
 fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
     if let Some(last_index) = input_string.rfind(search_string) {
         let mut modified_string = input_string.clone();
@@ -1364,4 +1312,37 @@ fn replace_from_end(input_string: String, search_string: &str, replace_string: &
         return modified_string;
     }
     input_string
+}
+
+async fn get_settings(
+    client: &Client,
+    supporting_service: &Arc<SupportingService>,
+) -> Result<TmdbSettings> {
+    let cc = &supporting_service.cache_service;
+    let maybe_settings = cc.get(ApplicationCacheKey::TmdbSettings).await.ok();
+    let tmdb_settings =
+        if let Some(Some(ApplicationCacheValue::TmdbSettings(setting))) = maybe_settings {
+            setting
+        } else {
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbImageConfiguration {
+                secure_base_url: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Clone)]
+            struct TmdbConfiguration {
+                images: TmdbImageConfiguration,
+            }
+            let rsp = client.get(format!("{}/configuration", URL)).send().await?;
+            let data_1: TmdbConfiguration = rsp.json().await?;
+            let rsp = client
+                .get(format!("{}/configuration/languages", URL))
+                .send()
+                .await?;
+            let data_2: Vec<TmdbLanguage> = rsp.json().await?;
+            TmdbSettings {
+                image_url: data_1.images.secure_base_url,
+                languages: data_2,
+            }
+        };
+    Ok(tmdb_settings)
 }

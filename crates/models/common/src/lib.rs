@@ -223,6 +223,7 @@ pub enum ApplicationCacheKey {
     },
     IgdbSettings,
     ListennotesSettings,
+    TmdbSettings,
 }
 
 #[derive(
@@ -299,9 +300,22 @@ pub struct FitnessAnalytics {
     pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct TmdbLanguage {
+    pub iso_639_1: String,
+    pub english_name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct TmdbSettings {
+    pub image_url: String,
+    pub languages: Vec<TmdbLanguage>,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
+    TmdbSettings(TmdbSettings),
     FitnessAnalytics(FitnessAnalytics),
     IgdbSettings { access_token: String },
     ListennotesSettings { genres: HashMap<i32, String> },
