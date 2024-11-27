@@ -158,7 +158,6 @@ struct IgdbItemResponse {
 pub struct IgdbService {
     image_url: String,
     image_size: String,
-    config: config::VideoGameConfig,
     supporting_service: Arc<SupportingService>,
 }
 
@@ -176,7 +175,6 @@ impl IgdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Self {
         let config = ss.config.video_games.clone();
         Self {
-            config: config.clone(),
             supporting_service: ss,
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
@@ -524,9 +522,9 @@ impl IgdbService {
         let access_res = client
             .post(AUTH_URL)
             .query(&json!({
-                "client_id": self.config.twitch.client_id.to_owned(),
-                "client_secret": self.config.twitch.client_secret.to_owned(),
                 "grant_type": "client_credentials".to_owned(),
+                "client_id": self.supporting_service.config.video_games.twitch.client_id.to_owned(),
+                "client_secret": self.supporting_service.config.video_games.twitch.client_secret.to_owned(),
             }))
             .send()
             .await
@@ -561,7 +559,8 @@ impl IgdbService {
         Ok(get_base_http_client(Some(vec![
             (
                 HeaderName::from_static("client-id"),
-                HeaderValue::from_str(&self.config.twitch.client_id).unwrap(),
+                HeaderValue::from_str(&self.supporting_service.config.video_games.twitch.client_id)
+                    .unwrap(),
             ),
             (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
         ])))
