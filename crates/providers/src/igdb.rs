@@ -193,7 +193,7 @@ impl MediaProvider for IgdbService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -235,7 +235,7 @@ offset: {offset};
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r"
 {fields}
@@ -296,7 +296,7 @@ where id = {id};
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -342,7 +342,7 @@ offset: {offset};
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -423,7 +423,7 @@ where id = {id};
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"{field} where id = {id};"#,
             field = GAME_FIELDS,
@@ -455,7 +455,7 @@ where id = {id};
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let client = self.get_client().await?;
+        let client = self.get_client_config().await?;
         let count_req_body =
             format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
         let rsp = client
@@ -538,7 +538,7 @@ impl IgdbService {
         format!("{} {}", access.token_type, access.access_token)
     }
 
-    async fn get_client(&self) -> Result<Client> {
+    async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc.get(ApplicationCacheKey::IgdbSettings).await.ok();
         let access_token = if let Some(Some(ApplicationCacheValue::IgdbSettings { access_token })) =
