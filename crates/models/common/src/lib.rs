@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
@@ -220,6 +222,7 @@ pub enum ApplicationCacheKey {
         date_range: DateRangeInput,
     },
     IgdbSettings,
+    ListennotesSettings,
 }
 
 #[derive(
@@ -301,4 +304,5 @@ pub struct FitnessAnalytics {
 pub enum ApplicationCacheValue {
     FitnessAnalytics(FitnessAnalytics),
     IgdbSettings { access_token: String },
+    ListennotesSettings { genres: HashMap<i32, String> },
 }

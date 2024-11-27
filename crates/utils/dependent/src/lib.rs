@@ -139,7 +139,9 @@ pub async fn get_metadata_provider(
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
-        MediaSource::Listennotes => Box::new(ListennotesService::new(&ss.config.podcasts).await),
+        MediaSource::Listennotes => {
+            Box::new(ListennotesService::new(&ss.config.podcasts, ss.clone()).await)
+        }
         MediaSource::Tmdb => match lot {
             MediaLot::Show => Box::new(
                 TmdbShowService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone)).await,

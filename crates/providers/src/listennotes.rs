@@ -1,11 +1,11 @@
-use std::{collections::HashMap, env, fs, path::PathBuf};
+use std::{collections::HashMap, env, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::SearchDetails;
-use common_utils::{convert_naive_to_utc, PAGE_SIZE, TEMP_DIR};
+use common_models::{ApplicationCacheKey, ApplicationCacheValue, SearchDetails};
+use common_utils::{convert_naive_to_utc, PAGE_SIZE};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -22,21 +22,15 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
+use supporting_service::SupportingService;
 use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2";
-static FILE: &str = "listennotes.json";
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Settings {
-    genres: HashMap<i32, String>,
-}
-
-#[derive(Debug, Clone)]
 pub struct ListennotesService {
     url: String,
     client: Client,
-    settings: Settings,
+    supporting_service: Arc<SupportingService>,
 }
 
 impl MediaProviderLanguages for ListennotesService {
@@ -50,16 +44,19 @@ impl MediaProviderLanguages for ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(config: &config::PodcastConfig) -> Self {
+    pub async fn new(config: &config::PodcastConfig, ss: Arc<SupportingService>) -> Self {
         let url = env::var("LISTENNOTES_API_URL")
             .unwrap_or_else(|_| URL.to_owned())
             .as_str()
             .to_owned();
-        let (client, settings) = get_client_config(&config.listennotes.api_token).await;
+        let client = get_base_http_client(Some(vec![(
+            HeaderName::from_static("x-listenapi-key"),
+            HeaderValue::from_str(&config.listennotes.api_token).unwrap(),
+        )]));
         Self {
             url,
             client,
-            settings,
+            supporting_service: ss,
         }
     }
 }
@@ -152,13 +149,14 @@ impl MediaProvider for ListennotesService {
             results: Vec<Podcast>,
             next_offset: Option<i32>,
         }
+
         let rsp = self
             .client
             .get(format!("{}/search", self.url))
             .query(&json!({
+                "type": "podcast",
                 "q": query.to_owned(),
                 "offset": (page - 1) * PAGE_SIZE,
-                "type": "podcast"
             }))
             .send()
             .await
@@ -186,6 +184,49 @@ impl MediaProvider for ListennotesService {
 }
 
 impl ListennotesService {
+    async fn get_genres(&self) -> Result<HashMap<i32, String>> {
+        let cc = &self.supporting_service.cache_service;
+        let maybe_settings = cc.get(ApplicationCacheKey::ListennotesSettings).await.ok();
+        let genres = if let Some(Some(ApplicationCacheValue::ListennotesSettings { genres })) =
+            maybe_settings
+        {
+            genres
+        } else {
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            #[serde(rename_all = "snake_case")]
+            pub struct ListennotesIdAndNamedObject {
+                pub id: i32,
+                pub name: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            struct GenreResponse {
+                genres: Vec<ListennotesIdAndNamedObject>,
+            }
+            let rsp = self
+                .client
+                .get(format!("{}/genres", self.url))
+                .send()
+                .await
+                .unwrap();
+            let data: GenreResponse = rsp.json().await.unwrap_or_default();
+            let mut genres = HashMap::new();
+            for genre in data.genres {
+                genres.insert(genre.id, genre.name);
+            }
+            cc.set_with_expiry(
+                ApplicationCacheKey::ListennotesSettings,
+                4,
+                Some(ApplicationCacheValue::ListennotesSettings {
+                    genres: genres.clone(),
+                }),
+            )
+            .await
+            .ok();
+            genres
+        };
+        Ok(genres)
+    }
+
     // The API does not return all the episodes for a podcast, and instead needs to be
     // paginated through. It also does not return the episode number. So we have to
     // handle those manually.
@@ -212,7 +253,7 @@ impl ListennotesService {
             genre_ids: Vec<i32>,
             total_episodes: usize,
         }
-        let  rsp = self
+        let resp = self
             .client
             .get(format!("{}/podcasts/{}", self.url, identifier))
             .query(&json!({
@@ -222,7 +263,8 @@ impl ListennotesService {
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let podcast_data: Podcast = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let podcast_data: Podcast = resp.json().await.map_err(|e| anyhow!(e))?;
+        let genres = self.get_genres().await?;
         Ok(MetadataDetails {
             identifier: podcast_data.id,
             title: podcast_data.title,
@@ -238,7 +280,7 @@ impl ListennotesService {
             genres: podcast_data
                 .genre_ids
                 .into_iter()
-                .filter_map(|g| self.settings.genres.get(&g).cloned())
+                .filter_map(|g| genres.get(&g).cloned())
                 .unique()
                 .collect(),
             url_images: Vec::from_iter(
@@ -265,38 +307,4 @@ impl ListennotesService {
             ..Default::default()
         })
     }
-}
-
-async fn get_client_config(api_token: &str) -> (Client, Settings) {
-    let client = get_base_http_client(Some(vec![(
-        HeaderName::from_static("x-listenapi-key"),
-        HeaderValue::from_str(api_token).unwrap(),
-    )]));
-    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
-    let settings = if !path.exists() {
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        #[serde(rename_all = "snake_case")]
-        pub struct ListennotesIdAndNamedObject {
-            pub id: i32,
-            pub name: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Default)]
-        struct GenreResponse {
-            genres: Vec<ListennotesIdAndNamedObject>,
-        }
-        let rsp = client.get(format!("{}/genres", URL)).send().await.unwrap();
-        let data: GenreResponse = rsp.json().await.unwrap_or_default();
-        let mut genres = HashMap::new();
-        for genre in data.genres {
-            genres.insert(genre.id, genre.name);
-        }
-        let settings = Settings { genres };
-        let data_to_write = serde_json::to_string(&settings);
-        fs::write(path, data_to_write.unwrap()).unwrap();
-        settings
-    } else {
-        let data = fs::read_to_string(path).unwrap();
-        serde_json::from_str(&data).unwrap()
-    };
-    (client, settings)
 }
