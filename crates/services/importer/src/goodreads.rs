@@ -10,7 +10,7 @@ use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
 };
-use providers::google_books::GoogleBooksService;
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
@@ -38,6 +38,7 @@ struct Book {
 pub async fn import(
     input: DeployGenericCsvImportInput,
     google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
     let source = MediaSource::GoogleBooks;
@@ -76,60 +77,7 @@ pub async fn import(
             });
             continue;
         }
-        if let Some(identifier) = google_books_service.id_from_isbn(&isbn).await {
-            let mut seen_history = vec![
-                ImportOrExportMediaItemSeen {
-                    started_on: None,
-                    ended_on: None,
-                    provider_watched_on: Some(ImportSource::Goodreads.to_string()),
-                    ..Default::default()
-                };
-                record.read_count
-            ];
-            if let Some(w) = record.date_read {
-                let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-                seen_history.first_mut().unwrap().ended_on = Some(w);
-            }
-            let mut collections = vec![];
-            if !record.bookshelf.is_empty() {
-                collections.push(match record.bookshelf.as_str() {
-                    "to-read" => "Watchlist".to_owned(),
-                    "currently-reading" => "In Progress".to_owned(),
-                    s => s.to_case(Case::Title),
-                });
-            }
-            let mut rating = None;
-            if record.rating > dec!(0) {
-                rating = Some(
-                    record
-                        .rating
-                        // DEV: Rates items out of 10
-                        .saturating_mul(dec!(10)),
-                );
-            }
-            let mut review = None;
-            if !record.review.is_empty() {
-                review = Some(ImportOrExportItemReview {
-                    date: None,
-                    spoiler: Some(false),
-                    text: Some(record.review),
-                    visibility: None,
-                });
-            }
-            media.push(ImportOrExportMediaItem {
-                lot,
-                source,
-                identifier,
-                collections,
-                seen_history,
-                source_id: record.title.clone(),
-                reviews: vec![ImportOrExportItemRating {
-                    review,
-                    rating,
-                    ..Default::default()
-                }],
-            });
-        } else {
+        let Some(identifier) = google_books_service.id_from_isbn(&isbn).await else {
             failed_items.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
@@ -138,8 +86,61 @@ pub async fn import(
                     "Could not convert ISBN: {} to Google Books ID",
                     isbn,
                 )),
-            })
+            });
+            continue;
+        };
+        let mut seen_history = vec![
+            ImportOrExportMediaItemSeen {
+                started_on: None,
+                ended_on: None,
+                provider_watched_on: Some(ImportSource::Goodreads.to_string()),
+                ..Default::default()
+            };
+            record.read_count
+        ];
+        if let Some(w) = record.date_read {
+            let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
+            seen_history.first_mut().unwrap().ended_on = Some(w);
         }
+        let mut collections = vec![];
+        if !record.bookshelf.is_empty() {
+            collections.push(match record.bookshelf.as_str() {
+                "to-read" => "Watchlist".to_owned(),
+                "currently-reading" => "In Progress".to_owned(),
+                s => s.to_case(Case::Title),
+            });
+        }
+        let mut rating = None;
+        if record.rating > dec!(0) {
+            rating = Some(
+                record
+                    .rating
+                    // DEV: Rates items out of 10
+                    .saturating_mul(dec!(10)),
+            );
+        }
+        let mut review = None;
+        if !record.review.is_empty() {
+            review = Some(ImportOrExportItemReview {
+                date: None,
+                spoiler: Some(false),
+                text: Some(record.review),
+                visibility: None,
+            });
+        }
+        media.push(ImportOrExportMediaItem {
+            lot,
+            source,
+            identifier,
+            collections,
+            seen_history,
+            source_id: record.title.clone(),
+            reviews: vec![ImportOrExportItemRating {
+                review,
+                rating,
+                ..Default::default()
+            }],
+        });
     }
     Ok(ImportResult {
         metadata: media,

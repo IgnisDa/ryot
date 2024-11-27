@@ -75,6 +75,7 @@ impl ImporterService {
             ImportSource::Goodreads => goodreads::import(
                 input.generic_csv.unwrap(),
                 &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),
