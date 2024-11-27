@@ -1339,10 +1339,18 @@ async fn get_settings(
                 .send()
                 .await?;
             let data_2: Vec<TmdbLanguage> = rsp.json().await?;
-            TmdbSettings {
+            let settings = TmdbSettings {
                 image_url: data_1.images.secure_base_url,
                 languages: data_2,
-            }
+            };
+            cc.set_with_expiry(
+                ApplicationCacheKey::TmdbSettings,
+                4,
+                Some(ApplicationCacheValue::TmdbSettings(settings.clone())),
+            )
+            .await
+            .ok();
+            settings
         };
     Ok(tmdb_settings)
 }
