@@ -234,6 +234,7 @@ const ChartContainer = (props: {
 							size="xs"
 							value={props.count}
 							max={props.totalItems}
+							onFocus={(e) => e.target.select()}
 							onChange={(v) => props.setCount(Number(v))}
 						/>
 					</Group>
