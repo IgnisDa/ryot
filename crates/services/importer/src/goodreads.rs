@@ -4,7 +4,7 @@ use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::ImportResult;
-use enums::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -14,6 +14,8 @@ use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryServic
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
+
+use crate::utils;
 
 use super::{ImportFailStep, ImportFailedItem};
 
@@ -41,7 +43,6 @@ pub async fn import(
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
-    let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let ratings_reader = Reader::from_path(input.csv_path)
@@ -77,7 +78,10 @@ pub async fn import(
             });
             continue;
         }
-        let Some(identifier) = google_books_service.id_from_isbn(&isbn).await else {
+        let Some((identifier, source)) =
+            utils::get_identifier_from_isbn(&isbn, &google_books_service, &open_library_service)
+                .await
+        else {
             failed_items.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
