@@ -80,6 +80,7 @@ pub async fn import(
         );
         if let Some(isbn) = record.isbn {
             if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
+                ryot_log!(debug, "Got details for {:#?}", identifier);
                 let mut seen_history = vec![
                     ImportOrExportMediaItemSeen {
                         started_on: None,
