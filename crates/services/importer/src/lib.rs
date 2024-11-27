@@ -90,6 +90,7 @@ impl ImporterService {
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
                 &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
                 |input| commit_metadata(input, &self.0),
             )
             .await
