@@ -1692,12 +1692,8 @@ ORDER BY RANDOM() LIMIT 10;
             MediaSource::Audible => {
                 Box::new(AudibleService::new(&self.0.config.audio_books.audible).await)
             }
-            MediaSource::Listennotes => {
-                Box::new(ListennotesService::new(&self.0.config.podcasts, self.0.clone()).await)
-            }
-            MediaSource::Igdb => {
-                Box::new(IgdbService::new(&self.0.config.video_games, self.0.clone()).await)
-            }
+            MediaSource::Listennotes => Box::new(ListennotesService::new(self.0.clone()).await),
+            MediaSource::Igdb => Box::new(IgdbService::new(self.0.clone()).await),
             MediaSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(&self.0.config.anime_and_manga.manga_updates).await,
             ),

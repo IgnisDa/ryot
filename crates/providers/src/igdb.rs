@@ -173,7 +173,8 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &config::VideoGameConfig, ss: Arc<SupportingService>) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
+        let config = ss.config.video_games.clone();
         Self {
             config: config.clone(),
             supporting_service: ss,
