@@ -49,7 +49,7 @@ struct History {
 
 pub async fn import(
     input: DeployGenericCsvImportInput,
-    isbn_service: &GoogleBooksService,
+    google_books_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
     let source = MediaSource::GoogleBooks;
@@ -79,7 +79,7 @@ pub async fn import(
             title = record.title
         );
         if let Some(isbn) = record.isbn {
-            if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
+            if let Some(identifier) = google_books_service.id_from_isbn(&isbn).await {
                 ryot_log!(debug, "Got details for {:#?}", identifier);
                 let mut seen_history = vec![
                     ImportOrExportMediaItemSeen {
