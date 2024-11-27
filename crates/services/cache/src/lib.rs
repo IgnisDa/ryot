@@ -29,7 +29,7 @@ impl CacheService {
             key: ActiveValue::Set(key),
             value: ActiveValue::Set(value),
             created_at: ActiveValue::Set(now),
-            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
+            expires_at: ActiveValue::Set(now + Duration::hours(expiry_hours)),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
@@ -55,11 +55,7 @@ impl CacheService {
             .one(&self.db)
             .await?;
         Ok(cache
-            .filter(|cache| {
-                cache
-                    .expires_at
-                    .map_or(false, |expires_at| expires_at > Utc::now())
-            })
+            .filter(|cache| cache.expires_at > Utc::now())
             .and_then(|m| m.value))
     }
 

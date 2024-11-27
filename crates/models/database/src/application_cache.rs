@@ -13,7 +13,7 @@ pub struct Model {
     pub key: ApplicationCacheKey,
     #[sea_orm(column_type = "Json")]
     pub value: Option<ApplicationCacheValue>,
-    pub expires_at: Option<DateTimeUtc>,
+    pub expires_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
