@@ -112,7 +112,7 @@ pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<Openl
     Ok(OpenlibraryService::new(&config.books.openlibrary).await)
 }
 
-pub async fn get_isbn_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
+pub async fn get_google_books_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
     Ok(GoogleBooksService::new(&config.books.google_books).await)
 }
 
@@ -137,7 +137,7 @@ pub async fn get_metadata_provider(
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
-        MediaSource::GoogleBooks => Box::new(get_isbn_service(&ss.config).await?),
+        MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
         MediaSource::Listennotes => Box::new(ListennotesService::new(&ss.config.podcasts).await),
         MediaSource::Tmdb => match lot {
