@@ -92,7 +92,6 @@ pub async fn import(
                 "Got identifier = {identifier:?} from source = {source:?}"
             );
             if let Some(identifier) = identifier {
-                ryot_log!(debug, "Got details for {:#?}", identifier);
                 let mut seen_history = vec![
                     ImportOrExportMediaItemSeen {
                         started_on: None,
