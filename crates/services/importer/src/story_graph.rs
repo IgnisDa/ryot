@@ -4,7 +4,7 @@ use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::ImportResult;
-use enums::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -14,6 +14,8 @@ use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryServic
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+
+use crate::utils;
 
 use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
 
@@ -78,82 +80,77 @@ pub async fn import(
             "Getting details for {title:?} ({idx}/{total})",
             title = record.title
         );
-        if let Some(isbn) = record.isbn {
-            let mut identifier = None;
-            let mut source = MediaSource::GoogleBooks;
-            if let Some(id) = google_books_service.id_from_isbn(&isbn).await {
-                identifier = Some(id);
-            } else if let Some(id) = open_library_service.id_from_isbn(&isbn).await {
-                identifier = Some(id);
-                source = MediaSource::Openlibrary;
-            }
-            ryot_log!(
-                debug,
-                "Got identifier = {identifier:?} from source = {source:?}"
-            );
-            if let Some(identifier) = identifier {
-                let mut seen_history = vec![
-                    ImportOrExportMediaItemSeen {
-                        started_on: None,
-                        ended_on: None,
-                        provider_watched_on: Some(ImportSource::StoryGraph.to_string()),
-                        ..Default::default()
-                    };
-                    record.read_count
-                ];
-                if let Some(w) = record.last_date_read {
-                    let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-                    seen_history.first_mut().unwrap().ended_on = Some(w);
-                }
-                let mut collections = vec![];
-                collections.push(match record.read_status {
-                    ReadStatus::ToRead => "Watchlist".to_owned(),
-                    ReadStatus::CurrentlyReading => "In Progress".to_owned(),
-                    ReadStatus::Other(s) => s.to_case(Case::Title),
-                });
-                if let Some(t) = record.tags {
-                    collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
-                }
-                media.push(ImportOrExportMediaItem {
-                    source_id: record.title.clone(),
-                    lot,
-                    source,
-                    identifier,
-                    seen_history,
-                    reviews: vec![ImportOrExportItemRating {
-                        rating: record
-                            .rating
-                            // DEV: Rates items out of 10
-                            .map(|d| d.saturating_mul(dec!(10))),
-                        review: record.review.map(|r| ImportOrExportItemReview {
-                            date: None,
-                            spoiler: Some(false),
-                            text: Some(r),
-                            visibility: None,
-                        }),
-                        ..Default::default()
-                    }],
-                    collections,
-                })
-            } else {
-                failed_items.push(ImportFailedItem {
-                    lot: Some(lot),
-                    step: ImportFailStep::InputTransformation,
-                    identifier: record.title,
-                    error: Some(format!(
-                        "Could not convert ISBN: {} to any metadata provider",
-                        isbn
-                    )),
-                })
-            }
-        } else {
+        let Some(isbn) = record.isbn else {
             failed_items.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some("No ISBN found".to_owned()),
-            })
+            });
+            continue;
+        };
+        let Some((identifier, source)) =
+            utils::get_identifier_from_isbn(&isbn, &google_books_service, &open_library_service)
+                .await
+        else {
+            failed_items.push(ImportFailedItem {
+                lot: Some(lot),
+                step: ImportFailStep::InputTransformation,
+                identifier: record.title,
+                error: Some(format!(
+                    "Could not convert ISBN: {} to any metadata provider",
+                    isbn
+                )),
+            });
+            continue;
+        };
+        ryot_log!(
+            debug,
+            "Got identifier = {identifier:?} from source = {source:?}"
+        );
+        let mut seen_history = vec![
+            ImportOrExportMediaItemSeen {
+                started_on: None,
+                ended_on: None,
+                provider_watched_on: Some(ImportSource::StoryGraph.to_string()),
+                ..Default::default()
+            };
+            record.read_count
+        ];
+        if let Some(w) = record.last_date_read {
+            let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
+            seen_history.first_mut().unwrap().ended_on = Some(w);
         }
+        let mut collections = vec![];
+        collections.push(match record.read_status {
+            ReadStatus::ToRead => "Watchlist".to_owned(),
+            ReadStatus::CurrentlyReading => "In Progress".to_owned(),
+            ReadStatus::Other(s) => s.to_case(Case::Title),
+        });
+        if let Some(t) = record.tags {
+            collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
+        }
+        media.push(ImportOrExportMediaItem {
+            source_id: record.title.clone(),
+            lot,
+            source,
+            identifier,
+            seen_history,
+            reviews: vec![ImportOrExportItemRating {
+                rating: record
+                    .rating
+                    // DEV: Rates items out of 10
+                    .map(|d| d.saturating_mul(dec!(10))),
+                review: record.review.map(|r| ImportOrExportItemReview {
+                    date: None,
+                    spoiler: Some(false),
+                    text: Some(r),
+                    visibility: None,
+                }),
+                ..Default::default()
+            }],
+            collections,
+        })
     }
     Ok(ImportResult {
         metadata: media,
