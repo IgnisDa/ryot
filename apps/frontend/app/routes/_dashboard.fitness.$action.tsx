@@ -177,7 +177,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
-		sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 		if (document.visibilityState === "visible") return;
 		sendNotificationToServiceWorker(
 			"Timer completed",
@@ -964,7 +964,7 @@ const ExerciseDisplay = (props: {
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
-		sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 	const [cameraFacing, toggleCameraFacing] = useToggle([
 		"environment",
@@ -1589,7 +1589,7 @@ const SetDisplay = (props: {
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
-		sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
 	useDidUpdate(() => {
