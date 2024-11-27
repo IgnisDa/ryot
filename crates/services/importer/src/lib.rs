@@ -7,8 +7,8 @@ use common_models::BackgroundJob;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use dependent_utils::{
-    commit_metadata, deploy_background_job, get_google_books_service, get_tmdb_non_media_service,
-    process_import,
+    commit_metadata, deploy_background_job, get_google_books_service, get_openlibrary_service,
+    get_tmdb_non_media_service, process_import,
 };
 use enums::ImportSource;
 use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -82,6 +82,7 @@ impl ImporterService {
             ImportSource::StoryGraph => story_graph::import(
                 input.generic_csv.unwrap(),
                 &get_google_books_service(&self.0.config).await.unwrap(),
+                &get_openlibrary_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),

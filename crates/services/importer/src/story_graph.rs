@@ -10,7 +10,7 @@ use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItemSeen,
 };
-use providers::google_books::GoogleBooksService;
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -50,9 +50,9 @@ struct History {
 pub async fn import(
     input: DeployGenericCsvImportInput,
     google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
-    let source = MediaSource::GoogleBooks;
     let mut media = vec![];
     let mut failed_items = vec![];
     let ratings_reader = Reader::from_path(input.csv_path)
@@ -79,7 +79,19 @@ pub async fn import(
             title = record.title
         );
         if let Some(isbn) = record.isbn {
-            if let Some(identifier) = google_books_service.id_from_isbn(&isbn).await {
+            let mut identifier = None;
+            let mut source = MediaSource::GoogleBooks;
+            if let Some(id) = google_books_service.id_from_isbn(&isbn).await {
+                identifier = Some(id);
+            } else if let Some(id) = open_library_service.id_from_isbn(&isbn).await {
+                identifier = Some(id);
+                source = MediaSource::Openlibrary;
+            }
+            ryot_log!(
+                debug,
+                "Got identifier = {identifier:?} from source = {source:?}"
+            );
+            if let Some(identifier) = identifier {
                 ryot_log!(debug, "Got details for {:#?}", identifier);
                 let mut seen_history = vec![
                     ImportOrExportMediaItemSeen {
@@ -130,7 +142,7 @@ pub async fn import(
                     step: ImportFailStep::InputTransformation,
                     identifier: record.title,
                     error: Some(format!(
-                        "Could not convert ISBN: {} to Openlibrary ID",
+                        "Could not convert ISBN: {} to any metadata provider",
                         isbn
                     )),
                 })
