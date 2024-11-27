@@ -198,8 +198,8 @@ const ExercisesChart = () => {
 			<BarChart
 				h={300}
 				withTooltip
-				gridAxis="x"
 				dataKey="name"
+				gridAxis="none"
 				tickLine="none"
 				tooltipAnimationDuration={500}
 				series={[{ name: "value", label: "Times done", color: "teal" }]}
@@ -221,7 +221,7 @@ const ChartContainer = (props: {
 }) => (
 	<ClientOnly>
 		{() => (
-			<Paper withBorder p="xs" h="350px">
+			<Paper withBorder p="xs" h="380px">
 				<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
 					<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 						<Text size="lg">{props.title}</Text>
