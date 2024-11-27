@@ -1319,7 +1319,7 @@ async fn get_settings(
     supporting_service: &Arc<SupportingService>,
 ) -> Result<TmdbSettings> {
     let cc = &supporting_service.cache_service;
-    let maybe_settings = cc.get(ApplicationCacheKey::TmdbSettings).await.ok();
+    let maybe_settings = cc.get_key(ApplicationCacheKey::TmdbSettings).await.ok();
     let tmdb_settings =
         if let Some(Some(ApplicationCacheValue::TmdbSettings(setting))) = maybe_settings {
             setting

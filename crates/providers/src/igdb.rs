@@ -538,7 +538,7 @@ impl IgdbService {
 
     async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.supporting_service.cache_service;
-        let maybe_settings = cc.get(ApplicationCacheKey::IgdbSettings).await.ok();
+        let maybe_settings = cc.get_key(ApplicationCacheKey::IgdbSettings).await.ok();
         let access_token = if let Some(Some(ApplicationCacheValue::IgdbSettings { access_token })) =
             maybe_settings
         {

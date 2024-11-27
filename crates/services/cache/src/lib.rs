@@ -49,7 +49,7 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
+    pub async fn get_key(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
         let cache = ApplicationCache::find()
             .filter(application_cache::Column::Key.eq(key))
             .one(&self.db)
@@ -59,9 +59,13 @@ impl CacheService {
             .and_then(|m| m.value))
     }
 
-    pub async fn delete(&self, key: ApplicationCacheKey) -> Result<bool> {
-        let deleted = ApplicationCache::delete_many()
+    pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {
+        let deleted = ApplicationCache::update_many()
             .filter(application_cache::Column::Key.eq(key))
+            .set(application_cache::ActiveModel {
+                expires_at: ActiveValue::Set(Utc::now()),
+                ..Default::default()
+            })
             .exec(&self.db)
             .await?;
         Ok(deleted.rows_affected > 0)

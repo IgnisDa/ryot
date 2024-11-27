@@ -186,7 +186,10 @@ impl MediaProvider for ListennotesService {
 impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
         let cc = &self.supporting_service.cache_service;
-        let maybe_settings = cc.get(ApplicationCacheKey::ListennotesSettings).await.ok();
+        let maybe_settings = cc
+            .get_key(ApplicationCacheKey::ListennotesSettings)
+            .await
+            .ok();
         let genres = if let Some(Some(ApplicationCacheValue::ListennotesSettings { genres })) =
             maybe_settings
         {

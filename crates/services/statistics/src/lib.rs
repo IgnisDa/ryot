@@ -244,7 +244,7 @@ impl StatisticsService {
             user_id: user_id.to_owned(),
         };
         if let Some(ApplicationCacheValue::FitnessAnalytics(cached)) =
-            self.0.cache_service.get(cache_key.clone()).await?
+            self.0.cache_service.get_key(cache_key.clone()).await?
         {
             return Ok(cached);
         }

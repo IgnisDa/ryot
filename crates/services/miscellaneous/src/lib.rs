@@ -1795,7 +1795,7 @@ ORDER BY RANDOM() LIMIT 10;
             user_id: user_id.to_owned(),
             metadata_id: si.metadata_id.clone(),
         };
-        self.0.cache_service.delete(cache).await?;
+        self.0.cache_service.expire_key(cache).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {

@@ -1261,7 +1261,7 @@ pub async fn progress_update(
         anime_episode_number: input.anime_episode_number,
         podcast_episode_number: input.podcast_episode_number,
     };
-    let in_cache = ss.cache_service.get(cache.clone()).await?;
+    let in_cache = ss.cache_service.get_key(cache.clone()).await?;
     if respect_cache && in_cache.is_some() {
         ryot_log!(debug, "Seen is already in cache");
         return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
