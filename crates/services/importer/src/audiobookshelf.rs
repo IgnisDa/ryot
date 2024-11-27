@@ -24,7 +24,7 @@ use super::{ImportFailStep, ImportFailedItem};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
-    isbn_service: &GoogleBooksService,
+    google_books_service: &GoogleBooksService,
     commit_metadata: impl Fn(CommitMediaInput) -> F,
 ) -> Result<ImportResult>
 where
@@ -68,7 +68,7 @@ where
             let (identifier, lot, source, episodes) =
                 if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                     match &metadata.isbn {
-                        Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                        Some(isbn) => match google_books_service.id_from_isbn(isbn).await {
                             Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks, None),
                             _ => {
                                 failed_items.push(ImportFailedItem {

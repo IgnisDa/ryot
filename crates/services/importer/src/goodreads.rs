@@ -37,7 +37,7 @@ struct Book {
 
 pub async fn import(
     input: DeployGenericCsvImportInput,
-    isbn_service: &GoogleBooksService,
+    google_books_service: &GoogleBooksService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
     let source = MediaSource::GoogleBooks;
@@ -76,7 +76,7 @@ pub async fn import(
             });
             continue;
         }
-        if let Some(identifier) = isbn_service.id_from_isbn(&isbn).await {
+        if let Some(identifier) = google_books_service.id_from_isbn(&isbn).await {
             let mut seen_history = vec![
                 ImportOrExportMediaItemSeen {
                     started_on: None,
