@@ -98,6 +98,7 @@ pub struct UserFitnessFeaturesEnabledPreferences {
 pub struct UserFitnessLoggingPreferences {
     #[educe(Default = true)]
     pub show_details_while_editing: bool,
+    pub mute_sounds: bool,
 }
 
 #[derive(

@@ -2360,6 +2360,7 @@ export type UserFitnessFeaturesEnabledPreferences = {
 
 export type UserFitnessLoggingPreferences = {
   __typename?: 'UserFitnessLoggingPreferences';
+  muteSounds: Scalars['Boolean']['output'];
   showDetailsWhileEditing: Scalars['Boolean']['output'];
 };
 
