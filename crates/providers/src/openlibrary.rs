@@ -571,16 +571,15 @@ impl OpenlibraryService {
 
     /// Get a book's ID from its ISBN
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        let resp = self
-            .client
+        self.client
             .get(format!("{}/isbn/{}.json", URL, isbn))
             .send()
             .await
             .ok()?
             .json::<MetadataDetailsOpenlibraryBook>()
             .await
-            .ok()?;
-        Some(get_key(&resp.key))
+            .ok()
+            .map(|data| get_key(&data.key))
     }
 }
 
