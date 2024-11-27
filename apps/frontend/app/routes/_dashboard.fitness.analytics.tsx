@@ -221,7 +221,7 @@ const ChartContainer = (props: {
 }) => (
 	<ClientOnly>
 		{() => (
-			<Paper withBorder p="xs">
+			<Paper withBorder p="xs" h="350px">
 				<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
 					<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 						<Text size="lg">{props.title}</Text>
@@ -234,7 +234,11 @@ const ChartContainer = (props: {
 							onChange={(v) => props.setCount(Number(v))}
 						/>
 					</Group>
-					{props.children}
+					{props.totalItems > 0 ? (
+						props.children
+					) : (
+						<Text fz="lg">No data found</Text>
+					)}
 				</Flex>
 			</Paper>
 		)}
