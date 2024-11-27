@@ -72,7 +72,7 @@ where
                 == item.media.as_ref().unwrap().ebook_format
             {
                 match &metadata.isbn {
-                    Some(isbn) => match utils::get_identifier_from_isbn(
+                    Some(isbn) => match utils::get_identifier_from_book_isbn(
                         isbn,
                         google_books_service,
                         open_library_service,

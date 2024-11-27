@@ -169,7 +169,7 @@ pub mod utils {
         DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
     }
 
-    pub async fn get_identifier_from_isbn(
+    pub async fn get_identifier_from_book_isbn(
         isbn: &str,
         google_books_service: &GoogleBooksService,
         open_library_service: &OpenlibraryService,
