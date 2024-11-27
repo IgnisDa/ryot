@@ -219,6 +219,7 @@ pub enum ApplicationCacheKey {
         user_id: String,
         date_range: DateRangeInput,
     },
+    IgdbSettings,
 }
 
 #[derive(
@@ -299,4 +300,5 @@ pub struct FitnessAnalytics {
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
     FitnessAnalytics(FitnessAnalytics),
+    IgdbSettings { access_token: String },
 }

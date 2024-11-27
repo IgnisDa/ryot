@@ -164,7 +164,7 @@ pub async fn get_metadata_provider(
             MediaLot::Manga => Box::new(MalMangaService::new(&ss.config.anime_and_manga.mal).await),
             _ => return err(),
         },
-        MediaSource::Igdb => Box::new(IgdbService::new(&ss.config.video_games).await),
+        MediaSource::Igdb => Box::new(IgdbService::new(&ss.config.video_games, ss.clone()).await),
         MediaSource::MangaUpdates => {
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }

@@ -4654,6 +4654,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.11.0",
  "strum",
+ "supporting-service",
  "tracing",
  "traits",
 ]
