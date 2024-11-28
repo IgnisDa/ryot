@@ -766,25 +766,31 @@ impl ExerciseService {
             }
         };
         let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
-        let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
-        match left {
-            "exclude_from_analytics" => {
-                exercise_extra_information.settings.exclude_from_analytics =
-                    input.change.value.parse().unwrap();
-            }
-            "set_rest_timers" => {
-                let value = input.change.value.parse().unwrap();
-                let set_rest_timers = &mut exercise_extra_information.settings.set_rest_timers;
-                match right {
-                    "drop" => set_rest_timers.drop = Some(value),
-                    "normal" => set_rest_timers.normal = Some(value),
-                    "warmup" => set_rest_timers.warmup = Some(value),
-                    "failure" => set_rest_timers.failure = Some(value),
-                    _ => return Err(err()),
+        if input.change.property.contains('.') {
+            let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
+            match left {
+                "set_rest_timers" => {
+                    let value = input.change.value.parse().unwrap();
+                    let set_rest_timers = &mut exercise_extra_information.settings.set_rest_timers;
+                    match right {
+                        "drop" => set_rest_timers.drop = Some(value),
+                        "normal" => set_rest_timers.normal = Some(value),
+                        "warmup" => set_rest_timers.warmup = Some(value),
+                        "failure" => set_rest_timers.failure = Some(value),
+                        _ => return Err(err()),
+                    }
                 }
+                _ => return Err(err()),
+            };
+        } else {
+            match input.change.property.as_str() {
+                "exclude_from_analytics" => {
+                    exercise_extra_information.settings.exclude_from_analytics =
+                        input.change.value.parse().unwrap();
+                }
+                _ => return Err(err()),
             }
-            _ => return Err(err()),
-        };
+        }
         let mut ute: user_to_entity::ActiveModel = ute.into();
         ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
         ute.update(&self.0.db).await?;
