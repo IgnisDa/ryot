@@ -266,6 +266,7 @@ export default function Page() {
 	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
 	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
@@ -508,14 +509,17 @@ export default function Page() {
 							: null}
 					</Group>
 				) : null}
-				{loaderData.userMetadataDetails?.inProgress ? (
+				{inProgress ? (
 					<Alert icon={<IconAlertCircle />} variant="outline">
 						You are currently{" "}
 						{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
-						ing this (
-						{Number(loaderData.userMetadataDetails.inProgress.progress).toFixed(
-							2,
-						)}
+						ing{" "}
+						{inProgress.podcastExtraInformation
+							? `EP-${inProgress.podcastExtraInformation.episode}`
+							: inProgress.showExtraInformation
+								? `S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`
+								: "this"}{" "}
+						({Number(inProgress.progress).toFixed(2)}
 						%)
 					</Alert>
 				) : null}
