@@ -57,6 +57,7 @@ export type Exercise = {
 	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
 	isShowDetailsOpen: boolean;
+	scrollMarginRemoved?: true;
 	openedDetailsTab?: "images" | "history";
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };

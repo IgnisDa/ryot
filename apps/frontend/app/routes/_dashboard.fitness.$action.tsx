@@ -1101,7 +1101,7 @@ const ExerciseDisplay = (props: {
 			<Paper
 				radius={0}
 				style={{
-					scrollMargin: "60px",
+					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
 					borderLeft: partOfSuperset
 						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
 						: undefined,
@@ -1856,6 +1856,7 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
+											currentExercise.scrollMarginRemoved = true;
 											if (newConfirmed) {
 												const nextSet = getNextSetInWorkout(
 													draft,
