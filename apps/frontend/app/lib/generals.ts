@@ -457,3 +457,13 @@ export const refreshUserMetadataDetails = (metadataId: string) =>
 			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
 		});
 	}, 1500);
+
+export const convertUtcHourToLocalHour = (
+	utcHour: number,
+	userTimezone?: string,
+) => {
+	const targetTimezone = userTimezone || dayjs.tz.guess();
+	const utcDate = dayjs.utc().hour(utcHour).minute(0).second(0);
+	const localDate = utcDate.tz(targetTimezone);
+	return localDate.hour();
+};
