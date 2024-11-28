@@ -774,6 +774,19 @@ pub async fn calculate_user_activities_and_summary(
                 .one(db)
                 .await?
                 .unwrap();
+            let user_exercise = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(exercise.name.clone()))
+                .one(db)
+                .await?
+                .unwrap();
+            if user_exercise
+                .exercise_extra_information
+                .map(|d| d.settings.exclude_from_analytics)
+                .unwrap_or_default()
+            {
+                continue;
+            }
             activity.workout_exercises.push(db_exercise.id);
             activity.workout_muscles.extend(db_exercise.muscles);
             activity.workout_equipments.extend(db_exercise.equipment);
