@@ -248,11 +248,7 @@ const TimeOfDayChart = () => {
 	}));
 
 	return (
-		<ChartContainer
-			counter={false}
-			title="Time of day"
-			totalItems={hours.length}
-		>
+		<ChartContainer title="Time of day" totalItems={hours.length}>
 			<BubbleChart
 				h={60}
 				data={hours}
@@ -268,12 +264,10 @@ const ChartContainer = (props: {
 	title: string;
 	totalItems: number;
 	children: ReactNode;
-	counter:
-		| {
-				count: number;
-				setCount: (count: number) => void;
-		  }
-		| false;
+	counter?: {
+		count: number;
+		setCount: (count: number) => void;
+	};
 }) => {
 	const counter = props.counter;
 
