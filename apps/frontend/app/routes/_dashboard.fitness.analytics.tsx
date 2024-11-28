@@ -218,7 +218,7 @@ const ExercisesChart = () => {
 	);
 };
 
-const hourTuples = Array.from({ length: 12 }, (_, i) => [i * 2, i * 2 + 1]);
+const hourTuples = Array.from({ length: 12 }, (_, i) => [i * 2, i * 2 + 2]);
 
 const TimeOfDayChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -230,13 +230,13 @@ const TimeOfDayChart = () => {
 			})),
 			(item) =>
 				hourTuples.find(
-					([start, end]) => item.hour >= start && item.hour <= end,
+					([start, end]) => item.hour >= start && item.hour < end,
 				),
 		),
 	).map(([hour, values]) => {
-		const grouped = hour.split(",").map(Number);
+		const unGrouped = hour.split(",").map(Number);
 		return {
-			hour: { from: grouped[0], to: grouped[1] + 1 },
+			hour: { from: unGrouped[0], to: unGrouped[1] },
 			count: values.reduce((acc, val) => acc + val.count, 0),
 		};
 	});
