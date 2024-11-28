@@ -768,6 +768,10 @@ impl ExerciseService {
         let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
         let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
         match left {
+            "exclude_from_analytics" => {
+                exercise_extra_information.settings.exclude_from_analytics =
+                    input.change.value.parse().unwrap();
+            }
             "set_rest_timers" => {
                 let value = input.change.value.parse().unwrap();
                 let set_rest_timers = &mut exercise_extra_information.settings.set_rest_timers;

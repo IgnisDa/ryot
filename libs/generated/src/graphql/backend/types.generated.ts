@@ -2667,6 +2667,7 @@ export type UserToExerciseHistoryExtraInformation = {
 
 export type UserToExerciseSettingsExtraInformation = {
   __typename?: 'UserToExerciseSettingsExtraInformation';
+  excludeFromAnalytics: Scalars['Boolean']['output'];
   setRestTimers: SetRestTimersSettings;
 };
 

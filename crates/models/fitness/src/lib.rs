@@ -333,6 +333,7 @@ pub struct SetRestTimersSettings {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseSettingsExtraInformation {
+    pub exclude_from_analytics: bool,
     pub set_rest_timers: SetRestTimersSettings,
 }
 

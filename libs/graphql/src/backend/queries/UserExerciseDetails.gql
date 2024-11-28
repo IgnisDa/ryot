@@ -21,6 +21,7 @@ query UserExerciseDetails($exerciseId: String!) {
 			exerciseNumTimesInteracted
 			exerciseExtraInformation {
 				settings {
+					excludeFromAnalytics
 					setRestTimers {
 						...SetRestTimersPart
 					}
@@ -35,9 +36,9 @@ query UserExerciseDetails($exerciseId: String!) {
 				personalBests {
 					lot
 					sets {
+						setIdx
 						workoutId
 						exerciseIdx
-						setIdx
 					}
 				}
 			}
