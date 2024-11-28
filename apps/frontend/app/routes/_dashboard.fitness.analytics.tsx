@@ -159,10 +159,9 @@ const MusclesChart = () => {
 
 	return (
 		<ChartContainer
-			count={count}
-			setCount={setCount}
 			totalItems={data.length}
 			title="Muscles worked out"
+			counter={{ count, setCount }}
 		>
 			<PieChart
 				size={250}
@@ -192,10 +191,9 @@ const ExercisesChart = () => {
 
 	return (
 		<ChartContainer
-			count={count}
-			setCount={setCount}
 			title="Exercises done"
 			totalItems={data.length}
+			counter={{ count, setCount }}
 		>
 			<BarChart
 				h={300}
@@ -217,37 +215,47 @@ const ExercisesChart = () => {
 
 const ChartContainer = (props: {
 	title: string;
-	count: number;
 	totalItems: number;
 	children: ReactNode;
-	setCount: (count: number) => void;
-}) => (
-	<ClientOnly>
-		{() => (
-			<Paper withBorder p="xs" h="380px">
-				<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
-					<Group wrap="nowrap" w="100%" gap="xl" justify="center">
-						<Text size="lg">{props.title}</Text>
-						<NumberInput
-							w={60}
-							min={2}
-							size="xs"
-							value={props.count}
-							max={props.totalItems}
-							onFocus={(e) => e.target.select()}
-							onChange={(v) => props.setCount(Number(v))}
-						/>
-					</Group>
-					{props.totalItems > 0 ? (
-						props.children
-					) : (
-						<Text fz="lg">No data found</Text>
-					)}
-				</Flex>
-			</Paper>
-		)}
-	</ClientOnly>
-);
+	counter:
+		| {
+				count: number;
+				setCount: (count: number) => void;
+		  }
+		| false;
+}) => {
+	const counter = props.counter;
+
+	return (
+		<ClientOnly>
+			{() => (
+				<Paper withBorder p="xs" h="380px">
+					<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
+						<Group wrap="nowrap" w="100%" gap="xl" justify="center">
+							<Text size="lg">{props.title}</Text>
+							{counter ? (
+								<NumberInput
+									w={60}
+									min={2}
+									size="xs"
+									value={counter.count}
+									max={props.totalItems}
+									onFocus={(e) => e.target.select()}
+									onChange={(v) => counter.setCount(Number(v))}
+								/>
+							) : null}
+						</Group>
+						{props.totalItems > 0 ? (
+							props.children
+						) : (
+							<Text fz="lg">No data found</Text>
+						)}
+					</Flex>
+				</Paper>
+			)}
+		</ClientOnly>
+	);
+};
 
 const CustomDateSelectModal = (props: {
 	opened: boolean;
