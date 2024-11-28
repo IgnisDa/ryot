@@ -18,6 +18,7 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	Switch,
 	Tabs,
 	Text,
 	Title,
@@ -138,11 +139,10 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
 	for (const [property, value] of entries) {
-		if (property.includes("."))
-			submission.push({
-				property,
-				value: value.toString(),
-			});
+		submission.push({
+			property,
+			value: value.toString(),
+		});
 	}
 	for (const change of submission) {
 		await serverGqlService.authenticatedRequest(
@@ -217,7 +217,19 @@ export default function Page() {
 								value={pref[1]}
 							/>
 						))}
-						<Title order={3}>Rest timers</Title>
+						<Switch
+							label="Exclude from analytics"
+							defaultChecked={
+								loaderData.userExerciseDetails.details?.exerciseExtraInformation
+									?.settings.excludeFromAnalytics
+							}
+							onChange={(ev) => {
+								appendPref(
+									"exclude_from_analytics",
+									String(ev.currentTarget.checked),
+								);
+							}}
+						/>
 						<Text size="sm">
 							When a new set is added, rest timers will be added automatically
 							according to the settings below.
