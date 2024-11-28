@@ -1,4 +1,4 @@
-import { BarChart, PieChart } from "@mantine/charts";
+import { BarChart, BubbleChart, PieChart } from "@mantine/charts";
 import {
 	Button,
 	Container,
@@ -218,7 +218,15 @@ const ExercisesChart = () => {
 	);
 };
 
-const hourTuples = Array.from({ length: 12 }, (_, i) => [i * 2, i * 2 + 2]);
+const hourTuples = Array.from({ length: 8 }, (_, i) => [i * 3, i * 3 + 3]);
+
+const formattedHour = (hour: number) =>
+	dayjsLib().hour(hour).minute(0).format("ha");
+
+const formattedHourLabel = (hour: string) => {
+	const unGrouped = hour.split(",").map(Number);
+	return `${formattedHour(unGrouped[0])}-${formattedHour(unGrouped[1])}`;
+};
 
 const TimeOfDayChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -233,13 +241,11 @@ const TimeOfDayChart = () => {
 					([start, end]) => item.hour >= start && item.hour < end,
 				),
 		),
-	).map(([hour, values]) => {
-		const unGrouped = hour.split(",").map(Number);
-		return {
-			hour: { from: unGrouped[0], to: unGrouped[1] },
-			count: values.reduce((acc, val) => acc + val.count, 0),
-		};
-	});
+	).map(([hour, values]) => ({
+		index: 1,
+		hour: formattedHourLabel(hour),
+		count: values.reduce((acc, val) => acc + val.count, 0),
+	}));
 
 	return (
 		<ChartContainer
@@ -247,7 +253,13 @@ const TimeOfDayChart = () => {
 			title="Time of day"
 			totalItems={hours.length}
 		>
-			<div>{JSON.stringify(hours, null, 4)}</div>
+			<BubbleChart
+				h={60}
+				data={hours}
+				color="lime"
+				range={[50, 300]}
+				dataKey={{ x: "hour", y: "index", z: "count" }}
+			/>
 		</ChartContainer>
 	);
 };
@@ -268,8 +280,14 @@ const ChartContainer = (props: {
 	return (
 		<ClientOnly>
 			{() => (
-				<Paper withBorder p="xs" h={props.counter ? 380 : 140}>
-					<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
+				<Paper p="xs" withBorder display="flex" h={props.counter ? 380 : 140}>
+					<Flex
+						flex={1}
+						align="center"
+						direction="column"
+						gap={{ base: 4, md: "md" }}
+						justify={props.totalItems > 0 ? "space-between" : undefined}
+					>
 						<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 							<Text size="lg">{props.title}</Text>
 							{counter ? (
@@ -287,7 +305,9 @@ const ChartContainer = (props: {
 						{props.totalItems > 0 ? (
 							props.children
 						) : (
-							<Text fz="lg">No data found</Text>
+							<Text fz="lg" mt="xl">
+								No data found
+							</Text>
 						)}
 					</Flex>
 				</Paper>
@@ -328,7 +348,7 @@ const CustomDateSelectModal = (props: {
 					onClick={() => {
 						setP("startDate", formatDateToNaiveDate(value[0] || new Date()));
 						setP("endDate", formatDateToNaiveDate(value[1] || new Date()));
-						setP("range", TIME_RANGES[8]);
+						setP("range", TIME_RANGES[9]);
 						props.onClose();
 					}}
 				>
