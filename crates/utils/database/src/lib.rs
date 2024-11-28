@@ -620,7 +620,11 @@ pub async fn calculate_user_activities_and_summary(
                 ..Default::default()
             });
         existing.entity_ids.push(entity_id.clone());
-        let hour = timestamp.hour();
+        let hour = if timestamp.minute() < 30 {
+            timestamp.hour()
+        } else {
+            timestamp.hour() + 1
+        };
         let maybe_idx = existing.hour_records.iter().position(|hr| hr.hour == hour);
         if let Some(idx) = maybe_idx {
             existing.hour_records.get_mut(idx).unwrap().entities.push(
