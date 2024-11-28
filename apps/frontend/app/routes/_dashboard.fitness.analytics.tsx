@@ -18,13 +18,18 @@ import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
+import { produce } from "immer";
 import { type ReactNode, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib, selectRandomElement } from "~/lib/generals";
+import {
+	convertUtcHourToLocalHour,
+	dayjsLib,
+	selectRandomElement,
+} from "~/lib/generals";
 import { useAppSearchParam, useGetMantineColors } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -141,6 +146,7 @@ export default function Page() {
 					<SimpleGrid cols={{ base: 1, md: 2 }}>
 						<MusclesChart />
 						<ExercisesChart />
+						<TimeOfDayChart />
 					</SimpleGrid>
 				</Stack>
 			</Container>
@@ -209,6 +215,25 @@ const ExercisesChart = () => {
 					color: selectRandomElement(colors, item.exercise),
 				}))}
 			/>
+		</ChartContainer>
+	);
+};
+
+const TimeOfDayChart = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const hours = loaderData.fitnessAnalytics.hours.map((h) =>
+		produce(h, (draft) => {
+			draft.hour2 = convertUtcHourToLocalHour(draft.hour);
+		}),
+	);
+
+	return (
+		<ChartContainer
+			counter={false}
+			title="Time of day"
+			totalItems={hours.length}
+		>
+			<div>{JSON.stringify(hours, null, 4)}</div>
 		</ChartContainer>
 	);
 };
