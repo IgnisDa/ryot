@@ -16,9 +16,8 @@ import { DatePicker } from "@mantine/dates";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
-import { produce } from "immer";
 import { type ReactNode, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -219,13 +218,28 @@ const ExercisesChart = () => {
 	);
 };
 
+const hourTuples = Array.from({ length: 12 }, (_, i) => [i * 2, i * 2 + 1]);
+
 const TimeOfDayChart = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const hours = loaderData.fitnessAnalytics.hours.map((h) =>
-		produce(h, (draft) => {
-			draft.hour2 = convertUtcHourToLocalHour(draft.hour);
-		}),
-	);
+	const hours = Object.entries(
+		groupBy(
+			loaderData.fitnessAnalytics.hours.map((h) => ({
+				...h,
+				hour: convertUtcHourToLocalHour(h.hour),
+			})),
+			(item) =>
+				hourTuples.find(
+					([start, end]) => item.hour >= start && item.hour <= end,
+				),
+		),
+	).map(([hour, values]) => {
+		const grouped = hour.split(",").map(Number);
+		return {
+			hour: { from: grouped[0], to: grouped[1] + 1 },
+			count: values.reduce((acc, val) => acc + val.count, 0),
+		};
+	});
 
 	return (
 		<ChartContainer
@@ -254,7 +268,7 @@ const ChartContainer = (props: {
 	return (
 		<ClientOnly>
 			{() => (
-				<Paper withBorder p="xs" h="380px">
+				<Paper withBorder p="xs" h={props.counter ? 380 : 140}>
 					<Flex align="center" direction="column" gap={{ base: 4, md: "md" }}>
 						<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 							<Text size="lg">{props.title}</Text>
