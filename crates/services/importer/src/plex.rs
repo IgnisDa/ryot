@@ -5,8 +5,11 @@ use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use media_models::DeployUrlAndKeyImportInput;
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
+use sea_orm::prelude::DateTimeUtc;
 use serde::Deserialize;
+use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 struct PlexMetadataItem {
     title: String,
@@ -15,6 +18,11 @@ struct PlexMetadataItem {
     key: String,
     #[serde(rename = "Guid")]
     guid: Option<Vec<StringIdObject>>,
+    #[serde(rename = "viewCount")]
+    view_count: Option<i32>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    #[serde(rename = "lastViewedAt")]
+    last_viewed_at: Option<DateTimeUtc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,7 +73,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await?
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
-        dbg!(items.media_container.metadata);
+        dbg!(items);
     }
     todo!()
 }
