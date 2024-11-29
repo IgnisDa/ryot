@@ -38,7 +38,6 @@ You can import your watched movies and shows from [Plex](https://plex.tv).
 
 ### Steps
 
-- Login to your Plex account and go to the settings page.
 - Obtain a `Plex-Token` as described [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken).
 - Enter the correct details in the inputs.
 
