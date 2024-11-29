@@ -3,7 +3,11 @@ use async_graphql::Result;
 use common_models::StringIdObject;
 use common_utils::ryot_log;
 use dependent_models::ImportResult;
-use media_models::DeployUrlAndKeyImportInput;
+use enums::{ImportSource, MediaLot, MediaSource};
+use importer_models::{ImportFailStep, ImportFailedItem};
+use media_models::{
+    DeployUrlAndKeyImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+};
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
 use sea_orm::prelude::DateTimeUtc;
 use serde::Deserialize;
@@ -57,12 +61,21 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .await?
         .json::<PlexMediaResponse<PlexLibrary>>()
         .await?;
+
+    let mut metadata = vec![];
+    let mut failed_items = vec![];
     for dir in libraries.media_container.directory {
         ryot_log!(debug, "Processing directory {:?}", dir.title);
-        if !["movie", "show"].contains(&dir.item_type.as_str()) {
+        let item_type = dir.item_type.as_str();
+        if !["movie", "show"].contains(&item_type) {
             ryot_log!(debug, "Skipping directory {:?}", dir.title);
             continue;
         }
+        let lot = match item_type {
+            "movie" => MediaLot::Movie,
+            "show" => MediaLot::Show,
+            _ => unreachable!(),
+        };
         let items = client
             .get(format!(
                 "{}/library/sections/{}/all",
@@ -73,7 +86,42 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await?
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
-        dbg!(items);
+        for item in items.media_container.metadata {
+            if let Some(_) = item.view_count {
+                let gu_ids = item.guid.unwrap_or_default();
+                let Some(tmdb_id) = gu_ids
+                    .iter()
+                    .find(|g| g.id.starts_with("tmdb://"))
+                    .map(|g| &g.id[7..])
+                else {
+                    failed_items.push(ImportFailedItem {
+                        lot: Some(lot),
+                        identifier: item.key.clone(),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        error: Some("No TMDb ID associated with this media".to_string()),
+                    });
+                    continue;
+                };
+                metadata.push(ImportOrExportMediaItem {
+                    lot,
+                    reviews: vec![],
+                    source_id: item.key,
+                    collections: vec![],
+                    source: MediaSource::Tmdb,
+                    identifier: tmdb_id.to_string(),
+                    seen_history: vec![ImportOrExportMediaItemSeen {
+                        ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                        provider_watched_on: Some(ImportSource::Plex.to_string()),
+                        ..Default::default()
+                    }],
+                });
+            }
+        }
     }
-    todo!()
+
+    Ok(ImportResult {
+        metadata,
+        failed_items,
+        ..Default::default()
+    })
 }
