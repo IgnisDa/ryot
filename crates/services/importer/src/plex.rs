@@ -1,5 +1,6 @@
 use application_utils::get_base_http_client;
 use async_graphql::Result;
+use common_models::StringIdObject;
 use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use media_models::DeployUrlAndKeyImportInput;
@@ -12,6 +13,8 @@ struct PlexMetadataItem {
     #[serde(rename = "type")]
     item_type: String,
     key: String,
+    #[serde(rename = "Guid")]
+    guid: Option<Vec<StringIdObject>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +64,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await?
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
-        dbg!(items);
+        dbg!(items.media_container.metadata);
     }
     todo!()
 }
