@@ -15,6 +15,57 @@ You can see the reports under "Import History" of the imports page.
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
   progress in the docker logs.
 
+## Jellyfin
+
+You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
+
+!!! warning
+
+      This will only import media that are already finished. Setup an
+      [integration](./integrations.md#jellyfin) if you want to import media in progress.
+
+Enter the correct details in the input. The username you enter should be of the account
+whose data you want to import.
+
+## Trakt
+
+All movies and shows can be imported from [Trakt](https://trakt.tv) along with
+their ratings, history, comments and lists. A few points to note.
+
+- It is necessary to set your account's privacy to public during the
+  duration of the import. The Trakt authentication flow is pretty complicated
+  and I don't think it would be worth implementing.
+- Items that have been "check(ed) in" will not be imported.
+
+### Steps
+
+- Login to your Trakt account and go to the settings page.
+- If your account is set to private, uncheck the box next to it. You can revert
+  this change once the import is complete.
+- If you have any lists that are private, you need to change them to public.
+  Otherwise they will not be imported.
+- Find your profile slug. This is usually your username. You can find it by
+  going to your profile page, and checking the URL.
+- Enter this username in the input.
+
+## Audiobookshelf
+
+The Audiobookshelf importer supports importing all media that have a valid Audible ID or
+ITunes ID or ISBN.
+
+!!! warning
+
+    - This will only import media that are already finished. Setup an
+      [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
+    - If you have enabled the option to auto delete podcast episodes, you'll have to
+      manually mark them as completed.
+
+### Steps
+
+- Obtain an API token as described in the Audiobookshelf
+  [authentication](https://api.audiobookshelf.org/#authentication) docs.
+- Enter the correct details in the input.
+
 ## Goodreads
 
 Ryot translates [Goodreads](https://www.goodreads.com/) shelves in the
@@ -45,6 +96,15 @@ the following caveats:
 - Enter a name and click on "Add token".
 - Copy the token that was just generated.
 - Enter the details in the inputs.
+
+## Generic Json
+
+The "Generic Json" can be used to import all possible data from a generic JSON file. The
+format of the JSON file should be `CompleteExport` as described in the
+[exporting](guides/exporting.md#type-definitions) documentation.
+
+You can use this to export all your data from one Ryot instance and import it into another,
+or from a source that is not supported by Ryot.
 
 ## Movary
 
@@ -109,27 +169,6 @@ guide.
 - If an exercise does not exist in your instance, you need to create it before mapping it.
 - Once you have mapped all the exercises, click on "Import".
 
-## Trakt
-
-All movies and shows can be imported from [Trakt](https://trakt.tv) along with
-their ratings, history, comments and lists. A few points to note.
-
-- It is necessary to set your account's privacy to public during the
-  duration of the import. The Trakt authentication flow is pretty complicated
-  and I don't think it would be worth implementing.
-- Items that have been "check(ed) in" will not be imported.
-
-### Steps
-
-- Login to your Trakt account and go to the settings page.
-- If your account is set to private, uncheck the box next to it. You can revert
-  this change once the import is complete.
-- If you have any lists that are private, you need to change them to public.
-  Otherwise they will not be imported.
-- Find your profile slug. This is usually your username. You can find it by
-  going to your profile page, and checking the URL.
-- Enter this username in the input.
-
 ## IMDb
 
 You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
@@ -157,24 +196,6 @@ separately. A few points to note:
 - For your custom lists, please visit the "My Lists" page.
 - Upload the CSV file and choose the collection you want to import into.
 
-## Audiobookshelf
-
-The Audiobookshelf importer supports importing all media that have a valid Audible ID or
-ITunes ID or ISBN.
-
-!!! warning
-
-    - This will only import media that are already finished. Setup an
-      [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
-    - If you have enabled the option to auto delete podcast episodes, you'll have to
-      manually mark them as completed.
-
-### Steps
-
-- Obtain an API token as described in the Audiobookshelf
-  [authentication](https://api.audiobookshelf.org/#authentication) docs.
-- Enter the correct details in the input.
-
 ## TV Time
 
 !!! warning
@@ -192,24 +213,3 @@ app.
 This can be done by clicking on the three dots on the top right corner of the app, and then
 clicking on "Export". This will save a CSV file to your file system. Upload this file in
 the input.
-
-## Jellyfin
-
-You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
-
-!!! warning
-
-      This will only import media that are already finished. Setup an
-      [integration](./integrations.md#jellyfin) if you want to import media in progress.
-
-Enter the correct details in the input. The username you enter should be of the account
-whose data you want to import.
-
-## Generic Json
-
-The "Generic Json" can be used to import all possible data from a generic JSON file. The
-format of the JSON file should be `CompleteExport` as described in the
-[exporting](guides/exporting.md#type-definitions) documentation.
-
-You can use this to export all your data from one Ryot instance and import it into another,
-or from a source that is not supported by Ryot.
