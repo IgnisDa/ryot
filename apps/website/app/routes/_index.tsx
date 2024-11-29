@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
 import {
 	type ActionFunctionArgs,
+	data,
 	type LoaderFunctionArgs,
 	redirect,
 } from "@remix-run/node";
@@ -95,7 +96,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = otpCodesCache.get(submission.email);
-			if (otpCode !== submission.otpCode) throw new Error("Invalid OTP code.");
+			if (otpCode !== submission.otpCode)
+				throw data("Invalid OTP code.", { status: 400 });
 			const dbCustomer = await db
 				.insert(customers)
 				.values({ email: submission.email })
