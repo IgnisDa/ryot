@@ -11,7 +11,7 @@ use dependent_utils::{
     get_tmdb_non_media_service, process_import,
 };
 use enums::{ImportSource, MediaSource};
-use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
+use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMediaItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
@@ -115,15 +115,26 @@ impl ImporterService {
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await.unwrap(),
         };
-        let details = process_import(&user_id, false, import, &self.0).await?;
-        self.finish_import_job(db_import_job, details).await?;
-        deploy_background_job(
-            &user_id,
-            BackgroundJob::CalculateUserActivitiesAndSummary,
-            &self.0,
-        )
-        .await
-        .trace_ok();
+        let mut model: import_report::ActiveModel = db_import_job.into();
+        model.finished_on = ActiveValue::Set(Some(Utc::now()));
+        match process_import(&user_id, false, import, &self.0).await {
+            Ok(details) => {
+                model.details = ActiveValue::Set(Some(details));
+                model.was_success = ActiveValue::Set(Some(true));
+                deploy_background_job(
+                    &user_id,
+                    BackgroundJob::CalculateUserActivitiesAndSummary,
+                    &self.0,
+                )
+                .await
+                .trace_ok();
+            }
+            Err(e) => {
+                ryot_log!(debug, "Error while importing: {:?}", e);
+                model.was_success = ActiveValue::Set(Some(false));
+            }
+        }
+        model.update(&self.0.db).await.trace_ok();
         Ok(())
     }
 
@@ -139,19 +150,6 @@ impl ImporterService {
         };
         let model = model.insert(&self.0.db).await.unwrap();
         ryot_log!(debug, "Started import job with id = {id}", id = model.id);
-        Ok(model)
-    }
-
-    async fn finish_import_job(
-        &self,
-        job: import_report::Model,
-        details: ImportResultResponse,
-    ) -> Result<import_report::Model> {
-        let mut model: import_report::ActiveModel = job.into();
-        model.finished_on = ActiveValue::Set(Some(Utc::now()));
-        model.details = ActiveValue::Set(Some(details));
-        model.was_success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.0.db).await.unwrap();
         Ok(model)
     }
 }
