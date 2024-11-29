@@ -76,7 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			formData.delete("source");
 			const values = await match(source)
 				.with(
-					ImportSource.StoryGraph,
+					ImportSource.Storygraph,
 					ImportSource.Imdb,
 					ImportSource.Goodreads,
 					ImportSource.OpenScale,
@@ -86,7 +86,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				)
 				.with(
 					ImportSource.Plex,
-					ImportSource.MediaTracker,
+					ImportSource.Mediatracker,
 					ImportSource.Audiobookshelf,
 					() => ({
 						urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
@@ -229,9 +229,9 @@ export default function Page() {
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Myanimelist, () => "myanimelist")
-												.with(ImportSource.MediaTracker, () => "mediatracker")
+												.with(ImportSource.Mediatracker, () => "mediatracker")
 												.with(ImportSource.Movary, () => "movary")
-												.with(ImportSource.StoryGraph, () => "storygraph")
+												.with(ImportSource.Storygraph, () => "storygraph")
 												.with(ImportSource.StrongApp, () => "strong-app")
 												.with(ImportSource.Trakt, () => "trakt")
 												.with(
@@ -269,7 +269,7 @@ export default function Page() {
 										{match(deployImportSource)
 											.with(
 												ImportSource.Plex,
-												ImportSource.MediaTracker,
+												ImportSource.Mediatracker,
 												ImportSource.Audiobookshelf,
 												() => (
 													<>
@@ -291,7 +291,7 @@ export default function Page() {
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
 												ImportSource.Imdb,
-												ImportSource.StoryGraph,
+												ImportSource.Storygraph,
 												() => (
 													<>
 														<FileInput
