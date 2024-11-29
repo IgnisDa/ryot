@@ -132,24 +132,28 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             .await?
                             .json::<PlexMediaResponse<PlexMetadata>>()
                             .await?;
+                        let mut item = ImportOrExportMediaItem {
+                            lot,
+                            reviews: vec![],
+                            collections: vec![],
+                            source: MediaSource::Tmdb,
+                            source_id: item.key.clone(),
+                            identifier: tmdb_id.to_string(),
+                            seen_history: vec![],
+                        };
                         for leaf in leaves.media_container.metadata {
                             if let Some(_) = leaf.last_viewed_at {
-                                metadata.push(ImportOrExportMediaItem {
-                                    lot,
-                                    reviews: vec![],
-                                    collections: vec![],
-                                    source: MediaSource::Tmdb,
-                                    source_id: item.key.clone(),
-                                    identifier: tmdb_id.to_string(),
-                                    seen_history: vec![ImportOrExportMediaItemSeen {
-                                        show_episode_number: leaf.index,
-                                        show_season_number: leaf.parent_index,
-                                        ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
-                                        provider_watched_on: Some(ImportSource::Plex.to_string()),
-                                        ..Default::default()
-                                    }],
+                                item.seen_history.push(ImportOrExportMediaItemSeen {
+                                    show_episode_number: leaf.index,
+                                    show_season_number: leaf.parent_index,
+                                    ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
+                                    provider_watched_on: Some(ImportSource::Plex.to_string()),
+                                    ..Default::default()
                                 });
                             }
+                        }
+                        if !item.seen_history.is_empty() {
+                            metadata.push(item);
                         }
                     }
                     _ => unreachable!(),
