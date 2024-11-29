@@ -197,6 +197,7 @@ pub enum ImportSource {
     Movary,
     MediaTracker,
     OpenScale,
+    Plex,
     StrongApp,
     StoryGraph,
     Trakt,

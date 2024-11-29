@@ -856,6 +856,7 @@ export enum ImportSource {
   MediaTracker = 'MEDIA_TRACKER',
   Movary = 'MOVARY',
   OpenScale = 'OPEN_SCALE',
+  Plex = 'PLEX',
   StoryGraph = 'STORY_GRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'

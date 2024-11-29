@@ -28,6 +28,7 @@ mod mal;
 mod media_tracker;
 mod movary;
 mod open_scale;
+mod plex;
 mod story_graph;
 mod strong_app;
 mod trakt;
@@ -112,6 +113,7 @@ impl ImporterService {
                     .unwrap()
             }
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
+            ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await.unwrap(),
         };
         let details = process_import(&user_id, false, import, &self.0).await?;
         self.finish_import_job(db_import_job, details).await?;
