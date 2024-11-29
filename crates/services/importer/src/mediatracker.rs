@@ -306,7 +306,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         ended_on: s.date.map(|d| d.date_naive()),
                         show_season_number: season_number,
                         show_episode_number: episode_number,
-                        provider_watched_on: Some(ImportSource::MediaTracker.to_string()),
+                        provider_watched_on: Some(ImportSource::Mediatracker.to_string()),
                         ..Default::default()
                     }
                 })

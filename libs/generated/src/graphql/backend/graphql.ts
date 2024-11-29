@@ -835,12 +835,12 @@ export enum ImportSource {
   Igdb = 'IGDB',
   Imdb = 'IMDB',
   Jellyfin = 'JELLYFIN',
-  MediaTracker = 'MEDIA_TRACKER',
+  Mediatracker = 'MEDIATRACKER',
   Movary = 'MOVARY',
   Myanimelist = 'MYANIMELIST',
   OpenScale = 'OPEN_SCALE',
   Plex = 'PLEX',
-  StoryGraph = 'STORY_GRAPH',
+  Storygraph = 'STORYGRAPH',
   StrongApp = 'STRONG_APP',
   Trakt = 'TRAKT'
 }

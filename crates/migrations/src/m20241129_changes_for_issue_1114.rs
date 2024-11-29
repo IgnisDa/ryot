@@ -10,6 +10,8 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE "import_report" SET "source" = 'myanimelist' WHERE "source" = 'mal';
+UPDATE "import_report" SET "source" = 'mediatracker' WHERE "source" = 'media_tracker';
+UPDATE "import_report" SET "source" = 'storygraph' WHERE "source" = 'story_graph';
             "#,
         )
         .await?;

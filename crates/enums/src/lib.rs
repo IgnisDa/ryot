@@ -195,11 +195,11 @@ pub enum ImportSource {
     Jellyfin,
     Myanimelist,
     Movary,
-    MediaTracker,
+    Mediatracker,
     OpenScale,
     Plex,
     StrongApp,
-    StoryGraph,
+    Storygraph,
     Trakt,
 }
 

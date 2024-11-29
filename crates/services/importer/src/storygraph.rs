@@ -112,7 +112,7 @@ pub async fn import(
             ImportOrExportMediaItemSeen {
                 started_on: None,
                 ended_on: None,
-                provider_watched_on: Some(ImportSource::StoryGraph.to_string()),
+                provider_watched_on: Some(ImportSource::Storygraph.to_string()),
                 ..Default::default()
             };
             record.read_count
