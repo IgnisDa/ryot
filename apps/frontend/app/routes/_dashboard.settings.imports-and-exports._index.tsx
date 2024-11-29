@@ -34,7 +34,12 @@ import {
 	ImportSource,
 	UserExportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getActionIntent,
+	kebabCase,
+	processSubmission,
+} from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
@@ -224,29 +229,14 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
-										href={withFragment(
-											`${coreDetails.docsLink}/importing.html`,
-											match(deployImportSource)
-												.with(ImportSource.Goodreads, () => "goodreads")
-												.with(ImportSource.Myanimelist, () => "myanimelist")
-												.with(ImportSource.Mediatracker, () => "mediatracker")
-												.with(ImportSource.Movary, () => "movary")
-												.with(ImportSource.Storygraph, () => "storygraph")
-												.with(ImportSource.StrongApp, () => "strong-app")
-												.with(ImportSource.Trakt, () => "trakt")
-												.with(
-													ImportSource.Audiobookshelf,
-													() => "audiobookshelf",
-												)
-												.with(ImportSource.Imdb, () => "imdb")
-												.with(ImportSource.Igdb, () => "igdb")
-												.with(ImportSource.Jellyfin, () => "jellyfin")
-												.with(ImportSource.GenericJson, () => "generic-json")
-												.with(ImportSource.OpenScale, () => "open-scale")
-												.with(ImportSource.Plex, () => "plex")
-												.with(undefined, () => "")
-												.exhaustive(),
-										)}
+										href={
+											deployImportSource
+												? withFragment(
+														`${coreDetails.docsLink}/importing.html`,
+														kebabCase(deployImportSource),
+													)
+												: ""
+										}
 										target="_blank"
 									>
 										Docs
