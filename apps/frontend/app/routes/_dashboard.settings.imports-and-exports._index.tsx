@@ -98,7 +98,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
 				}))
-				.with(ImportSource.Mal, async () => ({
+				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
 				.with(ImportSource.StrongApp, async () => {
@@ -228,7 +228,7 @@ export default function Page() {
 											`${coreDetails.docsLink}/importing.html`,
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
-												.with(ImportSource.Mal, () => "myanimelist")
+												.with(ImportSource.Myanimelist, () => "myanimelist")
 												.with(ImportSource.MediaTracker, () => "mediatracker")
 												.with(ImportSource.Movary, () => "movary")
 												.with(ImportSource.StoryGraph, () => "storygraph")
@@ -370,7 +370,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.Mal, () => (
+											.with(ImportSource.Myanimelist, () => (
 												<>
 													<FileInput
 														label="Anime export file"
