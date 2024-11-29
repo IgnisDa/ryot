@@ -50,6 +50,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .json::<PlexMediaResponse<PlexLibrary>>()
         .await?;
     for dir in libraries.media_container.directory {
+        ryot_log!(debug, "Processing directory {:?}", dir.title);
         if !["movie", "show"].contains(&dir.item_type.as_str()) {
             ryot_log!(debug, "Skipping directory {:?}", dir.title);
             continue;
