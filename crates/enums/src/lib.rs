@@ -193,7 +193,7 @@ pub enum ImportSource {
     Igdb,
     Imdb,
     Jellyfin,
-    Mal,
+    Myanimelist,
     Movary,
     MediaTracker,
     OpenScale,

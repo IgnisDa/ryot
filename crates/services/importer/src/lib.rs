@@ -24,9 +24,9 @@ mod goodreads;
 mod igdb;
 mod imdb;
 mod jellyfin;
-mod mal;
 mod media_tracker;
 mod movary;
+mod myanimelist;
 mod open_scale;
 mod plex;
 mod story_graph;
@@ -72,7 +72,7 @@ impl ImporterService {
             ImportSource::MediaTracker => media_tracker::import(input.url_and_key.unwrap())
                 .await
                 .unwrap(),
-            ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
+            ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.generic_csv.unwrap(),
                 &get_google_books_service(&self.0.config).await.unwrap(),

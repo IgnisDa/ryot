@@ -73,7 +73,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
                 ended_on: get_date(item.my_finish_date.clone()),
                 anime_episode_number: anime_episode,
                 manga_chapter_number: manga_chapter,
-                provider_watched_on: Some(ImportSource::Mal.to_string()),
+                provider_watched_on: Some(ImportSource::Myanimelist.to_string()),
                 ..Default::default()
             }
         })
