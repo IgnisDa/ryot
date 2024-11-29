@@ -11,7 +11,6 @@ import {
 	Group,
 	Indicator,
 	JsonInput,
-	PasswordInput,
 	Select,
 	Stack,
 	Tabs,
@@ -279,7 +278,7 @@ export default function Page() {
 															required
 															name="apiUrl"
 														/>
-														<PasswordInput
+														<TextInput
 															mt="sm"
 															label="API Key"
 															required
@@ -325,7 +324,7 @@ export default function Page() {
 														required
 														name="username"
 													/>
-													<PasswordInput
+													<TextInput
 														mt="sm"
 														label="Password"
 														required
