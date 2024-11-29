@@ -24,8 +24,6 @@ struct PlexMetadataItem {
     key: String,
     #[serde(rename = "Guid")]
     guid: Option<Vec<StringIdObject>>,
-    #[serde(rename = "viewCount")]
-    view_count: Option<i32>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     #[serde(rename = "lastViewedAt")]
     last_viewed_at: Option<DateTimeUtc>,
@@ -92,7 +90,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
         for item in items.media_container.metadata {
-            if let Some(_) = item.view_count {
+            if let Some(_) = item.last_viewed_at {
                 let gu_ids = item.guid.unwrap_or_default();
                 let Some(tmdb_id) = gu_ids
                     .iter()
