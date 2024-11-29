@@ -85,9 +85,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
 				)
-				.with(ImportSource.Audiobookshelf, ImportSource.MediaTracker, () => ({
-					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
-				}))
+				.with(
+					ImportSource.Plex,
+					ImportSource.MediaTracker,
+					ImportSource.Audiobookshelf,
+					() => ({
+						urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+					}),
+				)
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, usernameImportFormSchema),
 				}))
@@ -239,6 +244,7 @@ export default function Page() {
 												.with(ImportSource.Jellyfin, () => "jellyfin")
 												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(ImportSource.OpenScale, () => "open-scale")
+												.with(ImportSource.Plex, () => "plex")
 												.with(undefined, () => "")
 												.exhaustive(),
 										)}
@@ -263,8 +269,9 @@ export default function Page() {
 									<>
 										{match(deployImportSource)
 											.with(
-												ImportSource.Audiobookshelf,
+												ImportSource.Plex,
 												ImportSource.MediaTracker,
+												ImportSource.Audiobookshelf,
 												() => (
 													<>
 														<TextInput
