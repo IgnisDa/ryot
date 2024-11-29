@@ -129,7 +129,17 @@ pub enum EntityLot {
 
 // The different possible states of a seen item.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Eq,
+    Enum,
+    Copy,
+    Debug,
+    Clone,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -144,18 +154,18 @@ pub enum SeenState {
 }
 
 #[derive(
+    Eq,
+    Enum,
+    Copy,
     Debug,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
     Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -169,17 +179,17 @@ pub enum Visibility {
 }
 
 #[derive(
+    Eq,
+    Enum,
+    Copy,
     Debug,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
     Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -187,20 +197,20 @@ pub enum Visibility {
     rename_all = "snake_case"
 )]
 pub enum ImportSource {
-    Audiobookshelf,
-    GenericJson,
-    Goodreads,
     Igdb,
     Imdb,
-    Jellyfin,
-    Myanimelist,
-    Movary,
-    Mediatracker,
-    OpenScale,
     Plex,
-    StrongApp,
-    Storygraph,
     Trakt,
+    Movary,
+    Jellyfin,
+    OpenScale,
+    StrongApp,
+    Goodreads,
+    Storygraph,
+    Myanimelist,
+    GenericJson,
+    Mediatracker,
+    Audiobookshelf,
 }
 
 #[derive(
