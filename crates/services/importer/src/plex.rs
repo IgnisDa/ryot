@@ -19,6 +19,8 @@ struct PlexMetadataItem {
     title: String,
     #[serde(rename = "type")]
     item_type: String,
+    #[serde(rename = "ratingKey")]
+    rating_key: Option<String>,
     key: String,
     #[serde(rename = "Guid")]
     guid: Option<Vec<StringIdObject>>,
@@ -27,6 +29,9 @@ struct PlexMetadataItem {
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     #[serde(rename = "lastViewedAt")]
     last_viewed_at: Option<DateTimeUtc>,
+    index: Option<i32>,
+    #[serde(rename = "parentIndex")]
+    parent_index: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,19 +107,55 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     });
                     continue;
                 };
-                metadata.push(ImportOrExportMediaItem {
-                    lot,
-                    reviews: vec![],
-                    source_id: item.key,
-                    collections: vec![],
-                    source: MediaSource::Tmdb,
-                    identifier: tmdb_id.to_string(),
-                    seen_history: vec![ImportOrExportMediaItemSeen {
-                        ended_on: item.last_viewed_at.map(|d| d.date_naive()),
-                        provider_watched_on: Some(ImportSource::Plex.to_string()),
-                        ..Default::default()
-                    }],
-                });
+                match lot {
+                    MediaLot::Movie => {
+                        metadata.push(ImportOrExportMediaItem {
+                            lot,
+                            reviews: vec![],
+                            source_id: item.key,
+                            collections: vec![],
+                            source: MediaSource::Tmdb,
+                            identifier: tmdb_id.to_string(),
+                            seen_history: vec![ImportOrExportMediaItemSeen {
+                                ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                                provider_watched_on: Some(ImportSource::Plex.to_string()),
+                                ..Default::default()
+                            }],
+                        });
+                    }
+                    MediaLot::Show => {
+                        let leaves = client
+                            .get(format!(
+                                "{}/library/metadata/{}/allLeaves",
+                                input.api_url,
+                                item.rating_key.unwrap()
+                            ))
+                            .send()
+                            .await?
+                            .json::<PlexMediaResponse<PlexMetadata>>()
+                            .await?;
+                        for leaf in leaves.media_container.metadata {
+                            if let Some(_) = leaf.last_viewed_at {
+                                metadata.push(ImportOrExportMediaItem {
+                                    lot,
+                                    reviews: vec![],
+                                    collections: vec![],
+                                    source: MediaSource::Tmdb,
+                                    source_id: item.key.clone(),
+                                    identifier: tmdb_id.to_string(),
+                                    seen_history: vec![ImportOrExportMediaItemSeen {
+                                        show_episode_number: leaf.index,
+                                        show_season_number: leaf.parent_index,
+                                        ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
+                                        provider_watched_on: Some(ImportSource::Plex.to_string()),
+                                        ..Default::default()
+                                    }],
+                                });
+                            }
+                        }
+                    }
+                    _ => unreachable!(),
+                }
             }
         }
     }
