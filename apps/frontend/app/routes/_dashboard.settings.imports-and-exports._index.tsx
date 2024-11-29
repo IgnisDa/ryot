@@ -243,16 +243,17 @@ export default function Page() {
 									</Anchor>
 								</Flex>
 								<Select
+									required
+									searchable
 									id="import-source"
 									label="Select a source"
-									required
+									onChange={(v) => {
+										if (v) setDeployImportSource(v as ImportSource);
+									}}
 									data={Object.values(ImportSource).map((is) => ({
 										label: changeCase(is),
 										value: is,
 									}))}
-									onChange={(v) => {
-										if (v) setDeployImportSource(v as ImportSource);
-									}}
 								/>
 								{deployImportSource ? (
 									<>
