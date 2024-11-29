@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use common_models::StringIdObject;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
@@ -14,10 +15,6 @@ mod models {
     use super::*;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct PlexWebhookMetadataGuid {
-        pub id: String,
-    }
-    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookMetadataPayload {
         #[serde(rename = "type")]
         pub item_type: String,
@@ -31,7 +28,7 @@ mod models {
         #[serde(rename = "index")]
         pub episode_number: Option<i32>,
         #[serde(rename = "Guid")]
-        pub guids: Vec<PlexWebhookMetadataGuid>,
+        pub guids: Vec<StringIdObject>,
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookAccount {
@@ -75,10 +72,7 @@ impl PlexSinkIntegration {
         serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
     }
 
-    fn get_tmdb_identifier<'a>(
-        &self,
-        guids: &'a [models::PlexWebhookMetadataGuid],
-    ) -> Result<&'a str> {
+    fn get_tmdb_identifier<'a>(&self, guids: &'a [StringIdObject]) -> Result<&'a str> {
         guids
             .iter()
             .find(|g| g.id.starts_with("tmdb://"))
