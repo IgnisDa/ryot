@@ -262,6 +262,65 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            metadata_providers_mapping: MediaSource::iter()
+                .map(|source| {
+                    let (supported, default) = match source {
+                        MediaSource::Itunes => (
+                            ITunesService::supported_languages(),
+                            ITunesService::default_language(),
+                        ),
+                        MediaSource::Audible => (
+                            AudibleService::supported_languages(),
+                            AudibleService::default_language(),
+                        ),
+                        MediaSource::Openlibrary => (
+                            OpenlibraryService::supported_languages(),
+                            OpenlibraryService::default_language(),
+                        ),
+                        MediaSource::Tmdb => (
+                            TmdbService::supported_languages(),
+                            TmdbService::default_language(),
+                        ),
+                        MediaSource::Listennotes => (
+                            ListennotesService::supported_languages(),
+                            ListennotesService::default_language(),
+                        ),
+                        MediaSource::GoogleBooks => (
+                            GoogleBooksService::supported_languages(),
+                            GoogleBooksService::default_language(),
+                        ),
+                        MediaSource::Igdb => (
+                            IgdbService::supported_languages(),
+                            IgdbService::default_language(),
+                        ),
+                        MediaSource::MangaUpdates => (
+                            MangaUpdatesService::supported_languages(),
+                            MangaUpdatesService::default_language(),
+                        ),
+                        MediaSource::Anilist => (
+                            AnilistService::supported_languages(),
+                            AnilistService::default_language(),
+                        ),
+                        MediaSource::Mal => (
+                            MalService::supported_languages(),
+                            MalService::default_language(),
+                        ),
+                        MediaSource::Custom => (
+                            CustomService::supported_languages(),
+                            CustomService::default_language(),
+                        ),
+                        MediaSource::Vndb => (
+                            VndbService::supported_languages(),
+                            VndbService::default_language(),
+                        ),
+                    };
+                    ProviderLanguageInformation {
+                        supported,
+                        default,
+                        source,
+                    }
+                })
+                .collect(),
         }
     }
 
@@ -1908,68 +1967,6 @@ ORDER BY RANDOM() LIMIT 10;
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = stmt.build(PostgresQueryBuilder {});
         Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
-    }
-
-    pub fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
-        MediaSource::iter()
-            .map(|source| {
-                let (supported, default) = match source {
-                    MediaSource::Itunes => (
-                        ITunesService::supported_languages(),
-                        ITunesService::default_language(),
-                    ),
-                    MediaSource::Audible => (
-                        AudibleService::supported_languages(),
-                        AudibleService::default_language(),
-                    ),
-                    MediaSource::Openlibrary => (
-                        OpenlibraryService::supported_languages(),
-                        OpenlibraryService::default_language(),
-                    ),
-                    MediaSource::Tmdb => (
-                        TmdbService::supported_languages(),
-                        TmdbService::default_language(),
-                    ),
-                    MediaSource::Listennotes => (
-                        ListennotesService::supported_languages(),
-                        ListennotesService::default_language(),
-                    ),
-                    MediaSource::GoogleBooks => (
-                        GoogleBooksService::supported_languages(),
-                        GoogleBooksService::default_language(),
-                    ),
-                    MediaSource::Igdb => (
-                        IgdbService::supported_languages(),
-                        IgdbService::default_language(),
-                    ),
-                    MediaSource::MangaUpdates => (
-                        MangaUpdatesService::supported_languages(),
-                        MangaUpdatesService::default_language(),
-                    ),
-                    MediaSource::Anilist => (
-                        AnilistService::supported_languages(),
-                        AnilistService::default_language(),
-                    ),
-                    MediaSource::Mal => (
-                        MalService::supported_languages(),
-                        MalService::default_language(),
-                    ),
-                    MediaSource::Custom => (
-                        CustomService::supported_languages(),
-                        CustomService::default_language(),
-                    ),
-                    MediaSource::Vndb => (
-                        VndbService::supported_languages(),
-                        VndbService::default_language(),
-                    ),
-                };
-                ProviderLanguageInformation {
-                    supported,
-                    default,
-                    source,
-                }
-            })
-            .collect()
     }
 
     async fn get_monitored_entities(

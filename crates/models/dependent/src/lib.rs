@@ -12,8 +12,9 @@ use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
     EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
-    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ProviderLanguageInformation,
+    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -165,6 +166,7 @@ pub struct CoreDetails {
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
+    pub metadata_providers_mapping: Vec<ProviderLanguageInformation>,
 }
 
 #[derive(SimpleObject)]

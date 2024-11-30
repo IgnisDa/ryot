@@ -17,14 +17,6 @@ query GetPresignedS3Url($key: String!) {
 	getPresignedS3Url(key: $key)
 }
 
-query ProvidersLanguageInformation {
-	providersLanguageInformation {
-		supported
-		default
-		source
-	}
-}
-
 query UserExports {
 	userExports {
 		url
@@ -336,6 +328,11 @@ query CoreDetails {
 				scriptUrl
 				websiteId
 			}
+		}
+		metadataProvidersMapping {
+			supported
+			default
+			source
 		}
 	}
 }
