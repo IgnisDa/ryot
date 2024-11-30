@@ -76,7 +76,11 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0).await {
+        match process_import(&integration.user_id, true, import, &self.0, |_| async {
+            Ok(())
+        })
+        .await
+        {
             Ok(_) => {
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));

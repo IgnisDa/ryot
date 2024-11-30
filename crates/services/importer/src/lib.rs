@@ -120,30 +120,37 @@ impl ImporterService {
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
         };
         let mut model: import_report::ActiveModel = db_import_job.into();
-        model.finished_on = ActiveValue::Set(Some(Utc::now()));
         match maybe_import {
-            Ok(import) => match process_import(&user_id, false, import, &self.0).await {
-                Ok(details) => {
-                    model.details = ActiveValue::Set(Some(details));
-                    model.was_success = ActiveValue::Set(Some(true));
-                    deploy_background_job(
-                        &user_id,
-                        BackgroundJob::CalculateUserActivitiesAndSummary,
-                        &self.0,
-                    )
-                    .await
-                    .trace_ok();
+            Ok(import) => {
+                match process_import(&user_id, false, import, &self.0, |progress| async move {
+                    dbg!(progress);
+                    Ok(())
+                })
+                .await
+                {
+                    Ok(details) => {
+                        model.details = ActiveValue::Set(Some(details));
+                        model.was_success = ActiveValue::Set(Some(true));
+                        deploy_background_job(
+                            &user_id,
+                            BackgroundJob::CalculateUserActivitiesAndSummary,
+                            &self.0,
+                        )
+                        .await
+                        .trace_ok();
+                    }
+                    Err(e) => {
+                        ryot_log!(debug, "Error while importing: {:?}", e);
+                        model.was_success = ActiveValue::Set(Some(false));
+                    }
                 }
-                Err(e) => {
-                    ryot_log!(debug, "Error while importing: {:?}", e);
-                    model.was_success = ActiveValue::Set(Some(false));
-                }
-            },
+            }
             Err(e) => {
                 ryot_log!(debug, "Error while importing: {:?}", e);
                 model.was_success = ActiveValue::Set(Some(false));
             }
         }
+        model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.update(&self.0.db).await.trace_ok();
         Ok(())
     }

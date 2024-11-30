@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, iter::zip, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
 use anyhow::{bail, Result as AnyhowResult};
 use application_utils::get_current_date;
@@ -63,7 +63,7 @@ use providers::{
     vndb::VndbService,
 };
 use rust_decimal::{
-    prelude::{One, ToPrimitive},
+    prelude::{FromPrimitive, One, ToPrimitive},
     Decimal,
 };
 use rust_decimal_macros::dec;
@@ -1994,12 +1994,16 @@ async fn create_collection_and_add_entity_to_it(
     Ok(())
 }
 
-pub async fn process_import(
+pub async fn process_import<F>(
     user_id: &String,
     respect_cache: bool,
     import: ImportResult,
     ss: &Arc<SupportingService>,
-) -> Result<ImportResultResponse> {
+    on_item_processed: impl Fn(Decimal) -> F,
+) -> Result<ImportResultResponse>
+where
+    F: Future<Output = Result<()>>,
+{
     let mut import = import;
     let preferences = user_by_id(user_id, ss).await?.preferences;
     let total = import.completed.len();
@@ -2245,6 +2249,10 @@ pub async fn process_import(
                 }
             }
         }
+        on_item_processed(
+            Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
+        )
+        .await?;
     }
 
     // TODO: Allow importing exercises
