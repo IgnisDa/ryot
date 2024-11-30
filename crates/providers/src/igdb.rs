@@ -436,7 +436,7 @@ where id = {id};
             .map_err(|e| anyhow!(e))?;
         ryot_log!(debug, "Response = {:?}", rsp);
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
-        let detail = details.pop().unwrap();
+        let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![c.id.to_string()],
             None => vec![],
