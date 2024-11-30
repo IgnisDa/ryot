@@ -63,9 +63,5 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             ..Default::default()
         }));
     }
-    Ok(ImportResult {
-        failed,
-        completed,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }

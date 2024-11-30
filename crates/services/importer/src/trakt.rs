@@ -218,7 +218,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     let mut completed = completed
         .into_iter()
-        .map(|m| ImportCompletedItem::Metadata(m))
+        .map(ImportCompletedItem::Metadata)
         .collect_vec();
     completed.extend(lists.iter().map(|l| {
         ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
@@ -233,11 +233,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             ..Default::default()
         })
     }));
-    Ok(ImportResult {
-        completed,
-        failed,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }
 
 fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, ImportFailedItem> {

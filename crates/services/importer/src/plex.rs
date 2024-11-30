@@ -90,7 +90,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
         for item in items.media_container.metadata {
-            if let Some(_) = item.last_viewed_at {
+            if item.last_viewed_at.is_some() {
                 let gu_ids = item.guid.unwrap_or_default();
                 let Some(tmdb_id) = gu_ids
                     .iter()
@@ -144,7 +144,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             identifier: tmdb_id.to_string(),
                         };
                         for leaf in leaves.media_container.metadata {
-                            if let Some(_) = leaf.last_viewed_at {
+                            if leaf.last_viewed_at.is_some() {
                                 item.seen_history.push(ImportOrExportMetadataItemSeen {
                                     show_episode_number: leaf.index,
                                     show_season_number: leaf.parent_index,

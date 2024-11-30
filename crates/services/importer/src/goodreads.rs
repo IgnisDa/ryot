@@ -43,8 +43,8 @@ pub async fn import(
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let ratings_reader = Reader::from_path(input.csv_path)
         .unwrap()
         .deserialize()
@@ -54,7 +54,7 @@ pub async fn import(
         let record: Book = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -70,7 +70,7 @@ pub async fn import(
         );
         let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
         if isbn.is_empty() {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
@@ -82,7 +82,7 @@ pub async fn import(
             utils::get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service)
                 .await
         else {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
@@ -132,7 +132,7 @@ pub async fn import(
                 visibility: None,
             });
         }
-        media.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,
             identifier,
@@ -146,9 +146,5 @@ pub async fn import(
             }],
         }));
     }
-    Ok(ImportResult {
-        completed: media,
-        failed: failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }

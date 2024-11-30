@@ -313,9 +313,5 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             ..Default::default()
         })
     }));
-    Ok(ImportResult {
-        completed,
-        failed,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }

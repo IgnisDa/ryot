@@ -159,8 +159,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         failed,
         completed: media
             .into_iter()
-            .map(|m| ImportCompletedItem::Metadata(m))
+            .map(ImportCompletedItem::Metadata)
             .collect(),
-        ..Default::default()
     })
 }

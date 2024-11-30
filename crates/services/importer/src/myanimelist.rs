@@ -37,7 +37,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     Ok(ImportResult {
         completed: metadata
             .into_iter()
-            .map(|m| ImportCompletedItem::Metadata(m))
+            .map(ImportCompletedItem::Metadata)
             .collect(),
         ..Default::default()
     })

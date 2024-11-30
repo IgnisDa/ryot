@@ -89,9 +89,5 @@ pub async fn import(
             ..Default::default()
         }));
     }
-    Ok(ImportResult {
-        failed,
-        completed,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }

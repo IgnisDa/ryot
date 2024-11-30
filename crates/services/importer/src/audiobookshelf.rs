@@ -34,7 +34,7 @@ where
     F: Future<Output = Result<metadata::Model>>,
 {
     let mut completed = vec![];
-    let mut failed_items = vec![];
+    let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
     let client = get_base_http_client(Some(vec![(
         AUTHORIZATION,
@@ -81,7 +81,7 @@ where
                     {
                         Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
                         _ => {
-                            failed_items.push(ImportFailedItem {
+                            failed.push(ImportFailedItem {
                                 error: Some("No Google Books ID found".to_string()),
                                 identifier: title,
                                 lot: None,
@@ -91,7 +91,7 @@ where
                         }
                     },
                     _ => {
-                        failed_items.push(ImportFailedItem {
+                        failed.push(ImportFailedItem {
                             error: Some("No ISBN found".to_string()),
                             identifier: title,
                             lot: None,
@@ -138,7 +138,7 @@ where
                         (itunes_id, lot, source, Some(to_return))
                     }
                     _ => {
-                        failed_items.push(ImportFailedItem {
+                        failed.push(ImportFailedItem {
                             error: Some("No episodes found for podcast".to_string()),
                             identifier: title,
                             lot: Some(MediaLot::Podcast),
@@ -180,11 +180,7 @@ where
             }))
         }
     }
-    Ok(ImportResult {
-        completed,
-        failed: failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }
 
 async fn get_item_details(

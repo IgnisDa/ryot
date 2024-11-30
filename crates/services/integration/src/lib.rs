@@ -45,8 +45,8 @@ impl IntegrationService {
         updates: ImportResult,
     ) -> GqlResult<()> {
         let mut import = updates;
-        import.completed.iter_mut().for_each(|item| match item {
-            ImportCompletedItem::Metadata(metadata) => {
+        import.completed.iter_mut().for_each(|item| {
+            if let ImportCompletedItem::Metadata(metadata) = item {
                 metadata
                     .seen_history
                     .retain(|update| match update.progress {
@@ -75,7 +75,6 @@ impl IntegrationService {
                     }
                 });
             }
-            _ => {}
         });
         match process_import(&integration.user_id, true, import, &self.0).await {
             Ok(_) => {
