@@ -52,6 +52,7 @@ export class SandboxService {
 			const job = await queues.sandboxScriptQueue.add(sandboxRunJobName, {
 				apiFunctionsId,
 				code: options.code,
+				userId: options.userId,
 				context: options.context,
 				timeoutMs: options.timeoutMs,
 				maxHeapMB: options.maxHeapMB,
@@ -101,6 +102,7 @@ export class SandboxService {
 		return this.execute({
 			apiFunctions,
 			code: jobData.code,
+			userId: jobData.userId,
 			context: jobData.context,
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
@@ -126,6 +128,7 @@ export class SandboxService {
 		const token = randomBytes(32).toString("hex");
 
 		await this.bridgeServer.addSession(executionId, {
+			userId: options.userId,
 			token,
 			apiFunctions,
 			expiresAt: Date.now() + timeoutMs + 2000,
