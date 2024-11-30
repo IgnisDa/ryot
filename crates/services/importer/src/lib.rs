@@ -15,7 +15,9 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -70,7 +72,8 @@ impl ImporterService {
             ..Default::default()
         };
         let db_import_job = model.insert(&self.0.db).await.unwrap();
-        ryot_log!(debug, "Started import job {id}", id = db_import_job.id);
+        let import_id = db_import_job.id.clone();
+        ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0.timezone).await
@@ -122,9 +125,16 @@ impl ImporterService {
         let mut model: import_report::ActiveModel = db_import_job.into();
         match maybe_import {
             Ok(import) => {
-                match process_import(&user_id, false, import, &self.0, |progress| async move {
-                    dbg!(progress);
-                    Ok(())
+                match process_import(&user_id, false, import, &self.0, |progress| {
+                    let id = import_id.clone();
+                    async move {
+                        ImportReport::update_many()
+                            .filter(import_report::Column::Id.eq(id.clone()))
+                            .col_expr(import_report::Column::Progress, Expr::value(progress))
+                            .exec(&self.0.db)
+                            .await?;
+                        Ok(())
+                    }
                 })
                 .await
                 {
