@@ -1,9 +1,0 @@
-query MetadataList($input: MetadataListInput!) {
-	metadataList(input: $input) {
-		details {
-			total
-			nextPage
-		}
-		items
-	}
-}
