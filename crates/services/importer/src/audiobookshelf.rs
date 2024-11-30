@@ -6,7 +6,7 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use database_models::metadata;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
@@ -33,7 +33,7 @@ pub async fn import<F>(
 where
     F: Future<Output = Result<metadata::Model>>,
 {
-    let mut media = vec![];
+    let mut completed = vec![];
     let mut failed_items = vec![];
     let url = format!("{}/api", input.api_url);
     let client = get_base_http_client(Some(vec![(
@@ -170,19 +170,19 @@ where
                     ..Default::default()
                 });
             };
-            media.push(ImportOrExportMetadataItem {
+            completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 source,
                 identifier,
                 seen_history,
                 source_id: metadata.title,
                 ..Default::default()
-            })
+            }))
         }
     }
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
+        completed,
+        failed: failed_items,
         ..Default::default()
     })
 }

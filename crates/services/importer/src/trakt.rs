@@ -2,7 +2,7 @@ use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
@@ -55,8 +55,8 @@ struct ListResponse {
 }
 
 pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
 
     let url = format!("{}/users/{}", API_URL, input.username);
     let client = get_base_http_client(Some(vec![
@@ -105,27 +105,12 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             match process_item(i) {
                 Ok(mut d) => {
                     d.collections.push(l.name.to_case(Case::Title));
-                    media.push(d)
+                    completed.push(d)
                 }
-                Err(d) => failed_items.push(d),
+                Err(d) => failed.push(d),
             }
         }
     }
-
-    let collections = lists
-        .iter()
-        .map(|l| CreateOrUpdateCollectionInput {
-            name: l.name.to_case(Case::Title),
-            description: l.description.as_ref().and_then(|s| {
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s.to_owned())
-                }
-            }),
-            ..Default::default()
-        })
-        .collect_vec();
 
     for type_ in ["movies", "shows"] {
         let rsp = client
@@ -150,13 +135,13 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         }),
                         ..Default::default()
                     });
-                    if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
+                    if let Some(a) = completed.iter_mut().find(|i| i.source_id == d.source_id) {
                         a.reviews = d.reviews;
                     } else {
-                        media.push(d)
+                        completed.push(d)
                     }
                 }
-                Err(d) => failed_items.push(d),
+                Err(d) => failed.push(d),
             }
         }
     }
@@ -200,7 +185,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                 if d.lot == MediaLot::Show
                     && (show_season_number.is_none() || show_episode_number.is_none())
                 {
-                    failed_items.push(ImportFailedItem {
+                    failed.push(ImportFailedItem {
                         lot: Some(d.lot),
                         step: ImportFailStep::ItemDetailsFromSource,
                         identifier: "".to_owned(),
@@ -218,22 +203,39 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = media
+                if let Some(a) = completed
                     .iter_mut()
                     .find(|i| i.identifier == d.identifier && i.lot == d.lot)
                 {
                     a.seen_history.extend(d.seen_history);
                 } else {
-                    media.push(d)
+                    completed.push(d)
                 }
             }
-            Err(d) => failed_items.push(d),
+            Err(d) => failed.push(d),
         }
     }
+
+    let mut completed = completed
+        .into_iter()
+        .map(|m| ImportCompletedItem::Metadata(m))
+        .collect_vec();
+    completed.extend(lists.iter().map(|l| {
+        ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
+            name: l.name.to_case(Case::Title),
+            description: l.description.as_ref().and_then(|s| {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_owned())
+                }
+            }),
+            ..Default::default()
+        })
+    }));
     Ok(ImportResult {
-        collections,
-        metadata: media,
-        failed_items,
+        completed,
+        failed,
         ..Default::default()
     })
 }

@@ -207,15 +207,22 @@ pub struct UserMetadataDetails {
 }
 
 #[derive(Debug, Default)]
+pub enum ImportCompletedItem {
+    #[default]
+    Empty,
+    Workout(UserWorkoutInput),
+    Person(ImportOrExportPersonItem),
+    Metadata(ImportOrExportMetadataItem),
+    Measurement(user_measurement::Model),
+    Collection(CreateOrUpdateCollectionInput),
+    MetadataGroup(ImportOrExportMetadataGroupItem),
+    ApplicationWorkout(ImportOrExportWorkoutItem),
+}
+
+#[derive(Debug, Default)]
 pub struct ImportResult {
-    pub workouts: Vec<UserWorkoutInput>,
-    pub failed_items: Vec<ImportFailedItem>,
-    pub people: Vec<ImportOrExportPersonItem>,
-    pub metadata: Vec<ImportOrExportMetadataItem>,
-    pub measurements: Vec<user_measurement::Model>,
-    pub collections: Vec<CreateOrUpdateCollectionInput>,
-    pub metadata_groups: Vec<ImportOrExportMetadataGroupItem>,
-    pub application_workouts: Vec<ImportOrExportWorkoutItem>,
+    pub failed: Vec<ImportFailedItem>,
+    pub completed: Vec<ImportCompletedItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

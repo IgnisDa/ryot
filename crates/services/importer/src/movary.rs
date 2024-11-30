@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -43,13 +43,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
     let lot = MediaLot::Movie;
     let source = MediaSource::Tmdb;
     let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut failed = vec![];
     let mut ratings_reader = Reader::from_path(input.ratings).unwrap();
     for (idx, result) in ratings_reader.deserialize().enumerate() {
         let record: Rating = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -76,7 +76,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let record: Common = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -99,7 +99,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let record: History = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -156,8 +156,11 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         }
     }
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
+        failed,
+        completed: media
+            .into_iter()
+            .map(|m| ImportCompletedItem::Metadata(m))
+            .collect(),
         ..Default::default()
     })
 }

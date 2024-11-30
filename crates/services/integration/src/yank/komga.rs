@@ -9,7 +9,7 @@ use async_graphql::futures_util::{stream, StreamExt};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use itertools::Itertools;
@@ -403,13 +403,13 @@ impl KomgaYankIntegration {
                 match self.find_provider_and_id(&book).await {
                     Ok((source, Some(id))) => Some((
                         id.clone(),
-                        ImportOrExportMetadataItem {
+                        ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                             identifier: id,
                             lot: MediaLot::Manga,
                             source,
                             collections: vec![DefaultCollection::Owned.to_string()],
                             ..Default::default()
-                        },
+                        }),
                     )),
                     _ => {
                         tracing::debug!("No URL or database entry found for manga: {}", book.name);
@@ -420,7 +420,7 @@ impl KomgaYankIntegration {
             .collect()
             .await;
         result
-            .metadata
+            .completed
             .extend(unique_collection_updates.into_values());
         Ok(())
     }
@@ -496,13 +496,15 @@ impl KomgaYankIntegration {
         let media_items = unique_media_items.into_values().collect_vec();
         ryot_log!(debug, "Media Items: {:?}", media_items);
         media_items.into_iter().for_each(|(commit, hist)| {
-            result.metadata.push(ImportOrExportMetadataItem {
-                lot: commit.lot,
-                source: commit.source,
-                seen_history: vec![hist],
-                identifier: commit.identifier,
-                ..Default::default()
-            });
+            result
+                .completed
+                .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                    lot: commit.lot,
+                    source: commit.source,
+                    seen_history: vec![hist],
+                    identifier: commit.identifier,
+                    ..Default::default()
+                }));
         });
 
         if let Some(true) = self.sync_to_owned_collection {

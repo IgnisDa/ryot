@@ -23,7 +23,7 @@ use database_utils::{
     add_entity_to_collection, admin_account_guard, create_or_update_collection,
     deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
 };
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     Visibility,
@@ -2002,285 +2002,250 @@ pub async fn process_import(
 ) -> Result<ImportResultResponse> {
     let mut import = import;
     let preferences = user_by_id(user_id, ss).await?.preferences;
-    for m in import.metadata.iter_mut() {
-        m.seen_history.sort_by(|a, b| {
-            a.ended_on
-                .unwrap_or_default()
-                .cmp(&b.ended_on.unwrap_or_default())
-        });
-    }
+    let total = import.completed.len();
 
-    let total = import.collections.len()
-        + import.metadata.len()
-        + import.metadata_groups.len()
-        + import.people.len()
-        + import.workouts.len()
-        + import.measurements.len();
-
-    for (idx, col_details) in import.collections.into_iter().enumerate() {
-        create_or_update_collection(&ss.db, user_id, col_details).await?;
-        ryot_log!(debug, "Collection {} created", idx);
-    }
-
-    for (idx, item) in import.metadata.into_iter().enumerate() {
-        let source_id = if item.source_id.is_empty() {
-            item.identifier.clone()
-        } else {
-            item.source_id.clone()
-        };
-        ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
-        let rev_length = item.reviews.len();
-        let identifier = item.identifier.clone();
-        let data = commit_metadata(
-            CommitMediaInput {
-                identifier,
-                lot: item.lot,
-                source: item.source,
-                force_update: None,
-            },
-            ss,
-        )
-        .await;
-        let metadata = match data {
-            Ok(r) => r,
-            Err(e) => {
-                ryot_log!(error, "{e:?}");
-                import.failed_items.push(ImportFailedItem {
-                    lot: Some(item.lot),
-                    step: ImportFailStep::MediaDetailsFromProvider,
-                    identifier: item.source_id.to_owned(),
-                    error: Some(e.message),
-                });
-                continue;
+    for (idx, item) in import.completed.into_iter().enumerate() {
+        ryot_log!(debug, "Processing item {idx}/{total}");
+        match item {
+            ImportCompletedItem::Empty => {}
+            ImportCompletedItem::Collection(col_details) => {
+                create_or_update_collection(&ss.db, user_id, col_details).await?;
             }
-        };
-        for seen in item.seen_history.iter() {
-            let progress = if seen.progress.is_some() {
-                seen.progress
-            } else {
-                Some(dec!(100))
-            };
-            if let Err(e) = progress_update(
-                user_id,
-                respect_cache,
-                ProgressUpdateInput {
-                    progress,
-                    change_state: None,
-                    date: seen.ended_on,
-                    start_date: seen.started_on,
-                    metadata_id: metadata.id.clone(),
-                    show_season_number: seen.show_season_number,
-                    show_episode_number: seen.show_episode_number,
-                    manga_volume_number: seen.manga_volume_number,
-                    anime_episode_number: seen.anime_episode_number,
-                    manga_chapter_number: seen.manga_chapter_number,
-                    podcast_episode_number: seen.podcast_episode_number,
-                    provider_watched_on: seen.provider_watched_on.clone(),
-                },
-                ss,
-            )
-            .await
-            {
-                import.failed_items.push(ImportFailedItem {
-                    lot: Some(item.lot),
-                    step: ImportFailStep::SeenHistoryConversion,
-                    identifier: item.source_id.to_owned(),
-                    error: Some(e.message),
-                });
-            };
-        }
-        for review in item.reviews.iter() {
-            if let Some(input) = convert_review_into_input(
-                review,
-                &preferences,
-                metadata.id.clone(),
-                EntityLot::Metadata,
-            ) {
-                if let Err(e) = post_review(user_id, input, ss).await {
-                    import.failed_items.push(ImportFailedItem {
-                        lot: Some(item.lot),
-                        step: ImportFailStep::ReviewConversion,
-                        identifier: item.source_id.to_owned(),
-                        error: Some(e.message),
-                    });
+            ImportCompletedItem::Metadata(metadata) => {
+                let source_id = if metadata.source_id.is_empty() {
+                    metadata.identifier.clone()
+                } else {
+                    metadata.source_id.clone()
                 };
-            }
-        }
-        for col in item.collections.into_iter() {
-            create_collection_and_add_entity_to_it(
-                ss,
-                user_id,
-                col,
-                metadata.id.clone(),
-                EntityLot::Metadata,
-            )
-            .await?;
-        }
-        ryot_log!(
-            debug,
-            "Imported item: {idx}, lot: {lot}, history count: {hist}, review count: {rev}",
-            idx = idx + 1,
-            lot = item.lot,
-            hist = item.seen_history.len(),
-            rev = rev_length,
-        );
-    }
-    for (idx, item) in import.metadata_groups.into_iter().enumerate() {
-        ryot_log!(
-            debug,
-            "Importing media group with identifier = {identifier}",
-            identifier = &item.title
-        );
-        let rev_length = item.reviews.len();
-        let data =
-            commit_metadata_group_internal(&item.identifier, item.lot, item.source, ss).await;
-        let metadata_group_id = match data {
-            Ok(r) => r.0,
-            Err(e) => {
-                ryot_log!(error, "{e:?}");
-                import.failed_items.push(ImportFailedItem {
-                    lot: Some(item.lot),
-                    step: ImportFailStep::MediaDetailsFromProvider,
-                    identifier: item.title.to_owned(),
-                    error: Some(e.message),
-                });
-                continue;
-            }
-        };
-        for review in item.reviews.iter() {
-            if let Some(input) = convert_review_into_input(
-                review,
-                &preferences,
-                metadata_group_id.clone(),
-                EntityLot::MetadataGroup,
-            ) {
-                if let Err(e) = post_review(user_id, input, ss).await {
-                    import.failed_items.push(ImportFailedItem {
-                        lot: Some(item.lot),
-                        step: ImportFailStep::ReviewConversion,
-                        identifier: item.title.to_owned(),
-                        error: Some(e.message),
-                    });
+                ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
+                let identifier = metadata.identifier.clone();
+                let db_metadata = match commit_metadata(
+                    CommitMediaInput {
+                        identifier,
+                        lot: metadata.lot,
+                        force_update: None,
+                        source: metadata.source,
+                    },
+                    ss,
+                )
+                .await
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        ryot_log!(error, "{e:?}");
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                            identifier: metadata.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                        continue;
+                    }
                 };
-            }
-        }
-        for col in item.collections.into_iter() {
-            create_collection_and_add_entity_to_it(
-                ss,
-                user_id,
-                col,
-                metadata_group_id.clone(),
-                EntityLot::MetadataGroup,
-            )
-            .await?;
-        }
-        ryot_log!(
-            debug,
-            "Imported item: {idx}, lot: {lot}, review count: {rev}",
-            idx = idx + 1,
-            lot = item.lot,
-            rev = rev_length,
-        );
-    }
-    for (idx, item) in import.people.into_iter().enumerate() {
-        let person = commit_person(
-            CommitPersonInput {
-                identifier: item.identifier.clone(),
-                name: item.name.clone(),
-                source: item.source,
-                source_specifics: item.source_specifics.clone(),
-            },
-            &ss.db,
-        )
-        .await?;
-        for review in item.reviews.iter() {
-            if let Some(input) = convert_review_into_input(
-                review,
-                &preferences,
-                person.id.clone(),
-                EntityLot::Person,
-            ) {
-                if let Err(e) = post_review(user_id, input, ss).await {
-                    import.failed_items.push(ImportFailedItem {
-                        lot: None,
-                        step: ImportFailStep::ReviewConversion,
-                        identifier: item.name.to_owned(),
-                        error: Some(e.message),
-                    });
-                };
-            }
-        }
-        for col in item.collections.into_iter() {
-            create_collection_and_add_entity_to_it(
-                ss,
-                user_id,
-                col,
-                person.id.clone(),
-                EntityLot::Person,
-            )
-            .await?;
-        }
-        ryot_log!(
-            debug,
-            "Imported person: {idx}, name: {name}",
-            idx = idx + 1,
-            name = item.name,
-        );
-    }
-    for (idx, workout) in import.workouts.into_iter().enumerate() {
-        if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
-            import.failed_items.push(ImportFailedItem {
-                lot: None,
-                step: ImportFailStep::InputTransformation,
-                identifier: "Exercise".to_string(),
-                error: Some(err.to_string()),
-            });
-        }
-        ryot_log!(debug, "Workout {} created", idx);
-    }
-    for (idx, workout) in import.application_workouts.into_iter().enumerate() {
-        let workout_input = db_workout_to_workout_input(workout.details);
-        match create_or_update_workout(workout_input, user_id, ss).await {
-            Err(err) => {
-                import.failed_items.push(ImportFailedItem {
-                    lot: None,
-                    step: ImportFailStep::InputTransformation,
-                    identifier: "Exercise".to_string(),
-                    error: Some(err.to_string()),
-                });
-            }
-            Ok(workout_id) => {
-                for col in workout.collections.into_iter() {
+                for seen in metadata.seen_history.iter() {
+                    let progress = if seen.progress.is_some() {
+                        seen.progress
+                    } else {
+                        Some(dec!(100))
+                    };
+                    if let Err(e) = progress_update(
+                        user_id,
+                        respect_cache,
+                        ProgressUpdateInput {
+                            progress,
+                            change_state: None,
+                            date: seen.ended_on,
+                            start_date: seen.started_on,
+                            metadata_id: db_metadata.id.clone(),
+                            show_season_number: seen.show_season_number,
+                            show_episode_number: seen.show_episode_number,
+                            manga_volume_number: seen.manga_volume_number,
+                            anime_episode_number: seen.anime_episode_number,
+                            manga_chapter_number: seen.manga_chapter_number,
+                            podcast_episode_number: seen.podcast_episode_number,
+                            provider_watched_on: seen.provider_watched_on.clone(),
+                        },
+                        ss,
+                    )
+                    .await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            step: ImportFailStep::SeenHistoryConversion,
+                            identifier: metadata.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
+                }
+                for review in metadata.reviews.iter() {
+                    if let Some(input) = convert_review_into_input(
+                        review,
+                        &preferences,
+                        db_metadata.id.clone(),
+                        EntityLot::Metadata,
+                    ) {
+                        if let Err(e) = post_review(user_id, input, ss).await {
+                            import.failed.push(ImportFailedItem {
+                                lot: Some(metadata.lot),
+                                step: ImportFailStep::ReviewConversion,
+                                identifier: metadata.source_id.to_owned(),
+                                error: Some(e.message),
+                            });
+                        };
+                    }
+                }
+                for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
                         ss,
                         user_id,
                         col,
-                        workout_id.clone(),
-                        EntityLot::Workout,
+                        db_metadata.id.clone(),
+                        EntityLot::Metadata,
                     )
                     .await?;
                 }
             }
+            ImportCompletedItem::MetadataGroup(metadata_group) => {
+                let metadata_group_id = match commit_metadata_group_internal(
+                    &metadata_group.identifier,
+                    metadata_group.lot,
+                    metadata_group.source,
+                    ss,
+                )
+                .await
+                {
+                    Ok(r) => r.0,
+                    Err(e) => {
+                        ryot_log!(error, "{e:?}");
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata_group.lot),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                            identifier: metadata_group.title.to_owned(),
+                            error: Some(e.message),
+                        });
+                        continue;
+                    }
+                };
+                for review in metadata_group.reviews.iter() {
+                    if let Some(input) = convert_review_into_input(
+                        review,
+                        &preferences,
+                        metadata_group_id.clone(),
+                        EntityLot::MetadataGroup,
+                    ) {
+                        if let Err(e) = post_review(user_id, input, ss).await {
+                            import.failed.push(ImportFailedItem {
+                                lot: Some(metadata_group.lot),
+                                step: ImportFailStep::ReviewConversion,
+                                identifier: metadata_group.title.to_owned(),
+                                error: Some(e.message),
+                            });
+                        };
+                    }
+                }
+                for col in metadata_group.collections.into_iter() {
+                    create_collection_and_add_entity_to_it(
+                        ss,
+                        user_id,
+                        col,
+                        metadata_group_id.clone(),
+                        EntityLot::MetadataGroup,
+                    )
+                    .await?;
+                }
+            }
+            ImportCompletedItem::Person(person) => {
+                let db_person = commit_person(
+                    CommitPersonInput {
+                        identifier: person.identifier.clone(),
+                        name: person.name.clone(),
+                        source: person.source,
+                        source_specifics: person.source_specifics.clone(),
+                    },
+                    &ss.db,
+                )
+                .await?;
+                for review in person.reviews.iter() {
+                    if let Some(input) = convert_review_into_input(
+                        review,
+                        &preferences,
+                        db_person.id.clone(),
+                        EntityLot::Person,
+                    ) {
+                        if let Err(e) = post_review(user_id, input, ss).await {
+                            import.failed.push(ImportFailedItem {
+                                lot: None,
+                                step: ImportFailStep::ReviewConversion,
+                                identifier: person.name.to_owned(),
+                                error: Some(e.message),
+                            });
+                        };
+                    }
+                }
+                for col in person.collections.into_iter() {
+                    create_collection_and_add_entity_to_it(
+                        ss,
+                        user_id,
+                        col,
+                        db_person.id.clone(),
+                        EntityLot::Person,
+                    )
+                    .await?;
+                }
+            }
+            ImportCompletedItem::Workout(workout) => {
+                if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
+                    import.failed.push(ImportFailedItem {
+                        lot: None,
+                        step: ImportFailStep::InputTransformation,
+                        identifier: "Exercise".to_string(),
+                        error: Some(err.to_string()),
+                    });
+                }
+            }
+            ImportCompletedItem::ApplicationWorkout(workout) => {
+                let workout_input = db_workout_to_workout_input(workout.details);
+                match create_or_update_workout(workout_input, user_id, ss).await {
+                    Err(err) => {
+                        import.failed.push(ImportFailedItem {
+                            lot: None,
+                            step: ImportFailStep::InputTransformation,
+                            identifier: "Exercise".to_string(),
+                            error: Some(err.to_string()),
+                        });
+                    }
+                    Ok(workout_id) => {
+                        for col in workout.collections.into_iter() {
+                            create_collection_and_add_entity_to_it(
+                                ss,
+                                user_id,
+                                col,
+                                workout_id.clone(),
+                                EntityLot::Workout,
+                            )
+                            .await?;
+                        }
+                    }
+                }
+            }
+            ImportCompletedItem::Measurement(measurement) => {
+                if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
+                    import.failed.push(ImportFailedItem {
+                        lot: None,
+                        error: Some(err.message),
+                        identifier: "Measurement".to_string(),
+                        step: ImportFailStep::InputTransformation,
+                    });
+                }
+            }
         }
-        ryot_log!(debug, "Workout {} created", idx);
-    }
-    for (idx, measurement) in import.measurements.into_iter().enumerate() {
-        if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
-            import.failed_items.push(ImportFailedItem {
-                lot: None,
-                step: ImportFailStep::InputTransformation,
-                identifier: "Measurement".to_string(),
-                error: Some(err.message),
-            });
-        }
-        ryot_log!(debug, "Measurement {} created", idx);
     }
 
     // TODO: Allow importing exercises
 
     let details = ImportResultResponse {
         import: ImportDetails { total },
-        failed_items: import.failed_items,
+        failed_items: import.failed,
     };
 
     Ok(details)

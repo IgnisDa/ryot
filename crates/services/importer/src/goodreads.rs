@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
@@ -132,7 +132,7 @@ pub async fn import(
                 visibility: None,
             });
         }
-        media.push(ImportOrExportMetadataItem {
+        media.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,
             identifier,
@@ -144,11 +144,11 @@ pub async fn import(
                 rating,
                 ..Default::default()
             }],
-        });
+        }));
     }
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
+        completed: media,
+        failed: failed_items,
         ..Default::default()
     })
 }

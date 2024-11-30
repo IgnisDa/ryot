@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal::Decimal;
@@ -89,7 +89,7 @@ impl JellyfinSinkIntegration {
         };
 
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMetadataItem {
+            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
@@ -101,7 +101,7 @@ impl JellyfinSinkIntegration {
                     ..Default::default()
                 }],
                 ..Default::default()
-            }],
+            })],
             ..Default::default()
         })
     }

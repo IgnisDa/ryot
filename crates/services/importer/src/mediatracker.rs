@@ -1,7 +1,7 @@
 use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{ryot_log, USER_AGENT_STR};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
@@ -146,17 +146,6 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .unwrap();
     let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
-    let collections = lists
-        .iter()
-        .map(|l| CreateOrUpdateCollectionInput {
-            name: l.name.clone(),
-            description: l.description.as_ref().and_then(|s| match s.as_str() {
-                "" => None,
-                x => Some(x.to_owned()),
-            }),
-            ..Default::default()
-        })
-        .collect();
     for list in lists.iter_mut() {
         let rsp = client
             .get(format!("{}/list/items", url))
@@ -168,7 +157,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         list.items = items;
     }
 
-    let mut failed_items = vec![];
+    let mut failed = vec![];
 
     // all items returned here are seen at least once
     let rsp = client.get(format!("{}/items", url)).send().await.unwrap();
@@ -193,10 +182,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     let data_len = data.len();
 
-    let mut final_data = vec![];
+    let mut completed = vec![];
     for (idx, d) in data.into_iter().enumerate() {
         let Some(media_type) = d.media_type else {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: None,
                 step: ImportFailStep::ItemDetailsFromSource,
                 identifier: d.id.to_string(),
@@ -214,7 +203,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             Ok(s) => s,
             Err(e) => {
                 ryot_log!(error, "Encountered error for id = {id:?}: {e:?}", id = d.id);
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
@@ -226,7 +215,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    failed_items.push(ImportFailedItem {
+                    failed.push(ImportFailedItem {
                         lot: Some(lot),
                         step: ImportFailStep::ItemDetailsFromSource,
                         identifier: d.id.to_string(),
@@ -312,12 +301,21 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 })
                 .collect(),
         };
-        final_data.push(item);
+        completed.push(ImportCompletedItem::Metadata(item));
     }
+    completed.extend(lists.iter().map(|l| {
+        ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
+            name: l.name.clone(),
+            description: l.description.as_ref().and_then(|s| match s.as_str() {
+                "" => None,
+                x => Some(x.to_owned()),
+            }),
+            ..Default::default()
+        })
+    }));
     Ok(ImportResult {
-        metadata: final_data,
-        failed_items,
-        collections,
+        completed,
+        failed,
         ..Default::default()
     })
 }

@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use common_utils::ryot_log;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_meta::HashMap;
 use enums::{MediaLot, MediaSource};
 use external_utils::jellyfin::{get_authenticated_client, ItemResponse, ItemsResponse, MediaType};
@@ -14,7 +14,7 @@ use super::{ImportFailStep, ImportFailedItem};
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
     let mut to_handle_media = vec![];
-    let mut failed_items = vec![];
+    let mut failed = vec![];
 
     let base_url = input.api_url;
     let (client, user_id) =
@@ -65,7 +65,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 }
             }
             _ => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: item.name,
                     error: Some(format!("Unknown media type: {:?}", type_)),
@@ -96,7 +96,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 ..Default::default()
             });
         } else {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 step: ImportFailStep::ItemDetailsFromSource,
                 identifier: item.name,
                 error: Some("No tmdb id found".to_string()),
@@ -123,8 +123,11 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
     }
 
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
+        failed,
+        completed: media
+            .into_iter()
+            .map(|m| ImportCompletedItem::Metadata(m))
+            .collect(),
         ..Default::default()
     })
 }

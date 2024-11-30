@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{DeployGenericCsvImportInput, ImportOrExportMetadataItem};
@@ -25,8 +25,8 @@ pub async fn import(
     tmdb_service: &NonMediaTmdbService,
 ) -> Result<ImportResult> {
     let source = MediaSource::Tmdb;
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let ratings_reader = Reader::from_path(input.csv_path)
         .unwrap()
         .deserialize()
@@ -36,7 +36,7 @@ pub async fn import(
         let record: Item = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -49,7 +49,7 @@ pub async fn import(
             "Movie" | "Video" | "movie" | "video" => MediaLot::Movie,
             "TV Series" | "TV Mini Series" | "tvSeries" | "tvMiniSeries" => MediaLot::Show,
             tt => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: record.id.clone(),
@@ -64,7 +64,7 @@ pub async fn import(
         {
             Ok(i) => i,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::MediaDetailsFromProvider,
                     identifier: record.id.clone(),
@@ -80,18 +80,18 @@ pub async fn import(
             idx + 1,
             total
         );
-        media.push(ImportOrExportMetadataItem {
-            identifier,
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,
+            identifier,
             source_id: record.id,
             collections: vec![DefaultCollection::Watchlist.to_string()],
             ..Default::default()
-        });
+        }));
     }
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
+        failed,
+        completed,
         ..Default::default()
     })
 }

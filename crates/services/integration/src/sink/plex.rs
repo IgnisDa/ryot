@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use common_models::StringIdObject;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use regex::Regex;
@@ -127,7 +127,7 @@ impl PlexSinkIntegration {
         let progress = self.calculate_progress(&payload)?;
 
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMetadataItem {
+            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
@@ -139,7 +139,7 @@ impl PlexSinkIntegration {
                     ..Default::default()
                 }],
                 ..Default::default()
-            }],
+            })],
             ..Default::default()
         })
     }

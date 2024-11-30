@@ -3,7 +3,7 @@ use std::fs;
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
@@ -52,7 +52,7 @@ pub async fn import(
     } else {
         return Err("Could not determine delimiter".into());
     };
-    let mut workouts = vec![];
+    let mut completed = vec![];
     let mut entries_reader = ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(file_string.as_bytes())
@@ -120,7 +120,7 @@ pub async fn import(
             } else {
                 Duration::try_seconds(0).unwrap()
             };
-            workouts.push(UserWorkoutInput {
+            completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
                 exercises,
                 assets: None,
                 start_time: ndt,
@@ -133,12 +133,12 @@ pub async fn import(
                 comment: entry.workout_notes,
                 end_time: ndt + workout_duration,
                 update_workout_template_id: None,
-            });
+            }));
             exercises = vec![];
         }
     }
     Ok(ImportResult {
-        workouts,
+        completed,
         ..Default::default()
     })
 }

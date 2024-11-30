@@ -2,7 +2,7 @@ use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_models::StringIdObject;
 use common_utils::ryot_log;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
@@ -65,7 +65,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .json::<PlexMediaResponse<PlexLibrary>>()
         .await?;
 
-    let mut metadata = vec![];
+    let mut success_items = vec![];
     let mut failed_items = vec![];
     for dir in libraries.media_container.directory {
         ryot_log!(debug, "Processing directory {:?}", dir.title);
@@ -107,19 +107,21 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 };
                 match lot {
                     MediaLot::Movie => {
-                        metadata.push(ImportOrExportMetadataItem {
-                            lot,
-                            reviews: vec![],
-                            source_id: item.key,
-                            collections: vec![],
-                            source: MediaSource::Tmdb,
-                            identifier: tmdb_id.to_string(),
-                            seen_history: vec![ImportOrExportMetadataItemSeen {
-                                ended_on: item.last_viewed_at.map(|d| d.date_naive()),
-                                provider_watched_on: Some(ImportSource::Plex.to_string()),
-                                ..Default::default()
-                            }],
-                        });
+                        success_items.push(ImportCompletedItem::Metadata(
+                            ImportOrExportMetadataItem {
+                                lot,
+                                reviews: vec![],
+                                source_id: item.key,
+                                collections: vec![],
+                                source: MediaSource::Tmdb,
+                                identifier: tmdb_id.to_string(),
+                                seen_history: vec![ImportOrExportMetadataItemSeen {
+                                    ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                                    provider_watched_on: Some(ImportSource::Plex.to_string()),
+                                    ..Default::default()
+                                }],
+                            },
+                        ));
                     }
                     MediaLot::Show => {
                         let leaves = client
@@ -153,7 +155,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             }
                         }
                         if !item.seen_history.is_empty() {
-                            metadata.push(item);
+                            success_items.push(ImportCompletedItem::Metadata(item));
                         }
                     }
                     _ => unreachable!(),
@@ -163,8 +165,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     }
 
     Ok(ImportResult {
-        metadata,
-        failed_items,
-        ..Default::default()
+        completed: success_items,
+        failed: failed_items,
     })
 }
