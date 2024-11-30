@@ -7,6 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+        if !manager.has_column("import_report", "progress").await? {
+            db.execute_unprepared(r#"ALTER TABLE "import_report" ADD COLUMN "progress" DECIMAL"#)
+                .await?;
+        }
         db.execute_unprepared(
             r#"
 UPDATE "import_report" SET "source" = 'myanimelist' WHERE "source" = 'mal';
