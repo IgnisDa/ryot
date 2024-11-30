@@ -2,8 +2,8 @@
 	"main": "src/index.ts",
 	"name": "@ryot/app-backend",
 	"scripts": {
+		"lint": "biome check .",
 		"dev": "bun run --hot src/index.ts",
-		"db:migrate": "drizzle-kit migrate",
 		"db:generate": "drizzle-kit generate"
 	},
 	"dependencies": {
