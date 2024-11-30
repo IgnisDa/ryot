@@ -2005,7 +2005,13 @@ pub async fn process_import(
     let total = import.completed.len();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
-        ryot_log!(debug, "Processing item {}/{total}", idx + 1);
+        ryot_log!(
+            debug,
+            "Processing item ({}) {}/{}",
+            item.to_string(),
+            idx + 1,
+            total,
+        );
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Collection(col_details) => {

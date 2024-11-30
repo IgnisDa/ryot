@@ -19,6 +19,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
@@ -206,7 +207,7 @@ pub struct UserMetadataDetails {
     pub has_interacted: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Display)]
 pub enum ImportCompletedItem {
     #[default]
     Empty,
