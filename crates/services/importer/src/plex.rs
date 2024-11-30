@@ -136,10 +136,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             lot,
                             reviews: vec![],
                             collections: vec![],
+                            seen_history: vec![],
                             source: MediaSource::Tmdb,
                             source_id: item.key.clone(),
                             identifier: tmdb_id.to_string(),
-                            seen_history: vec![],
                         };
                         for leaf in leaves.media_container.metadata {
                             if let Some(_) = leaf.last_viewed_at {
