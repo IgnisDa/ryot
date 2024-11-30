@@ -329,11 +329,6 @@ query CoreDetails {
 				websiteId
 			}
 		}
-		metadataProvidersMapping {
-			supported
-			default
-			source
-		}
 	}
 }
 

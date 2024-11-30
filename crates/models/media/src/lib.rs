@@ -1031,13 +1031,6 @@ pub enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-pub struct ProviderLanguageInformation {
-    pub source: MediaSource,
-    pub supported: Vec<String>,
-    pub default: String,
-}
-
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum UserDetailsErrorVariant {
     AuthTokenInvalid,
