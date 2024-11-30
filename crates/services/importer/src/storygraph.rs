@@ -8,7 +8,7 @@ use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal::Decimal;
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils;
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -109,7 +109,7 @@ pub async fn import(
             "Got identifier = {identifier:?} from source = {source:?}"
         );
         let mut seen_history = vec![
-            ImportOrExportMediaItemSeen {
+            ImportOrExportMetadataItemSeen {
                 started_on: None,
                 ended_on: None,
                 provider_watched_on: Some(ImportSource::Storygraph.to_string()),
@@ -130,7 +130,7 @@ pub async fn import(
         if let Some(t) = record.tags {
             collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
         }
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             source_id: record.title.clone(),
             lot,
             source,

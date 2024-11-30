@@ -5,7 +5,7 @@ use csv::Reader;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployGenericCsvImportInput, ImportOrExportMediaItem};
+use media_models::{DeployGenericCsvImportInput, ImportOrExportMetadataItem};
 pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
 
@@ -80,7 +80,7 @@ pub async fn import(
             idx + 1,
             total
         );
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             identifier,
             lot,
             source,

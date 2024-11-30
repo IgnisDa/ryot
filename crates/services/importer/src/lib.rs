@@ -12,7 +12,7 @@ use dependent_utils::{
 };
 use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
-use media_models::{DeployImportJobInput, ImportOrExportMediaItem};
+use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;

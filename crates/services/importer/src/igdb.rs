@@ -4,7 +4,7 @@ use csv::Reader;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployIgdbImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{DeployIgdbImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
@@ -27,11 +27,11 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
         .deserialize()
         .collect_vec();
     let seen_history = if collection == DefaultCollection::Completed.to_string() {
-        vec![ImportOrExportMediaItemSeen {
+        vec![ImportOrExportMetadataItemSeen {
             ..Default::default()
         }]
     } else if collection == DefaultCollection::InProgress.to_string() {
-        vec![ImportOrExportMediaItemSeen {
+        vec![ImportOrExportMetadataItemSeen {
             progress: Some(dec!(5)),
             ..Default::default()
         }]
@@ -51,7 +51,7 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             lot,
             source,
             source_id: record.game,

@@ -5,7 +5,7 @@ use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
-    ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
 use providers::openlibrary::get_key;
 use reqwest::{
@@ -18,7 +18,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -264,7 +264,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             }
         }
 
-        let item = ImportOrExportMediaItem {
+        let item = ImportOrExportMetadataItem {
             source_id: d.id.to_string(),
             source,
             lot,
@@ -302,7 +302,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     } else {
                         (None, None)
                     };
-                    ImportOrExportMediaItemSeen {
+                    ImportOrExportMetadataItemSeen {
                         ended_on: s.date.map(|d| d.date_naive()),
                         show_season_number: season_number,
                         show_episode_number: episode_number,

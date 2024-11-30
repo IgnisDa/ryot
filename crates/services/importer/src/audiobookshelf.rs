@@ -9,8 +9,8 @@ use database_models::metadata;
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen,
+    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
@@ -158,19 +158,19 @@ where
             let mut seen_history = vec![];
             if let Some(podcasts) = episodes {
                 for episode in podcasts {
-                    seen_history.push(ImportOrExportMediaItemSeen {
+                    seen_history.push(ImportOrExportMetadataItemSeen {
                         provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                         podcast_episode_number: Some(episode),
                         ..Default::default()
                     });
                 }
             } else {
-                seen_history.push(ImportOrExportMediaItemSeen {
+                seen_history.push(ImportOrExportMetadataItemSeen {
                     provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                     ..Default::default()
                 });
             };
-            media.push(ImportOrExportMediaItem {
+            media.push(ImportOrExportMetadataItem {
                 lot,
                 source,
                 identifier,

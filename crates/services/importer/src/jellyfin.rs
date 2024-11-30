@@ -5,7 +5,8 @@ use enum_meta::HashMap;
 use enums::{MediaLot, MediaSource};
 use external_utils::jellyfin::{get_authenticated_client, ItemResponse, ItemsResponse, MediaType};
 use media_models::{
-    DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen,
 };
 use serde_json::json;
 
@@ -75,7 +76,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         };
         if let Some(tmdb_id) = tmdb_id {
             let item_user_data = item.user_data.unwrap();
-            let seen = ImportOrExportMediaItemSeen {
+            let seen = ImportOrExportMetadataItemSeen {
                 show_season_number: ssn,
                 show_episode_number: sen,
                 ended_on: item_user_data.last_played_date.map(|d| d.date_naive()),
@@ -85,7 +86,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             if let Some(true) = item_user_data.is_favorite {
                 collections.push("Favorites".to_string());
             }
-            to_handle_media.push(ImportOrExportMediaItem {
+            to_handle_media.push(ImportOrExportMetadataItem {
                 lot,
                 source_id: item.series_name.unwrap_or(item.name),
                 source: MediaSource::Tmdb,
@@ -104,7 +105,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         }
     }
 
-    let mut media: Vec<ImportOrExportMediaItem> = vec![];
+    let mut media: Vec<ImportOrExportMetadataItem> = vec![];
 
     for item in to_handle_media {
         let mut found = false;

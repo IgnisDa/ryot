@@ -6,7 +6,7 @@ use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
-    DeployUrlAndKeyImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
 use sea_orm::prelude::DateTimeUtc;
@@ -107,14 +107,14 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 };
                 match lot {
                     MediaLot::Movie => {
-                        metadata.push(ImportOrExportMediaItem {
+                        metadata.push(ImportOrExportMetadataItem {
                             lot,
                             reviews: vec![],
                             source_id: item.key,
                             collections: vec![],
                             source: MediaSource::Tmdb,
                             identifier: tmdb_id.to_string(),
-                            seen_history: vec![ImportOrExportMediaItemSeen {
+                            seen_history: vec![ImportOrExportMetadataItemSeen {
                                 ended_on: item.last_viewed_at.map(|d| d.date_naive()),
                                 provider_watched_on: Some(ImportSource::Plex.to_string()),
                                 ..Default::default()
@@ -132,7 +132,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             .await?
                             .json::<PlexMediaResponse<PlexMetadata>>()
                             .await?;
-                        let mut item = ImportOrExportMediaItem {
+                        let mut item = ImportOrExportMetadataItem {
                             lot,
                             reviews: vec![],
                             collections: vec![],
@@ -143,7 +143,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         };
                         for leaf in leaves.media_container.metadata {
                             if let Some(_) = leaf.last_viewed_at {
-                                item.seen_history.push(ImportOrExportMediaItemSeen {
+                                item.seen_history.push(ImportOrExportMetadataItemSeen {
                                     show_episode_number: leaf.index,
                                     show_season_number: leaf.parent_index,
                                     ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),

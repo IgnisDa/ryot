@@ -20,7 +20,7 @@ use enums::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     ImportOrExportPersonItem, ReviewItem,
 };
 use nanoid::nanoid;
@@ -201,7 +201,7 @@ impl ExporterService {
                     let manga_chapter_number =
                         s.manga_extra_information.clone().and_then(|d| d.chapter);
                     let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
-                    ImportOrExportMediaItemSeen {
+                    ImportOrExportMetadataItemSeen {
                         progress: Some(s.progress),
                         started_on: s.started_on,
                         ended_on: s.finished_on,
@@ -226,7 +226,7 @@ impl ExporterService {
                     .into_iter()
                     .map(|c| c.name)
                     .collect();
-            let exp = ImportOrExportMediaItem {
+            let exp = ImportOrExportMetadataItem {
                 source_id: m.title,
                 lot: m.lot,
                 source: m.source,
@@ -269,7 +269,7 @@ impl ExporterService {
                     .into_iter()
                     .map(|c| c.name)
                     .collect();
-            let exp = ImportOrExportMediaGroupItem {
+            let exp = ImportOrExportMetadataGroupItem {
                 title: m.title,
                 lot: m.lot,
                 source: m.source,

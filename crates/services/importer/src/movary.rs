@@ -7,13 +7,13 @@ use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,7 +58,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             source_id: record.common.title.clone(),
             lot,
             source,
@@ -85,7 +85,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             source_id: record.title.clone(),
             lot,
             source,
@@ -109,7 +109,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
-        let seen_item = ImportOrExportMediaItemSeen {
+        let seen_item = ImportOrExportMetadataItemSeen {
             started_on: None,
             ended_on: watched_at.map(|d| d.date_naive()),
             provider_watched_on: Some(ImportSource::Movary.to_string()),
@@ -144,7 +144,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     ..Default::default()
                 })
             }
-            media.push(ImportOrExportMediaItem {
+            media.push(ImportOrExportMetadataItem {
                 source_id: record.common.title.clone(),
                 lot,
                 source,

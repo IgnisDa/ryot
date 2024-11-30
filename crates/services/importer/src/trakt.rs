@@ -8,7 +8,7 @@ use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{
     CreateOrUpdateCollectionInput, DeployTraktImportInput, ImportOrExportItemRating,
-    ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
 use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use rust_decimal::Decimal;
@@ -16,7 +16,7 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
@@ -211,7 +211,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     });
                     continue;
                 }
-                d.seen_history.push(ImportOrExportMediaItemSeen {
+                d.seen_history.push(ImportOrExportMetadataItemSeen {
                     ended_on: item.watched_at.map(|d| d.date_naive()),
                     show_season_number,
                     provider_watched_on: Some(ImportSource::Trakt.to_string()),
@@ -238,7 +238,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     })
 }
 
-fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMediaItem, ImportFailedItem> {
+fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MediaLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
@@ -252,7 +252,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMediaItem, ImportF
         });
     };
     match identifier {
-        Some(identifier) => Ok(ImportOrExportMediaItem {
+        Some(identifier) => Ok(ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Tmdb,
             source_id: source_id.to_string(),

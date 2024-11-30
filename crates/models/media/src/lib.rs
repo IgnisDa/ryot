@@ -490,7 +490,7 @@ pub struct MetadataDetails {
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaItemSeen {
+pub struct ImportOrExportMetadataItemSeen {
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when started watching.
@@ -555,40 +555,40 @@ pub struct ImportOrExportItemRating {
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaItem {
-    /// An string to help identify it in the original source.
-    pub source_id: String,
+pub struct ImportOrExportMetadataItem {
     /// The type of media.
     pub lot: MediaLot,
-    /// The source of media.
-    pub source: MediaSource,
+    /// An string to help identify it in the original source.
+    pub source_id: String,
     /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
     pub identifier: String,
-    /// The seen history for the user.
-    pub seen_history: Vec<ImportOrExportMediaItemSeen>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source of media.
+    pub source: MediaSource,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The seen history for the user.
+    pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
 }
 
 /// Details about a specific media group item that needs to be imported or exported.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaGroupItem {
+pub struct ImportOrExportMetadataGroupItem {
     /// Name of the group.
     pub title: String,
     /// The type of media.
     pub lot: MediaLot,
-    /// The source of media.
-    pub source: MediaSource,
     /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
     pub identifier: String,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source of media.
+    pub source: MediaSource,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
 }
 
 /// Details about a specific creator item that needs to be exported.
@@ -596,18 +596,18 @@ pub struct ImportOrExportMediaGroupItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportPersonItem {
+    /// The name of the creator.
+    pub name: String,
     /// The provider identifier.
     pub identifier: String,
     /// The source of data.
     pub source: MediaSource,
-    /// The source specific data.
-    pub source_specifics: Option<PersonSourceSpecifics>,
-    /// The name of the creator.
-    pub name: String,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source specific data.
+    pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
 /// Details about a specific exercise item that needs to be exported.

@@ -11,7 +11,7 @@ use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
     EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
+    ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
     MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
@@ -67,7 +67,7 @@ pub struct ImportOrExportWorkoutTemplateItem {
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Option<Vec<media_models::ImportOrExportMediaItem>>,
+    pub media: Option<Vec<media_models::ImportOrExportMetadataItem>>,
     /// Data about user's people.
     pub people: Option<Vec<media_models::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
@@ -75,7 +75,7 @@ pub struct CompleteExport {
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
     /// Data about user's media groups.
-    pub media_groups: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+    pub media_groups: Option<Vec<media_models::ImportOrExportMetadataGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's workout templates.
@@ -210,11 +210,11 @@ pub struct UserMetadataDetails {
 pub struct ImportResult {
     pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
-    pub metadata: Vec<ImportOrExportMediaItem>,
     pub people: Vec<ImportOrExportPersonItem>,
+    pub metadata: Vec<ImportOrExportMetadataItem>,
     pub measurements: Vec<user_measurement::Model>,
-    pub metadata_groups: Vec<ImportOrExportMediaGroupItem>,
     pub collections: Vec<CreateOrUpdateCollectionInput>,
+    pub metadata_groups: Vec<ImportOrExportMetadataGroupItem>,
     pub application_workouts: Vec<ImportOrExportWorkoutItem>,
 }
 

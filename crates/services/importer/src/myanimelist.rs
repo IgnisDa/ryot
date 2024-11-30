@@ -11,8 +11,8 @@ use enums::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 use media_models::{
-    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen,
+    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -60,7 +60,7 @@ fn get_date(date: String) -> Option<NaiveDate> {
     }
 }
 
-fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
+fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
     let seen_history = (1..item.done + 1)
         .map(|i| {
             let (anime_episode, manga_chapter) = match lot {
@@ -68,7 +68,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
                 MediaLot::Manga => (None, Some(Decimal::new(i as i64, 0))),
                 _ => unreachable!(),
             };
-            ImportOrExportMediaItemSeen {
+            ImportOrExportMetadataItemSeen {
                 started_on: get_date(item.my_start_date.clone()),
                 ended_on: get_date(item.my_finish_date.clone()),
                 anime_episode_number: anime_episode,
@@ -87,7 +87,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         },
         ..Default::default()
     };
-    ImportOrExportMediaItem {
+    ImportOrExportMetadataItem {
         lot,
         source: MediaSource::Mal,
         identifier: item.identifier.to_string(),

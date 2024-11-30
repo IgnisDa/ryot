@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -29,11 +29,11 @@ impl KodiSinkIntegration {
         };
 
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMediaItem {
+            metadata: vec![ImportOrExportMetadataItem {
                 lot: payload.lot,
                 source: MediaSource::Tmdb,
                 identifier: payload.identifier,
-                seen_history: vec![ImportOrExportMediaItemSeen {
+                seen_history: vec![ImportOrExportMetadataItemSeen {
                     progress: Some(payload.progress),
                     provider_watched_on: Some("Kodi".to_string()),
                     show_season_number: payload.show_season_number,

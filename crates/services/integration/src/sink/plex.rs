@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use common_models::StringIdObject;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -127,11 +127,11 @@ impl PlexSinkIntegration {
         let progress = self.calculate_progress(&payload)?;
 
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMediaItem {
+            metadata: vec![ImportOrExportMetadataItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMediaItemSeen {
+                seen_history: vec![ImportOrExportMetadataItemSeen {
                     progress: Some(progress),
                     provider_watched_on: Some("Plex".to_string()),
                     show_season_number: payload.metadata.season_number,

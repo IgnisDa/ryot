@@ -8,7 +8,7 @@ use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal::Decimal;
@@ -94,7 +94,7 @@ pub async fn import(
             continue;
         };
         let mut seen_history = vec![
-            ImportOrExportMediaItemSeen {
+            ImportOrExportMetadataItemSeen {
                 started_on: None,
                 ended_on: None,
                 provider_watched_on: Some(ImportSource::Goodreads.to_string()),
@@ -132,7 +132,7 @@ pub async fn import(
                 visibility: None,
             });
         }
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             lot,
             source,
             identifier,
