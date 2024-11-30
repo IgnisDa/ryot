@@ -18,10 +18,10 @@ export const listEntitySchemasByUser = async (userId: string) => {
 			id: entitySchema.id,
 			slug: entitySchema.slug,
 			name: entitySchema.name,
-			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+			searchScriptName: searchSandboxScript.name,
 			detailsScriptName: detailsSandboxScript.name,
 			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
-			searchScriptName: searchSandboxScript.name,
+			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
 		})
 		.from(entitySchema)
 		.innerJoin(
