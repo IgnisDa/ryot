@@ -11,6 +11,7 @@ import {
 	Group,
 	Indicator,
 	JsonInput,
+	Progress,
 	Select,
 	Stack,
 	Tabs,
@@ -445,6 +446,7 @@ export default function Page() {
 										{loaderData.importReports.map((report) => {
 											const isInProgress =
 												typeof report.wasSuccess !== "boolean";
+
 											return (
 												<Accordion.Item
 													key={report.id}
@@ -470,6 +472,13 @@ export default function Page() {
 																({dayjsLib(report.startedOn).fromNow()})
 															</Text>
 														</Indicator>
+														{isInProgress && report.progress ? (
+															<Progress
+																mt="xs"
+																animated
+																value={Number(report.progress)}
+															/>
+														) : null}
 													</Accordion.Control>
 													<Accordion.Panel>
 														{report.details ? (
