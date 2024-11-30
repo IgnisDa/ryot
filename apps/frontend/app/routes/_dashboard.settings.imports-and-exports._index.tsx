@@ -442,59 +442,61 @@ export default function Page() {
 								<Title order={3}>Import history</Title>
 								{loaderData.importReports.length > 0 ? (
 									<Accordion>
-										{loaderData.importReports.map((report) => (
-											<Accordion.Item
-												value={report.id.toString()}
-												key={report.id}
-												data-import-report-id={report.id}
-											>
-												<Accordion.Control
-													disabled={typeof report.wasSuccess !== "boolean"}
+										{loaderData.importReports.map((report) => {
+											const isInProgress =
+												typeof report.wasSuccess !== "boolean";
+											return (
+												<Accordion.Item
+													key={report.id}
+													value={report.id}
+													data-import-report-id={report.id}
 												>
-													<Indicator
-														inline
-														size={12}
-														offset={-3}
-														processing={typeof report.wasSuccess !== "boolean"}
-														color={
-															typeof report.wasSuccess === "boolean"
-																? report.wasSuccess
-																	? "green"
-																	: "red"
-																: undefined
-														}
-													>
-														{changeCase(report.source)}{" "}
-														<Text size="xs" span c="dimmed">
-															({dayjsLib(report.startedOn).fromNow()})
-														</Text>
-													</Indicator>
-												</Accordion.Control>
-												<Accordion.Panel>
-													{report.details ? (
-														<>
-															<Text>
-																Total imported: {report.details.import.total}
+													<Accordion.Control disabled={isInProgress}>
+														<Indicator
+															inline
+															size={12}
+															offset={-3}
+															processing={isInProgress}
+															color={
+																isInProgress
+																	? undefined
+																	: report.wasSuccess
+																		? "green"
+																		: "red"
+															}
+														>
+															{changeCase(report.source)}{" "}
+															<Text size="xs" span c="dimmed">
+																({dayjsLib(report.startedOn).fromNow()})
 															</Text>
-															<Text>
-																Failed: {report.details.failedItems.length}
-															</Text>
-															{report.details.failedItems.length > 0 ? (
-																<Code mah={400} block>
-																	{JSON.stringify(
-																		report.details.failedItems,
-																		null,
-																		4,
-																	)}
-																</Code>
-															) : null}
-														</>
-													) : (
-														<Text>This import never finished</Text>
-													)}
-												</Accordion.Panel>
-											</Accordion.Item>
-										))}
+														</Indicator>
+													</Accordion.Control>
+													<Accordion.Panel>
+														{report.details ? (
+															<>
+																<Text>
+																	Total imported: {report.details.import.total}
+																</Text>
+																<Text>
+																	Failed: {report.details.failedItems.length}
+																</Text>
+																{report.details.failedItems.length > 0 ? (
+																	<Code mah={400} block>
+																		{JSON.stringify(
+																			report.details.failedItems,
+																			null,
+																			4,
+																		)}
+																	</Code>
+																) : null}
+															</>
+														) : (
+															<Text>This import never finished</Text>
+														)}
+													</Accordion.Panel>
+												</Accordion.Item>
+											);
+										})}
 									</Accordion>
 								) : (
 									<Text>You have not performed any imports</Text>
