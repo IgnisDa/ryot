@@ -33,13 +33,11 @@ struct PlexMetadataItem {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 struct PlexLibrary {
     pub directory: Vec<PlexMetadataItem>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 struct PlexMetadata {
     pub metadata: Vec<PlexMetadataItem>,
 }
