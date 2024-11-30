@@ -833,6 +833,7 @@ export type ImportReport = {
   details?: Maybe<ImportResultResponse>;
   finishedOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
+  progress?: Maybe<Scalars['Decimal']['output']>;
   source: ImportSource;
   startedOn: Scalars['DateTime']['output'];
   userId: Scalars['String']['output'];

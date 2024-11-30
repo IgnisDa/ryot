@@ -2,6 +2,7 @@ query ImportReports {
 	importReports {
 		id
 		source
+		progress
 		startedOn
 		finishedOn
 		wasSuccess
@@ -12,8 +13,8 @@ query ImportReports {
 			failedItems {
 				lot
 				step
-				identifier
 				error
+				identifier
 			}
 		}
 	}
