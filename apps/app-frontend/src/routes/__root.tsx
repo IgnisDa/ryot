@@ -1,14 +1,14 @@
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import {
 	createRootRouteWithContext,
 	HeadContent,
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-import TanStackQueryProvider from "../integrations/tanstack-query/root-provider";
+import TanStackQueryProvider from "../hooks/query";
 import appCss from "../styles.css?url";
 
 interface MyRouterContext {
@@ -53,7 +53,10 @@ function RootDocument(props: { children: React.ReactNode }) {
 						<TanStackDevtools
 							config={{ position: "bottom-right" }}
 							plugins={[
-								TanStackQueryDevtools,
+								{
+									name: "Tanstack Query",
+									render: <ReactQueryDevtoolsPanel />,
+								},
 								{
 									name: "Tanstack Router",
 									render: <TanStackRouterDevtoolsPanel />,
