@@ -18,18 +18,18 @@ database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
 educe = { workspace = true }
 enums = { path = "../enums" }
-graphql_client = "=0.14.0"
+graphql_client = { workspace = true }
 hashbag = { workspace = true }
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }
-paginate = "=1.1.11"
-rand = "=0.9.0-alpha.2"
+paginate = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-rust_iso3166 = "=0.1.13"
-scraper = "=0.20.0"
+rust_iso3166 = { workspace = true }
+scraper = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

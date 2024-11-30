@@ -47,6 +47,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+askama = "0.12.1"
 anyhow = "=1.0.91"
 apalis = { version = "=0.5.5", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.1"
@@ -56,12 +57,14 @@ async-graphql = { version = "=7.0.11", features = [
     "log",
     "tracing",
 ] }
+async-graphql-axum = "=7.0.11"
 async-trait = "=0.1.83"
 aws-sdk-s3 = { version = "=1.58.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.7", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.38"
 chrono-tz = "=0.10.0"
+compile-time = "=0.2.0"
 const-str = "=0.5.7"
 convert_case = "=0.6.0"
 derive_more = { version = "=1.0.0", features = [
@@ -69,21 +72,35 @@ derive_more = { version = "=1.0.0", features = [
     "add_assign",
     "sum",
 ], default-features = false }
+dotenvy = "=0.15.7"
+dotenv-build = "0.1.1"
 educe = { version = "=0.6.0", features = [
     "Debug",
     "Default",
     "full",
 ], default-features = false }
 enum_meta = "=0.7.0"
-itertools = "=0.13.0"
+eventsource-stream = "=0.2.3"
 futures = "=0.3.31"
+graphql_client = "=0.14.0"
 hashbag = "=0.1.12"
+http = "=1.1.0"
+indoc = "=2.0.5"
+itertools = "=0.13.0"
+jsonwebtoken = { version = "=9.3.0", default-features = false }
+lettre = "=0.11.10"
+logs-wheel = "=0.3.1"
 markdown = "=1.0.0-alpha.21"
+mime_guess = "=2.0.5"
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
+paginate = "=1.1.11"
+radarr-api-rs = "=3.0.1"
+rand = "=0.9.0-alpha.2"
 regex = "=1.11.1"
 rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
+rust_iso3166 = "=0.1.13"
 schematic = { version = "=0.17.5", features = [
     "config",
     "env",
@@ -98,6 +115,7 @@ schematic = { version = "=0.17.5", features = [
     "validate",
     "yaml",
 ], default-features = false }
+scraper = "=0.20.0"
 sea-orm = { version = "=1.1.0", features = [
     "debug-print",
     "postgres-array",
@@ -115,10 +133,17 @@ serde = { version = "=1.0.214", features = ["derive"] }
 serde_json = "=1.0.132"
 serde_with = { version = "=3.11.0", features = ["chrono_0_4"] }
 slug = "=0.1.6"
+sonarr-api-rs = "=3.0.0"
 strum = { version = "=0.26.3", features = ["derive"] }
+struson = { version = "=0.5.0", features = ["serde"] }
 reqwest = { version = "=0.12.9", features = ["json", "stream"] }
 tokio = { version = "=1.41.0", features = ["full"] }
+tokio-util = { version = "=0.7.11", features = ["codec"] }
+tower = { version = "=0.4.13", features = ["buffer"] }
+tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
+tracing-subscriber = "=0.3.19"
+unkey = "=0.5.0"
 uuid = { version = "=1.11.0", features = ["v4"], default-features = false }
 
 [profile.release]

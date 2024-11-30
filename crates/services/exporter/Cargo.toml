@@ -15,11 +15,11 @@ dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
-mime_guess = "=2.0.5"
+mime_guess = { workspace = true }
 nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
-struson = { version = "=0.5.0", features = ["serde"] }
+struson = { workspace = true }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
-tokio-util = { version = "=0.7.11", features = ["codec"] }
+tokio-util = { workspace = true }

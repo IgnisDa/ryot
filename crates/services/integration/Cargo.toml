@@ -15,12 +15,12 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
-eventsource-stream = "=0.2.3"
+eventsource-stream = { workspace = true }
 external-utils = { path = "../../utils/external" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
-radarr-api-rs = "=3.0.1"
+radarr-api-rs = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
@@ -29,7 +29,7 @@ sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sonarr-api-rs = "=3.0.0"
+sonarr-api-rs = { workspace = true }
 specific-models = { path = "../../models/specific" }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
