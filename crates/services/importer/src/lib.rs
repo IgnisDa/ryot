@@ -14,6 +14,7 @@ use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -62,7 +63,14 @@ impl ImporterService {
         user_id: String,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
-        let db_import_job = self.start_import_job(&user_id, input.source).await?;
+        let model = import_report::ActiveModel {
+            source: ActiveValue::Set(input.source),
+            progress: ActiveValue::Set(Some(dec!(0))),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            ..Default::default()
+        };
+        let db_import_job = model.insert(&self.0.db).await.unwrap();
+        ryot_log!(debug, "Started import job {id}", id = db_import_job.id);
         let maybe_import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0.timezone).await
@@ -138,21 +146,6 @@ impl ImporterService {
         }
         model.update(&self.0.db).await.trace_ok();
         Ok(())
-    }
-
-    async fn start_import_job(
-        &self,
-        user_id: &String,
-        source: ImportSource,
-    ) -> Result<import_report::Model> {
-        let model = import_report::ActiveModel {
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            source: ActiveValue::Set(source),
-            ..Default::default()
-        };
-        let model = model.insert(&self.0.db).await.unwrap();
-        ryot_log!(debug, "Started import job with id = {id}", id = model.id);
-        Ok(model)
     }
 }
 
