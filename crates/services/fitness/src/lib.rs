@@ -64,23 +64,27 @@ impl ExerciseService {
         input: SearchInput,
     ) -> Result<SearchResults<workout_template::Model>> {
         let page = input.page.unwrap_or(1);
-        let query = WorkoutTemplate::find()
+        let paginator = WorkoutTemplate::find()
             .filter(workout_template::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
                 query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
             })
-            .order_by_desc(workout_template::Column::CreatedOn);
-        let total = query.clone().count(&self.0.db).await?;
-        let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
-        let next_page = if total - (page * PAGE_SIZE) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+            .order_by_desc(workout_template::Column::CreatedOn)
+            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages.try_into().unwrap() {
+                    Some(page + 1)
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
@@ -284,23 +288,27 @@ impl ExerciseService {
         input: SearchInput,
     ) -> Result<SearchResults<workout::Model>> {
         let page = input.page.unwrap_or(1);
-        let query = Workout::find()
+        let paginator = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
                 query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
             })
-            .order_by_desc(workout::Column::EndTime);
-        let total = query.clone().count(&self.0.db).await?;
-        let total: i32 = total.try_into().unwrap();
-        let data = query.paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
-        let next_page = if total - (page * PAGE_SIZE) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+            .order_by_desc(workout::Column::EndTime)
+            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages.try_into().unwrap() {
+                    Some(page + 1)
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
