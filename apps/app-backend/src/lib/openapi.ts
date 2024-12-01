@@ -47,6 +47,15 @@ export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
 	return z.discriminatedUnion("code", errors as any);
 };
 
+export const createErrorResponse = (
+	description: string,
+	...errors: z.ZodObject<any>[]
+) => {
+	const errorUnion = createErrorUnion(...errors);
+	const schema = z.object({ error: errorUnion });
+	return jsonResponse(description, schema);
+};
+
 export const successResponse = <T>(data: T) => ({ data });
 
 export const paginationMetaSchema = z.object({
