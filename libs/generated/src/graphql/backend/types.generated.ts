@@ -1232,6 +1232,8 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
+  /** Merge an exercise into another. */
+  mergeExercise: Scalars['Boolean']['output'];
   /**
    * Merge a media item into another. This will move all `seen`, `collection`
    * and `review` associations with to the metadata.
@@ -1433,6 +1435,12 @@ export type MutationRootDisassociateMetadataArgs = {
 
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
+};
+
+
+export type MutationRootMergeExerciseArgs = {
+  mergeFrom: Scalars['String']['input'];
+  mergeInto: Scalars['String']['input'];
 };
 
 

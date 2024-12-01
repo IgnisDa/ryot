@@ -238,4 +238,18 @@ impl ExerciseMutation {
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_exercise_settings(user_id, input).await
     }
+
+    /// Merge an exercise into another.
+    async fn merge_exercise(
+        &self,
+        gql_ctx: &Context<'_>,
+        merge_from: String,
+        merge_into: String,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .merge_exercise(user_id, merge_from, merge_into)
+            .await
+    }
 }

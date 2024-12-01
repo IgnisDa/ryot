@@ -797,4 +797,13 @@ impl ExerciseService {
         ute.update(&self.0.db).await?;
         Ok(true)
     }
+
+    pub async fn merge_exercise(
+        &self,
+        user_id: String,
+        merge_from: String,
+        merge_into: String,
+    ) -> Result<bool> {
+        todo!()
+    }
 }
