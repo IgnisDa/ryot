@@ -483,11 +483,11 @@ export const DisplayThreePointReview = (props: {
 		.exhaustive();
 
 export const ReviewItemDisplay = (props: {
-	review: DeepPartial<ReviewItem>;
-	entityLot: EntityLot;
 	title: string;
-	entityId: string;
 	lot?: MediaLot;
+	entityId: string;
+	entityLot: EntityLot;
+	review: DeepPartial<ReviewItem>;
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
@@ -592,8 +592,10 @@ export const ReviewItemDisplay = (props: {
 							: null}
 						{isNumber(props.review.showExtraInformation?.season) ? (
 							<Text c="dimmed">
-								S{props.review.showExtraInformation.season}-E
-								{props.review.showExtraInformation.episode}
+								S{props.review.showExtraInformation.season}
+								{props.review.showExtraInformation.episode
+									? `-E${props.review.showExtraInformation.episode}`
+									: undefined}
 							</Text>
 						) : null}
 						{isNumber(props.review.podcastExtraInformation?.episode) ? (

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use enums::{EntityLot, Visibility};
 use media_models::{
     ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation,
+    SeenPodcastExtraOptionalInformation, SeenShowExtraOptionalInformation,
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
@@ -31,8 +31,8 @@ pub struct Model {
     pub metadata_group_id: Option<String>,
     pub collection_id: Option<String>,
     pub exercise_id: Option<String>,
-    pub show_extra_information: Option<SeenShowExtraInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraOptionalInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
     #[sea_orm(column_type = "Json")]
