@@ -1382,7 +1382,7 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={async (e) => {
+			onSubmit={(e) => {
 				submit(e);
 				refreshUserMetadataDetails(entityToReview.entityId);
 				events.postReview(entityToReview.entityTitle);
