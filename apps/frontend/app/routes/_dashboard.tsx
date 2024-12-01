@@ -1475,21 +1475,21 @@ const ReviewEntityForm = ({
 					<Stack gap={4}>
 						<Select
 							size="xs"
+							clearable
 							searchable
 							limit={50}
 							label="Season"
 							name="showSeasonNumber"
 							value={showSeasonNumber}
+							onChange={(v) => setShowSeasonNumber(v || undefined)}
 							data={metadataDetails?.showSpecifics?.seasons.map((s) => ({
 								label: `${s.seasonNumber}. ${s.name.toString()}`,
 								value: s.seasonNumber.toString(),
 							}))}
-							onChange={(v) => {
-								if (v) setShowSeasonNumber(v);
-							}}
 						/>
 						<Select
 							size="xs"
+							clearable
 							searchable
 							limit={50}
 							label="Episode"
@@ -1507,8 +1507,9 @@ const ReviewEntityForm = ({
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Podcast ? (
 					<Select
-						searchable
+						clearable
 						limit={50}
+						searchable
 						label="Episode"
 						name="podcastEpisodeNumber"
 						data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
