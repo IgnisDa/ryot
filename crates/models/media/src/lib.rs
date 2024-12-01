@@ -719,6 +719,21 @@ pub struct SeenPodcastExtraInformation {
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
+pub struct SeenShowExtraOptionalInformation {
+    pub season: Option<i32>,
+    pub episode: Option<i32>,
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
+pub struct SeenPodcastExtraOptionalInformation {
+    pub episode: Option<i32>,
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
 pub struct SeenAnimeExtraInformation {
     pub episode: Option<i32>,
 }
@@ -878,10 +893,10 @@ pub struct ReviewItem {
     pub text_rendered: Option<String>,
     pub seen_items_associated_with: Vec<String>,
     pub comments: Vec<ImportOrExportItemReviewComment>,
-    pub show_extra_information: Option<SeenShowExtraInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraOptionalInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

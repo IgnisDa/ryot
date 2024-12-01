@@ -46,7 +46,8 @@ use media_models::{
     PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation,
+    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
+    SeenShowExtraOptionalInformation,
 };
 use nanoid::nanoid;
 use providers::{
@@ -930,16 +931,20 @@ pub async fn post_review(
     if preferences.general.disable_reviews {
         return Err(Error::new("Reviews are disabled"));
     }
-    let show_ei = if let (Some(season), Some(episode)) =
-        (input.show_season_number, input.show_episode_number)
-    {
-        Some(SeenShowExtraInformation { season, episode })
+    let show_ei = if input.show_season_number.is_some() || input.show_episode_number.is_some() {
+        Some(SeenShowExtraOptionalInformation {
+            season: input.show_season_number,
+            episode: input.show_episode_number,
+        })
     } else {
         None
     };
-    let podcast_ei = input
-        .podcast_episode_number
-        .map(|episode| SeenPodcastExtraInformation { episode });
+    let podcast_ei =
+        input
+            .podcast_episode_number
+            .map(|episode| SeenPodcastExtraOptionalInformation {
+                episode: Some(episode),
+            });
     let anime_ei = input
         .anime_episode_number
         .map(|episode| SeenAnimeExtraInformation {

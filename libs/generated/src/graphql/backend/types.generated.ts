@@ -1996,12 +1996,12 @@ export type ReviewItem = {
   id: Scalars['String']['output'];
   isSpoiler: Scalars['Boolean']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
-  podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
+  podcastExtraInformation?: Maybe<SeenPodcastExtraOptionalInformation>;
   postedBy: IdAndNamedObject;
   postedOn: Scalars['DateTime']['output'];
   rating?: Maybe<Scalars['Decimal']['output']>;
   seenItemsAssociatedWith: Array<Scalars['String']['output']>;
-  showExtraInformation?: Maybe<SeenShowExtraInformation>;
+  showExtraInformation?: Maybe<SeenShowExtraOptionalInformation>;
   textOriginal?: Maybe<Scalars['String']['output']>;
   textRendered?: Maybe<Scalars['String']['output']>;
   visibility: Visibility;
@@ -2054,10 +2054,21 @@ export type SeenPodcastExtraInformation = {
   episode: Scalars['Int']['output'];
 };
 
+export type SeenPodcastExtraOptionalInformation = {
+  __typename?: 'SeenPodcastExtraOptionalInformation';
+  episode?: Maybe<Scalars['Int']['output']>;
+};
+
 export type SeenShowExtraInformation = {
   __typename?: 'SeenShowExtraInformation';
   episode: Scalars['Int']['output'];
   season: Scalars['Int']['output'];
+};
+
+export type SeenShowExtraOptionalInformation = {
+  __typename?: 'SeenShowExtraOptionalInformation';
+  episode?: Maybe<Scalars['Int']['output']>;
+  season?: Maybe<Scalars['Int']['output']>;
 };
 
 export enum SeenState {

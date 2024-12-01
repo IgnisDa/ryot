@@ -165,10 +165,11 @@ fragment ReviewItemPart on ReviewItem {
 		}
 	}
 	showExtraInformation {
-		...SeenShowExtraInformationPart
+		season
+		episode
 	}
 	podcastExtraInformation {
-		...SeenPodcastExtraInformationPart
+		episode
 	}
 	animeExtraInformation {
 		...SeenAnimeExtraInformationPart
