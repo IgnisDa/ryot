@@ -1424,24 +1424,24 @@ const ReviewEntityForm = ({
 								<Input.Label>Rating:</Input.Label>
 								<Rating
 									name="rating"
+									fractions={2}
 									defaultValue={
 										entityToReview.existingReview?.rating
 											? Number(entityToReview.existingReview.rating)
 											: undefined
 									}
-									fractions={2}
 								/>
 							</Flex>
 						))
 						.with(UserReviewScale.OutOfHundred, () => (
 							<NumberInput
-								label="Rating"
-								name="rating"
-								min={0}
-								max={100}
-								step={1}
 								w="40%"
+								min={0}
+								step={1}
+								max={100}
 								hideControls
+								name="rating"
+								label="Rating"
 								rightSection={<IconPercentage size={16} />}
 								defaultValue={
 									entityToReview.existingReview?.rating
@@ -1494,6 +1494,7 @@ const ReviewEntityForm = ({
 							limit={50}
 							label="Episode"
 							name="showEpisodeNumber"
+							defaultValue={entityToReview.existingReview?.showExtraInformation?.episode?.toString()}
 							data={
 								metadataDetails?.showSpecifics?.seasons
 									.find((s) => s.seasonNumber.toString() === showSeasonNumber)
@@ -1512,11 +1513,11 @@ const ReviewEntityForm = ({
 						searchable
 						label="Episode"
 						name="podcastEpisodeNumber"
+						defaultValue={entityToReview.existingReview?.podcastExtraInformation?.episode?.toString()}
 						data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
 							label: se.title.toString(),
 							value: se.number.toString(),
 						}))}
-						defaultValue={entityToReview.existingReview?.podcastExtraInformation?.episode?.toString()}
 					/>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Anime ? (
