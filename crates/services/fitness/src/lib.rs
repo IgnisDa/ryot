@@ -678,6 +678,28 @@ impl ExerciseService {
         Ok(())
     }
 
+    async fn change_exercise_name_in_history(
+        &self,
+        new_name: String,
+        old_entity: user_to_entity::Model,
+    ) -> Result<()> {
+        for workout in old_entity.exercise_extra_information.unwrap().history {
+            let db_workout = Workout::find_by_id(workout.workout_id)
+                .one(&self.0.db)
+                .await?
+                .unwrap();
+            let mut summary = db_workout.summary.clone();
+            let mut information = db_workout.information.clone();
+            summary.exercises[workout.idx].name = new_name.clone();
+            information.exercises[workout.idx].name = new_name.clone();
+            let mut db_workout: workout::ActiveModel = db_workout.into();
+            db_workout.summary = ActiveValue::Set(summary);
+            db_workout.information = ActiveValue::Set(information);
+            db_workout.update(&self.0.db).await?;
+        }
+        Ok(())
+    }
+
     pub async fn update_custom_exercise(
         &self,
         user_id: String,
@@ -720,20 +742,8 @@ impl ExerciseService {
                 .filter(exercise::Column::Id.eq(input.old_name.clone()))
                 .exec(&self.0.db)
                 .await?;
-            for workout in entity.exercise_extra_information.unwrap().history {
-                let db_workout = Workout::find_by_id(workout.workout_id)
-                    .one(&self.0.db)
-                    .await?
-                    .unwrap();
-                let mut summary = db_workout.summary.clone();
-                let mut information = db_workout.information.clone();
-                summary.exercises[workout.idx].name = input.update.id.clone();
-                information.exercises[workout.idx].name = input.update.id.clone();
-                let mut db_workout: workout::ActiveModel = db_workout.into();
-                db_workout.summary = ActiveValue::Set(summary);
-                db_workout.information = ActiveValue::Set(information);
-                db_workout.update(&self.0.db).await?;
-            }
+            self.change_exercise_name_in_history(input.update.id.clone(), entity)
+                .await?;
         }
         for image in old_exercise.attributes.internal_images {
             if let StoredUrl::S3(key) = image {
