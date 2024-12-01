@@ -43,8 +43,9 @@ use itertools::Itertools;
 use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait,
+    ItemsAndPagesNumber, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait,
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use slug::slugify;
@@ -309,6 +310,7 @@ impl ExerciseService {
         user_id: String,
         input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
+        let page = input.search.page.unwrap_or(1);
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
         let order_by_col = match input.sort_by {
@@ -332,7 +334,7 @@ impl ExerciseService {
                 ])),
             },
         };
-        let query = Exercise::find()
+        let paginator = Exercise::find()
             .column_as(
                 Expr::col((
                     etu.clone(),
@@ -390,17 +392,15 @@ impl ExerciseService {
                     }),
             )
             .order_by_desc(order_by_col)
-            .order_by_asc(exercise::Column::Id);
-        let total = query.clone().count(&self.0.db).await?;
-        let total: i32 = total.try_into().unwrap();
-        let data = query
+            .order_by_asc(exercise::Column::Id)
             .into_model::<ExerciseListItem>()
             .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
         let mut items = vec![];
-        for ex in data
-            .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
-            .await?
-        {
+        for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
             let mut converted_exercise = ex.clone();
             if let Some(img) = ex.attributes.internal_images.first() {
                 converted_exercise.image = Some(
@@ -413,13 +413,15 @@ impl ExerciseService {
             converted_exercise.muscle = ex.muscles.first().cloned();
             items.push(converted_exercise);
         }
-        let next_page = if total - ((input.search.page.unwrap()) * PAGE_SIZE) > 0 {
-            Some(input.search.page.unwrap() + 1)
-        } else {
-            None
-        };
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages.try_into().unwrap() {
+                    Some(page + 1)
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
