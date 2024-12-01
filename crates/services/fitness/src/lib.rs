@@ -809,6 +809,17 @@ impl ExerciseService {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
+        let old_exercise = Exercise::find_by_id(merge_from.clone())
+            .one(&self.0.db)
+            .await?
+            .ok_or_else(|| Error::new("Exercise does not exist"))?;
+        let new_exercise = Exercise::find_by_id(merge_into.clone())
+            .one(&self.0.db)
+            .await?
+            .ok_or_else(|| Error::new("Exercise does not exist"))?;
+        if old_exercise.lot != new_exercise.lot {
+            return Err(Error::new("Exercises must be of the same lot"));
+        }
         let old_entity = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(merge_from.clone()))
