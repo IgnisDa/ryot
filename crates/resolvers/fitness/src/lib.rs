@@ -214,7 +214,7 @@ impl ExerciseMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_exercise(user_id, input).await
+        service.create_custom_exercise(&user_id, input).await
     }
 
     /// Update a custom exercise.

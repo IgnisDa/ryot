@@ -567,7 +567,7 @@ impl ExerciseService {
 
     pub async fn create_custom_exercise(
         &self,
-        user_id: String,
+        user_id: &String,
         input: exercise::Model,
     ) -> Result<String> {
         let exercise_id = input.id.clone();
@@ -597,10 +597,10 @@ impl ExerciseService {
         add_entity_to_collection(
             &user_id.clone(),
             ChangeCollectionToEntityInput {
-                creator_user_id: user_id,
-                collection_name: DefaultCollection::Custom.to_string(),
                 entity_id: exercise.id.clone(),
                 entity_lot: EntityLot::Exercise,
+                creator_user_id: user_id.to_owned(),
+                collection_name: DefaultCollection::Custom.to_string(),
                 ..Default::default()
             },
             &self.0,
@@ -735,8 +735,9 @@ impl ExerciseService {
                 self.0.file_storage_service.delete_object(key).await;
             }
         }
-        self.create_custom_exercise(user_id, input.update.clone())
+        self.create_custom_exercise(&user_id, input.update.clone())
             .await?;
+        deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
         Ok(true)
     }
 
