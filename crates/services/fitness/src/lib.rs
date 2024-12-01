@@ -685,27 +685,26 @@ impl ExerciseService {
         user_id: String,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let entities = UserToEntity::find()
+        let entity = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
-            .all(&self.0.db)
-            .await?;
+            .one(&self.0.db)
+            .await?
+            .ok_or_else(|| Error::new("Exercise does not exist"))?;
         let old_exercise = Exercise::find_by_id(input.old_name.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
         if input.should_delete.unwrap_or_default() {
-            for entity in entities {
-                if !entity
-                    .exercise_extra_information
-                    .unwrap_or_default()
-                    .history
-                    .is_empty()
-                {
-                    return Err(Error::new(
-                        "Exercise is associated with one or more workouts.",
-                    ));
-                }
+            if !entity
+                .exercise_extra_information
+                .unwrap_or_default()
+                .history
+                .is_empty()
+            {
+                return Err(Error::new(
+                    "Exercise is associated with one or more workouts.",
+                ));
             }
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
@@ -723,21 +722,19 @@ impl ExerciseService {
                 .filter(exercise::Column::Id.eq(input.old_name.clone()))
                 .exec(&self.0.db)
                 .await?;
-            for entity in entities {
-                for workout in entity.exercise_extra_information.unwrap().history {
-                    let db_workout = Workout::find_by_id(workout.workout_id)
-                        .one(&self.0.db)
-                        .await?
-                        .unwrap();
-                    let mut summary = db_workout.summary.clone();
-                    let mut information = db_workout.information.clone();
-                    summary.exercises[workout.idx].name = input.update.id.clone();
-                    information.exercises[workout.idx].name = input.update.id.clone();
-                    let mut db_workout: workout::ActiveModel = db_workout.into();
-                    db_workout.summary = ActiveValue::Set(summary);
-                    db_workout.information = ActiveValue::Set(information);
-                    db_workout.update(&self.0.db).await?;
-                }
+            for workout in entity.exercise_extra_information.unwrap().history {
+                let db_workout = Workout::find_by_id(workout.workout_id)
+                    .one(&self.0.db)
+                    .await?
+                    .unwrap();
+                let mut summary = db_workout.summary.clone();
+                let mut information = db_workout.information.clone();
+                summary.exercises[workout.idx].name = input.update.id.clone();
+                information.exercises[workout.idx].name = input.update.id.clone();
+                let mut db_workout: workout::ActiveModel = db_workout.into();
+                db_workout.summary = ActiveValue::Set(summary);
+                db_workout.information = ActiveValue::Set(information);
+                db_workout.update(&self.0.db).await?;
             }
         }
         for image in old_exercise.attributes.internal_images {
