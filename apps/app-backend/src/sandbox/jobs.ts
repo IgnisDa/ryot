@@ -3,7 +3,7 @@ import {
 	nonEmptyStringSchema,
 	positiveIntSchema,
 	stringUnknownRecordSchema,
-} from "../lib/zod/base";
+} from "~/lib/zod/base";
 
 export const sandboxRunJobName = "sandbox-run";
 export const sandboxRunJobWaitTimeoutMs = 30_000;
