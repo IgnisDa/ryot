@@ -1353,6 +1353,9 @@ const ReviewEntityForm = ({
 				)
 			: undefined,
 	);
+	const [showSeasonNumber, setShowSeasonNumber] = useState<string | undefined>(
+		entityToReview?.existingReview?.showExtraInformation?.season?.toString(),
+	);
 	const { data: metadataDetails } = useQuery({
 		...getMetadataDetailsQuery(entityToReview?.entityId),
 		enabled: entityToReview?.entityLot === EntityLot.Metadata,
@@ -1469,32 +1472,38 @@ const ReviewEntityForm = ({
 					<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
 				</Flex>
 				{entityToReview.metadataLot === MediaLot.Show ? (
-					<Flex gap="md">
-						<NumberInput
+					<Stack gap={4}>
+						<Select
+							size="xs"
+							searchable
+							limit={50}
 							label="Season"
 							name="showSeasonNumber"
-							hideControls
-							defaultValue={
-								isNumber(
-									entityToReview.existingReview?.showExtraInformation?.season,
-								)
-									? entityToReview.existingReview.showExtraInformation.season
-									: undefined
-							}
+							value={showSeasonNumber}
+							data={metadataDetails?.showSpecifics?.seasons.map((s) => ({
+								label: `${s.seasonNumber}. ${s.name.toString()}`,
+								value: s.seasonNumber.toString(),
+							}))}
+							onChange={(v) => {
+								if (v) setShowSeasonNumber(v);
+							}}
 						/>
-						<NumberInput
+						<Select
+							size="xs"
+							searchable
+							limit={50}
 							label="Episode"
 							name="showEpisodeNumber"
-							hideControls
-							defaultValue={
-								isNumber(
-									entityToReview.existingReview?.showExtraInformation?.episode,
-								)
-									? entityToReview.existingReview.showExtraInformation.episode
-									: undefined
+							data={
+								metadataDetails?.showSpecifics?.seasons
+									.find((s) => s.seasonNumber.toString() === showSeasonNumber)
+									?.episodes.map((e) => ({
+										label: `${e.episodeNumber}. ${e.name.toString()}`,
+										value: e.episodeNumber.toString(),
+									})) || []
 							}
 						/>
-					</Flex>
+					</Stack>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Podcast ? (
 					<Select
