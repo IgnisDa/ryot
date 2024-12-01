@@ -1356,6 +1356,14 @@ const ReviewEntityForm = ({
 	const [showSeasonNumber, setShowSeasonNumber] = useState<string | undefined>(
 		entityToReview?.existingReview?.showExtraInformation?.season?.toString(),
 	);
+	const [showEpisodeNumber, _setShowEpisodeNumber] = useState<
+		string | undefined
+	>(entityToReview?.existingReview?.showExtraInformation?.episode?.toString());
+	const [podcastEpisodeNumber, _setPodcastEpisodeNumber] = useState<
+		string | undefined
+	>(
+		entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
+	);
 	const { data: metadataDetails } = useQuery({
 		...getMetadataDetailsQuery(entityToReview?.entityId),
 		enabled: entityToReview?.entityLot === EntityLot.Metadata,
@@ -1494,7 +1502,8 @@ const ReviewEntityForm = ({
 							limit={50}
 							label="Episode"
 							name="showEpisodeNumber"
-							defaultValue={entityToReview.existingReview?.showExtraInformation?.episode?.toString()}
+							value={showEpisodeNumber}
+							onChange={(v) => _setShowEpisodeNumber(v || undefined)}
 							data={
 								metadataDetails?.showSpecifics?.seasons
 									.find((s) => s.seasonNumber.toString() === showSeasonNumber)
@@ -1513,7 +1522,8 @@ const ReviewEntityForm = ({
 						searchable
 						label="Episode"
 						name="podcastEpisodeNumber"
-						defaultValue={entityToReview.existingReview?.podcastExtraInformation?.episode?.toString()}
+						value={podcastEpisodeNumber}
+						onChange={(v) => _setPodcastEpisodeNumber(v || undefined)}
 						data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
 							label: se.title.toString(),
 							value: se.number.toString(),
