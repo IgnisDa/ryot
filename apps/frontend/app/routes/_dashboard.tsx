@@ -61,6 +61,7 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
+	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
@@ -114,6 +115,7 @@ import {
 	Verb,
 	convertDecimalToThreePointSmiley,
 	getLot,
+	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
@@ -147,6 +149,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import type { LoaderFunctionArgs } from "@remix-run/node";
+import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { ClientOnly } from "remix-utils/client-only";
 import { useBulkEditCollection } from "~/lib/state/collection";
@@ -1350,6 +1353,10 @@ const ReviewEntityForm = ({
 				)
 			: undefined,
 	);
+	const { data: metadataDetails } = useQuery({
+		...getMetadataDetailsQuery(entityToReview?.entityId),
+		enabled: entityToReview?.entityLot === EntityLot.Metadata,
+	});
 
 	const SmileySurround = (props: {
 		children: React.ReactNode;
@@ -1489,17 +1496,16 @@ const ReviewEntityForm = ({
 					</Flex>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Podcast ? (
-					<NumberInput
+					<Select
+						searchable
+						limit={50}
 						label="Episode"
 						name="podcastEpisodeNumber"
-						hideControls
-						defaultValue={
-							isNumber(
-								entityToReview.existingReview?.podcastExtraInformation?.episode,
-							)
-								? entityToReview.existingReview.podcastExtraInformation.episode
-								: undefined
-						}
+						data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
+							label: se.title.toString(),
+							value: se.number.toString(),
+						}))}
+						defaultValue={entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString()}
 					/>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Anime ? (
