@@ -652,9 +652,7 @@ impl ExerciseService {
             association.update(&self.0.db).await?;
         }
         wkt.delete(&self.0.db).await?;
-        self.0
-            .perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-            .await?;
+        deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
         Ok(true)
     }
 
