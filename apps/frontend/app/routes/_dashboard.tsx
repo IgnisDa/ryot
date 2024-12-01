@@ -1394,20 +1394,21 @@ const ReviewEntityForm = ({
 				UserReviewScale.ThreePointSmiley && ratingInThreePointSmiley ? (
 				<input
 					hidden
+					readOnly
 					name="rating"
 					value={convertThreePointSmileyToDecimal(ratingInThreePointSmiley)}
-					readOnly
 				/>
 			) : undefined}
 			<input
 				hidden
+				readOnly
 				name="entityLot"
 				value={entityToReview.entityLot}
-				readOnly
 			/>
 			{entityToReview.existingReview?.id ? (
 				<input
 					hidden
+					readOnly
 					name="reviewId"
 					value={entityToReview.existingReview.id}
 				/>
@@ -1505,7 +1506,7 @@ const ReviewEntityForm = ({
 							label: se.title.toString(),
 							value: se.number.toString(),
 						}))}
-						defaultValue={entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString()}
+						defaultValue={entityToReview.existingReview?.podcastExtraInformation?.episode?.toString()}
 					/>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Anime ? (
@@ -1637,14 +1638,14 @@ const AddEntityToCollectionForm = ({
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
-				readOnly
 				hidden
+				readOnly
 				name="entityId"
 				value={addEntityToCollectionData.entityId}
 			/>
 			<input
-				readOnly
 				hidden
+				readOnly
 				name="entityLot"
 				value={addEntityToCollectionData.entityLot}
 			/>
@@ -1665,14 +1666,14 @@ const AddEntityToCollectionForm = ({
 				{selectedCollection ? (
 					<>
 						<input
-							readOnly
 							hidden
+							readOnly
 							name="collectionName"
 							value={selectedCollection.name}
 						/>
 						<input
-							readOnly
 							hidden
+							readOnly
 							name="creatorUserId"
 							value={selectedCollection.creator.id}
 						/>
@@ -1717,8 +1718,8 @@ const AddEntityToCollectionForm = ({
 											/>
 											{ownedOn ? (
 												<input
-													readOnly
 													hidden
+													readOnly
 													name={`information.${template.name}`}
 													value={formatDateToNaiveDate(ownedOn)}
 												/>
