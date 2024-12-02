@@ -46,7 +46,9 @@ use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable,
     ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
 };
-use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
+use sea_query::{
+    extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict, PgFunc,
+};
 use slug::slugify;
 use supporting_service::SupportingService;
 
@@ -348,13 +350,7 @@ impl ExerciseService {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
                     .apply_if(q.muscle, |q, v| {
-                        q.filter(
-                            Expr::expr(Func::cast_as(
-                                Expr::col(exercise::Column::Muscles),
-                                Alias::new("text"),
-                            ))
-                            .ilike(ilike_sql(&v.to_string())),
-                        )
+                        q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(exercise::Column::Muscles))))
                     })
                     .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
                     .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
