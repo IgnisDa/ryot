@@ -795,7 +795,10 @@ impl ExerciseService {
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
         if old_exercise.lot != new_exercise.lot {
-            return Err(Error::new("Exercises must be of the same lot"));
+            return Err(Error::new(format!(
+                "Exercises must be of the same lot, got from={:#?} and into={:#?}",
+                old_exercise.lot, new_exercise.lot
+            )));
         }
         let old_entity = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
