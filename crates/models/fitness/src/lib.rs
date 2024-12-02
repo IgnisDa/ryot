@@ -28,15 +28,16 @@ pub enum ExerciseCategory {
 }
 
 #[derive(
+    Eq,
     Debug,
     Clone,
+    Default,
     Serialize,
-    SimpleObject,
-    Deserialize,
-    FromJsonQueryResult,
-    Eq,
     PartialEq,
     InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "camelCase")]
 #[graphql(input_name = "ExerciseAttributesInput")]
