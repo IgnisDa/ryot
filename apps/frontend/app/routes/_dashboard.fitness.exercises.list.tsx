@@ -252,6 +252,20 @@ export default function Page() {
 								<FiltersModalForm />
 							</FiltersModal>
 						</Group>
+						{currentWorkout?.replacingExerciseIdx ? (
+							<Alert icon={<IconAlertCircle />}>
+								You are replacing exercise:{" "}
+								{
+									currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
+										.exerciseId
+								}
+							</Alert>
+						) : null}
+						{mergingExercise ? (
+							<Alert icon={<IconAlertCircle />}>
+								You are merging exercise: {mergingExercise}
+							</Alert>
+						) : null}
 						{loaderData.exercisesList.details.total > 0 ? (
 							<>
 								<Box>
