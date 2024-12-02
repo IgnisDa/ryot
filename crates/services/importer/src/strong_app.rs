@@ -2,6 +2,7 @@ use std::fs;
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
+use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use fitness_models::{
@@ -9,7 +10,6 @@ use fitness_models::{
 };
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
-use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -20,21 +20,23 @@ use super::utils;
 #[serde(rename_all = "PascalCase")]
 struct Entry {
     date: String,
+    #[serde(alias = "Workout Name")]
+    workout_name: String,
+    #[serde(alias = "Duration (sec)", alias = "Duration")]
+    workout_duration: String,
+    #[serde(alias = "Exercise Name")]
+    exercise_name: String,
+    #[serde(alias = "Set Order")]
+    set_order: String,
+    #[serde(alias = "Weight (kg)")]
     weight: Option<Decimal>,
     reps: Option<Decimal>,
+    #[serde(alias = "Distance (m)")]
     distance: Option<Decimal>,
     seconds: Option<Decimal>,
     notes: Option<String>,
-    #[serde(alias = "Set Order")]
-    set_order: u8,
-    #[serde(alias = "Workout Duration", alias = "Duration")]
-    workout_duration: String,
-    #[serde(alias = "Workout Name")]
-    workout_name: String,
     #[serde(alias = "Workout Notes")]
     workout_notes: Option<String>,
-    #[serde(alias = "Exercise Name")]
-    exercise_name: String,
 }
 
 pub async fn import(
@@ -61,14 +63,15 @@ pub async fn import(
         .collect_vec();
     // DEV: Without this, the last workout does not get appended
     entries_reader.push(Entry {
+        set_order: "0".to_string(),
         date: "invalid".to_string(),
-        set_order: 0,
         ..Default::default()
     });
     let mut exercises = vec![];
     let mut sets = vec![];
     let mut notes = vec![];
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
+        ryot_log!(debug, "Parsing entry: {:#?}", entry);
         let target_exercise = input
             .mapping
             .iter()
@@ -82,8 +85,8 @@ pub async fn import(
             statistic: WorkoutSetStatistic {
                 weight,
                 reps: entry.reps,
-                distance: entry.distance,
                 duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
+                distance: entry.distance.and_then(|d| d.checked_div(dec!(1000))),
                 ..Default::default()
             },
             note: None,
@@ -108,18 +111,8 @@ pub async fn import(
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
             let ndt = utils::get_date_time_with_offset(ndt, timezone);
-            let re = Regex::new(r"^(\d+h)?\s?(\d+m)?$").unwrap();
-            let workout_duration = if let Some(captures) = re.captures(&entry.workout_duration) {
-                let hours = captures.get(1).map_or(0, |m| {
-                    m.as_str().trim_end_matches('h').parse::<i64>().unwrap_or(0)
-                });
-                let minutes = captures.get(2).map_or(0, |m| {
-                    m.as_str().trim_end_matches('m').parse::<i64>().unwrap_or(0)
-                });
-                Duration::try_hours(hours).unwrap() + Duration::try_minutes(minutes).unwrap()
-            } else {
-                Duration::try_seconds(0).unwrap()
-            };
+            let workout_duration =
+                Duration::try_seconds(entry.workout_duration.parse().unwrap()).unwrap();
             completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
                 exercises,
                 assets: None,
