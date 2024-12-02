@@ -326,6 +326,11 @@ impl ExerciseService {
                 Expr::col((etu, user_to_entity::Column::LastUpdatedOn)),
                 "last_updated_on",
             )
+            .filter(
+                exercise::Column::Source
+                    .eq(ExerciseSource::Github)
+                    .or(exercise::Column::CreatedByUserId.eq(&user_id)),
+            )
             .apply_if(input.filter, |query, q| {
                 query
                     .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
