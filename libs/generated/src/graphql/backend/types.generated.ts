@@ -210,6 +210,7 @@ export type CoreDetails = {
   frontend: FrontendConfig;
   isPro: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
@@ -1097,6 +1098,12 @@ export type MetadataListInput = {
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MetadataLotSourceMappings = {
+  __typename?: 'MetadataLotSourceMappings';
+  lot: MediaLot;
+  sources: Array<MediaSource>;
 };
 
 export type MetadataPartialDetails = {

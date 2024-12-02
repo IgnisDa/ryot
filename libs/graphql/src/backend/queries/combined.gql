@@ -301,6 +301,10 @@ query CoreDetails {
 		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
+		metadataLotSourceMappings {
+			lot
+			sources
+		}
 		metadataProviderLanguages {
 			source
 			default

@@ -7,7 +7,7 @@ use database_models::{
 };
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
+    MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
@@ -185,6 +185,12 @@ pub struct ProviderLanguageInformation {
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct MetadataLotSourceMappings {
+    pub lot: MediaLot,
+    pub sources: Vec<MediaSource>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub is_pro: bool,
     pub page_size: i32,
@@ -202,6 +208,7 @@ pub struct CoreDetails {
     pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
     pub exercise_parameters: ExerciseParameters,
+    pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
 }
 

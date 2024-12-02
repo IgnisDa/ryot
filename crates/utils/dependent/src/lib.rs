@@ -9,7 +9,7 @@ use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     MediaStateChanged, StoredUrl, StringIdObject,
 };
-use common_utils::{ryot_log, LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection_to_entity, exercise, genre, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_person, monitored_entity, person,
@@ -1827,7 +1827,7 @@ pub async fn create_or_update_workout(
             .clone()
             .unwrap_or_default()
             .personal_bests;
-        let types_of_prs = LOT_MAPPINGS
+        let types_of_prs = EXERCISE_LOT_MAPPINGS
             .iter()
             .find(|lm| lm.0 == db_ex.lot)
             .map(|lm| lm.1)

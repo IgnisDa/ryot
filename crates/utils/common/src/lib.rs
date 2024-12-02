@@ -1,7 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enums::{ExerciseLot, WorkoutSetPersonalBest};
+use enums::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
@@ -27,7 +27,7 @@ pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
-pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
+pub const EXERCISE_LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
     (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
     (
         ExerciseLot::DistanceAndDuration,
@@ -43,6 +43,30 @@ pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
         ],
     ),
     (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
+];
+pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
+    (MediaLot::AudioBook, &[MediaSource::Audible]),
+    (
+        MediaLot::Book,
+        &[MediaSource::Openlibrary, MediaSource::GoogleBooks],
+    ),
+    (
+        MediaLot::Podcast,
+        &[MediaSource::Itunes, MediaSource::Listennotes],
+    ),
+    (MediaLot::VideoGame, &[MediaSource::Igdb]),
+    (MediaLot::Anime, &[MediaSource::Anilist, MediaSource::Mal]),
+    (
+        MediaLot::Manga,
+        &[
+            MediaSource::Anilist,
+            MediaSource::MangaUpdates,
+            MediaSource::Mal,
+        ],
+    ),
+    (MediaLot::Movie, &[MediaSource::Tmdb]),
+    (MediaLot::Show, &[MediaSource::Tmdb]),
+    (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
 
 #[macro_export]

@@ -17,8 +17,8 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, LOT_MAPPINGS, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, EXERCISE_LOT_MAPPINGS,
+    MEDIA_LOT_MAPPINGS, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -41,8 +41,9 @@ use database_utils::{
 };
 use dependent_models::{
     CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
-    MetadataBaseData, MetadataGroupDetails, PersonDetails, ProviderLanguageInformation,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    MetadataBaseData, MetadataGroupDetails, MetadataLotSourceMappings, PersonDetails,
+    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
@@ -266,6 +267,13 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
+                .iter()
+                .map(|(lot, sources)| MetadataLotSourceMappings {
+                    lot: *lot,
+                    sources: sources.to_vec(),
+                })
+                .collect(),
             exercise_parameters: ExerciseParameters {
                 filters: ExerciseFilters {
                     lot: ExerciseLot::iter().collect_vec(),
@@ -276,7 +284,7 @@ ORDER BY RANDOM() LIMIT 10;
                     muscle: ExerciseMuscle::iter().collect_vec(),
                 },
                 download_required,
-                lot_mapping: LOT_MAPPINGS
+                lot_mapping: EXERCISE_LOT_MAPPINGS
                     .iter()
                     .map(|(lot, pbs)| ExerciseParametersLotMapping {
                         lot: *lot,
