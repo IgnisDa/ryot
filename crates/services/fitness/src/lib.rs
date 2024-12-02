@@ -27,25 +27,19 @@ use dependent_utils::{
     create_or_update_workout, create_user_measurement, db_workout_to_workout_input,
     get_focused_workout_summary,
 };
-use enums::{
-    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-    ExerciseMuscle, ExerciseSource, Visibility,
-};
+use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
-    ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
+    ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
+    GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
-    LOT_MAPPINGS,
 };
-use itertools::Itertools;
 use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait,
-    ItemsAndPagesNumber, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait,
+    ItemsAndPagesNumber, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait, RelationTrait,
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use slug::slugify;
@@ -185,28 +179,6 @@ impl ExerciseService {
         };
         wkt.delete(&self.0.db).await?;
         Ok(true)
-    }
-
-    pub async fn exercise_parameters(&self) -> Result<ExerciseParameters> {
-        let download_required = Exercise::find().count(&self.0.db).await? == 0;
-        Ok(ExerciseParameters {
-            filters: ExerciseFilters {
-                lot: ExerciseLot::iter().collect_vec(),
-                level: ExerciseLevel::iter().collect_vec(),
-                force: ExerciseForce::iter().collect_vec(),
-                mechanic: ExerciseMechanic::iter().collect_vec(),
-                equipment: ExerciseEquipment::iter().collect_vec(),
-                muscle: ExerciseMuscle::iter().collect_vec(),
-            },
-            download_required,
-            lot_mapping: LOT_MAPPINGS
-                .iter()
-                .map(|(lot, pbs)| ExerciseParametersLotMapping {
-                    lot: *lot,
-                    bests: pbs.to_vec(),
-                })
-                .collect(),
-        })
     }
 
     async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {

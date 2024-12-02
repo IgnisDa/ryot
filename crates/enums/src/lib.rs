@@ -422,6 +422,31 @@ pub enum ExerciseSource {
     Custom,
 }
 
+/// The different types of personal bests that can be achieved on a set.
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Enum,
+    Copy,
+    Default,
+    ConfigEnum,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkoutSetPersonalBest {
+    #[default]
+    Weight,
+    OneRm,
+    Volume,
+    Time,
+    Pace,
+    Reps,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(
     rs_type = "String",

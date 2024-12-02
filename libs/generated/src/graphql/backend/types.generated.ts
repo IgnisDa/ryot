@@ -205,6 +205,7 @@ export type CoreDetails = {
   backendErrors: Array<BackendError>;
   disableTelemetry: Scalars['Boolean']['output'];
   docsLink: Scalars['String']['output'];
+  exerciseParameters: ExerciseParameters;
   fileStorageEnabled: Scalars['Boolean']['output'];
   frontend: FrontendConfig;
   isPro: Scalars['Boolean']['output'];
@@ -1747,8 +1748,6 @@ export type QueryRoot = {
   dailyUserActivities: DailyUserActivitiesResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
-  /** Get all the parameters related to exercises. */
-  exerciseParameters: ExerciseParameters;
   /** Get a paginated list of exercises in the database. */
   exercisesList: ExerciseListResults;
   /** Get details about a genre present in the database. */

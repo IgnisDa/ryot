@@ -17,7 +17,7 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, PAGE_SIZE,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, LOT_MAPPINGS, PAGE_SIZE,
     SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
@@ -27,8 +27,8 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
+        Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         QueuedNotification, Review, Seen, User, UserToEntity,
     },
@@ -40,9 +40,9 @@ use database_utils::{
     item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
-    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
+    MetadataBaseData, MetadataGroupDetails, PersonDetails, ProviderLanguageInformation,
+    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
@@ -55,7 +55,9 @@ use dependent_utils::{
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
 use enums::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    UserToMediaReason,
 };
 use env_utils::APP_VERSION;
 use futures::TryStreamExt;
@@ -242,12 +244,13 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn core_details(&self) -> CoreDetails {
+    pub async fn core_details(&self) -> Result<CoreDetails> {
         let mut files_enabled = self.0.config.file_storage.is_enabled();
         if files_enabled && !self.0.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
-        CoreDetails {
+        let download_required = Exercise::find().count(&self.0.db).await? == 0;
+        Ok(CoreDetails {
             page_size: PAGE_SIZE,
             is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
@@ -263,6 +266,24 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            exercise_parameters: ExerciseParameters {
+                filters: ExerciseFilters {
+                    lot: ExerciseLot::iter().collect_vec(),
+                    level: ExerciseLevel::iter().collect_vec(),
+                    force: ExerciseForce::iter().collect_vec(),
+                    mechanic: ExerciseMechanic::iter().collect_vec(),
+                    equipment: ExerciseEquipment::iter().collect_vec(),
+                    muscle: ExerciseMuscle::iter().collect_vec(),
+                },
+                download_required,
+                lot_mapping: LOT_MAPPINGS
+                    .iter()
+                    .map(|(lot, pbs)| ExerciseParametersLotMapping {
+                        lot: *lot,
+                        bests: pbs.to_vec(),
+                    })
+                    .collect(),
+            },
             metadata_provider_languages: MediaSource::iter()
                 .map(|source| {
                     let (supported, default) = match source {
@@ -322,7 +343,7 @@ ORDER BY RANDOM() LIMIT 10;
                     }
                 })
                 .collect(),
-        }
+        })
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {

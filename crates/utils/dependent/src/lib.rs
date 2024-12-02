@@ -9,7 +9,7 @@ use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     MediaStateChanged, StoredUrl, StringIdObject,
 };
-use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{ryot_log, LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection_to_entity, exercise, genre, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_person, monitored_entity, person,
@@ -26,7 +26,7 @@ use database_utils::{
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    Visibility,
+    Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -35,8 +35,8 @@ use fitness_models::{
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
-    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
-    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
+    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;

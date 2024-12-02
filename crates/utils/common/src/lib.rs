@@ -1,6 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use enums::{ExerciseLot, WorkoutSetPersonalBest};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
@@ -26,6 +27,23 @@ pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
+pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
+    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
+    (
+        ExerciseLot::DistanceAndDuration,
+        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
+    ),
+    (
+        ExerciseLot::RepsAndWeight,
+        &[
+            WorkoutSetPersonalBest::Weight,
+            WorkoutSetPersonalBest::OneRm,
+            WorkoutSetPersonalBest::Volume,
+            WorkoutSetPersonalBest::Reps,
+        ],
+    ),
+    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
+];
 
 #[macro_export]
 macro_rules! ryot_log {

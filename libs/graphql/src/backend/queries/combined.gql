@@ -189,24 +189,6 @@ query ExerciseDetails($exerciseId: String!) {
 	}
 }
 
-query ExerciseParameters {
-	exerciseParameters {
-		downloadRequired
-		filters {
-			type
-			level
-			force
-			mechanic
-			equipment
-			muscle
-		}
-		lotMapping {
-			lot
-			bests
-		}
-	}
-}
-
 query ExercisesList($input: ExercisesListInput!) {
 	exercisesList(input: $input) {
 		details {
@@ -319,6 +301,11 @@ query CoreDetails {
 		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
+		metadataProviderLanguages {
+			source
+			default
+			supported
+		}
 		frontend {
 			url
 			oidcButtonLabel
@@ -329,10 +316,20 @@ query CoreDetails {
 				websiteId
 			}
 		}
-		metadataProviderLanguages {
-			source
-			default
-			supported
+		exerciseParameters {
+			downloadRequired
+			filters {
+				type
+				level
+				force
+				mechanic
+				equipment
+				muscle
+			}
+			lotMapping {
+				lot
+				bests
+			}
 		}
 	}
 }

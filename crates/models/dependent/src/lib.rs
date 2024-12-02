@@ -5,7 +5,10 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::{MediaSource, UserToMediaReason};
+use enums::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
+};
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
@@ -148,6 +151,32 @@ pub struct MetadataBaseData {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParametersLotMapping {
+    pub lot: ExerciseLot,
+    pub bests: Vec<WorkoutSetPersonalBest>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseFilters {
+    #[graphql(name = "type")]
+    pub lot: Vec<ExerciseLot>,
+    pub level: Vec<ExerciseLevel>,
+    pub force: Vec<ExerciseForce>,
+    pub mechanic: Vec<ExerciseMechanic>,
+    pub equipment: Vec<ExerciseEquipment>,
+    pub muscle: Vec<ExerciseMuscle>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParameters {
+    /// All filters applicable to an exercises query.
+    pub filters: ExerciseFilters,
+    pub download_required: bool,
+    /// Exercise type mapped to the personal bests possible.
+    pub lot_mapping: Vec<ExerciseParametersLotMapping>,
+}
+
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct ProviderLanguageInformation {
     pub source: MediaSource,
@@ -172,6 +201,7 @@ pub struct CoreDetails {
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
+    pub exercise_parameters: ExerciseParameters,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
 }
 

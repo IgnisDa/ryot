@@ -7,6 +7,7 @@ edition = "2021"
 chrono = { workspace = true }
 compile-time = { workspace = true }
 const-str = { workspace = true }
+enums = { path = "../../enums" }
 env-utils = { path = "../env" }
 reqwest = { workspace = true }
 serde = { workspace = true }
