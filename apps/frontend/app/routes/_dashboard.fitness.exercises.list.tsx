@@ -59,7 +59,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import {
+	dayjsLib,
+	getExerciseDetailsPath,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -156,15 +160,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				MergeExerciseDocument,
 				submission,
 			);
-			return redirectWithToast(
-				$path("/fitness/exercises/item/:id", {
-					id: encodeURIComponent(submission.mergeInto),
-				}),
-				{
-					type: "success",
-					message: "Exercise merged successfully",
-				},
-			);
+			return redirectWithToast(getExerciseDetailsPath(submission.mergeInto), {
+				type: "success",
+				message: "Exercise merged successfully",
+			});
 		})
 		.run();
 };
@@ -310,10 +309,12 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
+												style={{ all: "unset", cursor: "pointer" }}
+												to={getExerciseDetailsPath(exercise.id)}
 												onClick={async (e) => {
 													if (allowAddingExerciseToWorkout) return;
-													e.preventDefault();
 													if (mergingExercise) {
+														e.preventDefault();
 														const conf = await confirmWrapper({
 															confirmation:
 																"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
@@ -333,6 +334,7 @@ export default function Page() {
 														return;
 													}
 													if (currentWorkout) {
+														e.preventDefault();
 														setCurrentWorkout(
 															produce(currentWorkout, (draft) => {
 																if (
@@ -346,12 +348,9 @@ export default function Page() {
 															}),
 														);
 														navigate(-1);
+														return;
 													}
 												}}
-												style={{ all: "unset", cursor: "pointer" }}
-												to={$path("/fitness/exercises/item/:id", {
-													id: encodeURIComponent(exercise.id),
-												})}
 											>
 												<Flex direction="column" justify="space-around">
 													<Text>{exercise.id}</Text>

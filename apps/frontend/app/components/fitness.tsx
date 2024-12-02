@@ -45,7 +45,12 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { BaseMediaDisplayItem } from "~/components/common";
-import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
+import {
+	FitnessEntity,
+	dayjsLib,
+	getExerciseDetailsPath,
+	getSetColor,
+} from "~/lib/generals";
 import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
@@ -271,9 +276,7 @@ export const ExerciseHistory = (props: {
 													}),
 													props.exerciseIdx.toString(),
 												)
-											: $path("/fitness/exercises/item/:id", {
-													id: encodeURIComponent(exercise.name),
-												})
+											: getExerciseDetailsPath(exercise.name)
 									}
 									fw="bold"
 									lineClamp={1}
@@ -424,10 +427,8 @@ export const ExerciseDisplayItem = (props: {
 			innerRef={ref}
 			name={exerciseDetails?.id}
 			isLoading={isExerciseDetailsLoading}
-			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
-				id: encodeURIComponent(props.exerciseId),
-			})}
 			imageUrl={exerciseDetails?.attributes.images.at(0)}
+			onImageClickBehavior={getExerciseDetailsPath(props.exerciseId)}
 			labels={{
 				left: isNumber(times)
 					? `${times} time${times > 1 ? "s" : ""}`
