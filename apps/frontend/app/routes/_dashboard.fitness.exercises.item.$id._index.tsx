@@ -82,6 +82,7 @@ import {
 } from "~/lib/generals";
 import {
 	useComplexJsonUpdate,
+	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
@@ -93,11 +94,7 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import {
-	createToastHeaders,
-	getCachedExerciseParameters,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -110,23 +107,15 @@ const paramsSchema = { id: z.string() };
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [exerciseParameters, { exerciseDetails }, { userExerciseDetails }] =
-		await Promise.all([
-			getCachedExerciseParameters(),
-			serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-			serverGqlService.authenticatedRequest(
-				request,
-				UserExerciseDetailsDocument,
-				{ exerciseId },
-			),
-		]);
-	return {
-		query,
-		exerciseId,
-		exerciseDetails,
-		exerciseParameters,
-		userExerciseDetails,
-	};
+	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
+		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		serverGqlService.authenticatedRequest(
+			request,
+			UserExerciseDetailsDocument,
+			{ exerciseId },
+		),
+	]);
+	return { query, exerciseId, exerciseDetails, userExerciseDetails };
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
@@ -161,6 +150,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
@@ -194,7 +184,7 @@ export default function Page() {
 			: workoutEndOn.isAfter(computedDateAfterForCharts);
 	});
 	const bestMappings =
-		loaderData.exerciseParameters.lotMapping.find(
+		coreDetails.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
 		)?.bests || [];
 

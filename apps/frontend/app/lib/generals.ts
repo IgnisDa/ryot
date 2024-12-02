@@ -382,9 +382,6 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	workoutDetails: (workoutId: string) => ({
 		queryKey: ["workoutDetails", workoutId],
 	}),
-	exerciseParameters: () => ({
-		queryKey: ["exerciseParameters"],
-	}),
 	workoutTemplateDetails: (workoutTemplateId: string) => ({
 		queryKey: ["workoutTemplateDetails", workoutTemplateId],
 	}),

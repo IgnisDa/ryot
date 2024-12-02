@@ -48,13 +48,13 @@ import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
-	getCachedExerciseParameters,
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
@@ -93,8 +93,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
-	const [exerciseParameters, { exercisesList }] = await Promise.all([
-		getCachedExerciseParameters(),
+	const [{ exercisesList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request.clone(),
 			ExercisesListDocument,
@@ -120,13 +119,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		exercisesList.details.total,
 		query[pageQueryParam],
 	);
-	return {
-		query,
-		totalPages,
-		cookieName,
-		exercisesList,
-		exerciseParameters,
-	};
+	return { query, totalPages, cookieName, exercisesList };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -136,6 +129,7 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -175,7 +169,7 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				{loaderData.exerciseParameters.downloadRequired ? (
+				{coreDetails.exerciseParameters.downloadRequired ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						Please deploy a job to download the exercise dataset from the{" "}
 						<Anchor
@@ -355,6 +349,7 @@ export default function Page() {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
@@ -383,7 +378,7 @@ const FiltersModalForm = () => {
 							key={f}
 							clearable
 							// biome-ignore lint/suspicious/noExplicitAny: required here
-							data={(loaderData.exerciseParameters.filters as any)[f].map(
+							data={(coreDetails.exerciseParameters.filters as any)[f].map(
 								// biome-ignore lint/suspicious/noExplicitAny: required here
 								(v: any) => ({
 									label: startCase(snakeCase(v)),
