@@ -794,6 +794,9 @@ impl ExerciseService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
+        if old_exercise.id == new_exercise.id {
+            return Err(Error::new("Cannot merge exercise with itself"));
+        }
         if old_exercise.lot != new_exercise.lot {
             return Err(Error::new(format!(
                 "Exercises must be of the same lot, got from={:#?} and into={:#?}",
