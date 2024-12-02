@@ -21,8 +21,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Link, useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
 import {
 	ExerciseEquipment,
 	ExerciseForce,
@@ -32,8 +36,15 @@ import {
 	ExerciseMuscle,
 	ExerciseSortBy,
 	ExercisesListDocument,
+	MergeExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	isNumber,
+	processSubmission,
+	snakeCase,
+	startCase,
+} from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconCheck,
@@ -42,9 +53,12 @@ import {
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import { $path } from "remix-routes";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -53,11 +67,16 @@ import {
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
+import {
+	addExerciseToWorkout,
+	useCurrentWorkout,
+	useMergingExercise,
+} from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
+	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -126,13 +145,44 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Exercises | Ryot" }];
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("mergeExercise", async () => {
+			const submission = processSubmission(formData, mergeExerciseSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				MergeExerciseDocument,
+				submission,
+			);
+			return redirectWithToast(
+				$path("/fitness/exercises/item/:id", {
+					id: encodeURIComponent(submission.mergeInto),
+				}),
+				{
+					type: "success",
+					message: "Exercise merged successfully",
+				},
+			);
+		})
+		.run();
+};
+
+const mergeExerciseSchema = z.object({
+	mergeFrom: z.string(),
+	mergeInto: z.string(),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const submit = useSubmit();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
+	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -173,9 +223,9 @@ export default function Page() {
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						Please deploy a job to download the exercise dataset from the{" "}
 						<Anchor
+							size="sm"
 							component={Link}
 							to={$path("/settings/miscellaneous")}
-							size="sm"
 						>
 							miscellaneous settings
 						</Anchor>
@@ -260,10 +310,29 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
-												onClick={(e) => {
+												onClick={async (e) => {
 													if (allowAddingExerciseToWorkout) return;
+													e.preventDefault();
+													if (mergingExercise) {
+														const conf = await confirmWrapper({
+															confirmation:
+																"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+														});
+														if (conf) {
+															const formData = new FormData();
+															formData.append("mergeFrom", mergingExercise);
+															formData.append("mergeInto", exercise.id);
+															setMergingExercise(null);
+															submit(formData, {
+																method: "POST",
+																action: withQuery(".", {
+																	intent: "mergeExercise",
+																}),
+															});
+														}
+														return;
+													}
 													if (currentWorkout) {
-														e.preventDefault();
 														setCurrentWorkout(
 															produce(currentWorkout, (draft) => {
 																if (
@@ -372,7 +441,7 @@ const FiltersModalForm = () => {
 					onChange={(v) => setP("sortBy", v)}
 				/>
 				{Object.keys(defaultFiltersValue)
-					.filter((f) => f !== "sortBy" && f !== "order" && f !== "collection")
+					.filter((f) => !["sortBy", "order", "collection"].includes(f))
 					.map((f) => (
 						<Select
 							key={f}

@@ -92,6 +92,7 @@ import {
 	addExerciseToWorkout,
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
+	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
@@ -167,6 +168,7 @@ export default function Page() {
 		"ExerciseChartTimeSpan",
 		TimeSpan.Last90Days,
 	);
+	const [_m, setMergingExercise] = useMergingExercise();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		updatePreferencesModalOpened,
@@ -599,6 +601,19 @@ export default function Page() {
 											Edit exercise
 										</Button>
 									) : null}
+									<Button
+										variant="outline"
+										onClick={() => {
+											setMergingExercise(loaderData.exerciseDetails.id);
+											navigate(
+												$path("/fitness/exercises/list", {
+													type: loaderData.exerciseDetails.lot,
+												}),
+											);
+										}}
+									>
+										Merge exercise
+									</Button>
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
