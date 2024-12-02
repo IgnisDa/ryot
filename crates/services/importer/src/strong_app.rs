@@ -2,12 +2,13 @@ use std::fs;
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
-use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use dependent_models::{ImportCompletedItem, ImportResult};
+use enums::ExerciseLot;
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
+use importer_models::{ImportFailStep, ImportFailedItem};
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
 use rust_decimal::Decimal;
@@ -19,6 +20,8 @@ use super::utils;
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 struct Entry {
+    #[serde(alias = "Workout #")]
+    workout_number: String,
     date: String,
     #[serde(alias = "Workout Name")]
     workout_name: String,
@@ -55,6 +58,7 @@ pub async fn import(
         return Err("Could not determine delimiter".into());
     };
     let mut completed = vec![];
+    let mut failed = vec![];
     let mut entries_reader = ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(file_string.as_bytes())
@@ -71,7 +75,32 @@ pub async fn import(
     let mut sets = vec![];
     let mut notes = vec![];
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
-        ryot_log!(debug, "Parsing entry: {:#?}", entry);
+        if entry.set_order == "Note" {
+            continue;
+        }
+        let exercise_lot = if entry.seconds.is_some() && entry.distance.is_some() {
+            ExerciseLot::DistanceAndDuration
+        } else if entry.seconds.is_some() {
+            ExerciseLot::Duration
+        } else if entry.reps.is_some() && entry.weight.is_some() {
+            ExerciseLot::RepsAndWeight
+        } else if entry.reps.is_some() {
+            ExerciseLot::Reps
+        } else {
+            failed.push(ImportFailedItem {
+                lot: None,
+                identifier: format!(
+                    "Workout #{}, Set #{}",
+                    entry.workout_number, entry.set_order
+                ),
+                step: ImportFailStep::InputTransformation,
+                error: Some(format!(
+                    "Could not determine exercise lot: {}",
+                    serde_json::to_string(&entry).unwrap()
+                )),
+            });
+            continue;
+        };
         let target_exercise = input
             .mapping
             .iter()
@@ -131,6 +160,7 @@ pub async fn import(
         }
     }
     Ok(ImportResult {
+        failed,
         completed,
         ..Default::default()
     })
