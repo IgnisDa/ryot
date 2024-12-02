@@ -29,6 +29,7 @@ pub enum ExerciseCategory {
 
 #[derive(
     Eq,
+    Hash,
     Debug,
     Clone,
     Default,

@@ -313,7 +313,17 @@ pub enum ExerciseLevel {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
+    Eq,
+    Hash,
+    Enum,
+    Copy,
+    Debug,
+    Clone,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -399,17 +409,18 @@ pub enum ExerciseLot {
 }
 
 #[derive(
-    Default,
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    DeriveActiveEnum,
     Eq,
-    PartialEq,
     Enum,
     Copy,
+    Hash,
+    Debug,
+    Clone,
+    Default,
     EnumIter,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",

@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(
     Eq,
+    Hash,
     Clone,
     Debug,
     Default,
