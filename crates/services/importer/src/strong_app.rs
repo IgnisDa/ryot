@@ -1,8 +1,9 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
+use database_models::exercise;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::ExerciseLot;
 use fitness_models::{
@@ -74,6 +75,7 @@ pub async fn import(
     let mut exercises = vec![];
     let mut sets = vec![];
     let mut notes = vec![];
+    let mut unique_exercises = HashSet::new();
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
         if entry.set_order == "Note" {
             continue;
@@ -101,6 +103,11 @@ pub async fn import(
             });
             continue;
         };
+        unique_exercises.insert(exercise::Model {
+            lot: exercise_lot,
+            id: entry.exercise_name.clone(),
+            ..Default::default()
+        });
         let target_exercise = input
             .mapping
             .iter()
