@@ -41,7 +41,8 @@ use database_utils::{
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
@@ -84,9 +85,17 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
-    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
-    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
+    anilist::{AnilistService, NonMediaAnilistService},
+    audible::AudibleService,
+    google_books::GoogleBooksService,
+    igdb::IgdbService,
+    itunes::ITunesService,
+    listennotes::ListennotesService,
+    mal::{MalService, NonMediaMalService},
+    manga_updates::MangaUpdatesService,
+    openlibrary::OpenlibraryService,
+    tmdb::TmdbService,
+    vndb::VndbService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -103,11 +112,24 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
-use traits::{MediaProvider, TraceOk};
+use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
+
+#[derive(Debug, Clone)]
+struct CustomService {}
+
+impl MediaProviderLanguages for CustomService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
+}
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -241,6 +263,65 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            metadata_provider_languages: MediaSource::iter()
+                .map(|source| {
+                    let (supported, default) = match source {
+                        MediaSource::Itunes => (
+                            ITunesService::supported_languages(),
+                            ITunesService::default_language(),
+                        ),
+                        MediaSource::Audible => (
+                            AudibleService::supported_languages(),
+                            AudibleService::default_language(),
+                        ),
+                        MediaSource::Openlibrary => (
+                            OpenlibraryService::supported_languages(),
+                            OpenlibraryService::default_language(),
+                        ),
+                        MediaSource::Tmdb => (
+                            TmdbService::supported_languages(),
+                            TmdbService::default_language(),
+                        ),
+                        MediaSource::Listennotes => (
+                            ListennotesService::supported_languages(),
+                            ListennotesService::default_language(),
+                        ),
+                        MediaSource::GoogleBooks => (
+                            GoogleBooksService::supported_languages(),
+                            GoogleBooksService::default_language(),
+                        ),
+                        MediaSource::Igdb => (
+                            IgdbService::supported_languages(),
+                            IgdbService::default_language(),
+                        ),
+                        MediaSource::MangaUpdates => (
+                            MangaUpdatesService::supported_languages(),
+                            MangaUpdatesService::default_language(),
+                        ),
+                        MediaSource::Anilist => (
+                            AnilistService::supported_languages(),
+                            AnilistService::default_language(),
+                        ),
+                        MediaSource::Mal => (
+                            MalService::supported_languages(),
+                            MalService::default_language(),
+                        ),
+                        MediaSource::Custom => (
+                            CustomService::supported_languages(),
+                            CustomService::default_language(),
+                        ),
+                        MediaSource::Vndb => (
+                            VndbService::supported_languages(),
+                            VndbService::default_language(),
+                        ),
+                    };
+                    ProviderLanguageInformation {
+                        source,
+                        default,
+                        supported,
+                    }
+                })
+                .collect(),
         }
     }
 

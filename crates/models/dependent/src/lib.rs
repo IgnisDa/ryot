@@ -5,7 +5,7 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::UserToMediaReason;
+use enums::{MediaSource, UserToMediaReason};
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
@@ -149,6 +149,13 @@ pub struct MetadataBaseData {
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct ProviderLanguageInformation {
+    pub source: MediaSource,
+    pub supported: Vec<String>,
+    pub default: String,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub is_pro: bool,
     pub page_size: i32,
@@ -165,6 +172,7 @@ pub struct CoreDetails {
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
+    pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
 }
 
 #[derive(SimpleObject)]

@@ -329,6 +329,11 @@ query CoreDetails {
 				websiteId
 			}
 		}
+		metadataProviderLanguages {
+			source
+			default
+			supported
+		}
 	}
 }
 

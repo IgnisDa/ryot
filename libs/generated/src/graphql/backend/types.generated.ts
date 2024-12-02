@@ -209,6 +209,7 @@ export type CoreDetails = {
   frontend: FrontendConfig;
   isPro: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
   repositoryLink: Scalars['String']['output'];
@@ -1727,6 +1728,13 @@ export type ProgressUpdateInput = {
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type ProviderLanguageInformation = {
+  __typename?: 'ProviderLanguageInformation';
+  default: Scalars['String']['output'];
+  source: MediaSource;
+  supported: Array<Scalars['String']['output']>;
 };
 
 export type QueryRoot = {
