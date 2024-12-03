@@ -165,13 +165,10 @@ translates "Read Status" in the following manner:
 
 ## Strong App
 
-You can import your completed workouts from [Strong](https://www.strong.app/) app. Make sure
-you do the import process on a desktop/laptop since the process needs to have multiple tabs
-open at once.
-
-There is also an automated script that will be able to migrate most of your data. Please
-follow [this](https://gist.github.com/IgnisDa/c21c28dd83571ca07f1a7a824b5e8139?permalink_comment_id=4725066#gistcomment-4725066)
-guide.
+You can import your completed workouts from [Strong](https://www.strong.app/) app. If an
+exercise does not exist in your instance, it will be created with a unique identifier. You
+can later use the "Edit Exercise" or "Merge Exercise" actions to map the exercise to an
+existing one.
 
 ### Steps
 
