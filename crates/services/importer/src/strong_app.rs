@@ -119,7 +119,7 @@ async fn import_exercises(
         let workout_duration =
             Duration::try_seconds(first_exercise.workout_duration.parse().unwrap()).unwrap();
         let mut collected_exercises = vec![];
-        for (_exercise_name, exercises) in workout.clone() {
+        for (exercise_name, exercises) in workout.clone() {
             let mut collected_sets = vec![];
             let mut notes = vec![];
             let valid_ex = exercises.iter().find(|e| e.set_order != "Note").unwrap();
@@ -147,18 +147,18 @@ async fn import_exercises(
                 continue;
             };
             let existing_exercise = Exercise::find()
-                .filter(exercise::Column::Id.eq(&valid_ex.exercise_name))
+                .filter(exercise::Column::Id.eq(&exercise_name))
                 .filter(exercise::Column::Lot.eq(exercise_lot))
                 .one(&ss.db)
                 .await?;
             let exercise_id = if let Some(db_ex) = existing_exercise {
                 db_ex.id
-            } else if let Some(mem_ex) = unique_exercises.get(&valid_ex.exercise_name) {
+            } else if let Some(mem_ex) = unique_exercises.get(&exercise_name) {
                 mem_ex.id.clone()
             } else {
-                let id = format!("{} [{}]", valid_ex.exercise_name, nanoid!(5));
+                let id = format!("{} [{}]", exercise_name, nanoid!(5));
                 unique_exercises.insert(
-                    valid_ex.exercise_name.clone(),
+                    exercise_name.clone(),
                     exercise::Model {
                         id: id.clone(),
                         lot: exercise_lot,
