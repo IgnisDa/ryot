@@ -134,11 +134,11 @@ async fn import_exercises(
             } else {
                 failed.push(ImportFailedItem {
                     lot: None,
+                    step: ImportFailStep::InputTransformation,
                     identifier: format!(
                         "Workout #{}, Set #{}",
                         valid_ex.workout_number, valid_ex.set_order
                     ),
-                    step: ImportFailStep::InputTransformation,
                     error: Some(format!(
                         "Could not determine exercise lot: {}",
                         serde_json::to_string(&valid_ex).unwrap()
