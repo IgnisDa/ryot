@@ -136,7 +136,9 @@ impl ImporterService {
                 })
                 .await
                 {
-                    Ok(details) => {
+                    Ok((source_result, details)) => {
+                        model.source_result =
+                            ActiveValue::Set(Some(serde_json::to_value(&source_result)?));
                         model.details = ActiveValue::Set(Some(details));
                         model.was_success = ActiveValue::Set(Some(true));
                         deploy_background_job(

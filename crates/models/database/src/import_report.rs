@@ -21,6 +21,8 @@ pub struct Model {
     pub was_success: Option<bool>,
     pub finished_on: Option<DateTimeUtc>,
     pub details: Option<ImportResultResponse>,
+    #[graphql(skip)]
+    pub source_result: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

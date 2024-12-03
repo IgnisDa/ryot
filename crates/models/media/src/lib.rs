@@ -35,7 +35,7 @@ pub struct MetadataSearchItemResponse {
     pub database_id: Option<String>,
 }
 
-#[derive(Debug, InputObject, Default, Clone)]
+#[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
     pub description: Option<String>,

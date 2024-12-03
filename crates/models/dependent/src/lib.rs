@@ -252,7 +252,7 @@ pub struct UserMetadataDetails {
     pub has_interacted: bool,
 }
 
-#[derive(Debug, Default, Display)]
+#[derive(Debug, Default, Display, Clone, Serialize)]
 pub enum ImportCompletedItem {
     #[default]
     Empty,
@@ -266,7 +266,7 @@ pub enum ImportCompletedItem {
     ApplicationWorkout(ImportOrExportWorkoutItem),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct ImportResult {
     pub failed: Vec<ImportFailedItem>,
     pub completed: Vec<ImportCompletedItem>,

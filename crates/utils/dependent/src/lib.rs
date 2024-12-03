@@ -2050,7 +2050,7 @@ pub async fn process_import<F>(
     import: ImportResult,
     ss: &Arc<SupportingService>,
     on_item_processed: impl Fn(Decimal) -> F,
-) -> Result<ImportResultResponse>
+) -> Result<(ImportResult, ImportResultResponse)>
 where
     F: Future<Output = Result<()>>,
 {
@@ -2062,6 +2062,7 @@ where
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
     });
+    let source_result = import.clone();
     let total = import.completed.len();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
@@ -2315,11 +2316,11 @@ where
     }
 
     let details = ImportResultResponse {
-        import: ImportDetails { total },
         failed_items: import.failed,
+        import: ImportDetails { total },
     };
 
-    Ok(details)
+    Ok((source_result, details))
 }
 
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
