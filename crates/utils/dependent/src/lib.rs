@@ -2314,8 +2314,6 @@ where
         .await?;
     }
 
-    // TODO: Allow importing exercises
-
     let details = ImportResultResponse {
         import: ImportDetails { total },
         failed_items: import.failed,

@@ -389,7 +389,7 @@ export type DeployImportJobInput = {
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
-  strongApp?: InputMaybe<DeployGenericCsvImportInput>;
+  strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
   urlAndKey?: InputMaybe<DeployUrlAndKeyImportInput>;
 };
@@ -409,6 +409,11 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
+};
+
+export type DeployStrongAppImportInput = {
+  dataExportPath?: InputMaybe<Scalars['String']['input']>;
+  measurementsZipPath?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type DeployTraktImportInput = {

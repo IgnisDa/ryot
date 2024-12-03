@@ -930,6 +930,12 @@ pub struct DeployMalImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployStrongAppImportInput {
+    pub data_export_path: Option<String>,
+    pub measurements_zip_path: Option<String>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployIgdbImportInput {
     // The path to the CSV file in the local file system.
     pub csv_path: String,
@@ -963,6 +969,7 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
+    pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
     pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
