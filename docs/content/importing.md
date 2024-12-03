@@ -174,11 +174,7 @@ existing one.
 
 - Login to your Strong account on the app and go to the "Settings" page.
 - Scroll down to the "General" section and click on "Export data".
-- Send the file to your desktop/laptop and upload it in the input.
-- The mapping section is used to map exercises from Strong to Ryot. Each exercise must be
-  mapped, otherwise the import will fail.
-- If an exercise does not exist in your instance, you need to create it before mapping it.
-- Once you have mapped all the exercises, click on "Import".
+- Upload the csv file in the input.
 
 ## IMDb
 
