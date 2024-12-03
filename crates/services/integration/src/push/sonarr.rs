@@ -1,3 +1,4 @@
+use anyhow::Result;
 use common_utils::ryot_log;
 use enums::MediaLot;
 use sonarr_api_rs::{
@@ -40,7 +41,7 @@ impl SonarrPushIntegration {
         }
     }
 
-    pub async fn push_progress(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> Result<()> {
         if self.metadata_lot != MediaLot::Show {
             ryot_log!(debug, "Not a show, skipping {:#?}", self.metadata_title);
             return Ok(());

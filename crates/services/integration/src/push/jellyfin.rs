@@ -1,3 +1,4 @@
+use anyhow::Result;
 use common_utils::ryot_log;
 use enums::MediaLot;
 use external_utils::jellyfin::{get_authenticated_client, ItemsResponse};
@@ -33,7 +34,7 @@ impl<'a> JellyfinPushIntegration<'a> {
         }
     }
 
-    pub async fn push_progress(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> Result<()> {
         match *self.metadata_lot {
             MediaLot::Movie | MediaLot::Show => {}
             _ => {
