@@ -11,6 +11,12 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"ALTER TABLE "import_report" ADD COLUMN "progress" DECIMAL"#)
                 .await?;
         }
+        if !manager.has_column("import_report", "source_result").await? {
+            db.execute_unprepared(
+                r#"ALTER TABLE "import_report" ADD COLUMN "source_result" JSONB"#,
+            )
+            .await?;
+        }
         db.execute_unprepared(
             r#"
 UPDATE "import_report" SET "source" = 'myanimelist' WHERE "source" = 'mal';
