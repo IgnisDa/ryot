@@ -25,6 +25,7 @@ enums = { path = "../../enums" }
 fitness-models = { path = "../../models/fitness" }
 flate2 = { workspace = true }
 importer-models = { path = "../../models/importer" }
+indexmap = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 nanoid = { workspace = true }

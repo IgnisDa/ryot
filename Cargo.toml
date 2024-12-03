@@ -88,6 +88,7 @@ futures = "=0.3.31"
 graphql_client = "=0.14.0"
 hashbag = "=0.1.12"
 http = "=1.1.0"
+indexmap = "=2.7.0"
 indoc = "=2.0.5"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.13.0"
