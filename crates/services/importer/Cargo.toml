@@ -29,7 +29,6 @@ itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 providers = { path = "../../providers" }
-regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }

@@ -3332,7 +3332,6 @@ dependencies = [
  "media-models",
  "nanoid",
  "providers",
- "regex",
  "reqwest 0.12.9",
  "rust_decimal",
  "rust_decimal_macros",
