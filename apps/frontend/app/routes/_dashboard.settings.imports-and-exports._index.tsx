@@ -10,7 +10,6 @@ import {
 	Flex,
 	Group,
 	Indicator,
-	JsonInput,
 	Progress,
 	Select,
 	Stack,
@@ -86,6 +85,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.Goodreads,
 					ImportSource.OpenScale,
+					ImportSource.StrongApp,
 					() => ({
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
@@ -107,15 +107,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.StrongApp, async () => {
-					const newLocal = processSubmission(
-						formData,
-						strongAppImportFormSchema,
-					);
-					return {
-						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
-					};
-				})
 				.with(ImportSource.GenericJson, async () => ({
 					genericJson: processSubmission(formData, jsonImportFormSchema),
 				}))
@@ -184,11 +175,6 @@ const movaryImportFormSchema = z.object({
 	ratings: z.string(),
 	history: z.string(),
 	watchlist: z.string(),
-});
-
-const strongAppImportFormSchema = z.object({
-	exportPath: z.string(),
-	mapping: z.string(),
 });
 
 const jsonImportFormSchema = z.object({ export: z.string() });
@@ -283,6 +269,7 @@ export default function Page() {
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
 												ImportSource.Imdb,
+												ImportSource.StrongApp,
 												ImportSource.Storygraph,
 												() => (
 													<>
@@ -371,39 +358,6 @@ export default function Page() {
 													<FileInput
 														label="Manga export file"
 														name="mangaPath"
-													/>
-												</>
-											))
-											.with(ImportSource.StrongApp, () => (
-												<>
-													<FileInput
-														label="CSV export file"
-														accept=".csv"
-														required
-														name="exportPath"
-													/>
-													<JsonInput
-														label="Mappings"
-														required
-														name="mapping"
-														autosize
-														minRows={10}
-														defaultValue={JSON.stringify(
-															[
-																{
-																	sourceName: "Bench Press (Barbell)",
-																	targetName:
-																		"Barbell Bench Press - Medium Grip",
-																},
-																{
-																	sourceName: "Bicep Curl (Barbell)",
-																	targetName: "Barbell Curl",
-																},
-															],
-															null,
-															4,
-														)}
-														description="This is an example. Every exercise must be mapped, otherwise the import will fail."
 													/>
 												</>
 											))
