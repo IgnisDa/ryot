@@ -963,7 +963,6 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
-    pub strong_app: Option<DeployGenericCsvImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
     pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
