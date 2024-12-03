@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, sync::Arc};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
@@ -76,7 +76,7 @@ pub async fn import(
         date: "invalid".to_string(),
         ..Default::default()
     });
-    let mut unique_exercises = HashSet::new();
+    let mut unique_exercises: HashMap<String, exercise::Model> = HashMap::new();
     let mut exercises = vec![];
     let mut sets = vec![];
     let mut notes = vec![];
@@ -112,21 +112,23 @@ pub async fn import(
             .filter(exercise::Column::Lot.eq(exercise_lot))
             .one(&ss.db)
             .await?;
-        let exercise_id = match existing_exercise {
-            Some(e) => {
-                ryot_log!(debug, "Exercise with id = {} already exists", e.id);
-                e.id
-            }
-            _ => {
-                let id = format!("{} [{}]", entry.exercise_name, Uuid::new_v4());
-                unique_exercises.insert(exercise::Model {
+        let exercise_id = if let Some(db_ex) = existing_exercise {
+            db_ex.id
+        } else if let Some(mem_ex) = unique_exercises.get(&entry.exercise_name) {
+            mem_ex.id.clone()
+        } else {
+            let id = format!("{} [{}]", entry.exercise_name, Uuid::new_v4());
+            unique_exercises.insert(
+                entry.exercise_name.clone(),
+                exercise::Model {
                     id: id.clone(),
                     lot: exercise_lot,
                     ..Default::default()
-                });
-                id
-            }
+                },
+            );
+            id
         };
+        ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
         let weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
@@ -179,7 +181,8 @@ pub async fn import(
     }
     completed.extend(
         unique_exercises
-            .into_iter()
+            .values()
+            .cloned()
             .map(ImportCompletedItem::Exercise),
     );
     Ok(ImportResult {
