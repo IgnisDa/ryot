@@ -112,27 +112,22 @@ pub async fn import(
             .filter(exercise::Column::Lot.eq(exercise_lot))
             .one(&ss.db)
             .await?;
-        match existing_exercise {
+        let exercise_id = match existing_exercise {
             Some(e) => {
                 ryot_log!(debug, "Exercise with id = {} already exists", e.id);
+                e.id
             }
             _ => {
+                let id = format!("{} [{}]", entry.exercise_name, Uuid::new_v4());
                 unique_exercises.insert(exercise::Model {
+                    id: id.clone(),
                     lot: exercise_lot,
-                    id: format!("{} [{}]", entry.exercise_name, Uuid::new_v4()),
                     ..Default::default()
                 });
+                id
             }
         };
-        let target_exercise = input
-            .mapping
-            .iter()
-            .find(|m| m.source_name == entry.exercise_name.trim())
-            .ok_or_else(|| format!("No mapping found for {:#?}", entry.exercise_name))?;
-        let mut weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
-        if let Some(mul) = target_exercise.multiplier {
-            weight = weight.map(|w| w.saturating_mul(mul));
-        }
+        let weight = entry.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
                 weight,
@@ -153,8 +148,8 @@ pub async fn import(
             exercises.push(UserExerciseInput {
                 sets,
                 notes,
+                exercise_id,
                 assets: None,
-                exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];
             notes = vec![];
@@ -182,6 +177,11 @@ pub async fn import(
             exercises = vec![];
         }
     }
+    completed.extend(
+        unique_exercises
+            .into_iter()
+            .map(ImportCompletedItem::Exercise),
+    );
     Ok(ImportResult {
         failed,
         completed,

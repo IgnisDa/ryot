@@ -2028,6 +2028,7 @@ pub async fn create_custom_exercise(
             input.update(&ss.db).await?
         }
     };
+    ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entity_to_collection(
         &user_id.clone(),
         ChangeCollectionToEntityInput {
