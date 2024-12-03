@@ -25,8 +25,8 @@ use database_utils::{
 };
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
-    EntityLot, ExerciseLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    Visibility, WorkoutSetPersonalBest,
+    EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
+    SeenState, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -1999,6 +1999,50 @@ async fn create_collection_and_add_entity_to_it(
     Ok(())
 }
 
+pub async fn create_custom_exercise(
+    user_id: &String,
+    input: exercise::Model,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let exercise_id = input.id.clone();
+    let mut input = input;
+    input.created_by_user_id = Some(user_id.clone());
+    input.source = ExerciseSource::Custom;
+    input.attributes.internal_images = input
+        .attributes
+        .images
+        .clone()
+        .into_iter()
+        .map(StoredUrl::S3)
+        .collect();
+    input.attributes.images = vec![];
+    let input: exercise::ActiveModel = input.into();
+    let exercise = match Exercise::find_by_id(exercise_id)
+        .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
+        .one(&ss.db)
+        .await?
+    {
+        None => input.insert(&ss.db).await?,
+        Some(_) => {
+            let input = input.reset_all();
+            input.update(&ss.db).await?
+        }
+    };
+    add_entity_to_collection(
+        &user_id.clone(),
+        ChangeCollectionToEntityInput {
+            entity_id: exercise.id.clone(),
+            entity_lot: EntityLot::Exercise,
+            creator_user_id: user_id.to_owned(),
+            collection_name: DefaultCollection::Custom.to_string(),
+            ..Default::default()
+        },
+        ss,
+    )
+    .await?;
+    Ok(exercise.id)
+}
+
 pub async fn process_import<F>(
     user_id: &String,
     respect_cache: bool,
@@ -2009,8 +2053,14 @@ pub async fn process_import<F>(
 where
     F: Future<Output = Result<()>>,
 {
-    let mut import = import;
     let preferences = user_by_id(user_id, ss).await?.preferences;
+    let mut import = import;
+    // DEV: We need to sort the exercises to make sure they are created before the workouts
+    // DEV: because the workouts depend on the exercises.
+    import.completed.sort_by_key(|i| match i {
+        ImportCompletedItem::Exercise(_) => 0,
+        _ => 1,
+    });
     let total = import.completed.len();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
@@ -2023,6 +2073,9 @@ where
         );
         match item {
             ImportCompletedItem::Empty => {}
+            ImportCompletedItem::Exercise(exercise) => {
+                create_custom_exercise(user_id, exercise, ss).await?;
+            }
             ImportCompletedItem::Collection(col_details) => {
                 create_or_update_collection(&ss.db, user_id, col_details).await?;
             }

@@ -257,6 +257,7 @@ pub enum ImportCompletedItem {
     #[default]
     Empty,
     Workout(UserWorkoutInput),
+    Exercise(exercise::Model),
     Person(ImportOrExportPersonItem),
     Metadata(ImportOrExportMetadataItem),
     Measurement(user_measurement::Model),

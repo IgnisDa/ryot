@@ -3,9 +3,7 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
-use common_models::{
-    ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, StoredUrl,
-};
+use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
     collection_to_entity, exercise,
@@ -15,8 +13,8 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    add_entity_to_collection, deploy_job_to_re_evaluate_user_workouts, entity_in_collections,
-    ilike_sql, item_reviews, pro_instance_guard, user_measurements_list, user_workout_details,
+    deploy_job_to_re_evaluate_user_workouts, entity_in_collections, ilike_sql, item_reviews,
+    pro_instance_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
 use dependent_models::{
@@ -24,8 +22,8 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use dependent_utils::{
-    create_or_update_workout, create_user_measurement, db_workout_to_workout_input,
-    get_focused_workout_summary,
+    create_custom_exercise, create_or_update_workout, create_user_measurement,
+    db_workout_to_workout_input, get_focused_workout_summary,
 };
 use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
@@ -557,43 +555,7 @@ impl ExerciseService {
         user_id: &String,
         input: exercise::Model,
     ) -> Result<String> {
-        let exercise_id = input.id.clone();
-        let mut input = input;
-        input.created_by_user_id = Some(user_id.clone());
-        input.source = ExerciseSource::Custom;
-        input.attributes.internal_images = input
-            .attributes
-            .images
-            .clone()
-            .into_iter()
-            .map(StoredUrl::S3)
-            .collect();
-        input.attributes.images = vec![];
-        let input: exercise::ActiveModel = input.into();
-        let exercise = match Exercise::find_by_id(exercise_id)
-            .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
-            .one(&self.0.db)
-            .await?
-        {
-            None => input.insert(&self.0.db).await?,
-            Some(_) => {
-                let input = input.reset_all();
-                input.update(&self.0.db).await?
-            }
-        };
-        add_entity_to_collection(
-            &user_id.clone(),
-            ChangeCollectionToEntityInput {
-                entity_id: exercise.id.clone(),
-                entity_lot: EntityLot::Exercise,
-                creator_user_id: user_id.to_owned(),
-                collection_name: DefaultCollection::Custom.to_string(),
-                ..Default::default()
-            },
-            &self.0,
-        )
-        .await?;
-        Ok(exercise.id)
+        create_custom_exercise(user_id, input, &self.0).await
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
