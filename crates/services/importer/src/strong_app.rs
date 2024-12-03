@@ -12,7 +12,7 @@ use fitness_models::{
 };
 use importer_models::{ImportFailStep, ImportFailedItem};
 use itertools::Itertools;
-use media_models::DeployStrongAppImportInput;
+use media_models::DeployGenericCsvImportInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -48,10 +48,10 @@ struct Entry {
 }
 
 pub async fn import(
-    input: DeployStrongAppImportInput,
+    input: DeployGenericCsvImportInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    let file_string = fs::read_to_string(&input.export_path)?;
+    let file_string = fs::read_to_string(&input.csv_path)?;
     // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
     let data = file_string.clone();
     let first_line = data.lines().next().unwrap();

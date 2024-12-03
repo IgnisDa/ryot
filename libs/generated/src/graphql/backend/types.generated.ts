@@ -389,7 +389,7 @@ export type DeployImportJobInput = {
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
-  strongApp?: InputMaybe<DeployStrongAppImportInput>;
+  strongApp?: InputMaybe<DeployGenericCsvImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
   urlAndKey?: InputMaybe<DeployUrlAndKeyImportInput>;
 };
@@ -409,11 +409,6 @@ export type DeployMovaryImportInput = {
   history: Scalars['String']['input'];
   ratings: Scalars['String']['input'];
   watchlist: Scalars['String']['input'];
-};
-
-export type DeployStrongAppImportInput = {
-  exportPath: Scalars['String']['input'];
-  mapping: Array<StrongAppImportMapping>;
 };
 
 export type DeployTraktImportInput = {
@@ -2189,12 +2184,6 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
-};
-
-export type StrongAppImportMapping = {
-  multiplier?: InputMaybe<Scalars['Decimal']['input']>;
-  sourceName: Scalars['String']['input'];
-  targetName: Scalars['String']['input'];
 };
 
 export type UpdateComplexJsonInput = {
