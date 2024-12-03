@@ -1,9 +1,10 @@
-use std::{collections::HashSet, fs};
+use std::{collections::HashSet, fs, sync::Arc};
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
+use common_utils::ryot_log;
 use csv::ReaderBuilder;
-use database_models::exercise;
+use database_models::{exercise, prelude::Exercise};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::ExerciseLot;
 use fitness_models::{
@@ -14,7 +15,10 @@ use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
+use uuid::Uuid;
 
 use super::utils;
 
@@ -45,7 +49,7 @@ struct Entry {
 
 pub async fn import(
     input: DeployStrongAppImportInput,
-    timezone: &chrono_tz::Tz,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let file_string = fs::read_to_string(&input.export_path)?;
     // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
@@ -72,10 +76,10 @@ pub async fn import(
         date: "invalid".to_string(),
         ..Default::default()
     });
+    let mut unique_exercises = HashSet::new();
     let mut exercises = vec![];
     let mut sets = vec![];
     let mut notes = vec![];
-    let mut unique_exercises = HashSet::new();
     for (entry, next_entry) in entries_reader.into_iter().tuple_windows() {
         if entry.set_order == "Note" {
             continue;
@@ -103,11 +107,23 @@ pub async fn import(
             });
             continue;
         };
-        unique_exercises.insert(exercise::Model {
-            lot: exercise_lot,
-            id: entry.exercise_name.clone(),
-            ..Default::default()
-        });
+        let existing_exercise = Exercise::find()
+            .filter(exercise::Column::Id.eq(&entry.exercise_name))
+            .filter(exercise::Column::Lot.eq(exercise_lot))
+            .one(&ss.db)
+            .await?;
+        match existing_exercise {
+            Some(e) => {
+                ryot_log!(debug, "Exercise with id = {} already exists", e.id);
+            }
+            _ => {
+                unique_exercises.insert(exercise::Model {
+                    lot: exercise_lot,
+                    id: format!("{} [{}]", entry.exercise_name, Uuid::new_v4()),
+                    ..Default::default()
+                });
+            }
+        };
         let target_exercise = input
             .mapping
             .iter()
@@ -146,7 +162,7 @@ pub async fn import(
         if next_entry.date != entry.date {
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
-            let ndt = utils::get_date_time_with_offset(ndt, timezone);
+            let ndt = utils::get_date_time_with_offset(ndt, &ss.timezone);
             let workout_duration =
                 Duration::try_seconds(entry.workout_duration.parse().unwrap()).unwrap();
             completed.push(ImportCompletedItem::Workout(UserWorkoutInput {

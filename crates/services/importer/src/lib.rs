@@ -75,9 +75,7 @@ impl ImporterService {
         let import_id = db_import_job.id.clone();
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
-            ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), &self.0.timezone).await
-            }
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap(), &self.0).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
             ImportSource::Goodreads => {

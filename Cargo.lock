@@ -3344,6 +3344,7 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
+ "uuid",
 ]
 
 [[package]]
