@@ -85,7 +85,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.Goodreads,
 					ImportSource.OpenScale,
-					ImportSource.StrongApp,
 					() => ({
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
@@ -98,6 +97,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
 					}),
 				)
+				.with(ImportSource.StrongApp, () => ({
+					strongApp: processSubmission(formData, strongAppImportFormSchema),
+				}))
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, usernameImportFormSchema),
 				}))
@@ -166,6 +168,8 @@ const jellyfinImportFormSchema = usernameImportFormSchema
 	.merge(z.object({ password: z.string() }));
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
+
+const strongAppImportFormSchema = z.object({ dataExportPath: z.string() });
 
 const igdbImportFormSchema = z
 	.object({ collection: z.string() })
@@ -269,7 +273,6 @@ export default function Page() {
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
 												ImportSource.Imdb,
-												ImportSource.StrongApp,
 												ImportSource.Storygraph,
 												() => (
 													<>
@@ -282,6 +285,16 @@ export default function Page() {
 													</>
 												),
 											)
+											.with(ImportSource.StrongApp, () => (
+												<>
+													<FileInput
+														required
+														accept=".csv"
+														label="CSV file"
+														name="dataExportPath"
+													/>
+												</>
+											))
 											.with(ImportSource.Trakt, () => (
 												<>
 													<TextInput
