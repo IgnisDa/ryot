@@ -3330,6 +3330,7 @@ dependencies = [
  "importer-models",
  "itertools 0.13.0",
  "media-models",
+ "nanoid",
  "providers",
  "regex",
  "reqwest 0.12.9",
@@ -3344,7 +3345,6 @@ dependencies = [
  "supporting-service",
  "tracing",
  "traits",
- "uuid",
 ]
 
 [[package]]

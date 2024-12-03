@@ -13,12 +13,12 @@ use fitness_models::{
 use importer_models::{ImportFailStep, ImportFailedItem};
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
+use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use uuid::Uuid;
 
 use super::utils;
 
@@ -118,7 +118,7 @@ pub async fn import(
             } else if let Some(mem_ex) = unique_exercises.get(&entry.exercise_name) {
                 mem_ex.id.clone()
             } else {
-                let id = format!("{} [{}]", entry.exercise_name, Uuid::new_v4());
+                let id = format!("{} [{}]", entry.exercise_name, nanoid!(5));
                 unique_exercises.insert(
                     entry.exercise_name.clone(),
                     exercise::Model {
