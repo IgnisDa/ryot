@@ -13,7 +13,7 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    deploy_job_to_re_evaluate_user_workouts, entity_in_collections, ilike_sql, item_reviews,
+    deploy_job_to_revise_user_workouts, entity_in_collections, ilike_sql, item_reviews,
     server_key_validation_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
@@ -539,7 +539,7 @@ impl ExerciseService {
         }
         if new_wkt.is_changed() {
             new_wkt.update(&self.0.db).await?;
-            deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
+            deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
             Ok(true)
         } else {
             Ok(false)
@@ -587,11 +587,11 @@ impl ExerciseService {
             association.update(&self.0.db).await?;
         }
         wkt.delete(&self.0.db).await?;
-        deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
+        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
         Ok(true)
     }
 
-    pub async fn re_evaluate_user_workouts(&self, user_id: String) -> Result<()> {
+    pub async fn revise_user_workouts(&self, user_id: String) -> Result<()> {
         UserToEntity::delete_many()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
@@ -608,7 +608,7 @@ impl ExerciseService {
             let workout_input = db_workout_to_workout_input(workout);
             self.create_or_update_user_workout(&user_id, workout_input)
                 .await?;
-            ryot_log!(debug, "Re-evaluated workout: {}/{}", idx + 1, total);
+            ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
         }
         Ok(())
     }
@@ -687,7 +687,7 @@ impl ExerciseService {
         }
         self.create_custom_exercise(&user_id, input.update.clone())
             .await?;
-        deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
+        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
         Ok(true)
     }
 
@@ -779,7 +779,7 @@ impl ExerciseService {
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
         self.change_exercise_name_in_history(merge_into, old_entity)
             .await?;
-        deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
+        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
         Ok(true)
     }
 }

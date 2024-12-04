@@ -898,11 +898,8 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     .unwrap();
 }
 
-pub async fn deploy_job_to_re_evaluate_user_workouts(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) {
-    ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+pub async fn deploy_job_to_revise_user_workouts(user_id: &String, ss: &Arc<SupportingService>) {
+    ss.perform_application_job(ApplicationJob::ReviseUserWorkouts(user_id.to_owned()))
         .await
         .unwrap();
 }

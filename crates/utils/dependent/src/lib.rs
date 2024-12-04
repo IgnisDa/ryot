@@ -21,7 +21,7 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, create_or_update_collection,
-    deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
+    deploy_job_to_revise_user_workouts, remove_entity_from_collection, user_by_id,
 };
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
@@ -904,8 +904,8 @@ pub async fn deploy_background_job(
             ))
             .await?;
         }
-        BackgroundJob::ReEvaluateUserWorkouts => {
-            ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+        BackgroundJob::ReviseUserWorkouts => {
+            ss.perform_application_job(ApplicationJob::ReviseUserWorkouts(user_id.to_owned()))
                 .await?;
         }
     };
@@ -1958,7 +1958,7 @@ pub async fn create_or_update_workout(
     }
     let data = insert.insert(&ss.db).await?;
     if to_update_workout.is_some() {
-        deploy_job_to_re_evaluate_user_workouts(user_id, ss).await;
+        deploy_job_to_revise_user_workouts(user_id, ss).await;
     }
     Ok(data.id)
 }

@@ -25,7 +25,7 @@ impl Message for CoreApplicationJob {
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
-    ReEvaluateUserWorkouts(String),
+    ReviseUserWorkouts(String),
     UpdateMetadata(String, bool),
     UpdateGithubExerciseJob(GithubExercise),
     UpdatePerson(String),

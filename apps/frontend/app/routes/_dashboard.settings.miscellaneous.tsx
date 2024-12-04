@@ -151,9 +151,9 @@ export default function Page() {
 						</Stack>
 						<Stack>
 							<Box>
-								<Title order={4}>Re-evaluate workouts</Title>
+								<Title order={4}>Revise workouts</Title>
 								<Text>
-									Re-evaluate all workouts. This may be useful if exercises done
+									Revise all workouts. This may be useful if exercises done
 									during a workout have changed or workouts have been edited or
 									deleted.
 								</Text>
@@ -161,7 +161,7 @@ export default function Page() {
 							<Button
 								disabled={isEditDisabled}
 								{...btnProps}
-								value={BackgroundJob.ReEvaluateUserWorkouts}
+								value={BackgroundJob.ReviseUserWorkouts}
 							>
 								Re-evaluate workouts
 							</Button>
