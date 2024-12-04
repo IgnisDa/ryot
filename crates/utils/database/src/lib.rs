@@ -597,15 +597,15 @@ pub async fn calculate_user_activities_and_summary(
             .order_by_desc(daily_user_activity::Column::Date)
             .one(db)
             .await?
-            .map(|i| i.date)
+            .and_then(|i| i.date)
             .unwrap_or_default(),
     };
     let mut activities = HashMap::new();
 
     fn get_activity_count<'a>(
-        activities: &'a mut HashMap<Date, daily_user_activity::Model>,
+        activities: &'a mut HashMap<Option<Date>, daily_user_activity::Model>,
         user_id: &'a String,
-        date: Date,
+        date: Option<Date>,
         entity_id: String,
         entity_lot: EntityLot,
         metadata_lot: Option<MediaLot>,
@@ -681,12 +681,10 @@ pub async fn calculate_user_activities_and_summary(
         .await?;
 
     while let Some(seen) = seen_stream.try_next().await? {
-        let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
-        let date = seen.finished_on.unwrap_or(default_date);
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            seen.finished_on,
             seen.seen_id,
             EntityLot::Metadata,
             Some(seen.metadata_lot),
@@ -755,7 +753,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             workout.id,
             EntityLot::Workout,
             None,
@@ -803,7 +801,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             measurement.timestamp.to_string(),
             EntityLot::UserMeasurement,
             None,
@@ -822,7 +820,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             review.id,
             EntityLot::Review,
             None,
@@ -845,10 +843,10 @@ pub async fn calculate_user_activities_and_summary(
             .one(db)
             .await?
         {
-            ryot_log!(debug, "Deleting activity = {:#?}", activity.date);
+            ryot_log!(debug, "Deleting activity = {:?}", activity.date);
             entity.delete(db).await?;
         }
-        ryot_log!(debug, "Inserting activity = {:#?}", activity.date);
+        ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
             + activity.metadata_group_review_count
@@ -876,6 +874,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.video_game_duration;
         activity.hour_records.sort_by_key(|hr| hr.hour);
         let mut model: daily_user_activity::ActiveModel = activity.clone().into();
+        model.id = ActiveValue::NotSet;
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);

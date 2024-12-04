@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Default, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "daily_user_activity")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key)]
+    pub id: Uuid,
     pub user_id: String,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub date: Date,
+    pub date: Option<Date>,
     pub entity_ids: Vec<String>,
     pub metadata_review_count: i32,
     pub collection_review_count: i32,
