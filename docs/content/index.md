@@ -59,7 +59,7 @@ images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/r
 [GitHub Container Registry](https://ghcr.io/ignisda/ryot).
 
 Ryot is released on a (loosely) weekly basis. If you prefer to live on the edge, you can
-use the `develop` docker tag which is released as changes are merged into the `main`
+use the `develop` docker tag which is released when changes are merged into the `main`
 branch.
 
 ## Telemetry
