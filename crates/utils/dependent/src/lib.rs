@@ -1609,16 +1609,11 @@ fn get_index_of_highest_pb(
 fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
     let weight = value.statistic.weight?;
     let reps = value.statistic.reps?;
-    let mut val = match reps < dec!(10) {
+    let val = match reps < dec!(10) {
         true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
         false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
-    if let Some(v) = val {
-        if v <= dec!(0) {
-            val = None;
-        }
-    };
-    val
+    val.filter(|v| v <= &dec!(0))
 }
 
 fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
