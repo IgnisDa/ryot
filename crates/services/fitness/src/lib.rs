@@ -803,6 +803,7 @@ impl FitnessService {
         for user_id in revisions {
             self.revise_user_workouts(user_id).await?;
         }
+        ryot_log!(debug, "Completed scheduled workout revisions");
         cs.expire_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
             .await?;
         Ok(())
