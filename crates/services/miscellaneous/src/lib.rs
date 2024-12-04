@@ -10,15 +10,16 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
 use common_models::{
-    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
-    StringIdObject,
+    ApplicationCacheKey, ApplicationCacheValue, BackendError, BackgroundJob,
+    ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject, MediaStateChanged,
+    SearchDetails, SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, EXERCISE_LOT_MAPPINGS,
-    MEDIA_LOT_MAPPINGS, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
+    COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS, MEDIA_LOT_MAPPINGS, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -60,7 +61,7 @@ use enums::{
     ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserToMediaReason,
 };
-use env_utils::APP_VERSION;
+use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
@@ -113,9 +114,11 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
+use unkey::{models::VerifyKeyRequest, Client};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
@@ -253,7 +256,6 @@ ORDER BY RANDOM() LIMIT 10;
         let download_required = Exercise::find().count(&self.0.db).await? == 0;
         Ok(CoreDetails {
             page_size: PAGE_SIZE,
-            is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             frontend: self.0.config.frontend.clone(),
@@ -267,6 +269,7 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            is_server_key_validated: self.0.is_server_key_validated().await?,
             metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
                 .iter()
                 .map(|(lot, sources)| MetadataLotSourceMappings {
@@ -3077,6 +3080,66 @@ ORDER BY RANDOM() LIMIT 10;
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
+        }
+        Ok(())
+    }
+
+    async fn get_is_server_key_validated(&self) -> bool {
+        let pro_key = &self.0.config.server.pro_key;
+        if pro_key.is_empty() {
+            return false;
+        }
+        ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
+        let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
+        #[skip_serializing_none]
+        #[derive(Debug, Serialize, Clone, Deserialize)]
+        struct Meta {
+            expiry: Option<NaiveDate>,
+        }
+        let unkey_client = Client::new("public");
+        let verify_request = VerifyKeyRequest::new(pro_key, &UNKEY_API_ID.to_string());
+        let validated_key = match unkey_client.verify_key(verify_request).await {
+            Ok(verify_response) => {
+                if !verify_response.valid {
+                    ryot_log!(debug, "Pro key is no longer valid.");
+                    return false;
+                }
+                verify_response
+            }
+            Err(verify_error) => {
+                ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+                return false;
+            }
+        };
+        let key_meta = validated_key
+            .meta
+            .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+        ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+        if let Some(meta) = key_meta {
+            if let Some(expiry) = meta.expiry {
+                if compile_timestamp > convert_naive_to_utc(expiry) {
+                    ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+                    return false;
+                }
+            }
+        }
+        ryot_log!(info, "Pro key verified successfully");
+        true
+    }
+
+    pub async fn perform_server_key_validation(&self) -> Result<()> {
+        let is_server_key_validated = self.get_is_server_key_validated().await;
+        let cs = &self.0.cache_service;
+        if is_server_key_validated {
+            cs.set_with_expiry(
+                ApplicationCacheKey::ServerKeyValidated,
+                None,
+                ApplicationCacheValue::Empty,
+            )
+            .await?;
+        } else {
+            cs.expire_key(ApplicationCacheKey::ServerKeyValidated)
+                .await?;
         }
         Ok(())
     }

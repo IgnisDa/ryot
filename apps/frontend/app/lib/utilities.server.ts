@@ -177,6 +177,7 @@ export const getDecodedJwt = (request: Request) => {
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
+		staleTime: dayjsLib.duration({ minutes: 5 }).asMilliseconds(),
 		queryFn: () =>
 			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
 	});

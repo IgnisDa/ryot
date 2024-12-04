@@ -10,21 +10,30 @@ use integration_service::IntegrationService;
 use media_models::CommitMediaInput;
 use miscellaneous_service::MiscellaneousService;
 use statistics_service::StatisticsService;
+use traits::TraceOk;
 
 pub async fn run_background_jobs(
     information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
     ryot_log!(debug, "Running job at {:#?}", information.0);
-    misc_service.perform_background_jobs().await.unwrap();
+    misc_service.perform_background_jobs().await.trace_ok();
     Ok(())
 }
 
 pub async fn run_frequent_jobs(
     _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
-    integration_service.yank_integrations_data().await.unwrap();
+    misc_service
+        .perform_server_key_validation()
+        .await
+        .trace_ok();
+    integration_service
+        .yank_integrations_data()
+        .await
+        .trace_ok();
     Ok(())
 }
 
@@ -132,6 +141,9 @@ pub async fn perform_application_job(
             .is_ok(),
         ApplicationJob::SyncIntegrationsData => {
             integration_service.yank_integrations_data().await.is_ok()
+        }
+        ApplicationJob::PerformServerKeyValidation => {
+            misc_service.perform_server_key_validation().await.is_ok()
         }
         ApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             integration_service

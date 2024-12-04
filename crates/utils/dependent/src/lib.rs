@@ -6,8 +6,8 @@ use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MediaStateChanged, StoredUrl, StringIdObject,
+    ApplicationCacheKey, ApplicationCacheValue, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, MediaStateChanged, StoredUrl, StringIdObject,
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -1477,7 +1477,7 @@ pub async fn progress_update(
             .set_with_expiry(
                 cache,
                 Some(ss.config.server.progress_update_threshold),
-                None,
+                ApplicationCacheValue::Empty,
             )
             .await?;
     }

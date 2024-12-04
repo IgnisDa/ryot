@@ -192,7 +192,6 @@ pub struct MetadataLotSourceMappings {
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
-    pub is_pro: bool,
     pub page_size: i32,
     pub version: String,
     pub docs_link: String,
@@ -206,6 +205,7 @@ pub struct CoreDetails {
     pub token_valid_for_days: i32,
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
+    pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
     pub exercise_parameters: ExerciseParameters,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,

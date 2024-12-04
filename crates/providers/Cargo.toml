@@ -8,7 +8,6 @@ anyhow = { workspace = true }
 application-utils = { path = "../utils/application" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
 common-models = { path = "../models/common" }
 common-utils = { path = "../utils/common" }
 config = { path = "../config" }

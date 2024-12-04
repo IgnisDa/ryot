@@ -306,7 +306,7 @@ export const duplicateOldWorkout = async (
 			lot: ex.lot,
 			notes: ex.notes,
 			sets: sets,
-			openedDetailsTab: !coreDetails.isPro
+			openedDetailsTab: !coreDetails.isServerKeyValidated
 				? "images"
 				: (exerciseDetails.userDetails.history?.length || 0) > 0
 					? "history"

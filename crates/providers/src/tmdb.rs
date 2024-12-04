@@ -1346,7 +1346,7 @@ async fn get_settings(
             cc.set_with_expiry(
                 ApplicationCacheKey::TmdbSettings,
                 None,
-                Some(ApplicationCacheValue::TmdbSettings(settings.clone())),
+                ApplicationCacheValue::TmdbSettings(settings.clone()),
             )
             .await
             .ok();

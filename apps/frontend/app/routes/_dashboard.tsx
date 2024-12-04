@@ -900,7 +900,7 @@ const Footer = () => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				{!coreDetails.isPro ? (
+				{!coreDetails.isServerKeyValidated ? (
 					<Anchor href={coreDetails.websiteUrl} target="_blank">
 						<Text c="red" fw="bold">
 							Ryot Pro

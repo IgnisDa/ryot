@@ -57,11 +57,7 @@ pub async fn import(
     if let Some(csv_path) = input.data_export_path {
         import_exercises(csv_path, ss, &mut failed, &mut completed).await?;
     }
-    Ok(ImportResult {
-        failed,
-        completed,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }
 
 async fn import_exercises(

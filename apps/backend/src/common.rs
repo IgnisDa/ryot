@@ -57,7 +57,6 @@ pub struct AppServices {
 
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
-    is_pro: bool,
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
     s3_client: aws_sdk_s3::Client,
@@ -73,7 +72,6 @@ pub async fn create_app_services(
     let cache_service = CacheService::new(&db);
     let supporting_service = Arc::new(
         SupportingService::new(
-            is_pro,
             &db,
             timezone,
             cache_service,

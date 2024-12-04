@@ -233,7 +233,7 @@ export const DebouncedSearchInput = (props: {
 export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 	const coreDetails = useCoreDetails();
 
-	return !coreDetails.isPro ? (
+	return !coreDetails.isServerKeyValidated ? (
 		<Alert>
 			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
 				<Text size="xs">{PRO_REQUIRED_MESSAGE}</Text>

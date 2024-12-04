@@ -235,7 +235,7 @@ export default function Page() {
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
-								{coreDetails.isPro ? (
+								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
 										{loaderData.userRecommendations.map((lm) => (
 											<MetadataDisplayItem key={lm} metadataId={lm} />

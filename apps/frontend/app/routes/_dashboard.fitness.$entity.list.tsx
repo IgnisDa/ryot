@@ -156,7 +156,7 @@ export default function Page() {
 						variant="outline"
 						onClick={() => {
 							if (
-								!coreDetails.isPro &&
+								!coreDetails.isServerKeyValidated &&
 								loaderData.entity === FitnessEntity.Templates
 							) {
 								notifications.show({

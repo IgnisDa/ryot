@@ -352,7 +352,7 @@ const DisplayCollection = (props: {
 					pos="relative"
 					style={{ overflow: "hidden" }}
 				>
-					{coreDetails.isPro ? (
+					{coreDetails.isServerKeyValidated ? (
 						collectionImages && collectionImages.length > 0 ? (
 							collectionImages.map((image, index) => {
 								const shouldCollapse = index < currentlyHovered;
@@ -535,11 +535,15 @@ const CreateOrUpdateModal = (props: {
 					label="Description"
 					defaultValue={props.toUpdateCollection?.description}
 				/>
-				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+				<Tooltip
+					label={PRO_REQUIRED_MESSAGE}
+					disabled={coreDetails.isServerKeyValidated}
+				>
 					<MultiSelect
-						name="collaborators"
-						description="Add collaborators to this collection"
 						searchable
+						name="collaborators"
+						disabled={!coreDetails.isServerKeyValidated}
+						description="Add collaborators to this collection"
 						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
 							(c) => c.id,
 						)}
@@ -548,7 +552,6 @@ const CreateOrUpdateModal = (props: {
 							label: u.name,
 							disabled: u.id === userDetails.id,
 						}))}
-						disabled={!coreDetails.isPro}
 					/>
 				</Tooltip>
 				<Input.Wrapper
@@ -559,7 +562,7 @@ const CreateOrUpdateModal = (props: {
 							<Anchor
 								size="xs"
 								onClick={() => {
-									if (!coreDetails.isPro) {
+									if (!coreDetails.isServerKeyValidated) {
 										notifications.show({
 											color: "red",
 											message: PRO_REQUIRED_MESSAGE,

@@ -136,10 +136,10 @@ export const useUserUnitSystem = () =>
 	useUserPreferences().fitness.exercises.unitSystem;
 
 export const useApplicationEvents = () => {
-	const { version, isPro } = useCoreDetails();
+	const { version, isServerKeyValidated } = useCoreDetails();
 
 	const sendEvent = (eventName: string, data: Record<string, unknown>) => {
-		window.umami?.track(eventName, { isPro, version, ...data });
+		window.umami?.track(eventName, { isServerKeyValidated, version, ...data });
 	};
 
 	const updateProgress = (title: string) => {

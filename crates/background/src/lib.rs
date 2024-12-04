@@ -40,6 +40,7 @@ pub enum ApplicationJob {
     HandleEntityAddedToCollectionEvent(Uuid),
     HandleAfterMediaSeenTasks(seen::Model),
     HandleOnSeenComplete(String),
+    PerformServerKeyValidation,
 }
 
 impl Message for ApplicationJob {

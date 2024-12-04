@@ -22,7 +22,7 @@ impl CacheService {
         &self,
         key: ApplicationCacheKey,
         expiry_hours: Option<i64>,
-        value: Option<ApplicationCacheValue>,
+        value: ApplicationCacheValue,
     ) -> Result<Uuid> {
         let now = Utc::now();
         let to_insert = application_cache::ActiveModel {
@@ -58,9 +58,9 @@ impl CacheService {
             .filter(|cache| {
                 cache
                     .expires_at
-                    .map_or(false, |expires_at| expires_at > Utc::now())
+                    .map_or(true, |expires_at| expires_at > Utc::now())
             })
-            .and_then(|m| m.value))
+            .map(|m| m.value))
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {

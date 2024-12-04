@@ -368,7 +368,7 @@ export default function Page() {
 											</Menu.Item>
 											<Menu.Item
 												onClick={() => {
-													if (!coreDetails.isPro) {
+													if (!coreDetails.isServerKeyValidated) {
 														notifications.show({
 															color: "red",
 															message: PRO_REQUIRED_MESSAGE,

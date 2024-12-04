@@ -36,8 +36,14 @@ END $$;
         )
         .await?;
         if !manager.has_column("application_cache", "value").await? {
-            db.execute_unprepared(r#"ALTER TABLE "application_cache" ADD COLUMN "value" JSONB;"#)
-                .await?;
+            db.execute_unprepared(
+                r#"
+ALTER TABLE "application_cache" ADD COLUMN "value" JSONB;
+UPDATE "application_cache" SET "value" = '"Empty"'::jsonb;
+ALTER TABLE "application_cache" ALTER COLUMN "value" SET NOT NULL;
+"#,
+            )
+            .await?;
         }
         db.execute_unprepared(r#"
 UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fitness,analytics}', 'true');

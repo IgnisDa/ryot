@@ -548,9 +548,9 @@ impl IgdbService {
             cc.set_with_expiry(
                 ApplicationCacheKey::IgdbSettings,
                 None,
-                Some(ApplicationCacheValue::IgdbSettings {
+                ApplicationCacheValue::IgdbSettings {
                     access_token: access_token.clone(),
-                }),
+                },
             )
             .await
             .ok();

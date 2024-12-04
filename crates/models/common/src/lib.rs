@@ -207,6 +207,7 @@ pub struct ExportJob {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
+    ServerKeyValidated,
     ProgressUpdateCache {
         user_id: String,
         metadata_id: String,
@@ -315,6 +316,7 @@ pub struct TmdbSettings {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
+    Empty,
     TmdbSettings(TmdbSettings),
     FitnessAnalytics(FitnessAnalytics),
     IgdbSettings { access_token: String },

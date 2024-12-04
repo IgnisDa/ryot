@@ -15,7 +15,6 @@ axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
 cache-service = { path = "../../crates/services/cache" }
-chrono = { workspace = true }
 chrono-tz = { workspace = true }
 collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
@@ -46,9 +45,7 @@ reqwest = { workspace = true }
 router-resolver = { path = "../../crates/resolvers/router" }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
 schematic = { workspace = true }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
@@ -58,6 +55,6 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-unkey = { workspace = true }
+traits = { path = "../../crates/traits" }
 user-resolver = { path = "../../crates/resolvers/user" }
 user-service = { path = "../../crates/services/user" }

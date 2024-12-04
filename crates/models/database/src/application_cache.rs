@@ -12,7 +12,7 @@ pub struct Model {
     #[sea_orm(column_type = "Json")]
     pub key: ApplicationCacheKey,
     #[sea_orm(column_type = "Json")]
-    pub value: Option<ApplicationCacheValue>,
+    pub value: ApplicationCacheValue,
     pub expires_at: Option<DateTimeUtc>,
 }
 

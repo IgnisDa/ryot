@@ -96,8 +96,8 @@ pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) 
     Ok(())
 }
 
-pub async fn pro_instance_guard(is_pro: bool) -> Result<()> {
-    if !is_pro {
+pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Result<()> {
+    if !is_server_key_validated {
         return Err(Error::new(
             "This feature is only available on the Pro version",
         ));

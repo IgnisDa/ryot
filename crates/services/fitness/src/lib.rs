@@ -14,7 +14,7 @@ use database_models::{
 };
 use database_utils::{
     deploy_job_to_re_evaluate_user_workouts, entity_in_collections, ilike_sql, item_reviews,
-    pro_instance_guard, user_measurements_list, user_workout_details,
+    server_key_validation_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
 use dependent_models::{
@@ -96,7 +96,7 @@ impl ExerciseService {
         user_id: String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let mut summary = WorkoutSummary::default();
         let mut information = WorkoutInformation {
             assets: None,
@@ -169,7 +169,7 @@ impl ExerciseService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<bool> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
             .filter(workout_template::Column::UserId.eq(&user_id))
             .one(&self.0.db)

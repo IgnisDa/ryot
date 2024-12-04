@@ -288,7 +288,6 @@ query CollectionContents($input: CollectionContentsInput!) {
 
 query CoreDetails {
 	coreDetails {
-		isPro
 		version
 		docsLink
 		pageSize
@@ -301,6 +300,7 @@ query CoreDetails {
 		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
+		isServerKeyValidated
 		metadataLotSourceMappings {
 			lot
 			sources

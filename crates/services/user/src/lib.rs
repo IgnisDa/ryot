@@ -13,8 +13,8 @@ use database_models::{
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection,
-    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, pro_instance_guard,
-    revoke_access_link, user_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, revoke_access_link,
+    server_key_validation_guard, user_by_id,
 };
 use dependent_models::UserDetailsResult;
 use enum_meta::Meta;
@@ -99,7 +99,7 @@ impl UserService {
         input: CreateAccessLinkInput,
         user_id: String,
     ) -> Result<StringIdObject> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let new_link = access_link::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             name: ActiveValue::Set(input.name),
@@ -191,7 +191,7 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         revoke_access_link(&self.0.db, access_link_id).await
     }
 

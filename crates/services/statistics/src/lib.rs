@@ -354,7 +354,7 @@ impl StatisticsService {
             .set_with_expiry(
                 cache_key,
                 Some(2),
-                Some(ApplicationCacheValue::FitnessAnalytics(response.clone())),
+                ApplicationCacheValue::FitnessAnalytics(response.clone()),
             )
             .await?;
         Ok(response)

@@ -1183,7 +1183,7 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconReplace size={14} />}
 								onClick={() => {
-									if (!coreDetails.isPro) {
+									if (!coreDetails.isServerKeyValidated) {
 										notifications.show({
 											message: PRO_REQUIRED_MESSAGE,
 											color: "red",
@@ -1311,7 +1311,7 @@ const ExerciseDisplay = (props: {
 																entityId={history.workoutId}
 																entityType={FitnessEntity.Workouts}
 																onCopyButtonClick={async () => {
-																	if (!coreDetails.isPro) {
+																	if (!coreDetails.isServerKeyValidated) {
 																		notifications.show({
 																			color: "red",
 																			message:
@@ -1359,7 +1359,7 @@ const ExerciseDisplay = (props: {
 											pos="absolute"
 											p={2}
 											onClick={() => {
-												if (!coreDetails.isPro) {
+												if (!coreDetails.isServerKeyValidated) {
 													notifications.show({
 														color: "red",
 														message: PRO_REQUIRED_MESSAGE,
@@ -1659,7 +1659,7 @@ const SetDisplay = (props: {
 							fz="xs"
 							leftSection={<IconClipboard size={14} />}
 							onClick={() => {
-								if (!coreDetails.isPro) {
+								if (!coreDetails.isServerKeyValidated) {
 									notifications.show({
 										color: "red",
 										message: PRO_REQUIRED_MESSAGE,
