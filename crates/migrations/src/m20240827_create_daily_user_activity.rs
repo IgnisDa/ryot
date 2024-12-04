@@ -6,7 +6,7 @@ fn integer_not_null<T: IntoIden>(col: T) -> ColumnDef {
     ColumnDef::new(col).integer().not_null().default(0).take()
 }
 
-pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
+pub static DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY: &str = "daily_user_activity_uqi1";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -15,6 +15,7 @@ pub struct Migration;
 pub enum DailyUserActivity {
     Table,
     UserId,
+    Id,
     Date,
     EntityIds,
     MetadataReviewCount,
@@ -64,19 +65,13 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(DailyUserActivity::Table)
-                    .col(ColumnDef::new(DailyUserActivity::Date).date().not_null())
+                    .col(ColumnDef::new(DailyUserActivity::Date).date())
                     .col(ColumnDef::new(DailyUserActivity::UserId).text().not_null())
                     .col(
                         ColumnDef::new(DailyUserActivity::EntityIds)
                             .array(ColumnType::Text)
                             .not_null()
                             .default(Expr::cust("'{}'")),
-                    )
-                    .primary_key(
-                        Index::create()
-                            .name(DAILY_USER_ACTIVITY_PRIMARY_KEY)
-                            .col(DailyUserActivity::Date)
-                            .col(DailyUserActivity::UserId),
                     )
                     .col(integer_not_null(DailyUserActivity::MetadataReviewCount))
                     .col(integer_not_null(DailyUserActivity::CollectionReviewCount))
@@ -120,6 +115,13 @@ impl MigrationTrait for Migration {
                             .default(Expr::cust("'[]'")),
                     )
                     .col(
+                        ColumnDef::new(DailyUserActivity::Id)
+                            .uuid()
+                            .not_null()
+                            .default(PgFunc::gen_random_uuid())
+                            .primary_key(),
+                    )
+                    .col(
                         ColumnDef::new(DailyUserActivity::WorkoutMuscles)
                             .array(ColumnType::Text)
                             .not_null()
@@ -145,6 +147,17 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY)
+                    .unique()
+                    .table(DailyUserActivity::Table)
+                    .col(DailyUserActivity::UserId)
+                    .col(DailyUserActivity::Date)
                     .to_owned(),
             )
             .await?;

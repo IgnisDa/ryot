@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use crate::m20240827_create_daily_user_activity::DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY;
+
 const NEW_DUA_COLUMNS: [&str; 3] = ["workout_muscles", "workout_exercises", "workout_equipments"];
 
 #[derive(DeriveMigrationName)]
@@ -11,6 +13,26 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared("TRUNCATE daily_user_activity")
             .await?;
+        if !manager.has_column("daily_user_activity", "id").await? {
+            db.execute_unprepared(&format!(
+                r#"
+ALTER TABLE daily_user_activity
+DROP CONSTRAINT "pk-daily_user_activity";
+
+ALTER TABLE daily_user_activity ADD COLUMN "id" UUID NOT NULL DEFAULT gen_random_uuid();
+
+ALTER TABLE daily_user_activity
+ALTER COLUMN "date" DROP NOT NULL;
+
+ALTER TABLE daily_user_activity
+ADD CONSTRAINT "daily_user_activity_pkey" PRIMARY KEY (id);
+
+CREATE UNIQUE INDEX "{}" ON daily_user_activity (user_id, date);
+        "#,
+                DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY
+            ))
+            .await?;
+        }
         for col in NEW_DUA_COLUMNS {
             if !manager.has_column("daily_user_activity", col).await? {
                 db.execute_unprepared(&format!(
