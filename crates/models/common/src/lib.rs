@@ -204,30 +204,6 @@ pub struct ExportJob {
     pub started_at: DateTimeUtc,
 }
 
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
-pub enum ApplicationCacheKey {
-    ServerKeyValidated,
-    ProgressUpdateCache {
-        user_id: String,
-        metadata_id: String,
-        show_season_number: Option<i32>,
-        show_episode_number: Option<i32>,
-        podcast_episode_number: Option<i32>,
-        anime_episode_number: Option<i32>,
-        manga_chapter_number: Option<Decimal>,
-        manga_volume_number: Option<i32>,
-    },
-    FitnessAnalytics {
-        user_id: String,
-        date_range: DateRangeInput,
-    },
-    IgdbSettings,
-    ListennotesSettings,
-    TmdbSettings,
-    UsersScheduledForWorkoutRevision,
-}
-
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
@@ -323,4 +299,28 @@ pub enum ApplicationCacheValue {
     IgdbSettings { access_token: String },
     UsersScheduledForWorkoutRevision(HashSet<String>),
     ListennotesSettings { genres: HashMap<i32, String> },
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub enum ApplicationCacheKey {
+    IgdbSettings,
+    TmdbSettings,
+    ListennotesSettings,
+    ServerKeyValidated,
+    UsersScheduledForWorkoutRevision,
+    FitnessAnalytics {
+        user_id: String,
+        date_range: DateRangeInput,
+    },
+    ProgressUpdateCache {
+        user_id: String,
+        metadata_id: String,
+        show_season_number: Option<i32>,
+        show_episode_number: Option<i32>,
+        podcast_episode_number: Option<i32>,
+        anime_episode_number: Option<i32>,
+        manga_chapter_number: Option<Decimal>,
+        manga_volume_number: Option<i32>,
+    },
 }
