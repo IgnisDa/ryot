@@ -1606,10 +1606,13 @@ fn get_index_of_highest_pb(
     record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
 }
 
-// DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
 fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
-    let mut val =
-        (value.statistic.weight? * dec!(36.0)).checked_div(dec!(37.0) - value.statistic.reps?);
+    let weight = value.statistic.weight?;
+    let reps = value.statistic.reps?;
+    let mut val = match reps < dec!(10) {
+        true => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
+        false => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps),                   // Brzycki
+    };
     if let Some(v) = val {
         if v <= dec!(0) {
             val = None;
