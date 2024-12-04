@@ -297,6 +297,7 @@ export const BaseMediaDisplayItem = (props: {
 						>
 							<Image
 								src={props.imageUrl}
+								alt={`Image for ${props.name}`}
 								style={{
 									cursor: "pointer",
 									...match(gridPacking)
@@ -304,7 +305,6 @@ export const BaseMediaDisplayItem = (props: {
 										.with(GridPacking.Dense, () => ({ height: 180 }))
 										.exhaustive(),
 								}}
-								alt={`Image for ${props.name}`}
 								styles={{
 									root: {
 										transitionProperty: "transform",
@@ -369,9 +369,9 @@ export const BaseMediaDisplayItem = (props: {
 				</>
 			) : (
 				<Flex
+					mt={2}
 					w="100%"
 					direction="column"
-					mt={2}
 					px={match(gridPacking)
 						.with(GridPacking.Normal, () => ({ base: 6, md: 3 }))
 						.with(GridPacking.Dense, () => ({ md: 2 }))
@@ -402,11 +402,11 @@ export const BaseMediaDisplayItem = (props: {
 };
 
 export const FiltersModal = (props: {
+	title?: string;
 	opened: boolean;
 	cookieName: string;
 	children: ReactNode;
 	closeFiltersModal: () => void;
-	title?: string;
 }) => {
 	const navigate = useNavigate();
 
@@ -475,8 +475,8 @@ export const CollectionsFilter = (props: {
 };
 
 export const DisplayThreePointReview = (props: {
-	rating?: string | null;
 	size?: number;
+	rating?: string | null;
 }) =>
 	match(convertDecimalToThreePointSmiley(Number(props.rating || "")))
 		.with(ThreePointSmileyRating.Happy, () => (
@@ -846,10 +846,10 @@ export const DisplayCollectionEntity = (props: {
 		.run();
 
 export const DisplayCollection = (props: {
-	creatorUserId: string;
-	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
+	creatorUserId: string;
+	col: { id: string; name: string };
 }) => {
 	const color = useGetRandomMantineColor(props.col.name);
 	const submit = useConfirmSubmit();
