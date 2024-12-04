@@ -48,7 +48,11 @@ ALTER TABLE "application_cache" ALTER COLUMN "value" SET NOT NULL;
         db.execute_unprepared(
             r#"
 INSERT INTO application_cache (key, value) values
-('"UsersScheduledForWorkoutRevision"', (SELECT JSONB_BUILD_ARRAY(u.id) from "user" u));
+(
+    '"UsersScheduledForWorkoutRevision"',
+    JSONB_BUILD_OBJECT('UsersScheduledForWorkoutRevision', (SELECT JSONB_BUILD_ARRAY(u.id) from "user" u)
+)
+);
         "#,
         )
         .await?;
