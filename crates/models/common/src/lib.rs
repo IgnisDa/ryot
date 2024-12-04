@@ -315,7 +315,8 @@ pub enum ApplicationCacheKey {
     },
     MetadataRecentlyConsumed {
         user_id: String,
-        metadata_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
     },
     ProgressUpdateCache {
         user_id: String,

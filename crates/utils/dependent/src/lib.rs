@@ -1248,22 +1248,41 @@ pub async fn handle_after_media_seen_tasks(
     Ok(())
 }
 
-async fn mark_metadata_as_recently_consumed(
+pub async fn mark_entity_as_recently_consumed(
     user_id: &String,
-    metadata_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.cache_service
         .set_with_expiry(
             ApplicationCacheKey::MetadataRecentlyConsumed {
+                entity_lot,
                 user_id: user_id.to_owned(),
-                metadata_id: metadata_id.to_owned(),
+                entity_id: entity_id.to_owned(),
             },
             Some(1),
             ApplicationCacheValue::Empty,
         )
         .await?;
     Ok(())
+}
+
+pub async fn get_entity_recently_consumed(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    Ok(ss
+        .cache_service
+        .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
+            entity_lot,
+            user_id: user_id.to_owned(),
+            entity_id: entity_id.to_owned(),
+        })
+        .await?
+        .is_some())
 }
 
 pub async fn progress_update(
@@ -1379,7 +1398,8 @@ pub async fn progress_update(
             }
 
             let ls = last_seen.update(&ss.db).await.unwrap();
-            mark_metadata_as_recently_consumed(user_id, &input.metadata_id, ss).await?;
+            mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss)
+                .await?;
             ls
         }
         ProgressUpdateAction::ChangeState => {
@@ -1465,7 +1485,13 @@ pub async fn progress_update(
             ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
             let (progress, mut started_on) = match action {
                 ProgressUpdateAction::JustStarted => {
-                    mark_metadata_as_recently_consumed(user_id, &input.metadata_id, ss).await?;
+                    mark_entity_as_recently_consumed(
+                        user_id,
+                        &input.metadata_id,
+                        EntityLot::Metadata,
+                        ss,
+                    )
+                    .await?;
                     (
                         input.progress.unwrap_or(dec!(0)),
                         Some(Utc::now().date_naive()),

@@ -49,12 +49,13 @@ use dependent_models::{
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
     create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, first_metadata_image_as_url, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update,
-    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
-    refresh_collection_to_entity_association, update_metadata_and_notify_users,
+    deploy_update_metadata_job, first_metadata_image_as_url, get_entity_recently_consumed,
+    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, queue_media_state_changed_notification_for_user,
+    queue_notifications_to_user_platforms, refresh_collection_to_entity_association,
+    update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
@@ -807,15 +808,9 @@ ORDER BY RANDOM() LIMIT 10;
             } else {
                 None
             };
-        let recently_consumed = self
-            .0
-            .cache_service
-            .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
-                user_id,
-                metadata_id,
-            })
-            .await?
-            .is_some();
+        let recently_consumed =
+            get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, &self.0)
+                .await?;
         Ok(UserMetadataDetails {
             reviews,
             history,
