@@ -1,7 +1,7 @@
 .starIcon {
-  color: #9CA3AF;
+  color: #9ca3af;
   &:hover {
-    color: #eBE600FF;
+    color: #ebe600ff;
   }
 }
 
@@ -22,5 +22,14 @@
 .mediaImage {
   &:hover {
     box-shadow: 0 0 10px black;
+  }
+}
+
+.highlightImage {
+  @mixin dark {
+    box-shadow: 0px 0px 4px 1px rgba(218, 102, 123, 1);
+  }
+  @mixin light {
+    box-shadow: 0px 0px 8px 3px rgba(218, 102, 123, 1);
   }
 }

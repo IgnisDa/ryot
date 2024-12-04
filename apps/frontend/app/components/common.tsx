@@ -98,6 +98,7 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
+import clsx from "clsx";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
@@ -255,6 +256,7 @@ export const BaseMediaDisplayItem = (props: {
 	isLoading: boolean;
 	nameRight?: ReactNode;
 	imageUrl?: string | null;
+	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: string | (() => Promise<void>);
@@ -276,8 +278,8 @@ export const BaseMediaDisplayItem = (props: {
 			<Box onClick={props.onImageClickBehavior}>{iProps.children}</Box>
 		);
 	const defaultOverlayProps = {
-		style: { zIndex: 10, ...blackBgStyles },
 		pos: "absolute",
+		style: { zIndex: 10, ...blackBgStyles },
 	} as const;
 
 	return (
@@ -285,7 +287,14 @@ export const BaseMediaDisplayItem = (props: {
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip label={props.name} position="top">
-						<Paper style={{ overflow: "hidden" }} pos="relative" radius="md">
+						<Paper
+							radius="md"
+							pos="relative"
+							style={{ overflow: "hidden" }}
+							className={clsx({
+								[classes.highlightImage]: props.highlightImage,
+							})}
+						>
 							<Image
 								src={props.imageUrl}
 								style={{

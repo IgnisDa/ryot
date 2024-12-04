@@ -156,11 +156,12 @@ export const MetadataDisplayItem = (props: {
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
-			progress={currentProgress}
 			altName={props.altName}
+			progress={currentProgress}
 			imageUrl={metadataDetails?.image}
 			isLoading={isMetadataDetailsLoading}
 			name={props.name ?? metadataDetails?.title}
+			highlightImage={userMetadataDetails?.recentlyConsumed}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			labels={
 				metadataDetails
