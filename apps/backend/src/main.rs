@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
-        ryot_log!(info, "Sleeping for {:?} before starting up...", duration);
+        ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
 

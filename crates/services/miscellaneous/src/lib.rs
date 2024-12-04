@@ -3123,7 +3123,7 @@ ORDER BY RANDOM() LIMIT 10;
                 }
             }
         }
-        ryot_log!(info, "Pro key verified successfully");
+        ryot_log!(debug, "Pro key verified successfully");
         true
     }
 
