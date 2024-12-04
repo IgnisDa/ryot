@@ -1,6 +1,6 @@
 use async_graphql::Enum;
 use schematic::ConfigEnum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -438,17 +438,17 @@ pub enum ExerciseSource {
 
 /// The different types of personal bests that can be achieved on a set.
 #[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
     Eq,
-    PartialEq,
     Enum,
     Copy,
+    Clone,
+    Debug,
     Default,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum WorkoutSetPersonalBest {
