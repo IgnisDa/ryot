@@ -51,15 +51,6 @@ If the key is invalid or your subscription has expired, the server will automati
 with the community version. Since the two versions are compatible, you can switch between
 them by simply fixing the key and restarting the server.
 
-## Telemetry
-
-Ryot collects anonymous usage data to help me prioritize features. It uses a self-hosted
-[Umami](https://umami.is/) instance to collect this data. In addition to page views, a
-few events are also tracked and you can find them in the [source code](https://github.com/IgnisDa/ryot/blob/6722ceb913a9c2fd67392d5812b76a30036142d1/apps/frontend/app/lib/hooks.ts#L140-L174).
-
-You can opt out of this by setting a configuration parameter as described
-[here](./configuration.md#important-parameters).
-
 ## Releases
 
 Each version of Ryot is released as docker images. For example, if the latest tag is
@@ -70,3 +61,12 @@ images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/r
 Ryot is released on a (loosely) weekly basis. If you prefer to live on the edge, you can
 use the `develop` docker tag which is released as changes are merged into the `main`
 branch.
+
+## Telemetry
+
+Ryot collects anonymous usage data to help me prioritize features. It uses a self-hosted
+[Umami](https://umami.is/) instance to collect this data. In addition to page views, a
+few events are also tracked and you can find them in the [source code](https://github.com/IgnisDa/ryot/blob/6722ceb913a9c2fd67392d5812b76a30036142d1/apps/frontend/app/lib/hooks.ts#L140-L174).
+
+You can opt out of this by setting a configuration parameter as described
+[here](./configuration.md#important-parameters).
