@@ -1248,6 +1248,24 @@ pub async fn handle_after_media_seen_tasks(
     Ok(())
 }
 
+async fn mark_metadata_as_recently_consumed(
+    user_id: &String,
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .set_with_expiry(
+            ApplicationCacheKey::MetadataRecentlyConsumed {
+                user_id: user_id.to_owned(),
+                metadata_id: metadata_id.to_owned(),
+            },
+            Some(1),
+            ApplicationCacheValue::Empty,
+        )
+        .await?;
+    Ok(())
+}
+
 pub async fn progress_update(
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
@@ -1360,7 +1378,9 @@ pub async fn progress_update(
                     }))
             }
 
-            last_seen.update(&ss.db).await.unwrap()
+            let ls = last_seen.update(&ss.db).await.unwrap();
+            mark_metadata_as_recently_consumed(user_id, &input.metadata_id, ss).await?;
+            ls
         }
         ProgressUpdateAction::ChangeState => {
             let new_state = input.change_state.unwrap_or(SeenState::Dropped);
@@ -1444,10 +1464,13 @@ pub async fn progress_update(
             };
             ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
             let (progress, mut started_on) = match action {
-                ProgressUpdateAction::JustStarted => (
-                    input.progress.unwrap_or(dec!(0)),
-                    Some(Utc::now().date_naive()),
-                ),
+                ProgressUpdateAction::JustStarted => {
+                    mark_metadata_as_recently_consumed(user_id, &input.metadata_id, ss).await?;
+                    (
+                        input.progress.unwrap_or(dec!(0)),
+                        Some(Utc::now().date_naive()),
+                    )
+                }
                 _ => (dec!(100), None),
             };
             if matches!(action, ProgressUpdateAction::InThePast) && input.start_date.is_some() {
