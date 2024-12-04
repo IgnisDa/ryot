@@ -313,6 +313,10 @@ pub enum ApplicationCacheKey {
         user_id: String,
         date_range: DateRangeInput,
     },
+    MetadataRecentlyConsumed {
+        user_id: String,
+        metadata_id: String,
+    },
     ProgressUpdateCache {
         user_id: String,
         metadata_id: String,
