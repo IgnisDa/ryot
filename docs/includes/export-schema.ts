@@ -109,7 +109,7 @@ export interface UserMeasurement {
 export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
 
 /** A specific instance when an entity was seen. */
-export interface ImportOrExportMediaItemSeen {
+export interface ImportOrExportMetadataItemSeen {
 	/** If for an anime, the episode which was seen. */
 	anime_episode_number: number | null;
 	/** The timestamp when finished watching. */
@@ -136,7 +136,7 @@ export interface ImportOrExportMediaItemSeen {
 export type MediaSource = 'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
-export interface ImportOrExportMediaItem {
+export interface ImportOrExportMetadataItem {
 	/** The collections this entity was added to. */
 	collections: string[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
@@ -151,7 +151,7 @@ export interface ImportOrExportMediaItem {
 	/** The review history for the user. */
 	reviews: ImportOrExportItemRating[];
 	/** The seen history for the user. */
-	seen_history: ImportOrExportMediaItemSeen[];
+	seen_history: ImportOrExportMetadataItemSeen[];
 	/**
 	 * The source of media.
 	 *
@@ -164,7 +164,7 @@ export interface ImportOrExportMediaItem {
 }
 
 /** Details about a specific media group item that needs to be imported or exported. */
-export interface ImportOrExportMediaGroupItem {
+export interface ImportOrExportMetadataGroupItem {
 	/** The collections this entity was added to. */
 	collections: string[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
@@ -422,9 +422,9 @@ export interface CompleteExport {
 	/** Data about user's measurements. */
 	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */
-	media: ImportOrExportMediaItem[] | null;
+	media: ImportOrExportMetadataItem[] | null;
 	/** Data about user's media groups. */
-	media_groups: ImportOrExportMediaGroupItem[] | null;
+	media_groups: ImportOrExportMetadataGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workout templates. */

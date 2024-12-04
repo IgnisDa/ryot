@@ -10,7 +10,7 @@ use media_models::{
     AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails,
     MetadataSearchItem, PartialMetadataWithoutId,
 };
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{rng, seq::SliceRandom};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     Client,
@@ -254,7 +254,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             is_recommendation: None,
         });
     }
-    suggestions.shuffle(&mut thread_rng());
+    suggestions.shuffle(&mut rng());
     let is_nsfw = details.nsfw.map(|n| !matches!(n.as_str(), "white"));
     let data = MetadataDetails {
         identifier: details.id.to_string(),

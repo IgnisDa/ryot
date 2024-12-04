@@ -27,7 +27,7 @@ import {
 	GraphqlSortOrder,
 	GridPacking,
 	MediaGeneralFilter,
-	MediaLot,
+	type MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataListDocument,
@@ -80,6 +80,7 @@ import {
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
+	getCachedCoreDetails,
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
@@ -101,22 +102,6 @@ enum Action {
 	List = "list",
 	Search = "search",
 }
-
-const metadataMapping = {
-	[MediaLot.AudioBook]: [MediaSource.Audible],
-	[MediaLot.Book]: [MediaSource.Openlibrary, MediaSource.GoogleBooks],
-	[MediaLot.Podcast]: [MediaSource.Itunes, MediaSource.Listennotes],
-	[MediaLot.VideoGame]: [MediaSource.Igdb],
-	[MediaLot.Anime]: [MediaSource.Anilist, MediaSource.Mal],
-	[MediaLot.Manga]: [
-		MediaSource.Anilist,
-		MediaSource.MangaUpdates,
-		MediaSource.Mal,
-	],
-	[MediaLot.Movie]: [MediaSource.Tmdb],
-	[MediaLot.Show]: [MediaSource.Tmdb],
-	[MediaLot.VisualNovel]: [MediaSource.Vndb],
-};
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action, lot } = zx.parseParams(params, {
@@ -168,9 +153,15 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const metadataSourcesForLot = metadataMapping[lot];
+			const coreDetails = await getCachedCoreDetails();
+			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
+				(m) => m.lot === lot,
+			);
+			if (!metadataSourcesForLot) throw new Error("Mapping not found");
 			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
+				source: z
+					.nativeEnum(MediaSource)
+					.default(metadataSourcesForLot.sources[0]),
 			});
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
 			try {
@@ -195,7 +186,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					search: metadataSearch,
 					url: urlParse,
-					mediaSources: metadataSourcesForLot,
+					mediaSources: metadataSourcesForLot.sources,
 				},
 			] as const;
 		})

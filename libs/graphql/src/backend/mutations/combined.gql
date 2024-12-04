@@ -254,3 +254,7 @@ mutation RevokeAccessLink($accessLinkId: String!) {
 mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
 	updateUserExerciseSettings(input: $input)
 }
+
+mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
+	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+}

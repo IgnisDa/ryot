@@ -1,7 +1,8 @@
 use anyhow::{bail, Context, Result};
-use dependent_models::ImportResult;
+use common_models::StringIdObject;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
-use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -13,10 +14,6 @@ use crate::utils::get_show_by_episode_identifier;
 mod models {
     use super::*;
 
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct PlexWebhookMetadataGuid {
-        pub id: String,
-    }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookMetadataPayload {
         #[serde(rename = "type")]
@@ -31,7 +28,7 @@ mod models {
         #[serde(rename = "index")]
         pub episode_number: Option<i32>,
         #[serde(rename = "Guid")]
-        pub guids: Vec<PlexWebhookMetadataGuid>,
+        pub guids: Vec<StringIdObject>,
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookAccount {
@@ -75,10 +72,7 @@ impl PlexSinkIntegration {
         serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
     }
 
-    fn get_tmdb_identifier<'a>(
-        &self,
-        guids: &'a [models::PlexWebhookMetadataGuid],
-    ) -> Result<&'a str> {
+    fn get_tmdb_identifier<'a>(&self, guids: &'a [StringIdObject]) -> Result<&'a str> {
         guids
             .iter()
             .find(|g| g.id.starts_with("tmdb://"))
@@ -133,11 +127,11 @@ impl PlexSinkIntegration {
         let progress = self.calculate_progress(&payload)?;
 
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMediaItem {
+            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMediaItemSeen {
+                seen_history: vec![ImportOrExportMetadataItemSeen {
                     progress: Some(progress),
                     provider_watched_on: Some("Plex".to_string()),
                     show_season_number: payload.metadata.season_number,
@@ -145,7 +139,7 @@ impl PlexSinkIntegration {
                     ..Default::default()
                 }],
                 ..Default::default()
-            }],
+            })],
             ..Default::default()
         })
     }

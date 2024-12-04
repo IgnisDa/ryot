@@ -6,11 +6,11 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use database_models::metadata;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen,
+    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
@@ -33,8 +33,8 @@ pub async fn import<F>(
 where
     F: Future<Output = Result<metadata::Model>>,
 {
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
     let client = get_base_http_client(Some(vec![(
         AUTHORIZATION,
@@ -81,7 +81,7 @@ where
                     {
                         Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
                         _ => {
-                            failed_items.push(ImportFailedItem {
+                            failed.push(ImportFailedItem {
                                 error: Some("No Google Books ID found".to_string()),
                                 identifier: title,
                                 lot: None,
@@ -91,7 +91,7 @@ where
                         }
                     },
                     _ => {
-                        failed_items.push(ImportFailedItem {
+                        failed.push(ImportFailedItem {
                             error: Some("No ISBN found".to_string()),
                             identifier: title,
                             lot: None,
@@ -138,7 +138,7 @@ where
                         (itunes_id, lot, source, Some(to_return))
                     }
                     _ => {
-                        failed_items.push(ImportFailedItem {
+                        failed.push(ImportFailedItem {
                             error: Some("No episodes found for podcast".to_string()),
                             identifier: title,
                             lot: Some(MediaLot::Podcast),
@@ -158,33 +158,29 @@ where
             let mut seen_history = vec![];
             if let Some(podcasts) = episodes {
                 for episode in podcasts {
-                    seen_history.push(ImportOrExportMediaItemSeen {
+                    seen_history.push(ImportOrExportMetadataItemSeen {
                         provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                         podcast_episode_number: Some(episode),
                         ..Default::default()
                     });
                 }
             } else {
-                seen_history.push(ImportOrExportMediaItemSeen {
+                seen_history.push(ImportOrExportMetadataItemSeen {
                     provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
                     ..Default::default()
                 });
             };
-            media.push(ImportOrExportMediaItem {
+            completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 source,
                 identifier,
                 seen_history,
                 source_id: metadata.title,
                 ..Default::default()
-            })
+            }))
         }
     }
-    Ok(ImportResult {
-        metadata: media,
-        failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }
 
 async fn get_item_details(

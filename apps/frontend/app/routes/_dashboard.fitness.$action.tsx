@@ -110,6 +110,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	dayjsLib,
+	getExerciseDetailsPath,
 	getSetColor,
 	getSurroundingElements,
 	postMessageToServiceWorker,
@@ -1115,12 +1116,10 @@ const ExerciseDisplay = (props: {
 					<Menu shadow="md" width={200} position="left-end">
 						<Group justify="space-between" pos="relative" wrap="nowrap">
 							<Anchor
-								component={Link}
-								to={$path("/fitness/exercises/item/:id", {
-									id: encodeURIComponent(exercise.exerciseId),
-								})}
 								fw="bold"
 								lineClamp={1}
+								component={Link}
+								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
 								{exercise.exerciseId}
 							</Anchor>

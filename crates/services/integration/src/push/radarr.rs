@@ -1,3 +1,4 @@
+use anyhow::Result;
 use common_utils::ryot_log;
 use enums::MediaLot;
 use radarr_api_rs::{
@@ -40,7 +41,7 @@ impl RadarrPushIntegration {
         }
     }
 
-    pub async fn push_progress(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> Result<()> {
         if self.metadata_lot != MediaLot::Movie {
             ryot_log!(debug, "Not a movie, skipping {:#?}", self.metadata_title);
             return Ok(());

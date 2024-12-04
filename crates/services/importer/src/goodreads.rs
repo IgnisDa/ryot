@@ -3,12 +3,12 @@ use chrono::NaiveDate;
 use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal::Decimal;
@@ -43,8 +43,8 @@ pub async fn import(
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let ratings_reader = Reader::from_path(input.csv_path)
         .unwrap()
         .deserialize()
@@ -54,7 +54,7 @@ pub async fn import(
         let record: Book = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -70,7 +70,7 @@ pub async fn import(
         );
         let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
         if isbn.is_empty() {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
@@ -82,7 +82,7 @@ pub async fn import(
             utils::get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service)
                 .await
         else {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: Some(lot),
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
@@ -94,7 +94,7 @@ pub async fn import(
             continue;
         };
         let mut seen_history = vec![
-            ImportOrExportMediaItemSeen {
+            ImportOrExportMetadataItemSeen {
                 started_on: None,
                 ended_on: None,
                 provider_watched_on: Some(ImportSource::Goodreads.to_string()),
@@ -132,7 +132,7 @@ pub async fn import(
                 visibility: None,
             });
         }
-        media.push(ImportOrExportMediaItem {
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,
             identifier,
@@ -144,11 +144,7 @@ pub async fn import(
                 rating,
                 ..Default::default()
             }],
-        });
+        }));
     }
-    Ok(ImportResult {
-        metadata: media,
-        failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { completed, failed })
 }

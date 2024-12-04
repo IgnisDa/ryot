@@ -16,7 +16,6 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
 fitness-models = { path = "../../models/fitness" }
-itertools = { workspace = true }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 reqwest = { workspace = true }

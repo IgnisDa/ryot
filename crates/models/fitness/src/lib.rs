@@ -6,30 +6,13 @@ use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    WorkoutSetPersonalBest,
 };
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-
-pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
-    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
-    (
-        ExerciseLot::DistanceAndDuration,
-        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
-    ),
-    (
-        ExerciseLot::RepsAndWeight,
-        &[
-            WorkoutSetPersonalBest::Weight,
-            WorkoutSetPersonalBest::OneRm,
-            WorkoutSetPersonalBest::Volume,
-            WorkoutSetPersonalBest::Reps,
-        ],
-    ),
-    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
-];
 
 #[derive(Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -45,15 +28,17 @@ pub enum ExerciseCategory {
 }
 
 #[derive(
+    Eq,
+    Hash,
     Debug,
     Clone,
+    Default,
     Serialize,
-    SimpleObject,
-    Deserialize,
-    FromJsonQueryResult,
-    Eq,
     PartialEq,
     InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "camelCase")]
 #[graphql(input_name = "ExerciseAttributesInput")]
@@ -229,31 +214,6 @@ pub enum SetLot {
     WarmUp,
     Drop,
     Failure,
-}
-
-/// The different types of personal bests that can be achieved on a set.
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    Enum,
-    Copy,
-    Default,
-    ConfigEnum,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkoutSetPersonalBest {
-    #[default]
-    Weight,
-    OneRm,
-    Volume,
-    Time,
-    Pace,
-    Reps,
 }
 
 #[skip_serializing_none]
@@ -669,32 +629,6 @@ pub struct ExercisesListInput {
     pub search: SearchInput,
     pub filter: Option<ExerciseListFilter>,
     pub sort_by: Option<ExerciseSortBy>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct ExerciseParametersLotMapping {
-    pub lot: ExerciseLot,
-    pub bests: Vec<WorkoutSetPersonalBest>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct ExerciseParameters {
-    /// All filters applicable to an exercises query.
-    pub filters: ExerciseFilters,
-    pub download_required: bool,
-    /// Exercise type mapped to the personal bests possible.
-    pub lot_mapping: Vec<ExerciseParametersLotMapping>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct ExerciseFilters {
-    #[graphql(name = "type")]
-    pub lot: Vec<ExerciseLot>,
-    pub level: Vec<ExerciseLevel>,
-    pub force: Vec<ExerciseForce>,
-    pub mechanic: Vec<ExerciseMechanic>,
-    pub equipment: Vec<ExerciseEquipment>,
-    pub muscle: Vec<ExerciseMuscle>,
 }
 
 #[derive(Debug, InputObject)]

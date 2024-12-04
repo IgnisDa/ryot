@@ -4,4 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [build-dependencies]
-dotenv-build = "0.1.1"
+dotenv-build = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["dotenv-build"]

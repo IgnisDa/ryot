@@ -17,8 +17,8 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, EXERCISE_LOT_MAPPINGS,
+    MEDIA_LOT_MAPPINGS, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -27,8 +27,8 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
+        Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         QueuedNotification, Review, Seen, User, UserToEntity,
     },
@@ -40,8 +40,10 @@ use database_utils::{
     item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
+    MetadataBaseData, MetadataGroupDetails, MetadataLotSourceMappings, PersonDetails,
+    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
@@ -54,7 +56,9 @@ use dependent_utils::{
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
 use enums::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    UserToMediaReason,
 };
 use env_utils::APP_VERSION;
 use futures::TryStreamExt;
@@ -71,11 +75,11 @@ use media_models::{
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
     PeopleSearchInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput,
-    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
@@ -241,12 +245,13 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn core_details(&self) -> CoreDetails {
+    pub async fn core_details(&self) -> Result<CoreDetails> {
         let mut files_enabled = self.0.config.file_storage.is_enabled();
         if files_enabled && !self.0.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
-        CoreDetails {
+        let download_required = Exercise::find().count(&self.0.db).await? == 0;
+        Ok(CoreDetails {
             page_size: PAGE_SIZE,
             is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
@@ -262,7 +267,91 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
-        }
+            metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
+                .iter()
+                .map(|(lot, sources)| MetadataLotSourceMappings {
+                    lot: *lot,
+                    sources: sources.to_vec(),
+                })
+                .collect(),
+            exercise_parameters: ExerciseParameters {
+                filters: ExerciseFilters {
+                    lot: ExerciseLot::iter().collect_vec(),
+                    level: ExerciseLevel::iter().collect_vec(),
+                    force: ExerciseForce::iter().collect_vec(),
+                    mechanic: ExerciseMechanic::iter().collect_vec(),
+                    equipment: ExerciseEquipment::iter().collect_vec(),
+                    muscle: ExerciseMuscle::iter().collect_vec(),
+                },
+                download_required,
+                lot_mapping: EXERCISE_LOT_MAPPINGS
+                    .iter()
+                    .map(|(lot, pbs)| ExerciseParametersLotMapping {
+                        lot: *lot,
+                        bests: pbs.to_vec(),
+                    })
+                    .collect(),
+            },
+            metadata_provider_languages: MediaSource::iter()
+                .map(|source| {
+                    let (supported, default) = match source {
+                        MediaSource::Itunes => (
+                            ITunesService::supported_languages(),
+                            ITunesService::default_language(),
+                        ),
+                        MediaSource::Audible => (
+                            AudibleService::supported_languages(),
+                            AudibleService::default_language(),
+                        ),
+                        MediaSource::Openlibrary => (
+                            OpenlibraryService::supported_languages(),
+                            OpenlibraryService::default_language(),
+                        ),
+                        MediaSource::Tmdb => (
+                            TmdbService::supported_languages(),
+                            TmdbService::default_language(),
+                        ),
+                        MediaSource::Listennotes => (
+                            ListennotesService::supported_languages(),
+                            ListennotesService::default_language(),
+                        ),
+                        MediaSource::GoogleBooks => (
+                            GoogleBooksService::supported_languages(),
+                            GoogleBooksService::default_language(),
+                        ),
+                        MediaSource::Igdb => (
+                            IgdbService::supported_languages(),
+                            IgdbService::default_language(),
+                        ),
+                        MediaSource::MangaUpdates => (
+                            MangaUpdatesService::supported_languages(),
+                            MangaUpdatesService::default_language(),
+                        ),
+                        MediaSource::Anilist => (
+                            AnilistService::supported_languages(),
+                            AnilistService::default_language(),
+                        ),
+                        MediaSource::Mal => (
+                            MalService::supported_languages(),
+                            MalService::default_language(),
+                        ),
+                        MediaSource::Custom => (
+                            CustomService::supported_languages(),
+                            CustomService::default_language(),
+                        ),
+                        MediaSource::Vndb => (
+                            VndbService::supported_languages(),
+                            VndbService::default_language(),
+                        ),
+                    };
+                    ProviderLanguageInformation {
+                        source,
+                        default,
+                        supported,
+                    }
+                })
+                .collect(),
+        })
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -1906,68 +1995,6 @@ ORDER BY RANDOM() LIMIT 10;
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = stmt.build(PostgresQueryBuilder {});
         Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
-    }
-
-    pub fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
-        MediaSource::iter()
-            .map(|source| {
-                let (supported, default) = match source {
-                    MediaSource::Itunes => (
-                        ITunesService::supported_languages(),
-                        ITunesService::default_language(),
-                    ),
-                    MediaSource::Audible => (
-                        AudibleService::supported_languages(),
-                        AudibleService::default_language(),
-                    ),
-                    MediaSource::Openlibrary => (
-                        OpenlibraryService::supported_languages(),
-                        OpenlibraryService::default_language(),
-                    ),
-                    MediaSource::Tmdb => (
-                        TmdbService::supported_languages(),
-                        TmdbService::default_language(),
-                    ),
-                    MediaSource::Listennotes => (
-                        ListennotesService::supported_languages(),
-                        ListennotesService::default_language(),
-                    ),
-                    MediaSource::GoogleBooks => (
-                        GoogleBooksService::supported_languages(),
-                        GoogleBooksService::default_language(),
-                    ),
-                    MediaSource::Igdb => (
-                        IgdbService::supported_languages(),
-                        IgdbService::default_language(),
-                    ),
-                    MediaSource::MangaUpdates => (
-                        MangaUpdatesService::supported_languages(),
-                        MangaUpdatesService::default_language(),
-                    ),
-                    MediaSource::Anilist => (
-                        AnilistService::supported_languages(),
-                        AnilistService::default_language(),
-                    ),
-                    MediaSource::Mal => (
-                        MalService::supported_languages(),
-                        MalService::default_language(),
-                    ),
-                    MediaSource::Custom => (
-                        CustomService::supported_languages(),
-                        CustomService::default_language(),
-                    ),
-                    MediaSource::Vndb => (
-                        VndbService::supported_languages(),
-                        VndbService::default_language(),
-                    ),
-                };
-                ProviderLanguageInformation {
-                    supported,
-                    default,
-                    source,
-                }
-            })
-            .collect()
     }
 
     async fn get_monitored_entities(

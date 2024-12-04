@@ -9,7 +9,7 @@ use database_models::{
     seen, user_to_entity,
 };
 use database_utils::user_by_id;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::SeenShowExtraInformation;
@@ -45,34 +45,42 @@ impl IntegrationService {
         updates: ImportResult,
     ) -> GqlResult<()> {
         let mut import = updates;
-        import.metadata.iter_mut().for_each(|media| {
-            media.seen_history.retain(|update| match update.progress {
-                Some(progress) if progress < integration.minimum_progress.unwrap() => {
-                    ryot_log!(
-                        debug,
-                        "Progress update for integration {} is below minimum threshold",
-                        integration.id
-                    );
-                    false
-                }
-                Some(_) => true,
-                None => false,
-            });
-            media.seen_history.iter_mut().for_each(|update| {
-                update.ended_on = Some(Utc::now().date_naive());
-                if let Some(progress) = update.progress {
-                    if progress > integration.maximum_progress.unwrap() {
-                        ryot_log!(
-                            debug,
-                            "Changing progress to 100 for integration {}",
-                            integration.id
-                        );
-                        update.progress = Some(dec!(100));
+        import.completed.iter_mut().for_each(|item| {
+            if let ImportCompletedItem::Metadata(metadata) = item {
+                metadata
+                    .seen_history
+                    .retain(|update| match update.progress {
+                        Some(progress) if progress < integration.minimum_progress.unwrap() => {
+                            ryot_log!(
+                                debug,
+                                "Progress update for integration {} is below minimum threshold",
+                                integration.id
+                            );
+                            false
+                        }
+                        Some(_) => true,
+                        None => false,
+                    });
+                metadata.seen_history.iter_mut().for_each(|update| {
+                    update.ended_on = Some(Utc::now().date_naive());
+                    if let Some(progress) = update.progress {
+                        if progress > integration.maximum_progress.unwrap() {
+                            ryot_log!(
+                                debug,
+                                "Changing progress to 100 for integration {}",
+                                integration.id
+                            );
+                            update.progress = Some(dec!(100));
+                        }
                     }
-                }
-            });
+                });
+            }
         });
-        match process_import(&integration.user_id, true, import, &self.0).await {
+        match process_import(&integration.user_id, true, import, &self.0, |_| async {
+            Ok(())
+        })
+        .await
+        {
             Ok(_) => {
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));

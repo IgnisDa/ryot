@@ -10,8 +10,7 @@ import {
 	Flex,
 	Group,
 	Indicator,
-	JsonInput,
-	PasswordInput,
+	Progress,
 	Select,
 	Stack,
 	Tabs,
@@ -35,7 +34,12 @@ import {
 	ImportSource,
 	UserExportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getActionIntent,
+	kebabCase,
+	processSubmission,
+} from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
@@ -77,7 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			formData.delete("source");
 			const values = await match(source)
 				.with(
-					ImportSource.StoryGraph,
+					ImportSource.Storygraph,
 					ImportSource.Imdb,
 					ImportSource.Goodreads,
 					ImportSource.OpenScale,
@@ -85,8 +89,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
 				)
-				.with(ImportSource.Audiobookshelf, ImportSource.MediaTracker, () => ({
-					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+				.with(
+					ImportSource.Plex,
+					ImportSource.Mediatracker,
+					ImportSource.Audiobookshelf,
+					() => ({
+						urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+					}),
+				)
+				.with(ImportSource.StrongApp, () => ({
+					strongApp: processSubmission(formData, strongAppImportFormSchema),
 				}))
 				.with(ImportSource.Trakt, () => ({
 					trakt: processSubmission(formData, usernameImportFormSchema),
@@ -94,18 +106,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
 				}))
-				.with(ImportSource.Mal, async () => ({
+				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.StrongApp, async () => {
-					const newLocal = processSubmission(
-						formData,
-						strongAppImportFormSchema,
-					);
-					return {
-						strongApp: { ...newLocal, mapping: JSON.parse(newLocal.mapping) },
-					};
-				})
 				.with(ImportSource.GenericJson, async () => ({
 					genericJson: processSubmission(formData, jsonImportFormSchema),
 				}))
@@ -166,6 +169,8 @@ const jellyfinImportFormSchema = usernameImportFormSchema
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
+const strongAppImportFormSchema = z.object({ dataExportPath: z.string() });
+
 const igdbImportFormSchema = z
 	.object({ collection: z.string() })
 	.merge(genericCsvImportFormSchema);
@@ -174,11 +179,6 @@ const movaryImportFormSchema = z.object({
 	ratings: z.string(),
 	history: z.string(),
 	watchlist: z.string(),
-});
-
-const strongAppImportFormSchema = z.object({
-	exportPath: z.string(),
-	mapping: z.string(),
 });
 
 const jsonImportFormSchema = z.object({ export: z.string() });
@@ -220,51 +220,39 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
-										href={withFragment(
-											`${coreDetails.docsLink}/importing.html`,
-											match(deployImportSource)
-												.with(ImportSource.Goodreads, () => "goodreads")
-												.with(ImportSource.Mal, () => "myanimelist")
-												.with(ImportSource.MediaTracker, () => "mediatracker")
-												.with(ImportSource.Movary, () => "movary")
-												.with(ImportSource.StoryGraph, () => "storygraph")
-												.with(ImportSource.StrongApp, () => "strong-app")
-												.with(ImportSource.Trakt, () => "trakt")
-												.with(
-													ImportSource.Audiobookshelf,
-													() => "audiobookshelf",
-												)
-												.with(ImportSource.Imdb, () => "imdb")
-												.with(ImportSource.Igdb, () => "igdb")
-												.with(ImportSource.Jellyfin, () => "jellyfin")
-												.with(ImportSource.GenericJson, () => "generic-json")
-												.with(ImportSource.OpenScale, () => "open-scale")
-												.with(undefined, () => "")
-												.exhaustive(),
-										)}
+										href={
+											deployImportSource
+												? withFragment(
+														`${coreDetails.docsLink}/importing.html`,
+														kebabCase(deployImportSource),
+													)
+												: ""
+										}
 										target="_blank"
 									>
 										Docs
 									</Anchor>
 								</Flex>
 								<Select
+									required
+									searchable
 									id="import-source"
 									label="Select a source"
-									required
+									onChange={(v) => {
+										if (v) setDeployImportSource(v as ImportSource);
+									}}
 									data={Object.values(ImportSource).map((is) => ({
 										label: changeCase(is),
 										value: is,
 									}))}
-									onChange={(v) => {
-										if (v) setDeployImportSource(v as ImportSource);
-									}}
 								/>
 								{deployImportSource ? (
 									<>
 										{match(deployImportSource)
 											.with(
+												ImportSource.Plex,
+												ImportSource.Mediatracker,
 												ImportSource.Audiobookshelf,
-												ImportSource.MediaTracker,
 												() => (
 													<>
 														<TextInput
@@ -272,7 +260,7 @@ export default function Page() {
 															required
 															name="apiUrl"
 														/>
-														<PasswordInput
+														<TextInput
 															mt="sm"
 															label="API Key"
 															required
@@ -285,7 +273,7 @@ export default function Page() {
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
 												ImportSource.Imdb,
-												ImportSource.StoryGraph,
+												ImportSource.Storygraph,
 												() => (
 													<>
 														<FileInput
@@ -297,6 +285,16 @@ export default function Page() {
 													</>
 												),
 											)
+											.with(ImportSource.StrongApp, () => (
+												<>
+													<FileInput
+														required
+														accept=".csv"
+														label="CSV file"
+														name="dataExportPath"
+													/>
+												</>
+											))
 											.with(ImportSource.Trakt, () => (
 												<>
 													<TextInput
@@ -318,7 +316,7 @@ export default function Page() {
 														required
 														name="username"
 													/>
-													<PasswordInput
+													<TextInput
 														mt="sm"
 														label="Password"
 														required
@@ -364,7 +362,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.Mal, () => (
+											.with(ImportSource.Myanimelist, () => (
 												<>
 													<FileInput
 														label="Anime export file"
@@ -373,39 +371,6 @@ export default function Page() {
 													<FileInput
 														label="Manga export file"
 														name="mangaPath"
-													/>
-												</>
-											))
-											.with(ImportSource.StrongApp, () => (
-												<>
-													<FileInput
-														label="CSV export file"
-														accept=".csv"
-														required
-														name="exportPath"
-													/>
-													<JsonInput
-														label="Mappings"
-														required
-														name="mapping"
-														autosize
-														minRows={10}
-														defaultValue={JSON.stringify(
-															[
-																{
-																	sourceName: "Bench Press (Barbell)",
-																	targetName:
-																		"Barbell Bench Press - Medium Grip",
-																},
-																{
-																	sourceName: "Bicep Curl (Barbell)",
-																	targetName: "Barbell Curl",
-																},
-															],
-															null,
-															4,
-														)}
-														description="This is an example. Every exercise must be mapped, otherwise the import will fail."
 													/>
 												</>
 											))
@@ -445,59 +410,69 @@ export default function Page() {
 								<Title order={3}>Import history</Title>
 								{loaderData.importReports.length > 0 ? (
 									<Accordion>
-										{loaderData.importReports.map((report) => (
-											<Accordion.Item
-												value={report.id.toString()}
-												key={report.id}
-												data-import-report-id={report.id}
-											>
-												<Accordion.Control
-													disabled={typeof report.wasSuccess !== "boolean"}
+										{loaderData.importReports.map((report) => {
+											const isInProgress =
+												typeof report.wasSuccess !== "boolean";
+
+											return (
+												<Accordion.Item
+													key={report.id}
+													value={report.id}
+													data-import-report-id={report.id}
 												>
-													<Indicator
-														inline
-														size={12}
-														offset={-3}
-														processing={typeof report.wasSuccess !== "boolean"}
-														color={
-															typeof report.wasSuccess === "boolean"
-																? report.wasSuccess
-																	? "green"
-																	: "red"
-																: undefined
-														}
-													>
-														{changeCase(report.source)}{" "}
-														<Text size="xs" span c="dimmed">
-															({dayjsLib(report.startedOn).fromNow()})
-														</Text>
-													</Indicator>
-												</Accordion.Control>
-												<Accordion.Panel>
-													{report.details ? (
-														<>
-															<Text>
-																Total imported: {report.details.import.total}
+													<Accordion.Control disabled={isInProgress}>
+														<Indicator
+															inline
+															size={12}
+															offset={-3}
+															processing={isInProgress}
+															color={
+																isInProgress
+																	? undefined
+																	: report.wasSuccess
+																		? "green"
+																		: "red"
+															}
+														>
+															{changeCase(report.source)}{" "}
+															<Text size="xs" span c="dimmed">
+																({dayjsLib(report.startedOn).fromNow()})
 															</Text>
-															<Text>
-																Failed: {report.details.failedItems.length}
-															</Text>
-															{report.details.failedItems.length > 0 ? (
-																<Code mah={400} block>
-																	{JSON.stringify(
-																		report.details.failedItems,
-																		null,
-																		4,
-																	)}
-																</Code>
-															) : null}
-														</>
-													) : (
-														<Text>This import never finished</Text>
-													)}
-												</Accordion.Panel>
-											</Accordion.Item>
-										))}
+														</Indicator>
+														{isInProgress && report.progress ? (
+															<Progress
+																mt="xs"
+																animated
+																value={Number(report.progress)}
+															/>
+														) : null}
+													</Accordion.Control>
+													<Accordion.Panel>
+														{report.details ? (
+															<>
+																<Text>
+																	Total imported: {report.details.import.total}
+																</Text>
+																<Text>
+																	Failed: {report.details.failedItems.length}
+																</Text>
+																{report.details.failedItems.length > 0 ? (
+																	<Code mah={400} block>
+																		{JSON.stringify(
+																			report.details.failedItems,
+																			null,
+																			4,
+																		)}
+																	</Code>
+																) : null}
+															</>
+														) : (
+															<Text>This import never finished</Text>
+														)}
+													</Accordion.Panel>
+												</Accordion.Item>
+											);
+										})}
 									</Accordion>
 								) : (
 									<Text>You have not performed any imports</Text>

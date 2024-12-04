@@ -36,7 +36,7 @@ pub struct MetadataSearchItemResponse {
     pub database_id: Option<String>,
 }
 
-#[derive(Debug, InputObject, Default, Clone)]
+#[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
     pub description: Option<String>,
@@ -491,7 +491,7 @@ pub struct MetadataDetails {
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaItemSeen {
+pub struct ImportOrExportMetadataItemSeen {
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when started watching.
@@ -556,40 +556,40 @@ pub struct ImportOrExportItemRating {
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaItem {
-    /// An string to help identify it in the original source.
-    pub source_id: String,
+pub struct ImportOrExportMetadataItem {
     /// The type of media.
     pub lot: MediaLot,
-    /// The source of media.
-    pub source: MediaSource,
+    /// An string to help identify it in the original source.
+    pub source_id: String,
     /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
     pub identifier: String,
-    /// The seen history for the user.
-    pub seen_history: Vec<ImportOrExportMediaItemSeen>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source of media.
+    pub source: MediaSource,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The seen history for the user.
+    pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
 }
 
 /// Details about a specific media group item that needs to be imported or exported.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMediaGroupItem {
+pub struct ImportOrExportMetadataGroupItem {
     /// Name of the group.
     pub title: String,
     /// The type of media.
     pub lot: MediaLot,
-    /// The source of media.
-    pub source: MediaSource,
     /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
     pub identifier: String,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source of media.
+    pub source: MediaSource,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
 }
 
 /// Details about a specific creator item that needs to be exported.
@@ -597,18 +597,18 @@ pub struct ImportOrExportMediaGroupItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportPersonItem {
+    /// The name of the creator.
+    pub name: String,
     /// The provider identifier.
     pub identifier: String,
     /// The source of data.
     pub source: MediaSource,
-    /// The source specific data.
-    pub source_specifics: Option<PersonSourceSpecifics>,
-    /// The name of the creator.
-    pub name: String,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The source specific data.
+    pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
 /// Details about a specific exercise item that needs to be exported.
@@ -715,6 +715,21 @@ pub struct SeenShowExtraInformation {
 )]
 pub struct SeenPodcastExtraInformation {
     pub episode: i32,
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
+pub struct SeenShowExtraOptionalInformation {
+    pub season: Option<i32>,
+    pub episode: Option<i32>,
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
+)]
+pub struct SeenPodcastExtraOptionalInformation {
+    pub episode: Option<i32>,
 }
 
 #[derive(
@@ -879,10 +894,10 @@ pub struct ReviewItem {
     pub text_rendered: Option<String>,
     pub seen_items_associated_with: Vec<String>,
     pub comments: Vec<ImportOrExportItemReviewComment>,
-    pub show_extra_information: Option<SeenShowExtraInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraOptionalInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -916,17 +931,9 @@ pub struct DeployMalImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct StrongAppImportMapping {
-    pub source_name: String,
-    pub target_name: String,
-    pub multiplier: Option<Decimal>,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployStrongAppImportInput {
-    // The path to the CSV file in the local file system.
-    pub export_path: String,
-    pub mapping: Vec<StrongAppImportMapping>,
+    pub data_export_path: Option<String>,
+    pub measurements_zip_path: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -1030,13 +1037,6 @@ pub struct UpdateUserNotificationPlatformInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
-}
-
-#[derive(Debug, SimpleObject)]
-pub struct ProviderLanguageInformation {
-    pub source: MediaSource,
-    pub supported: Vec<String>,
-    pub default: String,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]

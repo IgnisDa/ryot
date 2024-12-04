@@ -8,5 +8,5 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
-jsonwebtoken = { version = "=9.3.0", default-features = false }
+jsonwebtoken = { workspace = true }
 uuid = { workspace = true }

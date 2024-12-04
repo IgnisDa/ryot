@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use dependent_models::{CompleteExport, ImportResult};
+use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 
 pub(crate) struct GenericJsonSinkIntegration {
     payload: String,
@@ -14,12 +14,24 @@ impl GenericJsonSinkIntegration {
             Ok(val) => val,
             Err(err) => bail!(err),
         };
+        let mut completed = vec![];
+        for media in payload.media.unwrap_or_default() {
+            completed.push(ImportCompletedItem::Metadata(media));
+        }
+        for people in payload.people.unwrap_or_default() {
+            completed.push(ImportCompletedItem::Person(people));
+        }
+        for measurement in payload.measurements.unwrap_or_default() {
+            completed.push(ImportCompletedItem::Measurement(measurement));
+        }
+        for workout in payload.workouts.unwrap_or_default() {
+            completed.push(ImportCompletedItem::ApplicationWorkout(workout));
+        }
+        for media_group in payload.media_groups.unwrap_or_default() {
+            completed.push(ImportCompletedItem::MetadataGroup(media_group));
+        }
         Ok(ImportResult {
-            metadata: payload.media.unwrap_or_default(),
-            people: payload.people.unwrap_or_default(),
-            measurements: payload.measurements.unwrap_or_default(),
-            metadata_groups: payload.media_groups.unwrap_or_default(),
-            application_workouts: payload.workouts.unwrap_or_default(),
+            completed,
             ..Default::default()
         })
     }

@@ -5,7 +5,9 @@ import {
 	Outlet,
 	Scripts,
 	ScrollRestoration,
+	isRouteErrorResponse,
 	useLoaderData,
+	useRouteError,
 } from "@remix-run/react";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
@@ -129,5 +131,18 @@ export default function App() {
 				<Scripts />
 			</body>
 		</html>
+	);
+}
+
+export function ErrorBoundary() {
+	const error = useRouteError() as Error;
+	const message = isRouteErrorResponse(error)
+		? error.data.message
+		: error.message;
+
+	return (
+		<div>
+			<p>We encountered an error: {message}</p>
+		</div>
 	);
 }

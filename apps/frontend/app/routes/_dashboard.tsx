@@ -61,6 +61,7 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
+	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
@@ -114,6 +115,7 @@ import {
 	Verb,
 	convertDecimalToThreePointSmiley,
 	getLot,
+	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
@@ -147,6 +149,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import type { LoaderFunctionArgs } from "@remix-run/node";
+import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { ClientOnly } from "remix-utils/client-only";
 import { useBulkEditCollection } from "~/lib/state/collection";
@@ -1352,6 +1355,21 @@ const ReviewEntityForm = ({
 				)
 			: undefined,
 	);
+	const [showSeasonNumber, setShowSeasonNumber] = useState<string | undefined>(
+		entityToReview?.existingReview?.showExtraInformation?.season?.toString(),
+	);
+	const [showEpisodeNumber, _setShowEpisodeNumber] = useState<
+		string | undefined
+	>(entityToReview?.existingReview?.showExtraInformation?.episode?.toString());
+	const [podcastEpisodeNumber, _setPodcastEpisodeNumber] = useState<
+		string | undefined
+	>(
+		entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
+	);
+	const { data: metadataDetails } = useQuery({
+		...getMetadataDetailsQuery(entityToReview?.entityId),
+		enabled: entityToReview?.entityLot === EntityLot.Metadata,
+	});
 
 	const SmileySurround = (props: {
 		children: React.ReactNode;
@@ -1377,7 +1395,7 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={async (e) => {
+			onSubmit={(e) => {
 				submit(e);
 				refreshUserMetadataDetails(entityToReview.entityId);
 				events.postReview(entityToReview.entityTitle);
@@ -1389,20 +1407,21 @@ const ReviewEntityForm = ({
 				UserReviewScale.ThreePointSmiley && ratingInThreePointSmiley ? (
 				<input
 					hidden
+					readOnly
 					name="rating"
 					value={convertThreePointSmileyToDecimal(ratingInThreePointSmiley)}
-					readOnly
 				/>
 			) : undefined}
 			<input
 				hidden
+				readOnly
 				name="entityLot"
 				value={entityToReview.entityLot}
-				readOnly
 			/>
 			{entityToReview.existingReview?.id ? (
 				<input
 					hidden
+					readOnly
 					name="reviewId"
 					value={entityToReview.existingReview.id}
 				/>
@@ -1415,24 +1434,24 @@ const ReviewEntityForm = ({
 								<Input.Label>Rating:</Input.Label>
 								<Rating
 									name="rating"
+									fractions={2}
 									defaultValue={
 										entityToReview.existingReview?.rating
 											? Number(entityToReview.existingReview.rating)
 											: undefined
 									}
-									fractions={2}
 								/>
 							</Flex>
 						))
 						.with(UserReviewScale.OutOfHundred, () => (
 							<NumberInput
-								label="Rating"
-								name="rating"
-								min={0}
-								max={100}
-								step={1}
 								w="40%"
+								min={0}
+								step={1}
+								max={100}
 								hideControls
+								name="rating"
+								label="Rating"
 								rightSection={<IconPercentage size={16} />}
 								defaultValue={
 									entityToReview.existingReview?.rating
@@ -1463,45 +1482,54 @@ const ReviewEntityForm = ({
 					<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
 				</Flex>
 				{entityToReview.metadataLot === MediaLot.Show ? (
-					<Flex gap="md">
-						<NumberInput
+					<Stack gap={4}>
+						<Select
+							size="xs"
+							clearable
+							searchable
+							limit={50}
 							label="Season"
 							name="showSeasonNumber"
-							hideControls
-							defaultValue={
-								isNumber(
-									entityToReview.existingReview?.showExtraInformation?.season,
-								)
-									? entityToReview.existingReview.showExtraInformation.season
-									: undefined
-							}
+							value={showSeasonNumber}
+							onChange={(v) => setShowSeasonNumber(v || undefined)}
+							data={metadataDetails?.showSpecifics?.seasons.map((s) => ({
+								label: `${s.seasonNumber}. ${s.name.toString()}`,
+								value: s.seasonNumber.toString(),
+							}))}
 						/>
-						<NumberInput
+						<Select
+							size="xs"
+							clearable
+							searchable
+							limit={50}
 							label="Episode"
 							name="showEpisodeNumber"
-							hideControls
-							defaultValue={
-								isNumber(
-									entityToReview.existingReview?.showExtraInformation?.episode,
-								)
-									? entityToReview.existingReview.showExtraInformation.episode
-									: undefined
+							value={showEpisodeNumber}
+							onChange={(v) => _setShowEpisodeNumber(v || undefined)}
+							data={
+								metadataDetails?.showSpecifics?.seasons
+									.find((s) => s.seasonNumber.toString() === showSeasonNumber)
+									?.episodes.map((e) => ({
+										label: `${e.episodeNumber}. ${e.name.toString()}`,
+										value: e.episodeNumber.toString(),
+									})) || []
 							}
 						/>
-					</Flex>
+					</Stack>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Podcast ? (
-					<NumberInput
+					<Select
+						clearable
+						limit={50}
+						searchable
 						label="Episode"
 						name="podcastEpisodeNumber"
-						hideControls
-						defaultValue={
-							isNumber(
-								entityToReview.existingReview?.podcastExtraInformation?.episode,
-							)
-								? entityToReview.existingReview.podcastExtraInformation.episode
-								: undefined
-						}
+						value={podcastEpisodeNumber}
+						onChange={(v) => _setPodcastEpisodeNumber(v || undefined)}
+						data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
+							label: se.title.toString(),
+							value: se.number.toString(),
+						}))}
 					/>
 				) : null}
 				{entityToReview.metadataLot === MediaLot.Anime ? (
@@ -1633,14 +1661,14 @@ const AddEntityToCollectionForm = ({
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
-				readOnly
 				hidden
+				readOnly
 				name="entityId"
 				value={addEntityToCollectionData.entityId}
 			/>
 			<input
-				readOnly
 				hidden
+				readOnly
 				name="entityLot"
 				value={addEntityToCollectionData.entityLot}
 			/>
@@ -1661,14 +1689,14 @@ const AddEntityToCollectionForm = ({
 				{selectedCollection ? (
 					<>
 						<input
-							readOnly
 							hidden
+							readOnly
 							name="collectionName"
 							value={selectedCollection.name}
 						/>
 						<input
-							readOnly
 							hidden
+							readOnly
 							name="creatorUserId"
 							value={selectedCollection.creator.id}
 						/>
@@ -1713,8 +1741,8 @@ const AddEntityToCollectionForm = ({
 											/>
 											{ownedOn ? (
 												<input
-													readOnly
 													hidden
+													readOnly
 													name={`information.${template.name}`}
 													value={formatDateToNaiveDate(ownedOn)}
 												/>

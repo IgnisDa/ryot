@@ -129,7 +129,17 @@ pub enum EntityLot {
 
 // The different possible states of a seen item.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
+    Eq,
+    Enum,
+    Copy,
+    Debug,
+    Clone,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -144,18 +154,18 @@ pub enum SeenState {
 }
 
 #[derive(
+    Eq,
+    Enum,
+    Copy,
     Debug,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
     Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -169,17 +179,17 @@ pub enum Visibility {
 }
 
 #[derive(
+    Eq,
+    Enum,
+    Copy,
     Debug,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
     Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -187,19 +197,20 @@ pub enum Visibility {
     rename_all = "snake_case"
 )]
 pub enum ImportSource {
-    Audiobookshelf,
-    GenericJson,
-    Goodreads,
     Igdb,
     Imdb,
-    Jellyfin,
-    Mal,
+    Plex,
+    Trakt,
     Movary,
-    MediaTracker,
+    Jellyfin,
     OpenScale,
     StrongApp,
-    StoryGraph,
-    Trakt,
+    Goodreads,
+    Storygraph,
+    Myanimelist,
+    GenericJson,
+    Mediatracker,
+    Audiobookshelf,
 }
 
 #[derive(
@@ -305,7 +316,17 @@ pub enum ExerciseLevel {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
+    Eq,
+    Hash,
+    Enum,
+    Copy,
+    Debug,
+    Clone,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -391,17 +412,18 @@ pub enum ExerciseLot {
 }
 
 #[derive(
-    Default,
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    DeriveActiveEnum,
     Eq,
-    PartialEq,
     Enum,
     Copy,
+    Hash,
+    Debug,
+    Clone,
+    Default,
     EnumIter,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -412,6 +434,31 @@ pub enum ExerciseSource {
     Github,
     #[default]
     Custom,
+}
+
+/// The different types of personal bests that can be achieved on a set.
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Enum,
+    Copy,
+    Default,
+    ConfigEnum,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkoutSetPersonalBest {
+    #[default]
+    Weight,
+    OneRm,
+    Volume,
+    Time,
+    Pace,
+    Reps,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]

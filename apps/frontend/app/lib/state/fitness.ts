@@ -262,6 +262,10 @@ const measurementsDrawerOpenAtom = atom(false);
 export const useMeasurementsDrawerOpen = () =>
 	useAtom(measurementsDrawerOpenAtom);
 
+export const mergingExerciseAtom = atom<string | null>(null);
+
+export const useMergingExercise = () => useAtom(mergingExerciseAtom);
+
 export const duplicateOldWorkout = async (
 	name: string,
 	fitnessEntity: FitnessAction,

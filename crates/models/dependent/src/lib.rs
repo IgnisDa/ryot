@@ -5,13 +5,16 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::UserToMediaReason;
+use enums::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
+};
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
     EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
+    ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
     MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
@@ -19,6 +22,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
@@ -67,7 +71,7 @@ pub struct ImportOrExportWorkoutTemplateItem {
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Option<Vec<media_models::ImportOrExportMediaItem>>,
+    pub media: Option<Vec<media_models::ImportOrExportMetadataItem>>,
     /// Data about user's people.
     pub people: Option<Vec<media_models::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
@@ -75,7 +79,7 @@ pub struct CompleteExport {
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
     /// Data about user's media groups.
-    pub media_groups: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+    pub media_groups: Option<Vec<media_models::ImportOrExportMetadataGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's workout templates.
@@ -147,6 +151,45 @@ pub struct MetadataBaseData {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParametersLotMapping {
+    pub lot: ExerciseLot,
+    pub bests: Vec<WorkoutSetPersonalBest>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseFilters {
+    #[graphql(name = "type")]
+    pub lot: Vec<ExerciseLot>,
+    pub level: Vec<ExerciseLevel>,
+    pub force: Vec<ExerciseForce>,
+    pub mechanic: Vec<ExerciseMechanic>,
+    pub equipment: Vec<ExerciseEquipment>,
+    pub muscle: Vec<ExerciseMuscle>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParameters {
+    /// All filters applicable to an exercises query.
+    pub filters: ExerciseFilters,
+    pub download_required: bool,
+    /// Exercise type mapped to the personal bests possible.
+    pub lot_mapping: Vec<ExerciseParametersLotMapping>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct ProviderLanguageInformation {
+    pub source: MediaSource,
+    pub supported: Vec<String>,
+    pub default: String,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+pub struct MetadataLotSourceMappings {
+    pub lot: MediaLot,
+    pub sources: Vec<MediaSource>,
+}
+
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub is_pro: bool,
@@ -164,6 +207,9 @@ pub struct CoreDetails {
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
     pub backend_errors: Vec<BackendError>,
+    pub exercise_parameters: ExerciseParameters,
+    pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
+    pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
 }
 
 #[derive(SimpleObject)]
@@ -206,16 +252,24 @@ pub struct UserMetadataDetails {
     pub has_interacted: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Display, Clone, Serialize)]
+pub enum ImportCompletedItem {
+    #[default]
+    Empty,
+    Workout(UserWorkoutInput),
+    Exercise(exercise::Model),
+    Person(ImportOrExportPersonItem),
+    Metadata(ImportOrExportMetadataItem),
+    Measurement(user_measurement::Model),
+    Collection(CreateOrUpdateCollectionInput),
+    MetadataGroup(ImportOrExportMetadataGroupItem),
+    ApplicationWorkout(ImportOrExportWorkoutItem),
+}
+
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct ImportResult {
-    pub workouts: Vec<UserWorkoutInput>,
-    pub failed_items: Vec<ImportFailedItem>,
-    pub metadata: Vec<ImportOrExportMediaItem>,
-    pub people: Vec<ImportOrExportPersonItem>,
-    pub measurements: Vec<user_measurement::Model>,
-    pub metadata_groups: Vec<ImportOrExportMediaGroupItem>,
-    pub collections: Vec<CreateOrUpdateCollectionInput>,
-    pub application_workouts: Vec<ImportOrExportWorkoutItem>,
+    pub failed: Vec<ImportFailedItem>,
+    pub completed: Vec<ImportCompletedItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

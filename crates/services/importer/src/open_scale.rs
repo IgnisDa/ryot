@@ -2,7 +2,7 @@ use async_graphql::Result;
 use chrono::NaiveDateTime;
 use csv::ReaderBuilder;
 use database_models::user_measurement;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use fitness_models::UserMeasurementStats;
 use itertools::Itertools;
 use media_models::DeployGenericCsvImportInput;
@@ -40,8 +40,8 @@ pub async fn import(
     input: DeployGenericCsvImportInput,
     timezone: &chrono_tz::Tz,
 ) -> Result<ImportResult> {
-    let mut measurements = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let ratings_reader = ReaderBuilder::new()
         .from_path(input.csv_path)
         .unwrap()
@@ -51,7 +51,7 @@ pub async fn import(
         let record: Record = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -63,7 +63,7 @@ pub async fn import(
         let ndt = NaiveDateTime::parse_from_str(&record.date_time, "%Y-%m-%d %H:%M")
             .expect("Failed to parse input string");
         let timestamp = utils::get_date_time_with_offset(ndt, timezone);
-        measurements.push(user_measurement::Model {
+        completed.push(ImportCompletedItem::Measurement(user_measurement::Model {
             timestamp,
             user_id: "".to_string(),
             name: None,
@@ -88,11 +88,7 @@ pub async fn import(
                 total_body_water: record.water,
                 ..Default::default()
             },
-        });
+        }));
     }
-    Ok(ImportResult {
-        measurements,
-        failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }

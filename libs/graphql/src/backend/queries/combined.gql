@@ -17,14 +17,6 @@ query GetPresignedS3Url($key: String!) {
 	getPresignedS3Url(key: $key)
 }
 
-query ProvidersLanguageInformation {
-	providersLanguageInformation {
-		supported
-		default
-		source
-	}
-}
-
 query UserExports {
 	userExports {
 		url
@@ -175,6 +167,351 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
 			movieCount
 			videoGameCount
 			visualNovelCount
+		}
+	}
+}
+
+query ExerciseDetails($exerciseId: String!) {
+	exerciseDetails(exerciseId: $exerciseId) {
+		id
+		lot
+		source
+		level
+		force
+		mechanic
+		equipment
+		muscles
+		createdByUserId
+		attributes {
+			instructions
+			images
+		}
+	}
+}
+
+query ExercisesList($input: ExercisesListInput!) {
+	exercisesList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			lot
+			image
+			muscle
+			numTimesInteracted
+			lastUpdatedOn
+		}
+	}
+}
+
+query ImportReports {
+	importReports {
+		id
+		source
+		progress
+		startedOn
+		finishedOn
+		wasSuccess
+		details {
+			import {
+				total
+			}
+			failedItems {
+				lot
+				step
+				error
+				identifier
+			}
+		}
+	}
+}
+
+query GenresList($input: SearchInput!) {
+	genresList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			name
+			numItems
+		}
+	}
+}
+
+query GenreDetails($input: GenreDetailsInput!) {
+	genreDetails(input: $input) {
+		details {
+			id
+			name
+			numItems
+		}
+		contents {
+			details {
+				total
+				nextPage
+			}
+			items
+		}
+	}
+}
+
+query CollectionContents($input: CollectionContentsInput!) {
+	collectionContents(input: $input) {
+		user {
+			id
+			name
+		}
+		reviews {
+			...ReviewItemPart
+		}
+		results {
+			details {
+				total
+				nextPage
+			}
+			items {
+				entityId
+				entityLot
+			}
+		}
+		details {
+			name
+			description
+			createdOn
+		}
+	}
+}
+
+query CoreDetails {
+	coreDetails {
+		isPro
+		version
+		docsLink
+		pageSize
+		websiteUrl
+		smtpEnabled
+		oidcEnabled
+		signupAllowed
+		repositoryLink
+		disableTelemetry
+		tokenValidForDays
+		localAuthDisabled
+		fileStorageEnabled
+		metadataLotSourceMappings {
+			lot
+			sources
+		}
+		metadataProviderLanguages {
+			source
+			default
+			supported
+		}
+		frontend {
+			url
+			oidcButtonLabel
+			dashboardMessage
+			umami {
+				domains
+				scriptUrl
+				websiteId
+			}
+		}
+		exerciseParameters {
+			downloadRequired
+			filters {
+				type
+				level
+				force
+				mechanic
+				equipment
+				muscle
+			}
+			lotMapping {
+				lot
+				bests
+			}
+		}
+	}
+}
+
+query MetadataGroupDetails($metadataGroupId: String!) {
+	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		contents
+		sourceUrl
+		details {
+			id
+			title
+			lot
+			source
+			displayImages
+			identifier
+			parts
+			isPartial
+		}
+	}
+}
+
+query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
+	metadataGroupSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			identifier
+			name
+			image
+			parts
+		}
+	}
+}
+
+query MetadataList($input: MetadataListInput!) {
+	metadataList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items
+	}
+}
+
+query MetadataSearch($input: MetadataSearchInput!) {
+	metadataSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			databaseId
+			hasInteracted
+			item {
+				identifier
+				title
+				image
+				publishYear
+			}
+		}
+	}
+}
+
+query PeopleSearch($input: PeopleSearchInput!) {
+	peopleSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			identifier
+			name
+			image
+			birthYear
+		}
+	}
+}
+
+query UserMetadataGroupDetails($metadataGroupId: String!) {
+	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		reviews {
+			...ReviewItemPart
+		}
+		collections {
+			...CollectionPart
+		}
+	}
+}
+
+query UserPersonDetails($personId: String!) {
+	userPersonDetails(personId: $personId) {
+		collections {
+			...CollectionPart
+		}
+		reviews {
+			...ReviewItemPart
+		}
+	}
+}
+
+query UserWorkoutDetails($workoutId: String!) {
+	userWorkoutDetails(workoutId: $workoutId) {
+		collections {
+			...CollectionPart
+		}
+		details {
+			id
+			name
+			endTime
+			duration
+			startTime
+			templateId
+			repeatedFrom
+			summary {
+				...WorkoutSummaryPart
+			}
+			information {
+				...WorkoutInformationPart
+			}
+		}
+	}
+}
+
+query UserWorkoutsList($input: SearchInput!) {
+	userWorkoutsList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			name
+			endTime
+			duration
+			startTime
+			summary {
+				...WorkoutSummaryPart
+			}
+		}
+	}
+}
+
+query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
+	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
+		collections {
+			...CollectionPart
+		}
+		details {
+			id
+			name
+			createdOn
+			visibility
+			summary {
+				...WorkoutSummaryPart
+			}
+			information {
+				...WorkoutInformationPart
+			}
+		}
+	}
+}
+
+query UserWorkoutTemplatesList($input: SearchInput!) {
+	userWorkoutTemplatesList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			name
+			createdOn
+			visibility
+			summary {
+				...WorkoutSummaryPart
+			}
 		}
 	}
 }
