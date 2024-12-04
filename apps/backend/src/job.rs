@@ -11,7 +11,7 @@ use media_models::CommitMediaInput;
 use miscellaneous_service::MiscellaneousService;
 use statistics_service::StatisticsService;
 
-pub async fn background_jobs(
+pub async fn run_background_jobs(
     information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
@@ -20,7 +20,7 @@ pub async fn background_jobs(
     Ok(())
 }
 
-pub async fn sync_integrations_data(
+pub async fn run_frequent_jobs(
     _information: ScheduledJob,
     integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {

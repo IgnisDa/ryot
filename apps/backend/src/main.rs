@@ -40,8 +40,8 @@ use unkey::{models::VerifyKeyRequest, Client};
 use crate::{
     common::create_app_services,
     job::{
-        background_jobs, perform_application_job, perform_core_application_job,
-        sync_integrations_data,
+        perform_application_job, perform_core_application_job, run_background_jobs,
+        run_frequent_jobs,
     },
 };
 
@@ -210,7 +210,7 @@ async fn main() -> Result<()> {
     let monitor = Monitor::<TokioExecutor>::new()
         .register_with_count(
             1,
-            WorkerBuilder::new("background_jobs")
+            WorkerBuilder::new("daily_background_jobs")
                 .stream(
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz)
@@ -218,11 +218,11 @@ async fn main() -> Result<()> {
                 )
                 .layer(ApalisTraceLayer::new())
                 .data(miscellaneous_service_1.clone())
-                .build_fn(background_jobs),
+                .build_fn(run_background_jobs),
         )
         .register_with_count(
             1,
-            WorkerBuilder::new("sync_integrations_data")
+            WorkerBuilder::new("frequent_jobs")
                 .stream(
                     CronStream::new_with_timezone(
                         Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
@@ -232,7 +232,7 @@ async fn main() -> Result<()> {
                 )
                 .layer(ApalisTraceLayer::new())
                 .data(integration_service_1.clone())
-                .build_fn(sync_integrations_data),
+                .build_fn(run_frequent_jobs),
         )
         // application jobs
         .register_with_count(
