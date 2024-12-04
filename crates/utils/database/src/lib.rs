@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
@@ -909,9 +912,9 @@ pub async fn schedule_user_for_workout_revision(
         .await?
     {
         Some(ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions)) => revisions,
-        _ => HashMap::new(),
+        _ => HashSet::new(),
     };
-    revisions.insert(user_id.to_owned(), Utc::now());
+    revisions.insert(user_id.to_owned());
     ss.cache_service
         .set_with_expiry(
             ApplicationCacheKey::UsersScheduledForWorkoutRevision,

@@ -3,7 +3,9 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
-use common_models::{SearchDetails, SearchInput, StoredUrl};
+use common_models::{
+    ApplicationCacheKey, ApplicationCacheValue, SearchDetails, SearchInput, StoredUrl,
+};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
     collection_to_entity, exercise,
@@ -791,6 +793,18 @@ impl FitnessService {
     }
 
     pub async fn process_users_scheduled_for_workout_revision(&self) -> Result<()> {
+        let cs = &self.0.cache_service;
+        let Some(ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions)) = cs
+            .get_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
+            .await?
+        else {
+            return Ok(());
+        };
+        for user_id in revisions {
+            self.revise_user_workouts(user_id).await?;
+        }
+        cs.expire_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
+            .await?;
         Ok(())
     }
 }

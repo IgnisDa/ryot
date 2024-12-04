@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
@@ -321,6 +321,6 @@ pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
     FitnessAnalytics(FitnessAnalytics),
     IgdbSettings { access_token: String },
+    UsersScheduledForWorkoutRevision(HashSet<String>),
     ListennotesSettings { genres: HashMap<i32, String> },
-    UsersScheduledForWorkoutRevision(HashMap<String, DateTimeUtc>),
 }
