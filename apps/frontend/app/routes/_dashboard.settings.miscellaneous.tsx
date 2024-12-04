@@ -163,7 +163,7 @@ export default function Page() {
 								{...btnProps}
 								value={BackgroundJob.ReviseUserWorkouts}
 							>
-								Re-evaluate workouts
+								Revise workouts
 							</Button>
 						</Stack>
 						<Stack>
