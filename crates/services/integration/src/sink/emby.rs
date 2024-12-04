@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
-use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
@@ -90,11 +90,11 @@ impl EmbySinkIntegration {
                 _ => bail!("Only movies and shows supported"),
             };
         Ok(ImportResult {
-            metadata: vec![ImportOrExportMediaItem {
+            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMediaItemSeen {
+                seen_history: vec![ImportOrExportMetadataItemSeen {
                     provider_watched_on: Some("Emby".to_string()),
                     progress: Some(position / runtime * dec!(100)),
                     show_season_number: payload.item.season_number,
@@ -102,7 +102,7 @@ impl EmbySinkIntegration {
                     ..Default::default()
                 }],
                 ..Default::default()
-            }],
+            })],
             ..Default::default()
         })
     }

@@ -13,15 +13,17 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(
+    Eq,
+    Hash,
     Clone,
     Debug,
+    Default,
     PartialEq,
-    DeriveEntityModel,
-    Eq,
     Serialize,
+    InputObject,
     Deserialize,
     SimpleObject,
-    InputObject,
+    DeriveEntityModel,
 )]
 #[sea_orm(table_name = "exercise")]
 #[graphql(name = "Exercise", input_name = "ExerciseInput")]

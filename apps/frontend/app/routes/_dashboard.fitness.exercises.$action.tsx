@@ -44,6 +44,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { getExerciseDetailsPath } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -115,11 +116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						CreateCustomExerciseDocument,
 						{ input },
 					);
-				return redirect(
-					$path("/fitness/exercises/item/:id", {
-						id: encodeURIComponent(createCustomExercise),
-					}),
-				);
+				return redirect(getExerciseDetailsPath(createCustomExercise));
 			})
 			.with(Action.Update, async () => {
 				invariant(submission.oldName);

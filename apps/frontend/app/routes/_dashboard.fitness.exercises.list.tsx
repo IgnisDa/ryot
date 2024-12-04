@@ -21,8 +21,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Link, useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
 import {
 	ExerciseEquipment,
 	ExerciseForce,
@@ -32,8 +36,15 @@ import {
 	ExerciseMuscle,
 	ExerciseSortBy,
 	ExercisesListDocument,
+	MergeExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	isNumber,
+	processSubmission,
+	snakeCase,
+	startCase,
+} from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconCheck,
@@ -42,22 +53,34 @@ import {
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import { $path } from "remix-routes";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
-import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import { confirmWrapper } from "~/components/confirmation";
+import {
+	dayjsLib,
+	getExerciseDetailsPath,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
-	getCachedExerciseParameters,
+	addExerciseToWorkout,
+	useCurrentWorkout,
+	useMergingExercise,
+} from "~/lib/state/fitness";
+import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
+	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -93,8 +116,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
-	const [exerciseParameters, { exercisesList }] = await Promise.all([
-		getCachedExerciseParameters(),
+	const [{ exercisesList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request.clone(),
 			ExercisesListDocument,
@@ -120,25 +142,46 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		exercisesList.details.total,
 		query[pageQueryParam],
 	);
-	return {
-		query,
-		totalPages,
-		cookieName,
-		exercisesList,
-		exerciseParameters,
-	};
+	return { query, totalPages, cookieName, exercisesList };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Exercises | Ryot" }];
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("mergeExercise", async () => {
+			const submission = processSubmission(formData, mergeExerciseSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				MergeExerciseDocument,
+				submission,
+			);
+			return redirectWithToast(getExerciseDetailsPath(submission.mergeInto), {
+				type: "success",
+				message: "Exercise merged successfully",
+			});
+		})
+		.run();
+};
+
+const mergeExerciseSchema = z.object({
+	mergeFrom: z.string(),
+	mergeInto: z.string(),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const submit = useSubmit();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
+	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -175,13 +218,13 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				{loaderData.exerciseParameters.downloadRequired ? (
+				{coreDetails.exerciseParameters.downloadRequired ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						Please deploy a job to download the exercise dataset from the{" "}
 						<Anchor
+							size="sm"
 							component={Link}
 							to={$path("/settings/miscellaneous")}
-							size="sm"
 						>
 							miscellaneous settings
 						</Anchor>
@@ -209,6 +252,20 @@ export default function Page() {
 								<FiltersModalForm />
 							</FiltersModal>
 						</Group>
+						{currentWorkout?.replacingExerciseIdx ? (
+							<Alert icon={<IconAlertCircle />}>
+								You are replacing exercise:{" "}
+								{
+									currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
+										.exerciseId
+								}
+							</Alert>
+						) : null}
+						{mergingExercise ? (
+							<Alert icon={<IconAlertCircle />}>
+								You are merging exercise: {mergingExercise}
+							</Alert>
+						) : null}
 						{loaderData.exercisesList.details.total > 0 ? (
 							<>
 								<Box>
@@ -266,8 +323,30 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
-												onClick={(e) => {
+												style={{ all: "unset", cursor: "pointer" }}
+												to={getExerciseDetailsPath(exercise.id)}
+												onClick={async (e) => {
 													if (allowAddingExerciseToWorkout) return;
+													if (mergingExercise) {
+														e.preventDefault();
+														const conf = await confirmWrapper({
+															confirmation:
+																"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+														});
+														if (conf) {
+															const formData = new FormData();
+															formData.append("mergeFrom", mergingExercise);
+															formData.append("mergeInto", exercise.id);
+															setMergingExercise(null);
+															submit(formData, {
+																method: "POST",
+																action: withQuery(".", {
+																	intent: "mergeExercise",
+																}),
+															});
+														}
+														return;
+													}
 													if (currentWorkout) {
 														e.preventDefault();
 														setCurrentWorkout(
@@ -283,12 +362,9 @@ export default function Page() {
 															}),
 														);
 														navigate(-1);
+														return;
 													}
 												}}
-												style={{ all: "unset", cursor: "pointer" }}
-												to={$path("/fitness/exercises/item/:id", {
-													id: encodeURIComponent(exercise.id),
-												})}
 											>
 												<Flex direction="column" justify="space-around">
 													<Text>{exercise.id}</Text>
@@ -355,6 +431,7 @@ export default function Page() {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
@@ -377,13 +454,13 @@ const FiltersModalForm = () => {
 					onChange={(v) => setP("sortBy", v)}
 				/>
 				{Object.keys(defaultFiltersValue)
-					.filter((f) => f !== "sortBy" && f !== "order" && f !== "collection")
+					.filter((f) => !["sortBy", "order", "collection"].includes(f))
 					.map((f) => (
 						<Select
 							key={f}
 							clearable
 							// biome-ignore lint/suspicious/noExplicitAny: required here
-							data={(loaderData.exerciseParameters.filters as any)[f].map(
+							data={(coreDetails.exerciseParameters.filters as any)[f].map(
 								// biome-ignore lint/suspicious/noExplicitAny: required here
 								(v: any) => ({
 									label: startCase(snakeCase(v)),

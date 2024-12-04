@@ -1,11 +1,11 @@
 use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{ryot_log, USER_AGENT_STR};
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
-    ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
 use providers::openlibrary::get_key;
 use reqwest::{
@@ -18,7 +18,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -146,17 +146,6 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .unwrap();
     let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
-    let collections = lists
-        .iter()
-        .map(|l| CreateOrUpdateCollectionInput {
-            name: l.name.clone(),
-            description: l.description.as_ref().and_then(|s| match s.as_str() {
-                "" => None,
-                x => Some(x.to_owned()),
-            }),
-            ..Default::default()
-        })
-        .collect();
     for list in lists.iter_mut() {
         let rsp = client
             .get(format!("{}/list/items", url))
@@ -168,7 +157,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         list.items = items;
     }
 
-    let mut failed_items = vec![];
+    let mut failed = vec![];
 
     // all items returned here are seen at least once
     let rsp = client.get(format!("{}/items", url)).send().await.unwrap();
@@ -193,10 +182,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     let data_len = data.len();
 
-    let mut final_data = vec![];
+    let mut completed = vec![];
     for (idx, d) in data.into_iter().enumerate() {
         let Some(media_type) = d.media_type else {
-            failed_items.push(ImportFailedItem {
+            failed.push(ImportFailedItem {
                 lot: None,
                 step: ImportFailStep::ItemDetailsFromSource,
                 identifier: d.id.to_string(),
@@ -214,7 +203,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             Ok(s) => s,
             Err(e) => {
                 ryot_log!(error, "Encountered error for id = {id:?}: {e:?}", id = d.id);
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: d.id.to_string(),
@@ -226,7 +215,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    failed_items.push(ImportFailedItem {
+                    failed.push(ImportFailedItem {
                         lot: Some(lot),
                         step: ImportFailStep::ItemDetailsFromSource,
                         identifier: d.id.to_string(),
@@ -264,7 +253,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             }
         }
 
-        let item = ImportOrExportMediaItem {
+        let item = ImportOrExportMetadataItem {
             source_id: d.id.to_string(),
             source,
             lot,
@@ -302,22 +291,27 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     } else {
                         (None, None)
                     };
-                    ImportOrExportMediaItemSeen {
+                    ImportOrExportMetadataItemSeen {
                         ended_on: s.date.map(|d| d.date_naive()),
                         show_season_number: season_number,
                         show_episode_number: episode_number,
-                        provider_watched_on: Some(ImportSource::MediaTracker.to_string()),
+                        provider_watched_on: Some(ImportSource::Mediatracker.to_string()),
                         ..Default::default()
                     }
                 })
                 .collect(),
         };
-        final_data.push(item);
+        completed.push(ImportCompletedItem::Metadata(item));
     }
-    Ok(ImportResult {
-        metadata: final_data,
-        failed_items,
-        collections,
-        ..Default::default()
-    })
+    completed.extend(lists.iter().map(|l| {
+        ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
+            name: l.name.clone(),
+            description: l.description.as_ref().and_then(|s| match s.as_str() {
+                "" => None,
+                x => Some(x.to_owned()),
+            }),
+            ..Default::default()
+        })
+    }));
+    Ok(ImportResult { completed, failed })
 }

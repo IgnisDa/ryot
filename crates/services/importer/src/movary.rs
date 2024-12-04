@@ -3,17 +3,17 @@ use chrono::NaiveDate;
 use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,13 +43,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
     let lot = MediaLot::Movie;
     let source = MediaSource::Tmdb;
     let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut failed = vec![];
     let mut ratings_reader = Reader::from_path(input.ratings).unwrap();
     for (idx, result) in ratings_reader.deserialize().enumerate() {
         let record: Rating = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -58,7 +58,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             source_id: record.common.title.clone(),
             lot,
             source,
@@ -76,7 +76,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let record: Common = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -85,7 +85,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        media.push(ImportOrExportMetadataItem {
             source_id: record.title.clone(),
             lot,
             source,
@@ -99,7 +99,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let record: History = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -109,7 +109,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             }
         };
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
-        let seen_item = ImportOrExportMediaItemSeen {
+        let seen_item = ImportOrExportMetadataItemSeen {
             started_on: None,
             ended_on: watched_at.map(|d| d.date_naive()),
             provider_watched_on: Some(ImportSource::Movary.to_string()),
@@ -144,7 +144,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                     ..Default::default()
                 })
             }
-            media.push(ImportOrExportMediaItem {
+            media.push(ImportOrExportMetadataItem {
                 source_id: record.common.title.clone(),
                 lot,
                 source,
@@ -156,8 +156,10 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         }
     }
     Ok(ImportResult {
-        metadata: media,
-        failed_items,
-        ..Default::default()
+        failed,
+        completed: media
+            .into_iter()
+            .map(ImportCompletedItem::Metadata)
+            .collect(),
     })
 }

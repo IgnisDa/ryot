@@ -7,14 +7,16 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum ImportReport {
-    Table,
     Id,
+    Table,
     UserId,
-    StartedOn,
-    FinishedOn,
     Source,
     Details,
+    Progress,
+    StartedOn,
+    FinishedOn,
     WasSuccess,
+    SourceResult,
 }
 
 #[async_trait::async_trait]
@@ -41,6 +43,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ImportReport::WasSuccess).boolean())
                     .col(ColumnDef::new(ImportReport::Details).json_binary())
                     .col(ColumnDef::new(ImportReport::UserId).text().not_null())
+                    .col(ColumnDef::new(ImportReport::Progress).decimal())
+                    .col(ColumnDef::new(ImportReport::SourceResult).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")

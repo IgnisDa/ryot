@@ -1,10 +1,12 @@
 use async_graphql::Result;
 use common_models::DefaultCollection;
 use csv::Reader;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployIgdbImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{
+    DeployIgdbImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+};
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
@@ -20,18 +22,18 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
     let lot = MediaLot::VideoGame;
     let source = MediaSource::Igdb;
     let collection = input.collection;
-    let mut media = vec![];
-    let mut failed_items = vec![];
+    let mut completed = vec![];
+    let mut failed = vec![];
     let items = Reader::from_path(input.csv_path)
         .unwrap()
         .deserialize()
         .collect_vec();
     let seen_history = if collection == DefaultCollection::Completed.to_string() {
-        vec![ImportOrExportMediaItemSeen {
+        vec![ImportOrExportMetadataItemSeen {
             ..Default::default()
         }]
     } else if collection == DefaultCollection::InProgress.to_string() {
-        vec![ImportOrExportMediaItemSeen {
+        vec![ImportOrExportMetadataItemSeen {
             progress: Some(dec!(5)),
             ..Default::default()
         }]
@@ -42,7 +44,7 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
         let record: Item = match result {
             Ok(r) => r,
             Err(e) => {
-                failed_items.push(ImportFailedItem {
+                failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::InputTransformation,
                     identifier: idx.to_string(),
@@ -51,19 +53,15 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
                 continue;
             }
         };
-        media.push(ImportOrExportMediaItem {
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,
-            source_id: record.game,
             identifier: record.id,
+            source_id: record.game,
             seen_history: seen_history.clone(),
             collections: vec![collection.clone()],
             ..Default::default()
-        });
+        }));
     }
-    Ok(ImportResult {
-        metadata: media,
-        failed_items,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }

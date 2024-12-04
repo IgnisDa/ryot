@@ -16,6 +16,7 @@ import isEqual from "lodash/isEqual";
 import isInteger from "lodash/isInteger";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
+import kebabCase from "lodash/kebabCase";
 import mapValues from "lodash/mapValues";
 import mergeWith from "lodash/mergeWith";
 import omitBy from "lodash/omitBy";
@@ -100,6 +101,7 @@ export {
 	isInteger,
 	isNumber,
 	isString,
+	kebabCase,
 	mapValues,
 	mergeWith,
 	omitBy,

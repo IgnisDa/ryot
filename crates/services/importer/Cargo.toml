@@ -11,8 +11,8 @@ background = { path = "../../background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 convert_case = { workspace = true }
-csv = "=1.3.0"
-data-encoding = "=2.6.0"
+csv = { workspace = true }
+data-encoding = { workspace = true }
 enum_meta = { workspace = true }
 env-utils = { path = "../../utils/env" }
 external-utils = { path = "../../utils/external" }
@@ -23,12 +23,13 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
 fitness-models = { path = "../../models/fitness" }
-flate2 = "=1.0.34"
+flate2 = { workspace = true }
 importer-models = { path = "../../models/importer" }
+indexmap = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+nanoid = { workspace = true }
 providers = { path = "../../providers" }
-regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
@@ -36,7 +37,7 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-serde-xml-rs = "=0.6.0"
+serde-xml-rs = { workspace = true }
 specific-models = { path = "../../models/specific" }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }

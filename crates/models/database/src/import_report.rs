@@ -17,9 +17,12 @@ pub struct Model {
     pub user_id: String,
     pub source: ImportSource,
     pub started_on: DateTimeUtc,
+    pub progress: Option<Decimal>,
+    pub was_success: Option<bool>,
     pub finished_on: Option<DateTimeUtc>,
     pub details: Option<ImportResultResponse>,
-    pub was_success: Option<bool>,
+    #[graphql(skip)]
+    pub source_result: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

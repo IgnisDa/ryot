@@ -1,7 +1,7 @@
 use std::fs;
 
 use async_graphql::Result;
-use dependent_models::{CompleteExport, ImportResult};
+use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 use enums::ImportSource;
 use itertools::Itertools;
 use media_models::DeployJsonImportInput;
@@ -22,12 +22,24 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         })
         .collect_vec();
 
+    let mut completed = vec![];
+    for media in media {
+        completed.push(ImportCompletedItem::Metadata(media));
+    }
+    for people in complete_data.people.unwrap_or_default() {
+        completed.push(ImportCompletedItem::Person(people));
+    }
+    for measurement in complete_data.measurements.unwrap_or_default() {
+        completed.push(ImportCompletedItem::Measurement(measurement));
+    }
+    for workout in complete_data.workouts.unwrap_or_default() {
+        completed.push(ImportCompletedItem::ApplicationWorkout(workout));
+    }
+    for media_group in complete_data.media_groups.unwrap_or_default() {
+        completed.push(ImportCompletedItem::MetadataGroup(media_group));
+    }
     Ok(ImportResult {
-        metadata: media,
-        people: complete_data.people.unwrap_or_default(),
-        metadata_groups: complete_data.media_groups.unwrap_or_default(),
-        measurements: complete_data.measurements.unwrap_or_default(),
-        application_workouts: complete_data.workouts.unwrap_or_default(),
+        completed,
         ..Default::default()
     })
 }

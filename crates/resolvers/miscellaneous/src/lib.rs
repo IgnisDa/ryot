@@ -12,8 +12,8 @@ use media_models::{
     GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupSearchInput,
     MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails,
     MetadataSearchInput, MetadataSearchItemResponse, PeopleListInput, PeopleSearchInput,
-    PeopleSearchItem, ProgressUpdateInput, ProviderLanguageInformation, UpdateSeenItemInput,
-    UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    PeopleSearchItem, ProgressUpdateInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -26,7 +26,7 @@ impl AuthProvider for MiscellaneousQuery {}
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
-    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
     }
@@ -122,15 +122,6 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_groups_list(user_id, input).await
-    }
-
-    /// Get all languages supported by all the providers.
-    async fn providers_language_information(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Vec<ProviderLanguageInformation> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.providers_language_information()
     }
 
     /// Get details that can be displayed to a user for a metadata group.

@@ -6,13 +6,13 @@ use std::{
 use async_graphql::Result;
 use chrono::NaiveDate;
 use common_utils::convert_string_to_date;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 use media_models::{
-    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen,
+    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -27,15 +27,18 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         .manga_path
         .map(|p| decode_data::<DataRoot>(&p).unwrap())
         .unwrap_or_default();
-    let mut media = vec![];
+    let mut metadata = vec![];
     for item in anime_data.items.into_iter() {
-        media.push(convert_to_format(item, MediaLot::Anime));
+        metadata.push(convert_to_format(item, MediaLot::Anime));
     }
     for item in manga_data.items.into_iter() {
-        media.push(convert_to_format(item, MediaLot::Manga));
+        metadata.push(convert_to_format(item, MediaLot::Manga));
     }
     Ok(ImportResult {
-        metadata: media,
+        completed: metadata
+            .into_iter()
+            .map(ImportCompletedItem::Metadata)
+            .collect(),
         ..Default::default()
     })
 }
@@ -60,7 +63,7 @@ fn get_date(date: String) -> Option<NaiveDate> {
     }
 }
 
-fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
+fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
     let seen_history = (1..item.done + 1)
         .map(|i| {
             let (anime_episode, manga_chapter) = match lot {
@@ -68,12 +71,12 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
                 MediaLot::Manga => (None, Some(Decimal::new(i as i64, 0))),
                 _ => unreachable!(),
             };
-            ImportOrExportMediaItemSeen {
+            ImportOrExportMetadataItemSeen {
                 started_on: get_date(item.my_start_date.clone()),
                 ended_on: get_date(item.my_finish_date.clone()),
                 anime_episode_number: anime_episode,
                 manga_chapter_number: manga_chapter,
-                provider_watched_on: Some(ImportSource::Mal.to_string()),
+                provider_watched_on: Some(ImportSource::Myanimelist.to_string()),
                 ..Default::default()
             }
         })
@@ -87,7 +90,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         },
         ..Default::default()
     };
-    ImportOrExportMediaItem {
+    ImportOrExportMetadataItem {
         lot,
         source: MediaSource::Mal,
         identifier: item.identifier.to_string(),

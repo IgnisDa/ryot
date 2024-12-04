@@ -8,7 +8,7 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserExerciseSettings,
+    ExerciseListItem, ExercisesListInput, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::ExerciseService;
@@ -44,12 +44,6 @@ impl ExerciseQuery {
         service
             .user_workout_template_details(user_id, workout_template_id)
             .await
-    }
-
-    /// Get all the parameters related to exercises.
-    async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseParameters> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.exercise_parameters().await
     }
 
     /// Get a paginated list of exercises in the database.
@@ -214,7 +208,7 @@ impl ExerciseMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_exercise(user_id, input).await
+        service.create_custom_exercise(&user_id, input).await
     }
 
     /// Update a custom exercise.
@@ -237,5 +231,19 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_exercise_settings(user_id, input).await
+    }
+
+    /// Merge an exercise into another.
+    async fn merge_exercise(
+        &self,
+        gql_ctx: &Context<'_>,
+        merge_from: String,
+        merge_into: String,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .merge_exercise(user_id, merge_from, merge_into)
+            .await
     }
 }

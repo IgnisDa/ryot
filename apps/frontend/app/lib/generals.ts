@@ -32,6 +32,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
@@ -382,9 +383,6 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	workoutDetails: (workoutId: string) => ({
 		queryKey: ["workoutDetails", workoutId],
 	}),
-	exerciseParameters: () => ({
-		queryKey: ["exerciseParameters"],
-	}),
 	workoutTemplateDetails: (workoutTemplateId: string) => ({
 		queryKey: ["workoutTemplateDetails", workoutTemplateId],
 	}),
@@ -452,3 +450,8 @@ export const refreshUserMetadataDetails = (metadataId: string) =>
 			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
 		});
 	}, 1500);
+
+export const getExerciseDetailsPath = (exerciseId: string) =>
+	$path("/fitness/exercises/item/:id", {
+		id: encodeURIComponent(exerciseId),
+	});

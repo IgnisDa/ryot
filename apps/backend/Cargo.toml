@@ -10,7 +10,7 @@ anyhow = { workspace = true }
 apalis = { workspace = true }
 application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.11"
+async-graphql-axum = { workspace = true }
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
@@ -23,7 +23,7 @@ common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
 database-models = { path = "../../crates/models/database" }
 dependent-models = { path = "../../crates/models/dependent" }
-dotenvy = "=0.15.7"
+dotenvy = { workspace = true }
 env-utils = { path = "../../crates/utils/env" }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
@@ -31,12 +31,12 @@ file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
 file-storage-service = { path = "../../crates/services/file-storage" }
 fitness-resolver = { path = "../../crates/resolvers/fitness" }
 fitness-service = { path = "../../crates/services/fitness" }
-http = "=1.1.0"
+http = { workspace = true }
 importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }
 integration-service = { path = "../../crates/services/integration" }
 itertools = { workspace = true }
-logs-wheel = "=0.3.1"
+logs-wheel = { workspace = true }
 media-models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
@@ -54,10 +54,10 @@ statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
 supporting-service = { path = "../../crates/services/supporting" }
 tokio = { workspace = true }
-tower = { version = "=0.4.13", features = ["buffer"] }
-tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
+tower = { workspace = true }
+tower-http = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = "=0.3.18"
-unkey = "=0.5.0"
+tracing-subscriber = { workspace = true }
+unkey = { workspace = true }
 user-resolver = { path = "../../crates/resolvers/user" }
 user-service = { path = "../../crates/services/user" }

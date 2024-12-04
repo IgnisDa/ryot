@@ -6,9 +6,9 @@ use async_graphql::Result as GqlResult;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::metadata;
-use dependent_models::ImportResult;
+use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
-use media_models::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use media_models::{CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
@@ -161,18 +161,20 @@ impl AudiobookshelfYankIntegration {
                     } else {
                         resp.progress
                     };
-                    result.metadata.push(ImportOrExportMediaItem {
-                        lot,
-                        source,
-                        identifier,
-                        seen_history: vec![ImportOrExportMediaItemSeen {
-                            podcast_episode_number,
-                            progress: Some(progress * dec!(100)),
-                            provider_watched_on: Some("Audiobookshelf".to_string()),
+                    result.completed.push(ImportCompletedItem::Metadata(
+                        ImportOrExportMetadataItem {
+                            lot,
+                            source,
+                            identifier,
+                            seen_history: vec![ImportOrExportMetadataItemSeen {
+                                podcast_episode_number,
+                                progress: Some(progress * dec!(100)),
+                                provider_watched_on: Some("Audiobookshelf".to_string()),
+                                ..Default::default()
+                            }],
                             ..Default::default()
-                        }],
-                        ..Default::default()
-                    });
+                        },
+                    ));
                 }
                 Err(e) => {
                     ryot_log!(debug, "Error getting progress for item {:?}: {:?}", item, e);
@@ -216,13 +218,15 @@ impl AudiobookshelfYankIntegration {
                         } else {
                             continue;
                         };
-                    result.metadata.push(ImportOrExportMediaItem {
-                        identifier,
-                        lot,
-                        source,
-                        collections: vec![DefaultCollection::Owned.to_string()],
-                        ..Default::default()
-                    });
+                    result.completed.push(ImportCompletedItem::Metadata(
+                        ImportOrExportMetadataItem {
+                            lot,
+                            source,
+                            identifier,
+                            collections: vec![DefaultCollection::Owned.to_string()],
+                            ..Default::default()
+                        },
+                    ));
                 }
             }
         }

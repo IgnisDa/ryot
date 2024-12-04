@@ -11,10 +11,13 @@ use dependent_utils::{
     get_tmdb_non_media_service, process_import,
 };
 use enums::{ImportSource, MediaSource};
-use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
-use media_models::{DeployImportJobInput, ImportOrExportMediaItem};
+use importer_models::{ImportFailStep, ImportFailedItem};
+use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use rust_decimal_macros::dec;
+use sea_orm::{
+    prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -24,11 +27,12 @@ mod goodreads;
 mod igdb;
 mod imdb;
 mod jellyfin;
-mod mal;
-mod media_tracker;
+mod mediatracker;
 mod movary;
+mod myanimelist;
 mod open_scale;
-mod story_graph;
+mod plex;
+mod storygraph;
 mod strong_app;
 mod trakt;
 
@@ -61,96 +65,104 @@ impl ImporterService {
         user_id: String,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
-        let db_import_job = self.start_import_job(&user_id, input.source).await?;
-        let import = match input.source {
-            ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), &self.0.timezone)
-                    .await
-                    .unwrap()
-            }
-            ImportSource::MediaTracker => media_tracker::import(input.url_and_key.unwrap())
-                .await
-                .unwrap(),
-            ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
-            ImportSource::Goodreads => goodreads::import(
-                input.generic_csv.unwrap(),
-                &get_google_books_service(&self.0.config).await.unwrap(),
-                &get_openlibrary_service(&self.0.config).await.unwrap(),
-            )
-            .await
-            .unwrap(),
-            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await.unwrap(),
-            ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
-            ImportSource::StoryGraph => story_graph::import(
-                input.generic_csv.unwrap(),
-                &get_google_books_service(&self.0.config).await.unwrap(),
-                &get_openlibrary_service(&self.0.config).await.unwrap(),
-            )
-            .await
-            .unwrap(),
-            ImportSource::Audiobookshelf => audiobookshelf::import(
-                input.url_and_key.unwrap(),
-                &get_google_books_service(&self.0.config).await.unwrap(),
-                &get_openlibrary_service(&self.0.config).await.unwrap(),
-                |input| commit_metadata(input, &self.0),
-            )
-            .await
-            .unwrap(),
-            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await.unwrap(),
-            ImportSource::Imdb => imdb::import(
-                input.generic_csv.unwrap(),
-                &get_tmdb_non_media_service(&self.0).await.unwrap(),
-            )
-            .await
-            .unwrap(),
-            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap())
-                .await
-                .unwrap(),
-            ImportSource::OpenScale => {
-                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone)
-                    .await
-                    .unwrap()
-            }
-            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
-        };
-        let details = process_import(&user_id, false, import, &self.0).await?;
-        self.finish_import_job(db_import_job, details).await?;
-        deploy_background_job(
-            &user_id,
-            BackgroundJob::CalculateUserActivitiesAndSummary,
-            &self.0,
-        )
-        .await
-        .trace_ok();
-        Ok(())
-    }
-
-    async fn start_import_job(
-        &self,
-        user_id: &String,
-        source: ImportSource,
-    ) -> Result<import_report::Model> {
         let model = import_report::ActiveModel {
+            source: ActiveValue::Set(input.source),
+            progress: ActiveValue::Set(Some(dec!(0))),
             user_id: ActiveValue::Set(user_id.to_owned()),
-            source: ActiveValue::Set(source),
             ..Default::default()
         };
-        let model = model.insert(&self.0.db).await.unwrap();
-        ryot_log!(debug, "Started import job with id = {id}", id = model.id);
-        Ok(model)
-    }
-
-    async fn finish_import_job(
-        &self,
-        job: import_report::Model,
-        details: ImportResultResponse,
-    ) -> Result<import_report::Model> {
-        let mut model: import_report::ActiveModel = job.into();
+        let db_import_job = model.insert(&self.0.db).await.unwrap();
+        let import_id = db_import_job.id.clone();
+        ryot_log!(debug, "Started import job with id {import_id}");
+        let maybe_import = match input.source {
+            ImportSource::StrongApp => strong_app::import(input.strong_app.unwrap(), &self.0).await,
+            ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
+            ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
+            ImportSource::Goodreads => {
+                goodreads::import(
+                    input.generic_csv.unwrap(),
+                    &get_google_books_service(&self.0.config).await.unwrap(),
+                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                )
+                .await
+            }
+            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await,
+            ImportSource::Movary => movary::import(input.movary.unwrap()).await,
+            ImportSource::Storygraph => {
+                storygraph::import(
+                    input.generic_csv.unwrap(),
+                    &get_google_books_service(&self.0.config).await.unwrap(),
+                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                )
+                .await
+            }
+            ImportSource::Audiobookshelf => {
+                audiobookshelf::import(
+                    input.url_and_key.unwrap(),
+                    &get_google_books_service(&self.0.config).await.unwrap(),
+                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                    |input| commit_metadata(input, &self.0),
+                )
+                .await
+            }
+            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await,
+            ImportSource::Imdb => {
+                imdb::import(
+                    input.generic_csv.unwrap(),
+                    &get_tmdb_non_media_service(&self.0).await.unwrap(),
+                )
+                .await
+            }
+            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap()).await,
+            ImportSource::OpenScale => {
+                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
+            }
+            ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
+            ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
+        };
+        let mut model: import_report::ActiveModel = db_import_job.into();
+        match maybe_import {
+            Ok(import) => {
+                match process_import(&user_id, false, import, &self.0, |progress| {
+                    let id = import_id.clone();
+                    async move {
+                        ImportReport::update_many()
+                            .filter(import_report::Column::Id.eq(id.clone()))
+                            .col_expr(import_report::Column::Progress, Expr::value(progress))
+                            .exec(&self.0.db)
+                            .await?;
+                        Ok(())
+                    }
+                })
+                .await
+                {
+                    Ok((source_result, details)) => {
+                        model.source_result =
+                            ActiveValue::Set(Some(serde_json::to_value(&source_result)?));
+                        model.details = ActiveValue::Set(Some(details));
+                        model.was_success = ActiveValue::Set(Some(true));
+                        deploy_background_job(
+                            &user_id,
+                            BackgroundJob::CalculateUserActivitiesAndSummary,
+                            &self.0,
+                        )
+                        .await
+                        .trace_ok();
+                    }
+                    Err(e) => {
+                        ryot_log!(debug, "Error while importing: {:?}", e);
+                        model.was_success = ActiveValue::Set(Some(false));
+                    }
+                }
+            }
+            Err(e) => {
+                ryot_log!(debug, "Error while importing: {:?}", e);
+                model.was_success = ActiveValue::Set(Some(false));
+            }
+        }
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
-        model.details = ActiveValue::Set(Some(details));
-        model.was_success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.0.db).await.unwrap();
-        Ok(model)
+        model.update(&self.0.db).await.trace_ok();
+        Ok(())
     }
 }
 
