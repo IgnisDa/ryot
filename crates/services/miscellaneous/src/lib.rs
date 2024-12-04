@@ -836,9 +836,12 @@ ORDER BY RANDOM() LIMIT 10;
         let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
+        let recently_consumed =
+            get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
+            recently_consumed,
         })
     }
 
@@ -862,9 +865,17 @@ ORDER BY RANDOM() LIMIT 10;
             &self.0,
         )
         .await?;
+        let recently_consumed = get_entity_recently_consumed(
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+            &self.0,
+        )
+        .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
+            recently_consumed,
         })
     }
 

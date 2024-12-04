@@ -2616,6 +2616,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   collections: Array<Collection>;
+  recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -2634,6 +2635,7 @@ export type UserOthersFeaturesEnabledPreferences = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   collections: Array<Collection>;
+  recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 

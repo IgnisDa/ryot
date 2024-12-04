@@ -416,6 +416,7 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		recentlyConsumed
 		reviews {
 			...ReviewItemPart
 		}
@@ -427,6 +428,7 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
+		recentlyConsumed
 		collections {
 			...CollectionPart
 		}

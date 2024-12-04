@@ -214,12 +214,14 @@ pub struct CoreDetails {
 
 #[derive(SimpleObject)]
 pub struct UserPersonDetails {
+    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
     pub collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
 pub struct UserMetadataGroupDetails {
+    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
     pub collections: Vec<collection::Model>,
 }
