@@ -59,6 +59,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import clsx from "clsx";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { useState } from "react";
@@ -98,7 +99,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
-import clsx from "clsx";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;

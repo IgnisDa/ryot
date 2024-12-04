@@ -19,6 +19,8 @@ import {
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	SeenState,
+	UserMetadataGroupDetailsDocument,
+	UserPersonDetailsDocument,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -48,6 +50,7 @@ import {
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
+	useMetadataDetails,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -119,10 +122,7 @@ export const MetadataDisplayItem = (props: {
 	const userPreferences = useUserPreferences();
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useQuery({
-			...getPartialMetadataDetailsQuery(props.metadataId),
-			enabled: inViewport,
-		});
+		useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 		inViewport,
@@ -158,9 +158,9 @@ export const MetadataDisplayItem = (props: {
 			innerRef={ref}
 			altName={props.altName}
 			progress={currentProgress}
-			imageUrl={metadataDetails?.image}
 			isLoading={isMetadataDetailsLoading}
 			name={props.name ?? metadataDetails?.title}
+			imageUrl={metadataDetails?.assets.images.at(0)}
 			highlightImage={userMetadataDetails?.recentlyConsumed}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			labels={
@@ -285,12 +285,24 @@ export const MetadataGroupDisplayItem = (props: {
 			},
 			enabled: inViewport,
 		});
+	const { data: userMetadataGroupDetails } = useQuery({
+		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
+			.queryKey,
+		queryFn: async () => {
+			return clientGqlService
+				.request(UserMetadataGroupDetailsDocument, props)
+				.then((data) => data.userMetadataGroupDetails);
+		},
+		enabled: inViewport,
+	});
 
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
-			name={metadataDetails?.details.title}
 			isLoading={isMetadataDetailsLoading}
+			name={metadataDetails?.details.title}
+			imageOverlay={{ topRight: props.topRight }}
+			highlightImage={userMetadataGroupDetails?.recentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
@@ -308,7 +320,6 @@ export const MetadataGroupDisplayItem = (props: {
 						}
 					: undefined
 			}
-			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };
@@ -328,23 +339,33 @@ export const PersonDisplayItem = (props: {
 		},
 		enabled: inViewport,
 	});
+	const { data: userPersonDetails } = useQuery({
+		queryKey: queryFactory.media.userPersonDetails(props.personId).queryKey,
+		queryFn: async () => {
+			return clientGqlService
+				.request(UserPersonDetailsDocument, props)
+				.then((data) => data.userPersonDetails);
+		},
+		enabled: inViewport,
+	});
 
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
+			imageOverlay={{ topRight: props.topRight }}
+			highlightImage={userPersonDetails?.recentlyConsumed}
+			imageUrl={personDetails?.details.displayImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}
-			imageUrl={personDetails?.details.displayImages.at(0)}
 			labels={{
 				left: personDetails
 					? `${personDetails.contents.reduce((sum, content) => sum + content.items.length, 0)} items`
 					: undefined,
 				right: props.rightLabel,
 			}}
-			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };

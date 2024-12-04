@@ -105,8 +105,11 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const useMetadataDetails = (metadataId?: string | null) => {
-	return useQuery(getMetadataDetailsQuery(metadataId));
+export const useMetadataDetails = (
+	metadataId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 };
 
 export const useUserMetadataDetails = (
