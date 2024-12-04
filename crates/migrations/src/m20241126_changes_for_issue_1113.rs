@@ -44,10 +44,6 @@ UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fi
         "#)
         .await?;
         db.execute_unprepared(
-            r#"ALTER TABLE application_cache ALTER COLUMN expires_at SET NOT NULL;"#,
-        )
-        .await?;
-        db.execute_unprepared(
             r#"
 UPDATE "user_to_entity" SET "exercise_extra_information" = jsonb_set("exercise_extra_information", '{settings,exclude_from_analytics}', 'false')
 WHERE "exercise_extra_information" IS NOT NULL;
