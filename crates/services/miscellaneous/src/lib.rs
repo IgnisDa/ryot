@@ -36,9 +36,9 @@ use database_models::{
     queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, calculate_user_activities_and_summary,
-    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
-    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
+    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
     CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
@@ -47,15 +47,15 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
-    create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, first_metadata_image_as_url, get_entity_recently_consumed,
-    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
-    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, queue_media_state_changed_notification_for_user,
-    queue_notifications_to_user_platforms, refresh_collection_to_entity_association,
-    update_metadata_and_notify_users,
+    add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
+    commit_metadata_internal, commit_person, create_partial_metadata,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
+    first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
+    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
+    refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
@@ -1849,13 +1849,8 @@ ORDER BY RANDOM() LIMIT 10;
         match review {
             Some(r) => {
                 if r.user_id == user_id {
-                    associate_user_with_entity(
-                        &self.0.db,
-                        &user_id,
-                        r.entity_id.clone(),
-                        r.entity_lot,
-                    )
-                    .await?;
+                    associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
+                        .await?;
                     r.delete(&self.0.db).await?;
                     Ok(true)
                 } else {
@@ -1907,7 +1902,7 @@ ORDER BY RANDOM() LIMIT 10;
             ));
         }
         si.delete(&self.0.db).await.trace_ok();
-        associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata).await?;
+        associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }

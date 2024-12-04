@@ -130,7 +130,7 @@ pub async fn user_measurements_list(
 
 type CteColAlias = collection_to_entity::Column;
 
-fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
+pub fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
     match entity_lot {
         EntityLot::Metadata => CteColAlias::MetadataId,
         EntityLot::Person => CteColAlias::PersonId,
@@ -274,74 +274,6 @@ where
     })
 }
 
-pub async fn add_entity_to_collection(
-    user_id: &String,
-    input: ChangeCollectionToEntityInput,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let collection = Collection::find()
-        .left_join(UserToEntity)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    let mut updated: collection::ActiveModel = collection.into();
-    updated.last_updated_on = ActiveValue::Set(Utc::now());
-    let collection = updated.update(&ss.db).await.unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
-    let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
-        .one(&ss.db)
-        .await?
-    {
-        let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(&ss.db).await?
-    } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            information: ActiveValue::Set(input.information),
-            ..Default::default()
-        };
-        let id = input.entity_id.clone();
-        match input.entity_lot {
-            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-            EntityLot::WorkoutTemplate => {
-                created_collection.workout_template_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                unreachable!()
-            }
-        }
-        let created = created_collection.insert(&ss.db).await?;
-        ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match input.entity_lot {
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => {}
-            _ => {
-                associate_user_with_entity(&ss.db, user_id, input.entity_id, input.entity_lot)
-                    .await
-                    .ok();
-            }
-        }
-        created
-    };
-    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
-        .await?;
-    Ok(true)
-}
-
 pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
     verify(token, jwt_secret).map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }
@@ -398,7 +330,7 @@ pub async fn remove_entity_from_collection(
         .exec(db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot).await?;
+        associate_user_with_entity(db, user_id, &input.entity_id, input.entity_lot).await?;
     }
     Ok(StringIdObject { id: collect.id })
 }

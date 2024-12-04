@@ -39,12 +39,13 @@ where
 pub async fn associate_user_with_entity<C>(
     db: &C,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
+    let entity_id = entity_id.to_owned();
     let user_to_meta = get_user_to_entity_association(db, user_id, &entity_id, entity_lot).await;
     Ok(match user_to_meta {
         None => {

@@ -1277,6 +1277,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enums",
  "media-models",
  "migrations",

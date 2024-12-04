@@ -10,8 +10,10 @@ use common_models::{
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    collection_to_entity, exercise, genre, metadata, metadata_group, metadata_to_genre,
-    metadata_to_metadata, metadata_to_person, monitored_entity, person,
+    collection, collection_to_entity, exercise,
+    functions::associate_user_with_entity,
+    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
+    monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
@@ -19,7 +21,7 @@ use database_models::{
     queued_notification, review, seen, user_measurement, user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, admin_account_guard, create_or_update_collection,
+    admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
     remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ImportCompletedItem, ImportResult};
@@ -1029,6 +1031,7 @@ pub async fn post_review(
             .await?;
         }
     }
+    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -2402,4 +2405,73 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             })
             .collect(),
     }
+}
+
+pub async fn add_entity_to_collection(
+    user_id: &String,
+    input: ChangeCollectionToEntityInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let collection = Collection::find()
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(&ss.db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut updated: collection::ActiveModel = collection.into();
+    updated.last_updated_on = ActiveValue::Set(Utc::now());
+    let collection = updated.update(&ss.db).await.unwrap();
+    let column = get_cte_column_from_lot(input.entity_lot);
+    let resp = if let Some(etc) = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
+        .filter(column.eq(input.entity_id.clone()))
+        .one(&ss.db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
+        to_update.update(&ss.db).await?
+    } else {
+        let mut created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            information: ActiveValue::Set(input.information),
+            ..Default::default()
+        };
+        let id = input.entity_id.clone();
+        match input.entity_lot {
+            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+            }
+            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+            EntityLot::WorkoutTemplate => {
+                created_collection.workout_template_id = ActiveValue::Set(Some(id))
+            }
+            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                unreachable!()
+            }
+        }
+        let created = created_collection.insert(&ss.db).await?;
+        ryot_log!(debug, "Created collection to entity: {:?}", created);
+        match input.entity_lot {
+            EntityLot::Workout
+            | EntityLot::WorkoutTemplate
+            | EntityLot::Review
+            | EntityLot::UserMeasurement => {}
+            _ => {
+                associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot)
+                    .await
+                    .ok();
+            }
+        }
+        created
+    };
+    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
+        .await?;
+    Ok(true)
 }
