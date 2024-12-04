@@ -45,6 +45,13 @@ ALTER TABLE "application_cache" ALTER COLUMN "value" SET NOT NULL;
             )
             .await?;
         }
+        db.execute_unprepared(
+            r#"
+INSERT INTO application_cache (key, value) values
+('"UsersScheduledForWorkoutRevision"', (SELECT JSONB_BUILD_ARRAY(u.id) from "user" u));
+        "#,
+        )
+        .await?;
         db.execute_unprepared(r#"
 UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fitness,analytics}', 'true');
         "#)
