@@ -58,6 +58,7 @@ pub enum DailyUserActivity {
     WorkoutEquipments,
 }
 
+// FIXME: Remove this function and move it to the main function.
 pub async fn create_daily_user_activity_table(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
     manager
         .create_table(
