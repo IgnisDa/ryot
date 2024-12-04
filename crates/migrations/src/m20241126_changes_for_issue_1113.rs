@@ -47,12 +47,16 @@ ALTER TABLE "application_cache" ALTER COLUMN "value" SET NOT NULL;
         }
         db.execute_unprepared(
             r#"
-INSERT INTO application_cache (key, value) values
-(
-    '"UsersScheduledForWorkoutRevision"',
-    JSONB_BUILD_OBJECT('UsersScheduledForWorkoutRevision', (SELECT JSONB_BUILD_ARRAY(u.id) from "user" u)
-)
-);
+DO $$
+BEGIN
+    IF (SELECT COUNT(*) FROM "user" u) > 0 THEN
+        INSERT INTO application_cache (key, value) values
+        (
+            '"UsersScheduledForWorkoutRevision"',
+            JSONB_BUILD_OBJECT('UsersScheduledForWorkoutRevision', (SELECT JSONB_AGG(u.id) from "user" u))
+        );
+    END IF;
+END $$;
         "#,
         )
         .await?;
