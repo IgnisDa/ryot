@@ -920,5 +920,6 @@ pub async fn schedule_user_for_workout_revision(
         )
         .await
         .unwrap();
+    ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
     Ok(())
 }
