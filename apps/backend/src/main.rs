@@ -19,11 +19,11 @@ use apalis::{
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
-use database_models::prelude::Exercise;
 use env_utils::APP_VERSION;
+use futures::future::join_all;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
@@ -119,23 +119,15 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    for job in [
-        ApplicationJob::PerformServerKeyValidation,
-        ApplicationJob::SyncIntegrationsData,
-    ] {
-        perform_application_job_storage.enqueue(job).await.ok();
-    }
-
-    if Exercise::find().count(&db).await? == 0 {
-        ryot_log!(
-            info,
-            "Instance does not have exercises data. Deploying job to download them..."
-        );
-        perform_application_job_storage
-            .enqueue(ApplicationJob::UpdateExerciseLibrary)
-            .await
-            .unwrap();
-    }
+    join_all(
+        [
+            ApplicationJob::PerformServerKeyValidation,
+            ApplicationJob::SyncIntegrationsData,
+            ApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|j| perform_application_job_storage.enqueue(j)),
+    )
+    .await;
 
     let app_services = create_app_services(
         db,
@@ -187,9 +179,10 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
+    let fitness_service_1 = app_services.fitness_service.clone();
+    let fitness_service_2 = app_services.fitness_service.clone();
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let exercise_service_1 = app_services.exercise_service.clone();
     let statistics_service_1 = app_services.statistics_service.clone();
     let integration_service_1 = app_services.integration_service.clone();
     let integration_service_2 = app_services.integration_service.clone();
@@ -224,6 +217,7 @@ async fn main() -> Result<()> {
                 )
                 .layer(ApalisTraceLayer::new())
                 .data(integration_service_1.clone())
+                .data(fitness_service_2.clone())
                 .data(miscellaneous_service_4.clone())
                 .build_fn(run_frequent_jobs),
         )
@@ -240,7 +234,7 @@ async fn main() -> Result<()> {
         .register_with_count(
             3,
             WorkerBuilder::new("perform_application_job")
-                .data(exercise_service_1.clone())
+                .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
                 .data(statistics_service_1.clone())

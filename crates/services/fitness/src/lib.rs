@@ -49,9 +49,9 @@ const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-ex
 const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
 const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
 
-pub struct ExerciseService(pub Arc<SupportingService>);
+pub struct FitnessService(pub Arc<SupportingService>);
 
-impl ExerciseService {
+impl FitnessService {
     pub async fn user_workout_templates_list(
         &self,
         user_id: String,
@@ -406,6 +406,13 @@ impl ExerciseService {
     }
 
     pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
+        if Exercise::find().count(&self.0.db).await? > 0 {
+            return Ok(true);
+        }
+        ryot_log!(
+            info,
+            "Instance does not have exercises data. Deploying job to download them..."
+        );
         let exercises = self.get_all_exercises_from_dataset().await?;
         for exercise in exercises {
             self.0
@@ -781,5 +788,9 @@ impl ExerciseService {
             .await?;
         schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
+    }
+
+    pub async fn process_users_scheduled_for_workout_revision(&self) -> Result<()> {
+        Ok(())
     }
 }

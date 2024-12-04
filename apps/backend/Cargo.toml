@@ -20,7 +20,6 @@ collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
 common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
-database-models = { path = "../../crates/models/database" }
 dependent-models = { path = "../../crates/models/dependent" }
 dotenvy = { workspace = true }
 env-utils = { path = "../../crates/utils/env" }
@@ -30,6 +29,7 @@ file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
 file-storage-service = { path = "../../crates/services/file-storage" }
 fitness-resolver = { path = "../../crates/resolvers/fitness" }
 fitness-service = { path = "../../crates/services/fitness" }
+futures = { workspace = true }
 http = { workspace = true }
 importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }

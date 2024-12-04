@@ -4,7 +4,7 @@ use apalis::prelude::*;
 use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
 use exporter_service::ExporterService;
-use fitness_service::ExerciseService;
+use fitness_service::FitnessService;
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
 use media_models::CommitMediaInput;
@@ -23,6 +23,7 @@ pub async fn run_background_jobs(
 
 pub async fn run_frequent_jobs(
     _information: ScheduledJob,
+    fitness_service: Data<Arc<FitnessService>>,
     misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
@@ -32,6 +33,10 @@ pub async fn run_frequent_jobs(
         .trace_ok();
     integration_service
         .yank_integrations_data()
+        .await
+        .trace_ok();
+    fitness_service
+        .process_users_scheduled_for_workout_revision()
         .await
         .trace_ok();
     Ok(())
@@ -76,7 +81,7 @@ pub async fn perform_application_job(
     integration_service: Data<Arc<IntegrationService>>,
     importer_service: Data<Arc<ImporterService>>,
     exporter_service: Data<Arc<ExporterService>>,
-    exercise_service: Data<Arc<ExerciseService>>,
+    fitness_service: Data<Arc<FitnessService>>,
     statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
@@ -94,7 +99,7 @@ pub async fn perform_application_job(
                 .is_ok()
         }
         ApplicationJob::ReviseUserWorkouts(user_id) => {
-            exercise_service.revise_user_workouts(user_id).await.is_ok()
+            fitness_service.revise_user_workouts(user_id).await.is_ok()
         }
         ApplicationJob::UpdateMetadata(metadata_id, force_update) => misc_service
             .update_metadata_and_notify_users(&metadata_id, force_update)
@@ -112,7 +117,7 @@ pub async fn perform_application_job(
             .update_metadata_group(&metadata_group_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateGithubExerciseJob(exercise) => exercise_service
+        ApplicationJob::UpdateGithubExerciseJob(exercise) => fitness_service
             .update_github_exercise(exercise)
             .await
             .is_ok(),
@@ -134,7 +139,7 @@ pub async fn perform_application_job(
         ApplicationJob::PerformExport(user_id) => {
             exporter_service.perform_export(user_id).await.is_ok()
         }
-        ApplicationJob::UpdateExerciseLibrary => exercise_service
+        ApplicationJob::UpdateExerciseLibrary => fitness_service
             .deploy_update_exercise_library_job()
             .await
             .is_ok(),
