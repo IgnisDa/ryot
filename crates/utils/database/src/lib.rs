@@ -747,6 +747,12 @@ pub async fn calculate_user_activities_and_summary(
         };
     }
 
+    let exercises = Exercise::find().all(db).await.unwrap();
+    let user_exercises = UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(user_to_entity::Column::ExerciseId.is_not_null())
+        .all(db)
+        .await?;
     let mut workout_stream = Workout::find()
         .filter(workout::Column::UserId.eq(user_id))
         .filter(workout::Column::EndTime.gte(start_from))
@@ -772,26 +778,21 @@ pub async fn calculate_user_activities_and_summary(
         activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
         activity.workout_rest_time += workout_total.rest_time as i32;
         for exercise in workout.information.exercises {
-            let db_exercise = Exercise::find_by_id(exercise.name.clone())
-                .one(db)
-                .await?
-                .unwrap();
-            let user_exercise = UserToEntity::find()
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(exercise.name.clone()))
-                .one(db)
-                .await?
-                .unwrap();
-            if user_exercise
+            let db_ex = exercises.iter().find(|e| e.id == exercise.name).unwrap();
+            if user_exercises
+                .iter()
+                .find(|e| e.exercise_id == Some(db_ex.id.clone()))
+                .unwrap()
                 .exercise_extra_information
+                .as_ref()
                 .map(|d| d.settings.exclude_from_analytics)
                 .unwrap_or_default()
             {
                 continue;
             }
-            activity.workout_exercises.push(db_exercise.id);
-            activity.workout_muscles.extend(db_exercise.muscles);
-            activity.workout_equipments.extend(db_exercise.equipment);
+            activity.workout_exercises.push(db_ex.id.clone());
+            activity.workout_muscles.extend(db_ex.muscles.clone());
+            activity.workout_equipments.extend(db_ex.equipment.clone());
         }
     }
 
