@@ -801,6 +801,7 @@ impl FitnessService {
             return Ok(());
         };
         for user_id in revisions {
+            ryot_log!(debug, "Revising workouts for {}", user_id);
             self.revise_user_workouts(user_id).await?;
         }
         ryot_log!(debug, "Completed scheduled workout revisions");
