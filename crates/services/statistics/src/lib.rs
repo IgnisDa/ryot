@@ -83,7 +83,7 @@ impl StatisticsService {
                         .arg(Expr::val(grouped_by.to_string()))
                         .arg(Func::coalesce([
                             Expr::col(daily_user_activity::Column::Date).into(),
-                            Func::cast_as(Expr::val("2000-01-01"), date_type.clone()).into(),
+                            Func::cast_as(Expr::val("2001-01-01"), date_type.clone()).into(),
                         ])),
                     date_type,
                 )),
