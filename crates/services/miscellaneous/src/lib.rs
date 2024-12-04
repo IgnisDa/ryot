@@ -738,7 +738,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap();
         let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&self.0.db, &user_id, metadata_id, EntityLot::Metadata)
+            get_user_to_entity_association(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata)
                 .await;
         let average_rating = if reviews.is_empty() {
             None
@@ -807,6 +807,15 @@ ORDER BY RANDOM() LIMIT 10;
             } else {
                 None
             };
+        let recently_consumed = self
+            .0
+            .cache_service
+            .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
+                user_id,
+                metadata_id,
+            })
+            .await?
+            .is_some();
         Ok(UserMetadataDetails {
             reviews,
             history,
@@ -816,6 +825,7 @@ ORDER BY RANDOM() LIMIT 10;
             show_progress,
             average_rating,
             podcast_progress,
+            recently_consumed,
             seen_by_user_count,
             seen_by_all_count: seen_by,
             has_interacted: user_to_meta.is_some(),
@@ -1563,17 +1573,12 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         if let Some(_association) =
-            get_user_to_entity_association(&txn, &user_id, merge_into.clone(), EntityLot::Metadata)
-                .await
+            get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await
         {
-            let old_association = get_user_to_entity_association(
-                &txn,
-                &user_id,
-                merge_from.clone(),
-                EntityLot::Metadata,
-            )
-            .await
-            .unwrap();
+            let old_association =
+                get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
+                    .await
+                    .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&txn).await?;

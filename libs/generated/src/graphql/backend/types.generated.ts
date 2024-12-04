@@ -2588,6 +2588,8 @@ export type UserMetadataDetails = {
   nextEntry?: Maybe<UserMediaNextEntry>;
   /** The seen progress of this media if it is a podcast. */
   podcastProgress?: Maybe<Array<UserMetadataDetailsEpisodeProgress>>;
+  /** Whether this media has been recently interacted with */
+  recentlyConsumed: Scalars['Boolean']['output'];
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media. */

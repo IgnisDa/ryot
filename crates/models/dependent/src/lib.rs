@@ -226,30 +226,32 @@ pub struct UserMetadataGroupDetails {
 
 #[derive(SimpleObject)]
 pub struct UserMetadataDetails {
-    /// The reasons why this metadata is related to this user
-    pub media_reason: Option<Vec<UserToMediaReason>>,
-    /// The collections in which this media is present.
-    pub collections: Vec<collection::Model>,
+    /// Whether this media has been interacted with
+    pub has_interacted: bool,
+    /// Whether this media has been recently interacted with
+    pub recently_consumed: bool,
     /// The public reviews of this media.
     pub reviews: Vec<ReviewItem>,
-    /// The seen history of this media.
-    pub history: Vec<seen::Model>,
-    /// The seen item if it is in progress.
-    pub in_progress: Option<seen::Model>,
-    /// The next episode/chapter of this media.
-    pub next_entry: Option<UserMediaNextEntry>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: usize,
     /// The number of times this user has seen this media.
     pub seen_by_user_count: usize,
+    /// The seen history of this media.
+    pub history: Vec<seen::Model>,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
+    /// The seen item if it is in progress.
+    pub in_progress: Option<seen::Model>,
+    /// The collections in which this media is present.
+    pub collections: Vec<collection::Model>,
+    /// The next episode/chapter of this media.
+    pub next_entry: Option<UserMediaNextEntry>,
+    /// The reasons why this metadata is related to this user
+    pub media_reason: Option<Vec<UserToMediaReason>>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
     pub podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
-    /// Whether this media has been interacted with
-    pub has_interacted: bool,
 }
 
 #[derive(Debug, Default, Display, Clone, Serialize)]
