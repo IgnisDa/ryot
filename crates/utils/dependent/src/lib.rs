@@ -1610,8 +1610,8 @@ fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
     let weight = value.statistic.weight?;
     let reps = value.statistic.reps?;
     let mut val = match reps < dec!(10) {
-        true => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
-        false => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps),                   // Brzycki
+        true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
+        false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
     if let Some(v) = val {
         if v <= dec!(0) {
