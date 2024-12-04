@@ -1,6 +1,5 @@
 use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
-use anyhow::{bail, Result as AnyhowResult};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
@@ -21,7 +20,7 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, create_or_update_collection,
-    deploy_job_to_revise_user_workouts, remove_entity_from_collection, user_by_id,
+    remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
@@ -1684,7 +1683,7 @@ pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
     ss: &Arc<SupportingService>,
-) -> AnyhowResult<String> {
+) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
@@ -1704,7 +1703,7 @@ pub async fn create_or_update_workout(
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
-        bail!("This workout has no associated exercises")
+        return Err(Error::new("This workout has no associated exercises"));
     }
     let mut first_set_of_exercise_confirmed_at = input
         .exercises
@@ -1716,7 +1715,7 @@ pub async fn create_or_update_workout(
         .confirmed_at;
     for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
         if ex.sets.is_empty() {
-            bail!("This exercise has no associated sets")
+            return Err(Error::new("This exercise has no associated sets"));
         }
         let Some(db_ex) = Exercise::find_by_id(ex.exercise_id.clone())
             .one(&ss.db)
@@ -1958,7 +1957,7 @@ pub async fn create_or_update_workout(
     }
     let data = insert.insert(&ss.db).await?;
     if to_update_workout.is_some() {
-        deploy_job_to_revise_user_workouts(user_id, ss).await;
+        schedule_user_for_workout_revision(user_id, ss).await?;
     }
     Ok(data.id)
 }
@@ -2263,9 +2262,9 @@ where
                 if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
-                        step: ImportFailStep::InputTransformation,
+                        error: Some(err.message),
                         identifier: "Exercise".to_string(),
-                        error: Some(err.to_string()),
+                        step: ImportFailStep::InputTransformation,
                     });
                 }
             }
@@ -2275,9 +2274,9 @@ where
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             lot: None,
-                            step: ImportFailStep::InputTransformation,
+                            error: Some(err.message),
                             identifier: "Exercise".to_string(),
-                            error: Some(err.to_string()),
+                            step: ImportFailStep::InputTransformation,
                         });
                     }
                     Ok(workout_id) => {

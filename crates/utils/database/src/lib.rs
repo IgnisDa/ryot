@@ -7,8 +7,9 @@ use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{Timelike, Utc};
 use common_models::{
-    BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
-    DailyUserActivityHourRecordEntity, DefaultCollection, IdAndNamedObject, StringIdObject,
+    ApplicationCacheKey, ApplicationCacheValue, BackendError, ChangeCollectionToEntityInput,
+    DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, DefaultCollection,
+    IdAndNamedObject, StringIdObject,
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
@@ -898,8 +899,26 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     .unwrap();
 }
 
-pub async fn deploy_job_to_revise_user_workouts(user_id: &String, ss: &Arc<SupportingService>) {
-    ss.perform_application_job(ApplicationJob::ReviseUserWorkouts(user_id.to_owned()))
+pub async fn schedule_user_for_workout_revision(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    let mut revisions = match ss
+        .cache_service
+        .get_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
+        .await?
+    {
+        Some(ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions)) => revisions,
+        _ => HashMap::new(),
+    };
+    revisions.insert(user_id.to_owned(), Utc::now());
+    ss.cache_service
+        .set_with_expiry(
+            ApplicationCacheKey::UsersScheduledForWorkoutRevision,
+            None,
+            ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions),
+        )
         .await
         .unwrap();
+    Ok(())
 }

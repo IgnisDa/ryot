@@ -225,6 +225,7 @@ pub enum ApplicationCacheKey {
     IgdbSettings,
     ListennotesSettings,
     TmdbSettings,
+    UsersScheduledForWorkoutRevision,
 }
 
 #[derive(
@@ -321,4 +322,5 @@ pub enum ApplicationCacheValue {
     FitnessAnalytics(FitnessAnalytics),
     IgdbSettings { access_token: String },
     ListennotesSettings { genres: HashMap<i32, String> },
+    UsersScheduledForWorkoutRevision(HashMap<String, DateTimeUtc>),
 }

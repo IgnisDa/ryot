@@ -13,7 +13,7 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    deploy_job_to_revise_user_workouts, entity_in_collections, ilike_sql, item_reviews,
+    entity_in_collections, ilike_sql, item_reviews, schedule_user_for_workout_revision,
     server_key_validation_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
@@ -539,7 +539,7 @@ impl ExerciseService {
         }
         if new_wkt.is_changed() {
             new_wkt.update(&self.0.db).await?;
-            deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
+            schedule_user_for_workout_revision(&user_id, &self.0).await?;
             Ok(true)
         } else {
             Ok(false)
@@ -587,7 +587,7 @@ impl ExerciseService {
             association.update(&self.0.db).await?;
         }
         wkt.delete(&self.0.db).await?;
-        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
+        schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
     }
 
@@ -687,7 +687,7 @@ impl ExerciseService {
         }
         self.create_custom_exercise(&user_id, input.update.clone())
             .await?;
-        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
+        schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
     }
 
@@ -779,7 +779,7 @@ impl ExerciseService {
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
         self.change_exercise_name_in_history(merge_into, old_entity)
             .await?;
-        deploy_job_to_revise_user_workouts(&user_id, &self.0).await;
+        schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
     }
 }
