@@ -19,17 +19,11 @@
   }
 }
 
-.mediaImage {
-  &:hover {
-    box-shadow: 0 0 10px black;
-  }
-}
-
 .highlightImage {
   @mixin dark {
-    box-shadow: 0px 0px 4px 1px rgba(218, 102, 123, 1);
+    box-shadow: 0px 0px 8px 1px rgba(242, 183, 22, 1);
   }
   @mixin light {
-    box-shadow: 0px 0px 8px 3px rgba(218, 102, 123, 1);
+    box-shadow: 0px 0px 8px 3px rgba(24, 142, 245, 1);
   }
 }

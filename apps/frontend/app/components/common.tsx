@@ -305,7 +305,6 @@ export const BaseMediaDisplayItem = (props: {
 										.exhaustive(),
 								}}
 								alt={`Image for ${props.name}`}
-								className={classes.mediaImage}
 								styles={{
 									root: {
 										transitionProperty: "transform",
