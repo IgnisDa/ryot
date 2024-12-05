@@ -1116,6 +1116,7 @@ const MetadataNewProgressUpdateForm = ({
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	history: History;
 }) => {
+	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
@@ -1143,6 +1144,9 @@ const MetadataNewProgressUpdateForm = ({
 					? ["metadataLot", metadataDetails.lot]
 					: undefined,
 				watchTime === WATCH_TIMES[3] ? ["progress", "0"] : undefined,
+				selectedDate
+					? ["date", formatDateToNaiveDate(selectedDate)]
+					: undefined,
 			]
 				.filter((v) => typeof v !== "undefined")
 				.map(([k, v]) => (
@@ -1152,7 +1156,7 @@ const MetadataNewProgressUpdateForm = ({
 						) : null}
 					</Fragment>
 				))}
-			<Stack>
+			<Stack ref={parent}>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
@@ -1343,14 +1347,7 @@ const MetadataNewProgressUpdateForm = ({
 						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					/>
 				) : null}
-				{selectedDate ? (
-					<input
-						hidden
-						readOnly
-						name="date"
-						value={formatDateToNaiveDate(selectedDate)}
-					/>
-				) : null}
+
 				<Button
 					type="submit"
 					variant="outline"
