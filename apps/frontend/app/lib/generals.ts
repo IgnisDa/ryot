@@ -4,6 +4,7 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
+	type FitnessAnalyticsQueryVariables,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -408,11 +409,18 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	}),
 });
 
+const analyticsQueryKeys = createQueryKeys("analytics", {
+	fitness: (input: FitnessAnalyticsQueryVariables) => ({
+		queryKey: ["fitness", input],
+	}),
+});
+
 export const queryFactory = mergeQueryKeys(
 	usersQueryKeys,
 	mediaQueryKeys,
-	collectionQueryKeys,
 	fitnessQueryKeys,
+	analyticsQueryKeys,
+	collectionQueryKeys,
 	miscellaneousQueryKeys,
 );
 

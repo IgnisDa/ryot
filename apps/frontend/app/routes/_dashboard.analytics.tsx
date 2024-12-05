@@ -4,6 +4,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Loader,
 	Menu,
 	Modal,
 	NumberInput,
@@ -14,31 +15,26 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type FitnessAnalytics,
+	FitnessAnalyticsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
-import { type ReactNode, forwardRef, useState } from "react";
-import { ClientOnly } from "remix-utils/client-only";
+import { useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
+import { type ReactNode, useState } from "react";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
+	clientGqlService,
 	convertUtcHourToLocalHour,
 	dayjsLib,
+	queryFactory,
 	selectRandomElement,
 } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useGetMantineColors,
-	useUserPreferences,
-} from "~/lib/hooks";
-import {
-	getEnhancedCookieName,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { useGetMantineColors, useUserPreferences } from "~/lib/hooks";
 
 const TIME_RANGES = [
 	"Yesterday",
@@ -53,13 +49,13 @@ const TIME_RANGES = [
 	"Custom",
 ] as const;
 
-const searchParamsSchema = z.object({
+const timeSpanSettingsSchema = z.object({
 	startDate: z.string().optional(),
 	endDate: z.string().optional(),
-	range: z.enum(TIME_RANGES).optional(),
+	range: z.enum(TIME_RANGES),
 });
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
+export type TimeSpanSettings = z.infer<typeof timeSpanSettingsSchema>;
 
 const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
 	match(range)
@@ -75,30 +71,30 @@ const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
 		.with("Custom", () => undefined)
 		.exhaustive();
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
-	const range = query.range ?? "Past 30 Days";
-	const cookieName = await getEnhancedCookieName("analytics", request);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const startDate =
-		query.startDate || formatDateToNaiveDate(getStartTime(range) || new Date());
-	const endDate = query.endDate || formatDateToNaiveDate(dayjsLib());
-	const { fitnessAnalytics } = await serverGqlService.authenticatedRequest(
-		request,
-		FitnessAnalyticsDocument,
-		{ input: { startDate, endDate } },
-	);
-	return { range, startDate, endDate, cookieName, fitnessAnalytics };
+export const loader = async (_args: LoaderFunctionArgs) => {
+	return {};
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Fitness Analytics | Ryot" }];
 };
 
+const useTimeSpanSettings = () => {
+	const [timeSpanSettings, setTimeSpanSettings] =
+		useLocalStorage<TimeSpanSettings>("TimeSpanSettings", {
+			range: "Past 30 Days",
+		});
+	const startDate =
+		timeSpanSettings.startDate ||
+		formatDateToNaiveDate(getStartTime(timeSpanSettings.range) || new Date());
+
+	const endDate = timeSpanSettings.endDate || formatDateToNaiveDate(dayjsLib());
+	return { timeSpanSettings, setTimeSpanSettings, startDate, endDate };
+};
+
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP, delP }] = useAppSearchParam(loaderData.cookieName);
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const { timeSpanSettings, setTimeSpanSettings } = useTimeSpanSettings();
 
 	return (
 		<>
@@ -120,7 +116,7 @@ export default function Page() {
 									ml={{ md: "auto" }}
 									leftSection={<IconCalendar />}
 								>
-									{loaderData.range}
+									{timeSpanSettings.range}
 								</Button>
 							</Menu.Target>
 							<Menu.Dropdown>
@@ -128,16 +124,22 @@ export default function Page() {
 									<Menu.Item
 										ta="right"
 										key={range}
+										color={
+											timeSpanSettings.range === range ? "blue" : undefined
+										}
 										onClick={() => {
 											if (range === "Custom") {
 												setCustomRangeOpened(true);
 												return;
 											}
-											setP("range", range);
-											delP("startDate");
-											delP("endDate");
+											setTimeSpanSettings(
+												produce(timeSpanSettings, (draft) => {
+													draft.range = range;
+													draft.startDate = undefined;
+													draft.endDate = undefined;
+												}),
+											);
 										}}
-										color={loaderData.range === range ? "blue" : undefined}
 									>
 										{range}
 									</Menu.Item>
@@ -156,185 +158,15 @@ export default function Page() {
 	);
 }
 
-const MusclesChart = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const colors = useGetMantineColors();
-	const data = loaderData.fitnessAnalytics.workoutMuscles;
-	const [count, setCount] = useLocalStorage(
-		"FitnessAnalyticsMusclesChartCount",
-		data.length > 7 ? 7 : data.length,
-	);
-
-	return (
-		<FitnessChartContainer
-			totalItems={data.length}
-			title="Muscles worked out"
-			counter={{ count, setCount }}
-		>
-			<PieChart
-				size={250}
-				withLabels
-				withTooltip
-				strokeWidth={0.5}
-				labelsType="percent"
-				tooltipDataSource="segment"
-				data={data.slice(0, count).map((item) => ({
-					value: item.count,
-					name: changeCase(item.muscle),
-					color: selectRandomElement(colors, item.muscle),
-				}))}
-			/>
-		</FitnessChartContainer>
-	);
-};
-
-const ExercisesChart = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const colors = useGetMantineColors();
-	const data = loaderData.fitnessAnalytics.workoutExercises;
-	const [count, setCount] = useLocalStorage(
-		"FitnessAnalyticsExercisesChartCount",
-		data.length > 7 ? 7 : data.length,
-	);
-
-	return (
-		<FitnessChartContainer
-			title="Exercises done"
-			totalItems={data.length}
-			counter={{ count, setCount }}
-		>
-			<BarChart
-				h={300}
-				withTooltip
-				dataKey="name"
-				gridAxis="none"
-				tickLine="none"
-				tooltipAnimationDuration={500}
-				series={[{ name: "value", label: "Times done" }]}
-				data={data.slice(0, count).map((item) => ({
-					value: item.count,
-					name: changeCase(item.exercise),
-					color: selectRandomElement(colors, item.exercise),
-				}))}
-			/>
-		</FitnessChartContainer>
-	);
-};
-
-const hourTuples = Array.from({ length: 8 }, (_, i) => [i * 3, i * 3 + 3]);
-
-const formattedHour = (hour: number) =>
-	dayjsLib().hour(hour).minute(0).format("ha");
-
-const formattedHourLabel = (hour: string) => {
-	const unGrouped = hour.split(",").map(Number);
-	return `${formattedHour(unGrouped[0])}-${formattedHour(unGrouped[1])}`;
-};
-
-const TimeOfDayChart = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const hours = Object.entries(
-		groupBy(
-			loaderData.fitnessAnalytics.hours.map((h) => ({
-				...h,
-				hour: convertUtcHourToLocalHour(h.hour),
-			})),
-			(item) =>
-				hourTuples.find(
-					([start, end]) => item.hour >= start && item.hour < end,
-				),
-		),
-	).map(([hour, values]) => ({
-		index: 1,
-		hour: formattedHourLabel(hour),
-		count: values.reduce((acc, val) => acc + val.count, 0),
-	}));
-
-	return (
-		<FitnessChartContainer title="Time of day" totalItems={hours.length}>
-			<BubbleChart
-				h={60}
-				data={hours}
-				color="lime"
-				range={[50, 300]}
-				dataKey={{ x: "hour", y: "index", z: "count" }}
-			/>
-		</FitnessChartContainer>
-	);
-};
-
-type ChartContainerProps = {
-	title: string;
-	totalItems: number;
-	children: ReactNode;
-	counter?: {
-		count: number;
-		setCount: (count: number) => void;
-	};
-};
-
-const ChartContainer = (props: ChartContainerProps) => {
-	const counter = props.counter;
-
-	return (
-		<ClientOnly>
-			{() => (
-				<Paper p="xs" withBorder display="flex" h={props.counter ? 380 : 140}>
-					<Flex
-						flex={1}
-						align="center"
-						direction="column"
-						gap={{ base: 4, md: "md" }}
-						justify={props.totalItems > 0 ? "space-between" : undefined}
-					>
-						<Group wrap="nowrap" w="100%" gap="xl" justify="center">
-							<Text size="lg">{props.title}</Text>
-							{counter ? (
-								<NumberInput
-									w={60}
-									min={2}
-									size="xs"
-									value={counter.count}
-									max={props.totalItems}
-									onFocus={(e) => e.target.select()}
-									onChange={(v) => counter.setCount(Number(v))}
-								/>
-							) : null}
-						</Group>
-						{props.totalItems > 0 ? (
-							props.children
-						) : (
-							<Text fz="lg" mt="xl">
-								No data found
-							</Text>
-						)}
-					</Flex>
-				</Paper>
-			)}
-		</ClientOnly>
-	);
-};
-
-const FitnessChartContainer = forwardRef<
-	typeof ChartContainer,
-	ChartContainerProps
->((props) => {
-	const userPreferences = useUserPreferences();
-
-	return userPreferences.featuresEnabled.fitness.enabled ? (
-		<ChartContainer {...props} />
-	) : null;
-});
-
 const CustomDateSelectModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
+		useTimeSpanSettings();
 	const [value, setValue] = useState<[Date | null, Date | null]>([
-		new Date(loaderData.startDate),
-		new Date(loaderData.endDate),
+		new Date(startDate),
+		new Date(endDate),
 	]);
 
 	return (
@@ -356,9 +188,13 @@ const CustomDateSelectModal = (props: {
 					variant="default"
 					leftSection={<IconDeviceFloppy />}
 					onClick={() => {
-						setP("startDate", formatDateToNaiveDate(value[0] || new Date()));
-						setP("endDate", formatDateToNaiveDate(value[1] || new Date()));
-						setP("range", TIME_RANGES[9]);
+						setTimeSpanSettings(
+							produce(timeSpanSettings, (draft) => {
+								draft.startDate = formatDateToNaiveDate(value[0] || new Date());
+								draft.endDate = formatDateToNaiveDate(value[1] || new Date());
+								draft.range = "Custom";
+							}),
+						);
 						props.onClose();
 					}}
 				>
@@ -367,4 +203,181 @@ const CustomDateSelectModal = (props: {
 			</Stack>
 		</Modal>
 	);
+};
+
+const MusclesChart = () => {
+	const colors = useGetMantineColors();
+
+	return (
+		<FitnessChartContainer title="Muscles worked out">
+			{(data, count) => ({
+				totalItems: data.workoutMuscles.length,
+				render: (
+					<PieChart
+						size={250}
+						withLabels
+						withTooltip
+						strokeWidth={0.5}
+						labelsType="percent"
+						tooltipDataSource="segment"
+						data={data.workoutMuscles.slice(0, count).map((item) => ({
+							value: item.count,
+							name: changeCase(item.muscle),
+							color: selectRandomElement(colors, item.muscle),
+						}))}
+					/>
+				),
+			})}
+		</FitnessChartContainer>
+	);
+};
+
+const ExercisesChart = () => {
+	const colors = useGetMantineColors();
+
+	return (
+		<FitnessChartContainer title="Exercises done">
+			{(data, count) => ({
+				totalItems: data.workoutExercises.length,
+				render: (
+					<BarChart
+						h={300}
+						withTooltip
+						dataKey="name"
+						gridAxis="none"
+						tickLine="none"
+						tooltipAnimationDuration={500}
+						series={[{ name: "value", label: "Times done" }]}
+						data={data.workoutExercises.slice(0, count).map((item) => ({
+							value: item.count,
+							name: changeCase(item.exercise),
+							color: selectRandomElement(colors, item.exercise),
+						}))}
+					/>
+				),
+			})}
+		</FitnessChartContainer>
+	);
+};
+
+const hourTuples = Array.from({ length: 8 }, (_, i) => [i * 3, i * 3 + 3]);
+
+const formattedHour = (hour: number) =>
+	dayjsLib().hour(hour).minute(0).format("ha");
+
+const formattedHourLabel = (hour: string) => {
+	const unGrouped = hour.split(",").map(Number);
+	return `${formattedHour(unGrouped[0])}-${formattedHour(unGrouped[1])}`;
+};
+
+const TimeOfDayChart = () => {
+	return (
+		<FitnessChartContainer title="Time of day" disableCounter>
+			{(data) => {
+				const hours = Object.entries(
+					groupBy(
+						data.hours.map((h) => ({
+							...h,
+							hour: convertUtcHourToLocalHour(h.hour),
+						})),
+						(item) =>
+							hourTuples.find(
+								([start, end]) => item.hour >= start && item.hour < end,
+							),
+					),
+				).map(([hour, values]) => ({
+					index: 1,
+					hour: formattedHourLabel(hour),
+					count: values.reduce((acc, val) => acc + val.count, 0),
+				}));
+				return {
+					totalItems: hours.length,
+					render: (
+						<BubbleChart
+							h={60}
+							mt="auto"
+							color="lime"
+							data={hours}
+							range={[50, 300]}
+							dataKey={{ x: "hour", y: "index", z: "count" }}
+						/>
+					),
+				};
+			}}
+		</FitnessChartContainer>
+	);
+};
+
+type FitnessChartContainerProps = {
+	title: string;
+	disableCounter?: boolean;
+	children: (
+		data: FitnessAnalytics,
+		count: number,
+	) => {
+		render: ReactNode;
+		totalItems: number;
+	};
+};
+
+const FitnessChartContainer = (props: FitnessChartContainerProps) => {
+	const userPreferences = useUserPreferences();
+	const { startDate, endDate } = useTimeSpanSettings();
+	const [count, setCount] = useLocalStorage(
+		`FitnessChartContainer-${props.title}`,
+		10,
+	);
+	const input = { startDate, endDate };
+
+	const { data: fitnessAnalytics } = useQuery({
+		queryKey: queryFactory.analytics.fitness({ input }).queryKey,
+		queryFn: async () => {
+			return await clientGqlService
+				.request(FitnessAnalyticsDocument, { input })
+				.then((data) => data.fitnessAnalytics);
+		},
+	});
+
+	const value = fitnessAnalytics
+		? props.children(fitnessAnalytics, count)
+		: undefined;
+
+	return userPreferences.featuresEnabled.fitness.enabled ? (
+		<Paper
+			p="xs"
+			withBorder
+			display="flex"
+			h={props.disableCounter ? 140 : 380}
+		>
+			<Flex flex={1} align="center" direction="column">
+				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
+					<Text size="lg">{props.title}</Text>
+					{props.disableCounter ? null : (
+						<NumberInput
+							w={60}
+							min={2}
+							size="xs"
+							value={count}
+							max={value?.totalItems}
+							onFocus={(e) => e.target.select()}
+							onChange={(v) => setCount(Number(v))}
+						/>
+					)}
+				</Group>
+				<Flex flex={1} w="100%" justify="center" align="center">
+					{value ? (
+						value.totalItems > 0 ? (
+							value.render
+						) : (
+							<Text fz="lg" mt="xl">
+								No data found
+							</Text>
+						)
+					) : (
+						<Loader />
+					)}
+				</Flex>
+			</Flex>
+		</Paper>
+	) : null;
 };
