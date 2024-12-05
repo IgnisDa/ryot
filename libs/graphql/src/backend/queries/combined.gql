@@ -518,30 +518,32 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 	}
 }
 
-query FitnessAnalytics($input: DateRangeInput!) {
-	fitnessAnalytics(input: $input) {
-		workoutReps
-		workoutCount
-		workoutWeight
-		workoutDistance
-		workoutRestTime
-		measurementCount
-		workoutPersonalBests
-		hours {
-			hour
-			count
-		}
-		workoutExercises {
-			count
-			exercise
-		}
-		workoutMuscles {
-			count
-			muscle
-		}
-		workoutEquipments {
-			count
-			equipment
+query UserAnalytics($input: DateRangeInput!) {
+	userAnalytics(input: $input) {
+		fitness {
+			workoutReps
+			workoutCount
+			workoutWeight
+			workoutDistance
+			workoutRestTime
+			measurementCount
+			workoutPersonalBests
+			hours {
+				hour
+				count
+			}
+			workoutExercises {
+				count
+				exercise
+			}
+			workoutMuscles {
+				count
+				muscle
+			}
+			workoutEquipments {
+				count
+				equipment
+			}
 		}
 	}
 }

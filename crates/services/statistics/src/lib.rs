@@ -3,8 +3,8 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use async_graphql::Result;
 use common_models::{
     ApplicationCacheKey, ApplicationCacheValue, DailyUserActivityHourRecord, DateRangeInput,
-    FitnessAnalytics, FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
-    FitnessAnalyticsMuscle,
+    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
+    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
@@ -238,16 +238,16 @@ impl StatisticsService {
         calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
     }
 
-    pub async fn fitness_analytics(
+    pub async fn user_analytics(
         &self,
         user_id: &String,
         input: DateRangeInput,
-    ) -> Result<FitnessAnalytics> {
-        let cache_key = ApplicationCacheKey::FitnessAnalytics {
+    ) -> Result<UserAnalytics> {
+        let cache_key = ApplicationCacheKey::UserAnalytics {
             date_range: input.clone(),
             user_id: user_id.to_owned(),
         };
-        if let Some(ApplicationCacheValue::FitnessAnalytics(cached)) =
+        if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
             self.0.cache_service.get_key(cache_key.clone()).await?
         {
             return Ok(cached);
@@ -336,25 +336,27 @@ impl StatisticsService {
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        let response = FitnessAnalytics {
-            hours,
-            workout_reps,
-            workout_count,
-            workout_weight,
-            workout_muscles,
-            workout_distance,
-            workout_rest_time,
-            workout_exercises,
-            measurement_count,
-            workout_equipments,
-            workout_personal_bests,
+        let response = UserAnalytics {
+            fitness: UserFitnessAnalytics {
+                hours,
+                workout_reps,
+                workout_count,
+                workout_weight,
+                workout_muscles,
+                workout_distance,
+                workout_rest_time,
+                workout_exercises,
+                measurement_count,
+                workout_equipments,
+                workout_personal_bests,
+            },
         };
         self.0
             .cache_service
             .set_with_expiry(
                 cache_key,
                 Some(2),
-                ApplicationCacheValue::FitnessAnalytics(response.clone()),
+                ApplicationCacheValue::UserAnalytics(response.clone()),
             )
             .await?;
         Ok(response)
