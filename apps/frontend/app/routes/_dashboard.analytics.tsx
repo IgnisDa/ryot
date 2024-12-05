@@ -352,7 +352,7 @@ const FitnessChartContainer = (props: FitnessChartContainerProps) => {
 			<Flex flex={1} align="center" direction="column">
 				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 					<Text size="lg">{props.title}</Text>
-					{props.disableCounter ? null : (
+					{props.disableCounter || (value?.totalItems || 0) === 0 ? null : (
 						<NumberInput
 							w={60}
 							min={2}
