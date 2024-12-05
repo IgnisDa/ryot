@@ -186,13 +186,14 @@ FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
 ORDER BY RANDOM() LIMIT 10;
         "#,
             [
-                MediaSource::GoogleBooks.into(),
-                MediaSource::Itunes.into(),
                 MediaSource::Vndb.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Custom.into(),
+                MediaSource::GoogleBooks.into(),
             ],
         ))
         .all(&self.0.db)
