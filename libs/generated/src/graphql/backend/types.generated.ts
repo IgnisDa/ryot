@@ -2315,6 +2315,11 @@ export type User = {
   preferences: UserPreferences;
 };
 
+export type UserAnalyticsFeaturesEnabledPreferences = {
+  __typename?: 'UserAnalyticsFeaturesEnabledPreferences';
+  enabled: Scalars['Boolean']['output'];
+};
+
 export type UserCalendarEventInput = {
   month: Scalars['Int']['input'];
   year: Scalars['Int']['input'];
@@ -2358,6 +2363,7 @@ export type UserExerciseInput = {
 
 export type UserFeaturesEnabledPreferences = {
   __typename?: 'UserFeaturesEnabledPreferences';
+  analytics: UserAnalyticsFeaturesEnabledPreferences;
   fitness: UserFitnessFeaturesEnabledPreferences;
   media: UserMediaFeaturesEnabledPreferences;
   others: UserOthersFeaturesEnabledPreferences;
@@ -2371,7 +2377,6 @@ export type UserFitnessExercisesPreferences = {
 
 export type UserFitnessFeaturesEnabledPreferences = {
   __typename?: 'UserFitnessFeaturesEnabledPreferences';
-  analytics: Scalars['Boolean']['output'];
   enabled: Scalars['Boolean']['output'];
   measurements: Scalars['Boolean']['output'];
   templates: Scalars['Boolean']['output'];

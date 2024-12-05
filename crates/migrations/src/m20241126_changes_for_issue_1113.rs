@@ -60,9 +60,14 @@ END $$;
         "#,
         )
         .await?;
-        db.execute_unprepared(r#"
-UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fitness,analytics}', 'true');
-        "#)
+        db.execute_unprepared(
+            r#"
+UPDATE "user" SET "preferences" = jsonb_set(
+    "preferences", '{features_enabled,analytics}',
+    JSONB_BUILD_OBJECT('enabled', true)
+);
+        "#,
+        )
         .await?;
         db.execute_unprepared(
             r#"

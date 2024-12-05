@@ -635,8 +635,12 @@ impl UserService {
                                     preferences.features_enabled.fitness.templates =
                                         value_bool.unwrap()
                                 }
-                                "analytics" => {
-                                    preferences.features_enabled.fitness.analytics =
+
+                                _ => return Err(err()),
+                            },
+                            "analytics" => match right {
+                                "enabled" => {
+                                    preferences.features_enabled.analytics.enabled =
                                         value_bool.unwrap()
                                 }
                                 _ => return Err(err()),
