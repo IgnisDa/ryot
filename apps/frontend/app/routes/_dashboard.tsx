@@ -91,6 +91,7 @@ import {
 	IconDeviceSpeaker,
 	IconDeviceTv,
 	IconEyeglass,
+	IconGraph,
 	IconHome2,
 	IconLogout,
 	IconMoodEmpty,
@@ -218,7 +219,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => !["enabled", "analytics"].includes(v))
+			.filter(([v, _]) => !["enabled"].includes(v))
 			.map(([name, enabled]) => ({ name, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -226,9 +227,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				href: joinURL("/fitness", f.name, "list"),
 			})) || []),
 		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-		userPreferences.featuresEnabled.fitness.analytics
-			? { label: "Analytics", href: $path("/fitness/analytics") }
-			: undefined,
 	]
 		.filter((link) => link !== undefined)
 		.map((link) => ({ label: link.label, link: link.href }));
@@ -652,6 +650,16 @@ export default function Layout() {
 									)
 								}
 								links={loaderData.fitnessLinks}
+							/>
+						) : null}
+						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
+							<LinksGroup
+								opened={false}
+								icon={IconGraph}
+								label="Analytics"
+								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/analytics")}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (

@@ -74,7 +74,7 @@ const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const range = query.range ?? "Past 30 Days";
-	const cookieName = await getEnhancedCookieName("fitness.analytics", request);
+	const cookieName = await getEnhancedCookieName("analytics", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const startDate =
 		query.startDate || formatDateToNaiveDate(getStartTime(range) || new Date());
