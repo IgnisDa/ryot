@@ -3,8 +3,8 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use async_graphql::Result;
 use common_models::{
     ApplicationCacheKey, ApplicationCacheValue, DailyUserActivityHourRecord, DateRangeInput,
-    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
-    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
+    FitnessAnalytics, FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
+    FitnessAnalyticsMuscle,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
@@ -238,16 +238,16 @@ impl StatisticsService {
         calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
     }
 
-    pub async fn user_analytics(
+    pub async fn fitness_analytics(
         &self,
         user_id: &String,
         input: DateRangeInput,
-    ) -> Result<UserAnalytics> {
-        let cache_key = ApplicationCacheKey::UserAnalytics {
+    ) -> Result<FitnessAnalytics> {
+        let cache_key = ApplicationCacheKey::FitnessAnalytics {
             date_range: input.clone(),
             user_id: user_id.to_owned(),
         };
-        if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
+        if let Some(ApplicationCacheValue::FitnessAnalytics(cached)) =
             self.0.cache_service.get_key(cache_key.clone()).await?
         {
             return Ok(cached);
@@ -336,27 +336,25 @@ impl StatisticsService {
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        let response = UserAnalytics {
-            fitness: UserFitnessAnalytics {
-                hours,
-                workout_reps,
-                workout_count,
-                workout_weight,
-                workout_muscles,
-                workout_distance,
-                workout_rest_time,
-                workout_exercises,
-                measurement_count,
-                workout_equipments,
-                workout_personal_bests,
-            },
+        let response = FitnessAnalytics {
+            hours,
+            workout_reps,
+            workout_count,
+            workout_weight,
+            workout_muscles,
+            workout_distance,
+            workout_rest_time,
+            workout_exercises,
+            measurement_count,
+            workout_equipments,
+            workout_personal_bests,
         };
         self.0
             .cache_service
             .set_with_expiry(
                 cache_key,
                 Some(2),
-                ApplicationCacheValue::UserAnalytics(response.clone()),
+                ApplicationCacheValue::FitnessAnalytics(response.clone()),
             )
             .await?;
         Ok(response)
