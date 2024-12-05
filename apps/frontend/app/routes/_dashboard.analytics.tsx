@@ -18,7 +18,7 @@ import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
+import { forwardRef, type ReactNode, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
@@ -29,7 +29,11 @@ import {
 	dayjsLib,
 	selectRandomElement,
 } from "~/lib/generals";
-import { useAppSearchParam, useGetMantineColors } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useGetMantineColors,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
@@ -79,7 +83,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const startDate =
 		query.startDate || formatDateToNaiveDate(getStartTime(range) || new Date());
 	const endDate = query.endDate || formatDateToNaiveDate(dayjsLib());
-	console.log(startDate, endDate);
 	const { fitnessAnalytics } = await serverGqlService.authenticatedRequest(
 		request,
 		FitnessAnalyticsDocument,
@@ -107,7 +110,7 @@ export default function Page() {
 				<Stack>
 					<SimpleGrid cols={{ base: 2 }} style={{ alignItems: "center" }}>
 						<Text fz={{ base: "lg", md: "h1" }} fw="bold">
-							Fitness Analytics
+							Analytics
 						</Text>
 						<Menu position="bottom-end">
 							<Menu.Target>
@@ -163,7 +166,7 @@ const MusclesChart = () => {
 	);
 
 	return (
-		<ChartContainer
+		<FitnessChartContainer
 			totalItems={data.length}
 			title="Muscles worked out"
 			counter={{ count, setCount }}
@@ -181,7 +184,7 @@ const MusclesChart = () => {
 					color: selectRandomElement(colors, item.muscle),
 				}))}
 			/>
-		</ChartContainer>
+		</FitnessChartContainer>
 	);
 };
 
@@ -195,7 +198,7 @@ const ExercisesChart = () => {
 	);
 
 	return (
-		<ChartContainer
+		<FitnessChartContainer
 			title="Exercises done"
 			totalItems={data.length}
 			counter={{ count, setCount }}
@@ -214,7 +217,7 @@ const ExercisesChart = () => {
 					color: selectRandomElement(colors, item.exercise),
 				}))}
 			/>
-		</ChartContainer>
+		</FitnessChartContainer>
 	);
 };
 
@@ -248,7 +251,7 @@ const TimeOfDayChart = () => {
 	}));
 
 	return (
-		<ChartContainer title="Time of day" totalItems={hours.length}>
+		<FitnessChartContainer title="Time of day" totalItems={hours.length}>
 			<BubbleChart
 				h={60}
 				data={hours}
@@ -256,11 +259,11 @@ const TimeOfDayChart = () => {
 				range={[50, 300]}
 				dataKey={{ x: "hour", y: "index", z: "count" }}
 			/>
-		</ChartContainer>
+		</FitnessChartContainer>
 	);
 };
 
-const ChartContainer = (props: {
+type ChartContainerProps = {
 	title: string;
 	totalItems: number;
 	children: ReactNode;
@@ -268,7 +271,9 @@ const ChartContainer = (props: {
 		count: number;
 		setCount: (count: number) => void;
 	};
-}) => {
+};
+
+const ChartContainer = (props: ChartContainerProps) => {
 	const counter = props.counter;
 
 	return (
@@ -309,6 +314,17 @@ const ChartContainer = (props: {
 		</ClientOnly>
 	);
 };
+
+const FitnessChartContainer = forwardRef<
+	typeof ChartContainer,
+	ChartContainerProps
+>((props) => {
+	const userPreferences = useUserPreferences();
+
+	return userPreferences.featuresEnabled.fitness.enabled ? (
+		<ChartContainer {...props} />
+	) : null;
+});
 
 const CustomDateSelectModal = (props: {
 	opened: boolean;
