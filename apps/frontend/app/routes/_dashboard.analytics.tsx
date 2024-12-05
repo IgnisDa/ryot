@@ -18,7 +18,7 @@ import { useLoaderData } from "@remix-run/react";
 import { FitnessAnalyticsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
-import { forwardRef, type ReactNode, useState } from "react";
+import { type ReactNode, forwardRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
