@@ -934,9 +934,10 @@ const Footer = () => {
 };
 
 const WATCH_TIMES = [
-	"Just Right Now",
+	"Just Completed Now",
 	"I don't remember",
 	"Custom Date",
+	"Just Started It",
 ] as const;
 
 const MetadataProgressUpdateForm = ({
@@ -978,7 +979,7 @@ const MetadataProgressUpdateForm = ({
 			inProgress={userMetadataDetails.inProgress}
 		/>
 	) : (
-		<NewProgressUpdateForm
+		<MetadataNewProgressUpdateForm
 			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
@@ -1104,7 +1105,7 @@ const MetadataInProgressUpdateForm = ({
 	);
 };
 
-const NewProgressUpdateForm = ({
+const MetadataNewProgressUpdateForm = ({
 	history,
 	onSubmit,
 	metadataDetails,
@@ -1119,8 +1120,9 @@ const NewProgressUpdateForm = ({
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
-	const [watchTime, setWatchTime] =
-		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
+	const [watchTime, setWatchTime] = useState<(typeof WATCH_TIMES)[number]>(
+		WATCH_TIMES[0],
+	);
 	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
 
@@ -1128,18 +1130,28 @@ const NewProgressUpdateForm = ({
 		<Form
 			method="POST"
 			onSubmit={onSubmit}
-			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
+			action={withQuery($path("/actions"), {
+				intent:
+					watchTime === WATCH_TIMES[3]
+						? "individualProgressUpdate"
+						: "progressUpdate",
+			})}
 		>
 			{[
 				...Object.entries(metadataToUpdate),
-				["metadataLot", metadataDetails.lot],
-			].map(([k, v]) => (
-				<Fragment key={k}>
-					{typeof v !== "undefined" ? (
-						<input hidden readOnly name={k} value={v?.toString()} />
-					) : null}
-				</Fragment>
-			))}
+				watchTime !== WATCH_TIMES[3]
+					? ["metadataLot", metadataDetails.lot]
+					: undefined,
+				watchTime === WATCH_TIMES[3] ? ["progress", "0"] : undefined,
+			]
+				.filter((v) => typeof v !== "undefined")
+				.map(([k, v]) => (
+					<Fragment key={k}>
+						{typeof v !== "undefined" ? (
+							<input hidden readOnly name={k} value={v?.toString()} />
+						) : null}
+					</Fragment>
+				))}
 			<Stack>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
@@ -1291,15 +1303,26 @@ const NewProgressUpdateForm = ({
 					</>
 				) : null}
 				<Select
-					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					data={WATCH_TIMES}
 					value={watchTime}
+					data={WATCH_TIMES.filter((v) =>
+						[
+							MediaLot.Show,
+							MediaLot.Podcast,
+							MediaLot.Anime,
+							MediaLot.Manga,
+						].includes(metadataDetails.lot)
+							? v !== WATCH_TIMES[3]
+							: true,
+					)}
+					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					onChange={(v) => {
 						setWatchTime(v as typeof watchTime);
 						match(v)
 							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-							.with(WATCH_TIMES[1], () => setSelectedDate(null))
-							.with(WATCH_TIMES[2], () => setSelectedDate(null));
+							.with(WATCH_TIMES[1], WATCH_TIMES[2], WATCH_TIMES[3], () =>
+								setSelectedDate(null),
+							)
+							.run();
 					}}
 				/>
 				{watchTime === WATCH_TIMES[2] ? (
@@ -1312,12 +1335,14 @@ const NewProgressUpdateForm = ({
 						label="Enter exact date"
 					/>
 				) : null}
-				<Select
-					data={watchProviders}
-					name="providerWatchedOn"
-					defaultValue={lastProviderWatchedOn}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-				/>
+				{watchTime !== WATCH_TIMES[3] ? (
+					<Select
+						data={watchProviders}
+						name="providerWatchedOn"
+						defaultValue={lastProviderWatchedOn}
+						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					/>
+				) : null}
 				{selectedDate ? (
 					<input
 						hidden
