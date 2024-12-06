@@ -20,7 +20,7 @@ import {
 	FitnessAnalyticsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
-import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { type ReactNode, useState } from "react";
@@ -94,7 +94,8 @@ const useTimeSpanSettings = () => {
 
 export default function Page() {
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
-	const { timeSpanSettings, setTimeSpanSettings } = useTimeSpanSettings();
+	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
+		useTimeSpanSettings();
 
 	return (
 		<>
@@ -110,13 +111,15 @@ export default function Page() {
 						</Text>
 						<Menu position="bottom-end">
 							<Menu.Target>
-								<Button
-									w={{ md: 200 }}
-									variant="default"
-									ml={{ md: "auto" }}
-									leftSection={<IconCalendar />}
-								>
-									{timeSpanSettings.range}
+								<Button w={{ md: 200 }} variant="default" ml={{ md: "auto" }}>
+									<Stack gap={0}>
+										<Text size="xs">{timeSpanSettings.range}</Text>
+										{timeSpanSettings.range !== "All Time" ? (
+											<Text span c="dimmed" size="xs">
+												{startDate} - {endDate}
+											</Text>
+										) : null}
+									</Stack>
 								</Button>
 							</Menu.Target>
 							<Menu.Dropdown>
