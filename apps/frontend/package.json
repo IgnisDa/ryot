@@ -41,6 +41,7 @@
 		"graphql": "16.9.0",
 		"graphql-request": "7.1.2",
 		"howler": "2.2.4",
+		"html2canvas": "1.4.1",
 		"humanize-duration-ts": "2.1.1",
 		"immer": "10.1.1",
 		"isbot": "5.1.17",
