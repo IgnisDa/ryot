@@ -97,9 +97,9 @@ const useTimeSpanSettings = () => {
 export default function Page() {
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
 	const [isCaptureLoading, setIsCaptureLoading] = useState(false);
+	const toCaptureRef = useRef<HTMLDivElement>(null);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const toCaptureRef = useRef(null);
 
 	return (
 		<>
@@ -107,7 +107,11 @@ export default function Page() {
 				opened={customRangeOpened}
 				onClose={() => setCustomRangeOpened(false)}
 			/>
-			<Container ref={toCaptureRef} py="md">
+			<Container
+				py="md"
+				ref={toCaptureRef}
+				style={{ backgroundColor: "var(--mantine-color-body)" }}
+			>
 				<Stack>
 					<SimpleGrid cols={{ base: 2 }} style={{ alignItems: "center" }}>
 						<Text fz={{ base: "lg", md: "h1" }} fw="bold">
