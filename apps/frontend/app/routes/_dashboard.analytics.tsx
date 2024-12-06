@@ -1,4 +1,4 @@
-import { BarChart, BubbleChart, PieChart } from "@mantine/charts";
+import { BarChart, PieChart, ScatterChart } from "@mantine/charts";
 import {
 	Button,
 	Container,
@@ -19,7 +19,7 @@ import {
 	type FitnessAnalytics,
 	FitnessAnalyticsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import { IconCalendar, IconDeviceFloppy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
@@ -260,46 +260,22 @@ const ExercisesChart = () => {
 	);
 };
 
-const hourTuples = Array.from({ length: 8 }, (_, i) => [i * 3, i * 3 + 3]);
-
-const formattedHour = (hour: number) =>
-	dayjsLib().hour(hour).minute(0).format("ha");
-
-const formattedHourLabel = (hour: string) => {
-	const unGrouped = hour.split(",").map(Number);
-	return `${formattedHour(unGrouped[0])}-${formattedHour(unGrouped[1])}`;
-};
-
 const TimeOfDayChart = () => {
 	return (
 		<FitnessChartContainer title="Time of day" disableCounter>
 			{(data) => {
-				const hours = Object.entries(
-					groupBy(
-						data.hours.map((h) => ({
-							...h,
-							hour: convertUtcHourToLocalHour(h.hour),
-						})),
-						(item) =>
-							hourTuples.find(
-								([start, end]) => item.hour >= start && item.hour < end,
-							),
-					),
-				).map(([hour, values]) => ({
-					index: 1,
-					hour: formattedHourLabel(hour),
-					count: values.reduce((acc, val) => acc + val.count, 0),
+				const hours = data.hours.map((h) => ({
+					Count: h.count,
+					Hour: convertUtcHourToLocalHour(h.hour),
 				}));
 				return {
 					totalItems: hours.length,
 					render: (
-						<BubbleChart
-							h={60}
-							mt="auto"
-							color="lime"
-							data={hours}
-							range={[50, 300]}
-							dataKey={{ x: "hour", y: "index", z: "count" }}
+						<ScatterChart
+							h={300}
+							unit={{ x: "h" }}
+							dataKey={{ x: "Hour", y: "Count" }}
+							data={[{ color: "blue.5", name: "Group 1", data: hours }]}
 						/>
 					),
 				};
@@ -310,6 +286,7 @@ const TimeOfDayChart = () => {
 
 type FitnessChartContainerProps = {
 	title: string;
+	smallSize?: boolean;
 	disableCounter?: boolean;
 	children: (
 		data: FitnessAnalytics,
@@ -343,12 +320,7 @@ const FitnessChartContainer = (props: FitnessChartContainerProps) => {
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
-		<Paper
-			p="xs"
-			withBorder
-			display="flex"
-			h={props.disableCounter ? 140 : 380}
-		>
+		<Paper p="xs" withBorder display="flex" h={props.smallSize ? 140 : 380}>
 			<Flex flex={1} align="center" direction="column">
 				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 					<Text size="lg">{props.title}</Text>
