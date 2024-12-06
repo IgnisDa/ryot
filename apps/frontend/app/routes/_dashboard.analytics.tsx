@@ -14,16 +14,18 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
 	type FitnessAnalytics,
 	FitnessAnalyticsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
-import { IconDeviceFloppy } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import html2canvas from "html2canvas";
 import { produce } from "immer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -94,8 +96,10 @@ const useTimeSpanSettings = () => {
 
 export default function Page() {
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
+	const [isCaptureLoading, setIsCaptureLoading] = useState(false);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
+	const toCaptureRef = useRef(null);
 
 	return (
 		<>
@@ -103,7 +107,7 @@ export default function Page() {
 				opened={customRangeOpened}
 				onClose={() => setCustomRangeOpened(false)}
 			/>
-			<Container>
+			<Container ref={toCaptureRef} py="md">
 				<Stack>
 					<SimpleGrid cols={{ base: 2 }} style={{ alignItems: "center" }}>
 						<Text fz={{ base: "lg", md: "h1" }} fw="bold">
@@ -157,6 +161,43 @@ export default function Page() {
 					</SimpleGrid>
 				</Stack>
 			</Container>
+			<Flex w="100%" mt="md">
+				<Button
+					mr="md"
+					ml="auto"
+					variant="default"
+					loading={isCaptureLoading}
+					leftSection={<IconImageInPicture />}
+					onClick={async () => {
+						if (!toCaptureRef.current) return;
+						setIsCaptureLoading(true);
+						try {
+							const canvasPromise = await html2canvas(toCaptureRef.current);
+							const dataURL = canvasPromise.toDataURL("image/png");
+							const img = new Image();
+							img.setAttribute("src", dataURL);
+							img.setAttribute("download", dataURL);
+							const a = document.createElement("a");
+							a.setAttribute("download", dataURL);
+							a.setAttribute("href", img.src);
+							a.setAttribute("target", "_blank");
+							a.innerHTML = "DOWNLOAD";
+							document.body.appendChild(a);
+							a.click();
+						} catch {
+							notifications.show({
+								color: "red",
+								title: "Error",
+								message: "Something went wrong while capturing the image",
+							});
+						} finally {
+							setIsCaptureLoading(false);
+						}
+					}}
+				>
+					Save image
+				</Button>
+			</Flex>
 		</>
 	);
 }
