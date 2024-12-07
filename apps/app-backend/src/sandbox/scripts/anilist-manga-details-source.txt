@@ -156,7 +156,7 @@ const productionStatus =
 
 return {
 	name: title,
-	external_id: payloadIdentifier,
+	externalId: payloadIdentifier,
 	properties: {
 		url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
 		genres: collectGenres(media.genres, media.tags),
