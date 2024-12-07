@@ -22,7 +22,7 @@ export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
 		.strict();
 
 export const remoteImagesAssetsSchema = z
-	.object({ remote_images: stringArraySchema })
+	.object({ remoteImages: stringArraySchema })
 	.strict();
 
 export const toStableJsonSchema = <TSchema extends z.ZodType>(

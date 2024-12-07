@@ -189,14 +189,12 @@ return {
 	externalId: identifier,
 	properties: {
 		pages,
-		people: collectPeople(bookData.contributions),
-		genres: collectGenres(bookData.cached_tags),
+		sourceUrl: sourceUrl,
 		publish_year: releaseYear,
+		genres: collectGenres(bookData.cached_tags),
+		people: collectPeople(bookData.contributions),
+		assets: { remoteImages: collectImages(bookData.image, bookData.images) },
 		description:
 			typeof bookData.description === "string" ? bookData.description : null,
-		sourceUrl: sourceUrl,
-		assets: {
-			remote_images: collectImages(bookData.image, bookData.images),
-		},
 	},
 };
