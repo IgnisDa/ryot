@@ -110,4 +110,5 @@ export const createAuthRoute = <TRoute extends RouteConfig>(route: TRoute) => ({
 	...route,
 	middleware: [requireAuth],
 	security: [{ "X-Api-Key": [] }],
+	responses: { 401: unauthenticatedResponse(), ...route.responses },
 });
