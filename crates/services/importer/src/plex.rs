@@ -10,11 +10,11 @@ use media_models::{
 };
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
 use sea_orm::prelude::DateTimeUtc;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
 #[serde_as]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct PlexMetadataItem {
     title: String,
     #[serde(rename = "type")]
@@ -32,19 +32,19 @@ struct PlexMetadataItem {
     parent_index: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct PlexLibrary {
     pub directory: Vec<PlexMetadataItem>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct PlexMetadata {
     pub metadata: Vec<PlexMetadataItem>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct PlexMediaResponse<T> {
     pub media_container: T,
@@ -90,76 +90,75 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .json::<PlexMediaResponse<PlexMetadata>>()
             .await?;
         for item in items.media_container.metadata {
-            if item.last_viewed_at.is_some() {
-                let gu_ids = item.guid.unwrap_or_default();
-                let Some(tmdb_id) = gu_ids
-                    .iter()
-                    .find(|g| g.id.starts_with("tmdb://"))
-                    .map(|g| &g.id[7..])
-                else {
-                    failed_items.push(ImportFailedItem {
-                        lot: Some(lot),
-                        identifier: item.key.clone(),
-                        step: ImportFailStep::ItemDetailsFromSource,
-                        error: Some("No TMDb ID associated with this media".to_string()),
-                    });
-                    continue;
-                };
-                match lot {
-                    MediaLot::Movie => {
-                        success_items.push(ImportCompletedItem::Metadata(
-                            ImportOrExportMetadataItem {
-                                lot,
-                                reviews: vec![],
-                                source_id: item.key,
-                                collections: vec![],
-                                source: MediaSource::Tmdb,
-                                identifier: tmdb_id.to_string(),
-                                seen_history: vec![ImportOrExportMetadataItemSeen {
-                                    ended_on: item.last_viewed_at.map(|d| d.date_naive()),
-                                    provider_watched_on: Some(ImportSource::Plex.to_string()),
-                                    ..Default::default()
-                                }],
-                            },
-                        ));
-                    }
-                    MediaLot::Show => {
-                        let leaves = client
-                            .get(format!(
-                                "{}/library/metadata/{}/allLeaves",
-                                input.api_url,
-                                item.rating_key.unwrap()
-                            ))
-                            .send()
-                            .await?
-                            .json::<PlexMediaResponse<PlexMetadata>>()
-                            .await?;
-                        let mut item = ImportOrExportMetadataItem {
-                            lot,
-                            reviews: vec![],
-                            collections: vec![],
-                            seen_history: vec![],
-                            source: MediaSource::Tmdb,
-                            source_id: item.key.clone(),
-                            identifier: tmdb_id.to_string(),
-                        };
-                        for leaf in leaves.media_container.metadata {
-                            if leaf.last_viewed_at.is_some() {
-                                item.seen_history.push(ImportOrExportMetadataItemSeen {
-                                    show_episode_number: leaf.index,
-                                    show_season_number: leaf.parent_index,
-                                    ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
-                                    provider_watched_on: Some(ImportSource::Plex.to_string()),
-                                    ..Default::default()
-                                });
-                            }
-                        }
-                        if !item.seen_history.is_empty() {
-                            success_items.push(ImportCompletedItem::Metadata(item));
-                        }
-                    }
-                    _ => unreachable!(),
+            let Some(_lv) = item.last_viewed_at else {
+                continue;
+            };
+            let gu_ids = item.guid.unwrap_or_default();
+            let Some(tmdb_id) = gu_ids
+                .iter()
+                .find(|g| g.id.starts_with("tmdb://"))
+                .map(|g| &g.id[7..])
+            else {
+                failed_items.push(ImportFailedItem {
+                    lot: Some(lot),
+                    identifier: item.key.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("No TMDb ID associated with this media".to_string()),
+                });
+                continue;
+            };
+            match lot {
+                MediaLot::Movie => {
+                    success_items.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                        lot,
+                        reviews: vec![],
+                        source_id: item.key,
+                        collections: vec![],
+                        source: MediaSource::Tmdb,
+                        identifier: tmdb_id.to_string(),
+                        seen_history: vec![ImportOrExportMetadataItemSeen {
+                            ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                            provider_watched_on: Some(ImportSource::Plex.to_string()),
+                            ..Default::default()
+                        }],
+                    }));
                 }
+                MediaLot::Show => {
+                    let leaves = client
+                        .get(format!(
+                            "{}/library/metadata/{}/allLeaves",
+                            input.api_url,
+                            item.rating_key.unwrap()
+                        ))
+                        .send()
+                        .await?
+                        .json::<PlexMediaResponse<PlexMetadata>>()
+                        .await?;
+                    let mut item = ImportOrExportMetadataItem {
+                        lot,
+                        reviews: vec![],
+                        collections: vec![],
+                        seen_history: vec![],
+                        source: MediaSource::Tmdb,
+                        source_id: item.key.clone(),
+                        identifier: tmdb_id.to_string(),
+                    };
+                    for leaf in leaves.media_container.metadata {
+                        if leaf.last_viewed_at.is_some() {
+                            item.seen_history.push(ImportOrExportMetadataItemSeen {
+                                show_episode_number: leaf.index,
+                                show_season_number: leaf.parent_index,
+                                ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
+                                provider_watched_on: Some(ImportSource::Plex.to_string()),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                    if !item.seen_history.is_empty() {
+                        success_items.push(ImportCompletedItem::Metadata(item));
+                    }
+                }
+                _ => unreachable!(),
             }
         }
     }
