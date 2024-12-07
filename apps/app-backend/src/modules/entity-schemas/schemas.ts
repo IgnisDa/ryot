@@ -11,12 +11,12 @@ import {
 export const schemaSearchBody = z.object({
 	query: nonEmptyTrimmedStringSchema,
 	page: positiveIntSchema.default(1),
-	search_script_id: nonEmptyTrimmedStringSchema,
+	searchScriptId: nonEmptyTrimmedStringSchema,
 });
 
 export const schemaImportBody = z.object({
 	identifier: nonEmptyTrimmedStringSchema,
-	details_script_id: nonEmptyTrimmedStringSchema,
+	detailsScriptId: nonEmptyTrimmedStringSchema,
 });
 
 export const importEnvelope = createImportEnvelopeSchema(z.unknown());
