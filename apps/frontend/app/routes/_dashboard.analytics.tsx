@@ -264,7 +264,7 @@ const MusclesChart = () => {
 	const colors = useGetMantineColors();
 
 	return (
-		<FitnessChartContainer title="Muscles worked out">
+		<ChartContainer title="Muscles worked out">
 			{(data, count) => ({
 				totalItems: data.workoutMuscles.length,
 				render: (
@@ -283,7 +283,7 @@ const MusclesChart = () => {
 					/>
 				),
 			})}
-		</FitnessChartContainer>
+		</ChartContainer>
 	);
 };
 
@@ -291,7 +291,7 @@ const ExercisesChart = () => {
 	const colors = useGetMantineColors();
 
 	return (
-		<FitnessChartContainer title="Exercises done">
+		<ChartContainer title="Exercises done">
 			{(data, count) => ({
 				totalItems: data.workoutExercises.length,
 				render: (
@@ -311,13 +311,13 @@ const ExercisesChart = () => {
 					/>
 				),
 			})}
-		</FitnessChartContainer>
+		</ChartContainer>
 	);
 };
 
 const TimeOfDayChart = () => {
 	return (
-		<FitnessChartContainer title="Time of day" disableCounter>
+		<ChartContainer title="Time of day" disableCounter>
 			{(data) => {
 				const hours = data.hours.map((h) => ({
 					Count: h.count,
@@ -335,13 +335,12 @@ const TimeOfDayChart = () => {
 					),
 				};
 			}}
-		</FitnessChartContainer>
+		</ChartContainer>
 	);
 };
 
-type FitnessChartContainerProps = {
+type ChartContainerProps = {
 	title: string;
-	smallSize?: boolean;
 	disableCounter?: boolean;
 	children: (
 		data: FitnessAnalytics,
@@ -352,7 +351,7 @@ type FitnessChartContainerProps = {
 	};
 };
 
-const FitnessChartContainer = (props: FitnessChartContainerProps) => {
+const ChartContainer = (props: ChartContainerProps) => {
 	const userPreferences = useUserPreferences();
 	const { startDate, endDate } = useTimeSpanSettings();
 	const [count, setCount] = useLocalStorage(
@@ -375,10 +374,12 @@ const FitnessChartContainer = (props: FitnessChartContainerProps) => {
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
-		<Paper p="xs" withBorder display="flex" h={props.smallSize ? 140 : 380}>
+		<Paper display="flex" h={380} withBorder={value?.totalItems === 0} p="md">
 			<Flex flex={1} align="center" direction="column">
 				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
-					<Text size="lg">{props.title}</Text>
+					<Text size="lg" fw="bold">
+						{props.title}
+					</Text>
 					{props.disableCounter || (value?.totalItems || 0) === 0 ? null : (
 						<NumberInput
 							w={60}
