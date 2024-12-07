@@ -3,6 +3,7 @@ import {
 	Button,
 	Container,
 	Flex,
+	Grid,
 	Group,
 	Loader,
 	Menu,
@@ -158,11 +159,17 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</SimpleGrid>
-					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						<MusclesChart />
-						<ExercisesChart />
-						<TimeOfDayChart />
-					</SimpleGrid>
+					<Grid>
+						<Grid.Col span={{ base: 12, md: 6 }}>
+							<MusclesChart />
+						</Grid.Col>
+						<Grid.Col span={{ base: 12, md: 6 }}>
+							<ExercisesChart />
+						</Grid.Col>
+						<Grid.Col span={{ base: 12, md: 6 }}>
+							<TimeOfDayChart />
+						</Grid.Col>
+					</Grid>
 				</Stack>
 			</Container>
 			<Flex w="100%" mt="md">
