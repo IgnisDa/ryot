@@ -1,7 +1,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { auth, type MaybeAuthType } from "~/auth";
-import { withSession } from "~/auth/middleware";
+import { requireAuth, withSession } from "~/auth/middleware";
 import { healthApi } from "~/modules/health/routes";
 import { protectedApi } from "~/modules/protected/routes";
 
@@ -11,17 +11,19 @@ const openApiInfo = {
 	description: "OpenAPI specification for app-owned backend routes",
 };
 
-export const apiApp = new OpenAPIHono<{ Variables: MaybeAuthType }>();
+const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
+	.route("/health", healthApi)
+	.route("/protected", protectedApi);
 
-apiApp.route("/health", healthApi);
-apiApp.doc("/openapi.json", {
-	openapi: "3.0.0",
-	info: openApiInfo,
-	servers: [{ url: "/api" }],
-});
-apiApp.get("/docs", swaggerUI({ url: "/api/openapi.json" }));
-apiApp.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
-apiApp.use("*", withSession);
-apiApp.route("/protected", protectedApi);
+export const apiApp = baseApp
+	.doc("/openapi.json", {
+		openapi: "3.0.0",
+		info: openApiInfo,
+		servers: [{ url: "/api" }],
+	})
+	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
+	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
+	.use("*", withSession)
+	.use("/protected/*", requireAuth);
 
-export type AppType = typeof apiApp;
+export type AppType = typeof baseApp;
