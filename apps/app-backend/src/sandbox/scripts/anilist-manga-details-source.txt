@@ -167,7 +167,7 @@ return {
 		assets: { remoteImages: collectImages(media.coverImage, media.bannerImage) },
 		description: typeof media?.description === "string" ? media.description : null,
 		url: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
-		provider_rating:
+		providerRating:
 			typeof media?.averageScore === "number" &&
 			Number.isFinite(media.averageScore)
 				? media.averageScore
