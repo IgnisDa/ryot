@@ -284,7 +284,7 @@ export const ExerciseHistory = (props: {
 								>
 									{props.hideExerciseDetails
 										? workoutDetails.details.name
-										: exercise.name}
+										: exerciseDetails.name}
 								</Anchor>
 								{!props.hideExtraDetailsButton ? (
 									<ActionIcon onClick={toggle} variant="transparent">
@@ -425,7 +425,7 @@ export const ExerciseDisplayItem = (props: {
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
-			name={exerciseDetails?.id}
+			name={exerciseDetails?.name}
 			isLoading={isExerciseDetailsLoading}
 			imageUrl={exerciseDetails?.attributes.images.at(0)}
 			onImageClickBehavior={getExerciseDetailsPath(props.exerciseId)}
