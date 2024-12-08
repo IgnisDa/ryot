@@ -50,7 +50,7 @@ import {
 	queryFactory,
 	selectRandomElement,
 } from "~/lib/generals";
-import { useGetMantineColors } from "~/lib/hooks";
+import { useGetMantineColors, useUserPreferences } from "~/lib/hooks";
 
 const TIME_RANGES = [
 	"Yesterday",
@@ -525,6 +525,7 @@ type ChartContainerProps = {
 };
 
 const ChartContainer = (props: ChartContainerProps) => {
+	const userPreferences = useUserPreferences();
 	const { startDate, endDate } = useTimeSpanSettings();
 	const [count, setCount] = useLocalStorage(
 		`FitnessChartContainer-${props.title}`,
@@ -545,7 +546,7 @@ const ChartContainer = (props: ChartContainerProps) => {
 		? props.children(count, userAnalytics)
 		: undefined;
 
-	return (
+	return userPreferences.featuresEnabled.fitness.enabled ? (
 		<Paper display="flex" h={380} withBorder={value?.totalItems === 0} p="md">
 			<Flex flex={1} align="center" direction="column">
 				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
@@ -579,5 +580,5 @@ const ChartContainer = (props: ChartContainerProps) => {
 				</Flex>
 			</Flex>
 		</Paper>
-	);
+	) : null;
 };
