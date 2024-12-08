@@ -264,7 +264,7 @@ pub struct FitnessAnalyticsHour {
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
-pub struct FitnessAnalytics {
+pub struct UserFitnessAnalytics {
     pub workout_reps: i32,
     pub workout_weight: i32,
     pub workout_count: i32,
@@ -276,6 +276,13 @@ pub struct FitnessAnalytics {
     pub workout_muscles: Vec<FitnessAnalyticsMuscle>,
     pub workout_exercises: Vec<FitnessAnalyticsExercise>,
     pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
+}
+
+#[derive(
+    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
+)]
+pub struct UserAnalytics {
+    pub fitness: UserFitnessAnalytics,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
@@ -295,7 +302,7 @@ pub struct TmdbSettings {
 pub enum ApplicationCacheValue {
     Empty,
     TmdbSettings(TmdbSettings),
-    FitnessAnalytics(FitnessAnalytics),
+    UserAnalytics(UserAnalytics),
     IgdbSettings { access_token: String },
     UsersScheduledForWorkoutRevision(HashSet<String>),
     ListennotesSettings { genres: HashMap<i32, String> },
@@ -309,7 +316,7 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     ServerKeyValidated,
     UsersScheduledForWorkoutRevision,
-    FitnessAnalytics {
+    UserAnalytics {
         user_id: String,
         date_range: DateRangeInput,
     },
