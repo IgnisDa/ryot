@@ -6130,8 +6130,6 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "dependent-models",
- "media-models",
  "statistics-service",
  "traits",
 ]
@@ -6144,11 +6142,9 @@ dependencies = [
  "common-models",
  "database-models",
  "database-utils",
- "dependent-models",
  "enums",
  "hashbag",
  "itertools 0.13.0",
- "media-models",
  "sea-orm",
  "supporting-service",
  "tracing",
