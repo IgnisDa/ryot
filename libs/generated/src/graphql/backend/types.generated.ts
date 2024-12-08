@@ -326,6 +326,19 @@ export enum DailyUserActivitiesResponseGroupedBy {
   Year = 'YEAR'
 }
 
+export type DailyUserActivityHourRecord = {
+  __typename?: 'DailyUserActivityHourRecord';
+  entities: Array<DailyUserActivityHourRecordEntity>;
+  hour: Scalars['Int']['output'];
+};
+
+export type DailyUserActivityHourRecordEntity = {
+  __typename?: 'DailyUserActivityHourRecordEntity';
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+  metadataLot?: Maybe<MediaLot>;
+};
+
 export type DailyUserActivityItem = {
   __typename?: 'DailyUserActivityItem';
   animeCount: Scalars['Int']['output'];
@@ -664,12 +677,6 @@ export type FitnessAnalyticsExercise = {
   __typename?: 'FitnessAnalyticsExercise';
   count: Scalars['Int']['output'];
   exercise: Scalars['String']['output'];
-};
-
-export type FitnessAnalyticsHour = {
-  __typename?: 'FitnessAnalyticsHour';
-  count: Scalars['Int']['output'];
-  hour: Scalars['Int']['output'];
 };
 
 export type FitnessAnalyticsMuscle = {
@@ -2302,6 +2309,7 @@ export type User = {
 export type UserAnalytics = {
   __typename?: 'UserAnalytics';
   fitness: UserFitnessAnalytics;
+  hours: Array<DailyUserActivityHourRecord>;
 };
 
 export type UserAnalyticsFeaturesEnabledPreferences = {
@@ -2360,7 +2368,6 @@ export type UserFeaturesEnabledPreferences = {
 
 export type UserFitnessAnalytics = {
   __typename?: 'UserFitnessAnalytics';
-  hours: Array<FitnessAnalyticsHour>;
   measurementCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
   workoutDistance: Scalars['Int']['output'];

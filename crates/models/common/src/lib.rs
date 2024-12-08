@@ -256,14 +256,6 @@ pub struct FitnessAnalyticsEquipment {
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
-pub struct FitnessAnalyticsHour {
-    pub hour: u32,
-    pub count: u32,
-}
-
-#[derive(
-    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
-)]
 pub struct UserFitnessAnalytics {
     pub workout_reps: i32,
     pub workout_weight: i32,
@@ -272,7 +264,6 @@ pub struct UserFitnessAnalytics {
     pub workout_rest_time: i32,
     pub measurement_count: i32,
     pub workout_personal_bests: i32,
-    pub hours: Vec<FitnessAnalyticsHour>,
     pub workout_muscles: Vec<FitnessAnalyticsMuscle>,
     pub workout_exercises: Vec<FitnessAnalyticsExercise>,
     pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
@@ -283,6 +274,7 @@ pub struct UserFitnessAnalytics {
 )]
 pub struct UserAnalytics {
     pub fitness: UserFitnessAnalytics,
+    pub hours: Vec<DailyUserActivityHourRecord>,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]

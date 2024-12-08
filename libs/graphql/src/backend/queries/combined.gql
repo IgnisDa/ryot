@@ -520,6 +520,14 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 
 query UserAnalytics($input: DateRangeInput!) {
 	userAnalytics(input: $input) {
+		hours {
+			hour
+			entities {
+				entityId
+				entityLot
+				metadataLot
+			}
+		}
 		fitness {
 			workoutReps
 			workoutCount
@@ -528,10 +536,6 @@ query UserAnalytics($input: DateRangeInput!) {
 			workoutRestTime
 			measurementCount
 			workoutPersonalBests
-			hours {
-				hour
-				count
-			}
 			workoutExercises {
 				count
 				exercise

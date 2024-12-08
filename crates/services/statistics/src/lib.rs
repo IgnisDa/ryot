@@ -3,13 +3,13 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use async_graphql::Result;
 use common_models::{
     ApplicationCacheKey, ApplicationCacheValue, DailyUserActivityHourRecord, DateRangeInput,
-    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsHour,
-    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
+    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
+    UserFitnessAnalytics,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
 use dependent_models::DailyUserActivitiesResponse;
-use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle};
+use enums::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
@@ -278,24 +278,17 @@ impl StatisticsService {
             .into_partial_model::<CustomFitnessAnalytics>()
             .all(&self.0.db)
             .await?;
-        let mut hours_bag = HashBag::new();
-        items.iter().for_each(|i| {
-            for record in i.hour_records.iter() {
-                for entity in record.entities.iter() {
-                    if entity.entity_lot == EntityLot::Workout {
-                        hours_bag.insert(record.hour);
-                    }
+        let mut hours: Vec<DailyUserActivityHourRecord> = vec![];
+        items.iter().for_each(|item| {
+            for hour in item.hour_records.clone() {
+                let index = hours.iter().position(|h| h.hour == hour.hour);
+                if let Some(index) = index {
+                    hours.get_mut(index).unwrap().entities.extend(hour.entities);
+                } else {
+                    hours.push(hour);
                 }
             }
         });
-        let hours = hours_bag
-            .into_iter()
-            .map(|(hour, count)| FitnessAnalyticsHour {
-                hour,
-                count: count.try_into().unwrap(),
-            })
-            .sorted_by_key(|f| Reverse(f.count))
-            .collect_vec();
         let workout_reps = items.iter().map(|i| i.workout_reps).sum();
         let workout_count = items.iter().map(|i| i.workout_count).sum();
         let workout_weight = items.iter().map(|i| i.workout_weight).sum();
@@ -337,8 +330,8 @@ impl StatisticsService {
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
         let response = UserAnalytics {
+            hours,
             fitness: UserFitnessAnalytics {
-                hours,
                 workout_reps,
                 workout_count,
                 workout_weight,
