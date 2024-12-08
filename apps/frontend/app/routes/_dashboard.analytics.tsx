@@ -175,7 +175,7 @@ export default function Page() {
 											<Stack gap={0}>
 												<Text size="xs">{timeSpanSettings.range}</Text>
 												<Text span c="dimmed" size="xs">
-													{startDate} - {endDate}
+													{startDate} to {endDate}
 												</Text>
 											</Stack>
 										</Button>
