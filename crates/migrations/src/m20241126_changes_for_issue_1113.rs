@@ -15,6 +15,12 @@ impl MigrationTrait for Migration {
             create_daily_user_activity_table(manager).await?;
         }
         db.execute_unprepared(
+            "
+UPDATE exercise SET identifier = id;
+            ",
+        )
+        .await?;
+        db.execute_unprepared(
             r#"
 DO $$
 BEGIN

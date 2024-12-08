@@ -30,10 +30,10 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub lot: ExerciseLot,
     #[graphql(skip)]
     #[sea_orm(unique)]
-    pub identifier: Option<String>,
-    pub lot: ExerciseLot,
+    pub identifier: String,
     pub level: ExerciseLevel,
     pub force: Option<ExerciseForce>,
     pub mechanic: Option<ExerciseMechanic>,

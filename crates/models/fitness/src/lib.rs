@@ -71,8 +71,6 @@ pub struct GithubExerciseAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GithubExercise {
-    #[serde(alias = "id")]
-    pub identifier: String,
     #[serde(flatten)]
     pub attributes: GithubExerciseAttributes,
     pub name: String,

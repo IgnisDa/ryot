@@ -438,7 +438,7 @@ impl FitnessService {
         let mut muscles = ex.attributes.primary_muscles;
         muscles.extend(ex.attributes.secondary_muscles);
         if let Some(e) = Exercise::find()
-            .filter(exercise::Column::Identifier.eq(&ex.identifier))
+            .filter(exercise::Column::Identifier.eq(&ex.name))
             .filter(exercise::Column::Source.eq(ExerciseSource::Github))
             .one(&self.0.db)
             .await?
@@ -446,7 +446,7 @@ impl FitnessService {
             ryot_log!(
                 debug,
                 "Updating existing exercise with identifier: {}",
-                ex.identifier
+                ex.name
             );
             let mut db_ex: exercise::ActiveModel = e.into();
             db_ex.attributes = ActiveValue::Set(attributes);
@@ -464,17 +464,17 @@ impl FitnessService {
                 | ExerciseCategory::Powerlifting => ExerciseLot::RepsAndWeight,
             };
             let db_exercise = exercise::ActiveModel {
-                id: ActiveValue::Set(ex.name),
-                source: ActiveValue::Set(ExerciseSource::Github),
-                identifier: ActiveValue::Set(Some(ex.identifier)),
-                muscles: ActiveValue::Set(muscles),
-                attributes: ActiveValue::Set(attributes),
                 lot: ActiveValue::Set(lot),
+                muscles: ActiveValue::Set(muscles),
+                id: ActiveValue::Set(ex.name.clone()),
+                identifier: ActiveValue::Set(ex.name),
+                attributes: ActiveValue::Set(attributes),
+                created_by_user_id: ActiveValue::Set(None),
                 level: ActiveValue::Set(ex.attributes.level),
                 force: ActiveValue::Set(ex.attributes.force),
+                source: ActiveValue::Set(ExerciseSource::Github),
                 equipment: ActiveValue::Set(ex.attributes.equipment),
                 mechanic: ActiveValue::Set(ex.attributes.mechanic),
-                created_by_user_id: ActiveValue::Set(None),
             };
             let created_exercise = db_exercise.insert(&self.0.db).await?;
             ryot_log!(

@@ -14,7 +14,6 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
-use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -51,16 +50,18 @@ struct Entry {
 pub async fn import(
     input: DeployStrongAppImportInput,
     ss: &Arc<SupportingService>,
+    user_id: &String,
 ) -> Result<ImportResult> {
     let mut completed = vec![];
     let mut failed = vec![];
     if let Some(csv_path) = input.data_export_path {
-        import_exercises(csv_path, ss, &mut failed, &mut completed).await?;
+        import_exercises(user_id, csv_path, ss, &mut failed, &mut completed).await?;
     }
     Ok(ImportResult { failed, completed })
 }
 
 async fn import_exercises(
+    user_id: &String,
     csv_path: String,
     ss: &Arc<SupportingService>,
     failed: &mut Vec<ImportFailedItem>,
@@ -142,9 +143,14 @@ async fn import_exercises(
                 });
                 continue;
             };
+            let generated_id = format!("{}_{}_{}", exercise_name, exercise_lot, user_id);
             let existing_exercise = Exercise::find()
-                .filter(exercise::Column::Id.eq(&exercise_name))
                 .filter(exercise::Column::Lot.eq(exercise_lot))
+                .filter(
+                    exercise::Column::Id
+                        .eq(&exercise_name)
+                        .or(exercise::Column::Identifier.eq(&generated_id)),
+                )
                 .one(&ss.db)
                 .await?;
             let exercise_id = if let Some(db_ex) = existing_exercise {
@@ -152,16 +158,15 @@ async fn import_exercises(
             } else if let Some(mem_ex) = unique_exercises.get(&exercise_name) {
                 mem_ex.id.clone()
             } else {
-                let id = format!("{} [{}]", exercise_name, nanoid!(5));
                 unique_exercises.insert(
                     exercise_name.clone(),
                     exercise::Model {
-                        id: id.clone(),
                         lot: exercise_lot,
+                        id: generated_id.clone(),
                         ..Default::default()
                     },
                 );
-                id
+                generated_id
             };
             ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
             for sets in exercises {
