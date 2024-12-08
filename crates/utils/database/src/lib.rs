@@ -723,8 +723,8 @@ pub async fn calculate_user_activities_and_summary(
                 continue;
             }
             activity.workout_exercises.push(db_ex.name.clone());
+            activity.workout_equipments.extend(db_ex.equipment);
             activity.workout_muscles.extend(db_ex.muscles.clone());
-            activity.workout_equipments.extend(db_ex.equipment.clone());
         }
     }
 

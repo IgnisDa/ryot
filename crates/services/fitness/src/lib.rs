@@ -673,14 +673,13 @@ impl FitnessService {
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
         }
-        if input.old_id != input.update.id {
-            if Exercise::find_by_id(input.update.id.clone())
+        if input.old_id != input.update.id
+            && Exercise::find_by_id(input.update.id.clone())
                 .one(&self.0.db)
                 .await?
                 .is_some()
-            {
-                return Err(Error::new("Exercise with the new name already exists."));
-            }
+        {
+            return Err(Error::new("Exercise with the new name already exists."));
         }
         for image in old_exercise.attributes.internal_images {
             if let StoredUrl::S3(key) = image {

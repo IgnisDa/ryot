@@ -51,7 +51,7 @@ struct Entry {
 pub async fn import(
     input: DeployStrongAppImportInput,
     ss: &Arc<SupportingService>,
-    user_id: &String,
+    user_id: &str,
 ) -> Result<ImportResult> {
     let mut completed = vec![];
     let mut failed = vec![];
@@ -62,7 +62,7 @@ pub async fn import(
 }
 
 async fn import_exercises(
-    user_id: &String,
+    user_id: &str,
     csv_path: String,
     ss: &Arc<SupportingService>,
     failed: &mut Vec<ImportFailedItem>,
