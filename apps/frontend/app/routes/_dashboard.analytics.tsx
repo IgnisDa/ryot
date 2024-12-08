@@ -479,7 +479,7 @@ const TimeOfDayChart = () => {
 					const hour = convertUtcHourToLocalHour(i);
 					const workoutCount =
 						convertedHours.find((h) => h.hour === hour)?.count || 0;
-					return { hour: `${hour} hrs`, Workouts: workoutCount };
+					return { hour: `${hour} hr`, Workouts: workoutCount };
 				});
 				return {
 					totalItems: hours.length,
