@@ -173,23 +173,29 @@ async fn import_exercises(
                 },
             };
             ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
-            for sets in exercises {
-                if let Some(note) = sets.notes {
+            for set in exercises {
+                if let Some(note) = set.notes {
                     notes.push(note);
                 }
-                let weight = sets.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+                let weight = set.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+                let set_lot = match set.set_order.as_str() {
+                    "W" => SetLot::WarmUp,
+                    "F" => SetLot::Failure,
+                    "D" => SetLot::Drop,
+                    _ => SetLot::Normal,
+                };
                 collected_sets.push(UserWorkoutSetRecord {
                     statistic: WorkoutSetStatistic {
                         weight,
-                        reps: sets.reps,
-                        duration: sets.seconds.and_then(|r| r.checked_div(dec!(60))),
-                        distance: sets.distance.and_then(|d| d.checked_div(dec!(1000))),
+                        reps: set.reps,
+                        duration: set.seconds.and_then(|r| r.checked_div(dec!(60))),
+                        distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
                     note: None,
+                    lot: set_lot,
                     rest_time: None,
                     confirmed_at: None,
-                    lot: SetLot::Normal,
                 });
             }
             collected_exercises.push(UserExerciseInput {
