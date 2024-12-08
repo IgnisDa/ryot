@@ -204,6 +204,7 @@ pub struct ExportJob {
     pub started_at: DateTimeUtc,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
@@ -213,6 +214,7 @@ pub struct DailyUserActivityHourRecordEntity {
     pub metadata_lot: Option<MediaLot>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
@@ -223,6 +225,7 @@ pub struct DailyUserActivityHourRecord {
 }
 
 /// The start date must be before the end date.
+#[skip_serializing_none]
 #[derive(
     Debug, Default, Serialize, Deserialize, SimpleObject, InputObject, Clone, Eq, PartialEq,
 )]
@@ -241,12 +244,14 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Millennium,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq)]
 pub struct UserAnalyticsInput {
     pub date_range: ApplicationDateRange,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult, PartialEq, Eq,
 )]
@@ -286,6 +291,7 @@ pub struct DailyUserActivityItem {
     pub total_duration: i64,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, PartialEq, Eq)]
 pub struct DailyUserActivitiesResponse {
     pub total_count: i64,
@@ -295,6 +301,7 @@ pub struct DailyUserActivitiesResponse {
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -303,6 +310,7 @@ pub struct FitnessAnalyticsExercise {
     pub exercise: String,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -311,6 +319,7 @@ pub struct FitnessAnalyticsMuscle {
     pub muscle: ExerciseMuscle,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -319,6 +328,7 @@ pub struct FitnessAnalyticsEquipment {
     pub equipment: ExerciseEquipment,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -335,6 +345,7 @@ pub struct UserFitnessAnalytics {
     pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
