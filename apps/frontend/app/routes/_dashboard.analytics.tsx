@@ -22,8 +22,8 @@ import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
 	DailyUserActivitiesDocument,
 	DailyUserActivitiesResponseGroupedBy,
-	type FitnessAnalytics,
-	FitnessAnalyticsDocument,
+	type UserAnalytics,
+	UserAnalyticsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -417,8 +417,8 @@ const MusclesChart = () => {
 
 	return (
 		<ChartContainer title="Muscles worked out">
-			{(data, count) => ({
-				totalItems: data.workoutMuscles.length,
+			{(count, { fitness }) => ({
+				totalItems: fitness.workoutMuscles.length,
 				render: (
 					<PieChart
 						size={250}
@@ -427,7 +427,7 @@ const MusclesChart = () => {
 						strokeWidth={0.5}
 						labelsType="percent"
 						tooltipDataSource="segment"
-						data={data.workoutMuscles.slice(0, count).map((item) => ({
+						data={fitness.workoutMuscles.slice(0, count).map((item) => ({
 							value: item.count,
 							name: changeCase(item.muscle),
 							color: selectRandomElement(colors, item.muscle),
@@ -444,8 +444,8 @@ const ExercisesChart = () => {
 
 	return (
 		<ChartContainer title="Exercises done">
-			{(data, count) => ({
-				totalItems: data.workoutExercises.length,
+			{(count, { fitness }) => ({
+				totalItems: fitness.workoutExercises.length,
 				render: (
 					<BarChart
 						h={300}
@@ -455,7 +455,7 @@ const ExercisesChart = () => {
 						tickLine="none"
 						tooltipAnimationDuration={500}
 						series={[{ name: "value", label: "Times done" }]}
-						data={data.workoutExercises.slice(0, count).map((item) => ({
+						data={fitness.workoutExercises.slice(0, count).map((item) => ({
 							value: item.count,
 							name: changeCase(item.exercise),
 							color: selectRandomElement(colors, item.exercise),
@@ -470,16 +470,25 @@ const ExercisesChart = () => {
 const TimeOfDayChart = () => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
-			{(data) => {
-				const convertedHours = data.hours.map((h) => ({
-					count: h.count,
-					hour: convertUtcHourToLocalHour(h.hour),
-				}));
-				const hours = Array.from({ length: 24 }, (_, i) => i).map((i) => {
-					const hour = convertUtcHourToLocalHour(i);
-					const workoutCount =
-						convertedHours.find((h) => h.hour === hour)?.count || 0;
-					return { hour: `${hour} hr`, Workouts: workoutCount };
+			{(_, data) => {
+				const hours = Array.from({ length: 24 }, (_, h) => h).map((h) => {
+					const obj: Record<string, string | number> = { hour: h };
+					for (const mKey in MediaColors) {
+						const key = changeCase(mKey);
+						const count =
+							data.hours
+								.find((d) => d.hour === h)
+								?.entities.filter(
+									(e) =>
+										changeCase(e.entityLot) === key ||
+										changeCase(e.metadataLot || "") === key,
+								).length || 0;
+						obj[key] = count;
+					}
+					obj.hour = dayjsLib()
+						.hour(convertUtcHourToLocalHour(h))
+						.format("h a");
+					return obj;
 				});
 				return {
 					totalItems: hours.length,
@@ -487,11 +496,14 @@ const TimeOfDayChart = () => {
 						<RadarChart
 							h={300}
 							w="100%"
-							withLegend
 							data={hours}
 							dataKey="hour"
 							withPolarAngleAxis
-							series={[{ name: "Workouts", color: "blue.5", opacity: 0.3 }]}
+							series={Object.entries(MediaColors).map(([key, color]) => ({
+								name: changeCase(key),
+								color,
+								opacity: 0.3,
+							}))}
 						/>
 					),
 				};
@@ -504,8 +516,8 @@ type ChartContainerProps = {
 	title: string;
 	disableCounter?: boolean;
 	children: (
-		data: FitnessAnalytics,
 		count: number,
+		data: UserAnalytics,
 	) => {
 		render: ReactNode;
 		totalItems: number;
@@ -521,17 +533,17 @@ const ChartContainer = (props: ChartContainerProps) => {
 	);
 	const input = { startDate, endDate };
 
-	const { data: fitnessAnalytics } = useQuery({
-		queryKey: queryFactory.analytics.fitness({ input }).queryKey,
+	const { data: userAnalytics } = useQuery({
+		queryKey: queryFactory.analytics.user({ input }).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
-				.request(FitnessAnalyticsDocument, { input })
-				.then((data) => data.fitnessAnalytics);
+				.request(UserAnalyticsDocument, { input })
+				.then((data) => data.userAnalytics);
 		},
 	});
 
-	const value = fitnessAnalytics
-		? props.children(fitnessAnalytics, count)
+	const value = userAnalytics
+		? props.children(count, userAnalytics)
 		: undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (

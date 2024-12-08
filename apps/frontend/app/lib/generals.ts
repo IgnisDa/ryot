@@ -5,12 +5,12 @@ import {
 } from "@lukemorales/query-key-factory";
 import type { MantineColor } from "@mantine/core";
 import {
-	type FitnessAnalyticsQueryVariables,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
 	MetadataPartialDetailsDocument,
 	SetLot,
+	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange, isString } from "@ryot/ts-utils";
@@ -411,8 +411,8 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 });
 
 const analyticsQueryKeys = createQueryKeys("analytics", {
-	fitness: (input: FitnessAnalyticsQueryVariables) => ({
-		queryKey: ["fitness", input],
+	user: (input: UserAnalyticsQueryVariables) => ({
+		queryKey: ["user", input],
 	}),
 });
 
