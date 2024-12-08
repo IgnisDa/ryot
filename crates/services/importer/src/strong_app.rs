@@ -6,6 +6,7 @@ use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use database_models::{exercise, prelude::Exercise};
 use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_utils::generate_exercise_id;
 use enums::ExerciseLot;
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
@@ -143,7 +144,7 @@ async fn import_exercises(
                 });
                 continue;
             };
-            let generated_id = format!("{}_{}_{}", exercise_name, exercise_lot, user_id);
+            let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
             let existing_exercise = Exercise::find()
                 .filter(exercise::Column::Lot.eq(exercise_lot))
                 .filter(

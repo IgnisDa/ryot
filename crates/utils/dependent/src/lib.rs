@@ -2044,6 +2044,10 @@ async fn create_collection_and_add_entity_to_it(
     Ok(())
 }
 
+pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
+    format!("{}_{}_{}", name, lot, user_id)
+}
+
 pub async fn create_custom_exercise(
     user_id: &String,
     input: exercise::Model,
@@ -2051,7 +2055,7 @@ pub async fn create_custom_exercise(
 ) -> Result<String> {
     let exercise_id = input.id.clone();
     let mut input = input;
-    input.id = format!("{}_{}_{}", input.name, input.lot, user_id);
+    input.id = generate_exercise_id(&input.name, input.lot, user_id);
     input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
     input.attributes.internal_images = input
