@@ -33,12 +33,13 @@ import {
 	mapValues,
 	pickBy,
 	snakeCase,
+	sum,
 } from "@ryot/ts-utils";
 import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import { produce } from "immer";
-import { type ReactNode, useRef, useState } from "react";
+import { memo, type ReactNode, useRef, useState } from "react";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -467,11 +468,11 @@ const ExercisesChart = () => {
 	);
 };
 
-const TimeOfDayChart = () => {
+const TimeOfDayChart = memo(() => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
 			{(_, data) => {
-				const hours = Array.from({ length: 24 }, (_, h) => h).map((h) => {
+				const allHours = Array.from({ length: 24 }, (_, h) => h).map((h) => {
 					const obj: Record<string, string | number> = { hour: h };
 					for (const mKey in MediaColors) {
 						const key = changeCase(mKey);
@@ -490,14 +491,22 @@ const TimeOfDayChart = () => {
 						.format("h a");
 					return obj;
 				});
+				const filteredHours = allHours.filter(
+					(h) =>
+						sum(
+							Object.entries(h)
+								.filter((a) => a[0] !== "hour")
+								.map((f) => f[1]),
+						) > 0,
+				);
 				return {
-					totalItems: hours.length,
+					totalItems: allHours.length,
 					render: (
 						<RadarChart
 							h={300}
 							w="100%"
-							data={hours}
 							dataKey="hour"
+							data={filteredHours}
 							withPolarRadiusAxis
 							series={Object.entries(MediaColors).map(([key, color]) => ({
 								name: changeCase(key),
@@ -510,7 +519,7 @@ const TimeOfDayChart = () => {
 			}}
 		</ChartContainer>
 	);
-};
+});
 
 type ChartContainerProps = {
 	title: string;
