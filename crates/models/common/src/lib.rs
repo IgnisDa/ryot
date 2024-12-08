@@ -351,17 +351,6 @@ pub struct TmdbSettings {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
-pub enum ApplicationCacheValue {
-    Empty,
-    TmdbSettings(TmdbSettings),
-    UserAnalytics(UserAnalytics),
-    IgdbSettings { access_token: String },
-    UsersScheduledForWorkoutRevision(HashSet<String>),
-    ListennotesSettings { genres: HashMap<i32, String> },
-}
-
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
     IgdbSettings,
@@ -388,4 +377,15 @@ pub enum ApplicationCacheKey {
         manga_chapter_number: Option<Decimal>,
         manga_volume_number: Option<i32>,
     },
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
+pub enum ApplicationCacheValue {
+    Empty,
+    TmdbSettings(TmdbSettings),
+    UserAnalytics(UserAnalytics),
+    IgdbSettings { access_token: String },
+    UsersScheduledForWorkoutRevision(HashSet<String>),
+    ListennotesSettings { genres: HashMap<i32, String> },
 }
