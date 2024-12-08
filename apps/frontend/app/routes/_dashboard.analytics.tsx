@@ -1,4 +1,4 @@
-import { BarChart, PieChart, ScatterChart } from "@mantine/charts";
+import { BarChart, PieChart, RadarChart } from "@mantine/charts";
 import {
 	Button,
 	Center,
@@ -33,6 +33,7 @@ import {
 	mapValues,
 	pickBy,
 	snakeCase,
+	sortBy,
 } from "@ryot/ts-utils";
 import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -282,7 +283,7 @@ const ActivitySection = () => {
 	const items = dailyUserActivitiesData?.totalCount || 0;
 
 	return (
-		<Paper py="md" withBorder={items === 0}>
+		<Paper p={items === 0 ? "md" : undefined} withBorder={items === 0}>
 			<Stack ref={ref} h={{ base: 500, md: 400 }}>
 				<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
 					<DisplayStat
@@ -471,18 +472,23 @@ const TimeOfDayChart = () => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
 			{(data) => {
-				const hours = data.hours.map((h) => ({
-					Count: h.count,
-					Hour: convertUtcHourToLocalHour(h.hour),
-				}));
+				const hours = sortBy(
+					data.hours.map((h) => ({
+						count: h.count,
+						hour: convertUtcHourToLocalHour(h.hour),
+					})),
+					(a) => a.hour,
+				);
 				return {
 					totalItems: hours.length,
 					render: (
-						<ScatterChart
+						<RadarChart
 							h={300}
-							unit={{ x: "h" }}
-							dataKey={{ x: "Hour", y: "Count" }}
-							data={[{ color: "blue.5", name: "Group 1", data: hours }]}
+							w="100%"
+							data={hours}
+							dataKey="hour"
+							withPolarAngleAxis
+							series={[{ name: "count", color: "blue.5", opacity: 1 }]}
 						/>
 					),
 				};
