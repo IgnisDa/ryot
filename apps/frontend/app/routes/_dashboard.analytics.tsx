@@ -1,12 +1,12 @@
 import { BarChart, PieChart, ScatterChart } from "@mantine/charts";
 import {
 	Button,
+	Center,
 	Container,
 	Flex,
 	Grid,
 	Group,
 	Loader,
-	LoadingOverlay,
 	Menu,
 	Modal,
 	NumberInput,
@@ -282,71 +282,86 @@ const ActivitySection = () => {
 	const items = dailyUserActivitiesData?.totalCount || 0;
 
 	return (
-		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
-			<LoadingOverlay
-				visible={!dailyUserActivitiesData}
-				zIndex={1000}
-				overlayProps={{ radius: "md", blur: 3 }}
-			/>
-			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
-				<DisplayStat
-					label="Total"
-					value={`${new Intl.NumberFormat("en-US", {
-						notation: "compact",
-					}).format(Number(items))} items`}
-				/>
-				<DisplayStat
-					label="Duration"
-					value={
-						dailyUserActivitiesData
-							? humanizeDuration(
-									dayjsLib
-										.duration(dailyUserActivitiesData.totalDuration, "minutes")
-										.asMilliseconds(),
-									{ largest: 2 },
-								)
-							: "N/A"
-					}
-				/>
-			</SimpleGrid>
-			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
-				<BarChart
-					h="100%"
-					ml={-15}
-					withLegend
-					tickLine="x"
-					dataKey="DAY"
-					type="stacked"
-					data={dailyUserActivitiesData.data}
-					legendProps={{ verticalAlign: "bottom" }}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
-					xAxisProps={{
-						tickFormatter: (v) =>
-							dayjsLib(v).format(
-								match(dailyUserActivitiesData.groupedBy)
-									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
-									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
-									.with(
-										DailyUserActivitiesResponseGroupedBy.Year,
-										DailyUserActivitiesResponseGroupedBy.Millennium,
-										() => "YYYY",
+		<Paper py="md" withBorder={items === 0}>
+			<Stack ref={ref} h={{ base: 500, md: 400 }}>
+				<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+					<DisplayStat
+						label="Total"
+						value={`${new Intl.NumberFormat("en-US", {
+							notation: "compact",
+						}).format(Number(items))} items`}
+					/>
+					<DisplayStat
+						label="Duration"
+						value={
+							dailyUserActivitiesData
+								? humanizeDuration(
+										dayjsLib
+											.duration(
+												dailyUserActivitiesData.totalDuration,
+												"minutes",
+											)
+											.asMilliseconds(),
+										{ largest: 2 },
 									)
-									.exhaustive(),
-							),
-					}}
-				/>
-			) : (
-				<Paper withBorder h="100%" w="100%" display="flex">
-					<Text m="auto" ta="center">
-						No activity found in the selected period
-					</Text>
-				</Paper>
-			)}
-		</Stack>
+								: "N/A"
+						}
+					/>
+				</SimpleGrid>
+				{dailyUserActivitiesData ? (
+					dailyUserActivitiesData.totalCount !== 0 ? (
+						<BarChart
+							h="100%"
+							w="100%"
+							ml={-15}
+							withLegend
+							tickLine="x"
+							dataKey="DAY"
+							type="stacked"
+							data={dailyUserActivitiesData.data}
+							legendProps={{ verticalAlign: "bottom" }}
+							series={Object.keys(dailyUserActivitiesData.series).map(
+								(lot) => ({
+									name: lot,
+									color: MediaColors[lot],
+									label: changeCase(lot),
+								}),
+							)}
+							xAxisProps={{
+								tickFormatter: (v) =>
+									dayjsLib(v).format(
+										match(dailyUserActivitiesData.groupedBy)
+											.with(
+												DailyUserActivitiesResponseGroupedBy.Day,
+												() => "MMM D",
+											)
+											.with(
+												DailyUserActivitiesResponseGroupedBy.Month,
+												() => "MMM",
+											)
+											.with(
+												DailyUserActivitiesResponseGroupedBy.Year,
+												DailyUserActivitiesResponseGroupedBy.Millennium,
+												() => "YYYY",
+											)
+											.exhaustive(),
+									),
+							}}
+						/>
+					) : (
+						<Center h="100%">
+							<Text m="auto" ta="center">
+								No activity found in the selected period
+							</Text>
+						</Center>
+					)
+				) : (
+					<Center h="100%">
+						<Loader />
+					</Center>
+				)}
+			</Stack>
+		</Paper>
 	);
 };
 
