@@ -364,6 +364,9 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     ServerKeyValidated,
     UsersScheduledForWorkoutRevision,
+    UserAnalyticsParameters {
+        user_id: String,
+    },
     UserAnalytics {
         user_id: String,
         input: UserAnalyticsInput,
@@ -392,6 +395,7 @@ pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
     UserAnalytics(UserAnalytics),
     IgdbSettings { access_token: String },
+    UserAnalyticsParameters(ApplicationDateRange),
     UsersScheduledForWorkoutRevision(HashSet<String>),
     ListennotesSettings { genres: HashMap<i32, String> },
 }

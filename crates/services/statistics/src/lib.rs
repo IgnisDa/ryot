@@ -31,6 +31,48 @@ impl StatisticsService {
         calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
     }
 
+    pub async fn user_analytics_parameters(
+        &self,
+        user_id: &String,
+    ) -> Result<ApplicationDateRange> {
+        let cache_key = ApplicationCacheKey::UserAnalyticsParameters {
+            user_id: user_id.to_owned(),
+        };
+        if let Some(ApplicationCacheValue::UserAnalyticsParameters(cached)) =
+            self.0.cache_service.get_key(cache_key.clone()).await?
+        {
+            return Ok(cached);
+        }
+        let get_date = |ordering: Order| {
+            DailyUserActivity::find()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .select_only()
+                .column(daily_user_activity::Column::Date)
+                .order_by_with_nulls(
+                    daily_user_activity::Column::Date,
+                    ordering,
+                    NullOrdering::Last,
+                )
+                .into_tuple::<Date>()
+                .one(&self.0.db)
+        };
+        let start_date = get_date(Order::Asc).await?;
+        let end_date = get_date(Order::Desc).await?;
+        let response = ApplicationDateRange {
+            end_date,
+            start_date,
+        };
+        self.0
+            .cache_service
+            .set_with_expiry(
+                cache_key,
+                Some(8),
+                ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
+            )
+            .await?;
+        Ok(response)
+    }
+
     async fn daily_user_activities(
         &self,
         user_id: &String,
@@ -219,31 +261,6 @@ impl StatisticsService {
             item_count,
             total_count,
             total_duration,
-        })
-    }
-
-    pub async fn user_analytics_parameters(
-        &self,
-        user_id: &String,
-    ) -> Result<ApplicationDateRange> {
-        let get_date = |ordering: Order| {
-            DailyUserActivity::find()
-                .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .select_only()
-                .column(daily_user_activity::Column::Date)
-                .order_by_with_nulls(
-                    daily_user_activity::Column::Date,
-                    ordering,
-                    NullOrdering::Last,
-                )
-                .into_tuple::<Date>()
-                .one(&self.0.db)
-        };
-        let start_date = get_date(Order::Asc).await?;
-        let end_date = get_date(Order::Desc).await?;
-        Ok(ApplicationDateRange {
-            end_date,
-            start_date,
         })
     }
 
