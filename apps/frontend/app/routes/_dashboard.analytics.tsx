@@ -161,10 +161,8 @@ export default function Page() {
 													timeSpanSettings.range === range ? "blue" : undefined
 												}
 												onClick={() => {
-													if (range === "Custom") {
-														setCustomRangeOpened(true);
-														return;
-													}
+													if (range === "Custom")
+														return setCustomRangeOpened(true);
 													setTimeSpanSettings(
 														produce(timeSpanSettings, (draft) => {
 															draft.range = range;
