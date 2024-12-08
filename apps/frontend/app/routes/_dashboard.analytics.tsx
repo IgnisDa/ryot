@@ -43,7 +43,6 @@ import { type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { z } from "zod";
 import {
 	MediaColors,
 	clientGqlService,
@@ -68,13 +67,11 @@ const TIME_RANGES = [
 	"Custom",
 ] as const;
 
-const timeSpanSettingsSchema = z.object({
-	startDate: z.string().optional(),
-	endDate: z.string().optional(),
-	range: z.enum(TIME_RANGES),
-});
-
-export type TimeSpanSettings = z.infer<typeof timeSpanSettingsSchema>;
+export type TimeSpanSettings = {
+	endDate?: string;
+	startDate?: string;
+	range: (typeof TIME_RANGES)[number];
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { userAnalyticsParameters } =
