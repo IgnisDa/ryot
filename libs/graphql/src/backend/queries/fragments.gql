@@ -104,8 +104,8 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 		...WorkoutOrExerciseTotalsPart
 	}
 	exercises {
+		id
 		lot
-		name
 		numSets
 		bestSet {
 			...WorkoutSetRecordPart
@@ -189,8 +189,8 @@ fragment WorkoutInformationPart on WorkoutInformation {
 		exercises
 	}
 	exercises {
+		id
 		lot
-		name
 		notes
 		total {
 			...WorkoutOrExerciseTotalsPart

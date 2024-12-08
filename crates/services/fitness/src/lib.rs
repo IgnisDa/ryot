@@ -109,7 +109,7 @@ impl FitnessService {
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
             summary.exercises.push(WorkoutSummaryExercise {
-                name: exercise.exercise_id.clone(),
+                id: exercise.exercise_id.clone(),
                 best_set: None,
                 lot: None,
                 num_sets: exercise.sets.len(),
@@ -133,7 +133,7 @@ impl FitnessService {
                     })
                     .collect(),
                 notes: exercise.notes,
-                name: exercise.exercise_id,
+                id: exercise.exercise_id,
             });
         }
         let processed_exercises = information.exercises.clone();
@@ -574,7 +574,7 @@ impl FitnessService {
         for (idx, ex) in wkt.information.exercises.iter().enumerate() {
             let Some(association) = UserToEntity::find()
                 .filter(user_to_entity::Column::UserId.eq(&user_id))
-                .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.id.clone()))
                 .one(&self.0.db)
                 .await?
             else {
@@ -634,8 +634,8 @@ impl FitnessService {
                 .unwrap();
             let mut summary = db_workout.summary.clone();
             let mut information = db_workout.information.clone();
-            summary.exercises[workout.idx].name = new_name.clone();
-            information.exercises[workout.idx].name = new_name.clone();
+            summary.exercises[workout.idx].id = new_name.clone();
+            information.exercises[workout.idx].id = new_name.clone();
             let mut db_workout: workout::ActiveModel = db_workout.into();
             db_workout.summary = ActiveValue::Set(summary);
             db_workout.information = ActiveValue::Set(information);

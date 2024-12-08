@@ -1754,8 +1754,8 @@ export type ProcessAccessLinkResult = ProcessAccessLinkError | ProcessAccessLink
 export type ProcessedExercise = {
   __typename?: 'ProcessedExercise';
   assets?: Maybe<EntityAssets>;
+  id: Scalars['String']['output'];
   lot: ExerciseLot;
-  name: Scalars['String']['output'];
   notes: Array<Scalars['String']['output']>;
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
@@ -2932,8 +2932,8 @@ export type WorkoutSummary = {
 export type WorkoutSummaryExercise = {
   __typename?: 'WorkoutSummaryExercise';
   bestSet?: Maybe<WorkoutSetRecord>;
+  id: Scalars['String']['output'];
   lot?: Maybe<ExerciseLot>;
-  name: Scalars['String']['output'];
   numSets: Scalars['Int']['output'];
 };
 

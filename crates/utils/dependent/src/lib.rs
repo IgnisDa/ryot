@@ -1668,7 +1668,7 @@ pub async fn get_focused_workout_summary(
     ss: &Arc<SupportingService>,
 ) -> WorkoutFocusedSummary {
     let db_exercises = Exercise::find()
-        .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.name.clone())))
+        .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.id.clone())))
         .all(&ss.db)
         .await
         .unwrap();
@@ -1678,7 +1678,7 @@ pub async fn get_focused_workout_summary(
     let mut muscles = HashMap::new();
     let mut equipments = HashMap::new();
     for (idx, ex) in exercises.iter().enumerate() {
-        let exercise = db_exercises.iter().find(|e| e.id == ex.name).unwrap();
+        let exercise = db_exercises.iter().find(|e| e.id == ex.id).unwrap();
         lots.entry(exercise.lot).or_insert(vec![]).push(idx);
         levels.entry(exercise.level).or_insert(vec![]).push(idx);
         if let Some(force) = exercise.force {
@@ -1947,7 +1947,7 @@ pub async fn create_or_update_workout(
             ProcessedExercise {
                 sets,
                 lot: db_ex.lot,
-                name: db_ex.id,
+                id: db_ex.id,
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
@@ -1983,7 +1983,7 @@ pub async fn create_or_update_workout(
                 .map(|(best_set, lot, e)| WorkoutSummaryExercise {
                     best_set,
                     lot: Some(lot),
-                    name: e.name.clone(),
+                    id: e.id.clone(),
                     num_sets: e.sets.len(),
                 })
                 .collect(),
@@ -2387,7 +2387,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .exercises
             .into_iter()
             .map(|e| UserExerciseInput {
-                exercise_id: e.name,
+                exercise_id: e.id,
                 sets: e
                     .sets
                     .into_iter()

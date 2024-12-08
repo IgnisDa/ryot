@@ -710,7 +710,7 @@ pub async fn calculate_user_activities_and_summary(
         activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
         activity.workout_rest_time += workout_total.rest_time as i32;
         for exercise in workout.information.exercises {
-            let db_ex = exercises.iter().find(|e| e.id == exercise.name).unwrap();
+            let db_ex = exercises.iter().find(|e| e.id == exercise.id).unwrap();
             if user_exercises
                 .iter()
                 .find(|e| e.exercise_id == Some(db_ex.id.clone()))

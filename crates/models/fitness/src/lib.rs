@@ -344,7 +344,7 @@ pub struct EntityAssets {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ProcessedExercise {
-    pub name: String,
+    pub id: String,
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
@@ -430,7 +430,7 @@ pub struct WorkoutInformation {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummaryExercise {
-    pub name: String,
+    pub id: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
     pub best_set: Option<WorkoutSetRecord>,

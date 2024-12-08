@@ -24,6 +24,41 @@ UPDATE exercise SET identifier = id;
 ALTER TABLE exercise RENAME COLUMN identifier TO name;
 DROP INDEX "exercise__identifier__index";
 CREATE INDEX "{}" ON "exercise" ("name");
+
+UPDATE workout
+SET information =
+    JSONB_SET(
+        information,
+        '{{exercises}}',
+        (
+            SELECT JSONB_AGG(
+                JSONB_SET(
+                    exercise,
+                    '{{id}}',
+                    exercise->'name',
+                    true
+                ) - 'name'
+            )
+            FROM JSONB_ARRAY_ELEMENTS(information->'exercises') AS exercise
+        )
+    );
+UPDATE workout
+SET summary =
+    JSONB_SET(
+        summary,
+        '{{exercises}}',
+        (
+            SELECT JSONB_AGG(
+                JSONB_SET(
+                    exercise,
+                    '{{id}}',
+                    exercise->'name',
+                    true
+                ) - 'name'
+            )
+            FROM JSONB_ARRAY_ELEMENTS(summary->'exercises') AS exercise
+        )
+    )
             "#,
                 EXERCISE_NAME_INDEX
             ))
