@@ -2,7 +2,7 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse,
+    ApplicationCacheKey, ApplicationCacheValue, ApplicationDateRange, DailyUserActivitiesResponse,
     DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord, DailyUserActivityItem,
     FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
     UserAnalyticsInput, UserFitnessAnalytics,
@@ -13,7 +13,7 @@ use enums::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
-    prelude::Expr,
+    prelude::{Date, Expr},
     sea_query::{Alias, Func},
     ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
@@ -23,6 +23,14 @@ use supporting_service::SupportingService;
 pub struct StatisticsService(pub Arc<SupportingService>);
 
 impl StatisticsService {
+    pub async fn calculate_user_activities_and_summary(
+        &self,
+        user_id: &String,
+        calculate_from_beginning: bool,
+    ) -> Result<()> {
+        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+    }
+
     async fn daily_user_activities(
         &self,
         user_id: &String,
@@ -214,12 +222,32 @@ impl StatisticsService {
         })
     }
 
-    pub async fn calculate_user_activities_and_summary(
+    pub async fn user_analytics_parameters(
         &self,
         user_id: &String,
-        calculate_from_beginning: bool,
-    ) -> Result<()> {
-        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+    ) -> Result<ApplicationDateRange> {
+        let start_date = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .select_only()
+            .column(daily_user_activity::Column::Date)
+            .order_by_asc(daily_user_activity::Column::Date)
+            .into_tuple::<Option<Date>>()
+            .one(&self.0.db)
+            .await?
+            .flatten();
+        let end_date = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .select_only()
+            .column(daily_user_activity::Column::Date)
+            .order_by_desc(daily_user_activity::Column::Date)
+            .into_tuple::<Option<Date>>()
+            .one(&self.0.db)
+            .await?
+            .flatten();
+        Ok(ApplicationDateRange {
+            end_date,
+            start_date,
+        })
     }
 
     pub async fn user_analytics(

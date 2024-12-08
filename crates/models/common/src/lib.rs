@@ -223,8 +223,11 @@ pub struct DailyUserActivityHourRecord {
 }
 
 /// The start date must be before the end date.
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, Eq, PartialEq)]
-pub struct DateRangeInput {
+#[derive(
+    Debug, Default, Serialize, Deserialize, SimpleObject, InputObject, Clone, Eq, PartialEq,
+)]
+#[graphql(input_name = "ApplicationDateRangeInput")]
+pub struct ApplicationDateRange {
     pub end_date: Option<NaiveDate>,
     pub start_date: Option<NaiveDate>,
 }
@@ -240,7 +243,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq)]
 pub struct UserAnalyticsInput {
-    pub date_range: DateRangeInput,
+    pub date_range: ApplicationDateRange,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 

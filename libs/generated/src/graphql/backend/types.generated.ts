@@ -57,6 +57,19 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+/** The start date must be before the end date. */
+export type ApplicationDateRange = {
+  __typename?: 'ApplicationDateRange';
+  endDate?: Maybe<Scalars['NaiveDate']['output']>;
+  startDate?: Maybe<Scalars['NaiveDate']['output']>;
+};
+
+/** The start date must be before the end date. */
+export type ApplicationDateRangeInput = {
+  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+};
+
 export type AudioBookSpecifics = {
   __typename?: 'AudioBookSpecifics';
   runtime?: Maybe<Scalars['Int']['output']>;
@@ -377,12 +390,6 @@ export enum DashboardElementLot {
   Summary = 'SUMMARY',
   Upcoming = 'UPCOMING'
 }
-
-/** The start date must be before the end date. */
-export type DateRangeInput = {
-  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
-  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
-};
 
 export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];
@@ -1823,6 +1830,8 @@ export type QueryRoot = {
   userAccessLinks: Array<AccessLink>;
   /** Get the analytics for the currently logged in user. */
   userAnalytics: UserAnalytics;
+  /** Get the analytics parameters for the currently logged in user. */
+  userAnalyticsParameters: ApplicationDateRange;
   /** Get user by OIDC issuer ID. */
   userByOidcIssuerId?: Maybe<Scalars['String']['output']>;
   /** Get calendar events for a user between a given date range. */
@@ -2307,7 +2316,7 @@ export type UserAnalyticsFeaturesEnabledPreferences = {
 };
 
 export type UserAnalyticsInput = {
-  dateRange: DateRangeInput;
+  dateRange: ApplicationDateRangeInput;
   groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
 };
 

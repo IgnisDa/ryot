@@ -496,3 +496,10 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 		}
 	}
 }
+
+query UserAnalyticsParameters {
+	userAnalyticsParameters {
+		endDate
+		startDate
+	}
+}
