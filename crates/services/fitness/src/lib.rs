@@ -681,11 +681,6 @@ impl FitnessService {
             {
                 return Err(Error::new("Exercise with the new name already exists."));
             }
-            Exercise::update_many()
-                .col_expr(exercise::Column::Name, Expr::value(input.update.id.clone()))
-                .filter(exercise::Column::Id.eq(input.old_id.clone()))
-                .exec(&self.0.db)
-                .await?;
         }
         for image in old_exercise.attributes.internal_images {
             if let StoredUrl::S3(key) = image {
@@ -694,7 +689,6 @@ impl FitnessService {
         }
         self.create_custom_exercise(&user_id, input.update.clone())
             .await?;
-        schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
     }
 
