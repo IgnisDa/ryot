@@ -155,18 +155,18 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
 		totalDuration
 		items {
 			day
-			totalReviewCount
-			workoutCount
-			measurementCount
-			audioBookCount
-			animeCount
 			bookCount
-			podcastCount
-			mangaCount
 			showCount
 			movieCount
+			animeCount
+			mangaCount
+			workoutCount
+			podcastCount
+			audioBookCount
 			videoGameCount
+			totalReviewCount
 			visualNovelCount
+			userMeasurementCount
 		}
 	}
 }

@@ -499,6 +499,6 @@ export const MediaColors: EntityColor = {
 	VISUAL_NOVEL: "pink",
 	VIDEO_GAME: "teal",
 	WORKOUT: "violet",
-	MEASUREMENT: "indigo",
 	REVIEW: "green.5",
+	USER_MEASUREMENT: "indigo",
 };

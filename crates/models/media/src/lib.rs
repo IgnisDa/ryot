@@ -1518,7 +1518,7 @@ pub struct DailyUserActivityItem {
     pub total_collection_review_count: i64,
     pub total_metadata_group_review_count: i64,
     pub total_person_review_count: i64,
-    pub measurement_count: i64,
+    pub user_measurement_count: i64,
     pub workout_count: i64,
     pub total_workout_duration: i64,
     pub audio_book_count: i64,

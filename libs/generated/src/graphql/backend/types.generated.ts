@@ -346,7 +346,6 @@ export type DailyUserActivityItem = {
   bookCount: Scalars['Int']['output'];
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
-  measurementCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
@@ -371,6 +370,7 @@ export type DailyUserActivityItem = {
   totalWorkoutReps: Scalars['Int']['output'];
   totalWorkoutRestTime: Scalars['Int']['output'];
   totalWorkoutWeight: Scalars['Int']['output'];
+  userMeasurementCount: Scalars['Int']['output'];
   videoGameCount: Scalars['Int']['output'];
   visualNovelCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];

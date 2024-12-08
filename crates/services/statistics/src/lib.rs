@@ -107,7 +107,7 @@ impl StatisticsService {
             )
             .column_as(
                 daily_user_activity::Column::MeasurementCount.sum(),
-                "measurement_count",
+                "user_measurement_count",
             )
             .column_as(
                 daily_user_activity::Column::WorkoutCount.sum(),
