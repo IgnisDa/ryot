@@ -3329,7 +3329,6 @@ dependencies = [
  "indexmap 2.7.0",
  "itertools 0.13.0",
  "media-models",
- "nanoid",
  "providers",
  "reqwest 0.12.9",
  "rust_decimal",
@@ -3711,7 +3710,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.11.0",
- "strum",
 ]
 
 [[package]]
