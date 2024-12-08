@@ -157,13 +157,14 @@ async fn import_exercises(
                     db_ex.id
                 }
                 _ => match unique_exercises.get(&exercise_name) {
-                    Some(mem_ex) => mem_ex.name.clone(),
+                    Some(mem_ex) => mem_ex.id.clone(),
                     None => {
                         unique_exercises.insert(
                             exercise_name.clone(),
                             exercise::Model {
                                 lot: exercise_lot,
                                 name: exercise_name,
+                                id: generated_id.clone(),
                                 ..Default::default()
                             },
                         );
