@@ -506,12 +506,12 @@ const TimeOfDayChart = memo(() => {
 							h={300}
 							w="100%"
 							dataKey="hour"
-							data={filteredHours}
 							withPolarRadiusAxis
+							data={filteredHours}
 							series={Object.entries(MediaColors).map(([key, color]) => ({
-								name: changeCase(key),
 								color,
 								opacity: 0.3,
+								name: changeCase(key),
 							}))}
 						/>
 					),
