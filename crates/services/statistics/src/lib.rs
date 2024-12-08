@@ -226,30 +226,21 @@ impl StatisticsService {
         &self,
         user_id: &String,
     ) -> Result<ApplicationDateRange> {
-        let start_date = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .select_only()
-            .column(daily_user_activity::Column::Date)
-            .order_by_with_nulls(
-                daily_user_activity::Column::Date,
-                Order::Asc,
-                NullOrdering::Last,
-            )
-            .into_tuple::<Date>()
-            .one(&self.0.db)
-            .await?;
-        let end_date = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .select_only()
-            .column(daily_user_activity::Column::Date)
-            .order_by_with_nulls(
-                daily_user_activity::Column::Date,
-                Order::Desc,
-                NullOrdering::Last,
-            )
-            .into_tuple::<Date>()
-            .one(&self.0.db)
-            .await?;
+        let get_date = |ordering: Order| {
+            DailyUserActivity::find()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .select_only()
+                .column(daily_user_activity::Column::Date)
+                .order_by_with_nulls(
+                    daily_user_activity::Column::Date,
+                    ordering,
+                    NullOrdering::Last,
+                )
+                .into_tuple::<Date>()
+                .one(&self.0.db)
+        };
+        let start_date = get_date(Order::Asc).await?;
+        let end_date = get_date(Order::Desc).await?;
         Ok(ApplicationDateRange {
             end_date,
             start_date,
