@@ -6,7 +6,7 @@ use super::m20230417_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static EXERCISE_IDENTIFIER_UNIQUE_INDEX: &str = "exercise__identifier__index";
+pub static EXERCISE_NAME_INDEX: &str = "exercise__name__index";
 
 #[derive(Iden)]
 pub enum Exercise {
@@ -64,8 +64,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .unique()
-                    .name(EXERCISE_IDENTIFIER_UNIQUE_INDEX)
+                    .name(EXERCISE_NAME_INDEX)
                     .table(Exercise::Table)
                     .col(Exercise::Name)
                     .to_owned(),

@@ -1,6 +1,9 @@
 use sea_orm_migration::prelude::*;
 
-use crate::m20240827_create_daily_user_activity::create_daily_user_activity_table;
+use crate::{
+    m20230822_create_exercise::EXERCISE_NAME_INDEX,
+    m20240827_create_daily_user_activity::create_daily_user_activity_table,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -15,12 +18,15 @@ impl MigrationTrait for Migration {
             create_daily_user_activity_table(manager).await?;
         }
         if !manager.has_column("exercise", "name").await? {
-            db.execute_unprepared(
-                "
+            db.execute_unprepared(&format!(
+                r#"
 UPDATE exercise SET identifier = id;
 ALTER TABLE exercise RENAME COLUMN identifier TO name;
-            ",
-            )
+DROP INDEX "exercise__identifier__index";
+CREATE INDEX "{}" ON "exercise" ("name");
+            "#,
+                EXERCISE_NAME_INDEX
+            ))
             .await?;
         }
         db.execute_unprepared(
