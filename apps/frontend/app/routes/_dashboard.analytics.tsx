@@ -18,9 +18,11 @@ import {
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
 	DailyUserActivitiesResponseGroupedBy,
 	UserAnalyticsDocument,
+	UserAnalyticsParametersDocument,
 	type UserAnalyticsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -51,6 +53,7 @@ import {
 	selectRandomElement,
 } from "~/lib/generals";
 import { useGetMantineColors, useUserPreferences } from "~/lib/hooks";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const TIME_RANGES = [
 	"Yesterday",
@@ -73,22 +76,13 @@ const timeSpanSettingsSchema = z.object({
 
 export type TimeSpanSettings = z.infer<typeof timeSpanSettingsSchema>;
 
-const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
-	match(range)
-		.with("Yesterday", () => dayjsLib().subtract(1, "day"))
-		.with("This Week", () => dayjsLib().startOf("week"))
-		.with("This Month", () => dayjsLib().startOf("month"))
-		.with("This Year", () => dayjsLib().startOf("year"))
-		.with("Past 7 Days", () => dayjsLib().subtract(7, "day"))
-		.with("Past 30 Days", () => dayjsLib().subtract(30, "day"))
-		.with("Past 6 Months", () => dayjsLib().subtract(6, "month"))
-		.with("Past 12 Months", () => dayjsLib().subtract(12, "month"))
-		.with("All Time", () => dayjsLib().subtract(2000, "year"))
-		.with("Custom", () => undefined)
-		.exhaustive();
-
-export const loader = async (_args: LoaderFunctionArgs) => {
-	return {};
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+	const { userAnalyticsParameters } =
+		await serverGqlService.authenticatedRequest(
+			request,
+			UserAnalyticsParametersDocument,
+		);
+	return { userAnalyticsParameters };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -96,15 +90,38 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 };
 
 const useTimeSpanSettings = () => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [timeSpanSettings, setTimeSpanSettings] =
 		useLocalStorage<TimeSpanSettings>("TimeSpanSettings", {
 			range: "Past 30 Days",
 		});
+	const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
+		match(range)
+			.with("Yesterday", () => dayjsLib().subtract(1, "day"))
+			.with("This Week", () => dayjsLib().startOf("week"))
+			.with("This Month", () => dayjsLib().startOf("month"))
+			.with("This Year", () => dayjsLib().startOf("year"))
+			.with("Past 7 Days", () => dayjsLib().subtract(7, "day"))
+			.with("Past 30 Days", () => dayjsLib().subtract(30, "day"))
+			.with("Past 6 Months", () => dayjsLib().subtract(6, "month"))
+			.with("Past 12 Months", () => dayjsLib().subtract(12, "month"))
+			.with("All Time", () =>
+				loaderData.userAnalyticsParameters.startDate
+					? dayjsLib(loaderData.userAnalyticsParameters.startDate)
+					: undefined,
+			)
+			.with("Custom", () => undefined)
+			.exhaustive();
+
 	const startDate =
 		timeSpanSettings.startDate ||
 		formatDateToNaiveDate(getStartTime(timeSpanSettings.range) || new Date());
 
-	const endDate = timeSpanSettings.endDate || formatDateToNaiveDate(dayjsLib());
+	const endDate =
+		timeSpanSettings.endDate ||
+		(timeSpanSettings.range === "All Time" &&
+			loaderData.userAnalyticsParameters.endDate) ||
+		formatDateToNaiveDate(dayjsLib());
 	return { timeSpanSettings, setTimeSpanSettings, startDate, endDate };
 };
 
@@ -157,11 +174,9 @@ export default function Page() {
 										>
 											<Stack gap={0}>
 												<Text size="xs">{timeSpanSettings.range}</Text>
-												{timeSpanSettings.range !== "All Time" ? (
-													<Text span c="dimmed" size="xs">
-														{startDate} - {endDate}
-													</Text>
-												) : null}
+												<Text span c="dimmed" size="xs">
+													{startDate} - {endDate}
+												</Text>
 											</Stack>
 										</Button>
 									</Menu.Target>
@@ -384,6 +399,7 @@ const CustomDateSelectModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
 	const [value, setValue] = useState<[Date | null, Date | null]>([
@@ -405,6 +421,12 @@ const CustomDateSelectModal = (props: {
 					value={value}
 					w="fit-content"
 					onChange={setValue}
+					minDate={dayjsLib(
+						loaderData.userAnalyticsParameters.startDate,
+					).toDate()}
+					maxDate={dayjsLib(
+						loaderData.userAnalyticsParameters.endDate,
+					).toDate()}
 				/>
 				<Button
 					variant="default"
@@ -513,7 +535,7 @@ const TimeOfDayChart = () => {
 						) > 0,
 				);
 				return {
-					totalItems: allHours.length,
+					totalItems: filteredHours.length,
 					render: (
 						<RadarChart
 							h={300}
