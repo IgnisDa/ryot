@@ -40,6 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import { produce } from "immer";
 import { memo, type ReactNode, useRef, useState } from "react";
+import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -132,46 +133,54 @@ export default function Page() {
 						<Text fz={{ base: "lg", md: "h1" }} fw="bold">
 							Analytics
 						</Text>
-						<Menu position="bottom-end">
-							<Menu.Target>
-								<Button w={{ md: 200 }} variant="default" ml={{ md: "auto" }}>
-									<Stack gap={0}>
-										<Text size="xs">{timeSpanSettings.range}</Text>
-										{timeSpanSettings.range !== "All Time" ? (
-											<Text span c="dimmed" size="xs">
-												{startDate} - {endDate}
-											</Text>
-										) : null}
-									</Stack>
-								</Button>
-							</Menu.Target>
-							<Menu.Dropdown>
-								{TIME_RANGES.map((range) => (
-									<Menu.Item
-										ta="right"
-										key={range}
-										color={
-											timeSpanSettings.range === range ? "blue" : undefined
-										}
-										onClick={() => {
-											if (range === "Custom") {
-												setCustomRangeOpened(true);
-												return;
-											}
-											setTimeSpanSettings(
-												produce(timeSpanSettings, (draft) => {
-													draft.range = range;
-													draft.startDate = undefined;
-													draft.endDate = undefined;
-												}),
-											);
-										}}
-									>
-										{range}
-									</Menu.Item>
-								))}
-							</Menu.Dropdown>
-						</Menu>
+						<ClientOnly>
+							{() => (
+								<Menu position="bottom-end">
+									<Menu.Target>
+										<Button
+											w={{ md: 200 }}
+											variant="default"
+											ml={{ md: "auto" }}
+										>
+											<Stack gap={0}>
+												<Text size="xs">{timeSpanSettings.range}</Text>
+												{timeSpanSettings.range !== "All Time" ? (
+													<Text span c="dimmed" size="xs">
+														{startDate} - {endDate}
+													</Text>
+												) : null}
+											</Stack>
+										</Button>
+									</Menu.Target>
+									<Menu.Dropdown>
+										{TIME_RANGES.map((range) => (
+											<Menu.Item
+												ta="right"
+												key={range}
+												color={
+													timeSpanSettings.range === range ? "blue" : undefined
+												}
+												onClick={() => {
+													if (range === "Custom") {
+														setCustomRangeOpened(true);
+														return;
+													}
+													setTimeSpanSettings(
+														produce(timeSpanSettings, (draft) => {
+															draft.range = range;
+															draft.startDate = undefined;
+															draft.endDate = undefined;
+														}),
+													);
+												}}
+											>
+												{range}
+											</Menu.Item>
+										))}
+									</Menu.Dropdown>
+								</Menu>
+							)}
+						</ClientOnly>
 					</SimpleGrid>
 					<Grid>
 						<Grid.Col span={{ base: 12, md: 6 }}>
