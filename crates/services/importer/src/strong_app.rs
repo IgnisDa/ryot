@@ -7,7 +7,7 @@ use csv::ReaderBuilder;
 use database_models::{exercise, prelude::Exercise};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::generate_exercise_id;
-use enums::ExerciseLot;
+use enums::{ExerciseLot, ExerciseSource};
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
@@ -144,30 +144,32 @@ async fn import_exercises(
                 });
                 continue;
             };
-            let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
             let existing_exercise = Exercise::find()
                 .filter(exercise::Column::Lot.eq(exercise_lot))
-                .filter(
-                    exercise::Column::Name
-                        .eq(&exercise_name)
-                        .or(exercise::Column::Id.eq(&generated_id)),
-                )
+                .filter(exercise::Column::Name.eq(&exercise_name))
                 .one(&ss.db)
                 .await?;
-            let exercise_id = if let Some(db_ex) = existing_exercise {
-                db_ex.id
-            } else if let Some(mem_ex) = unique_exercises.get(&exercise_name) {
-                mem_ex.id.clone()
-            } else {
-                unique_exercises.insert(
-                    exercise_name.clone(),
-                    exercise::Model {
-                        lot: exercise_lot,
-                        name: exercise_name,
-                        ..Default::default()
-                    },
-                );
-                generated_id
+            let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
+            let exercise_id = match existing_exercise {
+                Some(db_ex)
+                    if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id =>
+                {
+                    db_ex.id
+                }
+                _ => match unique_exercises.get(&exercise_name) {
+                    Some(mem_ex) => mem_ex.name.clone(),
+                    None => {
+                        unique_exercises.insert(
+                            exercise_name.clone(),
+                            exercise::Model {
+                                lot: exercise_lot,
+                                name: exercise_name,
+                                ..Default::default()
+                            },
+                        );
+                        generated_id
+                    }
+                },
             };
             ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
             for sets in exercises {
