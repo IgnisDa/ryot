@@ -121,7 +121,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
-	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
+	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
 };
 
 export const action = async ({ params, request }: ActionFunctionArgs) => {
@@ -261,7 +261,7 @@ export default function Page() {
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
-					<Title id="exercise-title">{loaderData.exerciseDetails.id}</Title>
+					<Title id="exercise-title">{loaderData.exerciseDetails.name}</Title>
 					{loaderData.userExerciseDetails.collections.length > 0 ? (
 						<Group id="entity-collections">
 							{loaderData.userExerciseDetails.collections.map((col) => (
@@ -594,7 +594,7 @@ export default function Page() {
 											setEntityToReview({
 												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
-												entityTitle: loaderData.exerciseDetails.id,
+												entityTitle: loaderData.exerciseDetails.name,
 											});
 										}}
 									>

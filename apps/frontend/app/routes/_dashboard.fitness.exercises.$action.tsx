@@ -119,11 +119,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				return redirect(getExerciseDetailsPath(createCustomExercise));
 			})
 			.with(Action.Update, async () => {
-				invariant(submission.oldName);
+				invariant(submission.oldId);
 				await serverGqlService.authenticatedRequest(
 					request,
 					UpdateCustomExerciseDocument,
-					{ input: { ...input, oldName: submission.oldName } },
+					{ input: { ...input, oldId: submission.oldId } },
 				);
 				return redirect($path("/fitness/exercises/list"));
 			})
@@ -147,8 +147,8 @@ const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
-	oldName: optionalString,
-	id: z.string(),
+	oldId: optionalString,
+	name: z.string(),
 	lot: z.nativeEnum(ExerciseLot),
 	level: z.nativeEnum(ExerciseLevel),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -179,7 +179,7 @@ export default function Page() {
 					{loaderData.details?.id ? (
 						<input
 							type="hidden"
-							name="oldName"
+							name="oldId"
 							defaultValue={loaderData.details.id}
 						/>
 					) : null}
@@ -187,8 +187,8 @@ export default function Page() {
 						label="Name"
 						required
 						autoFocus
-						name="id"
-						defaultValue={loaderData.details?.id}
+						name="name"
+						defaultValue={loaderData.details?.name}
 					/>
 					<Select
 						label="Type"
