@@ -498,7 +498,7 @@ const TimeOfDayChart = () => {
 							w="100%"
 							data={hours}
 							dataKey="hour"
-							withPolarAngleAxis
+							withPolarRadiusAxis
 							series={Object.entries(MediaColors).map(([key, color]) => ({
 								name: changeCase(key),
 								color,
