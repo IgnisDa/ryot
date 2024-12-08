@@ -33,7 +33,6 @@ import {
 	mapValues,
 	pickBy,
 	snakeCase,
-	sortBy,
 } from "@ryot/ts-utils";
 import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -472,23 +471,27 @@ const TimeOfDayChart = () => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
 			{(data) => {
-				const hours = sortBy(
-					data.hours.map((h) => ({
-						count: h.count,
-						hour: convertUtcHourToLocalHour(h.hour),
-					})),
-					(a) => a.hour,
-				);
+				const convertedHours = data.hours.map((h) => ({
+					count: h.count,
+					hour: convertUtcHourToLocalHour(h.hour),
+				}));
+				const hours = Array.from({ length: 24 }, (_, i) => i).map((i) => {
+					const hour = convertUtcHourToLocalHour(i);
+					const workoutCount =
+						convertedHours.find((h) => h.hour === hour)?.count || 0;
+					return { hour: `${hour} hrs`, Workouts: workoutCount };
+				});
 				return {
 					totalItems: hours.length,
 					render: (
 						<RadarChart
 							h={300}
 							w="100%"
+							withLegend
 							data={hours}
 							dataKey="hour"
 							withPolarAngleAxis
-							series={[{ name: "count", color: "blue.5", opacity: 1 }]}
+							series={[{ name: "Workouts", color: "blue.5", opacity: 0.3 }]}
 						/>
 					),
 				};
