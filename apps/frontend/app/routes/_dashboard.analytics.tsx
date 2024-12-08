@@ -16,11 +16,9 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
-import { useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
-	DailyUserActivitiesDocument,
 	DailyUserActivitiesResponseGroupedBy,
 	UserAnalyticsDocument,
 	type UserAnalyticsQuery,
@@ -39,7 +37,7 @@ import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import { produce } from "immer";
-import { memo, type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
@@ -108,6 +106,21 @@ const useTimeSpanSettings = () => {
 
 	const endDate = timeSpanSettings.endDate || formatDateToNaiveDate(dayjsLib());
 	return { timeSpanSettings, setTimeSpanSettings, startDate, endDate };
+};
+
+const useGetUserAnalytics = () => {
+	const { startDate, endDate } = useTimeSpanSettings();
+	const input = { dateRange: { startDate, endDate } };
+
+	const { data: userAnalytics } = useQuery({
+		queryKey: queryFactory.analytics.user({ input }).queryKey,
+		queryFn: async () => {
+			return await clientGqlService
+				.request(UserAnalyticsDocument, { input })
+				.then((data) => data.userAnalytics);
+		},
+	});
+	return userAnalytics;
 };
 
 export default function Page() {
@@ -252,46 +265,39 @@ const DisplayStat = (props: {
 };
 
 const ActivitySection = () => {
-	const { ref, inViewport } = useInViewport();
-	const { startDate, endDate } = useTimeSpanSettings();
-	const { data: dailyUserActivitiesData } = useQuery({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
-			.queryKey,
-		enabled: inViewport,
-		queryFn: async () => {
-			const { dailyUserActivities } = await clientGqlService.request(
-				DailyUserActivitiesDocument,
-				{ input: { dateRange: { startDate, endDate } } },
-			);
-			const trackSeries = mapValues(MediaColors, () => false);
-			const data = dailyUserActivities.items.map((d) => {
-				const data = Object.entries(d)
-					.filter(([_, value]) => value !== 0)
-					.map(([key, value]) => ({
-						[snakeCase(
-							key.replace("Count", "").replace("total", ""),
-						).toUpperCase()]: value,
-					}))
-					.reduce(Object.assign, {});
-				for (const key in data)
-					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
-				return data;
-			});
-			const series = pickBy(trackSeries);
-			return {
+	const userAnalytics = useGetUserAnalytics();
+	const dailyUserActivities = userAnalytics?.activities;
+	const trackSeries = mapValues(MediaColors, () => false);
+
+	const data = dailyUserActivities?.items.map((d) => {
+		const data = Object.entries(d)
+			.filter(([_, value]) => value !== 0)
+			.map(([key, value]) => ({
+				[snakeCase(
+					key.replace("Count", "").replace("total", ""),
+				).toUpperCase()]: value,
+			}))
+			.reduce(Object.assign, {});
+		for (const key in data)
+			if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+		return data;
+	});
+	const series = pickBy(trackSeries);
+	const dailyUserActivitiesData = dailyUserActivities
+		? {
 				data,
 				series,
 				groupedBy: dailyUserActivities.groupedBy,
 				totalCount: dailyUserActivities.totalCount,
 				totalDuration: dailyUserActivities.totalDuration,
-			};
-		},
-	});
+			}
+		: undefined;
+
 	const items = dailyUserActivitiesData?.totalCount || 0;
 
 	return (
 		<Paper p={items === 0 ? "md" : undefined} withBorder={items === 0}>
-			<Stack ref={ref} h={{ base: 500, md: 400 }}>
+			<Stack h={{ base: 500, md: 400 }}>
 				<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
 					<DisplayStat
 						label="Total"
@@ -317,7 +323,8 @@ const ActivitySection = () => {
 					/>
 				</SimpleGrid>
 				{dailyUserActivitiesData ? (
-					dailyUserActivitiesData.totalCount !== 0 ? (
+					dailyUserActivitiesData.totalCount !== 0 &&
+					dailyUserActivitiesData.data ? (
 						<BarChart
 							h="100%"
 							w="100%"
@@ -475,7 +482,7 @@ const ExercisesChart = () => {
 	);
 };
 
-const TimeOfDayChart = memo(() => {
+const TimeOfDayChart = () => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
 			{(_, data) => {
@@ -525,7 +532,7 @@ const TimeOfDayChart = memo(() => {
 			}}
 		</ChartContainer>
 	);
-});
+};
 
 type ChartContainerProps = {
 	title: string;
@@ -541,21 +548,11 @@ type ChartContainerProps = {
 
 const ChartContainer = (props: ChartContainerProps) => {
 	const userPreferences = useUserPreferences();
-	const { startDate, endDate } = useTimeSpanSettings();
 	const [count, setCount] = useLocalStorage(
 		`FitnessChartContainer-${props.title}`,
 		10,
 	);
-	const input = { dateRange: { startDate, endDate } };
-
-	const { data: userAnalytics } = useQuery({
-		queryKey: queryFactory.analytics.user({ input }).queryKey,
-		queryFn: async () => {
-			return await clientGqlService
-				.request(UserAnalyticsDocument, { input })
-				.then((data) => data.userAnalytics);
-		},
-	});
+	const userAnalytics = useGetUserAnalytics();
 
 	const value = userAnalytics
 		? props.children(count, userAnalytics)
