@@ -1,10 +1,10 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { and, eq } from "drizzle-orm";
 import type { AuthType } from "~/auth";
-import { requireAuth } from "~/auth/middleware";
 import { db } from "~/db";
 import { entity, entitySchema } from "~/db/schema";
 import {
+	createAuthRoute,
 	errorJsonResponse,
 	jsonResponse,
 	pathParamValidationErrorResponse,
@@ -37,20 +37,21 @@ const foundEntityResponseSchema = z.object({
 	details_script_id: z.string(),
 });
 
-const entityRoute = createRoute({
-	method: "get",
-	tags: ["entities"],
-	path: "/{entityId}",
-	middleware: [requireAuth],
-	request: { params: entityParams },
-	summary: "Get a single entity by id",
-	responses: {
-		400: pathParamValidationErrorResponse,
-		401: errorJsonResponse("Request is unauthenticated"),
-		404: errorJsonResponse("Entity does not exist for this user"),
-		200: jsonResponse("Entity was found", foundEntityResponseSchema),
-	},
-});
+const entityRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["entities"],
+		path: "/{entityId}",
+		request: { params: entityParams },
+		summary: "Get a single entity by id",
+		responses: {
+			400: pathParamValidationErrorResponse,
+			401: errorJsonResponse("Request is unauthenticated"),
+			404: errorJsonResponse("Entity does not exist for this user"),
+			200: jsonResponse("Entity was found", foundEntityResponseSchema),
+		},
+	}),
+);
 
 export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 	entityRoute,
