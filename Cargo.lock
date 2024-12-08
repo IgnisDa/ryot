@@ -6147,6 +6147,7 @@ dependencies = [
  "itertools 0.13.0",
  "sea-orm",
  "supporting-service",
+ "tokio",
  "tracing",
 ]
 
