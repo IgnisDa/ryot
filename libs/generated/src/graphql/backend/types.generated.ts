@@ -494,6 +494,7 @@ export type Exercise = {
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
+  name: Scalars['String']['output'];
   source: ExerciseSource;
 };
 
@@ -550,11 +551,11 @@ export type ExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
-  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
+  name: Scalars['String']['input'];
 };
 
 export enum ExerciseLevel {
@@ -580,6 +581,7 @@ export type ExerciseListItem = {
   lastUpdatedOn?: Maybe<Scalars['DateTime']['output']>;
   lot: ExerciseLot;
   muscle?: Maybe<ExerciseMuscle>;
+  name: Scalars['String']['output'];
   numTimesInteracted?: Maybe<Scalars['Int']['output']>;
 };
 
@@ -2243,12 +2245,12 @@ export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
-  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
-  oldName: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  oldId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
 

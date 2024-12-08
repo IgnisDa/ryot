@@ -123,8 +123,9 @@ pub struct UserMeasurementStats {
 
 #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
 pub struct ExerciseListItem {
-    pub lot: ExerciseLot,
     pub id: String,
+    pub name: String,
+    pub lot: ExerciseLot,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_interacted: Option<i32>,

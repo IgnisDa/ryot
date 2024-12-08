@@ -14,12 +14,15 @@ impl MigrationTrait for Migration {
                 .await?;
             create_daily_user_activity_table(manager).await?;
         }
-        db.execute_unprepared(
-            "
+        if !manager.has_column("exercise", "name").await? {
+            db.execute_unprepared(
+                "
 UPDATE exercise SET identifier = id;
+ALTER TABLE exercise RENAME COLUMN identifier TO name;
             ",
-        )
-        .await?;
+            )
+            .await?;
+        }
         db.execute_unprepared(
             r#"
 DO $$

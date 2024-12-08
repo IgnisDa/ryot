@@ -175,12 +175,13 @@ query ExerciseDetails($exerciseId: String!) {
 	exerciseDetails(exerciseId: $exerciseId) {
 		id
 		lot
-		source
+		name
 		level
 		force
+		source
+		muscles
 		mechanic
 		equipment
-		muscles
 		createdByUserId
 		attributes {
 			instructions
@@ -198,10 +199,11 @@ query ExercisesList($input: ExercisesListInput!) {
 		items {
 			id
 			lot
+			name
 			image
 			muscle
-			numTimesInteracted
 			lastUpdatedOn
+			numTimesInteracted
 		}
 	}
 }

@@ -13,14 +13,14 @@ pub enum Exercise {
     Table,
     Id,
     Lot,
+    Name,
     Force,
     Level,
+    Source,
+    Muscles,
     Mechanic,
     Equipment,
-    Muscles,
-    Identifier,
     Attributes,
-    Source,
     CreatedByUserId,
 }
 
@@ -37,7 +37,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Exercise::Force).text())
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
-                    .col(ColumnDef::new(Exercise::Identifier).text())
+                    .col(ColumnDef::new(Exercise::Name).text())
                     .col(
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
@@ -67,7 +67,7 @@ impl MigrationTrait for Migration {
                     .unique()
                     .name(EXERCISE_IDENTIFIER_UNIQUE_INDEX)
                     .table(Exercise::Table)
-                    .col(Exercise::Identifier)
+                    .col(Exercise::Name)
                     .to_owned(),
             )
             .await?;

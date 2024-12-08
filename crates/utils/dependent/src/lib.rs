@@ -2051,7 +2051,7 @@ pub async fn create_custom_exercise(
 ) -> Result<String> {
     let exercise_id = input.id.clone();
     let mut input = input;
-    input.identifier = format!("{}_{}_{}", input.id, input.lot, user_id);
+    input.id = format!("{}_{}_{}", input.name, input.lot, user_id);
     input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
     input.attributes.internal_images = input

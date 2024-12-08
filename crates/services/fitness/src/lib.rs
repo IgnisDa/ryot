@@ -359,7 +359,7 @@ impl FitnessService {
                             Expr::col((AliasedExercise::Table, AliasedExercise::Id))
                                 .ilike(ilike_sql(&v)),
                         )
-                        .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),
+                        .add(Expr::col(exercise::Column::Name).ilike(slugify(v))),
                 )
             })
             .join(
@@ -438,7 +438,7 @@ impl FitnessService {
         let mut muscles = ex.attributes.primary_muscles;
         muscles.extend(ex.attributes.secondary_muscles);
         if let Some(e) = Exercise::find()
-            .filter(exercise::Column::Identifier.eq(&ex.name))
+            .filter(exercise::Column::Id.eq(&ex.name))
             .filter(exercise::Column::Source.eq(ExerciseSource::Github))
             .one(&self.0.db)
             .await?
@@ -467,7 +467,7 @@ impl FitnessService {
                 lot: ActiveValue::Set(lot),
                 muscles: ActiveValue::Set(muscles),
                 id: ActiveValue::Set(ex.name.clone()),
-                identifier: ActiveValue::Set(ex.name),
+                name: ActiveValue::Set(ex.name.clone()),
                 attributes: ActiveValue::Set(attributes),
                 created_by_user_id: ActiveValue::Set(None),
                 level: ActiveValue::Set(ex.attributes.level),
@@ -651,11 +651,11 @@ impl FitnessService {
     ) -> Result<bool> {
         let entity = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
+            .filter(user_to_entity::Column::ExerciseId.eq(input.old_id.clone()))
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        let old_exercise = Exercise::find_by_id(input.old_name.clone())
+        let old_exercise = Exercise::find_by_id(input.old_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
@@ -673,7 +673,7 @@ impl FitnessService {
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
         }
-        if input.old_name != input.update.id {
+        if input.old_id != input.update.id {
             if Exercise::find_by_id(input.update.id.clone())
                 .one(&self.0.db)
                 .await?
@@ -682,11 +682,9 @@ impl FitnessService {
                 return Err(Error::new("Exercise with the new name already exists."));
             }
             Exercise::update_many()
-                .col_expr(exercise::Column::Id, Expr::value(input.update.id.clone()))
-                .filter(exercise::Column::Id.eq(input.old_name.clone()))
+                .col_expr(exercise::Column::Name, Expr::value(input.update.id.clone()))
+                .filter(exercise::Column::Id.eq(input.old_id.clone()))
                 .exec(&self.0.db)
-                .await?;
-            self.change_exercise_name_in_history(input.update.id.clone(), entity)
                 .await?;
         }
         for image in old_exercise.attributes.internal_images {

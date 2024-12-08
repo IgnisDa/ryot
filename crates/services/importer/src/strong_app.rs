@@ -147,9 +147,9 @@ async fn import_exercises(
             let existing_exercise = Exercise::find()
                 .filter(exercise::Column::Lot.eq(exercise_lot))
                 .filter(
-                    exercise::Column::Id
+                    exercise::Column::Name
                         .eq(&exercise_name)
-                        .or(exercise::Column::Identifier.eq(&generated_id)),
+                        .or(exercise::Column::Id.eq(&generated_id)),
                 )
                 .one(&ss.db)
                 .await?;
