@@ -148,29 +148,6 @@ query UserAccessLinks {
 	}
 }
 
-query DailyUserActivities($input: UserAnalyticsInput!) {
-	dailyUserActivities(input: $input) {
-		groupedBy
-		totalCount
-		totalDuration
-		items {
-			day
-			bookCount
-			showCount
-			movieCount
-			animeCount
-			mangaCount
-			workoutCount
-			podcastCount
-			audioBookCount
-			videoGameCount
-			totalReviewCount
-			visualNovelCount
-			userMeasurementCount
-		}
-	}
-}
-
 query ExerciseDetails($exerciseId: String!) {
 	exerciseDetails(exerciseId: $exerciseId) {
 		id
@@ -515,79 +492,6 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 			visibility
 			summary {
 				...WorkoutSummaryPart
-			}
-		}
-	}
-}
-
-query UserAnalytics($input: UserAnalyticsInput!) {
-	userAnalytics(input: $input) {
-		hours {
-			hour
-			entities {
-				entityId
-				entityLot
-				metadataLot
-			}
-		}
-		activities {
-			groupedBy
-			totalCount
-			totalDuration
-			items {
-				totalMetadataReviewCount
-				totalCollectionReviewCount
-				totalMetadataGroupReviewCount
-				totalPersonReviewCount
-				userMeasurementCount
-				workoutCount
-				totalWorkoutDuration
-				audioBookCount
-				totalAudioBookDuration
-				animeCount
-				bookCount
-				totalBookPages
-				podcastCount
-				totalPodcastDuration
-				mangaCount
-				movieCount
-				totalMovieDuration
-				showCount
-				totalShowDuration
-				videoGameCount
-				totalVideoGameDuration
-				visualNovelCount
-				totalVisualNovelDuration
-				totalWorkoutPersonalBests
-				totalWorkoutWeight
-				totalWorkoutReps
-				totalWorkoutDistance
-				totalWorkoutRestTime
-				totalMetadataCount
-				totalReviewCount
-				totalCount
-				totalDuration
-			}
-		}
-		fitness {
-			workoutReps
-			workoutCount
-			workoutWeight
-			workoutDistance
-			workoutRestTime
-			measurementCount
-			workoutPersonalBests
-			workoutExercises {
-				count
-				exercise
-			}
-			workoutMuscles {
-				count
-				muscle
-			}
-			workoutEquipments {
-				count
-				equipment
 			}
 		}
 	}

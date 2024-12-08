@@ -23,7 +23,7 @@ use supporting_service::SupportingService;
 pub struct StatisticsService(pub Arc<SupportingService>);
 
 impl StatisticsService {
-    pub async fn daily_user_activities(
+    async fn daily_user_activities(
         &self,
         user_id: &String,
         input: UserAnalyticsInput,

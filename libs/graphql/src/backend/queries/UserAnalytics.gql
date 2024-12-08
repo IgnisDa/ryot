@@ -1,0 +1,74 @@
+
+query UserAnalytics($input: UserAnalyticsInput!) {
+	userAnalytics(input: $input) {
+		hours {
+			hour
+			entities {
+				entityId
+				entityLot
+				metadataLot
+			}
+		}
+		activities {
+			groupedBy
+			totalCount
+			totalDuration
+			items {
+				day
+				bookCount
+				showCount
+				totalCount
+				movieCount
+				animeCount
+				mangaCount
+				workoutCount
+				podcastCount
+				totalDuration
+				totalBookPages
+				audioBookCount
+				videoGameCount
+				totalReviewCount
+				visualNovelCount
+				totalWorkoutReps
+				totalShowDuration
+				totalMovieDuration
+				totalMetadataCount
+				totalWorkoutWeight
+				totalPodcastDuration
+				totalWorkoutDistance
+				totalWorkoutRestTime
+				totalWorkoutDuration
+				userMeasurementCount
+				totalVideoGameDuration
+				totalAudioBookDuration
+				totalPersonReviewCount
+				totalVisualNovelDuration
+				totalMetadataReviewCount
+				totalWorkoutPersonalBests
+				totalCollectionReviewCount
+				totalMetadataGroupReviewCount
+			}
+		}
+		fitness {
+			workoutReps
+			workoutCount
+			workoutWeight
+			workoutDistance
+			workoutRestTime
+			measurementCount
+			workoutPersonalBests
+			workoutExercises {
+				count
+				exercise
+			}
+			workoutMuscles {
+				count
+				muscle
+			}
+			workoutEquipments {
+				count
+				equipment
+			}
+		}
+	}
+}

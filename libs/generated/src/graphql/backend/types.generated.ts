@@ -1783,8 +1783,6 @@ export type QueryRoot = {
   collectionContents: CollectionContents;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
-  /** Get daily user activities for the currently logged in user. */
-  dailyUserActivities: DailyUserActivitiesResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get a paginated list of exercises in the database. */
@@ -1868,11 +1866,6 @@ export type QueryRoot = {
 
 export type QueryRootCollectionContentsArgs = {
   input: CollectionContentsInput;
-};
-
-
-export type QueryRootDailyUserActivitiesArgs = {
-  input: UserAnalyticsInput;
 };
 
 
