@@ -41,9 +41,8 @@ SET information =
             )
             FROM JSONB_ARRAY_ELEMENTS(information->'exercises') AS exercise
         )
-    );
-UPDATE workout
-SET summary =
+    ),
+    summary =
     JSONB_SET(
         summary,
         '{{exercises}}',
@@ -58,7 +57,7 @@ SET summary =
             )
             FROM JSONB_ARRAY_ELEMENTS(summary->'exercises') AS exercise
         )
-    )
+    );
             "#,
                 EXERCISE_NAME_INDEX
             ))
