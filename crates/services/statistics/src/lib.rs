@@ -14,9 +14,9 @@ use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
     prelude::{Date, Expr},
-    sea_query::{Alias, Func},
-    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait,
+    sea_query::{Alias, Func, NullOrdering},
+    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, Order, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait,
 };
 use supporting_service::SupportingService;
 
@@ -230,20 +230,26 @@ impl StatisticsService {
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .select_only()
             .column(daily_user_activity::Column::Date)
-            .order_by_asc(daily_user_activity::Column::Date)
-            .into_tuple::<Option<Date>>()
+            .order_by_with_nulls(
+                daily_user_activity::Column::Date,
+                Order::Asc,
+                NullOrdering::Last,
+            )
+            .into_tuple::<Date>()
             .one(&self.0.db)
-            .await?
-            .flatten();
+            .await?;
         let end_date = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .select_only()
             .column(daily_user_activity::Column::Date)
-            .order_by_desc(daily_user_activity::Column::Date)
-            .into_tuple::<Option<Date>>()
+            .order_by_with_nulls(
+                daily_user_activity::Column::Date,
+                Order::Desc,
+                NullOrdering::Last,
+            )
+            .into_tuple::<Date>()
             .one(&self.0.db)
-            .await?
-            .flatten();
+            .await?;
         Ok(ApplicationDateRange {
             end_date,
             start_date,
