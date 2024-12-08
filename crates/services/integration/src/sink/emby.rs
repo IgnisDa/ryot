@@ -47,63 +47,55 @@ mod models {
     }
 }
 
-pub(crate) struct EmbySinkIntegration {
-    payload: String,
-    db: DatabaseConnection,
-}
-
-impl EmbySinkIntegration {
-    pub const fn new(payload: String, db: DatabaseConnection) -> Self {
-        Self { payload, db }
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        let payload: models::EmbyWebhookPayload = serde_json::from_str(&self.payload)?;
-        let runtime = payload
-            .item
-            .run_time_ticks
-            .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
-        let position = payload
-            .playback_info
-            .position_ticks
-            .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
-        let (identifier, lot) =
-            match payload.item.item_type.as_str() {
-                "Movie" => {
-                    let id =
-                        payload.item.provider_ids.tmdb.as_ref().ok_or_else(|| {
-                            anyhow::anyhow!("No TMDb ID associated with this media")
-                        })?;
-                    (id.clone(), MediaLot::Movie)
-                }
-                "Episode" => {
-                    let series_name = payload.item.series_name.as_ref().ok_or_else(|| {
+pub async fn yank_progress(payload: String, db: &DatabaseConnection) -> Result<ImportResult> {
+    let payload: models::EmbyWebhookPayload = serde_json::from_str(&payload)?;
+    let runtime = payload
+        .item
+        .run_time_ticks
+        .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
+    let position = payload
+        .playback_info
+        .position_ticks
+        .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
+    let (identifier, lot) =
+        match payload.item.item_type.as_str() {
+            "Movie" => {
+                let id = payload
+                    .item
+                    .provider_ids
+                    .tmdb
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?;
+                (id.clone(), MediaLot::Movie)
+            }
+            "Episode" => {
+                let series_name =
+                    payload.item.series_name.as_ref().ok_or_else(|| {
                         anyhow::anyhow!("No series name associated with this media")
                     })?;
-                    let episode_name = payload.item.episode_name.as_ref().ok_or_else(|| {
+                let episode_name =
+                    payload.item.episode_name.as_ref().ok_or_else(|| {
                         anyhow::anyhow!("No episode name associated with this media")
                     })?;
-                    let db_show =
-                        get_show_by_episode_identifier(&self.db, series_name, episode_name).await?;
-                    (db_show.identifier, MediaLot::Show)
-                }
-                _ => bail!("Only movies and shows supported"),
-            };
-        Ok(ImportResult {
-            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                lot,
-                identifier,
-                source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMetadataItemSeen {
-                    provider_watched_on: Some("Emby".to_string()),
-                    progress: Some(position / runtime * dec!(100)),
-                    show_season_number: payload.item.season_number,
-                    show_episode_number: payload.item.episode_number,
-                    ..Default::default()
-                }],
+                let db_show = get_show_by_episode_identifier(db, series_name, episode_name).await?;
+                (db_show.identifier, MediaLot::Show)
+            }
+            _ => bail!("Only movies and shows supported"),
+        };
+    Ok(ImportResult {
+        completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            identifier,
+            source: MediaSource::Tmdb,
+            seen_history: vec![ImportOrExportMetadataItemSeen {
+                provider_watched_on: Some("Emby".to_string()),
+                progress: Some(position / runtime * dec!(100)),
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
                 ..Default::default()
-            })],
+            }],
             ..Default::default()
-        })
-    }
+        })],
+        ..Default::default()
+    })
 }

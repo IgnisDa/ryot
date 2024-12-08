@@ -6,19 +6,21 @@ use super::m20230417_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static EXERCISE_NAME_INDEX: &str = "exercise__name__index";
+
 #[derive(Iden)]
 pub enum Exercise {
     Table,
     Id,
     Lot,
+    Name,
     Force,
     Level,
+    Source,
+    Muscles,
     Mechanic,
     Equipment,
-    Muscles,
-    Identifier,
     Attributes,
-    Source,
     CreatedByUserId,
 }
 
@@ -30,13 +32,12 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Exercise::Table)
                     .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
-                    .col(ColumnDef::new(Exercise::Muscles).json_binary().not_null())
                     .col(ColumnDef::new(Exercise::Lot).text().not_null())
                     .col(ColumnDef::new(Exercise::Level).text().not_null())
                     .col(ColumnDef::new(Exercise::Force).text())
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
-                    .col(ColumnDef::new(Exercise::Identifier).text())
+                    .col(ColumnDef::new(Exercise::Name).text())
                     .col(
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
@@ -44,6 +45,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(Exercise::Muscles)
+                            .array(ColumnType::Text)
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")
@@ -58,10 +64,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .unique()
-                    .name("exercise__identifier__index")
+                    .name(EXERCISE_NAME_INDEX)
                     .table(Exercise::Table)
-                    .col(Exercise::Identifier)
+                    .col(Exercise::Name)
                     .to_owned(),
             )
             .await?;

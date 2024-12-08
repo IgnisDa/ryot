@@ -181,17 +181,28 @@ pub struct UserFitnessMeasurementsPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
-pub struct UserFeaturesEnabledPreferences {
-    pub media: UserMediaFeaturesEnabledPreferences,
-    pub fitness: UserFitnessFeaturesEnabledPreferences,
-    pub others: UserOthersFeaturesEnabledPreferences,
+#[educe(Default)]
+pub struct UserAnalyticsFeaturesEnabledPreferences {
+    #[educe(Default = true)]
+    pub enabled: bool,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFeaturesEnabledPreferences {
+    pub media: UserMediaFeaturesEnabledPreferences,
+    pub others: UserOthersFeaturesEnabledPreferences,
+    pub fitness: UserFitnessFeaturesEnabledPreferences,
+    pub analytics: UserAnalyticsFeaturesEnabledPreferences,
+}
+
+#[derive(
+    Eq, Clone, Debug, Educe, Serialize, PartialEq, Deserialize, SimpleObject, FromJsonQueryResult,
+)]
+#[educe(Default)]
 pub struct UserFitnessPreferences {
     pub logging: UserFitnessLoggingPreferences,
     pub exercises: UserFitnessExercisesPreferences,
@@ -249,7 +260,6 @@ pub enum DashboardElementLot {
     #[default]
     Summary,
     Recommendations,
-    Activity,
 }
 
 #[skip_serializing_none]
@@ -324,10 +334,6 @@ pub struct UserGeneralPreferences {
         UserGeneralDashboardElement {
             num_elements: Some(8),
             section: DashboardElementLot::Recommendations,
-            ..Default::default()
-        },
-        UserGeneralDashboardElement {
-            section: DashboardElementLot::Activity,
             ..Default::default()
         },
     ]))]

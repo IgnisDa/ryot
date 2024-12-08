@@ -71,8 +71,6 @@ pub struct GithubExerciseAttributes {
 #[derive(Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GithubExercise {
-    #[serde(alias = "id")]
-    pub identifier: String,
     #[serde(flatten)]
     pub attributes: GithubExerciseAttributes,
     pub name: String,
@@ -125,8 +123,9 @@ pub struct UserMeasurementStats {
 
 #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
 pub struct ExerciseListItem {
-    pub lot: ExerciseLot,
     pub id: String,
+    pub name: String,
+    pub lot: ExerciseLot,
     #[graphql(skip)]
     pub attributes: ExerciseAttributes,
     pub num_times_interacted: Option<i32>,
@@ -293,6 +292,7 @@ pub struct SetRestTimersSettings {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseSettingsExtraInformation {
+    pub exclude_from_analytics: bool,
     pub set_rest_timers: SetRestTimersSettings,
 }
 
@@ -344,7 +344,7 @@ pub struct EntityAssets {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ProcessedExercise {
-    pub name: String,
+    pub id: String,
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
@@ -430,7 +430,7 @@ pub struct WorkoutInformation {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummaryExercise {
-    pub name: String,
+    pub id: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
     pub best_set: Option<WorkoutSetRecord>,

@@ -46,63 +46,53 @@ mod models {
     }
 }
 
-pub(crate) struct JellyfinSinkIntegration {
-    payload: String,
-}
-
-impl JellyfinSinkIntegration {
-    pub const fn new(payload: String) -> Self {
-        Self { payload }
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
-        let identifier = payload
-            .item
-            .provider_ids
-            .tmdb
-            .as_ref()
-            .or_else(|| {
-                payload
-                    .series
-                    .as_ref()
-                    .and_then(|s| s.provider_ids.tmdb.as_ref())
-            })
-            .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?
-            .clone();
-
-        let runtime = payload
-            .item
-            .run_time_ticks
-            .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
-
-        let position = payload
-            .session
-            .play_state
-            .position_ticks
-            .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
-
-        let lot = match payload.item.item_type.as_str() {
-            "Episode" => MediaLot::Show,
-            "Movie" => MediaLot::Movie,
-            _ => bail!("Only movies and shows supported"),
-        };
-
-        Ok(ImportResult {
-            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                lot,
-                identifier,
-                source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMetadataItemSeen {
-                    progress: Some(position / runtime * dec!(100)),
-                    show_season_number: payload.item.season_number,
-                    show_episode_number: payload.item.episode_number,
-                    provider_watched_on: Some("Jellyfin".to_string()),
-                    ..Default::default()
-                }],
-                ..Default::default()
-            })],
-            ..Default::default()
+pub async fn yank_progress(payload: String) -> Result<ImportResult> {
+    let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
+    let identifier = payload
+        .item
+        .provider_ids
+        .tmdb
+        .as_ref()
+        .or_else(|| {
+            payload
+                .series
+                .as_ref()
+                .and_then(|s| s.provider_ids.tmdb.as_ref())
         })
-    }
+        .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?
+        .clone();
+
+    let runtime = payload
+        .item
+        .run_time_ticks
+        .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
+
+    let position = payload
+        .session
+        .play_state
+        .position_ticks
+        .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
+
+    let lot = match payload.item.item_type.as_str() {
+        "Episode" => MediaLot::Show,
+        "Movie" => MediaLot::Movie,
+        _ => bail!("Only movies and shows supported"),
+    };
+
+    Ok(ImportResult {
+        completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            identifier,
+            source: MediaSource::Tmdb,
+            seen_history: vec![ImportOrExportMetadataItemSeen {
+                progress: Some(position / runtime * dec!(100)),
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
+                provider_watched_on: Some("Jellyfin".to_string()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        })],
+        ..Default::default()
+    })
 }

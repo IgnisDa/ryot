@@ -91,6 +91,7 @@ import {
 	IconDeviceSpeaker,
 	IconDeviceTv,
 	IconEyeglass,
+	IconGraph,
 	IconHome2,
 	IconLogout,
 	IconMoodEmpty,
@@ -218,7 +219,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => v !== "enabled")
+			.filter(([v, _]) => !["enabled"].includes(v))
 			.map(([name, enabled]) => ({ name, enabled }))
 			?.filter((f) => f.enabled)
 			.map((f) => ({
@@ -226,10 +227,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				href: joinURL("/fitness", f.name, "list"),
 			})) || []),
 		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-	].map((link) => ({
-		label: link.label,
-		link: link.href,
-	}));
+	]
+		.filter((link) => link !== undefined)
+		.map((link) => ({ label: link.label, link: link.href }));
 
 	const settingsLinks = [
 		{ label: "Preferences", link: $path("/settings/preferences") },
@@ -652,6 +652,16 @@ export default function Layout() {
 								links={loaderData.fitnessLinks}
 							/>
 						) : null}
+						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
+							<LinksGroup
+								opened={false}
+								icon={IconGraph}
+								label="Analytics"
+								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/analytics")}
+							/>
+						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								label="Calendar"
@@ -898,7 +908,7 @@ const Footer = () => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				{!coreDetails.isPro ? (
+				{!coreDetails.isServerKeyValidated ? (
 					<Anchor href={coreDetails.websiteUrl} target="_blank">
 						<Text c="red" fw="bold">
 							Ryot Pro
@@ -924,9 +934,10 @@ const Footer = () => {
 };
 
 const WATCH_TIMES = [
-	"Just Right Now",
+	"Just Completed Now",
 	"I don't remember",
 	"Custom Date",
+	"Just Started It",
 ] as const;
 
 const MetadataProgressUpdateForm = ({
@@ -968,7 +979,7 @@ const MetadataProgressUpdateForm = ({
 			inProgress={userMetadataDetails.inProgress}
 		/>
 	) : (
-		<NewProgressUpdateForm
+		<MetadataNewProgressUpdateForm
 			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
@@ -1094,7 +1105,7 @@ const MetadataInProgressUpdateForm = ({
 	);
 };
 
-const NewProgressUpdateForm = ({
+const MetadataNewProgressUpdateForm = ({
 	history,
 	onSubmit,
 	metadataDetails,
@@ -1105,12 +1116,14 @@ const NewProgressUpdateForm = ({
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	history: History;
 }) => {
+	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
-	const [watchTime, setWatchTime] =
-		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
+	const [watchTime, setWatchTime] = useState<(typeof WATCH_TIMES)[number]>(
+		WATCH_TIMES[0],
+	);
 	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
 
@@ -1118,19 +1131,32 @@ const NewProgressUpdateForm = ({
 		<Form
 			method="POST"
 			onSubmit={onSubmit}
-			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
+			action={withQuery($path("/actions"), {
+				intent:
+					watchTime === WATCH_TIMES[3]
+						? "individualProgressUpdate"
+						: "progressUpdate",
+			})}
 		>
 			{[
 				...Object.entries(metadataToUpdate),
-				["metadataLot", metadataDetails.lot],
-			].map(([k, v]) => (
-				<Fragment key={k}>
-					{typeof v !== "undefined" ? (
-						<input hidden readOnly name={k} value={v?.toString()} />
-					) : null}
-				</Fragment>
-			))}
-			<Stack>
+				watchTime !== WATCH_TIMES[3]
+					? ["metadataLot", metadataDetails.lot]
+					: undefined,
+				watchTime === WATCH_TIMES[3] ? ["progress", "0"] : undefined,
+				selectedDate
+					? ["date", formatDateToNaiveDate(selectedDate)]
+					: undefined,
+			]
+				.filter((v) => typeof v !== "undefined")
+				.map(([k, v]) => (
+					<Fragment key={k}>
+						{typeof v !== "undefined" ? (
+							<input hidden readOnly name={k} value={v?.toString()} />
+						) : null}
+					</Fragment>
+				))}
+			<Stack ref={parent}>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
@@ -1281,15 +1307,26 @@ const NewProgressUpdateForm = ({
 					</>
 				) : null}
 				<Select
-					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					data={WATCH_TIMES}
 					value={watchTime}
+					data={WATCH_TIMES.filter((v) =>
+						[
+							MediaLot.Show,
+							MediaLot.Podcast,
+							MediaLot.Anime,
+							MediaLot.Manga,
+						].includes(metadataDetails.lot)
+							? v !== WATCH_TIMES[3]
+							: true,
+					)}
+					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					onChange={(v) => {
 						setWatchTime(v as typeof watchTime);
 						match(v)
 							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-							.with(WATCH_TIMES[1], () => setSelectedDate(null))
-							.with(WATCH_TIMES[2], () => setSelectedDate(null));
+							.with(WATCH_TIMES[1], WATCH_TIMES[2], WATCH_TIMES[3], () =>
+								setSelectedDate(null),
+							)
+							.run();
 					}}
 				/>
 				{watchTime === WATCH_TIMES[2] ? (
@@ -1302,20 +1339,15 @@ const NewProgressUpdateForm = ({
 						label="Enter exact date"
 					/>
 				) : null}
-				<Select
-					data={watchProviders}
-					name="providerWatchedOn"
-					defaultValue={lastProviderWatchedOn}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-				/>
-				{selectedDate ? (
-					<input
-						hidden
-						readOnly
-						name="date"
-						value={formatDateToNaiveDate(selectedDate)}
+				{watchTime !== WATCH_TIMES[3] ? (
+					<Select
+						data={watchProviders}
+						name="providerWatchedOn"
+						defaultValue={lastProviderWatchedOn}
+						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					/>
 				) : null}
+
 				<Button
 					type="submit"
 					variant="outline"

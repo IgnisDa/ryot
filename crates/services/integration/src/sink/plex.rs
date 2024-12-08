@@ -48,99 +48,86 @@ mod models {
     }
 }
 
-pub(crate) struct PlexSinkIntegration {
-    payload: String,
-    db: DatabaseConnection,
-    plex_user: Option<String>,
+fn parse_payload(payload: &str) -> Result<models::PlexWebhookPayload> {
+    let payload_regex = Regex::new(r"\{.*\}").unwrap();
+    let json_payload = payload_regex
+        .find(payload)
+        .map(|x| x.as_str())
+        .unwrap_or("");
+    serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
 }
 
-impl PlexSinkIntegration {
-    pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
-        Self {
-            db,
-            payload,
-            plex_user,
+fn get_tmdb_identifier(guids: &[StringIdObject]) -> Result<&str> {
+    guids
+        .iter()
+        .find(|g| g.id.starts_with("tmdb://"))
+        .map(|g| &g.id[7..])
+        .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))
+}
+
+async fn get_media_info<'a>(
+    db: &DatabaseConnection,
+    metadata: &'a models::PlexWebhookMetadataPayload,
+    identifier: &'a str,
+) -> Result<(String, MediaLot)> {
+    match metadata.item_type.as_str() {
+        "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
+        "episode" => {
+            let series_name = metadata.show_name.as_ref().context("Show name missing")?;
+            let db_show = get_show_by_episode_identifier(db, series_name, identifier).await?;
+            Ok((db_show.identifier, MediaLot::Show))
+        }
+        _ => bail!("Only movies and shows supported"),
+    }
+}
+
+fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
+    match payload.metadata.view_offset {
+        Some(offset) => Ok(offset / payload.metadata.duration * dec!(100)),
+        None if payload.event_type == "media.scrobble" => Ok(dec!(100)),
+        None => bail!("No position associated with this media"),
+    }
+}
+
+pub async fn yank_progress(
+    payload: String,
+    db: &DatabaseConnection,
+    plex_user: Option<String>,
+) -> Result<ImportResult> {
+    let payload = parse_payload(&payload)?;
+
+    if let Some(plex_user) = &plex_user {
+        if *plex_user != payload.account.plex_user {
+            bail!(
+                "Ignoring non matching user {:#?}",
+                payload.account.plex_user
+            );
         }
     }
 
-    fn parse_payload(&self, payload: &str) -> Result<models::PlexWebhookPayload> {
-        let payload_regex = Regex::new(r"\{.*\}").unwrap();
-        let json_payload = payload_regex
-            .find(payload)
-            .map(|x| x.as_str())
-            .unwrap_or("");
-        serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
-    }
+    match payload.event_type.as_str() {
+        "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
+        _ => bail!("Ignoring event type {:#?}", payload.event_type),
+    };
 
-    fn get_tmdb_identifier<'a>(&self, guids: &'a [StringIdObject]) -> Result<&'a str> {
-        guids
-            .iter()
-            .find(|g| g.id.starts_with("tmdb://"))
-            .map(|g| &g.id[7..])
-            .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))
-    }
+    let identifier = get_tmdb_identifier(&payload.metadata.guids)?;
+    let (identifier, lot) = get_media_info(db, &payload.metadata, identifier).await?;
+    let progress = calculate_progress(&payload)?;
 
-    async fn get_media_info<'a>(
-        &self,
-        metadata: &'a models::PlexWebhookMetadataPayload,
-        identifier: &'a str,
-    ) -> Result<(String, MediaLot)> {
-        match metadata.item_type.as_str() {
-            "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
-            "episode" => {
-                let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-                let db_show =
-                    get_show_by_episode_identifier(&self.db, series_name, identifier).await?;
-                Ok((db_show.identifier, MediaLot::Show))
-            }
-            _ => bail!("Only movies and shows supported"),
-        }
-    }
-
-    fn calculate_progress(&self, payload: &models::PlexWebhookPayload) -> Result<Decimal> {
-        match payload.metadata.view_offset {
-            Some(offset) => Ok(offset / payload.metadata.duration * dec!(100)),
-            None if payload.event_type == "media.scrobble" => Ok(dec!(100)),
-            None => bail!("No position associated with this media"),
-        }
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        let payload = self.parse_payload(&self.payload)?;
-
-        if let Some(plex_user) = &self.plex_user {
-            if *plex_user != payload.account.plex_user {
-                bail!(
-                    "Ignoring non matching user {:#?}",
-                    payload.account.plex_user
-                );
-            }
-        }
-
-        match payload.event_type.as_str() {
-            "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
-            _ => bail!("Ignoring event type {:#?}", payload.event_type),
-        };
-
-        let identifier = self.get_tmdb_identifier(&payload.metadata.guids)?;
-        let (identifier, lot) = self.get_media_info(&payload.metadata, identifier).await?;
-        let progress = self.calculate_progress(&payload)?;
-
-        Ok(ImportResult {
-            completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                lot,
-                identifier,
-                source: MediaSource::Tmdb,
-                seen_history: vec![ImportOrExportMetadataItemSeen {
-                    progress: Some(progress),
-                    provider_watched_on: Some("Plex".to_string()),
-                    show_season_number: payload.metadata.season_number,
-                    show_episode_number: payload.metadata.episode_number,
-                    ..Default::default()
-                }],
+    Ok(ImportResult {
+        completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            identifier,
+            source: MediaSource::Tmdb,
+            seen_history: vec![ImportOrExportMetadataItemSeen {
+                progress: Some(progress),
+                provider_watched_on: Some("Plex".to_string()),
+                show_season_number: payload.metadata.season_number,
+                show_episode_number: payload.metadata.episode_number,
                 ..Default::default()
-            })],
+            }],
             ..Default::default()
-        })
-    }
+        })],
+        ..Default::default()
+    })
 }

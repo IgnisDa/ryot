@@ -15,10 +15,10 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, create_or_update_collection, ilike_sql, item_reviews,
-    remove_entity_from_collection,
+    create_or_update_collection, ilike_sql, item_reviews, remove_entity_from_collection,
 };
 use dependent_models::{CollectionContents, SearchResults};
+use dependent_utils::add_entity_to_collection;
 use enums::EntityLot;
 use media_models::{
     CollectionContentsInput, CollectionContentsSortBy, CollectionItem,

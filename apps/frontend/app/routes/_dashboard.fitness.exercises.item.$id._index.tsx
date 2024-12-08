@@ -18,6 +18,7 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	Switch,
 	Tabs,
 	Text,
 	Title,
@@ -120,7 +121,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
-	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
+	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
 };
 
 export const action = async ({ params, request }: ActionFunctionArgs) => {
@@ -128,11 +129,10 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
 	for (const [property, value] of entries) {
-		if (property.includes("."))
-			submission.push({
-				property,
-				value: value.toString(),
-			});
+		submission.push({
+			property,
+			value: value.toString(),
+		});
 	}
 	for (const change of submission) {
 		await serverGqlService.authenticatedRequest(
@@ -209,7 +209,19 @@ export default function Page() {
 								value={pref[1]}
 							/>
 						))}
-						<Title order={3}>Rest timers</Title>
+						<Switch
+							label="Exclude from analytics"
+							defaultChecked={
+								loaderData.userExerciseDetails.details?.exerciseExtraInformation
+									?.settings.excludeFromAnalytics
+							}
+							onChange={(ev) => {
+								appendPref(
+									"exclude_from_analytics",
+									String(ev.currentTarget.checked),
+								);
+							}}
+						/>
 						<Text size="sm">
 							When a new set is added, rest timers will be added automatically
 							according to the settings below.
@@ -249,7 +261,7 @@ export default function Page() {
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
-					<Title id="exercise-title">{loaderData.exerciseDetails.id}</Title>
+					<Title id="exercise-title">{loaderData.exerciseDetails.name}</Title>
 					{loaderData.userExerciseDetails.collections.length > 0 ? (
 						<Group id="entity-collections">
 							{loaderData.userExerciseDetails.collections.map((col) => (
@@ -582,7 +594,7 @@ export default function Page() {
 											setEntityToReview({
 												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
-												entityTitle: loaderData.exerciseDetails.id,
+												entityTitle: loaderData.exerciseDetails.name,
 											});
 										}}
 									>

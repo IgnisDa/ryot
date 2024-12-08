@@ -20,8 +20,8 @@ import {
 	FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
-	getStringAsciiValue,
 	getUserMetadataDetailsQuery,
+	selectRandomElement,
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
@@ -34,9 +34,7 @@ export const useGetMantineColors = () => {
 
 export const useGetRandomMantineColor = (input: string) => {
 	const colors = useGetMantineColors();
-
-	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-	return colors[(getStringAsciiValue(input) + colors.length) % colors.length];
+	return selectRandomElement(colors, input);
 };
 
 export const useFallbackImageUrl = (text = "No Image") => {
@@ -107,8 +105,11 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const useMetadataDetails = (metadataId?: string | null) => {
-	return useQuery(getMetadataDetailsQuery(metadataId));
+export const useMetadataDetails = (
+	metadataId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 };
 
 export const useUserMetadataDetails = (
@@ -138,7 +139,7 @@ export const useUserUnitSystem = () =>
 	useUserPreferences().fitness.exercises.unitSystem;
 
 export const useApplicationEvents = () => {
-	const { version, isPro } = useCoreDetails();
+	const { version, isServerKeyValidated: isPro } = useCoreDetails();
 
 	const sendEvent = (eventName: string, data: Record<string, unknown>) => {
 		window.umami?.track(eventName, { isPro, version, ...data });

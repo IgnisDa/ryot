@@ -1,12 +1,5 @@
 # Contributing
 
-Each version of Ryot is released as docker images. For example, if the latest tag is
-`v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5` and `latest`. The
-images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and
-[GitHub Container Registry](https://ghcr.io/ignisda/ryot).
-
-## Development
-
 There is a [devcontainer](https://code.visualstudio.com/docs/devcontainers/containers)
 configuration in the repository. You can use it to launch a development environment
 with all tools installed.

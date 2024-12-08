@@ -1,11 +1,13 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
-use common_utils::{ryot_log, PAGE_SIZE, TEMP_DIR};
+use common_models::{
+    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, SearchDetails, StoredUrl,
+};
+use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -26,17 +28,12 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use supporting_service::SupportingService;
 use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://api.igdb.com/v4";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
-static FILE: &str = "igdb.json";
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Settings {
-    access_token: String,
-}
 
 static GAME_FIELDS: &str = "
 fields
@@ -157,11 +154,11 @@ struct IgdbItemResponse {
     rest_data: Option<HashMap<String, Value>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct IgdbService {
     image_url: String,
     image_size: String,
-    config: config::VideoGameConfig,
+    supporting_service: Arc<SupportingService>,
 }
 
 impl MediaProviderLanguages for IgdbService {
@@ -175,11 +172,12 @@ impl MediaProviderLanguages for IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(config: &config::VideoGameConfig) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Self {
+        let config = ss.config.video_games.clone();
         Self {
+            supporting_service: ss,
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
-            config: config.clone(),
         }
     }
 }
@@ -193,7 +191,7 @@ impl MediaProvider for IgdbService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -235,7 +233,7 @@ offset: {offset};
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r"
 {fields}
@@ -296,7 +294,7 @@ where id = {id};
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -342,7 +340,7 @@ offset: {offset};
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
 {fields}
@@ -423,7 +421,7 @@ where id = {id};
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let req_body = format!(
             r#"{field} where id = {id};"#,
             field = GAME_FIELDS,
@@ -438,7 +436,7 @@ where id = {id};
             .map_err(|e| anyhow!(e))?;
         ryot_log!(debug, "Response = {:?}", rsp);
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
-        let detail = details.pop().unwrap();
+        let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![c.id.to_string()],
             None => vec![],
@@ -455,7 +453,7 @@ where id = {id};
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let client = self.get_client().await;
+        let client = self.get_client_config().await?;
         let count_req_body =
             format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
         let rsp = client
@@ -524,9 +522,9 @@ impl IgdbService {
         let access_res = client
             .post(AUTH_URL)
             .query(&json!({
-                "client_id": self.config.twitch.client_id.to_owned(),
-                "client_secret": self.config.twitch.client_secret.to_owned(),
                 "grant_type": "client_credentials".to_owned(),
+                "client_id": self.supporting_service.config.video_games.twitch.client_id.to_owned(),
+                "client_secret": self.supporting_service.config.video_games.twitch.client_secret.to_owned(),
             }))
             .send()
             .await
@@ -538,28 +536,34 @@ impl IgdbService {
         format!("{} {}", access.token_type, access.access_token)
     }
 
-    async fn get_client(&self) -> Client {
-        let path = PathBuf::new().join(TEMP_DIR).join(FILE);
-        let settings = if !path.exists() {
-            let tok = self.get_access_token().await;
-            let settings = Settings { access_token: tok };
-            let data_to_write = serde_json::to_string(&settings).unwrap();
-            fs::write(path, data_to_write).unwrap();
-            settings
+    async fn get_client_config(&self) -> Result<Client> {
+        let cc = &self.supporting_service.cache_service;
+        let maybe_settings = cc.get_key(ApplicationCacheKey::IgdbSettings).await.ok();
+        let access_token = if let Some(Some(ApplicationCacheValue::IgdbSettings { access_token })) =
+            maybe_settings
+        {
+            access_token
         } else {
-            let data = fs::read_to_string(path).unwrap();
-            serde_json::from_str(&data).unwrap()
+            let access_token = self.get_access_token().await;
+            cc.set_with_expiry(
+                ApplicationCacheKey::IgdbSettings,
+                None,
+                ApplicationCacheValue::IgdbSettings {
+                    access_token: access_token.clone(),
+                },
+            )
+            .await
+            .ok();
+            access_token
         };
-        get_base_http_client(Some(vec![
+        Ok(get_base_http_client(Some(vec![
             (
                 HeaderName::from_static("client-id"),
-                HeaderValue::from_str(&self.config.twitch.client_id).unwrap(),
+                HeaderValue::from_str(&self.supporting_service.config.video_games.twitch.client_id)
+                    .unwrap(),
             ),
-            (
-                AUTHORIZATION,
-                HeaderValue::from_str(&settings.access_token).unwrap(),
-            ),
-        ]))
+            (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
+        ])))
     }
 
     fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MetadataDetails {

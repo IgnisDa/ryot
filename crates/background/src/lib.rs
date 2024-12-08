@@ -24,22 +24,23 @@ impl Message for CoreApplicationJob {
 // The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportFromExternalSource(String, Box<DeployImportJobInput>),
-    ReEvaluateUserWorkouts(String),
-    UpdateMetadata(String, bool),
-    UpdateGithubExerciseJob(GithubExercise),
     UpdatePerson(String),
-    UpdateMetadataGroup(String),
-    RecalculateCalendarEvents,
-    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
-    PerformExport(String),
-    RecalculateUserActivitiesAndSummary(String, bool),
-    PerformBackgroundTasks,
-    UpdateExerciseLibrary,
     SyncIntegrationsData,
-    HandleEntityAddedToCollectionEvent(Uuid),
-    HandleAfterMediaSeenTasks(seen::Model),
+    UpdateExerciseLibrary,
+    PerformExport(String),
+    PerformBackgroundTasks,
+    RecalculateCalendarEvents,
+    ReviseUserWorkouts(String),
+    PerformServerKeyValidation,
+    UpdateMetadataGroup(String),
+    UpdateMetadata(String, bool),
     HandleOnSeenComplete(String),
+    HandleAfterMediaSeenTasks(seen::Model),
+    UpdateGithubExerciseJob(GithubExercise),
+    HandleEntityAddedToCollectionEvent(Uuid),
+    RecalculateUserActivitiesAndSummary(String, bool),
+    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
+    ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
 impl Message for ApplicationJob {

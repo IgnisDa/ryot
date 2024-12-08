@@ -8,6 +8,7 @@ async-graphql = { workspace = true }
 apalis = { workspace = true }
 background = { path = "../../background" }
 cache-service = { path = "../../services/cache" }
+common-models = { path = "../../models/common" }
 chrono-tz = { workspace = true }
 config = { path = "../../config" }
 file-storage-service = { path = "../../services/file-storage" }
