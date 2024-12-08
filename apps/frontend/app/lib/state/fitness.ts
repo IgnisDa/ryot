@@ -294,7 +294,7 @@ export const duplicateOldWorkout = async (
 				params.updateWorkoutId ? v.confirmedAt : undefined,
 			),
 		);
-		const exerciseDetails = await getExerciseDetails(ex.name);
+		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			name: exerciseDetails.details.name,
@@ -304,7 +304,7 @@ export const duplicateOldWorkout = async (
 			images: [],
 			videos: [],
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
-			exerciseId: ex.name,
+			exerciseId: ex.id,
 			lot: ex.lot,
 			notes: ex.notes,
 			sets: sets,

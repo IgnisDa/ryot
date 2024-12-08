@@ -63,7 +63,10 @@ import {
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { getDefaultWorkout } from "~/lib/state/fitness";
+import {
+	getDefaultWorkout,
+	getExerciseDetailsQuery,
+} from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -339,7 +342,7 @@ const DisplayWorkoutListItem = ({
 						{data.summary.exercises.map((exercise, idx) => (
 							<ExerciseDisplay
 								exercise={exercise}
-								key={`${idx}-${exercise.name}`}
+								key={`${idx}-${exercise.id}`}
 							/>
 						))}
 					</Box>
@@ -364,6 +367,9 @@ const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.id),
+	);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})
 		.otherwise((value) => {
@@ -382,7 +388,7 @@ const ExerciseDisplay = (props: {
 				{props.exercise.numSets} ×
 			</Text>
 			<Text style={{ flex: 1 }} fz="sm">
-				{props.exercise.name}
+				{exerciseDetails?.name}
 			</Text>
 			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>

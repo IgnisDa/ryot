@@ -560,9 +560,9 @@ export default function Page() {
 					{loaderData.information.exercises.map((exercise, idx) => (
 						<ExerciseHistory
 							exerciseIdx={idx}
+							key={`${exercise.id}-${idx}`}
 							entityId={loaderData.entityId}
 							entityType={loaderData.entity}
-							key={`${exercise.name}-${idx}`}
 							supersetInformation={loaderData.information.supersets}
 						/>
 					))}
