@@ -472,19 +472,18 @@ const TimeOfDayChart = memo(() => {
 	return (
 		<ChartContainer title="Time of day" disableCounter>
 			{(_, data) => {
+				const trackSeries = new Set<string>();
 				const allHours = Array.from({ length: 24 }, (_, h) => h).map((h) => {
 					const obj: Record<string, string | number> = { hour: h };
 					for (const mKey in MediaColors) {
-						const key = changeCase(mKey);
 						const count =
 							data.hours
 								.find((d) => d.hour === h)
 								?.entities.filter(
-									(e) =>
-										changeCase(e.entityLot) === key ||
-										changeCase(e.metadataLot || "") === key,
+									(e) => e.entityLot === mKey || (e.metadataLot || "") === mKey,
 								).length || 0;
-						obj[key] = count;
+						obj[mKey] = count;
+						if (count > 0) trackSeries.add(mKey);
 					}
 					obj.hour = dayjsLib()
 						.hour(convertUtcHourToLocalHour(h))
@@ -508,10 +507,10 @@ const TimeOfDayChart = memo(() => {
 							dataKey="hour"
 							withPolarRadiusAxis
 							data={filteredHours}
-							series={Object.entries(MediaColors).map(([key, color]) => ({
-								color,
+							series={[...trackSeries].map((key) => ({
+								name: key,
 								opacity: 0.3,
-								name: changeCase(key),
+								color: MediaColors[key],
 							}))}
 						/>
 					),
