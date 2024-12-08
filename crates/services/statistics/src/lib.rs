@@ -2,10 +2,10 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesInput,
-    DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord,
-    DailyUserActivityItem, DateRangeInput, FitnessAnalyticsEquipment, FitnessAnalyticsExercise,
-    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
+    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse,
+    DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord, DailyUserActivityItem,
+    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
+    UserAnalyticsInput, UserFitnessAnalytics,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
@@ -26,7 +26,7 @@ impl StatisticsService {
     pub async fn daily_user_activities(
         &self,
         user_id: &String,
-        input: DailyUserActivitiesInput,
+        input: UserAnalyticsInput,
     ) -> Result<DailyUserActivitiesResponse> {
         // TODO: https://github.com/SeaQL/sea-query/pull/825 when merged
         struct DateTrunc;
@@ -214,19 +214,6 @@ impl StatisticsService {
         })
     }
 
-    pub async fn latest_user_summary(&self, user_id: &String) -> Result<DailyUserActivityItem> {
-        let ls = self
-            .daily_user_activities(
-                user_id,
-                DailyUserActivitiesInput {
-                    group_by: Some(DailyUserActivitiesResponseGroupedBy::Millennium),
-                    ..Default::default()
-                },
-            )
-            .await?;
-        Ok(ls.items.last().cloned().unwrap_or_default())
-    }
-
     pub async fn calculate_user_activities_and_summary(
         &self,
         user_id: &String,
@@ -238,10 +225,10 @@ impl StatisticsService {
     pub async fn user_analytics(
         &self,
         user_id: &String,
-        input: DateRangeInput,
+        input: UserAnalyticsInput,
     ) -> Result<UserAnalytics> {
         let cache_key = ApplicationCacheKey::UserAnalytics {
-            date_range: input.clone(),
+            input: input.clone(),
             user_id: user_id.to_owned(),
         };
         if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
@@ -266,10 +253,10 @@ impl StatisticsService {
         }
         let items = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .apply_if(input.start_date, |query, v| {
+            .apply_if(input.date_range.start_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
-            .apply_if(input.end_date, |query, v| {
+            .apply_if(input.date_range.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
             .into_partial_model::<CustomFitnessAnalytics>()
@@ -326,8 +313,10 @@ impl StatisticsService {
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
+        let activities = self.daily_user_activities(user_id, input).await?;
         let response = UserAnalytics {
             hours,
+            activities,
             fitness: UserFitnessAnalytics {
                 workout_reps,
                 workout_count,

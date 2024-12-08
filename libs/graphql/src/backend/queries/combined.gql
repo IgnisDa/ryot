@@ -148,7 +148,7 @@ query UserAccessLinks {
 	}
 }
 
-query DailyUserActivities($input: DailyUserActivitiesInput!) {
+query DailyUserActivities($input: UserAnalyticsInput!) {
 	dailyUserActivities(input: $input) {
 		groupedBy
 		totalCount
@@ -520,7 +520,7 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 	}
 }
 
-query UserAnalytics($input: DateRangeInput!) {
+query UserAnalytics($input: UserAnalyticsInput!) {
 	userAnalytics(input: $input) {
 		hours {
 			hour
@@ -528,6 +528,45 @@ query UserAnalytics($input: DateRangeInput!) {
 				entityId
 				entityLot
 				metadataLot
+			}
+		}
+		activities {
+			groupedBy
+			totalCount
+			totalDuration
+			items {
+				totalMetadataReviewCount
+				totalCollectionReviewCount
+				totalMetadataGroupReviewCount
+				totalPersonReviewCount
+				userMeasurementCount
+				workoutCount
+				totalWorkoutDuration
+				audioBookCount
+				totalAudioBookDuration
+				animeCount
+				bookCount
+				totalBookPages
+				podcastCount
+				totalPodcastDuration
+				mangaCount
+				movieCount
+				totalMovieDuration
+				showCount
+				totalShowDuration
+				videoGameCount
+				totalVideoGameDuration
+				visualNovelCount
+				totalVisualNovelDuration
+				totalWorkoutPersonalBests
+				totalWorkoutWeight
+				totalWorkoutReps
+				totalWorkoutDistance
+				totalWorkoutRestTime
+				totalMetadataCount
+				totalReviewCount
+				totalCount
+				totalDuration
 			}
 		}
 		fitness {

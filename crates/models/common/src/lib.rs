@@ -238,13 +238,15 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Millennium,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct DailyUserActivitiesInput {
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq)]
+pub struct UserAnalyticsInput {
     pub date_range: DateRangeInput,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
-#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
+#[derive(
+    Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult, PartialEq, Eq,
+)]
 pub struct DailyUserActivityItem {
     pub day: NaiveDate,
     pub total_metadata_review_count: i64,
@@ -281,7 +283,7 @@ pub struct DailyUserActivityItem {
     pub total_duration: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, PartialEq, Eq)]
 pub struct DailyUserActivitiesResponse {
     pub total_count: i64,
     pub item_count: usize,
@@ -335,6 +337,7 @@ pub struct UserFitnessAnalytics {
 )]
 pub struct UserAnalytics {
     pub fitness: UserFitnessAnalytics,
+    pub activities: DailyUserActivitiesResponse,
     pub hours: Vec<DailyUserActivityHourRecord>,
 }
 
@@ -360,7 +363,7 @@ pub enum ApplicationCacheKey {
     UsersScheduledForWorkoutRevision,
     UserAnalytics {
         user_id: String,
-        date_range: DateRangeInput,
+        input: UserAnalyticsInput,
     },
     MetadataRecentlyConsumed {
         user_id: String,

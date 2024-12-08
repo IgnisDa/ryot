@@ -305,11 +305,6 @@ export type CreateUserNotificationPlatformInput = {
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type DailyUserActivitiesInput = {
-  dateRange: DateRangeInput;
-  groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
-};
-
 export type DailyUserActivitiesResponse = {
   __typename?: 'DailyUserActivitiesResponse';
   groupedBy: DailyUserActivitiesResponseGroupedBy;
@@ -1806,8 +1801,6 @@ export type QueryRoot = {
   getPresignedS3Url: Scalars['String']['output'];
   /** Get all the import jobs deployed by the user. */
   importReports: Array<ImportReport>;
-  /** Get a summary of all the media items that have been consumed by this user. */
-  latestUserSummary: DailyUserActivityItem;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -1879,7 +1872,7 @@ export type QueryRootCollectionContentsArgs = {
 
 
 export type QueryRootDailyUserActivitiesArgs = {
-  input: DailyUserActivitiesInput;
+  input: UserAnalyticsInput;
 };
 
 
@@ -1964,7 +1957,7 @@ export type QueryRootPersonDetailsArgs = {
 
 
 export type QueryRootUserAnalyticsArgs = {
-  input: DateRangeInput;
+  input: UserAnalyticsInput;
 };
 
 
@@ -2310,6 +2303,7 @@ export type User = {
 
 export type UserAnalytics = {
   __typename?: 'UserAnalytics';
+  activities: DailyUserActivitiesResponse;
   fitness: UserFitnessAnalytics;
   hours: Array<DailyUserActivityHourRecord>;
 };
@@ -2317,6 +2311,11 @@ export type UserAnalytics = {
 export type UserAnalyticsFeaturesEnabledPreferences = {
   __typename?: 'UserAnalyticsFeaturesEnabledPreferences';
   enabled: Scalars['Boolean']['output'];
+};
+
+export type UserAnalyticsInput = {
+  dateRange: DateRangeInput;
+  groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
 };
 
 export type UserCalendarEventInput = {
