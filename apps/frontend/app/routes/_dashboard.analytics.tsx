@@ -22,8 +22,8 @@ import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
 	DailyUserActivitiesDocument,
 	DailyUserActivitiesResponseGroupedBy,
-	type UserAnalytics,
 	UserAnalyticsDocument,
+	type UserAnalyticsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -532,7 +532,7 @@ type ChartContainerProps = {
 	disableCounter?: boolean;
 	children: (
 		count: number,
-		data: UserAnalytics,
+		data: UserAnalyticsQuery["userAnalytics"],
 	) => {
 		render: ReactNode;
 		totalItems: number;
@@ -546,7 +546,7 @@ const ChartContainer = (props: ChartContainerProps) => {
 		`FitnessChartContainer-${props.title}`,
 		10,
 	);
-	const input = { startDate, endDate };
+	const input = { dateRange: { startDate, endDate } };
 
 	const { data: userAnalytics } = useQuery({
 		queryKey: queryFactory.analytics.user({ input }).queryKey,

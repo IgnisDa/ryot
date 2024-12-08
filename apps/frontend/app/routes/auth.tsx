@@ -20,7 +20,6 @@ import {
 import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	GetOidcRedirectUrlDocument,
-	LatestUserSummaryDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
 	MediaLot,
@@ -40,7 +39,6 @@ import {
 	createToastHeaders,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
-	getCachedUserPreferences,
 	getCookiesForApplication,
 	redirectWithToast,
 	serverGqlService,
@@ -57,27 +55,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
-		const [userPreferences, { latestUserSummary }] = await Promise.all([
-			getCachedUserPreferences(request),
-			serverGqlService.authenticatedRequest(request, LatestUserSummaryDocument),
-		]);
-		if (
-			latestUserSummary.totalMetadataCount === 0 &&
-			userPreferences.featuresEnabled.media.enabled === true
-		)
-			throw await redirectWithToast(
-				$path(
-					"/media/:action/:lot",
-					{ action: "search", lot: MediaLot.Movie },
-					{ query: "avengers" },
-				),
-				{
-					message:
-						"Welcome to Ryot! Get started by adding a movie to your watchlist!",
-					closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
-				},
-			);
-		throw redirect($path("/"));
+		throw await redirectWithToast(
+			$path(
+				"/media/:action/:lot",
+				{ action: "search", lot: MediaLot.Movie },
+				{ query: "avengers" },
+			),
+			{
+				message:
+					"Welcome to Ryot! Get started by adding a movie to your watchlist!",
+				closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
+			},
+		);
 	}
 	const [coreDetails] = await Promise.all([getCachedCoreDetails()]);
 	return {

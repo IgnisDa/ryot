@@ -16,10 +16,11 @@ import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
-	LatestUserSummaryDocument,
 	MediaLot,
+	UserAnalyticsDocument,
 	type UserPreferences,
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
@@ -91,7 +92,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		{ collectionContents: inProgressCollectionContents },
 		userRecommendations,
 		{ userUpcomingCalendarEvents },
-		{ latestUserSummary },
+		{ userAnalytics },
 	] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
@@ -106,14 +107,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 		),
-		serverGqlService.authenticatedRequest(
-			request,
-			LatestUserSummaryDocument,
-			undefined,
-		),
+		serverGqlService.authenticatedRequest(request, UserAnalyticsDocument, {
+			input: {
+				dateRange: {},
+				groupBy: DailyUserActivitiesResponseGroupedBy.Millennium,
+			},
+		}),
 	]);
 	return {
-		latestUserSummary,
+		userAnalytics,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
 		userRecommendations,
@@ -130,7 +132,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
-	const latestUserSummary = loaderData.latestUserSummary;
+	const latestUserSummary = loaderData.userAnalytics.activities.items[0];
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 
@@ -422,7 +424,7 @@ export default function Page() {
 											data={[
 												{
 													label: "Measurements",
-													value: latestUserSummary.measurementCount,
+													value: latestUserSummary.userMeasurementCount,
 													type: "number",
 													hideIfZero: true,
 												},
