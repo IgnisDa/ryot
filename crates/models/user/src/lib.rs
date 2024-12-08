@@ -260,7 +260,6 @@ pub enum DashboardElementLot {
     #[default]
     Summary,
     Recommendations,
-    Activity,
 }
 
 #[skip_serializing_none]
@@ -335,10 +334,6 @@ pub struct UserGeneralPreferences {
         UserGeneralDashboardElement {
             num_elements: Some(8),
             section: DashboardElementLot::Recommendations,
-            ..Default::default()
-        },
-        UserGeneralDashboardElement {
-            section: DashboardElementLot::Activity,
             ..Default::default()
         },
     ]))]

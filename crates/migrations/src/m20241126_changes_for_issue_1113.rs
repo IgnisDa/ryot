@@ -76,6 +76,22 @@ WHERE "exercise_extra_information" IS NOT NULL;
             "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+UPDATE "user"
+SET preferences =
+    jsonb_set(
+        preferences,
+        '{general, dashboard}',
+        (
+            SELECT jsonb_agg(element)
+            FROM jsonb_array_elements(preferences->'general'->'dashboard') AS element
+            WHERE element->>'section' != 'ACTIVITY'
+        )
+    );
+            "#,
+        )
+        .await?;
         Ok(())
     }
 

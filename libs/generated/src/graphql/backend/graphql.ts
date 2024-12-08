@@ -377,7 +377,6 @@ export type DailyUserActivityItem = {
 };
 
 export enum DashboardElementLot {
-  Activity = 'ACTIVITY',
   InProgress = 'IN_PROGRESS',
   Recommendations = 'RECOMMENDATIONS',
   Summary = 'SUMMARY',
