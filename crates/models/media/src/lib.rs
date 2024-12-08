@@ -4,8 +4,7 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, DateRangeInput, IdAndNamedObject, SearchInput, StoredUrl,
-    StringIdObject,
+    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::deserialize_date;
 use enums::{
@@ -14,13 +13,9 @@ use enums::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{
-    prelude::{Date, DateTimeUtc},
-    EnumIter, FromJsonQueryResult, FromQueryResult,
-};
+use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::Display;
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
@@ -1494,56 +1489,4 @@ pub struct ProcessAccessLinkResponse {
 pub enum ProcessAccessLinkResult {
     Ok(ProcessAccessLinkResponse),
     Error(ProcessAccessLinkError),
-}
-
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum DailyUserActivitiesResponseGroupedBy {
-    Day,
-    Month,
-    Year,
-    Millennium,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct DailyUserActivitiesInput {
-    pub date_range: DateRangeInput,
-    pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
-}
-
-#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
-pub struct DailyUserActivityItem {
-    pub day: Date,
-    pub total_metadata_review_count: i64,
-    pub total_collection_review_count: i64,
-    pub total_metadata_group_review_count: i64,
-    pub total_person_review_count: i64,
-    pub user_measurement_count: i64,
-    pub workout_count: i64,
-    pub total_workout_duration: i64,
-    pub audio_book_count: i64,
-    pub total_audio_book_duration: i64,
-    pub anime_count: i64,
-    pub book_count: i64,
-    pub total_book_pages: i64,
-    pub podcast_count: i64,
-    pub total_podcast_duration: i64,
-    pub manga_count: i64,
-    pub movie_count: i64,
-    pub total_movie_duration: i64,
-    pub show_count: i64,
-    pub total_show_duration: i64,
-    pub video_game_count: i64,
-    pub total_video_game_duration: i64,
-    pub visual_novel_count: i64,
-    pub total_visual_novel_duration: i64,
-    pub total_workout_personal_bests: i64,
-    pub total_workout_weight: i64,
-    pub total_workout_reps: i64,
-    pub total_workout_distance: i64,
-    pub total_workout_rest_time: i64,
-    pub total_metadata_count: i64,
-    pub total_review_count: i64,
-    pub total_count: i64,
-    pub total_duration: i64,
 }

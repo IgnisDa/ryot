@@ -2,19 +2,16 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivityHourRecord, DateRangeInput,
-    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
-    UserFitnessAnalytics,
+    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesInput,
+    DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord,
+    DailyUserActivityItem, DateRangeInput, FitnessAnalyticsEquipment, FitnessAnalyticsExercise,
+    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
-use dependent_models::DailyUserActivitiesResponse;
 use enums::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
-use media_models::{
-    DailyUserActivitiesInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
-};
 use sea_orm::{
     prelude::Expr,
     sea_query::{Alias, Func},

@@ -12,11 +12,11 @@ use enums::{
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
-    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
-    ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
-    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
+    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
+    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem,
+    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -274,15 +274,6 @@ pub enum ImportCompletedItem {
 pub struct ImportResult {
     pub failed: Vec<ImportFailedItem>,
     pub completed: Vec<ImportCompletedItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct DailyUserActivitiesResponse {
-    pub total_count: i64,
-    pub item_count: usize,
-    pub total_duration: i64,
-    pub items: Vec<DailyUserActivityItem>,
-    pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
 #[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]
