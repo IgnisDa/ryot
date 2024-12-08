@@ -162,7 +162,7 @@ async fn import_exercises(
                     exercise_name.clone(),
                     exercise::Model {
                         lot: exercise_lot,
-                        id: generated_id.clone(),
+                        name: exercise_name,
                         ..Default::default()
                     },
                 );
