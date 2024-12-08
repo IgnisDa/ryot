@@ -1,29 +1,21 @@
-import { BarChart } from "@mantine/charts";
 import {
 	Alert,
 	Box,
 	Center,
 	Container,
 	Flex,
-	LoadingOverlay,
-	type MantineColor,
-	Paper,
 	RingProgress,
-	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { useInViewport } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
-	DailyUserActivitiesDocument,
-	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -32,16 +24,7 @@ import {
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	formatDateToNaiveDate,
-	humanizeDuration,
-	isBoolean,
-	isNumber,
-	mapValues,
-	pickBy,
-	snakeCase,
-} from "@ryot/ts-utils";
+import { humanizeDuration, isNumber } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
@@ -49,9 +32,8 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
-import { Fragment, type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode } from "react";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -61,15 +43,7 @@ import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import { MetadataDisplayItem } from "~/components/media";
-import {
-	TimeSpan,
-	clientGqlService,
-	dayjsLib,
-	getDateFromTimeSpan,
-	getLot,
-	getMetadataIcon,
-	queryFactory,
-} from "~/lib/generals";
+import { MediaColors, dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import {
 	useCoreDetails,
 	useGetMantineColors,
@@ -150,23 +124,6 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
-type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
-
-const MediaColors: EntityColor = {
-	ANIME: "blue",
-	AUDIO_BOOK: "orange",
-	BOOK: "lime",
-	MANGA: "purple",
-	MOVIE: "cyan",
-	PODCAST: "yellow",
-	SHOW: "red",
-	VISUAL_NOVEL: "pink",
-	VIDEO_GAME: "teal",
-	WORKOUT: "violet",
-	MEASUREMENT: "indigo",
-	REVIEW: "green.5",
-};
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -244,12 +201,6 @@ export default function Page() {
 								) : (
 									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 								)}
-							</Section>
-						))
-						.with([DashboardElementLot.Activity, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<Title>Activity</Title>
-								<ActivitySection />
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
@@ -635,149 +586,5 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
-	);
-};
-
-const ActivitySection = () => {
-	const { ref, inViewport } = useInViewport();
-	const [timeSpan, setTimeSpan] = useLocalStorage(
-		"ActivitySectionTimeSpan",
-		TimeSpan.Last7Days,
-	);
-	const { startDate, endDate } = useMemo(() => {
-		const now = dayjsLib();
-		const end = now.endOf("day");
-		const startDate = getDateFromTimeSpan(timeSpan);
-		return {
-			startDate: startDate
-				? formatDateToNaiveDate(startDate.toDate())
-				: undefined,
-			endDate: formatDateToNaiveDate(end.toDate()),
-		};
-	}, [timeSpan]);
-	const { data: dailyUserActivitiesData } = useQuery({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
-			.queryKey,
-		enabled: inViewport,
-		queryFn: async () => {
-			const { dailyUserActivities } = await clientGqlService.request(
-				DailyUserActivitiesDocument,
-				{ input: { dateRange: { startDate, endDate } } },
-			);
-			const trackSeries = mapValues(MediaColors, () => false);
-			const data = dailyUserActivities.items.map((d) => {
-				const data = Object.entries(d)
-					.filter(([_, value]) => value !== 0)
-					.map(([key, value]) => ({
-						[snakeCase(
-							key.replace("Count", "").replace("total", ""),
-						).toUpperCase()]: value,
-					}))
-					.reduce(Object.assign, {});
-				for (const key in data)
-					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
-				return data;
-			});
-			const series = pickBy(trackSeries);
-			return {
-				data,
-				series,
-				groupedBy: dailyUserActivities.groupedBy,
-				totalCount: dailyUserActivities.totalCount,
-				totalDuration: dailyUserActivities.totalDuration,
-			};
-		},
-	});
-	const items = dailyUserActivitiesData?.totalCount || 0;
-
-	return (
-		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
-			<LoadingOverlay
-				visible={!dailyUserActivitiesData}
-				zIndex={1000}
-				overlayProps={{ radius: "md", blur: 3 }}
-			/>
-			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
-				<DisplayStat
-					label="Total"
-					value={`${new Intl.NumberFormat("en-US", {
-						notation: "compact",
-					}).format(Number(items))} items`}
-				/>
-				<DisplayStat
-					label="Duration"
-					value={
-						dailyUserActivitiesData
-							? humanizeDuration(
-									dayjsLib
-										.duration(dailyUserActivitiesData.totalDuration, "minutes")
-										.asMilliseconds(),
-									{ largest: 2 },
-								)
-							: "N/A"
-					}
-				/>
-				<Select
-					label="Time span"
-					defaultValue={timeSpan}
-					labelProps={{ c: "dimmed" }}
-					data={Object.values(TimeSpan)}
-					onChange={(v) => {
-						if (v) setTimeSpan(v as TimeSpan);
-					}}
-				/>
-			</SimpleGrid>
-			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
-				<BarChart
-					h="100%"
-					ml={-15}
-					withLegend
-					tickLine="x"
-					dataKey="DAY"
-					type="stacked"
-					data={dailyUserActivitiesData.data}
-					legendProps={{ verticalAlign: "bottom" }}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
-					xAxisProps={{
-						tickFormatter: (v) =>
-							dayjsLib(v).format(
-								match(dailyUserActivitiesData.groupedBy)
-									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
-									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
-									.with(
-										DailyUserActivitiesResponseGroupedBy.Year,
-										DailyUserActivitiesResponseGroupedBy.Millennium,
-										() => "YYYY",
-									)
-									.exhaustive(),
-							),
-					}}
-				/>
-			) : (
-				<Paper withBorder h="100%" w="100%" display="flex">
-					<Text m="auto" ta="center">
-						No activity found in the selected period
-					</Text>
-				</Paper>
-			)}
-		</Stack>
-	);
-};
-
-const DisplayStat = (props: {
-	label: string;
-	value: string | number;
-}) => {
-	return (
-		<Stack gap={4}>
-			<Text c="dimmed">{props.label}</Text>
-			<Text size="xl" fw="bolder">
-				{props.value}
-			</Text>
-		</Stack>
 	);
 };

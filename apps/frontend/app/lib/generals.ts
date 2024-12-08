@@ -3,6 +3,7 @@ import {
 	createQueryKeys,
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
+import type { MantineColor } from "@mantine/core";
 import {
 	type FitnessAnalyticsQueryVariables,
 	MediaLot,
@@ -484,3 +485,20 @@ export const getExerciseDetailsPath = (exerciseId: string) =>
 	$path("/fitness/exercises/item/:id", {
 		id: encodeURIComponent(exerciseId),
 	});
+
+type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
+
+export const MediaColors: EntityColor = {
+	ANIME: "blue",
+	AUDIO_BOOK: "orange",
+	BOOK: "lime",
+	MANGA: "purple",
+	MOVIE: "cyan",
+	PODCAST: "yellow",
+	SHOW: "red",
+	VISUAL_NOVEL: "pink",
+	VIDEO_GAME: "teal",
+	WORKOUT: "violet",
+	MEASUREMENT: "indigo",
+	REVIEW: "green.5",
+};

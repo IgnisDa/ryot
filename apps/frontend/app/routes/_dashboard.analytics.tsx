@@ -6,6 +6,7 @@ import {
 	Grid,
 	Group,
 	Loader,
+	LoadingOverlay,
 	Menu,
 	Modal,
 	NumberInput,
@@ -15,13 +16,24 @@ import {
 	Text,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
+import { useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
+	DailyUserActivitiesDocument,
+	DailyUserActivitiesResponseGroupedBy,
 	type FitnessAnalytics,
 	FitnessAnalyticsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	formatDateToNaiveDate,
+	humanizeDuration,
+	isBoolean,
+	mapValues,
+	pickBy,
+	snakeCase,
+} from "@ryot/ts-utils";
 import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
@@ -31,6 +43,7 @@ import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
+	MediaColors,
 	clientGqlService,
 	convertUtcHourToLocalHour,
 	dayjsLib,
@@ -169,6 +182,9 @@ export default function Page() {
 						<Grid.Col span={{ base: 12, md: 6 }}>
 							<TimeOfDayChart />
 						</Grid.Col>
+						<Grid.Col span={12}>
+							<ActivitySection />
+						</Grid.Col>
 					</Grid>
 				</Stack>
 			</Container>
@@ -212,6 +228,127 @@ export default function Page() {
 		</>
 	);
 }
+
+const DisplayStat = (props: {
+	label: string;
+	value: string | number;
+}) => {
+	return (
+		<Stack gap={4}>
+			<Text c="dimmed">{props.label}</Text>
+			<Text size="xl" fw="bolder">
+				{props.value}
+			</Text>
+		</Stack>
+	);
+};
+
+const ActivitySection = () => {
+	const { ref, inViewport } = useInViewport();
+	const { startDate, endDate } = useTimeSpanSettings();
+	const { data: dailyUserActivitiesData } = useQuery({
+		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
+			.queryKey,
+		enabled: inViewport,
+		queryFn: async () => {
+			const { dailyUserActivities } = await clientGqlService.request(
+				DailyUserActivitiesDocument,
+				{ input: { dateRange: { startDate, endDate } } },
+			);
+			const trackSeries = mapValues(MediaColors, () => false);
+			const data = dailyUserActivities.items.map((d) => {
+				const data = Object.entries(d)
+					.filter(([_, value]) => value !== 0)
+					.map(([key, value]) => ({
+						[snakeCase(
+							key.replace("Count", "").replace("total", ""),
+						).toUpperCase()]: value,
+					}))
+					.reduce(Object.assign, {});
+				for (const key in data)
+					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+				return data;
+			});
+			const series = pickBy(trackSeries);
+			return {
+				data,
+				series,
+				groupedBy: dailyUserActivities.groupedBy,
+				totalCount: dailyUserActivities.totalCount,
+				totalDuration: dailyUserActivities.totalDuration,
+			};
+		},
+	});
+	const items = dailyUserActivitiesData?.totalCount || 0;
+
+	return (
+		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
+			<LoadingOverlay
+				visible={!dailyUserActivitiesData}
+				zIndex={1000}
+				overlayProps={{ radius: "md", blur: 3 }}
+			/>
+			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+				<DisplayStat
+					label="Total"
+					value={`${new Intl.NumberFormat("en-US", {
+						notation: "compact",
+					}).format(Number(items))} items`}
+				/>
+				<DisplayStat
+					label="Duration"
+					value={
+						dailyUserActivitiesData
+							? humanizeDuration(
+									dayjsLib
+										.duration(dailyUserActivitiesData.totalDuration, "minutes")
+										.asMilliseconds(),
+									{ largest: 2 },
+								)
+							: "N/A"
+					}
+				/>
+			</SimpleGrid>
+			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
+				<BarChart
+					h="100%"
+					ml={-15}
+					withLegend
+					tickLine="x"
+					dataKey="DAY"
+					type="stacked"
+					data={dailyUserActivitiesData.data}
+					legendProps={{ verticalAlign: "bottom" }}
+					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+						name: lot,
+						color: MediaColors[lot],
+						label: changeCase(lot),
+					}))}
+					xAxisProps={{
+						tickFormatter: (v) =>
+							dayjsLib(v).format(
+								match(dailyUserActivitiesData.groupedBy)
+									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
+									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
+									.with(
+										DailyUserActivitiesResponseGroupedBy.Year,
+										DailyUserActivitiesResponseGroupedBy.Millennium,
+										() => "YYYY",
+									)
+									.exhaustive(),
+							),
+					}}
+				/>
+			) : (
+				<Paper withBorder h="100%" w="100%" display="flex">
+					<Text m="auto" ta="center">
+						No activity found in the selected period
+					</Text>
+				</Paper>
+			)}
+		</Stack>
+	);
+};
 
 const CustomDateSelectModal = (props: {
 	opened: boolean;
