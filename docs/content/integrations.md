@@ -65,6 +65,11 @@ will work for all the media that have a valid TMDb ID attached to their metadata
 
 ### Plex Sink
 
+!!! info
+
+      This will only import media that are in progress. Perform an
+      [import](./importing.md#plex) if you want to import media that are finished.
+
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
 work for all the media that have a valid TMDb ID attached to their metadata.
 
@@ -115,7 +120,7 @@ at night to add all media in your instance to your "Owned" collection.
 
 ### Audiobookshelf
 
-!!! warning
+!!! info
 
       This will only import media that are in progress. Perform an
       [import](./importing.md#audiobookshelf) if you want to import media that are finished.
