@@ -69,6 +69,7 @@ const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
+	IntegrationProvider.PlexYank,
 ];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
@@ -170,7 +171,9 @@ const createSchema = z.object({
 	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 	providerSpecifics: z
 		.object({
-			plexUsername: z.string().optional(),
+			plexYankBaseUrl: z.string().optional(),
+			plexYankToken: z.string().optional(),
+			plexSinkUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
 			komgaBaseUrl: z.string().optional(),
@@ -498,11 +501,26 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
-						.with(IntegrationProvider.Plex, () => (
+						.with(IntegrationProvider.PlexYank, () => (
 							<>
 								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.plexYankBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Plex token"
+									name="providerSpecifics.plexYankToken"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.PlexSink, () => (
+							<>
+								<TextInput
+									required
 									label="Username"
-									name="providerSpecifics.plexUsername"
+									name="providerSpecifics.plexSinkUsername"
 								/>
 							</>
 						))
