@@ -518,7 +518,6 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationProvider.PlexSink, () => (
 							<>
 								<TextInput
-									required
 									label="Username"
 									name="providerSpecifics.plexSinkUsername"
 								/>
