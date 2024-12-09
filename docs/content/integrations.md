@@ -63,7 +63,7 @@ will work for all the media that have a valid TMDb ID attached to their metadata
     if you already have the show in the Ryot database. To do this, simply add the show to
     your watchlist.
 
-### Plex
+### Plex Sink
 
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
 work for all the media that have a valid TMDb ID attached to their metadata.
@@ -110,6 +110,9 @@ natively.
 You can configure the interval at which the data is fetched from the external source using
 the `INTEGRATION_SYNC_EVERY_MINUTES` environment variable. Defaults to `5`.
 
+If you have enabled the `Sync to owned collection` option, the integration will also run
+at night to add all media in your instance to your "Owned" collection.
+
 ### Audiobookshelf
 
 !!! warning
@@ -122,7 +125,7 @@ have a valid provider ID (Audible, ITunes or ISBN).
 
 1. Obtain an API token as described in the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
-2. Go to your Ryot user settings and add the correct details as described in the
+2. Go to your Ryot integrations settings and add the correct details as described in the
    [yank](#yank-integrations) section.
 
 ### Komga
@@ -148,6 +151,19 @@ Then perform these steps on Ryot
 3. Provide your Username and Password.
 4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
+
+### Plex Yank
+
+This integration will add all media in your libraries to the "Owned" collection. If you
+want to sync media progress, then take a look at the [Plex Sink](#plex-sink) integration.
+
+1. Get the Plex token. If you want to import data for an admin account, then you need a
+   [device
+   token](https://www.plexopedia.com/plex-media-server/general/plex-token/#devicetoken).
+   Otherwise, a current [user
+   token](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken)
+   is sufficient.
+2. Go to your Ryot integration settings and fill in the details.
 
 ## Push integrations
 
