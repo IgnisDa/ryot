@@ -144,7 +144,14 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
         ApplicationJob::SyncIntegrationsData => {
-            integration_service.yank_integrations_data().await.is_ok()
+            integration_service
+                .yank_integrations_data()
+                .await
+                .trace_ok();
+            integration_service
+                .sync_integrations_data_to_owned_collection()
+                .await
+                .is_ok()
         }
         ApplicationJob::PerformServerKeyValidation => {
             misc_service.perform_server_key_validation().await.is_ok()

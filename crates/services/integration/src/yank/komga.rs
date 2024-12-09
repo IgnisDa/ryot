@@ -375,62 +375,12 @@ async fn process_events(
     ))
 }
 
-async fn sync_manga_collection(
-    base_url: &String,
-    username: &String,
-    password: &String,
-    source: MediaSource,
-    db: &DatabaseConnection,
-    result: &mut ImportResult,
-) -> Result<()> {
-    let url = &format!("{}/api/v1", base_url);
-    let client = get_base_http_client(None);
-
-    let series: komga_series::Response = client
-        .get(format!("{}/{}", url, "series?unpaged=true"))
-        .basic_auth(username, Some(password))
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-
-    // Hashmap for if you have the same manga in multiple languages it will appear
-    // multiple times this prevents us from double committing an identifier
-    let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
-        .filter_map(|book| async move {
-            match find_provider_and_id(source, db, &book).await {
-                Ok((source, Some(id))) => Some((
-                    id.clone(),
-                    ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                        identifier: id,
-                        lot: MediaLot::Manga,
-                        source,
-                        collections: vec![DefaultCollection::Owned.to_string()],
-                        ..Default::default()
-                    }),
-                )),
-                _ => {
-                    tracing::debug!("No URL or database entry found for manga: {}", book.name);
-                    None
-                }
-            }
-        })
-        .collect()
-        .await;
-    result
-        .completed
-        .extend(unique_collection_updates.into_values());
-    Ok(())
-}
-
 pub async fn yank_progress(
     base_url: String,
     username: String,
     password: String,
     source: MediaSource,
     db: &DatabaseConnection,
-    sync_to_owned_collection: Option<bool>,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
     // DEV: This object needs global lifetime so we can continue to use the receiver if
@@ -518,9 +468,54 @@ pub async fn yank_progress(
             }));
     });
 
-    if let Some(true) = sync_to_owned_collection {
-        sync_manga_collection(&base_url, &username, &password, source, db, &mut result).await?;
-    }
+    Ok(result)
+}
 
+pub async fn sync_to_owned_collection(
+    base_url: String,
+    username: String,
+    password: String,
+    source: MediaSource,
+    db: &DatabaseConnection,
+) -> Result<ImportResult> {
+    let mut result = ImportResult::default();
+    let url = &format!("{}/api/v1", base_url);
+    let client = get_base_http_client(None);
+
+    let series: komga_series::Response = client
+        .get(format!("{}/{}", url, "series?unpaged=true"))
+        .basic_auth(username, Some(password))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    // Hashmap for if you have the same manga in multiple languages it will appear
+    // multiple times this prevents us from double committing an identifier
+    let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
+        .filter_map(|book| async move {
+            match find_provider_and_id(source, db, &book).await {
+                Ok((source, Some(id))) => Some((
+                    id.clone(),
+                    ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                        identifier: id,
+                        lot: MediaLot::Manga,
+                        source,
+                        collections: vec![DefaultCollection::Owned.to_string()],
+                        ..Default::default()
+                    }),
+                )),
+                _ => {
+                    tracing::debug!("No URL or database entry found for manga: {}", book.name);
+                    None
+                }
+            }
+        })
+        .collect()
+        .await;
+    result
+        .completed
+        .extend(unique_collection_updates.into_values());
     Ok(result)
 }

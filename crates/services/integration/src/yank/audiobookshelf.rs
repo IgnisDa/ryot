@@ -10,25 +10,31 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use media_models::{CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use providers::google_books::GoogleBooksService;
-use reqwest::header::{HeaderValue, AUTHORIZATION};
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION},
+    Client,
+};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
+
+fn get_http_client(access_token: &String) -> Client {
+    get_base_http_client(Some(vec![(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+    )]))
+}
 
 pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
     isbn_service: GoogleBooksService,
-    sync_to_owned_collection: Option<bool>,
     commit_metadata: impl Fn(CommitMediaInput) -> F,
 ) -> Result<ImportResult>
 where
     F: Future<Output = GqlResult<metadata::Model>>,
 {
     let url = format!("{}/api", base_url);
-    let client = get_base_http_client(Some(vec![(
-        AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
-    )]));
+    let client = get_http_client(&access_token);
 
     let resp = client
         .get(format!("{}/me/items-in-progress", url))
@@ -159,53 +165,61 @@ where
             }
         };
     }
-    if let Some(true) = sync_to_owned_collection {
-        let libraries_resp = client
-            .get("libraries")
+    Ok(result)
+}
+
+pub async fn sync_to_owned_collection(
+    access_token: String,
+    isbn_service: GoogleBooksService,
+) -> Result<ImportResult> {
+    let client = get_http_client(&access_token);
+
+    let mut result = ImportResult::default();
+    let libraries_resp = client
+        .get("libraries")
+        .send()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .json::<LibrariesListResponse>()
+        .await
+        .unwrap();
+    for library in libraries_resp.libraries {
+        let items = client
+            .get(format!("libraries/{}/items", library.id))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .json::<LibrariesListResponse>()
+            .json::<ListResponse>()
             .await
             .unwrap();
-        for library in libraries_resp.libraries {
-            let items = client
-                .get(format!("libraries/{}/items", library.id))
-                .send()
-                .await
-                .map_err(|e| anyhow!(e))?
-                .json::<ListResponse>()
-                .await
-                .unwrap();
-            for item in items.results.into_iter() {
-                let metadata = item.media.clone().unwrap().metadata;
-                let (identifier, lot, source) =
-                    if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
-                        match &metadata.isbn {
-                            Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
-                                Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
-                                _ => continue,
-                            },
+        for item in items.results.into_iter() {
+            let metadata = item.media.clone().unwrap().metadata;
+            let (identifier, lot, source) =
+                if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+                    match &metadata.isbn {
+                        Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                            Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
                             _ => continue,
-                        }
-                    } else if let Some(asin) = metadata.asin.clone() {
-                        (asin, MediaLot::AudioBook, MediaSource::Audible)
-                    } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                        (itunes_id, MediaLot::Podcast, MediaSource::Itunes)
-                    } else {
-                        continue;
-                    };
-                result
-                    .completed
-                    .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                        lot,
-                        source,
-                        identifier,
-                        collections: vec![DefaultCollection::Owned.to_string()],
-                        ..Default::default()
-                    }));
-            }
+                        },
+                        _ => continue,
+                    }
+                } else if let Some(asin) = metadata.asin.clone() {
+                    (asin, MediaLot::AudioBook, MediaSource::Audible)
+                } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                    (itunes_id, MediaLot::Podcast, MediaSource::Itunes)
+                } else {
+                    continue;
+                };
+            result
+                .completed
+                .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                    lot,
+                    source,
+                    identifier,
+                    collections: vec![DefaultCollection::Owned.to_string()],
+                    ..Default::default()
+                }));
         }
     }
-    Ok(result)
+    todo!()
 }

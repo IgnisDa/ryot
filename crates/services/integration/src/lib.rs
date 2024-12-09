@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::{Error, Result as GqlResult};
 use chrono::Utc;
@@ -252,7 +252,6 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
-        let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
                 ryot_log!(debug, "Integration {} is disabled", integration.id);
@@ -265,7 +264,6 @@ impl IntegrationService {
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         GoogleBooksService::new(&self.0.config.books.google_books).await,
-                        integration.sync_to_owned_collection,
                         |input| commit_metadata(input, &self.0),
                     )
                     .await
@@ -277,14 +275,12 @@ impl IntegrationService {
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
                         &self.0.db,
-                        integration.sync_to_owned_collection,
                     )
                     .await
                 }
                 _ => continue,
             };
             if let Ok(update) = response {
-                to_update_integrations.push(integration.id.clone());
                 progress_updates.push((integration, update));
             }
         }
@@ -303,10 +299,86 @@ impl IntegrationService {
             .column(integration::Column::UserId)
             .into_tuple::<String>()
             .all(&self.0.db)
-            .await?;
+            .await?
+            .into_iter()
+            .collect::<HashSet<String>>();
         for user_id in users_with_integrations {
             ryot_log!(debug, "Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data_to_owned_collection_for_user(
+        &self,
+        user_id: &String,
+    ) -> GqlResult<bool> {
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
+        if preferences.general.disable_integrations {
+            return Ok(false);
+        }
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::SyncToOwnedCollection.eq(true))
+            .all(&self.0.db)
+            .await?;
+        let mut progress_updates = vec![];
+        for integration in integrations.into_iter() {
+            if integration.is_disabled.unwrap_or_default() {
+                ryot_log!(debug, "Integration {} is disabled", integration.id);
+                continue;
+            }
+            let specifics = integration.clone().provider_specifics.unwrap();
+            let response = match integration.provider {
+                IntegrationProvider::Audiobookshelf => {
+                    yank::audiobookshelf::sync_to_owned_collection(
+                        specifics.audiobookshelf_base_url.unwrap(),
+                        GoogleBooksService::new(&self.0.config.books.google_books).await,
+                    )
+                    .await
+                }
+                IntegrationProvider::Komga => {
+                    yank::komga::sync_to_owned_collection(
+                        specifics.komga_base_url.unwrap(),
+                        specifics.komga_username.unwrap(),
+                        specifics.komga_password.unwrap(),
+                        specifics.komga_provider.unwrap(),
+                        &self.0.db,
+                    )
+                    .await
+                }
+                _ => continue,
+            };
+            if let Ok(update) = response {
+                progress_updates.push((integration, update));
+            }
+        }
+        for (integration, progress_updates) in progress_updates.into_iter() {
+            self.integration_progress_update(integration, progress_updates)
+                .await
+                .trace_ok();
+        }
+        Ok(true)
+    }
+
+    pub async fn sync_integrations_data_to_owned_collection(&self) -> GqlResult<()> {
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::SyncToOwnedCollection.eq(true))
+            .select_only()
+            .column(integration::Column::UserId)
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?
+            .into_iter()
+            .collect::<HashSet<String>>();
+        for user_id in users_with_integrations {
+            ryot_log!(
+                debug,
+                "Syncing integrations data to owned collection for user {}",
+                user_id
+            );
+            self.sync_integrations_data_to_owned_collection_for_user(&user_id)
+                .await?;
         }
         Ok(())
     }

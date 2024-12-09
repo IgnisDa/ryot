@@ -3151,6 +3151,13 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
+        self.0
+            .perform_application_job(ApplicationJob::SyncIntegrationsData)
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -3184,6 +3191,10 @@ ORDER BY RANDOM() LIMIT 10;
             .trace_ok();
         ryot_log!(trace, "Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await.trace_ok();
+        ryot_log!(trace, "Syncing integrations data to owned collection");
+        self.sync_integrations_data_to_owned_collection()
+            .await
+            .trace_ok();
         ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
         ryot_log!(trace, "Putting entities in partial state");
