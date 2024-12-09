@@ -267,7 +267,7 @@ impl FitnessService {
         let page = input.page.unwrap_or(1);
         let paginator = Workout::find()
             .select_only()
-            .column(workout_template::Column::Id)
+            .column(workout::Column::Id)
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
                 query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
