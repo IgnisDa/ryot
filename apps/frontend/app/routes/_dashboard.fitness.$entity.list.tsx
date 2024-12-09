@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Pagination,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -244,9 +245,11 @@ const DisplayFitnessListEntity = ({
 				.exhaustive(),
 	});
 
+	if (!entityInformation) return <Skeleton height={100} />;
+
 	const personalBestsAchieved =
-		entityInformation?.summary?.total?.personalBestsAchieved || 0;
-	const repsData = (entityInformation?.information.exercises || [])
+		entityInformation.summary.total?.personalBestsAchieved || 0;
+	const repsData = (entityInformation.information.exercises || [])
 		.map((e) => Number.parseInt(e.total?.reps || "0"))
 		.filter(Boolean);
 
@@ -265,23 +268,21 @@ const DisplayFitnessListEntity = ({
 									entity: loaderData.entity,
 								})}
 							>
-								{truncate(entityInformation?.name, { length: 20 })}
+								{truncate(entityInformation.name, { length: 20 })}
 							</Anchor>
 							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-								{dayjsLib(entityInformation?.timestamp).format("LL")}
+								{dayjsLib(entityInformation.timestamp).format("LL")}
 							</Text>
 						</Group>
 						<Group mt="xs">
-							{entityInformation?.detail ? (
-								<DisplayStat
-									icon={match(loaderData.entity)
-										.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
-										.with(FitnessEntity.Templates, () => <IconLock size={16} />)
-										.exhaustive()}
-									data={entityInformation.detail}
-								/>
-							) : null}
-							{entityInformation?.summary.total ? (
+							<DisplayStat
+								icon={match(loaderData.entity)
+									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
+									.exhaustive()}
+								data={entityInformation.detail}
+							/>
+							{entityInformation.summary.total ? (
 								<>
 									{personalBestsAchieved !== 0 ? (
 										<DisplayStat
@@ -334,7 +335,7 @@ const DisplayFitnessListEntity = ({
 								<Text fw="bold">Best set</Text>
 							) : null}
 						</Group>
-						{entityInformation?.summary.exercises.map((exercise, idx) => (
+						{entityInformation.summary.exercises.map((exercise, idx) => (
 							<ExerciseDisplay
 								exercise={exercise}
 								key={`${idx}-${exercise.id}`}
