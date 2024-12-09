@@ -850,7 +850,10 @@ pub struct PersonStateChanges {
 #[graphql(input_name = "IntegrationSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
 pub struct IntegrationProviderSpecifics {
-    pub plex_username: Option<String>,
+    pub plex_yank_base_url: Option<String>,
+    pub plex_yank_token: Option<String>,
+
+    pub plex_sink_username: Option<String>,
 
     pub audiobookshelf_base_url: Option<String>,
     pub audiobookshelf_token: Option<String>,

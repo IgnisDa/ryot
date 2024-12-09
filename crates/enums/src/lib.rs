@@ -551,16 +551,17 @@ pub enum IntegrationLot {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationProvider {
-    Audiobookshelf,
-    JellyfinSink,
     Emby,
-    Plex,
     Kodi,
+    Komga,
     Radarr,
     Sonarr,
-    JellyfinPush,
-    Komga,
+    PlexSink,
+    PlexYank,
     GenericJson,
+    JellyfinPush,
+    JellyfinSink,
+    Audiobookshelf,
 }
 
 #[derive(

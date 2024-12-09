@@ -27,6 +27,7 @@ fn get_http_client(access_token: &String) -> Client {
 pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
+    // TODO: Find a way to use `get_identifier_from_book_isbn` function
     isbn_service: GoogleBooksService,
     commit_metadata: impl Fn(CommitMediaInput) -> F,
 ) -> Result<ImportResult>

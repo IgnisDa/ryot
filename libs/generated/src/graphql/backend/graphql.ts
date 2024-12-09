@@ -908,7 +908,8 @@ export enum IntegrationProvider {
   JellyfinSink = 'JELLYFIN_SINK',
   Kodi = 'KODI',
   Komga = 'KOMGA',
-  Plex = 'PLEX',
+  PlexSink = 'PLEX_SINK',
+  PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
   Sonarr = 'SONARR'
 }
@@ -923,7 +924,9 @@ export type IntegrationSourceSpecificsInput = {
   komgaPassword?: InputMaybe<Scalars['String']['input']>;
   komgaProvider?: InputMaybe<MediaSource>;
   komgaUsername?: InputMaybe<Scalars['String']['input']>;
-  plexUsername?: InputMaybe<Scalars['String']['input']>;
+  plexSinkUsername?: InputMaybe<Scalars['String']['input']>;
+  plexYankBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  plexYankToken?: InputMaybe<Scalars['String']['input']>;
   radarrApiKey?: InputMaybe<Scalars['String']['input']>;
   radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;

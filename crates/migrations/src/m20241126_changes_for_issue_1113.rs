@@ -120,6 +120,17 @@ UPDATE "user" SET "preferences" = jsonb_set(
         .await?;
         db.execute_unprepared(
             r#"
+UPDATE "integration" SET "provider" = 'plex_sink' WHERE "provider" = 'plex';
+UPDATE "integration" SET "provider_specifics" = jsonb_set(
+    "provider_specifics",
+    '{plex_sink_username}',
+    "provider_specifics"->'plex_username'
+) - 'plex_username' WHERE "provider_specifics" -> 'plex_username' IS NOT NULL;
+            "#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
 UPDATE "user_to_entity" SET "exercise_extra_information" = jsonb_set("exercise_extra_information", '{settings,exclude_from_analytics}', 'false')
 WHERE "exercise_extra_information" IS NOT NULL;
             "#,

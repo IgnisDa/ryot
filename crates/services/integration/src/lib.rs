@@ -102,9 +102,9 @@ impl IntegrationService {
             IntegrationProvider::Kodi => sink::kodi::yank_progress(payload).await,
             IntegrationProvider::Emby => sink::emby::yank_progress(payload, &self.0.db).await,
             IntegrationProvider::JellyfinSink => sink::jellyfin::yank_progress(payload).await,
-            IntegrationProvider::Plex => {
+            IntegrationProvider::PlexSink => {
                 let specifics = integration.clone().provider_specifics.unwrap();
-                sink::plex::yank_progress(payload, &self.0.db, specifics.plex_username).await
+                sink::plex::yank_progress(payload, &self.0.db, specifics.plex_sink_username).await
             }
             IntegrationProvider::GenericJson => sink::generic_json::yank_progress(payload).await,
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
