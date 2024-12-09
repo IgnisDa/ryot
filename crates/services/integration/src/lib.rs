@@ -347,6 +347,13 @@ impl IntegrationService {
                     )
                     .await
                 }
+                IntegrationProvider::PlexYank => {
+                    yank::plex::sync_to_owned_collection(
+                        specifics.plex_yank_base_url.unwrap(),
+                        specifics.plex_yank_token.unwrap(),
+                    )
+                    .await
+                }
                 _ => continue,
             };
             if let Ok(update) = response {

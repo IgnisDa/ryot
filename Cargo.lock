@@ -5829,8 +5829,11 @@ dependencies = [
 name = "specific-models"
 version = "0.1.0"
 dependencies = [
+ "common-models",
  "rust_decimal",
+ "sea-orm",
  "serde",
+ "serde_with 3.11.0",
  "strum",
 ]
 
