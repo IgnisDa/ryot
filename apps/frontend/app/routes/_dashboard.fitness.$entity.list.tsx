@@ -172,7 +172,7 @@ export default function Page() {
 				{loaderData.itemList.items.length > 0 ? (
 					<Stack gap="xs">
 						{loaderData.itemList.items.map((entityId, index) => (
-							<DisplayFitnessListEntity
+							<DisplayFitnessEntity
 								index={index}
 								key={entityId}
 								entityId={entityId}
@@ -195,24 +195,19 @@ export default function Page() {
 	);
 }
 
-type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
-
-const DisplayFitnessListEntity = ({
-	index,
-	entityId,
-}: { entityId: DataItem; index: number }) => {
+const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
 
 	const { data: entityInformation } = useQuery({
-		queryKey: ["fitnessEntityDetails", entityId],
+		queryKey: ["fitnessEntityDetails", props.entityId],
 		queryFn: () =>
 			match(loaderData.entity)
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
-						.request(UserWorkoutDetailsDocument, { workoutId: entityId })
+						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
 						.then(({ userWorkoutDetails }) => ({
 							name: userWorkoutDetails.details.name,
 							summary: userWorkoutDetails.details.summary,
@@ -222,17 +217,14 @@ const DisplayFitnessListEntity = ({
 								dayjsLib
 									.duration(userWorkoutDetails.details.duration, "second")
 									.asMilliseconds(),
-								{
-									round: true,
-									units: ["h", "m"],
-								},
+								{ round: true, units: ["h", "m"] },
 							),
 						})),
 				)
 				.with(FitnessEntity.Templates, () =>
 					clientGqlService
 						.request(UserWorkoutTemplateDetailsDocument, {
-							workoutTemplateId: entityId,
+							workoutTemplateId: props.entityId,
 						})
 						.then(({ userWorkoutTemplateDetails }) => ({
 							name: userWorkoutTemplateDetails.details.name,
@@ -264,8 +256,8 @@ const DisplayFitnessListEntity = ({
 
 	return (
 		<>
-			{index !== 0 ? <Divider /> : null}
-			<Stack gap="xs" key={entityId} ref={parent} px={{ base: "xs", md: "md" }}>
+			{props.index !== 0 ? <Divider /> : null}
+			<Stack gap="xs" ref={parent} px={{ base: "xs", md: "md" }}>
 				<Group wrap="nowrap" justify="space-between">
 					<Box>
 						<Group wrap="nowrap">
@@ -273,7 +265,7 @@ const DisplayFitnessListEntity = ({
 								component={Link}
 								fz={{ base: "sm", md: "md" }}
 								to={$path("/fitness/:entity/:id", {
-									id: entityId,
+									id: props.entityId,
 									entity: loaderData.entity,
 								})}
 							>
@@ -285,11 +277,11 @@ const DisplayFitnessListEntity = ({
 						</Group>
 						<Group mt="xs">
 							<DisplayStat
+								data={entityInformation.detail}
 								icon={match(loaderData.entity)
 									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
 									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
 									.exhaustive()}
-								data={entityInformation.detail}
 							/>
 							{entityInformation.summary.total ? (
 								<>
