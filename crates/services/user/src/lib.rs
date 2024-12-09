@@ -792,6 +792,9 @@ impl UserService {
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
         }
+        if let Some(d) = input.sync_to_owned_collection {
+            db_integration.sync_to_owned_collection = ActiveValue::Set(Some(d));
+        }
         db_integration.update(&self.0.db).await?;
         Ok(true)
     }
@@ -822,6 +825,7 @@ impl UserService {
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
             provider_specifics: ActiveValue::Set(input.provider_specifics),
+            sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.0.db).await?;
