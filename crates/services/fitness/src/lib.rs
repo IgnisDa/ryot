@@ -58,14 +58,17 @@ impl FitnessService {
         &self,
         user_id: String,
         input: SearchInput,
-    ) -> Result<SearchResults<workout_template::Model>> {
+    ) -> Result<SearchResults<String>> {
         let page = input.page.unwrap_or(1);
         let paginator = WorkoutTemplate::find()
+            .select_only()
+            .column(workout_template::Column::Id)
             .filter(workout_template::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
                 query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
             })
             .order_by_desc(workout_template::Column::CreatedOn)
+            .into_tuple::<String>()
             .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
@@ -260,14 +263,17 @@ impl FitnessService {
         &self,
         user_id: String,
         input: SearchInput,
-    ) -> Result<SearchResults<workout::Model>> {
+    ) -> Result<SearchResults<String>> {
         let page = input.page.unwrap_or(1);
         let paginator = Workout::find()
+            .select_only()
+            .column(workout_template::Column::Id)
             .filter(workout::Column::UserId.eq(user_id))
             .apply_if(input.query, |query, v| {
                 query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
             })
             .order_by_desc(workout::Column::EndTime)
+            .into_tuple::<String>()
             .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,

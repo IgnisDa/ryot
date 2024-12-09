@@ -446,16 +446,7 @@ query UserWorkoutsList($input: SearchInput!) {
 			total
 			nextPage
 		}
-		items {
-			id
-			name
-			endTime
-			duration
-			startTime
-			summary {
-				...WorkoutSummaryPart
-			}
-		}
+		items
 	}
 }
 
@@ -485,15 +476,7 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 			total
 			nextPage
 		}
-		items {
-			id
-			name
-			createdOn
-			visibility
-			summary {
-				...WorkoutSummaryPart
-			}
-		}
+		items
 	}
 }
 

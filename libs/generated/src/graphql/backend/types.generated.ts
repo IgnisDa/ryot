@@ -1868,9 +1868,9 @@ export type QueryRoot = {
   /** Get information about a workout template. */
   userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
   /** Get a paginated list of templates created by the user. */
-  userWorkoutTemplatesList: WorkoutTemplateListResults;
+  userWorkoutTemplatesList: IdResults;
   /** Get a paginated list of workouts done by the user. */
-  userWorkoutsList: WorkoutListResults;
+  userWorkoutsList: IdResults;
   /** Get details about all the users in the service. */
   usersList: Array<User>;
 };
@@ -2854,12 +2854,6 @@ export type WorkoutLevelFocusedSummary = {
   level: ExerciseLevel;
 };
 
-export type WorkoutListResults = {
-  __typename?: 'WorkoutListResults';
-  details: SearchDetails;
-  items: Array<Workout>;
-};
-
 export type WorkoutLotFocusedSummary = {
   __typename?: 'WorkoutLotFocusedSummary';
   exercises: Array<Scalars['Int']['output']>;
@@ -2964,10 +2958,4 @@ export type WorkoutTemplate = {
   name: Scalars['String']['output'];
   summary: WorkoutSummary;
   visibility: Visibility;
-};
-
-export type WorkoutTemplateListResults = {
-  __typename?: 'WorkoutTemplateListResults';
-  details: SearchDetails;
-  items: Array<WorkoutTemplate>;
 };
