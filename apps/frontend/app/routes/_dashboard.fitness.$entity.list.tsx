@@ -245,7 +245,16 @@ const DisplayFitnessListEntity = ({
 				.exhaustive(),
 	});
 
-	if (!entityInformation) return <Skeleton height={100} />;
+	if (!entityInformation)
+		return (
+			<Stack gap={4}>
+				<Skeleton height={76} />
+				<Group wrap="nowrap" justify="space-between" gap={4}>
+					<Skeleton height={40} />
+					<Skeleton height={40} />
+				</Group>
+			</Stack>
+		);
 
 	const personalBestsAchieved =
 		entityInformation.summary.total?.personalBestsAchieved || 0;
