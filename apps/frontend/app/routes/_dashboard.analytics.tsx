@@ -53,6 +53,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import { produce } from "immer";
+import { atom, useAtom } from "jotai";
 import { type ComponentType, type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -159,12 +160,14 @@ const useGetUserAnalytics = () => {
 	return userAnalytics;
 };
 
+const isCaptureLoadingAtom = atom(false);
+
 export default function Page() {
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
-	const [isCaptureLoading, setIsCaptureLoading] = useState(false);
 	const toCaptureRef = useRef<HTMLDivElement>(null);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
+	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
 
 	return (
 		<>
@@ -693,6 +696,7 @@ type ChartContainerProps = {
 
 const ChartContainer = (props: ChartContainerProps) => {
 	const userPreferences = useUserPreferences();
+	const [isCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const [count, setCount] = useLocalStorage(
 		`FitnessChartContainer-${props.title}`,
 		10,
@@ -710,7 +714,9 @@ const ChartContainer = (props: ChartContainerProps) => {
 					<Text size="lg" fw="bold">
 						{props.title}
 					</Text>
-					{props.disableCounter || (value?.totalItems || 0) === 0 ? null : (
+					{props.disableCounter ||
+					(value?.totalItems || 0) === 0 ||
+					isCaptureLoading ? null : (
 						<NumberInput
 							w={60}
 							min={2}
