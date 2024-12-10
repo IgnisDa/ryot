@@ -64,6 +64,7 @@ import {
 } from "~/components/fitness";
 import {
 	MediaColors,
+	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	convertUtcHourToLocalHour,
 	dayjsLib,
@@ -71,6 +72,7 @@ import {
 	selectRandomElement,
 } from "~/lib/generals";
 import {
+	useCoreDetails,
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -163,6 +165,7 @@ const useGetUserAnalytics = () => {
 const isCaptureLoadingAtom = atom(false);
 
 export default function Page() {
+	const coreDetails = useCoreDetails();
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
 	const toCaptureRef = useRef<HTMLDivElement>(null);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
@@ -263,6 +266,12 @@ export default function Page() {
 						loading={isCaptureLoading}
 						leftSection={<IconImageInPicture />}
 						onClick={() => {
+							if (!coreDetails.isServerKeyValidated)
+								return notifications.show({
+									color: "red",
+									title: "Pro required",
+									message: PRO_REQUIRED_MESSAGE,
+								});
 							const current = toCaptureRef.current;
 							if (!current) return;
 							setIsCaptureLoading(true);
