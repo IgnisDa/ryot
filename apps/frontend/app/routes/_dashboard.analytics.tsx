@@ -43,6 +43,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	MediaColors,
 	clientGqlService,
@@ -51,7 +52,11 @@ import {
 	queryFactory,
 	selectRandomElement,
 } from "~/lib/generals";
-import { useGetMantineColors, useUserPreferences } from "~/lib/hooks";
+import {
+	useGetMantineColors,
+	useUserPreferences,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import { serverGqlService } from "~/lib/utilities.server";
 
 const TIME_RANGES = [
@@ -214,6 +219,9 @@ export default function Page() {
 						</Grid.Col>
 						<Grid.Col span={{ base: 12, md: 6 }}>
 							<TimeOfDayChart />
+						</Grid.Col>
+						<Grid.Col span={{ base: 12, md: 6 }}>
+							<StatisticsCard />
 						</Grid.Col>
 						<Grid.Col span={12}>
 							<ActivitySection />
@@ -556,6 +564,49 @@ const TimeOfDayChart = () => {
 	);
 };
 
+const StatItem = (props: { label: string; children: string }) => {
+	return (
+		<Stack align="center" justify="center" gap={4}>
+			<Text size="sm">{props.label}</Text>
+			<Text size="xl" fw="bold" ta="center">
+				{props.children}
+			</Text>
+		</Stack>
+	);
+};
+
+const StatisticsCard = () => {
+	const unitSystem = useUserUnitSystem();
+
+	return (
+		<ChartContainer title="Fitness Statistics" disableCounter>
+			{(_, { fitness }) => ({
+				totalItems: 10,
+				render: (
+					<SimpleGrid cols={3} h="100%" w="100%">
+						<StatItem label="Reps">{`${fitness.workoutReps}`}</StatItem>
+						<StatItem label="Weight">
+							{displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
+						</StatItem>
+						<StatItem label="Workouts">{`${fitness.workoutCount}`}</StatItem>
+						<StatItem label="Duration">
+							{humanizeDuration(
+								dayjsLib
+									.duration(fitness.workoutDuration, "minutes")
+									.asMilliseconds(),
+								{ largest: 1 },
+							)}
+						</StatItem>
+						<StatItem label="Exercises">{`${fitness.workoutExercises.length}`}</StatItem>
+						<StatItem label="Personal Bests">{`${fitness.workoutPersonalBests}`}</StatItem>
+						<StatItem label="Measurements">{`${fitness.measurementCount}`}</StatItem>
+					</SimpleGrid>
+				),
+			})}
+		</ChartContainer>
+	);
+};
+
 type ChartContainerProps = {
 	title: string;
 	disableCounter?: boolean;
@@ -582,7 +633,7 @@ const ChartContainer = (props: ChartContainerProps) => {
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
 		<Paper display="flex" h={380} withBorder={value?.totalItems === 0} p="md">
-			<Flex flex={1} align="center" direction="column">
+			<Flex flex={1} align="center" direction="column" w="100%">
 				<Group wrap="nowrap" w="100%" gap="xl" justify="center">
 					<Text size="lg" fw="bold">
 						{props.title}
