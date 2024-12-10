@@ -58,6 +58,7 @@ import { type ComponentType, type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { ProRequiredAlert } from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
@@ -239,23 +240,32 @@ export default function Page() {
 							)}
 						</ClientOnly>
 					</SimpleGrid>
-					<Grid>
-						<Grid.Col span={{ base: 12, md: 6 }}>
-							<MusclesChart />
-						</Grid.Col>
-						<Grid.Col span={{ base: 12, md: 6 }}>
-							<ExercisesChart />
-						</Grid.Col>
-						<Grid.Col span={{ base: 12, md: 6 }}>
-							<TimeOfDayChart />
-						</Grid.Col>
-						<Grid.Col span={{ base: 12, md: 6 }}>
-							<StatisticsCard />
-						</Grid.Col>
-						<Grid.Col span={12}>
-							<ActivitySection />
-						</Grid.Col>
-					</Grid>
+					{!coreDetails.isServerKeyValidated &&
+					![
+						AnalyticsTimeRanges.Yesterday,
+						AnalyticsTimeRanges.Past7Days,
+						AnalyticsTimeRanges.Past30Days,
+					].includes(timeSpanSettings.range) ? (
+						<ProRequiredAlert />
+					) : (
+						<Grid>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<MusclesChart />
+							</Grid.Col>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<ExercisesChart />
+							</Grid.Col>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<TimeOfDayChart />
+							</Grid.Col>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<StatisticsCard />
+							</Grid.Col>
+							<Grid.Col span={12}>
+								<ActivitySection />
+							</Grid.Col>
+						</Grid>
+					)}
 					{isCaptureLoading ? (
 						<Text ta="right" size="xs" c="dimmed">
 							Generated using Ryot (https://ryot.io)
