@@ -567,12 +567,12 @@ const TimeOfDayChart = () => {
 	);
 };
 
-const StatItem = (props: { label: string; children: string }) => {
+const StatItem = (props: { label: string; text: string }) => {
 	return (
 		<Stack align="center" justify="center" gap={4}>
 			<Text size="sm">{props.label}</Text>
 			<Text size="xl" fw="bold" ta="center">
-				{props.children}
+				{props.text}
 			</Text>
 		</Stack>
 	);
@@ -594,23 +594,39 @@ const StatisticsCard = () => {
 				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
 					<SimpleGrid cols={3} h="100%" w="100%">
-						<StatItem label="Workouts">{`${fitness.workoutCount}`}</StatItem>
-						<StatItem label="Reps">{`${fitness.workoutReps}`}</StatItem>
-						<StatItem label="Weight">
-							{displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
-						</StatItem>
-						<StatItem label="Distance">
-							{displayDistanceWithUnit(unitSystem, fitness.workoutDistance)}
-						</StatItem>
-						<StatItem label="Duration">
-							{displayDuration(fitness.workoutDuration)}
-						</StatItem>
-						<StatItem label="Exercises">{`${fitness.workoutExercises.length}`}</StatItem>
-						<StatItem label="Personal Bests">{`${fitness.workoutPersonalBests}`}</StatItem>
-						<StatItem label="Rest Time">
-							{displayDuration(fitness.workoutRestTime)}
-						</StatItem>
-						<StatItem label="Measurements">{`${fitness.measurementCount}`}</StatItem>
+						<StatItem label="Workouts" text={`${fitness.workoutCount}`} />
+						<StatItem label="Reps" text={`${fitness.workoutReps}`} />
+						<StatItem
+							label="Weight"
+							text={displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
+						/>
+						<StatItem
+							label="Distance"
+							text={displayDistanceWithUnit(
+								unitSystem,
+								fitness.workoutDistance,
+							)}
+						/>
+						<StatItem
+							label="Duration"
+							text={displayDuration(fitness.workoutDuration)}
+						/>
+						<StatItem
+							label="Exercises"
+							text={`${fitness.workoutExercises.length}`}
+						/>
+						<StatItem
+							label="Personal Bests"
+							text={`${fitness.workoutPersonalBests}`}
+						/>
+						<StatItem
+							label="Rest Time"
+							text={displayDuration(fitness.workoutRestTime)}
+						/>
+						<StatItem
+							label="Measurements"
+							text={`${fitness.measurementCount}`}
+						/>
 					</SimpleGrid>
 				),
 			})}
