@@ -622,7 +622,7 @@ const StatisticsCard = () => {
 			{(_, { fitness }) => ({
 				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
-					<SimpleGrid cols={3} h="100%" w="100%">
+					<SimpleGrid cols={3} h="100%" w="100%" p={{ base: "md", md: "xl" }}>
 						<StatItem
 							label="Workouts"
 							icon={IconStretching}
