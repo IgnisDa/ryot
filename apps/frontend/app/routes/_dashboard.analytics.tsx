@@ -597,7 +597,7 @@ const StatItem = (props: {
 	return (
 		<Stack align="center" justify="center" gap={0}>
 			<props.icon size={20} />
-			<Text size="sm" c="dimmed">
+			<Text size="sm" c="dimmed" ta="center">
 				{props.label}
 			</Text>
 			<Text size="xl" fw="bold" ta="center">
@@ -622,7 +622,13 @@ const StatisticsCard = () => {
 			{(_, { fitness }) => ({
 				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
-					<SimpleGrid cols={3} h="100%" w="100%" p={{ base: "md", md: "xl" }}>
+					<SimpleGrid
+						cols={3}
+						h="100%"
+						w="100%"
+						p={{ md: "xl" }}
+						py={{ base: "md", md: "auto" }}
+					>
 						<StatItem
 							label="Workouts"
 							icon={IconStretching}
