@@ -2382,6 +2382,7 @@ export type UserFitnessAnalytics = {
   workoutMuscles: Array<FitnessAnalyticsMuscle>;
   workoutPersonalBests: Scalars['Int']['output'];
   workoutReps: Scalars['Int']['output'];
+  workoutRestTime: Scalars['Int']['output'];
   workoutWeight: Scalars['Int']['output'];
 };
 

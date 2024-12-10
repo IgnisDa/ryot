@@ -286,6 +286,7 @@ impl StatisticsService {
             pub workout_weight: i32,
             pub workout_duration: i32,
             pub workout_distance: i32,
+            pub workout_rest_time: i32,
             pub measurement_count: i32,
             pub workout_personal_bests: i32,
             pub workout_exercises: Vec<String>,
@@ -320,6 +321,7 @@ impl StatisticsService {
         let workout_weight = items.iter().map(|i| i.workout_weight).sum();
         let workout_distance = items.iter().map(|i| i.workout_distance).sum();
         let workout_duration = items.iter().map(|i| i.workout_duration).sum();
+        let workout_rest_time = items.iter().map(|i| i.workout_rest_time).sum();
         let measurement_count = items.iter().map(|i| i.measurement_count).sum();
         let workout_personal_bests = items.iter().map(|i| i.workout_personal_bests).sum();
         let workout_muscles = items
@@ -366,6 +368,7 @@ impl StatisticsService {
                 workout_muscles,
                 workout_distance,
                 workout_duration,
+                workout_rest_time,
                 workout_exercises,
                 measurement_count,
                 workout_equipments,
