@@ -57,6 +57,19 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+/** The start date must be before the end date. */
+export type ApplicationDateRange = {
+  __typename?: 'ApplicationDateRange';
+  endDate?: Maybe<Scalars['NaiveDate']['output']>;
+  startDate?: Maybe<Scalars['NaiveDate']['output']>;
+};
+
+/** The start date must be before the end date. */
+export type ApplicationDateRangeInput = {
+  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+};
+
 export type AudioBookSpecifics = {
   __typename?: 'AudioBookSpecifics';
   runtime?: Maybe<Scalars['Int']['output']>;
@@ -83,7 +96,7 @@ export enum BackgroundJob {
   CalculateUserActivitiesAndSummary = 'CALCULATE_USER_ACTIVITIES_AND_SUMMARY',
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
-  ReEvaluateUserWorkouts = 'RE_EVALUATE_USER_WORKOUTS',
+  ReviseUserWorkouts = 'REVISE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
@@ -208,7 +221,7 @@ export type CoreDetails = {
   exerciseParameters: ExerciseParameters;
   fileStorageEnabled: Scalars['Boolean']['output'];
   frontend: FrontendConfig;
-  isPro: Scalars['Boolean']['output'];
+  isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
@@ -305,12 +318,6 @@ export type CreateUserNotificationPlatformInput = {
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type DailyUserActivitiesInput = {
-  endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
-  groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
-  startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
-};
-
 export type DailyUserActivitiesResponse = {
   __typename?: 'DailyUserActivitiesResponse';
   groupedBy: DailyUserActivitiesResponseGroupedBy;
@@ -327,6 +334,19 @@ export enum DailyUserActivitiesResponseGroupedBy {
   Year = 'YEAR'
 }
 
+export type DailyUserActivityHourRecord = {
+  __typename?: 'DailyUserActivityHourRecord';
+  entities: Array<DailyUserActivityHourRecordEntity>;
+  hour: Scalars['Int']['output'];
+};
+
+export type DailyUserActivityHourRecordEntity = {
+  __typename?: 'DailyUserActivityHourRecordEntity';
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
+  metadataLot?: Maybe<MediaLot>;
+};
+
 export type DailyUserActivityItem = {
   __typename?: 'DailyUserActivityItem';
   animeCount: Scalars['Int']['output'];
@@ -334,7 +354,6 @@ export type DailyUserActivityItem = {
   bookCount: Scalars['Int']['output'];
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
-  measurementCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
@@ -359,13 +378,13 @@ export type DailyUserActivityItem = {
   totalWorkoutReps: Scalars['Int']['output'];
   totalWorkoutRestTime: Scalars['Int']['output'];
   totalWorkoutWeight: Scalars['Int']['output'];
+  userMeasurementCount: Scalars['Int']['output'];
   videoGameCount: Scalars['Int']['output'];
   visualNovelCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
 };
 
 export enum DashboardElementLot {
-  Activity = 'ACTIVITY',
   InProgress = 'IN_PROGRESS',
   Recommendations = 'RECOMMENDATIONS',
   Summary = 'SUMMARY',
@@ -477,6 +496,7 @@ export type Exercise = {
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
+  name: Scalars['String']['output'];
   source: ExerciseSource;
 };
 
@@ -533,11 +553,11 @@ export type ExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
-  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
+  name: Scalars['String']['input'];
 };
 
 export enum ExerciseLevel {
@@ -563,6 +583,7 @@ export type ExerciseListItem = {
   lastUpdatedOn?: Maybe<Scalars['DateTime']['output']>;
   lot: ExerciseLot;
   muscle?: Maybe<ExerciseMuscle>;
+  name: Scalars['String']['output'];
   numTimesInteracted?: Maybe<Scalars['Int']['output']>;
 };
 
@@ -648,6 +669,24 @@ export type ExportJob = {
 export type ExternalIdentifiers = {
   __typename?: 'ExternalIdentifiers';
   tvdbId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type FitnessAnalyticsEquipment = {
+  __typename?: 'FitnessAnalyticsEquipment';
+  count: Scalars['Int']['output'];
+  equipment: ExerciseEquipment;
+};
+
+export type FitnessAnalyticsExercise = {
+  __typename?: 'FitnessAnalyticsExercise';
+  count: Scalars['Int']['output'];
+  exercise: Scalars['String']['output'];
+};
+
+export type FitnessAnalyticsMuscle = {
+  __typename?: 'FitnessAnalyticsMuscle';
+  count: Scalars['Int']['output'];
+  muscle: ExerciseMuscle;
 };
 
 export type FrontendConfig = {
@@ -893,7 +932,8 @@ export enum IntegrationProvider {
   JellyfinSink = 'JELLYFIN_SINK',
   Kodi = 'KODI',
   Komga = 'KOMGA',
-  Plex = 'PLEX',
+  PlexSink = 'PLEX_SINK',
+  PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
   Sonarr = 'SONARR'
 }
@@ -908,7 +948,9 @@ export type IntegrationSourceSpecificsInput = {
   komgaPassword?: InputMaybe<Scalars['String']['input']>;
   komgaProvider?: InputMaybe<MediaSource>;
   komgaUsername?: InputMaybe<Scalars['String']['input']>;
-  plexUsername?: InputMaybe<Scalars['String']['input']>;
+  plexSinkUsername?: InputMaybe<Scalars['String']['input']>;
+  plexYankBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  plexYankToken?: InputMaybe<Scalars['String']['input']>;
   radarrApiKey?: InputMaybe<Scalars['String']['input']>;
   radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
@@ -1717,8 +1759,8 @@ export type ProcessAccessLinkResult = ProcessAccessLinkError | ProcessAccessLink
 export type ProcessedExercise = {
   __typename?: 'ProcessedExercise';
   assets?: Maybe<EntityAssets>;
+  id: Scalars['String']['output'];
   lot: ExerciseLot;
-  name: Scalars['String']['output'];
   notes: Array<Scalars['String']['output']>;
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
@@ -1751,8 +1793,6 @@ export type QueryRoot = {
   collectionContents: CollectionContents;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
-  /** Get daily user activities for the currently logged in user. */
-  dailyUserActivities: DailyUserActivitiesResponse;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get a paginated list of exercises in the database. */
@@ -1769,8 +1809,6 @@ export type QueryRoot = {
   getPresignedS3Url: Scalars['String']['output'];
   /** Get all the import jobs deployed by the user. */
   importReports: Array<ImportReport>;
-  /** Get a summary of all the media items that have been consumed by this user. */
-  latestUserSummary: DailyUserActivityItem;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -1793,6 +1831,10 @@ export type QueryRoot = {
   personDetails: PersonDetails;
   /** Get all access links generated by the currently logged in user. */
   userAccessLinks: Array<AccessLink>;
+  /** Get the analytics for the currently logged in user. */
+  userAnalytics: UserAnalytics;
+  /** Get the analytics parameters for the currently logged in user. */
+  userAnalyticsParameters: ApplicationDateRange;
   /** Get user by OIDC issuer ID. */
   userByOidcIssuerId?: Maybe<Scalars['String']['output']>;
   /** Get calendar events for a user between a given date range. */
@@ -1826,9 +1868,9 @@ export type QueryRoot = {
   /** Get information about a workout template. */
   userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
   /** Get a paginated list of templates created by the user. */
-  userWorkoutTemplatesList: WorkoutTemplateListResults;
+  userWorkoutTemplatesList: IdResults;
   /** Get a paginated list of workouts done by the user. */
-  userWorkoutsList: WorkoutListResults;
+  userWorkoutsList: IdResults;
   /** Get details about all the users in the service. */
   usersList: Array<User>;
 };
@@ -1836,11 +1878,6 @@ export type QueryRoot = {
 
 export type QueryRootCollectionContentsArgs = {
   input: CollectionContentsInput;
-};
-
-
-export type QueryRootDailyUserActivitiesArgs = {
-  input: DailyUserActivitiesInput;
 };
 
 
@@ -1921,6 +1958,11 @@ export type QueryRootPeopleSearchArgs = {
 
 export type QueryRootPersonDetailsArgs = {
   personId: Scalars['String']['input'];
+};
+
+
+export type QueryRootUserAnalyticsArgs = {
+  input: UserAnalyticsInput;
 };
 
 
@@ -2201,12 +2243,12 @@ export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
-  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
-  oldName: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  oldId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -2226,7 +2268,6 @@ export type UpdateUserExerciseSettings = {
 
 export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
-  extraInformation?: InputMaybe<Scalars['JSON']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
   password?: InputMaybe<Scalars['String']['input']>;
@@ -2262,6 +2303,23 @@ export type User = {
   name: Scalars['String']['output'];
   oidcIssuerId?: Maybe<Scalars['String']['output']>;
   preferences: UserPreferences;
+};
+
+export type UserAnalytics = {
+  __typename?: 'UserAnalytics';
+  activities: DailyUserActivitiesResponse;
+  fitness: UserFitnessAnalytics;
+  hours: Array<DailyUserActivityHourRecord>;
+};
+
+export type UserAnalyticsFeaturesEnabledPreferences = {
+  __typename?: 'UserAnalyticsFeaturesEnabledPreferences';
+  enabled: Scalars['Boolean']['output'];
+};
+
+export type UserAnalyticsInput = {
+  dateRange: ApplicationDateRangeInput;
+  groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
 };
 
 export type UserCalendarEventInput = {
@@ -2307,9 +2365,25 @@ export type UserExerciseInput = {
 
 export type UserFeaturesEnabledPreferences = {
   __typename?: 'UserFeaturesEnabledPreferences';
+  analytics: UserAnalyticsFeaturesEnabledPreferences;
   fitness: UserFitnessFeaturesEnabledPreferences;
   media: UserMediaFeaturesEnabledPreferences;
   others: UserOthersFeaturesEnabledPreferences;
+};
+
+export type UserFitnessAnalytics = {
+  __typename?: 'UserFitnessAnalytics';
+  measurementCount: Scalars['Int']['output'];
+  workoutCount: Scalars['Int']['output'];
+  workoutDistance: Scalars['Int']['output'];
+  workoutDuration: Scalars['Int']['output'];
+  workoutEquipments: Array<FitnessAnalyticsEquipment>;
+  workoutExercises: Array<FitnessAnalyticsExercise>;
+  workoutMuscles: Array<FitnessAnalyticsMuscle>;
+  workoutPersonalBests: Scalars['Int']['output'];
+  workoutReps: Scalars['Int']['output'];
+  workoutRestTime: Scalars['Int']['output'];
+  workoutWeight: Scalars['Int']['output'];
 };
 
 export type UserFitnessExercisesPreferences = {
@@ -2536,6 +2610,8 @@ export type UserMetadataDetails = {
   nextEntry?: Maybe<UserMediaNextEntry>;
   /** The seen progress of this media if it is a podcast. */
   podcastProgress?: Maybe<Array<UserMetadataDetailsEpisodeProgress>>;
+  /** Whether this media has been recently interacted with */
+  recentlyConsumed: Scalars['Boolean']['output'];
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media. */
@@ -2562,6 +2638,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   collections: Array<Collection>;
+  recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -2580,6 +2657,7 @@ export type UserOthersFeaturesEnabledPreferences = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   collections: Array<Collection>;
+  recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -2635,6 +2713,7 @@ export type UserToExerciseHistoryExtraInformation = {
 
 export type UserToExerciseSettingsExtraInformation = {
   __typename?: 'UserToExerciseSettingsExtraInformation';
+  excludeFromAnalytics: Scalars['Boolean']['output'];
   setRestTimers: SetRestTimersSettings;
 };
 
@@ -2775,12 +2854,6 @@ export type WorkoutLevelFocusedSummary = {
   level: ExerciseLevel;
 };
 
-export type WorkoutListResults = {
-  __typename?: 'WorkoutListResults';
-  details: SearchDetails;
-  items: Array<Workout>;
-};
-
 export type WorkoutLotFocusedSummary = {
   __typename?: 'WorkoutLotFocusedSummary';
   exercises: Array<Scalars['Int']['output']>;
@@ -2857,8 +2930,8 @@ export type WorkoutSummary = {
 export type WorkoutSummaryExercise = {
   __typename?: 'WorkoutSummaryExercise';
   bestSet?: Maybe<WorkoutSetRecord>;
+  id: Scalars['String']['output'];
   lot?: Maybe<ExerciseLot>;
-  name: Scalars['String']['output'];
   numSets: Scalars['Int']['output'];
 };
 
@@ -2885,10 +2958,4 @@ export type WorkoutTemplate = {
   name: Scalars['String']['output'];
   summary: WorkoutSummary;
   visibility: Visibility;
-};
-
-export type WorkoutTemplateListResults = {
-  __typename?: 'WorkoutTemplateListResults';
-  details: SearchDetails;
-  items: Array<WorkoutTemplate>;
 };

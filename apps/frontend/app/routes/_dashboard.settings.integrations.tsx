@@ -69,6 +69,7 @@ const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
+	IntegrationProvider.PlexYank,
 ];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
@@ -170,7 +171,9 @@ const createSchema = z.object({
 	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 	providerSpecifics: z
 		.object({
-			plexUsername: z.string().optional(),
+			plexYankBaseUrl: z.string().optional(),
+			plexYankToken: z.string().optional(),
+			plexSinkUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
 			komgaBaseUrl: z.string().optional(),
@@ -403,7 +406,9 @@ const CreateIntegrationModal = (props: {
 	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider>();
 	const disableCreationButton =
-		!coreDetails.isPro && provider && PRO_INTEGRATIONS.includes(provider);
+		!coreDetails.isServerKeyValidated &&
+		provider &&
+		PRO_INTEGRATIONS.includes(provider);
 
 	return (
 		<Modal
@@ -496,11 +501,25 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
-						.with(IntegrationProvider.Plex, () => (
+						.with(IntegrationProvider.PlexYank, () => (
+							<>
+								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.plexYankBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Plex token"
+									name="providerSpecifics.plexYankToken"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.PlexSink, () => (
 							<>
 								<TextInput
 									label="Username"
-									name="providerSpecifics.plexUsername"
+									name="providerSpecifics.plexSinkUsername"
 								/>
 							</>
 						))
@@ -529,14 +548,14 @@ const CreateIntegrationModal = (props: {
 					{provider && YANK_INTEGRATIONS.includes(provider) ? (
 						<Tooltip
 							label="Only available for Pro users"
-							disabled={coreDetails.isPro}
+							disabled={coreDetails.isServerKeyValidated}
 						>
 							<Checkbox
-								label="Sync to Owned collection"
 								name="syncToOwnedCollection"
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								label="Sync to Owned collection"
+								disabled={!coreDetails.isServerKeyValidated}
 								styles={{ body: { display: "flex", alignItems: "center" } }}
-								disabled={!coreDetails.isPro}
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
 							/>
 						</Tooltip>
 					) : undefined}

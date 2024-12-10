@@ -7,10 +7,11 @@ use dependent_models::UserDetailsResult;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserInput,
-    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserIntegrationInput,
+    UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
+use user_models::UpdateUserInput;
 use user_service::UserService;
 
 #[derive(Default)]

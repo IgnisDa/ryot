@@ -808,7 +808,7 @@ const CreateSupersetModal = (props: {
 								else setExercisesHandle.append(ex.identifier);
 							}}
 						>
-							{ex.exerciseId}
+							{ex.name}
 						</Button>
 					);
 				})}
@@ -868,7 +868,7 @@ const EditSupersetModal = (props: {
 								else setExercisesHandle.append(ex.identifier);
 							}}
 						>
-							{ex.exerciseId}
+							{ex.name}
 						</Button>
 					);
 				})}
@@ -1016,7 +1016,7 @@ const ExerciseDisplay = (props: {
 				withCloseButton={false}
 			>
 				<Stack>
-					<Text size="lg">Images for {exercise.exerciseId}</Text>
+					<Text size="lg">Images for {exercise.name}</Text>
 					{fileUploadAllowed ? (
 						<>
 							{exercise.images.length > 0 ? (
@@ -1102,7 +1102,7 @@ const ExerciseDisplay = (props: {
 			<Paper
 				radius={0}
 				style={{
-					scrollMargin: "60px",
+					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
 					borderLeft: partOfSuperset
 						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
 						: undefined,
@@ -1121,7 +1121,7 @@ const ExerciseDisplay = (props: {
 								component={Link}
 								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
-								{exercise.exerciseId}
+								{exercise.name}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
@@ -1183,7 +1183,7 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconReplace size={14} />}
 								onClick={() => {
-									if (!coreDetails.isPro) {
+									if (!coreDetails.isServerKeyValidated) {
 										notifications.show({
 											message: PRO_REQUIRED_MESSAGE,
 											color: "red",
@@ -1229,7 +1229,7 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconTrash size={14} />}
 								onClick={async () => {
 									const yes = await confirmWrapper({
-										confirmation: `This removes '${exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										confirmation: `This removes '${exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									});
 									if (yes) {
 										const assets = [...exercise.images, ...exercise.videos];
@@ -1311,7 +1311,7 @@ const ExerciseDisplay = (props: {
 																entityId={history.workoutId}
 																entityType={FitnessEntity.Workouts}
 																onCopyButtonClick={async () => {
-																	if (!coreDetails.isPro) {
+																	if (!coreDetails.isServerKeyValidated) {
 																		notifications.show({
 																			color: "red",
 																			message:
@@ -1359,7 +1359,7 @@ const ExerciseDisplay = (props: {
 											pos="absolute"
 											p={2}
 											onClick={() => {
-												if (!coreDetails.isPro) {
+												if (!coreDetails.isServerKeyValidated) {
 													notifications.show({
 														color: "red",
 														message: PRO_REQUIRED_MESSAGE,
@@ -1659,7 +1659,7 @@ const SetDisplay = (props: {
 							fz="xs"
 							leftSection={<IconClipboard size={14} />}
 							onClick={() => {
-								if (!coreDetails.isPro) {
+								if (!coreDetails.isServerKeyValidated) {
 									notifications.show({
 										color: "red",
 										message: PRO_REQUIRED_MESSAGE,
@@ -1855,6 +1855,7 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
+											currentExercise.scrollMarginRemoved = true;
 											if (newConfirmed) {
 												const nextSet = getNextSetInWorkout(
 													draft,
@@ -2241,7 +2242,7 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 											{...provided.dragHandleProps}
 										>
 											<Group justify="space-between" wrap="nowrap">
-												<Text size="sm">{de.exerciseId}</Text>
+												<Text size="sm">{de.name}</Text>
 												<ThemeIcon size="xs" variant="transparent" color="gray">
 													{match(getProgressOfExercise(currentWorkout, index))
 														.with("complete", () => <IconDropletFilled />)

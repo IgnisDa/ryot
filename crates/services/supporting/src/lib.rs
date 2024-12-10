@@ -4,12 +4,12 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
+use common_models::ApplicationCacheKey;
 use file_storage_service::FileStorageService;
 use openidconnect::core::CoreClient;
 use sea_orm::DatabaseConnection;
 
 pub struct SupportingService {
-    pub is_pro: bool,
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
     pub cache_service: CacheService,
@@ -24,7 +24,6 @@ pub struct SupportingService {
 impl SupportingService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        is_pro: bool,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
         cache_service: CacheService,
@@ -36,7 +35,6 @@ impl SupportingService {
     ) -> Self {
         Self {
             config,
-            is_pro,
             timezone,
             oidc_client,
             cache_service,
@@ -63,5 +61,12 @@ impl SupportingService {
             .await
             .unwrap();
         Ok(())
+    }
+
+    pub async fn is_server_key_validated(&self) -> Result<bool> {
+        self.cache_service
+            .get_key(ApplicationCacheKey::ServerKeyValidated)
+            .await
+            .map(|v| v.is_some())
     }
 }

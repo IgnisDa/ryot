@@ -837,13 +837,11 @@ dependencies = [
  "axum",
  "background",
  "cache-service",
- "chrono",
  "chrono-tz",
  "collection-resolver",
  "collection-service",
  "common-utils",
  "config",
- "database-models",
  "dependent-models",
  "dotenvy",
  "env-utils",
@@ -853,6 +851,7 @@ dependencies = [
  "file-storage-service",
  "fitness-resolver",
  "fitness-service",
+ "futures",
  "http 1.1.0",
  "importer-resolver",
  "importer-service",
@@ -869,9 +868,7 @@ dependencies = [
  "schematic",
  "sea-orm",
  "sea-orm-migration",
- "serde",
  "serde_json",
- "serde_with 3.11.0",
  "statistics-resolver",
  "statistics-service",
  "supporting-service",
@@ -880,7 +877,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
- "unkey",
+ "traits",
  "user-resolver",
  "user-service",
 ]
@@ -1280,6 +1277,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enums",
  "media-models",
  "migrations",
@@ -1326,6 +1324,7 @@ name = "common-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "chrono",
  "educe",
  "enum_meta",
  "enums",
@@ -1741,7 +1740,6 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "application-utils",
  "async-graphql",
  "background",
@@ -3331,7 +3329,6 @@ dependencies = [
  "indexmap 2.7.0",
  "itertools 0.13.0",
  "media-models",
- "nanoid",
  "providers",
  "reqwest 0.12.9",
  "rust_decimal",
@@ -3713,7 +3710,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.11.0",
- "strum",
 ]
 
 [[package]]
@@ -3840,11 +3836,13 @@ dependencies = [
  "sea-query",
  "serde",
  "serde_json",
+ "serde_with 3.11.0",
  "slug",
  "supporting-service",
  "tokio",
  "tracing",
  "traits",
+ "unkey",
  "user-models",
  "uuid",
 ]
@@ -4577,7 +4575,6 @@ dependencies = [
  "application-utils",
  "async-trait",
  "chrono",
- "chrono-tz",
  "common-models",
  "common-utils",
  "config",
@@ -4604,6 +4601,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.11.0",
  "strum",
+ "supporting-service",
  "tracing",
  "traits",
 ]
@@ -5831,8 +5829,11 @@ dependencies = [
 name = "specific-models"
 version = "0.1.0"
 dependencies = [
+ "common-models",
  "rust_decimal",
+ "sea-orm",
  "serde",
+ "serde_with 3.11.0",
  "strum",
 ]
 
@@ -6131,8 +6132,7 @@ name = "statistics-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "dependent-models",
- "media-models",
+ "common-models",
  "statistics-service",
  "traits",
 ]
@@ -6142,12 +6142,15 @@ name = "statistics-service"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "common-models",
  "database-models",
  "database-utils",
- "dependent-models",
- "media-models",
+ "enums",
+ "hashbag",
+ "itertools 0.13.0",
  "sea-orm",
  "supporting-service",
+ "tokio",
  "tracing",
 ]
 
@@ -6243,6 +6246,7 @@ dependencies = [
  "background",
  "cache-service",
  "chrono-tz",
+ "common-models",
  "config",
  "file-storage-service",
  "openidconnect",
@@ -6952,6 +6956,7 @@ dependencies = [
  "dependent-models",
  "media-models",
  "traits",
+ "user-models",
  "user-service",
 ]
 

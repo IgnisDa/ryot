@@ -28,7 +28,6 @@ importer-models = { path = "../../models/importer" }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-nanoid = { workspace = true }
 providers = { path = "../../providers" }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }

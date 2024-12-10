@@ -30,11 +30,13 @@ sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { workspace = true }
 slug = { workspace = true }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
+unkey = { workspace = true }
 user-models = { path = "../../models/user" }
 uuid = { workspace = true }
 

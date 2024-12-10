@@ -220,15 +220,18 @@ pub enum ImportSource {
     Enum,
     Copy,
     Deserialize,
-    FromJsonQueryResult,
+    DeriveActiveEnum,
+    EnumIter,
     Eq,
     PartialEq,
-    EnumIter,
-    PartialOrd,
-    Ord,
     Default,
     ConfigEnum,
     Hash,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {
@@ -435,17 +438,17 @@ pub enum ExerciseSource {
 
 /// The different types of personal bests that can be achieved on a set.
 #[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
     Eq,
-    PartialEq,
     Enum,
     Copy,
+    Clone,
+    Debug,
     Default,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum WorkoutSetPersonalBest {
@@ -548,16 +551,17 @@ pub enum IntegrationLot {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationProvider {
-    Audiobookshelf,
-    JellyfinSink,
     Emby,
-    Plex,
     Kodi,
+    Komga,
     Radarr,
     Sonarr,
-    JellyfinPush,
-    Komga,
+    PlexSink,
+    PlexYank,
     GenericJson,
+    JellyfinPush,
+    JellyfinSink,
+    Audiobookshelf,
 }
 
 #[derive(

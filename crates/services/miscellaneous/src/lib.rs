@@ -10,15 +10,16 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
 use common_models::{
-    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
-    StringIdObject,
+    ApplicationCacheKey, ApplicationCacheValue, BackendError, BackgroundJob,
+    ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject, MediaStateChanged,
+    SearchDetails, SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, EXERCISE_LOT_MAPPINGS,
-    MEDIA_LOT_MAPPINGS, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
+    COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS, MEDIA_LOT_MAPPINGS, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -35,9 +36,9 @@ use database_models::{
     queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, calculate_user_activities_and_summary,
-    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
-    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
+    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
     CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
@@ -46,9 +47,10 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
-    create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, first_metadata_image_as_url, get_metadata_provider,
+    add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
+    commit_metadata_internal, commit_person, create_partial_metadata,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
+    first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update,
@@ -60,7 +62,7 @@ use enums::{
     ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserToMediaReason,
 };
-use env_utils::APP_VERSION;
+use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
@@ -113,9 +115,11 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
+use unkey::{models::VerifyKeyRequest, Client};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
@@ -182,13 +186,14 @@ FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
 ORDER BY RANDOM() LIMIT 10;
         "#,
             [
-                MediaSource::GoogleBooks.into(),
-                MediaSource::Itunes.into(),
                 MediaSource::Vndb.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Custom.into(),
+                MediaSource::GoogleBooks.into(),
             ],
         ))
         .all(&self.0.db)
@@ -253,7 +258,6 @@ ORDER BY RANDOM() LIMIT 10;
         let download_required = Exercise::find().count(&self.0.db).await? == 0;
         Ok(CoreDetails {
             page_size: PAGE_SIZE,
-            is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             frontend: self.0.config.frontend.clone(),
@@ -267,6 +271,7 @@ ORDER BY RANDOM() LIMIT 10;
             local_auth_disabled: self.0.config.users.disable_local_auth,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             token_valid_for_days: self.0.config.users.token_valid_for_days,
+            is_server_key_validated: self.0.is_server_key_validated().await?,
             metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
                 .iter()
                 .map(|(lot, sources)| MetadataLotSourceMappings {
@@ -735,7 +740,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap();
         let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&self.0.db, &user_id, metadata_id, EntityLot::Metadata)
+            get_user_to_entity_association(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata)
                 .await;
         let average_rating = if reviews.is_empty() {
             None
@@ -804,6 +809,9 @@ ORDER BY RANDOM() LIMIT 10;
             } else {
                 None
             };
+        let recently_consumed =
+            get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, &self.0)
+                .await?;
         Ok(UserMetadataDetails {
             reviews,
             history,
@@ -813,6 +821,7 @@ ORDER BY RANDOM() LIMIT 10;
             show_progress,
             average_rating,
             podcast_progress,
+            recently_consumed,
             seen_by_user_count,
             seen_by_all_count: seen_by,
             has_interacted: user_to_meta.is_some(),
@@ -828,9 +837,12 @@ ORDER BY RANDOM() LIMIT 10;
         let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
+        let recently_consumed =
+            get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
+            recently_consumed,
         })
     }
 
@@ -854,9 +866,17 @@ ORDER BY RANDOM() LIMIT 10;
             &self.0,
         )
         .await?;
+        let recently_consumed = get_entity_recently_consumed(
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+            &self.0,
+        )
+        .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
+            recently_consumed,
         })
     }
 
@@ -945,10 +965,10 @@ ORDER BY RANDOM() LIMIT 10;
                             .into(),
                     )
                     .order_by_asc(calendar_event::Column::Date)
-                    .apply_if(end_date, |q, v| {
+                    .apply_if(start_date, |q, v| {
                         q.filter(calendar_event::Column::Date.gte(v))
                     })
-                    .apply_if(start_date, |q, v| {
+                    .apply_if(end_date, |q, v| {
                         q.filter(calendar_event::Column::Date.lte(v))
                     })
                     .limit(media_limit)
@@ -1009,7 +1029,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
+        let (start_date, end_date) = get_first_and_last_day_of_month(input.year, input.month);
         let events = self
             .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None, None)
             .await?;
@@ -1030,11 +1050,11 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let from_date = Utc::now().date_naive();
-        let (media_limit, to_date) = match input {
+        let start_date = Utc::now().date_naive();
+        let (media_limit, end_date) = match input {
             UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
             UserUpcomingCalendarEventInput::NextDays(d) => {
-                (None, from_date.checked_add_days(Days::new(d)))
+                (None, start_date.checked_add_days(Days::new(d)))
             }
         };
         let preferences = user_by_id(&user_id, &self.0).await?.preferences.general;
@@ -1046,8 +1066,8 @@ ORDER BY RANDOM() LIMIT 10;
             .get_calendar_events(
                 user_id,
                 true,
-                to_date,
-                Some(from_date),
+                Some(start_date),
+                end_date,
                 media_limit,
                 element.and_then(|e| e.deduplicate_media),
             )
@@ -1560,17 +1580,12 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         if let Some(_association) =
-            get_user_to_entity_association(&txn, &user_id, merge_into.clone(), EntityLot::Metadata)
-                .await
+            get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await
         {
-            let old_association = get_user_to_entity_association(
-                &txn,
-                &user_id,
-                merge_from.clone(),
-                EntityLot::Metadata,
-            )
-            .await
-            .unwrap();
+            let old_association =
+                get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
+                    .await
+                    .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&txn).await?;
@@ -1781,10 +1796,8 @@ ORDER BY RANDOM() LIMIT 10;
             MediaSource::Audible => {
                 Box::new(AudibleService::new(&self.0.config.audio_books.audible).await)
             }
-            MediaSource::Listennotes => {
-                Box::new(ListennotesService::new(&self.0.config.podcasts).await)
-            }
-            MediaSource::Igdb => Box::new(IgdbService::new(&self.0.config.video_games).await),
+            MediaSource::Listennotes => Box::new(ListennotesService::new(self.0.clone()).await),
+            MediaSource::Igdb => Box::new(IgdbService::new(self.0.clone()).await),
             MediaSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(&self.0.config.anime_and_manga.manga_updates).await,
             ),
@@ -1837,13 +1850,8 @@ ORDER BY RANDOM() LIMIT 10;
         match review {
             Some(r) => {
                 if r.user_id == user_id {
-                    associate_user_with_entity(
-                        &self.0.db,
-                        &user_id,
-                        r.entity_id.clone(),
-                        r.entity_lot,
-                    )
-                    .await?;
+                    associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
+                        .await?;
                     r.delete(&self.0.db).await?;
                     Ok(true)
                 } else {
@@ -1886,7 +1894,7 @@ ORDER BY RANDOM() LIMIT 10;
             user_id: user_id.to_owned(),
             metadata_id: si.metadata_id.clone(),
         };
-        self.0.cache_service.delete(cache).await?;
+        self.0.cache_service.expire_key(cache).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
@@ -1895,7 +1903,7 @@ ORDER BY RANDOM() LIMIT 10;
             ));
         }
         si.delete(&self.0.db).await.trace_ok();
-        associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata).await?;
+        associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }
@@ -3083,6 +3091,73 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn get_is_server_key_validated(&self) -> bool {
+        let pro_key = &self.0.config.server.pro_key;
+        if pro_key.is_empty() {
+            return false;
+        }
+        ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
+        let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
+        #[skip_serializing_none]
+        #[derive(Debug, Serialize, Clone, Deserialize)]
+        struct Meta {
+            expiry: Option<NaiveDate>,
+        }
+        let unkey_client = Client::new("public");
+        let verify_request = VerifyKeyRequest::new(pro_key, &UNKEY_API_ID.to_string());
+        let validated_key = match unkey_client.verify_key(verify_request).await {
+            Ok(verify_response) => {
+                if !verify_response.valid {
+                    ryot_log!(debug, "Pro key is no longer valid.");
+                    return false;
+                }
+                verify_response
+            }
+            Err(verify_error) => {
+                ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+                return false;
+            }
+        };
+        let key_meta = validated_key
+            .meta
+            .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+        ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+        if let Some(meta) = key_meta {
+            if let Some(expiry) = meta.expiry {
+                if compile_timestamp > convert_naive_to_utc(expiry) {
+                    ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+                    return false;
+                }
+            }
+        }
+        ryot_log!(debug, "Pro key verified successfully");
+        true
+    }
+
+    pub async fn perform_server_key_validation(&self) -> Result<()> {
+        let is_server_key_validated = self.get_is_server_key_validated().await;
+        let cs = &self.0.cache_service;
+        if is_server_key_validated {
+            cs.set_with_expiry(
+                ApplicationCacheKey::ServerKeyValidated,
+                None,
+                ApplicationCacheValue::Empty,
+            )
+            .await?;
+        } else {
+            cs.expire_key(ApplicationCacheKey::ServerKeyValidated)
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
+        self.0
+            .perform_application_job(ApplicationJob::SyncIntegrationsData)
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -3116,6 +3191,10 @@ ORDER BY RANDOM() LIMIT 10;
             .trace_ok();
         ryot_log!(trace, "Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await.trace_ok();
+        ryot_log!(trace, "Syncing integrations data to owned collection");
+        self.sync_integrations_data_to_owned_collection()
+            .await
+            .trace_ok();
         ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
         ryot_log!(trace, "Putting entities in partial state");

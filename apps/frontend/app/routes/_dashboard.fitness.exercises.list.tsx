@@ -367,7 +367,7 @@ export default function Page() {
 												}}
 											>
 												<Flex direction="column" justify="space-around">
-													<Text>{exercise.id}</Text>
+													<Text>{exercise.name}</Text>
 													<Flex>
 														{exercise.muscle ? (
 															<Text size="xs">

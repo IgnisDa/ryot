@@ -5,17 +5,17 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum User {
-    Table,
     Id,
-    CreatedOn,
-    LastLoginOn,
-    Name,
-    Password,
     Lot,
+    Name,
+    Table,
+    Password,
+    CreatedOn,
+    IsDisabled,
+    LastLoginOn,
     Preferences,
     OidcIssuerId,
     ExtraInformation,
-    IsDisabled,
 }
 
 #[async_trait::async_trait]

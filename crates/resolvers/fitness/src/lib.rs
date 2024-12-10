@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::SearchInput;
-use database_models::{exercise, user_measurement, workout, workout_template};
+use database_models::{exercise, user_measurement};
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
     UserWorkoutTemplateDetails,
@@ -11,24 +11,24 @@ use fitness_models::{
     ExerciseListItem, ExercisesListInput, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
 };
-use fitness_service::ExerciseService;
+use fitness_service::FitnessService;
 use sea_orm::prelude::DateTimeUtc;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct ExerciseQuery;
+pub struct FitnessQuery;
 
-impl AuthProvider for ExerciseQuery {}
+impl AuthProvider for FitnessQuery {}
 
 #[Object]
-impl ExerciseQuery {
+impl FitnessQuery {
     /// Get a paginated list of templates created by the user.
     async fn user_workout_templates_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<workout_template::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+    ) -> Result<SearchResults<String>> {
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workout_templates_list(user_id, input).await
     }
@@ -39,7 +39,7 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .user_workout_template_details(user_id, workout_template_id)
@@ -52,7 +52,7 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(user_id, input).await
     }
@@ -62,8 +62,8 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<workout::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+    ) -> Result<SearchResults<String>> {
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workouts_list(user_id, input).await
     }
@@ -74,7 +74,7 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         exercise_id: String,
     ) -> Result<exercise::Model> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         service.exercise_details(exercise_id).await
     }
 
@@ -84,7 +84,7 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workout_details(&user_id, workout_id).await
     }
@@ -95,7 +95,7 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(user_id, exercise_id).await
     }
@@ -106,30 +106,30 @@ impl ExerciseQuery {
         gql_ctx: &Context<'_>,
         input: UserMeasurementsListInput,
     ) -> Result<Vec<user_measurement::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_measurements_list(&user_id, input).await
     }
 }
 
 #[derive(Default)]
-pub struct ExerciseMutation;
+pub struct FitnessMutation;
 
-impl AuthProvider for ExerciseMutation {
+impl AuthProvider for FitnessMutation {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl ExerciseMutation {
+impl FitnessMutation {
     /// Create or update a workout template.
     async fn create_or_update_user_workout_template(
         &self,
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .create_or_update_user_workout_template(user_id, input)
@@ -142,7 +142,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         workout_template_id: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_workout_template(user_id, workout_template_id)
@@ -155,7 +155,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_measurement(&user_id, input).await
     }
@@ -166,7 +166,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_measurement(user_id, timestamp).await
     }
@@ -177,7 +177,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_or_update_user_workout(&user_id, input).await
     }
@@ -188,14 +188,14 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_workout_attributes(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_workout(user_id, workout_id).await
     }
@@ -206,7 +206,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: exercise::Model,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_exercise(&user_id, input).await
     }
@@ -217,7 +217,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_custom_exercise(user_id, input).await
     }
@@ -228,7 +228,7 @@ impl ExerciseMutation {
         gql_ctx: &Context<'_>,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_exercise_settings(user_id, input).await
     }
@@ -240,7 +240,7 @@ impl ExerciseMutation {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .merge_exercise(user_id, merge_from, merge_into)

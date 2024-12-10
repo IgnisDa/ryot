@@ -6,7 +6,8 @@ use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use database_models::{exercise, prelude::Exercise};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::ExerciseLot;
+use dependent_utils::generate_exercise_id;
+use enums::{ExerciseLot, ExerciseSource};
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
@@ -14,7 +15,6 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
-use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -51,20 +51,18 @@ struct Entry {
 pub async fn import(
     input: DeployStrongAppImportInput,
     ss: &Arc<SupportingService>,
+    user_id: &str,
 ) -> Result<ImportResult> {
     let mut completed = vec![];
     let mut failed = vec![];
     if let Some(csv_path) = input.data_export_path {
-        import_exercises(csv_path, ss, &mut failed, &mut completed).await?;
+        import_exercises(user_id, csv_path, ss, &mut failed, &mut completed).await?;
     }
-    Ok(ImportResult {
-        failed,
-        completed,
-        ..Default::default()
-    })
+    Ok(ImportResult { failed, completed })
 }
 
 async fn import_exercises(
+    user_id: &str,
     csv_path: String,
     ss: &Arc<SupportingService>,
     failed: &mut Vec<ImportFailedItem>,
@@ -147,44 +145,57 @@ async fn import_exercises(
                 continue;
             };
             let existing_exercise = Exercise::find()
-                .filter(exercise::Column::Id.eq(&exercise_name))
                 .filter(exercise::Column::Lot.eq(exercise_lot))
+                .filter(exercise::Column::Name.eq(&exercise_name))
                 .one(&ss.db)
                 .await?;
-            let exercise_id = if let Some(db_ex) = existing_exercise {
-                db_ex.id
-            } else if let Some(mem_ex) = unique_exercises.get(&exercise_name) {
-                mem_ex.id.clone()
-            } else {
-                let id = format!("{} [{}]", exercise_name, nanoid!(5));
-                unique_exercises.insert(
-                    exercise_name.clone(),
-                    exercise::Model {
-                        id: id.clone(),
-                        lot: exercise_lot,
-                        ..Default::default()
-                    },
-                );
-                id
+            let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
+            let exercise_id = match existing_exercise {
+                Some(db_ex)
+                    if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id =>
+                {
+                    db_ex.id
+                }
+                _ => match unique_exercises.get(&exercise_name) {
+                    Some(mem_ex) => mem_ex.id.clone(),
+                    None => {
+                        unique_exercises.insert(
+                            exercise_name.clone(),
+                            exercise::Model {
+                                lot: exercise_lot,
+                                name: exercise_name,
+                                id: generated_id.clone(),
+                                ..Default::default()
+                            },
+                        );
+                        generated_id
+                    }
+                },
             };
             ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
-            for sets in exercises {
-                if let Some(note) = sets.notes {
+            for set in exercises {
+                if let Some(note) = set.notes {
                     notes.push(note);
                 }
-                let weight = sets.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+                let weight = set.weight.map(|d| if d == dec!(0) { dec!(1) } else { d });
+                let set_lot = match set.set_order.as_str() {
+                    "W" => SetLot::WarmUp,
+                    "F" => SetLot::Failure,
+                    "D" => SetLot::Drop,
+                    _ => SetLot::Normal,
+                };
                 collected_sets.push(UserWorkoutSetRecord {
                     statistic: WorkoutSetStatistic {
                         weight,
-                        reps: sets.reps,
-                        duration: sets.seconds.and_then(|r| r.checked_div(dec!(60))),
-                        distance: sets.distance.and_then(|d| d.checked_div(dec!(1000))),
+                        reps: set.reps,
+                        duration: set.seconds.and_then(|r| r.checked_div(dec!(60))),
+                        distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
                     note: None,
+                    lot: set_lot,
                     rest_time: None,
                     confirmed_at: None,
-                    lot: SetLot::Normal,
                 });
             }
             collected_exercises.push(UserExerciseInput {

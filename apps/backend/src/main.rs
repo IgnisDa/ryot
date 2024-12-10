@@ -18,16 +18,13 @@ use apalis::{
 };
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
-use database_models::prelude::Exercise;
-use env_utils::{APP_VERSION, UNKEY_API_ID};
+use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
+use env_utils::APP_VERSION;
+use futures::future::join_all;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use tokio::{
     join,
     net::TcpListener,
@@ -35,13 +32,12 @@ use tokio::{
 };
 use tower::buffer::BufferLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use unkey::{models::VerifyKeyRequest, Client};
 
 use crate::{
     common::create_app_services,
     job::{
-        background_jobs, perform_application_job, perform_core_application_job,
-        sync_integrations_data,
+        perform_application_job, perform_core_application_job, run_background_jobs,
+        run_frequent_jobs,
     },
 };
 
@@ -70,7 +66,7 @@ async fn main() -> Result<()> {
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
-        ryot_log!(info, "Sleeping for {:?} before starting up...", duration);
+        ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
 
@@ -78,14 +74,8 @@ async fn main() -> Result<()> {
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 
-    let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-    ryot_log!(debug, "Compiled at: {}", compile_timestamp);
-
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
-    let is_pro = get_is_pro(&config.server.pro_key, &compile_timestamp).await;
-
-    ryot_log!(debug, "Is pro: {:#?}", is_pro);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -129,24 +119,17 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    perform_application_job_storage
-        .enqueue(ApplicationJob::SyncIntegrationsData)
-        .await
-        .unwrap();
-
-    if Exercise::find().count(&db).await? == 0 {
-        ryot_log!(
-            info,
-            "Instance does not have exercises data. Deploying job to download them..."
-        );
-        perform_application_job_storage
-            .enqueue(ApplicationJob::UpdateExerciseLibrary)
-            .await
-            .unwrap();
-    }
+    join_all(
+        [
+            ApplicationJob::PerformServerKeyValidation,
+            ApplicationJob::SyncIntegrationsData,
+            ApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|j| perform_application_job_storage.enqueue(j)),
+    )
+    .await;
 
     let app_services = create_app_services(
-        is_pro,
         db,
         tz,
         s3_client,
@@ -196,9 +179,10 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
+    let fitness_service_1 = app_services.fitness_service.clone();
+    let fitness_service_2 = app_services.fitness_service.clone();
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let exercise_service_1 = app_services.exercise_service.clone();
     let statistics_service_1 = app_services.statistics_service.clone();
     let integration_service_1 = app_services.integration_service.clone();
     let integration_service_2 = app_services.integration_service.clone();
@@ -206,11 +190,12 @@ async fn main() -> Result<()> {
     let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_4 = app_services.miscellaneous_service.clone();
 
     let monitor = Monitor::<TokioExecutor>::new()
         .register_with_count(
             1,
-            WorkerBuilder::new("background_jobs")
+            WorkerBuilder::new("daily_background_jobs")
                 .stream(
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz)
@@ -218,11 +203,11 @@ async fn main() -> Result<()> {
                 )
                 .layer(ApalisTraceLayer::new())
                 .data(miscellaneous_service_1.clone())
-                .build_fn(background_jobs),
+                .build_fn(run_background_jobs),
         )
         .register_with_count(
             1,
-            WorkerBuilder::new("sync_integrations_data")
+            WorkerBuilder::new("frequent_jobs")
                 .stream(
                     CronStream::new_with_timezone(
                         Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
@@ -232,7 +217,9 @@ async fn main() -> Result<()> {
                 )
                 .layer(ApalisTraceLayer::new())
                 .data(integration_service_1.clone())
-                .build_fn(sync_integrations_data),
+                .data(fitness_service_2.clone())
+                .data(miscellaneous_service_4.clone())
+                .build_fn(run_frequent_jobs),
         )
         // application jobs
         .register_with_count(
@@ -247,7 +234,7 @@ async fn main() -> Result<()> {
         .register_with_count(
             3,
             WorkerBuilder::new("perform_application_job")
-                .data(exercise_service_1.clone())
+                .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
                 .data(statistics_service_1.clone())
@@ -353,48 +340,4 @@ END $$;
     )
     .await?;
     Ok(())
-}
-
-async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
-    if pro_key.is_empty() {
-        return false;
-    }
-
-    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
-
-    #[skip_serializing_none]
-    #[derive(Debug, Serialize, Clone, Deserialize)]
-    struct Meta {
-        expiry: Option<NaiveDate>,
-    }
-
-    let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, UNKEY_API_ID);
-    let validated_key = match unkey_client.verify_key(verify_request).await {
-        Ok(verify_response) => {
-            if !verify_response.valid {
-                ryot_log!(debug, "Pro key is no longer valid.");
-                return false;
-            }
-            verify_response
-        }
-        Err(verify_error) => {
-            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
-            return false;
-        }
-    };
-    let key_meta = validated_key
-        .meta
-        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
-    ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-    if let Some(meta) = key_meta {
-        if let Some(expiry) = meta.expiry {
-            if compilation_time > &convert_naive_to_utc(expiry) {
-                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
-                return false;
-            }
-        }
-    }
-    ryot_log!(info, "Pro key verified successfully");
-    true
 }

@@ -1,18 +1,19 @@
 use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
-use anyhow::{bail, Result as AnyhowResult};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MediaStateChanged, StoredUrl, StringIdObject,
+    ApplicationCacheKey, ApplicationCacheValue, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, MediaStateChanged, StoredUrl, StringIdObject,
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    collection_to_entity, exercise, genre, metadata, metadata_group, metadata_to_genre,
-    metadata_to_metadata, metadata_to_person, monitored_entity, person,
+    collection, collection_to_entity, exercise,
+    functions::associate_user_with_entity,
+    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
+    monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
@@ -20,8 +21,8 @@ use database_models::{
     queued_notification, review, seen, user_measurement, user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, admin_account_guard, create_or_update_collection,
-    deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
+    admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
+    remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
@@ -120,12 +121,7 @@ pub async fn get_google_books_service(config: &config::AppConfig) -> Result<Goog
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
-    Ok(NonMediaTmdbService::new(
-        &ss.config.movies_and_shows.tmdb.access_token,
-        ss.config.movies_and_shows.tmdb.locale.clone(),
-        Arc::new(ss.timezone),
-    )
-    .await)
+    Ok(NonMediaTmdbService::new(ss.clone()).await)
 }
 
 pub async fn get_metadata_provider(
@@ -140,15 +136,10 @@ pub async fn get_metadata_provider(
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
         MediaSource::GoogleBooks => Box::new(get_google_books_service(&ss.config).await?),
         MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
-        MediaSource::Listennotes => Box::new(ListennotesService::new(&ss.config.podcasts).await),
+        MediaSource::Listennotes => Box::new(ListennotesService::new(ss.clone()).await),
         MediaSource::Tmdb => match lot {
-            MediaLot::Show => Box::new(
-                TmdbShowService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone)).await,
-            ),
-            MediaLot::Movie => Box::new(
-                TmdbMovieService::new(&ss.config.movies_and_shows.tmdb, Arc::new(ss.timezone))
-                    .await,
-            ),
+            MediaLot::Show => Box::new(TmdbShowService::new(ss.clone()).await),
+            MediaLot::Movie => Box::new(TmdbMovieService::new(ss.clone()).await),
             _ => return err(),
         },
         MediaSource::Anilist => match lot {
@@ -165,7 +156,7 @@ pub async fn get_metadata_provider(
             MediaLot::Manga => Box::new(MalMangaService::new(&ss.config.anime_and_manga.mal).await),
             _ => return err(),
         },
-        MediaSource::Igdb => Box::new(IgdbService::new(&ss.config.video_games).await),
+        MediaSource::Igdb => Box::new(IgdbService::new(ss.clone()).await),
         MediaSource::MangaUpdates => {
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
@@ -914,8 +905,8 @@ pub async fn deploy_background_job(
             ))
             .await?;
         }
-        BackgroundJob::ReEvaluateUserWorkouts => {
-            ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+        BackgroundJob::ReviseUserWorkouts => {
+            ss.perform_application_job(ApplicationJob::ReviseUserWorkouts(user_id.to_owned()))
                 .await?;
         }
     };
@@ -1040,6 +1031,7 @@ pub async fn post_review(
             .await?;
         }
     }
+    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -1259,6 +1251,43 @@ pub async fn handle_after_media_seen_tasks(
     Ok(())
 }
 
+pub async fn mark_entity_as_recently_consumed(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .set_with_expiry(
+            ApplicationCacheKey::MetadataRecentlyConsumed {
+                entity_lot,
+                user_id: user_id.to_owned(),
+                entity_id: entity_id.to_owned(),
+            },
+            Some(1),
+            ApplicationCacheValue::Empty,
+        )
+        .await?;
+    Ok(())
+}
+
+pub async fn get_entity_recently_consumed(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    Ok(ss
+        .cache_service
+        .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
+            entity_lot,
+            user_id: user_id.to_owned(),
+            entity_id: entity_id.to_owned(),
+        })
+        .await?
+        .is_some())
+}
+
 pub async fn progress_update(
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
@@ -1276,12 +1305,14 @@ pub async fn progress_update(
         anime_episode_number: input.anime_episode_number,
         podcast_episode_number: input.podcast_episode_number,
     };
-    let in_cache = ss.cache_service.get(cache.clone()).await?;
-    if respect_cache && in_cache.is_some() {
-        ryot_log!(debug, "Seen is already in cache");
-        return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-            error: ProgressUpdateErrorVariant::AlreadySeen,
-        }));
+    if respect_cache {
+        let in_cache = ss.cache_service.get_key(cache.clone()).await?;
+        if in_cache.is_some() {
+            ryot_log!(debug, "Seen is already in cache");
+            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                error: ProgressUpdateErrorVariant::AlreadySeen,
+            }));
+        }
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
@@ -1369,7 +1400,10 @@ pub async fn progress_update(
                     }))
             }
 
-            last_seen.update(&ss.db).await.unwrap()
+            let ls = last_seen.update(&ss.db).await.unwrap();
+            mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss)
+                .await?;
+            ls
         }
         ProgressUpdateAction::ChangeState => {
             let new_state = input.change_state.unwrap_or(SeenState::Dropped);
@@ -1453,10 +1487,19 @@ pub async fn progress_update(
             };
             ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
             let (progress, mut started_on) = match action {
-                ProgressUpdateAction::JustStarted => (
-                    input.progress.unwrap_or(dec!(0)),
-                    Some(Utc::now().date_naive()),
-                ),
+                ProgressUpdateAction::JustStarted => {
+                    mark_entity_as_recently_consumed(
+                        user_id,
+                        &input.metadata_id,
+                        EntityLot::Metadata,
+                        ss,
+                    )
+                    .await?;
+                    (
+                        input.progress.unwrap_or(dec!(0)),
+                        Some(Utc::now().date_naive()),
+                    )
+                }
                 _ => (dec!(100), None),
             };
             if matches!(action, ProgressUpdateAction::InThePast) && input.start_date.is_some() {
@@ -1484,7 +1527,11 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(cache, ss.config.server.progress_update_threshold)
+            .set_with_expiry(
+                cache,
+                Some(ss.config.server.progress_update_threshold),
+                ApplicationCacheValue::Empty,
+            )
             .await?;
     }
     if seen.state == SeenState::Completed {
@@ -1559,16 +1606,14 @@ fn get_index_of_highest_pb(
     record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
 }
 
-// DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
 fn calculate_one_rm(value: &WorkoutSetRecord) -> Option<Decimal> {
-    let mut val =
-        (value.statistic.weight? * dec!(36.0)).checked_div(dec!(37.0) - value.statistic.reps?);
-    if let Some(v) = val {
-        if v <= dec!(0) {
-            val = None;
-        }
+    let weight = value.statistic.weight?;
+    let reps = value.statistic.reps?;
+    let val = match reps < dec!(10) {
+        true => (weight * dec!(36.0)).checked_div(dec!(37.0) - reps), // Brzycki
+        false => weight.checked_mul((dec!(1).checked_add(reps.checked_div(dec!(30))?))?), // Epley
     };
-    val
+    val.filter(|v| v <= &dec!(0))
 }
 
 fn calculate_volume(value: &WorkoutSetRecord) -> Option<Decimal> {
@@ -1623,7 +1668,7 @@ pub async fn get_focused_workout_summary(
     ss: &Arc<SupportingService>,
 ) -> WorkoutFocusedSummary {
     let db_exercises = Exercise::find()
-        .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.name.clone())))
+        .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.id.clone())))
         .all(&ss.db)
         .await
         .unwrap();
@@ -1633,7 +1678,7 @@ pub async fn get_focused_workout_summary(
     let mut muscles = HashMap::new();
     let mut equipments = HashMap::new();
     for (idx, ex) in exercises.iter().enumerate() {
-        let exercise = db_exercises.iter().find(|e| e.id == ex.name).unwrap();
+        let exercise = db_exercises.iter().find(|e| e.id == ex.id).unwrap();
         lots.entry(exercise.lot).or_insert(vec![]).push(idx);
         levels.entry(exercise.level).or_insert(vec![]).push(idx);
         if let Some(force) = exercise.force {
@@ -1688,7 +1733,7 @@ pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
     ss: &Arc<SupportingService>,
-) -> AnyhowResult<String> {
+) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
@@ -1708,7 +1753,7 @@ pub async fn create_or_update_workout(
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
-        bail!("This workout has no associated exercises")
+        return Err(Error::new("This workout has no associated exercises"));
     }
     let mut first_set_of_exercise_confirmed_at = input
         .exercises
@@ -1720,7 +1765,7 @@ pub async fn create_or_update_workout(
         .confirmed_at;
     for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
         if ex.sets.is_empty() {
-            bail!("This exercise has no associated sets")
+            return Err(Error::new("This exercise has no associated sets"));
         }
         let Some(db_ex) = Exercise::find_by_id(ex.exercise_id.clone())
             .one(&ss.db)
@@ -1902,7 +1947,7 @@ pub async fn create_or_update_workout(
             ProcessedExercise {
                 sets,
                 lot: db_ex.lot,
-                name: db_ex.id,
+                id: db_ex.id,
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
@@ -1938,7 +1983,7 @@ pub async fn create_or_update_workout(
                 .map(|(best_set, lot, e)| WorkoutSummaryExercise {
                     best_set,
                     lot: Some(lot),
-                    name: e.name.clone(),
+                    id: e.id.clone(),
                     num_sets: e.sets.len(),
                 })
                 .collect(),
@@ -1962,7 +2007,7 @@ pub async fn create_or_update_workout(
     }
     let data = insert.insert(&ss.db).await?;
     if to_update_workout.is_some() {
-        deploy_job_to_re_evaluate_user_workouts(user_id, ss).await;
+        schedule_user_for_workout_revision(user_id, ss).await?;
     }
     Ok(data.id)
 }
@@ -1999,6 +2044,10 @@ async fn create_collection_and_add_entity_to_it(
     Ok(())
 }
 
+pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
+    format!("{}_{}_{}", name, lot, user_id)
+}
+
 pub async fn create_custom_exercise(
     user_id: &String,
     input: exercise::Model,
@@ -2006,6 +2055,7 @@ pub async fn create_custom_exercise(
 ) -> Result<String> {
     let exercise_id = input.id.clone();
     let mut input = input;
+    input.id = generate_exercise_id(&input.name, input.lot, user_id);
     input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
     input.attributes.internal_images = input
@@ -2267,9 +2317,9 @@ where
                 if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
-                        step: ImportFailStep::InputTransformation,
+                        error: Some(err.message),
                         identifier: "Exercise".to_string(),
-                        error: Some(err.to_string()),
+                        step: ImportFailStep::InputTransformation,
                     });
                 }
             }
@@ -2279,9 +2329,9 @@ where
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             lot: None,
-                            step: ImportFailStep::InputTransformation,
+                            error: Some(err.message),
                             identifier: "Exercise".to_string(),
-                            error: Some(err.to_string()),
+                            step: ImportFailStep::InputTransformation,
                         });
                     }
                     Ok(workout_id) => {
@@ -2341,7 +2391,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .exercises
             .into_iter()
             .map(|e| UserExerciseInput {
-                exercise_id: e.name,
+                exercise_id: e.id,
                 sets: e
                     .sets
                     .into_iter()
@@ -2358,4 +2408,73 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             })
             .collect(),
     }
+}
+
+pub async fn add_entity_to_collection(
+    user_id: &String,
+    input: ChangeCollectionToEntityInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let collection = Collection::find()
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(&ss.db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut updated: collection::ActiveModel = collection.into();
+    updated.last_updated_on = ActiveValue::Set(Utc::now());
+    let collection = updated.update(&ss.db).await.unwrap();
+    let column = get_cte_column_from_lot(input.entity_lot);
+    let resp = if let Some(etc) = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
+        .filter(column.eq(input.entity_id.clone()))
+        .one(&ss.db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
+        to_update.update(&ss.db).await?
+    } else {
+        let mut created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            information: ActiveValue::Set(input.information),
+            ..Default::default()
+        };
+        let id = input.entity_id.clone();
+        match input.entity_lot {
+            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+            }
+            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+            EntityLot::WorkoutTemplate => {
+                created_collection.workout_template_id = ActiveValue::Set(Some(id))
+            }
+            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                unreachable!()
+            }
+        }
+        let created = created_collection.insert(&ss.db).await?;
+        ryot_log!(debug, "Created collection to entity: {:?}", created);
+        match input.entity_lot {
+            EntityLot::Workout
+            | EntityLot::WorkoutTemplate
+            | EntityLot::Review
+            | EntityLot::UserMeasurement => {}
+            _ => {
+                associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot)
+                    .await
+                    .ok();
+            }
+        }
+        created
+    };
+    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
+        .await?;
+    Ok(true)
 }

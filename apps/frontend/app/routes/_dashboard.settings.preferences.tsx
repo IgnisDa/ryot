@@ -270,12 +270,14 @@ export default function Page() {
 					<Tabs.Panel value="features">
 						<Stack>
 							<Text>Features that you want to use.</Text>
-							{(["media", "fitness", "others"] as const).map((facet) => (
-								<Fragment key={facet}>
-									<Title order={4}>{startCase(facet)}</Title>
-									<SimpleGrid cols={2}>
-										{Object.entries(userPreferences.featuresEnabled[facet]).map(
-											([name, isEnabled]) => (
+							{(["media", "fitness", "analytics", "others"] as const).map(
+								(facet) => (
+									<Fragment key={facet}>
+										<Title order={4}>{startCase(facet)}</Title>
+										<SimpleGrid cols={2}>
+											{Object.entries(
+												userPreferences.featuresEnabled[facet],
+											).map(([name, isEnabled]) => (
 												<Switch
 													key={name}
 													size="xs"
@@ -290,11 +292,11 @@ export default function Page() {
 														);
 													}}
 												/>
-											),
-										)}
-									</SimpleGrid>
-								</Fragment>
-							))}
+											))}
+										</SimpleGrid>
+									</Fragment>
+								),
+							)}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="general">

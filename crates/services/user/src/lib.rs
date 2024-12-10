@@ -13,8 +13,8 @@ use database_models::{
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection,
-    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, pro_instance_guard,
-    revoke_access_link, user_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, revoke_access_link,
+    server_key_validation_guard, user_by_id,
 };
 use dependent_models::UserDetailsResult;
 use enum_meta::Meta;
@@ -28,8 +28,8 @@ use media_models::{
     LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
     ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
+    RegisterUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
+    UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -45,8 +45,8 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserPreferences,
-    UserReviewScale,
+    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UpdateUserInput,
+    UserPreferences, UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -99,7 +99,7 @@ impl UserService {
         input: CreateAccessLinkInput,
         user_id: String,
     ) -> Result<StringIdObject> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let new_link = access_link::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             name: ActiveValue::Set(input.name),
@@ -191,7 +191,7 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        pro_instance_guard(self.0.is_pro).await?;
+        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         revoke_access_link(&self.0.db, access_link_id).await
     }
 
@@ -379,9 +379,6 @@ impl UserService {
         }
         if let Some(p) = input.password {
             user_obj.password = ActiveValue::Set(Some(p));
-        }
-        if let Some(i) = input.extra_information {
-            user_obj.extra_information = ActiveValue::Set(Some(i));
         }
         if let Some(l) = input.lot {
             user_obj.lot = ActiveValue::Set(l);
@@ -635,6 +632,14 @@ impl UserService {
                                     preferences.features_enabled.fitness.templates =
                                         value_bool.unwrap()
                                 }
+
+                                _ => return Err(err()),
+                            },
+                            "analytics" => match right {
+                                "enabled" => {
+                                    preferences.features_enabled.analytics.enabled =
+                                        value_bool.unwrap()
+                                }
                                 _ => return Err(err()),
                             },
                             "media" => {
@@ -784,6 +789,9 @@ impl UserService {
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
         }
+        if let Some(d) = input.sync_to_owned_collection {
+            db_integration.sync_to_owned_collection = ActiveValue::Set(Some(d));
+        }
         db_integration.update(&self.0.db).await?;
         Ok(true)
     }
@@ -799,9 +807,9 @@ impl UserService {
             ));
         }
         let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf | IntegrationProvider::Komga => {
-                IntegrationLot::Yank
-            }
+            IntegrationProvider::Audiobookshelf
+            | IntegrationProvider::Komga
+            | IntegrationProvider::PlexYank => IntegrationLot::Yank,
             IntegrationProvider::Radarr
             | IntegrationProvider::Sonarr
             | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
@@ -814,6 +822,7 @@ impl UserService {
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
             provider_specifics: ActiveValue::Set(input.provider_specifics),
+            sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.0.db).await?;

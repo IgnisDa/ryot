@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use enums::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
-use user_models::UserPreferences;
+use user_models::{UserExtraInformation, UserPreferences};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "User")]
@@ -28,7 +28,7 @@ pub struct Model {
     pub is_disabled: Option<bool>,
     pub preferences: UserPreferences,
     #[graphql(skip)]
-    pub extra_information: Option<Json>,
+    pub extra_information: Option<UserExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

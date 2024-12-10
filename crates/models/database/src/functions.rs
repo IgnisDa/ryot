@@ -10,7 +10,7 @@ use crate::{prelude::UserToEntity, user_to_entity};
 pub async fn get_user_to_entity_association<C>(
     db: &C,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Option<user_to_entity::Model>
 where
@@ -39,14 +39,14 @@ where
 pub async fn associate_user_with_entity<C>(
     db: &C,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<user_to_entity::Model>
 where
     C: ConnectionTrait,
 {
-    let user_to_meta =
-        get_user_to_entity_association(db, user_id, entity_id.clone(), entity_lot).await;
+    let entity_id = entity_id.to_owned();
+    let user_to_meta = get_user_to_entity_association(db, user_id, &entity_id, entity_lot).await;
     Ok(match user_to_meta {
         None => {
             let mut user_to_meta = user_to_entity::ActiveModel {

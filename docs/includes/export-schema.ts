@@ -275,12 +275,12 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
+	id: string;
 	/**
 	 * @default 'reps_and_weight'
 	 * @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'}
 	 */
 	lot: ExerciseLot;
-	name: string;
 	notes: string[];
 	sets: WorkoutSetRecord[];
 	total: WorkoutOrExerciseTotals | null;
@@ -304,9 +304,9 @@ export interface WorkoutInformation {
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
 	best_set: WorkoutSetRecord | null;
+	id: string;
 	/** @default 'reps_and_weight' */
 	lot: ExerciseLot | null;
-	name: string;
 	num_sets: number;
 }
 

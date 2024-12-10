@@ -159,7 +159,7 @@ const DisplayGenre = (props: { genre: Genre }) => {
 		>
 			<Stack gap={4}>
 				<Box pos="relative">
-					{coreDetails.isPro ? (
+					{coreDetails.isServerKeyValidated ? (
 						<Paper radius="md" style={{ overflow: "hidden" }}>
 							<Flex h={260} w={168} wrap="wrap">
 								{genreImages?.map((image) => (
