@@ -933,12 +933,12 @@ const Footer = () => {
 	);
 };
 
-const WATCH_TIMES = [
-	"Just Completed Now",
-	"I don't remember",
-	"Custom Date",
-	"Just Started It",
-] as const;
+enum WatchTimes {
+	JustCompletedNow = "Just Completed Now",
+	IDontRemember = "I don't remember",
+	CustomDate = "Custom Date",
+	JustStartedIt = "Just Started It",
+}
 
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
@@ -1121,8 +1121,8 @@ const MetadataNewProgressUpdateForm = ({
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
-	const [watchTime, setWatchTime] = useState<(typeof WATCH_TIMES)[number]>(
-		WATCH_TIMES[0],
+	const [watchTime, setWatchTime] = useState<WatchTimes>(
+		WatchTimes.JustCompletedNow,
 	);
 	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
@@ -1133,17 +1133,17 @@ const MetadataNewProgressUpdateForm = ({
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), {
 				intent:
-					watchTime === WATCH_TIMES[3]
+					watchTime === WatchTimes.JustStartedIt
 						? "individualProgressUpdate"
 						: "progressUpdate",
 			})}
 		>
 			{[
 				...Object.entries(metadataToUpdate),
-				watchTime !== WATCH_TIMES[3]
+				watchTime !== WatchTimes.JustStartedIt
 					? ["metadataLot", metadataDetails.lot]
 					: undefined,
-				watchTime === WATCH_TIMES[3] ? ["progress", "0"] : undefined,
+				watchTime === WatchTimes.JustStartedIt ? ["progress", "0"] : undefined,
 				selectedDate
 					? ["date", formatDateToNaiveDate(selectedDate)]
 					: undefined,
@@ -1308,28 +1308,33 @@ const MetadataNewProgressUpdateForm = ({
 				) : null}
 				<Select
 					value={watchTime}
-					data={WATCH_TIMES.filter((v) =>
+					data={Object.values(WatchTimes).filter((v) =>
 						[
 							MediaLot.Show,
 							MediaLot.Podcast,
 							MediaLot.Anime,
 							MediaLot.Manga,
 						].includes(metadataDetails.lot)
-							? v !== WATCH_TIMES[3]
+							? v !== WatchTimes.JustStartedIt
 							: true,
 					)}
 					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					onChange={(v) => {
 						setWatchTime(v as typeof watchTime);
 						match(v)
-							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-							.with(WATCH_TIMES[1], WATCH_TIMES[2], WATCH_TIMES[3], () =>
-								setSelectedDate(null),
+							.with(WatchTimes.JustCompletedNow, () =>
+								setSelectedDate(new Date()),
+							)
+							.with(
+								WatchTimes.IDontRemember,
+								WatchTimes.CustomDate,
+								WatchTimes.JustStartedIt,
+								() => setSelectedDate(null),
 							)
 							.run();
 					}}
 				/>
-				{watchTime === WATCH_TIMES[2] ? (
+				{watchTime === WatchTimes.CustomDate ? (
 					<DatePickerInput
 						required
 						clearable
@@ -1339,7 +1344,7 @@ const MetadataNewProgressUpdateForm = ({
 						label="Enter exact date"
 					/>
 				) : null}
-				{watchTime !== WATCH_TIMES[3] ? (
+				{watchTime !== WatchTimes.JustStartedIt ? (
 					<Select
 						data={watchProviders}
 						name="providerWatchedOn"
@@ -1347,7 +1352,6 @@ const MetadataNewProgressUpdateForm = ({
 						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					/>
 				) : null}
-
 				<Button
 					type="submit"
 					variant="outline"
