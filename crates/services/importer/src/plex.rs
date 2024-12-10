@@ -49,11 +49,12 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
             .await?;
+        let total = items.media_container.metadata.len();
         for (idx, item) in items.media_container.metadata.into_iter().enumerate() {
             let Some(_lv) = item.last_viewed_at else {
                 continue;
             };
-            ryot_log!(debug, "Processing item {}", idx + 1);
+            ryot_log!(debug, "Processing item {}/{}", idx + 1, total);
             let gu_ids = item.guid.unwrap_or_default();
             let Some(tmdb_id) = gu_ids
                 .iter()
