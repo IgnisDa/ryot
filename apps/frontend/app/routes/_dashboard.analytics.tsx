@@ -79,23 +79,23 @@ import {
 } from "~/lib/hooks";
 import { serverGqlService } from "~/lib/utilities.server";
 
-const TIME_RANGES = [
-	"Yesterday",
-	"Past 7 Days",
-	"Past 30 Days",
-	"Past 6 Months",
-	"Past 12 Months",
-	"This Week",
-	"This Month",
-	"This Year",
-	"All Time",
-	"Custom",
-] as const;
+enum AnalyticsTimeRanges {
+	Yesterday = "Yesterday",
+	Past7Days = "Past 7 Days",
+	Past30Days = "Past 30 Days",
+	Past6Months = "Past 6 Months",
+	Past12Months = "Past 12 Months",
+	ThisWeek = "This Week",
+	ThisMonth = "This Month",
+	ThisYear = "This Year",
+	AllTime = "All Time",
+	Custom = "Custom",
+}
 
 export type TimeSpanSettings = {
 	endDate?: string;
 	startDate?: string;
-	range: (typeof TIME_RANGES)[number];
+	range: AnalyticsTimeRanges;
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -115,24 +115,30 @@ const useTimeSpanSettings = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [timeSpanSettings, setTimeSpanSettings] =
 		useLocalStorage<TimeSpanSettings>("TimeSpanSettings", {
-			range: "Past 30 Days",
+			range: AnalyticsTimeRanges.Past30Days,
 		});
-	const getStartTime = (range: (typeof TIME_RANGES)[number]) =>
+	const getStartTime = (range: AnalyticsTimeRanges) =>
 		match(range)
-			.with("Yesterday", () => dayjsLib().subtract(1, "day"))
-			.with("This Week", () => dayjsLib().startOf("week"))
-			.with("This Month", () => dayjsLib().startOf("month"))
-			.with("This Year", () => dayjsLib().startOf("year"))
-			.with("Past 7 Days", () => dayjsLib().subtract(7, "day"))
-			.with("Past 30 Days", () => dayjsLib().subtract(30, "day"))
-			.with("Past 6 Months", () => dayjsLib().subtract(6, "month"))
-			.with("Past 12 Months", () => dayjsLib().subtract(12, "month"))
-			.with("All Time", () =>
+			.with(AnalyticsTimeRanges.Yesterday, () => dayjsLib().subtract(1, "day"))
+			.with(AnalyticsTimeRanges.ThisWeek, () => dayjsLib().startOf("week"))
+			.with(AnalyticsTimeRanges.ThisMonth, () => dayjsLib().startOf("month"))
+			.with(AnalyticsTimeRanges.ThisYear, () => dayjsLib().startOf("year"))
+			.with(AnalyticsTimeRanges.Past7Days, () => dayjsLib().subtract(7, "day"))
+			.with(AnalyticsTimeRanges.Past30Days, () =>
+				dayjsLib().subtract(30, "day"),
+			)
+			.with(AnalyticsTimeRanges.Past6Months, () =>
+				dayjsLib().subtract(6, "month"),
+			)
+			.with(AnalyticsTimeRanges.Past12Months, () =>
+				dayjsLib().subtract(12, "month"),
+			)
+			.with(AnalyticsTimeRanges.AllTime, () =>
 				loaderData.userAnalyticsParameters.startDate
 					? dayjsLib(loaderData.userAnalyticsParameters.startDate)
 					: undefined,
 			)
-			.with("Custom", () => undefined)
+			.with(AnalyticsTimeRanges.Custom, () => undefined)
 			.exhaustive();
 
 	const startDate =
@@ -206,7 +212,7 @@ export default function Page() {
 										</Button>
 									</Menu.Target>
 									<Menu.Dropdown>
-										{TIME_RANGES.map((range) => (
+										{Object.values(AnalyticsTimeRanges).map((range) => (
 											<Menu.Item
 												ta="right"
 												key={range}
@@ -478,7 +484,7 @@ const CustomDateSelectModal = (props: {
 							produce(timeSpanSettings, (draft) => {
 								draft.startDate = formatDateToNaiveDate(value[0] || new Date());
 								draft.endDate = formatDateToNaiveDate(value[1] || new Date());
-								draft.range = "Custom";
+								draft.range = AnalyticsTimeRanges.Custom;
 							}),
 						);
 						props.onClose();
