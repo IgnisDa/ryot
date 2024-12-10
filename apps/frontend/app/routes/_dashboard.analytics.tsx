@@ -246,46 +246,48 @@ export default function Page() {
 					</Grid>
 				</Stack>
 			</Container>
-			<Flex w="100%" mt="md">
-				<Button
-					mr="md"
-					ml="auto"
-					variant="default"
-					loading={isCaptureLoading}
-					leftSection={<IconImageInPicture />}
-					onClick={() => {
-						const current = toCaptureRef.current;
-						if (!current) return;
-						setIsCaptureLoading(true);
-						setTimeout(async () => {
-							try {
-								const canvasPromise = await html2canvas(current);
-								const dataURL = canvasPromise.toDataURL("image/png");
-								const img = new Image();
-								img.setAttribute("src", dataURL);
-								img.setAttribute("download", dataURL);
-								const a = document.createElement("a");
-								a.setAttribute("download", dataURL);
-								a.setAttribute("href", img.src);
-								a.setAttribute("target", "_blank");
-								a.innerHTML = "DOWNLOAD";
-								document.body.appendChild(a);
-								a.click();
-							} catch {
-								notifications.show({
-									color: "red",
-									title: "Error",
-									message: "Something went wrong while capturing the image",
-								});
-							} finally {
-								setIsCaptureLoading(false);
-							}
-						}, 1500);
-					}}
-				>
-					Save image
-				</Button>
-			</Flex>
+			<Container>
+				<Flex w="100%" mt="md">
+					<Button
+						mr="md"
+						ml="auto"
+						variant="default"
+						loading={isCaptureLoading}
+						leftSection={<IconImageInPicture />}
+						onClick={() => {
+							const current = toCaptureRef.current;
+							if (!current) return;
+							setIsCaptureLoading(true);
+							setTimeout(async () => {
+								try {
+									const canvasPromise = await html2canvas(current);
+									const dataURL = canvasPromise.toDataURL("image/png");
+									const img = new Image();
+									img.setAttribute("src", dataURL);
+									img.setAttribute("download", dataURL);
+									const a = document.createElement("a");
+									a.setAttribute("download", dataURL);
+									a.setAttribute("href", img.src);
+									a.setAttribute("target", "_blank");
+									a.innerHTML = "DOWNLOAD";
+									document.body.appendChild(a);
+									a.click();
+								} catch {
+									notifications.show({
+										color: "red",
+										title: "Error",
+										message: "Something went wrong while capturing the image",
+									});
+								} finally {
+									setIsCaptureLoading(false);
+								}
+							}, 1500);
+						}}
+					>
+						Save image
+					</Button>
+				</Flex>
+			</Container>
 		</>
 	);
 }
