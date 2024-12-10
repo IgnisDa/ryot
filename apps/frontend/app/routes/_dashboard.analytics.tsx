@@ -35,11 +35,24 @@ import {
 	snakeCase,
 	sum,
 } from "@ryot/ts-utils";
-import { IconDeviceFloppy, IconImageInPicture } from "@tabler/icons-react";
+import {
+	IconBarbell,
+	IconClock,
+	IconDeviceFloppy,
+	IconImageInPicture,
+	type IconProps,
+	IconRepeat,
+	IconRoad,
+	IconRulerMeasure,
+	IconStretching,
+	IconTrophy,
+	IconWeight,
+	IconZzz,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import { produce } from "immer";
-import { type ReactNode, useRef, useState } from "react";
+import { type ComponentType, type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
@@ -567,10 +580,17 @@ const TimeOfDayChart = () => {
 	);
 };
 
-const StatItem = (props: { label: string; text: string }) => {
+const StatItem = (props: {
+	text: string;
+	label: string;
+	icon: ComponentType<IconProps>;
+}) => {
 	return (
-		<Stack align="center" justify="center" gap={4}>
-			<Text size="sm">{props.label}</Text>
+		<Stack align="center" justify="center" gap={0}>
+			<props.icon size={20} />
+			<Text size="sm" c="dimmed">
+				{props.label}
+			</Text>
 			<Text size="xl" fw="bold" ta="center">
 				{props.text}
 			</Text>
@@ -594,13 +614,23 @@ const StatisticsCard = () => {
 				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
 					<SimpleGrid cols={3} h="100%" w="100%">
-						<StatItem label="Workouts" text={`${fitness.workoutCount}`} />
-						<StatItem label="Reps" text={`${fitness.workoutReps}`} />
+						<StatItem
+							label="Workouts"
+							icon={IconStretching}
+							text={`${fitness.workoutCount}`}
+						/>
+						<StatItem
+							label="Reps"
+							icon={IconRepeat}
+							text={`${fitness.workoutReps}`}
+						/>
 						<StatItem
 							label="Weight"
+							icon={IconWeight}
 							text={displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
 						/>
 						<StatItem
+							icon={IconRoad}
 							label="Distance"
 							text={displayDistanceWithUnit(
 								unitSystem,
@@ -609,22 +639,27 @@ const StatisticsCard = () => {
 						/>
 						<StatItem
 							label="Duration"
+							icon={IconClock}
 							text={displayDuration(fitness.workoutDuration)}
 						/>
 						<StatItem
 							label="Exercises"
+							icon={IconBarbell}
 							text={`${fitness.workoutExercises.length}`}
 						/>
 						<StatItem
+							icon={IconTrophy}
 							label="Personal Bests"
 							text={`${fitness.workoutPersonalBests}`}
 						/>
 						<StatItem
+							icon={IconZzz}
 							label="Rest Time"
 							text={displayDuration(fitness.workoutRestTime)}
 						/>
 						<StatItem
 							label="Measurements"
+							icon={IconRulerMeasure}
 							text={`${fitness.measurementCount}`}
 						/>
 					</SimpleGrid>
