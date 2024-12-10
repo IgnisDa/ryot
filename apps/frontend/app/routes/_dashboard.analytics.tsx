@@ -28,6 +28,7 @@ import {
 import {
 	changeCase,
 	formatDateToNaiveDate,
+	formatQuantityWithCompactNotation,
 	humanizeDuration,
 	isBoolean,
 	mapValues,
@@ -340,9 +341,7 @@ const ActivitySection = () => {
 				<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
 					<DisplayStat
 						label="Total"
-						value={`${new Intl.NumberFormat("en-US", {
-							notation: "compact",
-						}).format(Number(items))} items`}
+						value={`${formatQuantityWithCompactNotation(Number(items))} items`}
 					/>
 					<DisplayStat
 						label="Duration"
@@ -622,12 +621,16 @@ const StatisticsCard = () => {
 						<StatItem
 							label="Reps"
 							icon={IconRepeat}
-							text={`${fitness.workoutReps}`}
+							text={formatQuantityWithCompactNotation(fitness.workoutReps)}
 						/>
 						<StatItem
 							label="Weight"
 							icon={IconWeight}
-							text={displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
+							text={displayWeightWithUnit(
+								unitSystem,
+								fitness.workoutWeight,
+								true,
+							)}
 						/>
 						<StatItem
 							icon={IconRoad}

@@ -25,7 +25,11 @@ import {
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, isNumber } from "@ryot/ts-utils";
+import {
+	formatQuantityWithCompactNotation,
+	humanizeDuration,
+	isNumber,
+} from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
@@ -520,9 +524,7 @@ const ActualDisplayStat = (props: {
 											),
 										)
 										.with("number", () =>
-											new Intl.NumberFormat("en-US", {
-												notation: "compact",
-											}).format(Number(d.value)),
+											formatQuantityWithCompactNotation(Number(d.value)),
 										)
 										.exhaustive()}
 								</Text>

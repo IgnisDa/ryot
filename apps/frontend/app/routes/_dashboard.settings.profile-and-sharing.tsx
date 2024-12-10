@@ -37,6 +37,7 @@ import {
 	type UserAccessLinksQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	formatQuantityWithCompactNotation,
 	getActionIntent,
 	isNumber,
 	isString,
@@ -391,9 +392,7 @@ const DisplayAccessLink = (props: {
 						<Text size="sm">
 							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
 							Used:{" "}
-							{new Intl.NumberFormat("en-US", {
-								notation: "compact",
-							}).format(props.accessLink.timesUsed)}
+							{formatQuantityWithCompactNotation(props.accessLink.timesUsed)}
 						</Text>
 						{optionalDetails ? <Text size="xs">{optionalDetails}</Text> : null}
 					</Box>
