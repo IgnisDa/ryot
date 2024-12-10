@@ -244,6 +244,11 @@ export default function Page() {
 							<ActivitySection />
 						</Grid.Col>
 					</Grid>
+					{isCaptureLoading ? (
+						<Text ta="right" size="xs" c="dimmed">
+							Generated using Ryot (https://ryot.io)
+						</Text>
+					) : null}
 				</Stack>
 			</Container>
 			<Container>
