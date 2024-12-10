@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
@@ -10,9 +7,8 @@ use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{Timelike, Utc};
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, BackendError, ChangeCollectionToEntityInput,
-    DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, DefaultCollection,
-    IdAndNamedObject, StringIdObject,
+    BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
+    DailyUserActivityHourRecordEntity, DefaultCollection, IdAndNamedObject, StringIdObject,
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
@@ -839,23 +835,15 @@ pub async fn schedule_user_for_workout_revision(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let mut revisions = match ss
-        .cache_service
-        .get_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
+    let user = User::find_by_id(user_id)
+        .one(&ss.db)
         .await?
-    {
-        Some(ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions)) => revisions,
-        _ => HashSet::new(),
-    };
-    revisions.insert(user_id.to_owned());
-    ss.cache_service
-        .set_with_expiry(
-            ApplicationCacheKey::UsersScheduledForWorkoutRevision,
-            None,
-            ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions),
-        )
-        .await
-        .unwrap();
+        .ok_or_else(|| Error::new("User with the given ID does not exist"))?;
+    let mut extra_information = user.extra_information.clone().unwrap_or_default();
+    extra_information.scheduled_for_workout_revision = true;
+    let mut user: user::ActiveModel = user.into();
+    user.extra_information = ActiveValue::Set(Some(extra_information));
+    user.update(&ss.db).await?;
     ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
     Ok(())
 }

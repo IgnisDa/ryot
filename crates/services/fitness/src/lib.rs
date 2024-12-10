@@ -3,16 +3,14 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
-use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, SearchDetails, SearchInput, StoredUrl,
-};
+use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
     collection_to_entity, exercise,
     prelude::{
-        CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
+        CollectionToEntity, Exercise, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
-    user_measurement, user_to_entity, workout, workout_template,
+    user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     entity_in_collections, ilike_sql, item_reviews, schedule_user_for_workout_revision,
@@ -790,20 +788,22 @@ impl FitnessService {
     }
 
     pub async fn process_users_scheduled_for_workout_revision(&self) -> Result<()> {
-        let cs = &self.0.cache_service;
-        let Some(ApplicationCacheValue::UsersScheduledForWorkoutRevision(revisions)) = cs
-            .get_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
-            .await?
-        else {
-            return Ok(());
-        };
-        for user_id in revisions {
-            ryot_log!(debug, "Revising workouts for {}", user_id);
-            self.revise_user_workouts(user_id).await?;
+        let revisions = User::find()
+            .filter(Expr::cust(
+                "(extra_information -> 'scheduled_for_workout_revision')::boolean = true",
+            ))
+            .all(&self.0.db)
+            .await?;
+        for user in revisions {
+            ryot_log!(debug, "Revising workouts for {}", user.id);
+            self.revise_user_workouts(user.id.clone()).await?;
+            let mut extra_information = user.extra_information.clone().unwrap_or_default();
+            extra_information.scheduled_for_workout_revision = false;
+            let mut user: user::ActiveModel = user.into();
+            user.extra_information = ActiveValue::Set(Some(extra_information));
+            user.update(&self.0.db).await?;
         }
         ryot_log!(debug, "Completed scheduled workout revisions");
-        cs.expire_key(ApplicationCacheKey::UsersScheduledForWorkoutRevision)
-            .await?;
         Ok(())
     }
 }

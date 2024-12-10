@@ -28,8 +28,8 @@ use media_models::{
     LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
     ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
+    RegisterUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
+    UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -45,8 +45,8 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserPreferences,
-    UserReviewScale,
+    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UpdateUserInput,
+    UserPreferences, UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -379,9 +379,6 @@ impl UserService {
         }
         if let Some(p) = input.password {
             user_obj.password = ActiveValue::Set(Some(p));
-        }
-        if let Some(i) = input.extra_information {
-            user_obj.extra_information = ActiveValue::Set(Some(i));
         }
         if let Some(l) = input.lot {
             user_obj.lot = ActiveValue::Set(l);

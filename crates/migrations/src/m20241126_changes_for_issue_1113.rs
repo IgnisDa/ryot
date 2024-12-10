@@ -96,16 +96,7 @@ ALTER TABLE "application_cache" ALTER COLUMN "value" SET NOT NULL;
         }
         db.execute_unprepared(
             r#"
-DO $$
-BEGIN
-    IF (SELECT COUNT(*) FROM "user" u) > 0 THEN
-        INSERT INTO application_cache (key, value) values
-        (
-            '"UsersScheduledForWorkoutRevision"',
-            JSONB_BUILD_OBJECT('UsersScheduledForWorkoutRevision', (SELECT JSONB_AGG(u.id) from "user" u))
-        );
-    END IF;
-END $$;
+UPDATE "user" SET "extra_information" = JSONB_BUILD_OBJECT('scheduled_for_workout_revision', true);
         "#,
         )
         .await?;

@@ -9,7 +9,7 @@ use common_models::{
 use common_utils::deserialize_date;
 use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
-    SeenState, UserLot, Visibility,
+    SeenState, Visibility,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -1113,18 +1113,6 @@ pub struct LoginResponse {
 pub enum LoginResult {
     Ok(LoginResponse),
     Error(LoginError),
-}
-
-#[derive(Debug, InputObject)]
-pub struct UpdateUserInput {
-    pub user_id: String,
-    pub is_disabled: Option<bool>,
-    pub lot: Option<UserLot>,
-    #[graphql(secret)]
-    pub password: Option<String>,
-    pub username: Option<String>,
-    pub extra_information: Option<serde_json::Value>,
-    pub admin_access_token: Option<String>,
 }
 
 #[derive(Debug, InputObject)]

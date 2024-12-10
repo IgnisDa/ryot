@@ -1,7 +1,7 @@
-use async_graphql::{Enum, SimpleObject};
+use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::MediaStateChanged;
 use educe::Educe;
-use enums::MediaLot;
+use enums::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
@@ -388,4 +388,22 @@ pub enum NotificationPlatformSpecifics {
         bot_token: String,
         chat_id: String,
     },
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult, InputObject, Default,
+)]
+pub struct UserExtraInformation {
+    pub scheduled_for_workout_revision: bool,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateUserInput {
+    pub user_id: String,
+    pub lot: Option<UserLot>,
+    #[graphql(secret)]
+    pub password: Option<String>,
+    pub username: Option<String>,
+    pub is_disabled: Option<bool>,
+    pub admin_access_token: Option<String>,
 }
