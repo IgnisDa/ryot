@@ -43,7 +43,10 @@ import { type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { displayWeightWithUnit } from "~/components/fitness";
+import {
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+} from "~/components/fitness";
 import {
 	MediaColors,
 	clientGqlService,
@@ -581,14 +584,17 @@ const StatisticsCard = () => {
 	return (
 		<ChartContainer title="Fitness Statistics" disableCounter>
 			{(_, { fitness }) => ({
-				totalItems: 10,
+				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
 					<SimpleGrid cols={3} h="100%" w="100%">
+						<StatItem label="Workouts">{`${fitness.workoutCount}`}</StatItem>
 						<StatItem label="Reps">{`${fitness.workoutReps}`}</StatItem>
 						<StatItem label="Weight">
 							{displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
 						</StatItem>
-						<StatItem label="Workouts">{`${fitness.workoutCount}`}</StatItem>
+						<StatItem label="Distance">
+							{displayDistanceWithUnit(unitSystem, fitness.workoutDistance)}
+						</StatItem>
 						<StatItem label="Duration">
 							{humanizeDuration(
 								dayjsLib
