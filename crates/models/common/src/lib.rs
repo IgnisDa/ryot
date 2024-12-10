@@ -337,7 +337,7 @@ pub struct UserFitnessAnalytics {
     pub workout_weight: i32,
     pub workout_count: i32,
     pub workout_distance: i32,
-    pub workout_rest_time: i32,
+    pub workout_duration: i32,
     pub measurement_count: i32,
     pub workout_personal_bests: i32,
     pub workout_muscles: Vec<FitnessAnalyticsMuscle>,

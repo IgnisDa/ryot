@@ -2268,7 +2268,6 @@ export type UpdateUserExerciseSettings = {
 
 export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
-  extraInformation?: InputMaybe<Scalars['JSON']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
   password?: InputMaybe<Scalars['String']['input']>;
@@ -2377,12 +2376,12 @@ export type UserFitnessAnalytics = {
   measurementCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
   workoutDistance: Scalars['Int']['output'];
+  workoutDuration: Scalars['Int']['output'];
   workoutEquipments: Array<FitnessAnalyticsEquipment>;
   workoutExercises: Array<FitnessAnalyticsExercise>;
   workoutMuscles: Array<FitnessAnalyticsMuscle>;
   workoutPersonalBests: Scalars['Int']['output'];
   workoutReps: Scalars['Int']['output'];
-  workoutRestTime: Scalars['Int']['output'];
   workoutWeight: Scalars['Int']['output'];
 };
 
