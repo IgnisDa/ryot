@@ -581,6 +581,13 @@ const StatItem = (props: { label: string; children: string }) => {
 const StatisticsCard = () => {
 	const unitSystem = useUserUnitSystem();
 
+	const displayDuration = (duration: number) => {
+		return humanizeDuration(
+			dayjsLib.duration(duration, "minutes").asMilliseconds(),
+			{ largest: 1 },
+		);
+	};
+
 	return (
 		<ChartContainer title="Fitness Statistics" disableCounter>
 			{(_, { fitness }) => ({
@@ -596,15 +603,13 @@ const StatisticsCard = () => {
 							{displayDistanceWithUnit(unitSystem, fitness.workoutDistance)}
 						</StatItem>
 						<StatItem label="Duration">
-							{humanizeDuration(
-								dayjsLib
-									.duration(fitness.workoutDuration, "minutes")
-									.asMilliseconds(),
-								{ largest: 1 },
-							)}
+							{displayDuration(fitness.workoutDuration)}
 						</StatItem>
 						<StatItem label="Exercises">{`${fitness.workoutExercises.length}`}</StatItem>
 						<StatItem label="Personal Bests">{`${fitness.workoutPersonalBests}`}</StatItem>
+						<StatItem label="Rest Time">
+							{displayDuration(fitness.workoutRestTime)}
+						</StatItem>
 						<StatItem label="Measurements">{`${fitness.measurementCount}`}</StatItem>
 					</SimpleGrid>
 				),
