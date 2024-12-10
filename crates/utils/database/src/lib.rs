@@ -704,7 +704,7 @@ pub async fn calculate_user_activities_and_summary(
         activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
         activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
         activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
-        activity.workout_rest_time += workout_total.rest_time as i32;
+        activity.workout_rest_time += (workout_total.rest_time as i32) / 60;
         for exercise in workout.information.exercises {
             let db_ex = exercises.iter().find(|e| e.id == exercise.id).unwrap();
             if user_exercises
