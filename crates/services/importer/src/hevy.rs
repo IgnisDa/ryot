@@ -33,11 +33,11 @@ struct Entry {
     start_time: String,
     reps: Option<Decimal>,
     exercise_title: String,
-    #[serde(alias = "weight_kg")]
+    #[serde(alias = "weight_kg", alias = "weight_lbs")]
     weight: Option<Decimal>,
     #[serde(alias = "duration_seconds")]
     duration: Option<Decimal>,
-    #[serde(alias = "distance_km")]
+    #[serde(alias = "distance_km", alias = "distance_miles")]
     distance: Option<Decimal>,
     description: Option<String>,
     exercise_notes: Option<String>,
