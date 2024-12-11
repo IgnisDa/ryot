@@ -200,6 +200,7 @@ fragment WorkoutInformationPart on WorkoutInformation {
 		}
 		sets {
 			lot
+			rpe
 			note
 			restTime
 			confirmedAt
