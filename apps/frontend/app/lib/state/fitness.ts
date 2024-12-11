@@ -37,6 +37,7 @@ import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	lot: SetLot;
+	rpe?: number | null;
 	confirmedAt: string | null;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
@@ -173,11 +174,12 @@ type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
 export const convertHistorySetToCurrentSet = (
-	set: Pick<TSet, "statistic" | "lot" | "note" | "restTime">,
+	set: Pick<TSet, "statistic" | "lot" | "note" | "restTime" | "rpe">,
 	confirmedAt?: string | null,
 ) =>
 	({
 		lot: set.lot,
+		rpe: set.rpe,
 		note: set.note,
 		statistic: set.statistic,
 		confirmedAt: confirmedAt ?? null,
