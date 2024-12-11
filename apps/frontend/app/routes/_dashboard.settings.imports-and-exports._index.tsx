@@ -81,10 +81,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			formData.delete("source");
 			const values = await match(source)
 				.with(
-					ImportSource.Storygraph,
+					ImportSource.Hevy,
 					ImportSource.Imdb,
-					ImportSource.Goodreads,
 					ImportSource.OpenScale,
+					ImportSource.Goodreads,
+					ImportSource.Storygraph,
 					() => ({
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
@@ -270,9 +271,10 @@ export default function Page() {
 												),
 											)
 											.with(
+												ImportSource.Hevy,
+												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
-												ImportSource.Imdb,
 												ImportSource.Storygraph,
 												() => (
 													<>
