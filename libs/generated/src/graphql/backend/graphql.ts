@@ -2658,6 +2658,7 @@ export type UserWorkoutSetRecord = {
   lot: SetLot;
   note?: InputMaybe<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
+  rpe?: InputMaybe<Scalars['Int']['input']>;
   statistic: SetStatisticInput;
 };
 
@@ -2777,6 +2778,7 @@ export type WorkoutSetRecord = {
   note?: Maybe<Scalars['String']['output']>;
   personalBests?: Maybe<Array<WorkoutSetPersonalBest>>;
   restTime?: Maybe<Scalars['Int']['output']>;
+  rpe?: Maybe<Scalars['Int']['output']>;
   statistic: WorkoutSetStatistic;
   totals?: Maybe<WorkoutSetTotals>;
 };

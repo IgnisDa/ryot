@@ -249,6 +249,7 @@ pub struct WorkoutSetTotals {
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetRecord {
     pub lot: SetLot,
+    pub rpe: Option<u8>,
     pub note: Option<String>,
     pub rest_time: Option<u16>,
     pub actual_rest_time: Option<i64>,
@@ -571,6 +572,7 @@ pub struct UserMeasurementsListInput {
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
+    pub rpe: Option<u8>,
     pub note: Option<String>,
     pub rest_time: Option<u16>,
     pub statistic: WorkoutSetStatistic,

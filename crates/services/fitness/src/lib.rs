@@ -124,6 +124,7 @@ impl FitnessService {
                     .into_iter()
                     .map(|s| WorkoutSetRecord {
                         lot: s.lot,
+                        rpe: s.rpe,
                         note: s.note,
                         totals: None,
                         confirmed_at: None,
