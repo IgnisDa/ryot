@@ -222,12 +222,13 @@ export const currentWorkoutToCreateWorkoutInput = (
 				if (Object.keys(set.statistic).length === 0) continue;
 				sets.push({
 					note,
+					rpe: set.rpe,
 					lot: set.lot,
+					statistic: set.statistic,
+					restTime: set.restTimer?.duration,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()
 						: null,
-					statistic: set.statistic,
-					restTime: set.restTimer?.duration,
 				});
 			}
 		if (sets.length === 0) continue;
