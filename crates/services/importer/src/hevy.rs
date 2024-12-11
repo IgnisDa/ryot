@@ -122,9 +122,9 @@ pub async fn import(
                     _ => SetLot::Normal,
                 };
                 collected_sets.push(UserWorkoutSetRecord {
-                    rpe: None,
                     note: None,
                     lot: set_lot,
+                    rpe: set.rpe,
                     rest_time: None,
                     confirmed_at: None,
                     statistic: WorkoutSetStatistic {
