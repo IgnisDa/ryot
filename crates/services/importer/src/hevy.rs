@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use common_utils::ryot_log;
-use csv::ReaderBuilder;
+use csv::Reader;
 use database_models::{exercise, prelude::Exercise};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::generate_exercise_id;
@@ -50,11 +50,8 @@ pub async fn import(
 ) -> Result<ImportResult> {
     let mut completed = vec![];
     let mut failed = vec![];
-    let file_string = fs::read_to_string(&input.csv_path)?;
     let mut unique_exercises: HashMap<String, exercise::Model> = HashMap::new();
-    let entries_reader = ReaderBuilder::new()
-        .double_quote(true)
-        .from_reader(file_string.as_bytes())
+    let entries_reader = Reader::from_path(&input.csv_path)?
         .deserialize::<Entry>()
         .map(|r| r.unwrap())
         .collect_vec();
