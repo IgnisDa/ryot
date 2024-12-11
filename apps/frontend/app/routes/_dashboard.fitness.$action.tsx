@@ -10,6 +10,7 @@ import {
 	Avatar,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Divider,
 	Drawer,
@@ -1581,6 +1582,7 @@ const SetDisplay = (props: {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
+	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
@@ -1614,44 +1616,72 @@ const SetDisplay = (props: {
 	return (
 		<>
 			<Modal
-				withCloseButton={false}
 				opened={isRpeModalOpen}
+				title="Rate of Perceived Exertion (RPE)"
 				onClose={() => setIsRpeModalOpen(false)}
 			>
-				<Stack gap="xs">
-					<Text size="xs">
-						Your rate of perceived exertion (RPE) refers to how hard you think
-						you're pushing yourself during exercise. It's subjective, which
-						means that you decide how hard you feel you're working during
-						physical activity.
-						<Anchor
-							ml={2}
-							size="xs"
-							target="_blank"
-							href="https://my.clevelandclinic.org/health/articles/17450-rated-perceived-exertion-rpe-scale"
+				<Stack>
+					<Group>
+						<NumberInput
+							min={0}
+							max={10}
+							flex={1}
+							value={set.rpe ?? undefined}
+							onChange={(v) => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const value = isNumber(v) ? v : null;
+										const currentSet =
+											draft.exercises[props.exerciseIdx].sets[props.setIdx];
+										currentSet.rpe = value;
+									}),
+								);
+							}}
+						/>
+						<Button
+							variant="transparent"
+							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
 						>
-							Source
-						</Anchor>
-					</Text>
-					<Table
-						p={0}
-						fz="xs"
-						withRowBorders
-						withTableBorder
-						withColumnBorders
-						data={{
-							head: ["Rating", "Perceived Exertion Level"],
-							body: [
-								["0", "No exertion (at rest)"],
-								["1", "Very light"],
-								["2 to 3", "Light"],
-								["4 to 5", "Moderate (somewhat hard)"],
-								["6 to 7", "High (vigorous)"],
-								["8 to 9", "Very hard"],
-								["10", "Maximum effort (highest possible)"],
-							],
-						}}
-					/>
+							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
+						</Button>
+					</Group>
+					<Collapse in={isRpeDetailsOpen}>
+						<Stack gap="xs">
+							<Text size="xs">
+								Your rate of perceived exertion (RPE) refers to how hard you
+								think you're pushing yourself during exercise. It's subjective,
+								which means that you decide how hard you feel you're working
+								during physical activity.
+								<Anchor
+									ml={2}
+									size="xs"
+									target="_blank"
+									href="https://my.clevelandclinic.org/health/articles/17450-rated-perceived-exertion-rpe-scale"
+								>
+									Source.
+								</Anchor>
+							</Text>
+							<Table
+								p={0}
+								fz="xs"
+								withRowBorders
+								withTableBorder
+								withColumnBorders
+								data={{
+									head: ["Rating", "Perceived Exertion Level"],
+									body: [
+										["0", "No exertion (at rest)"],
+										["1", "Very light"],
+										["2 to 3", "Light"],
+										["4 to 5", "Moderate (somewhat hard)"],
+										["6 to 7", "High (vigorous)"],
+										["8 to 9", "Very hard"],
+										["10", "Maximum effort (highest possible)"],
+									],
+								}}
+							/>
+						</Stack>
+					</Collapse>
 				</Stack>
 			</Modal>
 			<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
