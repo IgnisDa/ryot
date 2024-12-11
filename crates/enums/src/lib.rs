@@ -200,6 +200,7 @@ pub enum ImportSource {
     Igdb,
     Imdb,
     Plex,
+    Hevy,
     Trakt,
     Movary,
     Jellyfin,
@@ -565,17 +566,17 @@ pub enum IntegrationProvider {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
     Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
     Enum,
+    Copy,
+    Clone,
+    Debug,
     Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",

@@ -24,6 +24,7 @@ use traits::TraceOk;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod hevy;
 mod igdb;
 mod imdb;
 mod jellyfin;
@@ -78,6 +79,7 @@ impl ImporterService {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0, &user_id).await
             }
+            ImportSource::Hevy => hevy::import(input.generic_csv.unwrap(), &self.0, &user_id).await,
             ImportSource::Mediatracker => mediatracker::import(input.url_and_key.unwrap()).await,
             ImportSource::Myanimelist => myanimelist::import(input.mal.unwrap()).await,
             ImportSource::Goodreads => {
