@@ -539,7 +539,7 @@ export default function Page() {
 												};
 											});
 											invariant(data);
-											return (
+											return data.filter((d) => d.value).length > 0 ? (
 												<Paper key={best} withBorder py="md" radius="md">
 													<Stack>
 														<Title order={3} ta="center">
@@ -557,7 +557,7 @@ export default function Page() {
 														/>
 													</Stack>
 												</Paper>
-											);
+											) : null;
 										})}
 									</Stack>
 								</Tabs.Panel>
