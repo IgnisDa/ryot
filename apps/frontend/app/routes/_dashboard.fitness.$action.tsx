@@ -1621,7 +1621,7 @@ const SetDisplay = (props: {
 							</Text>
 						</UnstyledButton>
 					</Menu.Target>
-					<Menu.Dropdown>
+					<Menu.Dropdown px={0}>
 						<Menu.Label>Set type</Menu.Label>
 						{Object.values(SetLot).map((lot) => (
 							<Menu.Item
@@ -1727,7 +1727,7 @@ const SetDisplay = (props: {
 									);
 							}}
 						>
-							Delete
+							Delete set
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
