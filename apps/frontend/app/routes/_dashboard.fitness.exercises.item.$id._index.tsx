@@ -546,14 +546,14 @@ export default function Page() {
 															{changeCase(best)}
 														</Title>
 														<LineChart
-															ml={-15}
-															connectNulls
 															h={300}
+															ml={-15}
 															data={data}
+															connectNulls
+															dataKey="name"
 															series={[
 																{ name: "value", label: changeCase(best) },
 															]}
-															dataKey="name"
 														/>
 													</Stack>
 												</Paper>
