@@ -122,6 +122,11 @@ pub async fn import(
                     _ => SetLot::Normal,
                 };
                 collected_sets.push(UserWorkoutSetRecord {
+                    rpe: None,
+                    note: None,
+                    lot: set_lot,
+                    rest_time: None,
+                    confirmed_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,
@@ -129,11 +134,6 @@ pub async fn import(
                         distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
-                    rpe: None,
-                    note: None,
-                    lot: set_lot,
-                    rest_time: None,
-                    confirmed_at: None,
                 });
             }
             collected_exercises.push(UserExerciseInput {
