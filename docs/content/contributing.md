@@ -15,7 +15,7 @@
   APP_VERSION=v5.2.1
   ```
 
-- Run the following commands in a separate terminals:
+- Run the following commands in separate terminals:
 
   ```bash
   cargo run
