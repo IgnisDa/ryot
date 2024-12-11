@@ -4,10 +4,9 @@ use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use common_utils::ryot_log;
 use csv::ReaderBuilder;
-use database_models::{exercise, prelude::Exercise};
+use database_models::exercise;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::generate_exercise_id;
-use enums::{ExerciseLot, ExerciseSource};
+use enums::ExerciseLot;
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
@@ -17,7 +16,6 @@ use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
@@ -144,34 +142,14 @@ async fn import_exercises(
                 });
                 continue;
             };
-            let existing_exercise = Exercise::find()
-                .filter(exercise::Column::Lot.eq(exercise_lot))
-                .filter(exercise::Column::Name.eq(&exercise_name))
-                .one(&ss.db)
-                .await?;
-            let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
-            let exercise_id = match existing_exercise {
-                Some(db_ex)
-                    if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id =>
-                {
-                    db_ex.id
-                }
-                _ => match unique_exercises.get(&exercise_name) {
-                    Some(mem_ex) => mem_ex.id.clone(),
-                    None => {
-                        unique_exercises.insert(
-                            exercise_name.clone(),
-                            exercise::Model {
-                                lot: exercise_lot,
-                                name: exercise_name,
-                                id: generated_id.clone(),
-                                ..Default::default()
-                            },
-                        );
-                        generated_id
-                    }
-                },
-            };
+            let exercise_id = utils::associate_with_existing_or_new_exercise(
+                user_id,
+                &exercise_name,
+                exercise_lot,
+                ss,
+                &mut unique_exercises,
+            )
+            .await?;
             ryot_log!(debug, "Importing exercise with id = {}", exercise_id);
             for set in exercises {
                 if let Some(note) = set.notes {

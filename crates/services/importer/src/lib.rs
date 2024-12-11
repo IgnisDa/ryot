@@ -1,15 +1,19 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use background::ApplicationJob;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::ryot_log;
-use database_models::{import_report, prelude::ImportReport};
-use dependent_utils::{
-    commit_metadata, deploy_background_job, get_google_books_service, get_openlibrary_service,
-    get_tmdb_non_media_service, process_import,
+use database_models::{
+    exercise, import_report,
+    prelude::{Exercise, ImportReport},
 };
+use dependent_utils::{
+    commit_metadata, deploy_background_job, generate_exercise_id, get_google_books_service,
+    get_openlibrary_service, get_tmdb_non_media_service, process_import,
+};
+use enums::{ExerciseLot, ExerciseSource};
 use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
@@ -199,5 +203,41 @@ pub mod utils {
             source = MediaSource::Openlibrary;
         }
         identifier.map(|id| (id, source))
+    }
+
+    pub async fn associate_with_existing_or_new_exercise(
+        user_id: &str,
+        exercise_name: &String,
+        exercise_lot: ExerciseLot,
+        ss: &Arc<SupportingService>,
+        unique_exercises: &mut HashMap<String, exercise::Model>,
+    ) -> Result<String> {
+        let existing_exercise = Exercise::find()
+            .filter(exercise::Column::Lot.eq(exercise_lot))
+            .filter(exercise::Column::Name.eq(exercise_name))
+            .one(&ss.db)
+            .await?;
+        let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
+        let exercise_id = match existing_exercise {
+            Some(db_ex) if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id => {
+                db_ex.id
+            }
+            _ => match unique_exercises.get(exercise_name) {
+                Some(mem_ex) => mem_ex.id.clone(),
+                None => {
+                    unique_exercises.insert(
+                        exercise_name.clone(),
+                        exercise::Model {
+                            lot: exercise_lot,
+                            id: generated_id.clone(),
+                            name: exercise_name.to_owned(),
+                            ..Default::default()
+                        },
+                    );
+                    generated_id
+                }
+            },
+        };
+        Ok(exercise_id)
     }
 }
