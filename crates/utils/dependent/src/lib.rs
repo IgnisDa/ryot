@@ -1854,6 +1854,7 @@ pub async fn create_or_update_workout(
             }
             let mut value = WorkoutSetRecord {
                 lot: set.lot,
+                rpe: set.rpe,
                 actual_rest_time,
                 totals: Some(totals),
                 note: set.note.clone(),
@@ -2397,9 +2398,10 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                     .into_iter()
                     .map(|s| UserWorkoutSetRecord {
                         lot: s.lot,
+                        rpe: s.rpe,
                         note: s.note,
-                        statistic: s.statistic,
                         rest_time: s.rest_time,
+                        statistic: s.statistic,
                         confirmed_at: s.confirmed_at,
                     })
                     .collect(),

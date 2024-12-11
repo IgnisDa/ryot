@@ -192,6 +192,7 @@ async fn import_exercises(
                         distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
+                    rpe: None,
                     note: None,
                     lot: set_lot,
                     rest_time: None,
