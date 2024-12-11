@@ -12,11 +12,11 @@ use enums::{
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
-    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
-    ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
-    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
+    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
+    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem,
+    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -102,7 +102,7 @@ pub struct UserExerciseDetails {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UpdateCustomExerciseInput {
-    pub old_name: String,
+    pub old_id: String,
     pub should_delete: Option<bool>,
     #[graphql(flatten)]
     pub update: exercise::Model,
@@ -192,7 +192,6 @@ pub struct MetadataLotSourceMappings {
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
-    pub is_pro: bool,
     pub page_size: i32,
     pub version: String,
     pub docs_link: String,
@@ -206,6 +205,7 @@ pub struct CoreDetails {
     pub token_valid_for_days: i32,
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
+    pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
     pub exercise_parameters: ExerciseParameters,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
@@ -214,42 +214,46 @@ pub struct CoreDetails {
 
 #[derive(SimpleObject)]
 pub struct UserPersonDetails {
+    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
     pub collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
 pub struct UserMetadataGroupDetails {
+    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
     pub collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
 pub struct UserMetadataDetails {
-    /// The reasons why this metadata is related to this user
-    pub media_reason: Option<Vec<UserToMediaReason>>,
-    /// The collections in which this media is present.
-    pub collections: Vec<collection::Model>,
+    /// Whether this media has been interacted with
+    pub has_interacted: bool,
+    /// Whether this media has been recently interacted with
+    pub recently_consumed: bool,
     /// The public reviews of this media.
     pub reviews: Vec<ReviewItem>,
-    /// The seen history of this media.
-    pub history: Vec<seen::Model>,
-    /// The seen item if it is in progress.
-    pub in_progress: Option<seen::Model>,
-    /// The next episode/chapter of this media.
-    pub next_entry: Option<UserMediaNextEntry>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: usize,
     /// The number of times this user has seen this media.
     pub seen_by_user_count: usize,
+    /// The seen history of this media.
+    pub history: Vec<seen::Model>,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
+    /// The seen item if it is in progress.
+    pub in_progress: Option<seen::Model>,
+    /// The collections in which this media is present.
+    pub collections: Vec<collection::Model>,
+    /// The next episode/chapter of this media.
+    pub next_entry: Option<UserMediaNextEntry>,
+    /// The reasons why this metadata is related to this user
+    pub media_reason: Option<Vec<UserToMediaReason>>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
     pub podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
-    /// Whether this media has been interacted with
-    pub has_interacted: bool,
 }
 
 #[derive(Debug, Default, Display, Clone, Serialize)]
@@ -270,15 +274,6 @@ pub enum ImportCompletedItem {
 pub struct ImportResult {
     pub failed: Vec<ImportFailedItem>,
     pub completed: Vec<ImportCompletedItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct DailyUserActivitiesResponse {
-    pub total_count: i64,
-    pub item_count: usize,
-    pub total_duration: i64,
-    pub items: Vec<DailyUserActivityItem>,
-    pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
 #[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]

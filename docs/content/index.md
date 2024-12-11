@@ -51,6 +51,17 @@ If the key is invalid or your subscription has expired, the server will automati
 with the community version. Since the two versions are compatible, you can switch between
 them by simply fixing the key and restarting the server.
 
+## Releases
+
+Each version of Ryot is released as docker images. For example, if the latest tag is
+`v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5` and `latest`. The
+images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and
+[GitHub Container Registry](https://ghcr.io/ignisda/ryot).
+
+Ryot is released on a (loosely) weekly basis. If you prefer to live on the edge, you can
+use the `develop` docker tag which is released when changes are merged into the `main`
+branch.
+
 ## Telemetry
 
 Ryot collects anonymous usage data to help me prioritize features. It uses a self-hosted

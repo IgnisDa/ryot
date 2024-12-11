@@ -1,26 +1,82 @@
-use std::{fmt::Write, sync::Arc};
+use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
+use common_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ApplicationDateRange, DailyUserActivitiesResponse,
+    DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord, DailyUserActivityItem,
+    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
+    UserAnalyticsInput, UserFitnessAnalytics,
+};
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
-use dependent_models::DailyUserActivitiesResponse;
-use media_models::{
-    DailyUserActivitiesInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
-};
+use enums::{ExerciseEquipment, ExerciseMuscle};
+use hashbag::HashBag;
+use itertools::Itertools;
 use sea_orm::{
-    prelude::Expr,
-    sea_query::{Alias, Func},
-    ColumnTrait, EntityTrait, Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    prelude::{Date, Expr},
+    sea_query::{Alias, Func, NullOrdering},
+    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, Order, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait,
 };
 use supporting_service::SupportingService;
 
 pub struct StatisticsService(pub Arc<SupportingService>);
 
 impl StatisticsService {
-    pub async fn daily_user_activities(
+    pub async fn calculate_user_activities_and_summary(
         &self,
         user_id: &String,
-        input: DailyUserActivitiesInput,
+        calculate_from_beginning: bool,
+    ) -> Result<()> {
+        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+    }
+
+    pub async fn user_analytics_parameters(
+        &self,
+        user_id: &String,
+    ) -> Result<ApplicationDateRange> {
+        let cache_key = ApplicationCacheKey::UserAnalyticsParameters {
+            user_id: user_id.to_owned(),
+        };
+        if let Some(ApplicationCacheValue::UserAnalyticsParameters(cached)) =
+            self.0.cache_service.get_key(cache_key.clone()).await?
+        {
+            return Ok(cached);
+        }
+        let get_date = |ordering: Order| {
+            DailyUserActivity::find()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .select_only()
+                .column(daily_user_activity::Column::Date)
+                .order_by_with_nulls(
+                    daily_user_activity::Column::Date,
+                    ordering,
+                    NullOrdering::Last,
+                )
+                .into_tuple::<Date>()
+                .one(&self.0.db)
+        };
+        let start_date = get_date(Order::Asc).await?;
+        let end_date = get_date(Order::Desc).await?;
+        let response = ApplicationDateRange {
+            end_date,
+            start_date,
+        };
+        self.0
+            .cache_service
+            .set_with_expiry(
+                cache_key,
+                Some(8),
+                ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
+            )
+            .await?;
+        Ok(response)
+    }
+
+    async fn daily_user_activities(
+        &self,
+        user_id: &String,
+        input: UserAnalyticsInput,
     ) -> Result<DailyUserActivitiesResponse> {
         // TODO: https://github.com/SeaQL/sea-query/pull/825 when merged
         struct DateTrunc;
@@ -31,10 +87,10 @@ impl StatisticsService {
         }
         let precondition = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .apply_if(input.end_date, |query, v| {
+            .apply_if(input.date_range.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
-            .apply_if(input.start_date, |query, v| {
+            .apply_if(input.date_range.start_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
             .select_only();
@@ -66,13 +122,17 @@ impl StatisticsService {
             }
         };
         let day_alias = Expr::col(Alias::new("day"));
+        let date_type = Alias::new("DATE");
         let items = precondition
             .column_as(
                 Expr::expr(Func::cast_as(
                     Func::cust(DateTrunc)
                         .arg(Expr::val(grouped_by.to_string()))
-                        .arg(daily_user_activity::Column::Date.into_expr()),
-                    Alias::new("DATE"),
+                        .arg(Func::coalesce([
+                            Expr::col(daily_user_activity::Column::Date).into(),
+                            Func::cast_as(Expr::val("2001-01-01"), date_type.clone()).into(),
+                        ])),
+                    date_type,
                 )),
                 "day",
             )
@@ -94,7 +154,7 @@ impl StatisticsService {
             )
             .column_as(
                 daily_user_activity::Column::MeasurementCount.sum(),
-                "measurement_count",
+                "user_measurement_count",
             )
             .column_as(
                 daily_user_activity::Column::WorkoutCount.sum(),
@@ -204,24 +264,125 @@ impl StatisticsService {
         })
     }
 
-    pub async fn latest_user_summary(&self, user_id: &String) -> Result<DailyUserActivityItem> {
-        let ls = self
-            .daily_user_activities(
-                user_id,
-                DailyUserActivitiesInput {
-                    group_by: Some(DailyUserActivitiesResponseGroupedBy::Millennium),
-                    ..Default::default()
-                },
-            )
-            .await?;
-        Ok(ls.items.last().cloned().unwrap_or_default())
-    }
-
-    pub async fn calculate_user_activities_and_summary(
+    pub async fn user_analytics(
         &self,
         user_id: &String,
-        calculate_from_beginning: bool,
-    ) -> Result<()> {
-        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+        input: UserAnalyticsInput,
+    ) -> Result<UserAnalytics> {
+        let cache_key = ApplicationCacheKey::UserAnalytics {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        };
+        if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
+            self.0.cache_service.get_key(cache_key.clone()).await?
+        {
+            return Ok(cached);
+        }
+        #[derive(Debug, DerivePartialModel, FromQueryResult)]
+        #[sea_orm(entity = "DailyUserActivity")]
+        pub struct CustomFitnessAnalytics {
+            pub workout_reps: i32,
+            pub workout_count: i32,
+            pub workout_weight: i32,
+            pub workout_duration: i32,
+            pub workout_distance: i32,
+            pub workout_rest_time: i32,
+            pub measurement_count: i32,
+            pub workout_personal_bests: i32,
+            pub workout_exercises: Vec<String>,
+            pub workout_muscles: Vec<ExerciseMuscle>,
+            pub workout_equipments: Vec<ExerciseEquipment>,
+            pub hour_records: Vec<DailyUserActivityHourRecord>,
+        }
+        let items = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .apply_if(input.date_range.start_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.gte(v))
+            })
+            .apply_if(input.date_range.end_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.lte(v))
+            })
+            .into_partial_model::<CustomFitnessAnalytics>()
+            .all(&self.0.db)
+            .await?;
+        let mut hours: Vec<DailyUserActivityHourRecord> = vec![];
+        items.iter().for_each(|item| {
+            for hour in item.hour_records.clone() {
+                let index = hours.iter().position(|h| h.hour == hour.hour);
+                if let Some(index) = index {
+                    hours.get_mut(index).unwrap().entities.extend(hour.entities);
+                } else {
+                    hours.push(hour);
+                }
+            }
+        });
+        let workout_reps = items.iter().map(|i| i.workout_reps).sum();
+        let workout_count = items.iter().map(|i| i.workout_count).sum();
+        let workout_weight = items.iter().map(|i| i.workout_weight).sum();
+        let workout_distance = items.iter().map(|i| i.workout_distance).sum();
+        let workout_duration = items.iter().map(|i| i.workout_duration).sum();
+        let workout_rest_time = items.iter().map(|i| i.workout_rest_time).sum();
+        let measurement_count = items.iter().map(|i| i.measurement_count).sum();
+        let workout_personal_bests = items.iter().map(|i| i.workout_personal_bests).sum();
+        let workout_muscles = items
+            .iter()
+            .flat_map(|i| i.workout_muscles.clone())
+            .collect::<HashBag<ExerciseMuscle>>()
+            .into_iter()
+            .map(|(muscle, count)| FitnessAnalyticsMuscle {
+                muscle,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let workout_exercises = items
+            .iter()
+            .flat_map(|i| i.workout_exercises.clone())
+            .collect::<HashBag<String>>()
+            .into_iter()
+            .map(|(exercise_id, count)| FitnessAnalyticsExercise {
+                exercise: exercise_id,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let workout_equipments = items
+            .iter()
+            .flat_map(|i| i.workout_equipments.clone())
+            .collect::<HashBag<ExerciseEquipment>>()
+            .into_iter()
+            .map(|(equipment, count)| FitnessAnalyticsEquipment {
+                equipment,
+                count: count.try_into().unwrap(),
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let activities = self.daily_user_activities(user_id, input).await?;
+        let response = UserAnalytics {
+            hours,
+            activities,
+            fitness: UserFitnessAnalytics {
+                workout_reps,
+                workout_count,
+                workout_weight,
+                workout_muscles,
+                workout_distance,
+                workout_duration,
+                workout_rest_time,
+                workout_exercises,
+                measurement_count,
+                workout_equipments,
+                workout_personal_bests,
+            },
+        };
+        self.0
+            .cache_service
+            .set_with_expiry(
+                cache_key,
+                Some(2),
+                ApplicationCacheValue::UserAnalytics(response.clone()),
+            )
+            .await?;
+        Ok(response)
     }
 }

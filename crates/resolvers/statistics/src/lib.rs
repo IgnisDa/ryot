@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use dependent_models::DailyUserActivitiesResponse;
-use media_models::{DailyUserActivitiesInput, DailyUserActivityItem};
+use common_models::{ApplicationDateRange, UserAnalytics, UserAnalyticsInput};
 use statistics_service::StatisticsService;
 use traits::AuthProvider;
 
@@ -13,21 +12,24 @@ impl AuthProvider for StatisticsQuery {}
 
 #[Object]
 impl StatisticsQuery {
-    /// Get daily user activities for the currently logged in user.
-    async fn daily_user_activities(
+    /// Get the analytics parameters for the currently logged in user.
+    async fn user_analytics_parameters(
         &self,
         gql_ctx: &Context<'_>,
-        input: DailyUserActivitiesInput,
-    ) -> Result<DailyUserActivitiesResponse> {
+    ) -> Result<ApplicationDateRange> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.daily_user_activities(&user_id, input).await
+        service.user_analytics_parameters(&user_id).await
     }
 
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<DailyUserActivityItem> {
+    /// Get the analytics for the currently logged in user.
+    async fn user_analytics(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserAnalyticsInput,
+    ) -> Result<UserAnalytics> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(&user_id).await
+        service.user_analytics(&user_id, input).await
     }
 }

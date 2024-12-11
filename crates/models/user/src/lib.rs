@@ -1,7 +1,7 @@
-use async_graphql::{Enum, SimpleObject};
+use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::MediaStateChanged;
 use educe::Educe;
-use enums::MediaLot;
+use enums::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
@@ -181,17 +181,28 @@ pub struct UserFitnessMeasurementsPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
-pub struct UserFeaturesEnabledPreferences {
-    pub media: UserMediaFeaturesEnabledPreferences,
-    pub fitness: UserFitnessFeaturesEnabledPreferences,
-    pub others: UserOthersFeaturesEnabledPreferences,
+#[educe(Default)]
+pub struct UserAnalyticsFeaturesEnabledPreferences {
+    #[educe(Default = true)]
+    pub enabled: bool,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
+pub struct UserFeaturesEnabledPreferences {
+    pub media: UserMediaFeaturesEnabledPreferences,
+    pub others: UserOthersFeaturesEnabledPreferences,
+    pub fitness: UserFitnessFeaturesEnabledPreferences,
+    pub analytics: UserAnalyticsFeaturesEnabledPreferences,
+}
+
+#[derive(
+    Eq, Clone, Debug, Educe, Serialize, PartialEq, Deserialize, SimpleObject, FromJsonQueryResult,
+)]
+#[educe(Default)]
 pub struct UserFitnessPreferences {
     pub logging: UserFitnessLoggingPreferences,
     pub exercises: UserFitnessExercisesPreferences,
@@ -249,7 +260,6 @@ pub enum DashboardElementLot {
     #[default]
     Summary,
     Recommendations,
-    Activity,
 }
 
 #[skip_serializing_none]
@@ -326,10 +336,6 @@ pub struct UserGeneralPreferences {
             section: DashboardElementLot::Recommendations,
             ..Default::default()
         },
-        UserGeneralDashboardElement {
-            section: DashboardElementLot::Activity,
-            ..Default::default()
-        },
     ]))]
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }
@@ -382,4 +388,22 @@ pub enum NotificationPlatformSpecifics {
         bot_token: String,
         chat_id: String,
     },
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult, InputObject, Default,
+)]
+pub struct UserExtraInformation {
+    pub scheduled_for_workout_revision: bool,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateUserInput {
+    pub user_id: String,
+    pub lot: Option<UserLot>,
+    #[graphql(secret)]
+    pub password: Option<String>,
+    pub username: Option<String>,
+    pub is_disabled: Option<bool>,
+    pub admin_access_token: Option<String>,
 }

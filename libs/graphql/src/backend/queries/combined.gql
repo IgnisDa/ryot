@@ -148,39 +148,17 @@ query UserAccessLinks {
 	}
 }
 
-query DailyUserActivities($input: DailyUserActivitiesInput!) {
-	dailyUserActivities(input: $input) {
-		groupedBy
-		totalCount
-		totalDuration
-		items {
-			day
-			totalReviewCount
-			workoutCount
-			measurementCount
-			audioBookCount
-			animeCount
-			bookCount
-			podcastCount
-			mangaCount
-			showCount
-			movieCount
-			videoGameCount
-			visualNovelCount
-		}
-	}
-}
-
 query ExerciseDetails($exerciseId: String!) {
 	exerciseDetails(exerciseId: $exerciseId) {
 		id
 		lot
-		source
+		name
 		level
 		force
+		source
+		muscles
 		mechanic
 		equipment
-		muscles
 		createdByUserId
 		attributes {
 			instructions
@@ -198,10 +176,11 @@ query ExercisesList($input: ExercisesListInput!) {
 		items {
 			id
 			lot
+			name
 			image
 			muscle
-			numTimesInteracted
 			lastUpdatedOn
+			numTimesInteracted
 		}
 	}
 }
@@ -288,7 +267,6 @@ query CollectionContents($input: CollectionContentsInput!) {
 
 query CoreDetails {
 	coreDetails {
-		isPro
 		version
 		docsLink
 		pageSize
@@ -301,6 +279,7 @@ query CoreDetails {
 		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
+		isServerKeyValidated
 		metadataLotSourceMappings {
 			lot
 			sources
@@ -416,6 +395,7 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		recentlyConsumed
 		reviews {
 			...ReviewItemPart
 		}
@@ -427,6 +407,7 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
+		recentlyConsumed
 		collections {
 			...CollectionPart
 		}
@@ -465,16 +446,7 @@ query UserWorkoutsList($input: SearchInput!) {
 			total
 			nextPage
 		}
-		items {
-			id
-			name
-			endTime
-			duration
-			startTime
-			summary {
-				...WorkoutSummaryPart
-			}
-		}
+		items
 	}
 }
 
@@ -504,14 +476,13 @@ query UserWorkoutTemplatesList($input: SearchInput!) {
 			total
 			nextPage
 		}
-		items {
-			id
-			name
-			createdOn
-			visibility
-			summary {
-				...WorkoutSummaryPart
-			}
-		}
+		items
+	}
+}
+
+query UserAnalyticsParameters {
+	userAnalyticsParameters {
+		endDate
+		startDate
 	}
 }

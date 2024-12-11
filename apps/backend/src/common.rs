@@ -19,8 +19,8 @@ use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
 use file_storage_service::FileStorageService;
-use fitness_resolver::{ExerciseMutation, ExerciseQuery};
-use fitness_service::ExerciseService;
+use fitness_resolver::{FitnessMutation, FitnessQuery};
+use fitness_service::FitnessService;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
@@ -49,7 +49,7 @@ pub struct AppServices {
     pub app_router: Router,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
-    pub exercise_service: Arc<ExerciseService>,
+    pub fitness_service: Arc<FitnessService>,
     pub statistics_service: Arc<StatisticsService>,
     pub integration_service: Arc<IntegrationService>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
@@ -57,7 +57,6 @@ pub struct AppServices {
 
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
-    is_pro: bool,
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
     s3_client: aws_sdk_s3::Client,
@@ -73,7 +72,6 @@ pub async fn create_app_services(
     let cache_service = CacheService::new(&db);
     let supporting_service = Arc::new(
         SupportingService::new(
-            is_pro,
             &db,
             timezone,
             cache_service,
@@ -87,7 +85,7 @@ pub async fn create_app_services(
     );
     let user_service = Arc::new(UserService(supporting_service.clone()));
     let importer_service = Arc::new(ImporterService(supporting_service.clone()));
-    let exercise_service = Arc::new(ExerciseService(supporting_service.clone()));
+    let fitness_service = Arc::new(FitnessService(supporting_service.clone()));
     let exporter_service = Arc::new(ExporterService(supporting_service.clone()));
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let statistics_service = Arc::new(StatisticsService(supporting_service.clone()));
@@ -104,7 +102,7 @@ pub async fn create_app_services(
     .data(user_service.clone())
     .data(importer_service.clone())
     .data(exporter_service.clone())
-    .data(exercise_service.clone())
+    .data(fitness_service.clone())
     .data(statistics_service.clone())
     .data(collection_service.clone())
     .data(file_storage_service.clone())
@@ -149,7 +147,7 @@ pub async fn create_app_services(
         app_router,
         importer_service,
         exporter_service,
-        exercise_service,
+        fitness_service,
         statistics_service,
         integration_service,
         miscellaneous_service,
@@ -192,7 +190,7 @@ pub struct QueryRoot(
     MiscellaneousQuery,
     ImporterQuery,
     ExporterQuery,
-    ExerciseQuery,
+    FitnessQuery,
     FileStorageQuery,
     StatisticsQuery,
     CollectionQuery,
@@ -204,7 +202,7 @@ pub struct MutationRoot(
     MiscellaneousMutation,
     ImporterMutation,
     ExporterMutation,
-    ExerciseMutation,
+    FitnessMutation,
     FileStorageMutation,
     CollectionMutation,
     UserMutation,

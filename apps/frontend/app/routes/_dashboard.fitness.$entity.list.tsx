@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Pagination,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -63,7 +64,10 @@ import {
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { getDefaultWorkout } from "~/lib/state/fitness";
+import {
+	getDefaultWorkout,
+	getExerciseDetailsQuery,
+} from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -93,20 +97,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 				{ input: { page: query[pageQueryParam], query: query.query } },
 			);
 			return {
+				items: userWorkoutsList.items,
 				details: userWorkoutsList.details,
-				items: userWorkoutsList.items.map((w) => ({
-					id: w.id,
-					name: w.name,
-					timestamp: w.startTime,
-					detail: humanizeDuration(
-						dayjsLib.duration(w.duration, "second").asMilliseconds(),
-						{
-							round: true,
-							units: ["h", "m"],
-						},
-					),
-					summary: w.summary,
-				})),
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -117,14 +109,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 					{ input: { page: query.page, query: query.query } },
 				);
 			return {
+				items: userWorkoutTemplatesList.items,
 				details: userWorkoutTemplatesList.details,
-				items: userWorkoutTemplatesList.items.map((w) => ({
-					id: w.id,
-					name: w.name,
-					timestamp: w.createdOn,
-					detail: changeCase(w.visibility),
-					summary: w.summary,
-				})),
 			};
 		})
 		.exhaustive();
@@ -156,7 +142,7 @@ export default function Page() {
 						variant="outline"
 						onClick={() => {
 							if (
-								!coreDetails.isPro &&
+								!coreDetails.isServerKeyValidated &&
 								loaderData.entity === FitnessEntity.Templates
 							) {
 								notifications.show({
@@ -185,11 +171,11 @@ export default function Page() {
 				/>
 				{loaderData.itemList.items.length > 0 ? (
 					<Stack gap="xs">
-						{loaderData.itemList.items.map((workout, index) => (
-							<DisplayWorkoutListItem
+						{loaderData.itemList.items.map((entityId, index) => (
+							<DisplayFitnessEntity
 								index={index}
-								data={workout}
-								key={workout.id}
+								key={entityId}
+								entityId={entityId}
 							/>
 						))}
 					</Stack>
@@ -209,53 +195,69 @@ export default function Page() {
 	);
 }
 
-type DataItem = Awaited<ReturnType<typeof loader>>["itemList"]["items"][number];
-
-const DisplayWorkoutListItem = ({
-	data,
-	index,
-}: { data: DataItem; index: number }) => {
+const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
 
 	const { data: entityInformation } = useQuery({
-		queryKey: ["fitnessEntityDetails", data.id],
+		queryKey: ["fitnessEntityDetails", props.entityId],
 		queryFn: () =>
 			match(loaderData.entity)
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
-						.request(UserWorkoutDetailsDocument, { workoutId: data.id })
-						.then((data) => data.userWorkoutDetails.details.information),
+						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
+						.then(({ userWorkoutDetails }) => ({
+							name: userWorkoutDetails.details.name,
+							summary: userWorkoutDetails.details.summary,
+							timestamp: userWorkoutDetails.details.startTime,
+							information: userWorkoutDetails.details.information,
+							detail: humanizeDuration(
+								dayjsLib
+									.duration(userWorkoutDetails.details.duration, "second")
+									.asMilliseconds(),
+								{ round: true, units: ["h", "m"] },
+							),
+						})),
 				)
 				.with(FitnessEntity.Templates, () =>
 					clientGqlService
 						.request(UserWorkoutTemplateDetailsDocument, {
-							workoutTemplateId: data.id,
+							workoutTemplateId: props.entityId,
 						})
-						.then(
-							(data) => data.userWorkoutTemplateDetails.details.information,
-						),
+						.then(({ userWorkoutTemplateDetails }) => ({
+							name: userWorkoutTemplateDetails.details.name,
+							summary: userWorkoutTemplateDetails.details.summary,
+							timestamp: userWorkoutTemplateDetails.details.createdOn,
+							information: userWorkoutTemplateDetails.details.information,
+							detail: changeCase(userWorkoutTemplateDetails.details.visibility),
+						})),
 				)
 				.exhaustive(),
 	});
 
-	const personalBestsAchieved = data.summary.total?.personalBestsAchieved || 0;
-	const repsData = (entityInformation?.exercises || [])
+	if (!entityInformation)
+		return (
+			<Stack gap={4}>
+				<Skeleton height={76} />
+				<Group wrap="nowrap" justify="space-between" gap={4}>
+					<Skeleton height={40} />
+					<Skeleton height={40} />
+				</Group>
+			</Stack>
+		);
+
+	const personalBestsAchieved =
+		entityInformation.summary.total?.personalBestsAchieved || 0;
+	const repsData = (entityInformation.information.exercises || [])
 		.map((e) => Number.parseInt(e.total?.reps || "0"))
 		.filter(Boolean);
 
 	return (
 		<>
-			{index !== 0 ? <Divider /> : null}
-			<Stack
-				gap="xs"
-				ref={parent}
-				key={data.id}
-				data-workout-id={data.id}
-				px={{ base: "xs", md: "md" }}
-			>
+			{props.index !== 0 ? <Divider /> : null}
+			<Stack gap="xs" ref={parent} px={{ base: "xs", md: "md" }}>
 				<Group wrap="nowrap" justify="space-between">
 					<Box>
 						<Group wrap="nowrap">
@@ -263,27 +265,25 @@ const DisplayWorkoutListItem = ({
 								component={Link}
 								fz={{ base: "sm", md: "md" }}
 								to={$path("/fitness/:entity/:id", {
+									id: props.entityId,
 									entity: loaderData.entity,
-									id: data.id,
 								})}
 							>
-								{truncate(data.name, { length: 20 })}
+								{truncate(entityInformation.name, { length: 20 })}
 							</Anchor>
 							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-								{dayjsLib(data.timestamp).format("LL")}
+								{dayjsLib(entityInformation.timestamp).format("LL")}
 							</Text>
 						</Group>
 						<Group mt="xs">
-							{data.detail ? (
-								<DisplayStat
-									icon={match(loaderData.entity)
-										.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
-										.with(FitnessEntity.Templates, () => <IconLock size={16} />)
-										.exhaustive()}
-									data={data.detail}
-								/>
-							) : null}
-							{data.summary.total ? (
+							<DisplayStat
+								data={entityInformation.detail}
+								icon={match(loaderData.entity)
+									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
+									.exhaustive()}
+							/>
+							{entityInformation.summary.total ? (
 								<>
 									{personalBestsAchieved !== 0 ? (
 										<DisplayStat
@@ -293,22 +293,22 @@ const DisplayWorkoutListItem = ({
 											}`}
 										/>
 									) : null}
-									{Number(data.summary.total.weight) !== 0 ? (
+									{Number(entityInformation.summary.total.weight) !== 0 ? (
 										<DisplayStat
 											icon={<IconWeight size={16} />}
 											data={displayWeightWithUnit(
 												unitSystem,
-												data.summary.total.weight,
+												entityInformation.summary.total.weight,
 											)}
 										/>
 									) : null}
-									{Number(data.summary.total.distance) !== 0 ? (
+									{Number(entityInformation.summary.total.distance) !== 0 ? (
 										<Box visibleFrom="md">
 											<DisplayStat
 												icon={<IconRoad size={16} />}
 												data={displayDistanceWithUnit(
 													unitSystem,
-													data.summary.total.distance,
+													entityInformation.summary.total.distance,
 												)}
 											/>
 										</Box>
@@ -336,10 +336,10 @@ const DisplayWorkoutListItem = ({
 								<Text fw="bold">Best set</Text>
 							) : null}
 						</Group>
-						{data.summary.exercises.map((exercise, idx) => (
+						{entityInformation.summary.exercises.map((exercise, idx) => (
 							<ExerciseDisplay
 								exercise={exercise}
-								key={`${idx}-${exercise.name}`}
+								key={`${idx}-${exercise.id}`}
 							/>
 						))}
 					</Box>
@@ -364,6 +364,9 @@ const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.id),
+	);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})
 		.otherwise((value) => {
@@ -382,7 +385,7 @@ const ExerciseDisplay = (props: {
 				{props.exercise.numSets} ×
 			</Text>
 			<Text style={{ flex: 1 }} fz="sm">
-				{props.exercise.name}
+				{exerciseDetails?.name}
 			</Text>
 			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>

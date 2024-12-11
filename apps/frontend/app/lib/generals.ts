@@ -3,12 +3,14 @@ import {
 	createQueryKeys,
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
+import type { MantineColor } from "@mantine/core";
 import {
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
 	MetadataPartialDetailsDocument,
 	SetLot,
+	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange, isString } from "@ryot/ts-utils";
@@ -297,6 +299,11 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
+export const selectRandomElement = <T>(array: T[], input: string): T => {
+	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
+	return array[(getStringAsciiValue(input) + array.length) % array.length];
+};
+
 export const getMetadataIcon = (lot: MediaLot) =>
 	match(lot)
 		.with(MediaLot.Book, () => IconBook)
@@ -353,8 +360,14 @@ const mediaQueryKeys = createQueryKeys("media", {
 	metadataGroupDetails: (metadataGroupId: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
+	userMetadataGroupDetails: (metadataGroupId: string) => ({
+		queryKey: ["userMetadataGroupDetails", metadataGroupId],
+	}),
 	personDetails: (personId: string) => ({
 		queryKey: ["personDetails", personId],
+	}),
+	userPersonDetails: (personId: string) => ({
+		queryKey: ["userPersonDetails", personId],
 	}),
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
@@ -392,16 +405,20 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	coreDetails: () => ({
 		queryKey: ["coreDetails"],
 	}),
-	dailyUserActivities: (startDate?: string, endDate?: string) => ({
-		queryKey: ["dailyUserActivities", startDate, endDate],
+});
+
+const analyticsQueryKeys = createQueryKeys("analytics", {
+	user: (input: UserAnalyticsQueryVariables) => ({
+		queryKey: ["user", input],
 	}),
 });
 
 export const queryFactory = mergeQueryKeys(
 	usersQueryKeys,
 	mediaQueryKeys,
-	collectionQueryKeys,
 	fitnessQueryKeys,
+	analyticsQueryKeys,
+	collectionQueryKeys,
 	miscellaneousQueryKeys,
 );
 
@@ -451,7 +468,34 @@ export const refreshUserMetadataDetails = (metadataId: string) =>
 		});
 	}, 1500);
 
+export const convertUtcHourToLocalHour = (
+	utcHour: number,
+	userTimezone?: string,
+) => {
+	const targetTimezone = userTimezone || dayjs.tz.guess();
+	const utcDate = dayjs.utc().hour(utcHour).minute(0).second(0);
+	const localDate = utcDate.tz(targetTimezone);
+	return localDate.hour();
+};
+
 export const getExerciseDetailsPath = (exerciseId: string) =>
 	$path("/fitness/exercises/item/:id", {
 		id: encodeURIComponent(exerciseId),
 	});
+
+type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
+
+export const MediaColors: EntityColor = {
+	ANIME: "blue",
+	AUDIO_BOOK: "orange",
+	BOOK: "lime",
+	MANGA: "purple",
+	MOVIE: "cyan",
+	PODCAST: "yellow",
+	SHOW: "red",
+	VISUAL_NOVEL: "pink",
+	VIDEO_GAME: "teal",
+	WORKOUT: "violet",
+	REVIEW: "green.5",
+	USER_MEASUREMENT: "indigo",
+};

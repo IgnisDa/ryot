@@ -43,6 +43,11 @@ export const humanizeDuration = (
 	return humanizer.humanize(duration, options);
 };
 
+export const formatQuantityWithCompactNotation = (value: number) =>
+	new Intl.NumberFormat("en-US", {
+		notation: "compact",
+	}).format(value);
+
 /**
  * Format a `Date` into a Rust `NaiveDate`
  */

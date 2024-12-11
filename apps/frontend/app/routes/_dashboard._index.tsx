@@ -1,46 +1,34 @@
-import { BarChart } from "@mantine/charts";
 import {
 	Alert,
 	Box,
 	Center,
 	Container,
 	Flex,
-	LoadingOverlay,
-	type MantineColor,
-	Paper,
 	RingProgress,
-	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { useInViewport } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
-	DailyUserActivitiesDocument,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
-	LatestUserSummaryDocument,
 	MediaLot,
+	UserAnalyticsDocument,
 	type UserPreferences,
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	changeCase,
-	formatDateToNaiveDate,
+	formatQuantityWithCompactNotation,
 	humanizeDuration,
-	isBoolean,
 	isNumber,
-	mapValues,
-	pickBy,
-	snakeCase,
 } from "@ryot/ts-utils";
 import {
 	IconBarbell,
@@ -49,9 +37,8 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
-import { Fragment, type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode } from "react";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -61,15 +48,7 @@ import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import { MetadataDisplayItem } from "~/components/media";
-import {
-	TimeSpan,
-	clientGqlService,
-	dayjsLib,
-	getDateFromTimeSpan,
-	getLot,
-	getMetadataIcon,
-	queryFactory,
-} from "~/lib/generals";
+import { MediaColors, dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import {
 	useCoreDetails,
 	useGetMantineColors,
@@ -117,7 +96,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		{ collectionContents: inProgressCollectionContents },
 		userRecommendations,
 		{ userUpcomingCalendarEvents },
-		{ latestUserSummary },
+		{ userAnalytics },
 	] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
@@ -132,14 +111,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 		),
-		serverGqlService.authenticatedRequest(
-			request,
-			LatestUserSummaryDocument,
-			undefined,
-		),
+		serverGqlService.authenticatedRequest(request, UserAnalyticsDocument, {
+			input: {
+				dateRange: {},
+				groupBy: DailyUserActivitiesResponseGroupedBy.Millennium,
+			},
+		}),
 	]);
 	return {
-		latestUserSummary,
+		userAnalytics,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
 		userRecommendations,
@@ -150,30 +130,13 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
-type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
-
-const MediaColors: EntityColor = {
-	ANIME: "blue",
-	AUDIO_BOOK: "orange",
-	BOOK: "lime",
-	MANGA: "purple",
-	MOVIE: "cyan",
-	PODCAST: "yellow",
-	SHOW: "red",
-	VISUAL_NOVEL: "pink",
-	VIDEO_GAME: "teal",
-	WORKOUT: "violet",
-	MEASUREMENT: "indigo",
-	REVIEW: "green.5",
-};
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
-	const latestUserSummary = loaderData.latestUserSummary;
+	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 
@@ -235,7 +198,7 @@ export default function Page() {
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
-								{coreDetails.isPro ? (
+								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
 										{loaderData.userRecommendations.map((lm) => (
 											<MetadataDisplayItem key={lm} metadataId={lm} />
@@ -246,241 +209,238 @@ export default function Page() {
 								)}
 							</Section>
 						))
-						.with([DashboardElementLot.Activity, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<Title>Activity</Title>
-								<ActivitySection />
-							</Section>
-						))
-						.with([DashboardElementLot.Summary, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<Title>Summary</Title>
-								<SimpleGrid
-									cols={{ base: 1, sm: 2, md: 3 }}
-									style={{ alignItems: "center" }}
-									spacing="xs"
-								>
-									<DisplayStatForMediaType
-										lot={MediaLot.Movie}
-										data={[
-											{
-												label: "Movies",
-												value: latestUserSummary.movieCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalMovieDuration,
-												type: "duration",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.Show}
-										data={[
-											{
-												label: "Show episodes",
-												value: latestUserSummary.showCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalShowDuration,
-												type: "duration",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.VideoGame}
-										data={[
-											{
-												label: "Video games",
-												value: latestUserSummary.videoGameCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalVideoGameDuration,
-												type: "duration",
-												hideIfZero: true,
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.VisualNovel}
-										data={[
-											{
-												label: "Visual Novels",
-												value: latestUserSummary.visualNovelCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalVisualNovelDuration,
-												type: "duration",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.AudioBook}
-										data={[
-											{
-												label: "Audio books",
-												value: latestUserSummary.audioBookCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalAudioBookDuration,
-												type: "duration",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.Book}
-										data={[
-											{
-												label: "Books",
-												value: latestUserSummary.bookCount,
-												type: "number",
-											},
-											{
-												label: "Pages",
-												value: latestUserSummary.totalBookPages,
-												type: "number",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.Podcast}
-										data={[
-											{
-												label: "Podcasts",
-												value: latestUserSummary.podcastCount,
-												type: "number",
-											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.totalPodcastDuration,
-												type: "duration",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.Manga}
-										data={[
-											{
-												label: "Manga",
-												value: latestUserSummary.mangaCount,
-												type: "number",
-											},
-										]}
-									/>
-									<DisplayStatForMediaType
-										lot={MediaLot.Anime}
-										data={[
-											{
-												label: "Anime",
-												value: latestUserSummary.animeCount,
-												type: "number",
-											},
-										]}
-									/>
-									{userPreferences.featuresEnabled.media.enabled ? (
-										<>
+						.with([DashboardElementLot.Summary, false], ([v, _]) =>
+							latestUserSummary ? (
+								<Section key={v} lot={v}>
+									<Title>Summary</Title>
+									<SimpleGrid
+										cols={{ base: 1, sm: 2, md: 3 }}
+										style={{ alignItems: "center" }}
+										spacing="xs"
+									>
+										<DisplayStatForMediaType
+											lot={MediaLot.Movie}
+											data={[
+												{
+													label: "Movies",
+													value: latestUserSummary.movieCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalMovieDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.Show}
+											data={[
+												{
+													label: "Show episodes",
+													value: latestUserSummary.showCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalShowDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.VideoGame}
+											data={[
+												{
+													label: "Video games",
+													value: latestUserSummary.videoGameCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalVideoGameDuration,
+													type: "duration",
+													hideIfZero: true,
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.VisualNovel}
+											data={[
+												{
+													label: "Visual Novels",
+													value: latestUserSummary.visualNovelCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalVisualNovelDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.AudioBook}
+											data={[
+												{
+													label: "Audio books",
+													value: latestUserSummary.audioBookCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalAudioBookDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.Book}
+											data={[
+												{
+													label: "Books",
+													value: latestUserSummary.bookCount,
+													type: "number",
+												},
+												{
+													label: "Pages",
+													value: latestUserSummary.totalBookPages,
+													type: "number",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.Podcast}
+											data={[
+												{
+													label: "Podcasts",
+													value: latestUserSummary.podcastCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalPodcastDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.Manga}
+											data={[
+												{
+													label: "Manga",
+													value: latestUserSummary.mangaCount,
+													type: "number",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
+											lot={MediaLot.Anime}
+											data={[
+												{
+													label: "Anime",
+													value: latestUserSummary.animeCount,
+													type: "number",
+												},
+											]}
+										/>
+										{userPreferences.featuresEnabled.media.enabled ? (
+											<>
+												<ActualDisplayStat
+													icon={<IconServer />}
+													lot="Metadata stats"
+													color={theme.colors.grape[8]}
+													data={[
+														{
+															label: "Media",
+															value: latestUserSummary.totalMetadataCount,
+															type: "number",
+														},
+														{
+															label: "Reviews",
+															value: latestUserSummary.totalMetadataReviewCount,
+															type: "number",
+															hideIfZero: true,
+														},
+													]}
+												/>
+												{userPreferences.featuresEnabled.media.people ? (
+													<UnstyledLink
+														to={$path("/media/people/:action", {
+															action: "list",
+														})}
+													>
+														<ActualDisplayStat
+															icon={<IconFriends />}
+															lot="People stats"
+															color={theme.colors.red[9]}
+															data={[
+																{
+																	label: "People Reviewed",
+																	value:
+																		latestUserSummary.totalPersonReviewCount,
+																	type: "number",
+																	hideIfZero: true,
+																},
+															]}
+														/>
+													</UnstyledLink>
+												) : null}
+											</>
+										) : null}
+										{userPreferences.featuresEnabled.fitness.enabled ? (
+											<UnstyledLink
+												to={$path("/fitness/:entity/list", {
+													entity: "workouts",
+												})}
+											>
+												<ActualDisplayStat
+													icon={<IconBarbell stroke={1.3} />}
+													lot="Workouts"
+													color={theme.colors.teal[2]}
+													data={[
+														{
+															label: "Workouts",
+															value: latestUserSummary.workoutCount,
+															type: "number",
+														},
+														{
+															label: "Runtime",
+															value: latestUserSummary.totalWorkoutDuration,
+															type: "duration",
+														},
+														{
+															label: "Runtime",
+															value: displayWeightWithUnit(
+																unitSystem,
+																latestUserSummary.totalWorkoutWeight,
+																true,
+															),
+															type: "string",
+														},
+													]}
+												/>
+											</UnstyledLink>
+										) : null}
+										{userPreferences.featuresEnabled.fitness.enabled ? (
 											<ActualDisplayStat
-												icon={<IconServer />}
-												lot="Metadata stats"
-												color={theme.colors.grape[8]}
+												icon={<IconScaleOutline stroke={1.3} />}
+												lot="Fitness"
+												color={theme.colors.yellow[5]}
 												data={[
 													{
-														label: "Media",
-														value: latestUserSummary.totalMetadataCount,
-														type: "number",
-													},
-													{
-														label: "Reviews",
-														value: latestUserSummary.totalMetadataReviewCount,
+														label: "Measurements",
+														value: latestUserSummary.userMeasurementCount,
 														type: "number",
 														hideIfZero: true,
 													},
 												]}
 											/>
-											{userPreferences.featuresEnabled.media.people ? (
-												<UnstyledLink
-													to={$path("/media/people/:action", {
-														action: "list",
-													})}
-												>
-													<ActualDisplayStat
-														icon={<IconFriends />}
-														lot="People stats"
-														color={theme.colors.red[9]}
-														data={[
-															{
-																label: "People Reviewed",
-																value: latestUserSummary.totalPersonReviewCount,
-																type: "number",
-																hideIfZero: true,
-															},
-														]}
-													/>
-												</UnstyledLink>
-											) : null}
-										</>
-									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled ? (
-										<UnstyledLink
-											to={$path("/fitness/:entity/list", {
-												entity: "workouts",
-											})}
-										>
-											<ActualDisplayStat
-												icon={<IconBarbell stroke={1.3} />}
-												lot="Workouts"
-												color={theme.colors.teal[2]}
-												data={[
-													{
-														label: "Workouts",
-														value: latestUserSummary.workoutCount,
-														type: "number",
-													},
-													{
-														label: "Runtime",
-														value: latestUserSummary.totalWorkoutDuration,
-														type: "duration",
-													},
-													{
-														label: "Runtime",
-														value: displayWeightWithUnit(
-															unitSystem,
-															latestUserSummary.totalWorkoutWeight,
-															true,
-														),
-														type: "string",
-													},
-												]}
-											/>
-										</UnstyledLink>
-									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled ? (
-										<ActualDisplayStat
-											icon={<IconScaleOutline stroke={1.3} />}
-											lot="Fitness"
-											color={theme.colors.yellow[5]}
-											data={[
-												{
-													label: "Measurements",
-													value: latestUserSummary.measurementCount,
-													type: "number",
-													hideIfZero: true,
-												},
-											]}
-										/>
-									) : null}
-								</SimpleGrid>
-							</Section>
-						))
+										) : null}
+									</SimpleGrid>
+								</Section>
+							) : null,
+						)
 						.otherwise(() => undefined),
 				)}
 			</Stack>
@@ -564,9 +524,7 @@ const ActualDisplayStat = (props: {
 											),
 										)
 										.with("number", () =>
-											new Intl.NumberFormat("en-US", {
-												notation: "compact",
-											}).format(Number(d.value)),
+											formatQuantityWithCompactNotation(Number(d.value)),
 										)
 										.exhaustive()}
 								</Text>
@@ -635,149 +593,5 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
-	);
-};
-
-const ActivitySection = () => {
-	const { ref, inViewport } = useInViewport();
-	const [timeSpan, setTimeSpan] = useLocalStorage(
-		"ActivitySectionTimeSpan",
-		TimeSpan.Last7Days,
-	);
-	const { startDate, endDate } = useMemo(() => {
-		const now = dayjsLib();
-		const end = now.endOf("day");
-		const startDate = getDateFromTimeSpan(timeSpan);
-		return {
-			startDate: startDate
-				? formatDateToNaiveDate(startDate.toDate())
-				: undefined,
-			endDate: formatDateToNaiveDate(end.toDate()),
-		};
-	}, [timeSpan]);
-	const { data: dailyUserActivitiesData } = useQuery({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
-			.queryKey,
-		enabled: inViewport,
-		queryFn: async () => {
-			const { dailyUserActivities } = await clientGqlService.request(
-				DailyUserActivitiesDocument,
-				{ input: { startDate, endDate } },
-			);
-			const trackSeries = mapValues(MediaColors, () => false);
-			const data = dailyUserActivities.items.map((d) => {
-				const data = Object.entries(d)
-					.filter(([_, value]) => value !== 0)
-					.map(([key, value]) => ({
-						[snakeCase(
-							key.replace("Count", "").replace("total", ""),
-						).toUpperCase()]: value,
-					}))
-					.reduce(Object.assign, {});
-				for (const key in data)
-					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
-				return data;
-			});
-			const series = pickBy(trackSeries);
-			return {
-				data,
-				series,
-				groupedBy: dailyUserActivities.groupedBy,
-				totalCount: dailyUserActivities.totalCount,
-				totalDuration: dailyUserActivities.totalDuration,
-			};
-		},
-	});
-	const items = dailyUserActivitiesData?.totalCount || 0;
-
-	return (
-		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
-			<LoadingOverlay
-				visible={!dailyUserActivitiesData}
-				zIndex={1000}
-				overlayProps={{ radius: "md", blur: 3 }}
-			/>
-			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
-				<DisplayStat
-					label="Total"
-					value={`${new Intl.NumberFormat("en-US", {
-						notation: "compact",
-					}).format(Number(items))} items`}
-				/>
-				<DisplayStat
-					label="Duration"
-					value={
-						dailyUserActivitiesData
-							? humanizeDuration(
-									dayjsLib
-										.duration(dailyUserActivitiesData.totalDuration, "minutes")
-										.asMilliseconds(),
-									{ largest: 2 },
-								)
-							: "N/A"
-					}
-				/>
-				<Select
-					label="Time span"
-					defaultValue={timeSpan}
-					labelProps={{ c: "dimmed" }}
-					data={Object.values(TimeSpan)}
-					onChange={(v) => {
-						if (v) setTimeSpan(v as TimeSpan);
-					}}
-				/>
-			</SimpleGrid>
-			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
-				<BarChart
-					h="100%"
-					ml={-15}
-					withLegend
-					tickLine="x"
-					dataKey="DAY"
-					type="stacked"
-					data={dailyUserActivitiesData.data}
-					legendProps={{ verticalAlign: "bottom" }}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
-					xAxisProps={{
-						tickFormatter: (v) =>
-							dayjsLib(v).format(
-								match(dailyUserActivitiesData.groupedBy)
-									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
-									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
-									.with(
-										DailyUserActivitiesResponseGroupedBy.Year,
-										DailyUserActivitiesResponseGroupedBy.Millennium,
-										() => "YYYY",
-									)
-									.exhaustive(),
-							),
-					}}
-				/>
-			) : (
-				<Paper withBorder h="100%" w="100%" display="flex">
-					<Text m="auto" ta="center">
-						No activity found in the selected period
-					</Text>
-				</Paper>
-			)}
-		</Stack>
-	);
-};
-
-const DisplayStat = (props: {
-	label: string;
-	value: string | number;
-}) => {
-	return (
-		<Stack gap={4}>
-			<Text c="dimmed">{props.label}</Text>
-			<Text size="xl" fw="bolder">
-				{props.value}
-			</Text>
-		</Stack>
 	);
 };

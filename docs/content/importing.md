@@ -19,7 +19,7 @@ You can see the reports under "Import History" of the imports page.
 
 You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
 
-!!! warning
+!!! info
 
       This will only import media that are already finished. Setup an
       [integration](./integrations.md#jellyfin) if you want to import media in progress.
@@ -31,10 +31,10 @@ whose data you want to import.
 
 You can import your watched movies and shows from [Plex](https://plex.tv).
 
-!!! warning
+!!! info
 
       This will only import media that are already finished. Setup an
-      [integration](./integrations.md#plex) if you want to import media in progress.
+      [integration](./integrations.md#plex-sink) if you want to import media in progress.
 
 ### Steps
 
@@ -67,7 +67,7 @@ their ratings, history, comments and lists. A few points to note.
 The Audiobookshelf importer supports importing all media that have a valid Audible ID or
 ITunes ID or ISBN.
 
-!!! warning
+!!! info
 
     - This will only import media that are already finished. Setup an
       [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
@@ -166,9 +166,8 @@ translates "Read Status" in the following manner:
 ## Strong App
 
 You can import your completed workouts from [Strong](https://www.strong.app/) app. If an
-exercise does not exist in your instance, it will be created with a unique identifier. You
-can later use the "Edit Exercise" or "Merge Exercise" actions to map the exercise to an
-existing one.
+exercise does not exist in your instance, it will be created. You can later use the "Edit
+Exercise" or "Merge Exercise" actions to map the exercise to an existing one.
 
 ### Steps
 

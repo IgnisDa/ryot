@@ -2,26 +2,27 @@ query UserMetadataDetails($metadataId: String!) {
 	userMetadataDetails(metadataId: $metadataId) {
 		mediaReason
 		hasInteracted
-		collections {
-			...CollectionPart
-		}
-		inProgress {
-			...SeenPart
+		averageRating
+		seenByAllCount
+		seenByUserCount
+		recentlyConsumed
+		reviews {
+			...ReviewItemPart
 		}
 		history {
 			...SeenPart
 		}
-		averageRating
-		reviews {
-			...ReviewItemPart
-		}
-		seenByAllCount
-		seenByUserCount
 		nextEntry {
 			season
 			volume
 			episode
 			chapter
+		}
+		inProgress {
+			...SeenPart
+		}
+		collections {
+			...CollectionPart
 		}
 		showProgress {
 			timesSeen

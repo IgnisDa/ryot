@@ -1,6 +1,5 @@
 use application_utils::get_base_http_client;
 use async_graphql::Result;
-use common_models::StringIdObject;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
@@ -9,46 +8,7 @@ use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
-use sea_orm::prelude::DateTimeUtc;
-use serde::{Deserialize, Serialize};
-use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
-
-#[serde_as]
-#[derive(Debug, Deserialize, Serialize)]
-struct PlexMetadataItem {
-    title: String,
-    #[serde(rename = "type")]
-    item_type: String,
-    #[serde(rename = "ratingKey")]
-    rating_key: Option<String>,
-    key: String,
-    #[serde(rename = "Guid")]
-    guid: Option<Vec<StringIdObject>>,
-    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
-    #[serde(rename = "lastViewedAt")]
-    last_viewed_at: Option<DateTimeUtc>,
-    index: Option<i32>,
-    #[serde(rename = "parentIndex")]
-    parent_index: Option<i32>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct PlexLibrary {
-    pub directory: Vec<PlexMetadataItem>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct PlexMetadata {
-    pub metadata: Vec<PlexMetadataItem>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct PlexMediaResponse<T> {
-    pub media_container: T,
-}
+use specific_models::plex as plex_models;
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(Some(vec![
@@ -62,7 +22,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .get(format!("{}/library/sections", input.api_url))
         .send()
         .await?
-        .json::<PlexMediaResponse<PlexLibrary>>()
+        .json::<plex_models::PlexMediaResponse<plex_models::PlexLibrary>>()
         .await?;
 
     let mut success_items = vec![];
@@ -87,12 +47,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .query(&serde_json::json!({ "includeGuids": "1" }))
             .send()
             .await?
-            .json::<PlexMediaResponse<PlexMetadata>>()
+            .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
             .await?;
-        for item in items.media_container.metadata {
+        for (idx, item) in items.media_container.metadata.into_iter().enumerate() {
             let Some(_lv) = item.last_viewed_at else {
                 continue;
             };
+            ryot_log!(debug, "Processing item {}", idx + 1);
             let gu_ids = item.guid.unwrap_or_default();
             let Some(tmdb_id) = gu_ids
                 .iter()
@@ -132,7 +93,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         ))
                         .send()
                         .await?
-                        .json::<PlexMediaResponse<PlexMetadata>>()
+                        .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
                         .await?;
                     let mut item = ImportOrExportMetadataItem {
                         lot,

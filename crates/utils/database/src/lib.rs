@@ -16,8 +16,8 @@ use database_models::{
     functions::associate_user_with_entity,
     metadata,
     prelude::{
-        AccessLink, Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen,
-        User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
+        AccessLink, Collection, CollectionToEntity, DailyUserActivity, Exercise, Metadata, Review,
+        Seen, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
@@ -96,8 +96,8 @@ pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) 
     Ok(())
 }
 
-pub async fn pro_instance_guard(is_pro: bool) -> Result<()> {
-    if !is_pro {
+pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Result<()> {
+    if !is_server_key_validated {
         return Err(Error::new(
             "This feature is only available on the Pro version",
         ));
@@ -112,10 +112,10 @@ pub async fn user_measurements_list(
 ) -> Result<Vec<user_measurement::Model>> {
     let resp = UserMeasurement::find()
         .apply_if(input.start_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.lte(v))
+            query.filter(user_measurement::Column::Timestamp.gte(v))
         })
         .apply_if(input.end_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.gte(v))
+            query.filter(user_measurement::Column::Timestamp.lte(v))
         })
         .filter(user_measurement::Column::UserId.eq(user_id))
         .order_by_asc(user_measurement::Column::Timestamp)
@@ -126,7 +126,7 @@ pub async fn user_measurements_list(
 
 type CteColAlias = collection_to_entity::Column;
 
-fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
+pub fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
     match entity_lot {
         EntityLot::Metadata => CteColAlias::MetadataId,
         EntityLot::Person => CteColAlias::PersonId,
@@ -270,74 +270,6 @@ where
     })
 }
 
-pub async fn add_entity_to_collection(
-    user_id: &String,
-    input: ChangeCollectionToEntityInput,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let collection = Collection::find()
-        .left_join(UserToEntity)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    let mut updated: collection::ActiveModel = collection.into();
-    updated.last_updated_on = ActiveValue::Set(Utc::now());
-    let collection = updated.update(&ss.db).await.unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
-    let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
-        .one(&ss.db)
-        .await?
-    {
-        let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(&ss.db).await?
-    } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            information: ActiveValue::Set(input.information),
-            ..Default::default()
-        };
-        let id = input.entity_id.clone();
-        match input.entity_lot {
-            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-            EntityLot::WorkoutTemplate => {
-                created_collection.workout_template_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                unreachable!()
-            }
-        }
-        let created = created_collection.insert(&ss.db).await?;
-        ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match input.entity_lot {
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => {}
-            _ => {
-                associate_user_with_entity(&ss.db, user_id, input.entity_id, input.entity_lot)
-                    .await
-                    .ok();
-            }
-        }
-        created
-    };
-    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
-        .await?;
-    Ok(true)
-}
-
 pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
     verify(token, jwt_secret).map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }
@@ -394,7 +326,7 @@ pub async fn remove_entity_from_collection(
         .exec(db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot).await?;
+        associate_user_with_entity(db, user_id, &input.entity_id, input.entity_lot).await?;
     }
     Ok(StringIdObject { id: collect.id })
 }
@@ -597,15 +529,15 @@ pub async fn calculate_user_activities_and_summary(
             .order_by_desc(daily_user_activity::Column::Date)
             .one(db)
             .await?
-            .map(|i| i.date)
+            .and_then(|i| i.date)
             .unwrap_or_default(),
     };
     let mut activities = HashMap::new();
 
     fn get_activity_count<'a>(
-        activities: &'a mut HashMap<Date, daily_user_activity::Model>,
+        activities: &'a mut HashMap<Option<Date>, daily_user_activity::Model>,
         user_id: &'a String,
-        date: Date,
+        date: Option<Date>,
         entity_id: String,
         entity_lot: EntityLot,
         metadata_lot: Option<MediaLot>,
@@ -620,7 +552,11 @@ pub async fn calculate_user_activities_and_summary(
                 ..Default::default()
             });
         existing.entity_ids.push(entity_id.clone());
-        let hour = timestamp.hour();
+        let hour = if timestamp.minute() < 30 {
+            timestamp.hour()
+        } else {
+            timestamp.hour() + 1
+        };
         let maybe_idx = existing.hour_records.iter().position(|hr| hr.hour == hour);
         if let Some(idx) = maybe_idx {
             existing.hour_records.get_mut(idx).unwrap().entities.push(
@@ -677,12 +613,10 @@ pub async fn calculate_user_activities_and_summary(
         .await?;
 
     while let Some(seen) = seen_stream.try_next().await? {
-        let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
-        let date = seen.finished_on.unwrap_or(default_date);
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            seen.finished_on,
             seen.seen_id,
             EntityLot::Metadata,
             Some(seen.metadata_lot),
@@ -741,6 +675,12 @@ pub async fn calculate_user_activities_and_summary(
         };
     }
 
+    let exercises = Exercise::find().all(db).await.unwrap();
+    let user_exercises = UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(user_to_entity::Column::ExerciseId.is_not_null())
+        .all(db)
+        .await?;
     let mut workout_stream = Workout::find()
         .filter(workout::Column::UserId.eq(user_id))
         .filter(workout::Column::EndTime.gte(start_from))
@@ -751,7 +691,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             workout.id,
             EntityLot::Workout,
             None,
@@ -764,7 +704,24 @@ pub async fn calculate_user_activities_and_summary(
         activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
         activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
         activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
-        activity.workout_rest_time += workout_total.rest_time as i32;
+        activity.workout_rest_time += (workout_total.rest_time as i32) / 60;
+        for exercise in workout.information.exercises {
+            let db_ex = exercises.iter().find(|e| e.id == exercise.id).unwrap();
+            if user_exercises
+                .iter()
+                .find(|e| e.exercise_id == Some(db_ex.id.clone()))
+                .unwrap()
+                .exercise_extra_information
+                .as_ref()
+                .map(|d| d.settings.exclude_from_analytics)
+                .unwrap_or_default()
+            {
+                continue;
+            }
+            activity.workout_exercises.push(db_ex.name.clone());
+            activity.workout_equipments.extend(db_ex.equipment);
+            activity.workout_muscles.extend(db_ex.muscles.clone());
+        }
     }
 
     let mut measurement_stream = UserMeasurement::find()
@@ -777,7 +734,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             measurement.timestamp.to_string(),
             EntityLot::UserMeasurement,
             None,
@@ -796,7 +753,7 @@ pub async fn calculate_user_activities_and_summary(
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            date,
+            Some(date),
             review.id,
             EntityLot::Review,
             None,
@@ -819,8 +776,10 @@ pub async fn calculate_user_activities_and_summary(
             .one(db)
             .await?
         {
+            ryot_log!(debug, "Deleting activity = {:?}", activity.date);
             entity.delete(db).await?;
         }
+        ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
             + activity.metadata_group_review_count
@@ -848,6 +807,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.video_game_duration;
         activity.hour_records.sort_by_key(|hr| hr.hour);
         let mut model: daily_user_activity::ActiveModel = activity.clone().into();
+        model.id = ActiveValue::NotSet;
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);
@@ -871,11 +831,19 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     .unwrap();
 }
 
-pub async fn deploy_job_to_re_evaluate_user_workouts(
+pub async fn schedule_user_for_workout_revision(
     user_id: &String,
     ss: &Arc<SupportingService>,
-) {
-    ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
-        .await
-        .unwrap();
+) -> Result<()> {
+    let user = User::find_by_id(user_id)
+        .one(&ss.db)
+        .await?
+        .ok_or_else(|| Error::new("User with the given ID does not exist"))?;
+    let mut extra_information = user.extra_information.clone().unwrap_or_default();
+    extra_information.scheduled_for_workout_revision = true;
+    let mut user: user::ActiveModel = user.into();
+    user.extra_information = ActiveValue::Set(Some(extra_information));
+    user.update(&ss.db).await?;
+    ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
+    Ok(())
 }

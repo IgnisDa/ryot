@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { workspace = true }
 application-utils = { path = "../application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
