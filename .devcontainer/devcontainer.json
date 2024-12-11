@@ -1,8 +1,0 @@
-{
-	"name": "ryot",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "ryot-app",
-	"forwardPorts": [],
-	"workspaceFolder": "/workspaces/ryot",
-	"remoteUser": "archlinux"
-}
