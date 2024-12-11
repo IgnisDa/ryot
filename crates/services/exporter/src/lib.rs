@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use common_models::ExportJob;
 use common_utils::{IsFeatureEnabled, TEMP_DIR};
 use database_models::{
+    exercise,
     prelude::{
         Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout, WorkoutTemplate,
     },
@@ -372,19 +373,12 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let exercises = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+        let exercises = Exercise::find()
+            .filter(exercise::Column::CreatedByUserId.eq(user_id))
             .all(&self.0.db)
             .await
             .unwrap();
-        for rm in exercises.iter() {
-            let e = rm
-                .find_related(Exercise)
-                .one(&self.0.db)
-                .await
-                .unwrap()
-                .unwrap();
+        for e in exercises {
             let reviews = item_reviews(user_id, &e.id, EntityLot::Exercise, false, &self.0)
                 .await?
                 .into_iter()
@@ -397,7 +391,7 @@ impl ExporterService {
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportExerciseItem {
-                name: e.id,
+                name: e.name,
                 collections,
                 reviews,
             };
