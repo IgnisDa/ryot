@@ -26,6 +26,7 @@ import {
 	Select,
 	SimpleGrid,
 	Stack,
+	Table,
 	Text,
 	TextInput,
 	Textarea,
@@ -1613,12 +1614,45 @@ const SetDisplay = (props: {
 	return (
 		<>
 			<Modal
-				centered
 				withCloseButton={false}
 				opened={isRpeModalOpen}
 				onClose={() => setIsRpeModalOpen(false)}
 			>
-				RPE modal
+				<Stack gap="xs">
+					<Text size="xs">
+						Your rate of perceived exertion (RPE) refers to how hard you think
+						you're pushing yourself during exercise. It's subjective, which
+						means that you decide how hard you feel you're working during
+						physical activity.
+						<Anchor
+							ml={2}
+							size="xs"
+							target="_blank"
+							href="https://my.clevelandclinic.org/health/articles/17450-rated-perceived-exertion-rpe-scale"
+						>
+							Source
+						</Anchor>
+					</Text>
+					<Table
+						p={0}
+						fz="xs"
+						withRowBorders
+						withTableBorder
+						withColumnBorders
+						data={{
+							head: ["Rating", "Perceived Exertion Level"],
+							body: [
+								["0", "No exertion (at rest)"],
+								["1", "Very light"],
+								["2 to 3", "Light"],
+								["4 to 5", "Moderate (somewhat hard)"],
+								["6 to 7", "High (vigorous)"],
+								["8 to 9", "Very hard"],
+								["10", "Maximum effort (highest possible)"],
+							],
+						}}
+					/>
+				</Stack>
 			</Modal>
 			<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
 				<Flex justify="space-between" align="center" py={4}>
