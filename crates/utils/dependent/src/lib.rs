@@ -2116,6 +2116,8 @@ where
     let source_result = import.clone();
     let total = import.completed.len();
 
+    let mut need_to_schedule_user_for_workout_revision = false;
+
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
             debug,
@@ -2315,6 +2317,7 @@ where
                 }
             }
             ImportCompletedItem::Workout(workout) => {
+                need_to_schedule_user_for_workout_revision = true;
                 if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
@@ -2364,6 +2367,10 @@ where
             Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
         )
         .await?;
+    }
+
+    if need_to_schedule_user_for_workout_revision {
+        schedule_user_for_workout_revision(user_id, ss).await?;
     }
 
     let details = ImportResultResponse {
