@@ -76,6 +76,7 @@ import {
 	IconDroplet,
 	IconDropletFilled,
 	IconDropletHalf2Filled,
+	IconHeartSpark,
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
@@ -1578,6 +1579,7 @@ const SetDisplay = (props: {
 	invariant(exercise);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
+	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
@@ -1609,341 +1611,362 @@ const SetDisplay = (props: {
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 
 	return (
-		<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
-			<Flex justify="space-between" align="center" py={4}>
-				<Menu>
-					<Menu.Target>
-						<UnstyledButton w="5%">
-							<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
-								{match(set.lot)
-									.with(SetLot.Normal, () => props.setIdx + 1)
-									.otherwise(() => set.lot.at(0))}
-							</Text>
-						</UnstyledButton>
-					</Menu.Target>
-					<Menu.Dropdown px={0}>
-						<Menu.Label>Set type</Menu.Label>
-						{Object.values(SetLot).map((lot) => (
+		<>
+			<Modal
+				centered
+				withCloseButton={false}
+				opened={isRpeModalOpen}
+				onClose={() => setIsRpeModalOpen(false)}
+			>
+				RPE modal
+			</Modal>
+			<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
+				<Flex justify="space-between" align="center" py={4}>
+					<Menu>
+						<Menu.Target>
+							<UnstyledButton w="5%">
+								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
+									{match(set.lot)
+										.with(SetLot.Normal, () => props.setIdx + 1)
+										.otherwise(() => set.lot.at(0))}
+								</Text>
+							</UnstyledButton>
+						</Menu.Target>
+						<Menu.Dropdown px={0}>
+							<Menu.Label>Set type</Menu.Label>
+							{Object.values(SetLot).map((lot) => (
+								<Menu.Item
+									key={lot}
+									disabled={set.lot === lot}
+									fz="xs"
+									leftSection={
+										<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
+											{lot.at(0)}
+										</Text>
+									}
+									onClick={async () => {
+										const restTime = await getRestTimerForSet(
+											lot,
+											currentWorkout.exercises[props.exerciseIdx].exerciseId,
+											userPreferences.fitness.exercises.setRestTimers,
+										);
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												const currentSet =
+													draft.exercises[props.exerciseIdx].sets[props.setIdx];
+												currentSet.lot = lot;
+												if (!hasRestTimerOfThisSetElapsed && restTime)
+													currentSet.restTimer = { duration: restTime };
+											}),
+										);
+									}}
+								>
+									{startCase(snakeCase(lot))}
+								</Menu.Item>
+							))}
+							<Menu.Divider />
+							<Menu.Label>Actions</Menu.Label>
 							<Menu.Item
-								key={lot}
-								disabled={set.lot === lot}
 								fz="xs"
-								leftSection={
-									<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
-										{lot.at(0)}
-									</Text>
-								}
-								onClick={async () => {
-									const restTime = await getRestTimerForSet(
-										lot,
-										currentWorkout.exercises[props.exerciseIdx].exerciseId,
-										userPreferences.fitness.exercises.setRestTimers,
-									);
+								leftSection={<IconClipboard size={14} />}
+								onClick={() => {
+									if (!coreDetails.isServerKeyValidated) {
+										notifications.show({
+											color: "red",
+											message: PRO_REQUIRED_MESSAGE,
+										});
+										return;
+									}
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											const currentSet =
-												draft.exercises[props.exerciseIdx].sets[props.setIdx];
-											currentSet.lot = lot;
-											if (!hasRestTimerOfThisSetElapsed && restTime)
-												currentSet.restTimer = { duration: restTime };
+											const hasNote = !!set.note;
+											let currentSetNote =
+												draft.exercises[props.exerciseIdx].sets[props.setIdx]
+													.note;
+											if (!hasNote) currentSetNote = true;
+											else currentSetNote = undefined;
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].note = currentSetNote;
 										}),
 									);
 								}}
 							>
-								{startCase(snakeCase(lot))}
+								{!set.note ? "Add" : "Remove"} note
 							</Menu.Item>
-						))}
-						<Menu.Divider />
-						<Menu.Label>Actions</Menu.Label>
-						<Menu.Item
-							fz="xs"
-							leftSection={<IconClipboard size={14} />}
-							onClick={() => {
-								if (!coreDetails.isServerKeyValidated) {
-									notifications.show({
-										color: "red",
-										message: PRO_REQUIRED_MESSAGE,
-									});
-									return;
-								}
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const hasNote = !!set.note;
-										let currentSetNote =
-											draft.exercises[props.exerciseIdx].sets[props.setIdx]
-												.note;
-										if (!hasNote) currentSetNote = true;
-										else currentSetNote = undefined;
-										draft.exercises[props.exerciseIdx].sets[props.setIdx].note =
-											currentSetNote;
-									}),
-								);
-							}}
-						>
-							{!set.note ? "Add" : "Remove"} note
-						</Menu.Item>
-						<Menu.Item
-							fz="xs"
-							leftSection={<IconZzz size={14} />}
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const hasRestTimer = !!set.restTimer;
-										if (hasRestTimer)
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].restTimer = undefined;
-										else
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].restTimer = { duration: 60 };
-									}),
-								);
-							}}
-						>
-							{!set.restTimer ? "Add" : "Remove"} timer
-						</Menu.Item>
-						<Menu.Item
-							color="red"
-							fz="xs"
-							leftSection={<IconTrash size={14} />}
-							onClick={async () => {
-								const yes = await match(!!set.confirmedAt)
-									.with(true, async () => {
-										return confirmWrapper({
-											confirmation: "Are you sure you want to delete this set?",
-										});
-									})
-									.with(false, () => true)
-									.exhaustive();
-								if (yes)
+							<Menu.Item
+								fz="xs"
+								leftSection={<IconZzz size={14} />}
+								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											draft.exercises[props.exerciseIdx].sets.splice(
-												props.setIdx,
-												1,
-											);
+											const hasRestTimer = !!set.restTimer;
+											if (hasRestTimer)
+												draft.exercises[props.exerciseIdx].sets[
+													props.setIdx
+												].restTimer = undefined;
+											else
+												draft.exercises[props.exerciseIdx].sets[
+													props.setIdx
+												].restTimer = { duration: 60 };
 										}),
 									);
-							}}
-						>
-							Delete set
-						</Menu.Item>
-					</Menu.Dropdown>
-				</Menu>
-				<Box
-					w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
-					ta="center"
-				>
-					{exercise.alreadyDoneSets[props.setIdx] ? (
-						<Box
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const idxToTarget = set.confirmedAt
-											? props.setIdx + 1
-											: props.setIdx;
-										const setToTarget =
-											draft.exercises[props.exerciseIdx].sets[idxToTarget];
-										if (setToTarget)
-											setToTarget.statistic =
-												exercise.alreadyDoneSets[props.setIdx].statistic;
-									}),
-								);
-							}}
-							style={{ cursor: "pointer" }}
-						>
-							<DisplaySetStatistics
-								statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
-								lot={exercise.lot}
-								hideExtras
-								centerText
-							/>
-						</Box>
-					) : (
-						"—"
-					)}
-				</Box>
-				{props.durationCol ? (
-					<StatInput
-						exerciseIdx={props.exerciseIdx}
-						setIdx={props.setIdx}
-						stat="duration"
-						inputStep={0.1}
-					/>
-				) : null}
-				{props.distanceCol ? (
-					<StatInput
-						exerciseIdx={props.exerciseIdx}
-						setIdx={props.setIdx}
-						stat="distance"
-						inputStep={0.01}
-					/>
-				) : null}
-				{props.weightCol ? (
-					<StatInput
-						exerciseIdx={props.exerciseIdx}
-						setIdx={props.setIdx}
-						stat="weight"
-					/>
-				) : null}
-				{props.repsCol ? (
-					<StatInput
-						exerciseIdx={props.exerciseIdx}
-						setIdx={props.setIdx}
-						stat="reps"
-					/>
-				) : null}
-				<Group
-					w="10%"
-					justify="center"
-					style={isCreatingTemplate ? { display: "none" } : undefined}
-				>
-					<Transition
-						mounted
-						transition={{
-							in: {},
-							out: {},
-							transitionProperty: "all",
-						}}
-						duration={200}
-						timingFunction="ease-in-out"
+								}}
+							>
+								{!set.restTimer ? "Add" : "Remove"} timer
+							</Menu.Item>
+							<Menu.Item
+								fz="xs"
+								leftSection={<IconHeartSpark size={14} />}
+								onClick={() => setIsRpeModalOpen(true)}
+							>
+								Adjust RPE
+							</Menu.Item>
+							<Menu.Item
+								color="red"
+								fz="xs"
+								leftSection={<IconTrash size={14} />}
+								onClick={async () => {
+									const yes = await match(!!set.confirmedAt)
+										.with(true, async () => {
+											return confirmWrapper({
+												confirmation:
+													"Are you sure you want to delete this set?",
+											});
+										})
+										.with(false, () => true)
+										.exhaustive();
+									if (yes)
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].sets.splice(
+													props.setIdx,
+													1,
+												);
+											}),
+										);
+								}}
+							>
+								Delete set
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+					<Box
+						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
+						ta="center"
 					>
-						{(style) => (
-							<ActionIcon
-								variant={set.confirmedAt ? "filled" : "outline"}
-								style={style}
-								disabled={
-									!match(exercise.lot)
-										.with(
-											ExerciseLot.DistanceAndDuration,
-											() =>
-												isString(set.statistic.distance) &&
-												isString(set.statistic.duration),
-										)
-										.with(ExerciseLot.Duration, () =>
-											isString(set.statistic.duration),
-										)
-										.with(ExerciseLot.Reps, () => isString(set.statistic.reps))
-										.with(
-											ExerciseLot.RepsAndWeight,
-											() =>
-												isString(set.statistic.reps) &&
-												isString(set.statistic.weight),
-										)
-										.exhaustive()
-								}
-								color="green"
+						{exercise.alreadyDoneSets[props.setIdx] ? (
+							<Box
 								onClick={() => {
-									playCheckSound();
-									const newConfirmed = !set.confirmedAt;
-									if (
-										!newConfirmed &&
-										currentTimer?.triggeredBy?.exerciseIdentifier ===
-											exercise.identifier &&
-										currentTimer?.triggeredBy?.setIdx === props.setIdx
-									)
-										props.stopTimer();
-									if (set.restTimer && newConfirmed)
-										props.startTimer(set.restTimer.duration, {
-											exerciseIdentifier: exercise.identifier,
-											setIdx: props.setIdx,
-										});
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											const currentExercise =
-												draft.exercises[props.exerciseIdx];
-											currentExercise.sets[props.setIdx].confirmedAt =
-												newConfirmed ? dayjsLib().toISOString() : null;
-											currentExercise.scrollMarginRemoved = true;
-											if (newConfirmed) {
-												const nextSet = getNextSetInWorkout(
-													draft,
-													props.exerciseIdx,
-													props.setIdx,
-												);
-												focusOnExercise(nextSet.exerciseIdx);
-												if (nextSet.wasLastSet) {
-													currentExercise.isCollapsed = true;
-													currentExercise.isShowDetailsOpen = false;
-													const nextExercise =
-														draft.exercises[nextSet.exerciseIdx];
-													const nextExerciseHasDetailsToShow =
-														nextExercise &&
-														exerciseHasDetailsToShow(
-															exerciseDetails,
-															userExerciseDetails,
-														);
-													if (nextExerciseHasDetailsToShow) {
-														nextExercise.isCollapsed = false;
-														if (
-															userPreferences.fitness.logging
-																.showDetailsWhileEditing
-														)
-															nextExercise.isShowDetailsOpen = true;
+											const idxToTarget = set.confirmedAt
+												? props.setIdx + 1
+												: props.setIdx;
+											const setToTarget =
+												draft.exercises[props.exerciseIdx].sets[idxToTarget];
+											if (setToTarget)
+												setToTarget.statistic =
+													exercise.alreadyDoneSets[props.setIdx].statistic;
+										}),
+									);
+								}}
+								style={{ cursor: "pointer" }}
+							>
+								<DisplaySetStatistics
+									statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
+									lot={exercise.lot}
+									hideExtras
+									centerText
+								/>
+							</Box>
+						) : (
+							"—"
+						)}
+					</Box>
+					{props.durationCol ? (
+						<StatInput
+							exerciseIdx={props.exerciseIdx}
+							setIdx={props.setIdx}
+							stat="duration"
+							inputStep={0.1}
+						/>
+					) : null}
+					{props.distanceCol ? (
+						<StatInput
+							exerciseIdx={props.exerciseIdx}
+							setIdx={props.setIdx}
+							stat="distance"
+							inputStep={0.01}
+						/>
+					) : null}
+					{props.weightCol ? (
+						<StatInput
+							exerciseIdx={props.exerciseIdx}
+							setIdx={props.setIdx}
+							stat="weight"
+						/>
+					) : null}
+					{props.repsCol ? (
+						<StatInput
+							exerciseIdx={props.exerciseIdx}
+							setIdx={props.setIdx}
+							stat="reps"
+						/>
+					) : null}
+					<Group
+						w="10%"
+						justify="center"
+						style={isCreatingTemplate ? { display: "none" } : undefined}
+					>
+						<Transition
+							mounted
+							transition={{
+								in: {},
+								out: {},
+								transitionProperty: "all",
+							}}
+							duration={200}
+							timingFunction="ease-in-out"
+						>
+							{(style) => (
+								<ActionIcon
+									variant={set.confirmedAt ? "filled" : "outline"}
+									style={style}
+									disabled={
+										!match(exercise.lot)
+											.with(
+												ExerciseLot.DistanceAndDuration,
+												() =>
+													isString(set.statistic.distance) &&
+													isString(set.statistic.duration),
+											)
+											.with(ExerciseLot.Duration, () =>
+												isString(set.statistic.duration),
+											)
+											.with(ExerciseLot.Reps, () =>
+												isString(set.statistic.reps),
+											)
+											.with(
+												ExerciseLot.RepsAndWeight,
+												() =>
+													isString(set.statistic.reps) &&
+													isString(set.statistic.weight),
+											)
+											.exhaustive()
+									}
+									color="green"
+									onClick={() => {
+										playCheckSound();
+										const newConfirmed = !set.confirmedAt;
+										if (
+											!newConfirmed &&
+											currentTimer?.triggeredBy?.exerciseIdentifier ===
+												exercise.identifier &&
+											currentTimer?.triggeredBy?.setIdx === props.setIdx
+										)
+											props.stopTimer();
+										if (set.restTimer && newConfirmed)
+											props.startTimer(set.restTimer.duration, {
+												exerciseIdentifier: exercise.identifier,
+												setIdx: props.setIdx,
+											});
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												const currentExercise =
+													draft.exercises[props.exerciseIdx];
+												currentExercise.sets[props.setIdx].confirmedAt =
+													newConfirmed ? dayjsLib().toISOString() : null;
+												currentExercise.scrollMarginRemoved = true;
+												if (newConfirmed) {
+													const nextSet = getNextSetInWorkout(
+														draft,
+														props.exerciseIdx,
+														props.setIdx,
+													);
+													focusOnExercise(nextSet.exerciseIdx);
+													if (nextSet.wasLastSet) {
+														currentExercise.isCollapsed = true;
+														currentExercise.isShowDetailsOpen = false;
+														const nextExercise =
+															draft.exercises[nextSet.exerciseIdx];
+														const nextExerciseHasDetailsToShow =
+															nextExercise &&
+															exerciseHasDetailsToShow(
+																exerciseDetails,
+																userExerciseDetails,
+															);
+														if (nextExerciseHasDetailsToShow) {
+															nextExercise.isCollapsed = false;
+															if (
+																userPreferences.fitness.logging
+																	.showDetailsWhileEditing
+															)
+																nextExercise.isShowDetailsOpen = true;
+														}
 													}
 												}
-											}
-										}),
-									);
-								}}
-							>
-								<IconCheck />
-							</ActionIcon>
-						)}
-					</Transition>
-				</Group>
-			</Flex>
-			{set.note ? (
-				<TextInput
-					my={4}
-					size="xs"
-					defaultValue={isString(set.note) ? set.note : ""}
-					onChange={(v) => setValue(v.currentTarget.value)}
-				/>
-			) : undefined}
-			<Box mx="xs" mt="xs" ref={parent}>
-				{set.restTimer && !didCurrentSetActivateTimer ? (
-					<Divider
-						labelPosition="center"
-						size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
-						color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
-						opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
-						style={{
-							cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
-						}}
-						onClick={() => {
-							if (hasRestTimerOfThisSetElapsed) return;
-							setIsEditingRestTimer(true);
-						}}
-						label={
-							isEditingRestTimer ? (
-								<EditSetRestTimer
-									setIdx={props.setIdx}
-									exerciseIdx={props.exerciseIdx}
-									defaultDuration={set.restTimer.duration}
-									onClickOutside={() => setIsEditingRestTimer(false)}
-								/>
-							) : (
-								<Text
-									size={hasRestTimerOfThisSetElapsed ? "xs" : "sm"}
-									c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
-									fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
+											}),
+										);
+									}}
 								>
-									{formatTimerDuration(set.restTimer.duration * 1000)}
-								</Text>
-							)
-						}
+									<IconCheck />
+								</ActionIcon>
+							)}
+						</Transition>
+					</Group>
+				</Flex>
+				{set.note ? (
+					<TextInput
+						my={4}
+						size="xs"
+						defaultValue={isString(set.note) ? set.note : ""}
+						onChange={(v) => setValue(v.currentTarget.value)}
 					/>
-				) : null}
-				{didCurrentSetActivateTimer ? (
-					<DisplaySetRestTimer
-						currentTimer={currentTimer}
-						onClick={props.openTimerDrawer}
-					/>
-				) : null}
-			</Box>
-		</Paper>
+				) : undefined}
+				<Box mx="xs" mt="xs" ref={parent}>
+					{set.restTimer && !didCurrentSetActivateTimer ? (
+						<Divider
+							labelPosition="center"
+							size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
+							color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
+							opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
+							style={{
+								cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
+							}}
+							onClick={() => {
+								if (hasRestTimerOfThisSetElapsed) return;
+								setIsEditingRestTimer(true);
+							}}
+							label={
+								isEditingRestTimer ? (
+									<EditSetRestTimer
+										setIdx={props.setIdx}
+										exerciseIdx={props.exerciseIdx}
+										defaultDuration={set.restTimer.duration}
+										onClickOutside={() => setIsEditingRestTimer(false)}
+									/>
+								) : (
+									<Text
+										size={hasRestTimerOfThisSetElapsed ? "xs" : "sm"}
+										c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
+										fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
+									>
+										{formatTimerDuration(set.restTimer.duration * 1000)}
+									</Text>
+								)
+							}
+						/>
+					) : null}
+					{didCurrentSetActivateTimer ? (
+						<DisplaySetRestTimer
+							currentTimer={currentTimer}
+							onClick={props.openTimerDrawer}
+						/>
+					) : null}
+				</Box>
+			</Paper>
+		</>
 	);
 };
 
