@@ -1,7 +1,0 @@
-procs:
-  Backend: "cargo watch --ignore 'docs/includes' --ignore 'libs/generated' -qx 'run'"
-  Frontend: "moon run frontend:dev"
-  Website: "moon run website:dev"
-  Transactional: "moon run transactional:dev"
-  Main Reverse Proxy: "caddy run --config 'ci/Caddyfile'"
-  Minio Reverse Proxy: "caddy reverse-proxy --from ':9000' --to 'ryot-minio:9000'"
