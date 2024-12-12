@@ -147,10 +147,8 @@ pub async fn import(
                     .unwrap_or_default(),
             });
         }
-        let start_time =
-            NaiveDateTime::parse_from_str(&first_exercise.start_time, "%d %b %Y, %H:%M").unwrap();
-        let end_time =
-            NaiveDateTime::parse_from_str(&first_exercise.end_time, "%d %b %Y, %H:%M").unwrap();
+        let start_time = parse_date_string(&first_exercise.start_time);
+        let end_time = parse_date_string(&first_exercise.end_time);
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
             assets: None,
             supersets: vec![],
@@ -173,4 +171,8 @@ pub async fn import(
             .map(ImportCompletedItem::Exercise),
     );
     Ok(ImportResult { failed, completed })
+}
+
+fn parse_date_string(input: &str) -> NaiveDateTime {
+    NaiveDateTime::parse_from_str(&input, "%d %b %Y, %H:%M").unwrap()
 }
