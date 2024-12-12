@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::{
+use super::{
     m20231016_create_collection_to_entity::{CONSTRAINT_SQL, ENTITY_ID_SQL, ENTITY_LOT_SQL},
     m20240904_create_monitored_entity::MONITORED_ENTITY_VIEW_CREATION_SQL,
 };

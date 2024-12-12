@@ -15,7 +15,7 @@ use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::functions::associate_user_with_entity;
+use super::functions::associate_user_with_entity;
 
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
 #[graphql(name = "Seen")]

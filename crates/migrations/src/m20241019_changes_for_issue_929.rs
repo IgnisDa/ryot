@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::m20240904_create_monitored_entity::MONITORED_ENTITY_VIEW_CREATION_SQL;
+use super::m20240904_create_monitored_entity::MONITORED_ENTITY_VIEW_CREATION_SQL;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

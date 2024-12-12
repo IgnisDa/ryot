@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::m20231017_create_user_to_entity::CONSTRAINT_SQL;
+use super::m20231017_create_user_to_entity::CONSTRAINT_SQL;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
