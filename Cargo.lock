@@ -2225,6 +2225,7 @@ dependencies = [
  "dependent-models",
  "enums",
  "fitness-models",
+ "itertools 0.13.0",
  "media-models",
  "mime_guess",
  "nanoid",

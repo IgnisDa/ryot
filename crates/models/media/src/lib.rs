@@ -611,12 +611,14 @@ pub struct ImportOrExportPersonItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportExerciseItem {
+    /// The unique identifier of the exercise.
+    pub id: String,
     /// The name of the exercise.
     pub name: String,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
     /// The collections this entity was added to.
     pub collections: Vec<String>,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
 }
 
 #[derive(

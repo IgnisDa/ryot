@@ -59,6 +59,8 @@ export interface ImportOrExportItemRating {
 export interface ImportOrExportExerciseItem {
 	/** The collections this entity was added to. */
 	collections: string[];
+	/** The unique identifier of the exercise. */
+	id: string;
 	/** The name of the exercise. */
 	name: string;
 	/** The review history for the user. */
