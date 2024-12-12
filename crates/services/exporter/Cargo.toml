@@ -13,6 +13,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
+itertools = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
 mime_guess = { workspace = true }

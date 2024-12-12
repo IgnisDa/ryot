@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_models::{ApplicationCacheKey, ApplicationCacheValue};
@@ -9,22 +11,41 @@ use uuid::Uuid;
 
 pub struct CacheService {
     db: DatabaseConnection,
+    config: Arc<config::AppConfig>,
 }
 
 impl CacheService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
+    pub fn new(db: &DatabaseConnection, config: Arc<config::AppConfig>) -> Self {
+        Self {
+            config,
+            db: db.clone(),
+        }
     }
 }
 
 impl CacheService {
+    fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Option<i64> {
+        match key {
+            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
+            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
+            ApplicationCacheKey::IgdbSettings
+            | ApplicationCacheKey::ListennotesSettings
+            | ApplicationCacheKey::ServerKeyValidated
+            | ApplicationCacheKey::TmdbSettings => None,
+            ApplicationCacheKey::MetadataRecentlyConsumed { .. } => Some(1),
+            ApplicationCacheKey::ProgressUpdateCache { .. } => {
+                Some(self.config.server.progress_update_threshold)
+            }
+        }
+    }
+
     pub async fn set_with_expiry(
         &self,
         key: ApplicationCacheKey,
-        expiry_hours: Option<i64>,
         value: ApplicationCacheValue,
     ) -> Result<Uuid> {
         let now = Utc::now();
+        let expiry_hours = self.get_expiry_for_key(&key);
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
             value: ActiveValue::Set(value),

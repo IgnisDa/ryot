@@ -1264,7 +1264,6 @@ pub async fn mark_entity_as_recently_consumed(
                 user_id: user_id.to_owned(),
                 entity_id: entity_id.to_owned(),
             },
-            Some(1),
             ApplicationCacheValue::Empty,
         )
         .await?;
@@ -1527,11 +1526,7 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(
-                cache,
-                Some(ss.config.server.progress_update_threshold),
-                ApplicationCacheValue::Empty,
-            )
+            .set_with_expiry(cache, ApplicationCacheValue::Empty)
             .await?;
     }
     if seen.state == SeenState::Completed {
@@ -2116,6 +2111,8 @@ where
     let source_result = import.clone();
     let total = import.completed.len();
 
+    let mut need_to_schedule_user_for_workout_revision = false;
+
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
             debug,
@@ -2315,6 +2312,7 @@ where
                 }
             }
             ImportCompletedItem::Workout(workout) => {
+                need_to_schedule_user_for_workout_revision = true;
                 if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
@@ -2364,6 +2362,10 @@ where
             Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
         )
         .await?;
+    }
+
+    if need_to_schedule_user_for_workout_revision {
+        schedule_user_for_workout_revision(user_id, ss).await?;
     }
 
     let details = ImportResultResponse {

@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::{
+use super::{
     m20230822_create_exercise::EXERCISE_NAME_INDEX,
     m20240827_create_daily_user_activity::create_daily_user_activity_table,
 };

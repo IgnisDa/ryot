@@ -15,9 +15,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::utils;
-
-use super::{ImportFailStep, ImportFailedItem};
+use super::{utils, ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Book {

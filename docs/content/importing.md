@@ -175,6 +175,19 @@ Exercise" or "Merge Exercise" actions to map the exercise to an existing one.
 - Scroll down to the "General" section and click on "Export data".
 - Upload the csv file in the input.
 
+## Hevy
+
+You can import your workouts from [Hevy](https://www.hevy.com). Exercises will be created
+using the same strategy as the [Strong app](#strong-app) importer.
+
+### Steps
+
+- Login to your Hevy account on the app and go to the "Profile" page.
+- Click on the cog icon on the top right and select "Export & Import Data" under
+  "Preferences".
+- Click on "Export" and then click on the button that says "Export Workouts".
+- Upload the csv file in the input.
+
 ## IMDb
 
 You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to

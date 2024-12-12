@@ -19,6 +19,7 @@ use database_utils::{
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use enums::EntityLot;
 use fitness_models::UserMeasurementsListInput;
+use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
@@ -373,27 +374,37 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let exercises = Exercise::find()
-            .filter(exercise::Column::CreatedByUserId.eq(user_id))
+        let exercises = UserToEntity::find()
+            .select_only()
+            .column(exercise::Column::Id)
+            .column(exercise::Column::Name)
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .left_join(Exercise)
+            .into_tuple::<(String, String)>()
             .all(&self.0.db)
             .await
             .unwrap();
-        for e in exercises {
-            let reviews = item_reviews(user_id, &e.id, EntityLot::Exercise, false, &self.0)
+        for (exercise_id, exercise_name) in exercises {
+            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, &self.0)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
-                .collect();
+                .collect_vec();
             let collections =
-                entity_in_collections(&self.0.db, user_id, &e.id, EntityLot::Exercise)
+                entity_in_collections(&self.0.db, user_id, &exercise_id, EntityLot::Exercise)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
-                    .collect();
+                    .collect_vec();
+            if reviews.is_empty() && collections.is_empty() {
+                continue;
+            }
             let exp = ImportOrExportExerciseItem {
-                name: e.name,
-                collections,
                 reviews,
+                collections,
+                id: exercise_id,
+                name: exercise_name,
             };
             writer.serialize_value(&exp).unwrap();
         }

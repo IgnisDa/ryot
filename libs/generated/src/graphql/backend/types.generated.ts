@@ -892,6 +892,7 @@ export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
+  Hevy = 'HEVY',
   Igdb = 'IGDB',
   Imdb = 'IMDB',
   Jellyfin = 'JELLYFIN',

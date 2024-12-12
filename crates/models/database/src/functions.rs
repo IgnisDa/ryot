@@ -5,7 +5,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
 };
 
-use crate::{prelude::UserToEntity, user_to_entity};
+use super::{prelude::UserToEntity, user_to_entity};
 
 pub async fn get_user_to_entity_association<C>(
     db: &C,

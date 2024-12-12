@@ -69,7 +69,7 @@ pub async fn create_app_services(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
-    let cache_service = CacheService::new(&db);
+    let cache_service = CacheService::new(&db, config.clone());
     let supporting_service = Arc::new(
         SupportingService::new(
             &db,

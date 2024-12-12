@@ -539,25 +539,25 @@ export default function Page() {
 												};
 											});
 											invariant(data);
-											return (
+											return data.filter((d) => d.value).length > 0 ? (
 												<Paper key={best} withBorder py="md" radius="md">
 													<Stack>
 														<Title order={3} ta="center">
 															{changeCase(best)}
 														</Title>
 														<LineChart
-															ml={-15}
-															connectNulls
 															h={300}
+															ml={-15}
 															data={data}
+															connectNulls
+															dataKey="name"
 															series={[
 																{ name: "value", label: changeCase(best) },
 															]}
-															dataKey="name"
 														/>
 													</Stack>
 												</Paper>
-											);
+											) : null;
 										})}
 									</Stack>
 								</Tabs.Panel>
