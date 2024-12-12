@@ -218,7 +218,6 @@ impl ListennotesService {
             }
             cc.set_with_expiry(
                 ApplicationCacheKey::ListennotesSettings,
-                None,
                 ApplicationCacheValue::ListennotesSettings {
                     genres: genres.clone(),
                 },

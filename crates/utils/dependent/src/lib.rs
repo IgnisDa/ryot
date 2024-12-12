@@ -1264,7 +1264,6 @@ pub async fn mark_entity_as_recently_consumed(
                 user_id: user_id.to_owned(),
                 entity_id: entity_id.to_owned(),
             },
-            Some(1),
             ApplicationCacheValue::Empty,
         )
         .await?;
@@ -1527,11 +1526,7 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(
-                cache,
-                Some(ss.config.server.progress_update_threshold),
-                ApplicationCacheValue::Empty,
-            )
+            .set_with_expiry(cache, ApplicationCacheValue::Empty)
             .await?;
     }
     if seen.state == SeenState::Completed {

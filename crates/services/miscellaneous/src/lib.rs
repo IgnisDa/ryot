@@ -3140,7 +3140,6 @@ ORDER BY RANDOM() LIMIT 10;
         if is_server_key_validated {
             cs.set_with_expiry(
                 ApplicationCacheKey::ServerKeyValidated,
-                None,
                 ApplicationCacheValue::Empty,
             )
             .await?;

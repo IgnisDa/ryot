@@ -66,7 +66,6 @@ impl StatisticsService {
             .cache_service
             .set_with_expiry(
                 cache_key,
-                Some(8),
                 ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
             )
             .await?;
@@ -379,7 +378,6 @@ impl StatisticsService {
             .cache_service
             .set_with_expiry(
                 cache_key,
-                Some(2),
                 ApplicationCacheValue::UserAnalytics(response.clone()),
             )
             .await?;
