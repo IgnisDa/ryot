@@ -27,6 +27,7 @@ pub mod review;
 pub mod seen;
 pub mod user;
 pub mod user_measurement;
+pub mod user_notification;
 pub mod user_to_entity;
 pub mod workout;
 pub mod workout_template;

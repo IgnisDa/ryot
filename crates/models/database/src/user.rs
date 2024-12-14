@@ -37,6 +37,8 @@ pub enum Relation {
     AccessLink,
     #[sea_orm(has_many = "super::collection::Entity")]
     Collection,
+    #[sea_orm(has_many = "super::daily_user_activity::Entity")]
+    DailyUserActivity,
     #[sea_orm(has_many = "super::exercise::Entity")]
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
@@ -53,6 +55,8 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
+    #[sea_orm(has_many = "super::user_notification::Entity")]
+    UserNotification,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
     #[sea_orm(has_many = "super::workout::Entity")]
@@ -64,6 +68,18 @@ pub enum Relation {
 impl Related<super::access_link::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AccessLink.def()
+    }
+}
+
+impl Related<super::collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Collection.def()
+    }
+}
+
+impl Related<super::daily_user_activity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DailyUserActivity.def()
     }
 }
 
@@ -112,6 +128,12 @@ impl Related<super::seen::Entity> for Entity {
 impl Related<super::user_measurement::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserMeasurement.def()
+    }
+}
+
+impl Related<super::user_notification::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserNotification.def()
     }
 }
 
