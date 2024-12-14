@@ -126,7 +126,6 @@ pub struct CollectionContents {
 pub struct PersonDetails {
     pub details: person::Model,
     pub contents: Vec<PersonDetailsGroupedByRole>,
-    pub source_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

@@ -1653,6 +1653,7 @@ export type Person = {
   name: Scalars['String']['output'];
   place?: Maybe<Scalars['String']['output']>;
   source: MediaSource;
+  sourceUrl?: Maybe<Scalars['String']['output']>;
   website?: Maybe<Scalars['String']['output']>;
 };
 
@@ -1665,7 +1666,6 @@ export type PersonDetails = {
   __typename?: 'PersonDetails';
   contents: Array<PersonDetailsGroupedByRole>;
   details: Person;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type PersonDetailsGroupedByRole = {

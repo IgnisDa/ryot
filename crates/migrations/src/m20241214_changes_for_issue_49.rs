@@ -13,7 +13,7 @@ impl MigrationTrait for Migration {
             db.execute_unprepared("ALTER TABLE metadata ADD COLUMN music_specifics JSONB")
                 .await?;
         }
-        let tables = vec!["metadata", "metadata_group"];
+        let tables = vec!["metadata", "metadata_group", "person"];
         for table in tables {
             if !manager.has_column(table, "source_url").await? {
                 db.execute_unprepared(&format!(

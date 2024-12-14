@@ -236,19 +236,24 @@ impl MediaProvider for AudibleService {
             .json()
             .await
             .map_err(|e| anyhow!(e))?;
+        let name = data.name;
         Ok(MetadataPerson {
             place: None,
             gender: None,
             website: None,
-            name: data.name,
             related: vec![],
             death_date: None,
             birth_date: None,
+            name: name.clone(),
             identifier: data.asin,
             source_specifics: None,
-            description: data.description,
             source: MediaSource::Audible,
+            description: data.description,
             images: Some(Vec::from_iter(data.image)),
+            source_url: Some(format!(
+                "https://www.audible.com/author/{}/{}",
+                name, identity
+            )),
         })
     }
 

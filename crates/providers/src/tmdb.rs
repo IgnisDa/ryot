@@ -475,7 +475,7 @@ impl MediaProvider for NonMediaTmdbService {
 
     async fn person_details(
         &self,
-        identity: &str,
+        identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let type_ = match source_specifics {
@@ -488,7 +488,7 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .base
             .client
-            .get(format!("{}/{}/{}", URL, type_, identity))
+            .get(format!("{}/{}/{}", URL, type_, identifier))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -498,7 +498,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(type_, identity, &mut images)
+            .save_all_images(type_, identifier, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -511,7 +511,7 @@ impl MediaProvider for NonMediaTmdbService {
             let cred_det: TmdbCreditsResponse = self
                 .base
                 .client
-                .get(format!("{}/{}/{}/combined_credits", URL, type_, identity))
+                .get(format!("{}/{}/{}/combined_credits", URL, type_, identifier))
                 .query(&json!({ "language": self.base.language }))
                 .send()
                 .await
@@ -546,7 +546,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .client
                         .get(format!("{}/discover/{}", URL, m_typ))
                         .query(
-                            &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
+                            &json!({ "with_companies": identifier, "page": i, "language": self.base.language }),
                         )
                         .send()
                         .await
@@ -576,24 +576,29 @@ impl MediaProvider for NonMediaTmdbService {
                 }
             }
         }
+        let name = details.name;
         let resp = MetadataPerson {
-            name: details.name,
+            related,
+            name: name.clone(),
             images: Some(images),
-            identifier: details.id.to_string(),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source: MediaSource::Tmdb,
-            place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
             death_date: details.deathday,
+            identifier: details.id.to_string(),
+            source_specifics: source_specifics.to_owned(),
+            place: details.origin_country.or(details.place_of_birth),
+            source_url: Some(format!(
+                "https://www.themoviedb.org/person/{}-{}",
+                identifier, name
+            )),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
                 2 => Some("Male".to_owned()),
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
-            source_specifics: source_specifics.to_owned(),
-            related,
         };
         Ok(resp)
     }

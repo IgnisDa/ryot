@@ -215,12 +215,12 @@ impl MediaProvider for OpenlibraryService {
 
     async fn person_details(
         &self,
-        identity: &str,
+        identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let rsp = self
             .client
-            .get(format!("{}/authors/{}.json", URL, identity))
+            .get(format!("{}/authors/{}.json", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -240,7 +240,7 @@ impl MediaProvider for OpenlibraryService {
             .collect();
         let author_works: OpenlibraryEditionsResponse = self
             .client
-            .get(format!("{}/authors/{}/works.json", URL, identity))
+            .get(format!("{}/authors/{}/works.json", URL, identifier))
             .query(&serde_json::json!({ "limit": 600 }))
             .send()
             .await
@@ -275,21 +275,26 @@ impl MediaProvider for OpenlibraryService {
             }
         }
         ryot_log!(debug, "Found {} related works.", related.len());
+        let name = data.name;
         Ok(MetadataPerson {
-            identifier,
-            source: MediaSource::Openlibrary,
-            name: data.name,
+            related,
+            place: None,
             description,
+            gender: None,
+            name: name.clone(),
             images: Some(images),
+            source_specifics: None,
+            identifier: identifier.clone(),
+            source: MediaSource::Openlibrary,
+            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
+            death_date: data.death_date.and_then(|b| parse_date(&b)),
+            source_url: Some(format!(
+                "https://openlibrary.org/authors/{}/{}",
+                identifier, name
+            )),
             website: data
                 .links
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
-            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
-            death_date: data.death_date.and_then(|b| parse_date(&b)),
-            related,
-            gender: None,
-            place: None,
-            source_specifics: None,
         })
     }
 

@@ -148,18 +148,19 @@ impl MediaProvider for VndbService {
         let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
-            identifier: item.id,
-            source: MediaSource::Vndb,
-            name: item.title.unwrap(),
-            description: item.description,
-            related: vec![],
+            place: None,
             gender: None,
             images: None,
+            website: None,
+            related: vec![],
             death_date: None,
             birth_date: None,
-            place: None,
-            website: None,
+            source_url: None,
+            identifier: item.id,
             source_specifics: None,
+            name: item.title.unwrap(),
+            source: MediaSource::Vndb,
+            description: item.description,
         })
     }
 

@@ -397,14 +397,21 @@ where id = {id};
                 },
             }
         }));
+        let name = detail.name;
         Ok(MetadataPerson {
+            related,
+            gender: None,
+            birth_date: None,
+            death_date: None,
+            name: name.clone(),
+            source_specifics: None,
+            source: MediaSource::Igdb,
+            description: detail.description,
             identifier: detail.id.to_string(),
-            name: detail.name,
+            source_url: Some(format!("https://www.igdb.com/companies/{}", name)),
             images: Some(Vec::from_iter(
                 detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
             )),
-            source: MediaSource::Igdb,
-            description: detail.description,
             place: detail
                 .country
                 .and_then(from_numeric)
@@ -414,11 +421,6 @@ where id = {id};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
-            related,
-            birth_date: None,
-            death_date: None,
-            gender: None,
-            source_specifics: None,
         })
     }
 

@@ -307,6 +307,7 @@ impl MediaProvider for NonMediaAnilistService {
                 website: details.site_url,
                 description: None,
                 gender: None,
+                source_url: None,
                 place: None,
                 images: None,
                 death_date: None,
@@ -442,6 +443,7 @@ impl MediaProvider for NonMediaAnilistService {
                 related,
                 source_specifics: source_specifics.to_owned(),
                 website: None,
+                source_url: None,
             }
         };
         Ok(data)

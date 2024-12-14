@@ -3934,7 +3934,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.11.0",
- "slug",
  "supporting-service",
  "tokio",
  "tracing",

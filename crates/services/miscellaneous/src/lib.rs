@@ -2249,36 +2249,7 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        let slug = slug::slugify(&details.name);
-        let identifier = &details.identifier;
-        let source_url = match details.source {
-            MediaSource::Custom
-            | MediaSource::Anilist
-            | MediaSource::Listennotes
-            | MediaSource::Itunes
-            | MediaSource::MangaUpdates
-            | MediaSource::Mal
-            | MediaSource::Vndb
-            | MediaSource::GoogleBooks => None,
-            MediaSource::YoutubeMusic => {
-                Some(format!("https://music.youtube.com/channel/{identifier}"))
-            }
-            MediaSource::Audible => Some(format!(
-                "https://www.audible.com/author/{slug}/{identifier}"
-            )),
-            MediaSource::Openlibrary => Some(format!(
-                "https://openlibrary.org/authors/{identifier}/{slug}"
-            )),
-            MediaSource::Tmdb => Some(format!(
-                "https://www.themoviedb.org/person/{identifier}-{slug}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/companies/{slug}")),
-        };
-        Ok(PersonDetails {
-            details,
-            contents,
-            source_url,
-        })
+        Ok(PersonDetails { details, contents })
     }
 
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
@@ -2662,6 +2633,7 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
         to_update_person.place = ActiveValue::Set(provider_person.place);
         to_update_person.website = ActiveValue::Set(provider_person.website);
+        to_update_person.source_url = ActiveValue::Set(provider_person.source_url);
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);

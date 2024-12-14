@@ -251,11 +251,17 @@ impl MediaProvider for MangaUpdatesService {
             })
             .collect_vec();
         let resp = MetadataPerson {
-            identifier: identity.to_owned(),
-            source: MediaSource::MangaUpdates,
-            name: data.name.unwrap(),
+            related,
+            website: None,
+            death_date: None,
+            source_url: None,
+            description: None,
             gender: data.gender,
             place: data.birthplace,
+            source_specifics: None,
+            name: data.name.unwrap(),
+            identifier: identity.to_owned(),
+            source: MediaSource::MangaUpdates,
             images: Some(Vec::from_iter(data.image.and_then(|i| i.url.original))),
             birth_date: data.birthday.and_then(|b| {
                 if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
@@ -264,11 +270,6 @@ impl MediaProvider for MangaUpdatesService {
                     None
                 }
             }),
-            related,
-            death_date: None,
-            description: None,
-            website: None,
-            source_specifics: None,
         };
         Ok(resp)
     }

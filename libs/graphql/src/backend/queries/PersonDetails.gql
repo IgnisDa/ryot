@@ -1,6 +1,5 @@
 query PersonDetails($personId: String!) {
 	personDetails(personId: $personId) {
-		sourceUrl
 		details {
 			id
 			name
@@ -14,6 +13,7 @@ query PersonDetails($personId: String!) {
 			website
 			gender
 			displayImages
+			sourceUrl
 		}
 		contents {
 			name

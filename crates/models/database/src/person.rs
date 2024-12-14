@@ -32,6 +32,7 @@ pub struct Model {
     pub death_date: Option<NaiveDate>,
     pub place: Option<String>,
     pub website: Option<String>,
+    pub source_url: Option<String>,
     #[graphql(skip)]
     pub source_specifics: Option<PersonSourceSpecifics>,
     #[graphql(skip)]

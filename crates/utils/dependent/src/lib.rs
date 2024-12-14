@@ -1061,6 +1061,7 @@ pub async fn commit_metadata_group_internal(
             let mut eg: metadata_group::ActiveModel = eg.into();
             eg.parts = ActiveValue::Set(group_details.parts);
             eg.images = ActiveValue::Set(group_details.images);
+            eg.source_url = ActiveValue::Set(group_details.source_url);
             let eg = eg.update(&ss.db).await?;
             eg.id
         }

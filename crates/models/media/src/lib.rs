@@ -436,6 +436,7 @@ pub struct MetadataPerson {
     pub gender: Option<String>,
     pub place: Option<String>,
     pub website: Option<String>,
+    pub source_url: Option<String>,
     pub description: Option<String>,
     pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,

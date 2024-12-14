@@ -28,6 +28,7 @@ pub enum Person {
     IsPartial,
     SourceSpecifics,
     StateChanges,
+    SourceUrl,
 }
 
 #[derive(Iden)]
@@ -74,6 +75,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::IsPartial).boolean())
                     .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Person::StateChanges).json_binary())
+                    .col(ColumnDef::new(Person::SourceUrl).text())
                     .to_owned(),
             )
             .await?;
