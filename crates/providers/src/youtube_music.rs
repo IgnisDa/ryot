@@ -8,8 +8,8 @@ use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics,
+    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MusicSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -202,6 +202,50 @@ impl MediaProvider for YoutubeMusicService {
                     name: t.name,
                     identifier: t.id,
                     image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                })
+                .collect(),
+        })
+    }
+
+    async fn person_details(
+        &self,
+        identifier: &str,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<MetadataPerson> {
+        let data = self.client.music_artist(identifier, false).await?;
+        let identifier = data.id;
+        Ok(MetadataPerson {
+            place: None,
+            gender: None,
+            website: None,
+            name: data.name,
+            birth_date: None,
+            death_date: None,
+            source_specifics: None,
+            description: data.description,
+            identifier: identifier.clone(),
+            source: MediaSource::YoutubeMusic,
+            source_url: Some(format!("https://music.youtube.com/channel/{}", identifier)),
+            images: Some(
+                self.largest_image(&data.header_image)
+                    .into_iter()
+                    .map(|t| t.url.to_owned())
+                    .collect(),
+            ),
+            related: data
+                .tracks
+                .into_iter()
+                .map(|t| MetadataPersonRelated {
+                    character: None,
+                    role: "Artist".to_string(),
+                    metadata: PartialMetadataWithoutId {
+                        title: t.name,
+                        identifier: t.id,
+                        lot: MediaLot::Music,
+                        is_recommendation: None,
+                        source: MediaSource::YoutubeMusic,
+                        image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                    },
                 })
                 .collect(),
         })
