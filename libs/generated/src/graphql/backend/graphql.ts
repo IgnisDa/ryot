@@ -995,6 +995,7 @@ export enum MediaLot {
   Book = 'BOOK',
   Manga = 'MANGA',
   Movie = 'MOVIE',
+  Music = 'MUSIC',
   Podcast = 'PODCAST',
   Show = 'SHOW',
   VideoGame = 'VIDEO_GAME',
@@ -1028,7 +1029,8 @@ export enum MediaSource {
   MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB',
-  Vndb = 'VNDB'
+  Vndb = 'VNDB',
+  YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
 export enum MediaStateChanged {

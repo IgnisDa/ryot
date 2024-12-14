@@ -28,14 +28,15 @@ use strum::Display;
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MediaLot {
-    AudioBook,
-    Anime,
     #[default]
     Book,
-    Podcast,
-    Manga,
-    Movie,
     Show,
+    Movie,
+    Anime,
+    Manga,
+    Music,
+    Podcast,
+    AudioBook,
     VideoGame,
     VisualNovel,
 }
@@ -63,19 +64,20 @@ pub enum MediaLot {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MediaSource {
-    Anilist,
-    #[default]
-    Audible,
-    Custom,
-    GoogleBooks,
-    Igdb,
-    Itunes,
-    Listennotes,
-    MangaUpdates,
     Mal,
-    Openlibrary,
+    Igdb,
     Tmdb,
     Vndb,
+    #[default]
+    Custom,
+    Itunes,
+    Anilist,
+    Audible,
+    Listennotes,
+    GoogleBooks,
+    Openlibrary,
+    MangaUpdates,
+    YoutubeMusic,
 }
 
 #[derive(

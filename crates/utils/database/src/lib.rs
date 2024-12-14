@@ -663,6 +663,7 @@ pub async fn calculate_user_activities_and_summary(
             }
         }
         match seen.metadata_lot {
+            MediaLot::Music => todo!(),
             MediaLot::Book => activity.book_count += 1,
             MediaLot::Show => activity.show_count += 1,
             MediaLot::Anime => activity.anime_count += 1,

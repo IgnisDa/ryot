@@ -300,6 +300,7 @@ ORDER BY RANDOM() LIMIT 10;
             metadata_provider_languages: MediaSource::iter()
                 .map(|source| {
                     let (supported, default) = match source {
+                        MediaSource::YoutubeMusic => todo!(),
                         MediaSource::Itunes => (
                             ITunesService::supported_languages(),
                             ITunesService::default_language(),
@@ -576,6 +577,9 @@ ORDER BY RANDOM() LIMIT 10;
                 Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
             }
             MediaSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
+            MediaSource::YoutubeMusic => {
+                Some(format!("https://music.youtube.com/watch?v={identifier}"))
+            }
         };
 
         let group = {
@@ -1785,6 +1789,7 @@ ORDER BY RANDOM() LIMIT 10;
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
+            MediaSource::YoutubeMusic => todo!(),
             MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => {
@@ -1954,6 +1959,7 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .collect();
         let is_partial = match input.lot {
+            MediaLot::Music => todo!(),
             MediaLot::Anime => input.anime_specifics.is_none(),
             MediaLot::AudioBook => input.audio_book_specifics.is_none(),
             MediaLot::Book => input.book_specifics.is_none(),
@@ -2300,6 +2306,9 @@ ORDER BY RANDOM() LIMIT 10;
             | MediaSource::Mal
             | MediaSource::Vndb
             | MediaSource::GoogleBooks => None,
+            MediaSource::YoutubeMusic => {
+                Some(format!("https://music.youtube.com/channel/{identifier}"))
+            }
             MediaSource::Audible => Some(format!(
                 "https://www.audible.com/author/{slug}/{identifier}"
             )),
@@ -2386,6 +2395,9 @@ ORDER BY RANDOM() LIMIT 10;
             | MediaSource::Openlibrary
             | MediaSource::Vndb
             | MediaSource::GoogleBooks => None,
+            MediaSource::YoutubeMusic => Some(format!(
+                "https://music.youtube.com/playlist?list={identifier}"
+            )),
             MediaSource::Audible => Some(format!(
                 "https://www.audible.com/series/{slug}/{identifier}"
             )),
