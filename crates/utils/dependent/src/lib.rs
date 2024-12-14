@@ -416,7 +416,6 @@ pub async fn update_metadata(
     let notifications = match maybe_details {
         Ok(details) => {
             let mut notifications = vec![];
-
             let meta = Metadata::find_by_id(metadata_id)
                 .one(&ss.db)
                 .await
@@ -614,6 +613,7 @@ pub async fn update_metadata(
             meta.book_specifics = ActiveValue::Set(details.book_specifics);
             meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
             meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
+            meta.music_specifics = ActiveValue::Set(details.music_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
             let metadata = meta.update(&ss.db).await.unwrap();
 
@@ -787,6 +787,7 @@ pub async fn commit_metadata_internal(
         visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
         provider_rating: ActiveValue::Set(details.provider_rating),
         production_status: ActiveValue::Set(details.production_status),
+        music_specifics: ActiveValue::Set(details.music_specifics),
         original_language: ActiveValue::Set(details.original_language),
         external_identifiers: ActiveValue::Set(details.external_identifiers),
         is_nsfw: ActiveValue::Set(details.is_nsfw),
