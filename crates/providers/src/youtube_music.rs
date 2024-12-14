@@ -131,11 +131,11 @@ impl MediaProvider for YoutubeMusicService {
         Ok((
             MetadataGroupWithoutId {
                 title: album.name,
-                identifier: album.id,
                 lot: MediaLot::Music,
                 display_images: vec![],
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
+                identifier: album.playlist_id.unwrap_or(album.id),
                 description: album.description.map(|d| d.to_html()),
                 images: album
                     .cover
