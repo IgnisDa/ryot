@@ -5,9 +5,8 @@ use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataExternalIdentifiers,
-    MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
-    MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
-    WatchProvider,
+    MetadataFreeCreator, MetadataImage, MetadataVideo, MovieSpecifics, MusicSpecifics,
+    PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
@@ -55,7 +54,6 @@ pub struct Model {
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,
-    pub state_changes: Option<MetadataStateChanges>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -10,14 +10,18 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         if !manager.has_column("metadata", "music_specifics").await? {
-            db.execute_unprepared("ALTER TABLE metadata ADD COLUMN music_specifics JSONB")
+            db.execute_unprepared(r#"ALTER TABLE "metadata" ADD COLUMN "music_specifics" JSONB"#)
+                .await?;
+        }
+        if manager.has_column("metadata", "state_changes").await? {
+            db.execute_unprepared(r#"ALTER TABLE "metadata" DROP COLUMN "state_changes""#)
                 .await?;
         }
         let tables = vec!["metadata", "metadata_group", "person"];
         for table in tables {
             if !manager.has_column(table, "source_url").await? {
                 db.execute_unprepared(&format!(
-                    r#"ALTER TABLE "{}" ADD COLUMN source_url TEXT"#,
+                    r#"ALTER TABLE "{}" ADD COLUMN "source_url" TEXT"#,
                     table
                 ))
                 .await?;
@@ -27,7 +31,7 @@ impl MigrationTrait for Migration {
             .has_column("daily_user_activity", "music_count")
             .await?
         {
-            db.execute_unprepared("DROP TABLE daily_user_activity")
+            db.execute_unprepared(r#"DROP TABLE "daily_user_activity""#)
                 .await?;
             create_daily_user_activity_table(manager).await?;
         }
@@ -35,7 +39,7 @@ impl MigrationTrait for Migration {
 UPDATE "user" SET preferences = jsonb_set(preferences, '{features_enabled,media,music}', 'true', true);
 ALTER TABLE "metadata_group" ALTER COLUMN "images" DROP NOT NULL;
 "#)
-                .await?;
+        .await?;
         Ok(())
     }
 

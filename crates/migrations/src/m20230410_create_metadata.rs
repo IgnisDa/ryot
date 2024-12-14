@@ -56,7 +56,6 @@ pub enum Metadata {
     VisualNovelSpecifics,
     MusicSpecifics,
     WatchProviders,
-    StateChanges,
     ExternalIdentifiers,
 }
 
@@ -106,7 +105,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::VideoGameSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::VisualNovelSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::WatchProviders).json_binary())
-                    .col(ColumnDef::new(Metadata::StateChanges).json_binary())
                     .col(ColumnDef::new(Metadata::IsRecommendation).boolean())
                     .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
                     .col(ColumnDef::new(Metadata::MusicSpecifics).json_binary())
