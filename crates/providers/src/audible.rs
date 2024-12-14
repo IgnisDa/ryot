@@ -295,14 +295,15 @@ impl MediaProvider for AudibleService {
         }
         Ok((
             MetadataGroupWithoutId {
-                display_images: vec![],
-                parts: collection_contents.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: data.product.title,
-                description: None,
                 images: vec![],
+                description: None,
+                display_images: vec![],
+                extra_information: None,
                 lot: MediaLot::AudioBook,
+                title: data.product.title,
                 source: MediaSource::Audible,
+                identifier: identifier.to_owned(),
+                parts: collection_contents.len().try_into().unwrap(),
             },
             collection_contents,
         ))

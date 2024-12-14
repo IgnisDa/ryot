@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
 use enums::{MediaLot, MediaSource};
-use media_models::MetadataImage;
+use media_models::{MetadataGroupExtraInformation, MetadataImage};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,8 @@ pub struct Model {
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub is_partial: Option<bool>,
     pub description: Option<String>,
+    #[graphql(skip)]
+    pub extra_information: Option<MetadataGroupExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

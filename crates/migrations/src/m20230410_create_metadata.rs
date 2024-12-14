@@ -53,6 +53,7 @@ pub enum Metadata {
     ShowSpecifics,
     VideoGameSpecifics,
     VisualNovelSpecifics,
+    MusicSpecifics,
     WatchProviders,
     StateChanges,
     ExternalIdentifiers,
@@ -106,6 +107,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::StateChanges).json_binary())
                     .col(ColumnDef::new(Metadata::IsRecommendation).boolean())
                     .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
+                    .col(ColumnDef::new(Metadata::MusicSpecifics).json_binary())
                     .to_owned(),
             )
             .await?;

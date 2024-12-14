@@ -18,7 +18,7 @@ use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
@@ -942,11 +942,14 @@ impl MediaProvider for TmdbMovieService {
             .collect_vec();
         Ok((
             MetadataGroupWithoutId {
+                lot: MediaLot::Movie,
                 display_images: vec![],
-                parts: parts.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: replace_from_end(data.name, " Collection", ""),
+                extra_information: None,
+                source: MediaSource::Tmdb,
                 description: data.overview,
+                identifier: identifier.to_owned(),
+                parts: parts.len().try_into().unwrap(),
+                title: replace_from_end(data.name, " Collection", ""),
                 images: images
                     .into_iter()
                     .unique()
@@ -954,8 +957,6 @@ impl MediaProvider for TmdbMovieService {
                         url: StoredUrl::Url(self.base.get_image_url(p)),
                     })
                     .collect(),
-                lot: MediaLot::Movie,
-                source: MediaSource::Tmdb,
             },
             parts,
         ))

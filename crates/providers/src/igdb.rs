@@ -274,14 +274,15 @@ where id = {id};
             .collect_vec();
         Ok((
             MetadataGroupWithoutId {
-                display_images: vec![],
-                parts: items.len().try_into().unwrap(),
-                identifier: details.id.to_string(),
-                title: details.name.unwrap_or_default(),
-                description: None,
                 images: vec![],
+                description: None,
+                display_images: vec![],
+                extra_information: None,
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
+                identifier: details.id.to_string(),
+                parts: items.len().try_into().unwrap(),
+                title: details.name.unwrap_or_default(),
             },
             items,
         ))
