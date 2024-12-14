@@ -30,6 +30,7 @@ pub struct Model {
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub is_partial: Option<bool>,
     pub description: Option<String>,
+    pub source_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

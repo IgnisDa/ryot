@@ -15,6 +15,7 @@ pub enum MetadataGroup {
     Lot,
     Source,
     IsPartial,
+    SourceUrl,
 }
 
 #[async_trait::async_trait]
@@ -42,6 +43,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(MetadataGroup::IsPartial).boolean())
+                    .col(ColumnDef::new(MetadataGroup::SourceUrl).text())
                     .to_owned(),
             )
             .await?;

@@ -1094,6 +1094,7 @@ export type MetadataGroup = {
   lot: MediaLot;
   parts: Scalars['Int']['output'];
   source: MediaSource;
+  sourceUrl?: Maybe<Scalars['String']['output']>;
   title: Scalars['String']['output'];
 };
 
@@ -1101,7 +1102,6 @@ export type MetadataGroupDetails = {
   __typename?: 'MetadataGroupDetails';
   contents: Array<Scalars['String']['output']>;
   details: MetadataGroup;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type MetadataGroupSearchInput = {

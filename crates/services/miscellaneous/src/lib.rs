@@ -2336,28 +2336,6 @@ ORDER BY RANDOM() LIMIT 10;
             );
         }
         group.display_images = images;
-        let slug = slug::slugify(&group.title);
-        let identifier = &group.identifier;
-
-        let source_url = match group.source {
-            MediaSource::Custom
-            | MediaSource::Anilist
-            | MediaSource::Listennotes
-            | MediaSource::Itunes
-            | MediaSource::MangaUpdates
-            | MediaSource::Mal
-            | MediaSource::Openlibrary
-            | MediaSource::Vndb
-            | MediaSource::YoutubeMusic
-            | MediaSource::GoogleBooks => None,
-            MediaSource::Audible => Some(format!(
-                "https://www.audible.com/series/{slug}/{identifier}"
-            )),
-            MediaSource::Tmdb => Some(format!(
-                "https://www.themoviedb.org/collections/{identifier}-{slug}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
-        };
 
         let contents = MetadataToMetadataGroup::find()
             .select_only()
@@ -2369,7 +2347,6 @@ ORDER BY RANDOM() LIMIT 10;
             .await?;
         Ok(MetadataGroupDetails {
             details: group,
-            source_url,
             contents,
         })
     }

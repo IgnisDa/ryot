@@ -132,7 +132,6 @@ pub struct PersonDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupDetails {
     pub details: metadata_group::Model,
-    pub source_url: Option<String>,
     pub contents: Vec<String>,
 }
 

@@ -144,15 +144,20 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let album = self.client.music_album(identifier).await?;
+        let title = album.name;
         Ok((
             MetadataGroupWithoutId {
-                title: album.name,
+                title: title.clone(),
                 lot: MediaLot::Music,
                 identifier: album.id,
                 display_images: vec![],
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
                 description: album.description.map(|d| d.to_html()),
+                source_url: Some(format!(
+                    "https://music.youtube.com/playlist?list={}",
+                    identifier
+                )),
                 images: self
                     .largest_image(&album.cover)
                     .into_iter()

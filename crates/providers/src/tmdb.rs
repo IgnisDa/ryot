@@ -945,15 +945,20 @@ impl MediaProvider for TmdbMovieService {
                 is_recommendation: None,
             })
             .collect_vec();
+        let title = replace_from_end(data.name, " Collection", "");
         Ok((
             MetadataGroupWithoutId {
                 lot: MediaLot::Movie,
+                title: title.clone(),
                 display_images: vec![],
                 source: MediaSource::Tmdb,
                 description: data.overview,
                 identifier: identifier.to_owned(),
                 parts: parts.len().try_into().unwrap(),
-                title: replace_from_end(data.name, " Collection", ""),
+                source_url: Some(format!(
+                    "https://www.themoviedb.org/collections/{}-{}",
+                    identifier, title
+                )),
                 images: images
                     .into_iter()
                     .unique()

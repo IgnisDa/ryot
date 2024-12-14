@@ -293,16 +293,21 @@ impl MediaProvider for AudibleService {
                 is_recommendation: None,
             })
         }
+        let title = data.product.title;
         Ok((
             MetadataGroupWithoutId {
                 images: vec![],
                 description: None,
+                title: title.clone(),
                 display_images: vec![],
                 lot: MediaLot::AudioBook,
-                title: data.product.title,
                 source: MediaSource::Audible,
                 identifier: identifier.to_owned(),
                 parts: collection_contents.len().try_into().unwrap(),
+                source_url: Some(format!(
+                    "https://www.audible.com/series/{}/{}",
+                    identifier, title
+                )),
             },
             collection_contents,
         ))

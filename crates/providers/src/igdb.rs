@@ -272,16 +272,18 @@ where id = {id};
                 }
             })
             .collect_vec();
+        let title = details.name.unwrap_or_default();
         Ok((
             MetadataGroupWithoutId {
                 images: vec![],
                 description: None,
+                title: title.clone(),
                 display_images: vec![],
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
                 identifier: details.id.to_string(),
                 parts: items.len().try_into().unwrap(),
-                title: details.name.unwrap_or_default(),
+                source_url: Some(format!("https://www.igdb.com/collection/{}", title)),
             },
             items,
         ))

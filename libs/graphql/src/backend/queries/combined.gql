@@ -320,7 +320,6 @@ query CoreDetails {
 query MetadataGroupDetails($metadataGroupId: String!) {
 	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
 		contents
-		sourceUrl
 		details {
 			id
 			lot
@@ -328,6 +327,7 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 			parts
 			source
 			isPartial
+			sourceUrl
 			identifier
 			description
 			displayImages

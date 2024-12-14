@@ -13,9 +13,15 @@ impl MigrationTrait for Migration {
             db.execute_unprepared("ALTER TABLE metadata ADD COLUMN music_specifics JSONB")
                 .await?;
         }
-        if !manager.has_column("metadata", "source_url").await? {
-            db.execute_unprepared("ALTER TABLE metadata ADD COLUMN source_url TEXT")
+        let tables = vec!["metadata", "metadata_group"];
+        for table in tables {
+            if !manager.has_column(table, "source_url").await? {
+                db.execute_unprepared(&format!(
+                    r#"ALTER TABLE "{}" ADD COLUMN source_url TEXT"#,
+                    table
+                ))
                 .await?;
+            }
         }
         if !manager
             .has_column("daily_user_activity", "music_count")
