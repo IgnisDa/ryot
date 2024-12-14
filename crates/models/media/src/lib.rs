@@ -47,16 +47,17 @@ pub struct GenreListItem {
     pub num_items: Option<i64>,
 }
 
+#[skip_serializing_none]
 #[derive(
+    Eq,
+    Clone,
     Debug,
+    Default,
+    PartialEq,
     Serialize,
+    InputObject,
     Deserialize,
     SimpleObject,
-    Clone,
-    InputObject,
-    PartialEq,
-    Eq,
-    Default,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "AudioBookSpecificsInput")]
@@ -64,16 +65,17 @@ pub struct AudioBookSpecifics {
     pub runtime: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
+    Eq,
     Debug,
+    Clone,
+    Default,
+    PartialEq,
     Serialize,
     Deserialize,
-    SimpleObject,
-    Clone,
     InputObject,
-    PartialEq,
-    Eq,
-    Default,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "BookSpecificsInput")]
@@ -81,16 +83,17 @@ pub struct BookSpecifics {
     pub pages: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
+    Eq,
     Debug,
+    Clone,
+    Default,
+    PartialEq,
     Serialize,
     Deserialize,
-    SimpleObject,
-    Clone,
     InputObject,
-    Eq,
-    PartialEq,
-    Default,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "MovieSpecificsInput")]
@@ -98,17 +101,18 @@ pub struct MovieSpecifics {
     pub runtime: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
+    Eq,
     Debug,
-    Serialize,
-    Deserialize,
-    SimpleObject,
     Clone,
     Default,
-    FromJsonQueryResult,
-    Eq,
     PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "PodcastSpecificsInput")]
 pub struct PodcastSpecifics {
@@ -116,17 +120,18 @@ pub struct PodcastSpecifics {
     pub total_episodes: usize,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "PodcastEpisodeInput")]
 #[serde(default)]
@@ -143,17 +148,18 @@ pub struct PodcastEpisode {
     pub thumbnail: Option<String>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "ShowSpecificsInput")]
 pub struct ShowSpecifics {
@@ -163,18 +169,19 @@ pub struct ShowSpecifics {
     pub total_episodes: Option<usize>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Hash,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
-    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "ShowSeasonSpecificsInput")]
 pub struct ShowSeason {
@@ -188,18 +195,19 @@ pub struct ShowSeason {
     pub backdrop_images: Vec<String>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Hash,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
-    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "ShowEpisodeSpecificsInput")]
 pub struct ShowEpisode {
@@ -212,51 +220,54 @@ pub struct ShowEpisode {
     pub runtime: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
     pub platforms: Vec<String>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "VisualNovelSpecificsInput")]
 pub struct VisualNovelSpecifics {
     pub length: Option<i32>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
 pub struct AnimeAiringScheduleSpecifics {
@@ -264,17 +275,18 @@ pub struct AnimeAiringScheduleSpecifics {
     pub airing_at: NaiveDateTime,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "AnimeSpecificsInput")]
 pub struct AnimeSpecifics {
@@ -282,6 +294,7 @@ pub struct AnimeSpecifics {
     pub airing_schedule: Option<Vec<AnimeAiringScheduleSpecifics>>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Eq,
     Debug,
@@ -301,17 +314,18 @@ pub struct MusicSpecifics {
     pub by_various_artists: Option<bool>,
 }
 
+#[skip_serializing_none]
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    SimpleObject,
+    Debug,
     Clone,
     Default,
-    FromJsonQueryResult,
+    PartialEq,
+    Serialize,
+    Deserialize,
     InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "MangaSpecificsInput")]
 pub struct MangaSpecifics {
@@ -835,8 +849,8 @@ pub struct MetadataGroupSearchItem {
 )]
 pub struct CommitMediaInput {
     pub lot: MediaLot,
-    pub source: MediaSource,
     pub identifier: String,
+    pub source: MediaSource,
     pub force_update: Option<bool>,
 }
 
