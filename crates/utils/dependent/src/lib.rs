@@ -18,7 +18,7 @@ use database_models::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
     },
-    queued_notification, review, seen, user_measurement, user_to_entity, workout,
+    review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
@@ -27,7 +27,7 @@ use database_utils::{
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -673,13 +673,15 @@ pub async fn get_users_monitoring_entity(
     )
 }
 
-pub async fn queue_notifications_to_user_platforms(
+pub async fn create_user_notification(
+    message: &str,
     user_id: &String,
-    msg: &str,
     db: &DatabaseConnection,
+    lot: UserNotificationLot,
 ) -> Result<bool> {
-    let insert_data = queued_notification::ActiveModel {
-        message: ActiveValue::Set(msg.to_owned()),
+    let insert_data = user_notification::ActiveModel {
+        lot: ActiveValue::Set(lot),
+        message: ActiveValue::Set(message.to_owned()),
         user_id: ActiveValue::Set(user_id.to_owned()),
         ..Default::default()
     };
@@ -696,7 +698,7 @@ pub async fn queue_media_state_changed_notification_for_user(
     let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        queue_notifications_to_user_platforms(user_id, msg, &ss.db)
+        create_user_notification(msg, user_id, &ss.db, UserNotificationLot::Queued)
             .await
             .trace_ok();
     } else {

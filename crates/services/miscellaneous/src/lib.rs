@@ -31,9 +31,9 @@ use database_models::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
         Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserToEntity,
+        Review, Seen, User, UserNotification, UserToEntity,
     },
-    queued_notification, review, seen, user, user_to_entity,
+    review, seen, user, user_notification, user_to_entity,
 };
 use database_utils::{
     apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
@@ -48,19 +48,19 @@ use dependent_models::{
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_partial_metadata,
+    commit_metadata_internal, commit_person, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update,
-    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
-    refresh_collection_to_entity_association, update_metadata_and_notify_users,
+    queue_media_state_changed_notification_for_user, refresh_collection_to_entity_association,
+    update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    UserToMediaReason,
+    UserNotificationLot, UserToMediaReason,
 };
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
@@ -2430,10 +2430,11 @@ ORDER BY RANDOM() LIMIT 10;
                 let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
                 if get_current_date(&self.0.timezone) == reminder.reminder {
                     for user in related_users {
-                        queue_notifications_to_user_platforms(
-                            &user.user_id,
+                        create_user_notification(
                             &reminder.text,
+                            &user.user_id,
                             &self.0.db,
+                            UserNotificationLot::Queued,
                         )
                         .await?;
                         remove_entity_from_collection(
@@ -2838,13 +2839,14 @@ ORDER BY RANDOM() LIMIT 10;
                 event.entity_lot,
                 Some("reviews"),
             );
-            queue_notifications_to_user_platforms(
-                &user_id,
+            create_user_notification(
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
                 ),
+                &user_id,
                 &self.0.db,
+                UserNotificationLot::Queued,
             )
             .await?;
         }
@@ -2978,7 +2980,10 @@ ORDER BY RANDOM() LIMIT 10;
             Genre::delete_by_id(genre).exec(&self.0.db).await?;
         }
         ryot_log!(debug, "Deleting all queued notifications");
-        QueuedNotification::delete_many().exec(&self.0.db).await?;
+        UserNotification::delete_many()
+            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
+            .exec(&self.0.db)
+            .await?;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
@@ -3055,8 +3060,9 @@ ORDER BY RANDOM() LIMIT 10;
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = QueuedNotification::find()
-                .filter(queued_notification::Column::UserId.eq(&user_details.id))
+            let notifications = UserNotification::find()
+                .filter(user_notification::Column::UserId.eq(&user_details.id))
+                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
                 .all(&self.0.db)
                 .await?;
             if notifications.is_empty() {

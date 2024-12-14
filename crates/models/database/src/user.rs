@@ -47,8 +47,6 @@ pub enum Relation {
     Integration,
     #[sea_orm(has_many = "super::notification_platform::Entity")]
     NotificationPlatform,
-    #[sea_orm(has_many = "super::queued_notification::Entity")]
-    QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
@@ -104,12 +102,6 @@ impl Related<super::integration::Entity> for Entity {
 impl Related<super::notification_platform::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::NotificationPlatform.def()
-    }
-}
-
-impl Related<super::queued_notification::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::QueuedNotification.def()
     }
 }
 

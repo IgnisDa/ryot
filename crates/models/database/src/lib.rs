@@ -22,7 +22,6 @@ pub mod metadata_to_person;
 pub mod monitored_entity;
 pub mod notification_platform;
 pub mod person;
-pub mod queued_notification;
 pub mod review;
 pub mod seen;
 pub mod user;
