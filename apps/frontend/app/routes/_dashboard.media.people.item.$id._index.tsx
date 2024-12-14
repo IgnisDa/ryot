@@ -89,7 +89,7 @@ export default function Page() {
 				images={loaderData.personDetails.details.displayImages}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
-					href: loaderData.personDetails.sourceUrl,
+					href: loaderData.personDetails.details.sourceUrl,
 				}}
 			>
 				<Title id="creator-title">
