@@ -2400,10 +2400,8 @@ ORDER BY RANDOM() LIMIT 10;
             | MediaSource::Mal
             | MediaSource::Openlibrary
             | MediaSource::Vndb
+            | MediaSource::YoutubeMusic
             | MediaSource::GoogleBooks => None,
-            MediaSource::YoutubeMusic => Some(format!(
-                "https://music.youtube.com/playlist?list={identifier}"
-            )),
             MediaSource::Audible => Some(format!(
                 "https://www.audible.com/series/{slug}/{identifier}"
             )),

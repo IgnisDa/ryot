@@ -75,6 +75,7 @@ enum Action {
 const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 	[MediaSource.Tmdb]: MediaLot.Movie,
 	[MediaSource.Igdb]: MediaLot.VideoGame,
+	[MediaSource.YoutubeMusic]: MediaLot.Music,
 };
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {

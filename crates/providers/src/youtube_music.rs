@@ -6,8 +6,8 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    MetadataDetails, MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -132,10 +132,10 @@ impl MediaProvider for YoutubeMusicService {
             MetadataGroupWithoutId {
                 title: album.name,
                 lot: MediaLot::Music,
+                identifier: album.id,
                 display_images: vec![],
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
-                identifier: album.playlist_id.unwrap_or(album.id),
                 description: album.description.map(|d| d.to_html()),
                 images: album
                     .cover
@@ -159,5 +159,31 @@ impl MediaProvider for YoutubeMusicService {
                 })
                 .collect(),
         ))
+    }
+
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        _page: Option<i32>,
+        _display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let data = self.client.music_search_albums(query).await?;
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: 1,
+                next_page: None,
+            },
+            items: data
+                .items
+                .items
+                .into_iter()
+                .map(|t| MetadataGroupSearchItem {
+                    parts: None,
+                    name: t.name,
+                    identifier: t.id,
+                    image: t.cover.last().map(|t| t.url.to_owned()),
+                })
+                .collect(),
+        })
     }
 }
