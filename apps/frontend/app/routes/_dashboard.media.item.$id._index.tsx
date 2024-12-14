@@ -439,6 +439,7 @@ export default function Page() {
 										.with(MediaSource.Openlibrary, () => "openlibrary.svg")
 										.with(MediaSource.Tmdb, () => "tmdb.svg")
 										.with(MediaSource.Vndb, () => "vndb.ico")
+										.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 										.with(MediaSource.Custom, () => undefined)
 										.exhaustive()}`}
 								/>
@@ -467,6 +468,7 @@ export default function Page() {
 											MediaSource.Custom,
 											MediaSource.Itunes,
 											MediaSource.Openlibrary,
+											MediaSource.YoutubeMusic,
 											() => undefined,
 										)
 										.exhaustive()}
