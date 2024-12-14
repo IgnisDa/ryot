@@ -80,6 +80,7 @@ const SEARCH_SOURCES_ALLOWED = [
 	MediaSource.Audible,
 	MediaSource.MangaUpdates,
 	MediaSource.Igdb,
+	MediaSource.YoutubeMusic,
 ] as const;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
