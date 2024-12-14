@@ -447,21 +447,25 @@ impl MediaProvider for OpenlibraryService {
                 });
             }
         }
-
+        let identifier = get_key(&data.key);
         Ok(MetadataDetails {
-            identifier: get_key(&data.key),
-            title: data.title,
-            description,
-            lot: MediaLot::Book,
-            source: MediaSource::Openlibrary,
             people,
             genres,
+            description,
+            suggestions,
             url_images: images,
+            lot: MediaLot::Book,
+            title: data.title.clone(),
+            identifier: identifier.clone(),
+            source: MediaSource::Openlibrary,
             publish_year: first_release_date.map(|d| d.year()),
+            source_url: Some(format!(
+                "https://openlibrary.org/works/{}/{}",
+                identifier, data.title
+            )),
             book_specifics: Some(BookSpecifics {
                 pages: Some(num_pages),
             }),
-            suggestions,
             ..Default::default()
         })
     }

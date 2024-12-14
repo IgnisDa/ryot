@@ -667,11 +667,6 @@ export type ExportJob = {
   url: Scalars['String']['output'];
 };
 
-export type ExternalIdentifiers = {
-  __typename?: 'ExternalIdentifiers';
-  tvdbId?: Maybe<Scalars['Int']['output']>;
-};
-
 export type FitnessAnalyticsEquipment = {
   __typename?: 'FitnessAnalyticsEquipment';
   count: Scalars['Int']['output'];
@@ -766,7 +761,6 @@ export type GraphqlMetadataDetails = {
   bookSpecifics?: Maybe<BookSpecifics>;
   creators: Array<MetadataCreatorGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
-  externalIdentifiers?: Maybe<ExternalIdentifiers>;
   genres: Array<GenreListItem>;
   group?: Maybe<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];

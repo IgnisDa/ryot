@@ -534,58 +534,6 @@ ORDER BY RANDOM() LIMIT 10;
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        let slug = slug::slugify(&model.title);
-        let identifier = &model.identifier;
-        let source_url = match model.source {
-            MediaSource::Custom => None,
-            // DEV: This is updated by the specifics
-            MediaSource::MangaUpdates => None,
-            MediaSource::Itunes => Some(format!(
-                "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
-            )),
-            MediaSource::GoogleBooks => Some(format!(
-                "https://www.google.co.in/books/edition/{slug}/{identifier}"
-            )),
-            MediaSource::Audible => Some(format!("https://www.audible.com/pd/{slug}/{identifier}")),
-            MediaSource::Openlibrary => {
-                Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
-            }
-            MediaSource::Tmdb => {
-                let bw = match model.lot {
-                    MediaLot::Movie => "movie",
-                    MediaLot::Show => "tv",
-                    _ => unreachable!(),
-                };
-                Some(format!(
-                    "https://www.themoviedb.org/{bw}/{identifier}-{slug}"
-                ))
-            }
-            MediaSource::Listennotes => Some(format!(
-                "https://www.listennotes.com/podcasts/{slug}-{identifier}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
-            MediaSource::Anilist => {
-                let bw = match model.lot {
-                    MediaLot::Anime => "anime",
-                    MediaLot::Manga => "manga",
-                    _ => unreachable!(),
-                };
-                Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
-            }
-            MediaSource::Mal => {
-                let bw = match model.lot {
-                    MediaLot::Anime => "anime",
-                    MediaLot::Manga => "manga",
-                    _ => unreachable!(),
-                };
-                Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
-            }
-            MediaSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
-            MediaSource::YoutubeMusic => {
-                Some(format!("https://music.youtube.com/watch?v={identifier}"))
-            }
-        };
-
         let group = {
             let association = MetadataToMetadataGroup::find()
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
@@ -614,7 +562,6 @@ ORDER BY RANDOM() LIMIT 10;
             assets,
             genres,
             creators,
-            source_url,
             suggestions,
             id: model.id,
             lot: model.lot,
@@ -622,6 +569,7 @@ ORDER BY RANDOM() LIMIT 10;
             title: model.title,
             source: model.source,
             is_nsfw: model.is_nsfw,
+            source_url: model.source_url,
             is_partial: model.is_partial,
             identifier: model.identifier,
             description: model.description,

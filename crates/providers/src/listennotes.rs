@@ -268,12 +268,16 @@ impl ListennotesService {
         let podcast_data: Podcast = resp.json().await.map_err(|e| anyhow!(e))?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {
-            identifier: podcast_data.id,
-            title: podcast_data.title,
-            is_nsfw: podcast_data.explicit_content,
-            description: podcast_data.description,
             lot: MediaLot::Podcast,
+            identifier: podcast_data.id,
             source: MediaSource::Listennotes,
+            title: podcast_data.title.clone(),
+            description: podcast_data.description,
+            is_nsfw: podcast_data.explicit_content,
+            source_url: Some(format!(
+                "https://www.listennotes.com/podcasts/{}-{}",
+                podcast_data.title, identifier
+            )),
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),

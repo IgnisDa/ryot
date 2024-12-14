@@ -221,11 +221,11 @@ impl GoogleBooksService {
             genres.push(g);
         }
         MetadataDetails {
-            identifier: id,
             lot: MediaLot::Book,
-            source: MediaSource::GoogleBooks,
-            title: item.title,
+            identifier: id.clone(),
+            title: item.title.clone(),
             description: item.description,
+            source: MediaSource::GoogleBooks,
             creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
@@ -235,6 +235,10 @@ impl GoogleBooksService {
             }),
             url_images: images.unique().collect(),
             provider_rating: item.average_rating,
+            source_url: Some(format!(
+                "https://www.google.co.in/books/edition/{}/{}",
+                item.title, id
+            )),
             ..Default::default()
         }
     }

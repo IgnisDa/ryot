@@ -703,9 +703,10 @@ async fn media_details(
         title.romaji,
         preferred_language,
     );
+    let identifier = media.id.to_string();
     Ok(MetadataDetails {
-        title,
-        identifier: media.id.to_string(),
+        title: title.clone(),
+        identifier: identifier.clone(),
         is_nsfw: media.is_adult,
         source: MediaSource::Anilist,
         description: media.description,
@@ -713,6 +714,10 @@ async fn media_details(
         people,
         creators: vec![],
         url_images: images,
+        source_url: Some(format!(
+            "https://anilist.co/{}/{}/{}",
+            lot, identifier, title
+        )),
         videos,
         genres: genres.into_iter().unique().collect(),
         publish_year: year,

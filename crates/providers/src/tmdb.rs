@@ -791,21 +791,22 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_external_identifiers("movie", identifier)
             .await?;
+        let title = data.title.unwrap();
         Ok(MetadataDetails {
+            people,
+            title: title.clone(),
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
-            original_language: self.base.get_language_name(data.original_language),
             lot: MediaLot::Movie,
             source: MediaSource::Tmdb,
             production_status: data.status,
-            title: data.title.unwrap(),
             genres: data
                 .genres
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            people,
+            original_language: self.base.get_language_name(data.original_language),
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -824,6 +825,10 @@ impl MediaProvider for TmdbMovieService {
                 runtime: data.runtime,
             }),
             suggestions,
+            source_url: Some(format!(
+                "https://www.themoviedb.org/movie/{}-{}",
+                data.id, title
+            )),
             provider_rating: if let Some(av) = data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -1145,16 +1150,17 @@ impl MediaProvider for TmdbShowService {
             .count();
         let watch_providers = self.base.get_all_watch_providers("tv", identifier).await?;
         let external_identifiers = self.base.get_external_identifiers("tv", identifier).await?;
+        let title = show_data.name.unwrap();
         Ok(MetadataDetails {
-            identifier: show_data.id.to_string(),
-            title: show_data.name.unwrap(),
-            is_nsfw: show_data.adult,
-            original_language: self.base.get_language_name(show_data.original_language),
+            people,
             lot: MediaLot::Show,
-            production_status: show_data.status,
+            title: title.clone(),
+            is_nsfw: show_data.adult,
             source: MediaSource::Tmdb,
             description: show_data.overview,
-            people,
+            production_status: show_data.status,
+            identifier: show_data.id.to_string(),
+            original_language: self.base.get_language_name(show_data.original_language),
             genres: show_data
                 .genres
                 .unwrap_or_default()
@@ -1165,6 +1171,10 @@ impl MediaProvider for TmdbShowService {
             publish_date: convert_string_to_date(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
+            source_url: Some(format!(
+                "https://www.themoviedb.org/tv/{}-{}",
+                show_data.id, title
+            )),
             url_images: image_ids
                 .into_iter()
                 .unique()

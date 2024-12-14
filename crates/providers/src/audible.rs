@@ -452,14 +452,20 @@ impl AudibleService {
             None
         };
         MetadataDetails {
-            identifier: item.asin,
-            lot: MediaLot::AudioBook,
-            source: MediaSource::Audible,
-            is_nsfw: item.is_adult_product,
-            title: item.title,
-            description,
             people,
             creators,
+            description,
+            url_images: images,
+            provider_rating: rating,
+            lot: MediaLot::AudioBook,
+            title: item.title.clone(),
+            source: MediaSource::Audible,
+            identifier: item.asin.clone(),
+            is_nsfw: item.is_adult_product,
+            source_url: Some(format!(
+                "https://www.audible.com/pd/{}/{}",
+                item.title, item.asin
+            )),
             genres: item
                 .category_ladders
                 .unwrap_or_default()
@@ -477,8 +483,6 @@ impl AudibleService {
             audio_book_specifics: Some(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
             }),
-            url_images: images,
-            provider_rating: rating,
             ..Default::default()
         }
     }

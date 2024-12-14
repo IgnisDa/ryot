@@ -265,16 +265,18 @@ impl VndbService {
             .into_iter()
             .map(|t| t.name)
             .collect_vec();
+        let identifier = item.id;
         MetadataDetails {
-            identifier: item.id,
-            lot: MediaLot::VisualNovel,
             source: MediaSource::Vndb,
+            lot: MediaLot::VisualNovel,
+            identifier: identifier.clone(),
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),
                 2 => "Cancelled".to_owned(),
                 _ => unreachable!(),
             }),
+            source_url: Some(format!("https://vndb.org/{}", identifier)),
             title: item.title.unwrap(),
             description: item.description,
             people: people.into_iter().unique().collect(),

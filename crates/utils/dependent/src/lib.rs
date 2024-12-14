@@ -594,6 +594,7 @@ pub async fn update_metadata(
             meta.title = ActiveValue::Set(details.title);
             meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
             meta.is_partial = ActiveValue::Set(Some(false));
+            meta.source_url = ActiveValue::Set(details.source_url);
             meta.provider_rating = ActiveValue::Set(details.provider_rating);
             meta.description = ActiveValue::Set(details.description);
             meta.images = ActiveValue::Set(Some(images));
@@ -770,6 +771,7 @@ pub async fn commit_metadata_internal(
         lot: ActiveValue::Set(details.lot),
         source: ActiveValue::Set(details.source),
         title: ActiveValue::Set(details.title),
+        source_url: ActiveValue::Set(details.source_url),
         description: ActiveValue::Set(details.description),
         publish_year: ActiveValue::Set(details.publish_year),
         publish_date: ActiveValue::Set(details.publish_date),

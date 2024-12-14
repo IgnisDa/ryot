@@ -60,13 +60,15 @@ impl MediaProvider for YoutubeMusicService {
         } else {
             vec![]
         };
+        let identifier = details.track.id;
         Ok(MetadataDetails {
             suggestions,
             lot: MediaLot::Music,
             title: details.track.name,
-            identifier: details.track.id,
+            identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
             group_identifiers: details.track.album.into_iter().map(|a| a.id).collect(),
+            source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
             music_specifics: Some(MusicSpecifics {
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
             }),

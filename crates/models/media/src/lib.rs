@@ -471,6 +471,7 @@ pub struct MetadataDetails {
     pub is_nsfw: Option<bool>,
     pub title: String,
     pub source: MediaSource,
+    pub source_url: Option<String>,
     pub description: Option<String>,
     pub original_language: Option<String>,
     pub lot: MediaLot,
@@ -1257,6 +1258,7 @@ pub struct GraphqlMetadataDetails {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
+    #[graphql(skip)]
     pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }

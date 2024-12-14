@@ -613,17 +613,19 @@ impl IgdbService {
                 source: MetadataVideoSource::Youtube,
             })
             .collect_vec();
+        let title = item.name.unwrap();
         MetadataDetails {
-            identifier: item.id.to_string(),
+            title: title.clone(),
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
-            title: item.name.unwrap(),
             description: item.summary,
+            identifier: item.id.to_string(),
             people,
             url_images: images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
+            source_url: Some(format!("https://www.igdb.com/games/{}", title)),
             genres: item
                 .genres
                 .unwrap_or_default()

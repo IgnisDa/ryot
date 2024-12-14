@@ -16,6 +16,7 @@ pub enum Metadata {
     // updated using jobs
     LastUpdatedOn,
     Title,
+    SourceUrl,
     Description,
     // the year this media item was released
     PublishYear,
@@ -84,6 +85,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Metadata::Title).text().not_null())
+                    .col(ColumnDef::new(Metadata::SourceUrl).text())
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
