@@ -1794,7 +1794,7 @@ ORDER BY RANDOM() LIMIT 10;
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
-            MediaSource::YoutubeMusic => todo!(),
+            MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
             MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => {
