@@ -461,7 +461,7 @@ pub struct WatchProvider {
 #[derive(
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject, Default,
 )]
-pub struct ExternalIdentifiers {
+pub struct MetadataExternalIdentifiers {
     pub tvdb_id: Option<i32>,
 }
 
@@ -489,7 +489,7 @@ pub struct MetadataDetails {
     pub watch_providers: Vec<WatchProvider>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
-    pub external_identifiers: Option<ExternalIdentifiers>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub movie_specifics: Option<MovieSpecifics>,
     pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
@@ -1257,7 +1257,7 @@ pub struct GraphqlMetadataDetails {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub external_identifiers: Option<ExternalIdentifiers>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 

@@ -18,7 +18,7 @@ use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    ExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
@@ -376,7 +376,7 @@ impl TmdbService {
         &self,
         type_: &str,
         identifier: &str,
-    ) -> Result<ExternalIdentifiers> {
+    ) -> Result<MetadataExternalIdentifiers> {
         let rsp = self
             .client
             .get(format!("{}/{}/{}/external_ids", URL, type_, identifier))

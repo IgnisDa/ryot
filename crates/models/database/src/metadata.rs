@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExternalIdentifiers, MangaSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataExternalIdentifiers,
     MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
     MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
     WatchProvider,
@@ -43,7 +43,7 @@ pub struct Model {
     #[sea_orm(column_type = "Json")]
     pub watch_providers: Option<Vec<WatchProvider>>,
     #[sea_orm(column_type = "Json")]
-    pub external_identifiers: Option<ExternalIdentifiers>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
