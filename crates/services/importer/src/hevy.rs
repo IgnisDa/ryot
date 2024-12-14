@@ -174,5 +174,5 @@ pub async fn import(
 }
 
 fn parse_date_string(input: &str) -> NaiveDateTime {
-    NaiveDateTime::parse_from_str(&input, "%d %b %Y, %H:%M").unwrap()
+    NaiveDateTime::parse_from_str(input, "%d %b %Y, %H:%M").unwrap()
 }
