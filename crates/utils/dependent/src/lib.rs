@@ -1726,7 +1726,7 @@ pub async fn get_focused_workout_summary(
 }
 
 /// Create a workout in the database and also update user and exercise associations.
-pub async fn create_or_update_workout(
+pub async fn create_or_update_user_workout(
     input: UserWorkoutInput,
     user_id: &String,
     ss: &Arc<SupportingService>,
@@ -2315,7 +2315,7 @@ where
             }
             ImportCompletedItem::Workout(workout) => {
                 need_to_schedule_user_for_workout_revision = true;
-                if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
+                if let Err(err) = create_or_update_user_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
                         error: Some(err.message),
@@ -2326,7 +2326,7 @@ where
             }
             ImportCompletedItem::ApplicationWorkout(workout) => {
                 let workout_input = db_workout_to_workout_input(workout.details);
-                match create_or_update_workout(workout_input, user_id, ss).await {
+                match create_or_update_user_workout(workout_input, user_id, ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             lot: None,
