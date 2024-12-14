@@ -9,3 +9,4 @@ pub mod manga_updates;
 pub mod openlibrary;
 pub mod tmdb;
 pub mod vndb;
+pub mod youtube_music;

@@ -101,6 +101,7 @@ use providers::{
     openlibrary::OpenlibraryService,
     tmdb::TmdbService,
     vndb::VndbService,
+    youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -300,7 +301,10 @@ ORDER BY RANDOM() LIMIT 10;
             metadata_provider_languages: MediaSource::iter()
                 .map(|source| {
                     let (supported, default) = match source {
-                        MediaSource::YoutubeMusic => todo!(),
+                        MediaSource::YoutubeMusic => (
+                            YoutubeMusicService::supported_languages(),
+                            YoutubeMusicService::default_language(),
+                        ),
                         MediaSource::Itunes => (
                             ITunesService::supported_languages(),
                             ITunesService::default_language(),
