@@ -1055,7 +1055,13 @@ pub async fn commit_metadata_group_internal(
     let provider = get_metadata_provider(lot, source, ss).await?;
     let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
     let group_id = match existing_group {
-        Some(eg) => eg.id,
+        Some(eg) => {
+            let mut eg: metadata_group::ActiveModel = eg.into();
+            eg.parts = ActiveValue::Set(group_details.parts);
+            eg.images = ActiveValue::Set(group_details.images);
+            let eg = eg.update(&ss.db).await?;
+            eg.id
+        }
         None => {
             let mut db_group: metadata_group::ActiveModel =
                 group_details.into_model("".to_string(), None).into();

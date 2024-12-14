@@ -465,13 +465,6 @@ pub struct MetadataExternalIdentifiers {
     pub tvdb_id: Option<i32>,
 }
 
-#[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject, Default,
-)]
-pub struct MetadataGroupExtraInformation {
-    pub youtube_music_playlist_id: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MetadataDetails {
     pub identifier: String,

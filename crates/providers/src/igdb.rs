@@ -277,7 +277,6 @@ where id = {id};
                 images: vec![],
                 description: None,
                 display_images: vec![],
-                extra_information: None,
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
                 identifier: details.id.to_string(),

@@ -944,7 +944,6 @@ impl MediaProvider for TmdbMovieService {
             MetadataGroupWithoutId {
                 lot: MediaLot::Movie,
                 display_images: vec![],
-                extra_information: None,
                 source: MediaSource::Tmdb,
                 description: data.overview,
                 identifier: identifier.to_owned(),

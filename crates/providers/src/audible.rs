@@ -298,7 +298,6 @@ impl MediaProvider for AudibleService {
                 images: vec![],
                 description: None,
                 display_images: vec![],
-                extra_information: None,
                 lot: MediaLot::AudioBook,
                 title: data.product.title,
                 source: MediaSource::Audible,

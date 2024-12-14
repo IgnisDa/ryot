@@ -6,9 +6,8 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    MetadataDetails, MetadataGroupExtraInformation, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics, PartialMetadataPerson,
-    PartialMetadataWithoutId,
+    MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -138,9 +137,6 @@ impl MediaProvider for YoutubeMusicService {
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
                 description: album.description.map(|d| d.to_html()),
-                extra_information: Some(MetadataGroupExtraInformation {
-                    youtube_music_playlist_id: album.playlist_id,
-                }),
                 images: album
                     .cover
                     .into_iter()

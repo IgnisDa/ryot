@@ -14,13 +14,6 @@ impl MigrationTrait for Migration {
                 .await?;
         }
         if !manager
-            .has_column("metadata_group", "extra_information")
-            .await?
-        {
-            db.execute_unprepared("ALTER TABLE metadata_group ADD COLUMN extra_information JSONB")
-                .await?;
-        }
-        if !manager
             .has_column("daily_user_activity", "music_count")
             .await?
         {
