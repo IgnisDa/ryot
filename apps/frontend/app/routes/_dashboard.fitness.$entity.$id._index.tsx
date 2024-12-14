@@ -449,6 +449,7 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
+					{/* TODO: Display workout images here */}
 					{loaderData.repeatedWorkout ? (
 						<Box>
 							<Text c="dimmed" span>
