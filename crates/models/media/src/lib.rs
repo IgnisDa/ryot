@@ -283,6 +283,23 @@ pub struct AnimeSpecifics {
 }
 
 #[derive(
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    PartialEq,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "MusicSpecificsInput")]
+pub struct MusicSpecifics {
+    pub duration: Option<i32>,
+}
+
+#[derive(
     Debug,
     PartialEq,
     Eq,
@@ -480,6 +497,7 @@ pub struct MetadataDetails {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
+    pub music_specifics: Option<MusicSpecifics>,
 }
 
 /// A specific instance when an entity was seen.
@@ -980,21 +998,22 @@ pub struct DeployImportJobInput {
 pub struct CreateCustomMetadataInput {
     pub title: String,
     pub lot: MediaLot,
+    pub is_nsfw: Option<bool>,
+    pub publish_year: Option<i32>,
     pub description: Option<String>,
-    pub creators: Option<Vec<String>>,
     pub genres: Option<Vec<String>>,
     pub images: Option<Vec<String>>,
     pub videos: Option<Vec<String>>,
-    pub is_nsfw: Option<bool>,
-    pub publish_year: Option<i32>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub creators: Option<Vec<String>>,
     pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub music_specifics: Option<MusicSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
@@ -1231,9 +1250,10 @@ pub struct GraphqlMetadataDetails {
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub music_specifics: Option<MusicSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
     pub creators: Vec<MetadataCreatorGroupedByRole>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,

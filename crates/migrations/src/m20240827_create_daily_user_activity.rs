@@ -37,6 +37,8 @@ pub enum DailyUserActivity {
     MangaCount,
     MovieCount,
     MovieDuration,
+    MusicCount,
+    MusicDuration,
     ShowCount,
     ShowDuration,
     VideoGameCount,
@@ -99,6 +101,8 @@ pub async fn create_daily_user_activity_table(manager: &SchemaManager<'_>) -> Re
                 .col(integer_not_null(DailyUserActivity::MangaCount))
                 .col(integer_not_null(DailyUserActivity::MovieCount))
                 .col(integer_not_null(DailyUserActivity::MovieDuration))
+                .col(integer_not_null(DailyUserActivity::MusicCount))
+                .col(integer_not_null(DailyUserActivity::MusicDuration))
                 .col(integer_not_null(DailyUserActivity::ShowCount))
                 .col(integer_not_null(DailyUserActivity::ShowDuration))
                 .col(integer_not_null(DailyUserActivity::VideoGameCount))

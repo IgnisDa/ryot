@@ -6,7 +6,8 @@ use enums::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExternalIdentifiers, MangaSpecifics,
     MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
-    PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+    MusicSpecifics, PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    WatchProvider,
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
@@ -52,6 +53,7 @@ pub struct Model {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
+    pub music_specifics: Option<MusicSpecifics>,
     pub state_changes: Option<MetadataStateChanges>,
 }
 

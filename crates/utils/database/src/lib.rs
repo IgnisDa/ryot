@@ -30,9 +30,9 @@ use jwt_service::{verify, Claims};
 use markdown::to_html as markdown_to_html;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
-    MangaSpecifics, MovieSpecifics, PodcastSpecifics, ReviewItem, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    MangaSpecifics, MovieSpecifics, MusicSpecifics, PodcastSpecifics, ReviewItem,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
@@ -507,6 +507,7 @@ pub async fn calculate_user_activities_and_summary(
         audio_book_specifics: Option<AudioBookSpecifics>,
         book_specifics: Option<BookSpecifics>,
         movie_specifics: Option<MovieSpecifics>,
+        music_specifics: Option<MusicSpecifics>,
         podcast_specifics: Option<PodcastSpecifics>,
         show_specifics: Option<ShowSpecifics>,
         video_game_specifics: Option<VideoGameSpecifics>,
@@ -601,6 +602,7 @@ pub async fn calculate_user_activities_and_summary(
             metadata::Column::AudioBookSpecifics,
             metadata::Column::BookSpecifics,
             metadata::Column::MovieSpecifics,
+            metadata::Column::MusicSpecifics,
             metadata::Column::PodcastSpecifics,
             metadata::Column::ShowSpecifics,
             metadata::Column::VideoGameSpecifics,
@@ -648,6 +650,10 @@ pub async fn calculate_user_activities_and_summary(
             if let Some(runtime) = movie_extra.runtime {
                 activity.movie_duration += runtime;
             }
+        } else if let Some(music_extra) = seen.music_specifics {
+            if let Some(runtime) = music_extra.duration {
+                activity.music_duration += runtime;
+            }
         } else if let Some(book_extra) = seen.book_specifics {
             if let Some(pages) = book_extra.pages {
                 activity.book_pages += pages;
@@ -663,9 +669,9 @@ pub async fn calculate_user_activities_and_summary(
             }
         }
         match seen.metadata_lot {
-            MediaLot::Music => todo!(),
             MediaLot::Book => activity.book_count += 1,
             MediaLot::Show => activity.show_count += 1,
+            MediaLot::Music => activity.music_count += 1,
             MediaLot::Anime => activity.anime_count += 1,
             MediaLot::Movie => activity.movie_count += 1,
             MediaLot::Manga => activity.manga_count += 1,
