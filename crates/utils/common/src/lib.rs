@@ -65,6 +65,7 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
         ],
     ),
     (MediaLot::Movie, &[MediaSource::Tmdb]),
+    (MediaLot::Music, &[MediaSource::YoutubeMusic]),
     (MediaLot::Show, &[MediaSource::Tmdb]),
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
