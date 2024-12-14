@@ -222,5 +222,5 @@ pub async fn sync_to_owned_collection(
                 }));
         }
     }
-    todo!()
+    Ok(result)
 }
