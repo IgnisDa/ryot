@@ -217,6 +217,9 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const [assetsModalOpened, setAssetsModalOpened] = useState<
+		string | null | undefined
+	>(undefined);
 
 	useInterval(() => {
 		const timeRemaining = dayjsLib(currentTimer?.endAt).diff(
@@ -266,6 +269,10 @@ export default function Page() {
 				<ClientOnly fallback={<Text>Loading workout...</Text>}>
 					{() => (
 						<>
+							<UploadAssetsModal
+								modalOpenedBy={assetsModalOpened}
+								closeModal={() => setAssetsModalOpened(undefined)}
+							/>
 							<TimerDrawer
 								opened={timerDrawerOpened}
 								onClose={timerDrawerClose}
@@ -497,6 +504,9 @@ export default function Page() {
 										openTimerDrawer={timerDrawerOpen}
 										reorderDrawerToggle={reorderDrawerToggle}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
+										setOpenAssetsModal={() =>
+											setAssetsModalOpened(ex.identifier)
+										}
 									/>
 								))}
 								<Group justify="center">
@@ -937,6 +947,127 @@ const exerciseHasDetailsToShow = (
 	(details?.attributes.images.length || 0) > 0 ||
 	(userDetails?.history?.length || 0) > 0;
 
+const UploadAssetsModal = (props: {
+	closeModal: () => void;
+	modalOpenedBy: string | null | undefined;
+}) => {
+	const coreDetails = useCoreDetails();
+	const fileUploadAllowed = coreDetails.fileStorageEnabled;
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [cameraFacing, toggleCameraFacing] = useToggle([
+		"environment",
+		"user",
+	] as const);
+	const webcamRef = useRef<Webcam>(null);
+
+	if (!currentWorkout) return null;
+
+	const exerciseIdx = currentWorkout.exercises.findIndex(
+		(e) => e.identifier === props.modalOpenedBy,
+	);
+	const exercise =
+		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
+
+	return (
+		<Modal
+			withCloseButton={false}
+			onClose={() => props.closeModal()}
+			opened={props.modalOpenedBy !== undefined}
+		>
+			<Stack>
+				<Text size="lg">
+					Images for {exercise ? exercise.name : "the workout"}
+				</Text>
+				{fileUploadAllowed ? (
+					<>
+						{exercise &&
+						isString(props.modalOpenedBy) &&
+						exercise.images.length > 0 ? (
+							<Avatar.Group spacing="xs">
+								{exercise.images.map((i, imgIdx) => (
+									<ImageDisplay
+										key={i.key}
+										imageSrc={i.imageSrc}
+										removeImage={() => {
+											deleteUploadedAsset(i.key);
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													const images = draft.exercises[exerciseIdx].images;
+													images.splice(imgIdx, 1);
+													draft.exercises[exerciseIdx].images = images;
+												}),
+											);
+										}}
+									/>
+								))}
+							</Avatar.Group>
+						) : null}
+						<Group justify="center" gap={4}>
+							<Paper radius="md" style={{ overflow: "hidden" }}>
+								<Webcam
+									ref={webcamRef}
+									height={180}
+									width={240}
+									videoConstraints={{ facingMode: cameraFacing }}
+									screenshotFormat={fileType}
+								/>
+							</Paper>
+							<Stack>
+								<ActionIcon size="xl" onClick={() => toggleCameraFacing()}>
+									<IconCameraRotate size={32} />
+								</ActionIcon>
+								<ActionIcon
+									size="xl"
+									onClick={async () => {
+										const imageSrc = webcamRef.current?.getScreenshot();
+										if (imageSrc) {
+											const buffer = Buffer.from(
+												imageSrc.replace(/^data:image\/\w+;base64,/, ""),
+												"base64",
+											);
+											const fileObj = new File([buffer], "image.jpg", {
+												type: fileType,
+											});
+											const toSubmitForm = new FormData();
+											toSubmitForm.append("file", fileObj, "image.jpg");
+											const resp = await fetch(
+												$path("/actions", { intent: "uploadWorkoutAsset" }),
+												{ method: "POST", body: toSubmitForm },
+											);
+											const data = await resp.json();
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[exerciseIdx].images.push({
+														imageSrc,
+														key: data.key,
+													});
+												}),
+											);
+										}
+									}}
+								>
+									<IconCamera size={32} />
+								</ActionIcon>
+							</Stack>
+						</Group>
+						<Button
+							fullWidth
+							variant="outline"
+							onClick={() => props.closeModal()}
+						>
+							Done
+						</Button>
+					</>
+				) : (
+					<Text c="red" size="sm">
+						Please set the S3 variables required to enable file uploading
+					</Text>
+				)}
+			</Stack>
+		</Modal>
+	);
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
@@ -944,6 +1075,7 @@ const ExerciseDisplay = (props: {
 	openTimerDrawer: () => void;
 	reorderDrawerToggle: () => void;
 	openSupersetModal: (s: string) => void;
+	setOpenAssetsModal: (identifier: string) => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
@@ -956,7 +1088,6 @@ const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [detailsParent] = useAutoAnimate();
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
@@ -970,15 +1101,6 @@ const ExerciseDisplay = (props: {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
-	const [cameraFacing, toggleCameraFacing] = useToggle([
-		"environment",
-		"user",
-	] as const);
-	const webcamRef = useRef<Webcam>(null);
-	const [
-		assetsModalOpened,
-		{ close: assetsModalClose, toggle: assetsModalToggle },
-	] = useDisclosure(false);
 
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
@@ -1013,95 +1135,6 @@ const ExerciseDisplay = (props: {
 
 	return (
 		<>
-			<Modal
-				opened={assetsModalOpened}
-				onClose={assetsModalClose}
-				withCloseButton={false}
-			>
-				<Stack>
-					<Text size="lg">Images for {exercise.name}</Text>
-					{fileUploadAllowed ? (
-						<>
-							{exercise.images.length > 0 ? (
-								<Avatar.Group spacing="xs">
-									{exercise.images.map((i, imgIdx) => (
-										<ImageDisplay
-											key={i.key}
-											imageSrc={i.imageSrc}
-											removeImage={() => {
-												deleteUploadedAsset(i.key);
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														const images =
-															draft.exercises[props.exerciseIdx].images;
-														images.splice(imgIdx, 1);
-														draft.exercises[props.exerciseIdx].images = images;
-													}),
-												);
-											}}
-										/>
-									))}
-								</Avatar.Group>
-							) : null}
-							<Group justify="center" gap={4}>
-								<Paper radius="md" style={{ overflow: "hidden" }}>
-									<Webcam
-										ref={webcamRef}
-										height={180}
-										width={240}
-										videoConstraints={{ facingMode: cameraFacing }}
-										screenshotFormat={fileType}
-									/>
-								</Paper>
-								<Stack>
-									<ActionIcon size="xl" onClick={() => toggleCameraFacing()}>
-										<IconCameraRotate size={32} />
-									</ActionIcon>
-									<ActionIcon
-										size="xl"
-										onClick={async () => {
-											const imageSrc = webcamRef.current?.getScreenshot();
-											if (imageSrc) {
-												const buffer = Buffer.from(
-													imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-													"base64",
-												);
-												const fileObj = new File([buffer], "image.jpg", {
-													type: fileType,
-												});
-												const toSubmitForm = new FormData();
-												toSubmitForm.append("file", fileObj, "image.jpg");
-												const resp = await fetch(
-													$path("/actions", { intent: "uploadWorkoutAsset" }),
-													{ method: "POST", body: toSubmitForm },
-												);
-												const data = await resp.json();
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[props.exerciseIdx].images.push({
-															imageSrc,
-															key: data.key,
-														});
-													}),
-												);
-											}
-										}}
-									>
-										<IconCamera size={32} />
-									</ActionIcon>
-								</Stack>
-							</Group>
-							<Button fullWidth variant="outline" onClick={assetsModalClose}>
-								Done
-							</Button>
-						</>
-					) : (
-						<Text c="red" size="sm">
-							Please set the S3 variables required to enable file uploading
-						</Text>
-					)}
-				</Stack>
-			</Modal>
 			<Paper
 				radius={0}
 				style={{
@@ -1175,11 +1208,11 @@ const ExerciseDisplay = (props: {
 							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
-								onClick={assetsModalToggle}
+								style={isCreatingTemplate ? { display: "none" } : undefined}
+								onClick={() => props.setOpenAssetsModal(exercise.identifier)}
 								rightSection={
 									exercise.images.length > 0 ? exercise.images.length : null
 								}
-								style={isCreatingTemplate ? { display: "none" } : undefined}
 							>
 								Images
 							</Menu.Item>
