@@ -59,6 +59,7 @@ import {
 import {
 	changeCase,
 	formatDateToNaiveDate,
+	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
 	isInteger,
@@ -382,15 +383,6 @@ export default function Page() {
 									)
 									.asMilliseconds(),
 							),
-						loaderData.metadataDetails.musicSpecifics?.duration &&
-							humanizeDuration(
-								dayjsLib
-									.duration(
-										loaderData.metadataDetails.musicSpecifics.duration,
-										"second",
-									)
-									.asMilliseconds(),
-							),
 						loaderData.metadataDetails.showSpecifics?.totalSeasons &&
 							`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
 						loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
@@ -413,6 +405,21 @@ export default function Page() {
 									)
 									.asMilliseconds(),
 							),
+						loaderData.metadataDetails.musicSpecifics?.duration &&
+							humanizeDuration(
+								dayjsLib
+									.duration(
+										loaderData.metadataDetails.musicSpecifics.duration,
+										"second",
+									)
+									.asMilliseconds(),
+							),
+						loaderData.metadataDetails.musicSpecifics?.viewCount &&
+							formatQuantityWithCompactNotation(
+								loaderData.metadataDetails.musicSpecifics.viewCount,
+							),
+						loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
+							"Various Artists",
 					]
 						.filter(Boolean)
 						.join(" • ")}
