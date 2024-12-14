@@ -180,6 +180,7 @@ export const getLot = (lot: unknown) => {
 		.with("books", "book", () => MediaLot.Book)
 		.with("movies", "movie", () => MediaLot.Movie)
 		.with("tv", "show", "shows", () => MediaLot.Show)
+		.with("music", () => MediaLot.Music)
 		.with(
 			"visual_novel",
 			"visualnovel",
