@@ -9,6 +9,7 @@ use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
     MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -201,6 +202,33 @@ impl MediaProvider for YoutubeMusicService {
                     name: t.name,
                     identifier: t.id,
                     image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                })
+                .collect(),
+        })
+    }
+
+    async fn people_search(
+        &self,
+        query: &str,
+        _page: Option<i32>,
+        _source_specifics: &Option<PersonSourceSpecifics>,
+        _display_nsfw: bool,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        let data = self.client.music_search_artists(query).await?;
+        Ok(SearchResults {
+            details: SearchDetails {
+                total: 1,
+                next_page: None,
+            },
+            items: data
+                .items
+                .items
+                .into_iter()
+                .map(|t| PeopleSearchItem {
+                    name: t.name,
+                    identifier: t.id,
+                    birth_year: None,
+                    image: self.largest_image(&t.avatar).map(|t| t.url.to_owned()),
                 })
                 .collect(),
         })
