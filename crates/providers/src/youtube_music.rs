@@ -213,8 +213,31 @@ impl MediaProvider for YoutubeMusicService {
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let data = self.client.music_artist(identifier, false).await?;
+        let related = if let Some(playlist_id) = data.tracks_playlist_id {
+            let items = self.client.music_playlist(playlist_id).await?;
+            items
+                .tracks
+                .items
+                .into_iter()
+                .map(|t| MetadataPersonRelated {
+                    character: None,
+                    role: "Artist".to_string(),
+                    metadata: PartialMetadataWithoutId {
+                        title: t.name,
+                        identifier: t.id,
+                        lot: MediaLot::Music,
+                        is_recommendation: None,
+                        source: MediaSource::YoutubeMusic,
+                        image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                    },
+                })
+                .collect()
+        } else {
+            vec![]
+        };
         let identifier = data.id;
         Ok(MetadataPerson {
+            related,
             place: None,
             gender: None,
             website: None,
@@ -232,22 +255,6 @@ impl MediaProvider for YoutubeMusicService {
                     .map(|t| t.url.to_owned())
                     .collect(),
             ),
-            related: data
-                .tracks
-                .into_iter()
-                .map(|t| MetadataPersonRelated {
-                    character: None,
-                    role: "Artist".to_string(),
-                    metadata: PartialMetadataWithoutId {
-                        title: t.name,
-                        identifier: t.id,
-                        lot: MediaLot::Music,
-                        is_recommendation: None,
-                        source: MediaSource::YoutubeMusic,
-                        image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
-                    },
-                })
-                .collect(),
         })
     }
 
