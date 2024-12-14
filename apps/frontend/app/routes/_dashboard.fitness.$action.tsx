@@ -555,6 +555,7 @@ const NameAndCommentInputs = (props: {
 
 	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
 	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
+	const workoutHasImages = currentWorkout.images.length > 0;
 
 	useDidUpdate(() => {
 		if (name)
@@ -584,7 +585,10 @@ const NameAndCommentInputs = (props: {
 				placeholder="A name for your workout"
 				onChange={(e) => setName(e.currentTarget.value)}
 				rightSection={
-					<ActionIcon size="sm" onClick={props.openAssetsModal}>
+					<ActionIcon
+						onClick={props.openAssetsModal}
+						variant={workoutHasImages ? "outline" : undefined}
+					>
 						<IconCamera size={30} />
 					</ActionIcon>
 				}
