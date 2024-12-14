@@ -75,6 +75,7 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
         config.anime_and_manga.is_enabled() && features_enabled.media.anime;
     features_enabled.media.audio_book =
         config.audio_books.is_enabled() && features_enabled.media.audio_book;
+    features_enabled.media.music = config.music.is_enabled() && features_enabled.media.music;
     features_enabled.media.book = config.books.is_enabled() && features_enabled.media.book;
     features_enabled.media.show =
         config.movies_and_shows.is_enabled() && features_enabled.media.show;

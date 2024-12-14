@@ -256,6 +256,7 @@ export type CreateCustomMetadataInput = {
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
+  musicSpecifics?: InputMaybe<MusicSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
   publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
@@ -775,6 +776,7 @@ export type GraphqlMetadataDetails = {
   lot: MediaLot;
   mangaSpecifics?: Maybe<MangaSpecifics>;
   movieSpecifics?: Maybe<MovieSpecifics>;
+  musicSpecifics?: Maybe<MusicSpecifics>;
   originalLanguage?: Maybe<Scalars['String']['output']>;
   podcastSpecifics?: Maybe<PodcastSpecifics>;
   productionStatus?: Maybe<Scalars['String']['output']>;
@@ -1201,6 +1203,15 @@ export type MovieSpecifics = {
 
 export type MovieSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MusicSpecifics = {
+  __typename?: 'MusicSpecifics';
+  duration?: Maybe<Scalars['Int']['output']>;
+};
+
+export type MusicSpecificsInput = {
+  duration?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MutationRoot = {
@@ -2580,6 +2591,7 @@ export type UserMediaFeaturesEnabledPreferences = {
   groups: Scalars['Boolean']['output'];
   manga: Scalars['Boolean']['output'];
   movie: Scalars['Boolean']['output'];
+  music: Scalars['Boolean']['output'];
   people: Scalars['Boolean']['output'];
   podcast: Scalars['Boolean']['output'];
   show: Scalars['Boolean']['output'];

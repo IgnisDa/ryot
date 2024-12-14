@@ -129,6 +129,9 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
     locale: "en"
 
+# Settings related to music.
+music: {}
+
 # Settings related to podcasts.
 podcasts:
   # Settings related to iTunes.

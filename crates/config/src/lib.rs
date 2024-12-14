@@ -64,6 +64,12 @@ pub struct AnimeAndMangaConfig {
 impl IsFeatureEnabled for AnimeAndMangaConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
+pub struct MusicConfig {}
+
+impl IsFeatureEnabled for MusicConfig {}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
 pub struct AudibleConfig {
     /// Settings related to locale for making requests Audible.
@@ -408,6 +414,9 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
+    /// Settings related to music.
+    #[setting(nested)]
+    pub music: MusicConfig,
     /// Settings related to anime and manga.
     #[setting(nested)]
     pub anime_and_manga: AnimeAndMangaConfig,

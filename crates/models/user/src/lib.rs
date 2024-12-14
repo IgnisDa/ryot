@@ -46,6 +46,8 @@ pub struct UserMediaFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub manga: bool,
     #[educe(Default = true)]
+    pub music: bool,
+    #[educe(Default = true)]
     pub movie: bool,
     #[educe(Default = true)]
     pub podcast: bool,
