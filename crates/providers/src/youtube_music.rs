@@ -3,21 +3,27 @@ use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::TEMP_DIR;
 use dependent_models::SearchResults;
-use media_models::{MetadataDetails, MetadataSearchItem};
+use enums::{MediaLot, MediaSource};
+use media_models::{
+    MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics,
+    PartialMetadataPerson,
+};
 use rustypipe::{
-    client::RustyPipe,
+    client::{RustyPipe, RustyPipeQuery},
     param::{Language, LANGUAGES},
 };
 use traits::{MediaProvider, MediaProviderLanguages};
 
 pub struct YoutubeMusicService {
-    client: RustyPipe,
+    client: RustyPipeQuery,
 }
 
 impl YoutubeMusicService {
     pub async fn new() -> Self {
         let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
-        Self { client }
+        Self {
+            client: client.query(),
+        }
     }
 }
 
@@ -34,7 +40,44 @@ impl MediaProviderLanguages for YoutubeMusicService {
 #[async_trait]
 impl MediaProvider for YoutubeMusicService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        todo!()
+        let details = self
+            .client
+            .music_details(identifier)
+            .await
+            .map_err(|e| anyhow!(e))?;
+        Ok(MetadataDetails {
+            lot: MediaLot::Music,
+            title: details.track.name,
+            identifier: details.track.id,
+            source: MediaSource::YoutubeMusic,
+            group_identifiers: details.track.album.into_iter().map(|a| a.id).collect(),
+            music_specifics: Some(MusicSpecifics {
+                duration: details.track.duration.map(|d| d.try_into().unwrap()),
+            }),
+            url_images: details
+                .track
+                .cover
+                .into_iter()
+                .rev()
+                .map(|t| MetadataImageForMediaDetails { image: t.url })
+                .collect(),
+            people: details
+                .track
+                .artists
+                .into_iter()
+                .filter_map(|a| {
+                    a.id.map(|id| PartialMetadataPerson {
+                        name: a.name,
+                        identifier: id,
+                        character: None,
+                        source_specifics: None,
+                        role: "Artist".to_string(),
+                        source: MediaSource::YoutubeMusic,
+                    })
+                })
+                .collect(),
+            ..Default::default()
+        })
     }
 
     async fn metadata_search(
@@ -45,7 +88,6 @@ impl MediaProvider for YoutubeMusicService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let results = self
             .client
-            .query()
             .music_search_tracks(query)
             .await
             .map_err(|e| anyhow!(e))?;
