@@ -5,13 +5,14 @@ use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
+use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
     MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
-    model::richtext::ToHtml,
+    model::{richtext::ToHtml, Thumbnail},
     param::{Language, LANGUAGES},
 };
 use traits::{MediaProvider, MediaProviderLanguages};
@@ -39,6 +40,21 @@ impl MediaProviderLanguages for YoutubeMusicService {
     }
 }
 
+impl YoutubeMusicService {
+    fn order_images_by_size(&self, images: &[Thumbnail]) -> Vec<Thumbnail> {
+        images
+            .iter()
+            .cloned()
+            .sorted_by_key(|i| i.width * i.height)
+            .rev()
+            .collect()
+    }
+
+    fn largest_image(&self, images: &[Thumbnail]) -> Option<Thumbnail> {
+        self.order_images_by_size(images).first().cloned()
+    }
+}
+
 #[async_trait]
 impl MediaProvider for YoutubeMusicService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
@@ -54,7 +70,7 @@ impl MediaProvider for YoutubeMusicService {
                     lot: MediaLot::Music,
                     is_recommendation: None,
                     source: MediaSource::YoutubeMusic,
-                    image: t.cover.last().map(|c| c.url.to_owned()),
+                    image: self.largest_image(&t.cover).map(|c| c.url.to_owned()),
                 })
                 .collect()
         } else {
@@ -72,11 +88,9 @@ impl MediaProvider for YoutubeMusicService {
             music_specifics: Some(MusicSpecifics {
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
             }),
-            url_images: details
-                .track
-                .cover
+            url_images: self
+                .order_images_by_size(&details.track.cover)
                 .into_iter()
-                .rev()
                 .map(|t| MetadataImageForMediaDetails { image: t.url })
                 .collect(),
             people: details
@@ -118,7 +132,7 @@ impl MediaProvider for YoutubeMusicService {
                     title: i.name,
                     identifier: i.id,
                     publish_year: None,
-                    image: i.cover.last().map(|t| t.url.to_owned()),
+                    image: self.largest_image(&i.cover).map(|t| t.url.to_owned()),
                 })
                 .collect(),
         };
@@ -139,10 +153,9 @@ impl MediaProvider for YoutubeMusicService {
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
                 description: album.description.map(|d| d.to_html()),
-                images: album
-                    .cover
+                images: self
+                    .largest_image(&album.cover)
                     .into_iter()
-                    .rev()
                     .map(|c| MetadataImage {
                         url: StoredUrl::Url(c.url),
                     })
@@ -157,7 +170,7 @@ impl MediaProvider for YoutubeMusicService {
                     lot: MediaLot::Music,
                     is_recommendation: None,
                     source: MediaSource::YoutubeMusic,
-                    image: t.cover.last().map(|t| t.url.to_owned()),
+                    image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
                 })
                 .collect(),
         ))
@@ -183,7 +196,7 @@ impl MediaProvider for YoutubeMusicService {
                     parts: None,
                     name: t.name,
                     identifier: t.id,
-                    image: t.cover.last().map(|t| t.url.to_owned()),
+                    image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
                 })
                 .collect(),
         })
