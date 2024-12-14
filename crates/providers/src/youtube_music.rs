@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use common_models::SearchDetails;
 use common_utils::TEMP_DIR;
@@ -6,7 +6,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
     MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics,
-    PartialMetadataPerson,
+    PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -40,12 +40,26 @@ impl MediaProviderLanguages for YoutubeMusicService {
 #[async_trait]
 impl MediaProvider for YoutubeMusicService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = self
-            .client
-            .music_details(identifier)
-            .await
-            .map_err(|e| anyhow!(e))?;
+        let details = self.client.music_details(identifier).await?;
+        let suggestions = if let Some(related_id) = details.related_id {
+            let related = self.client.music_related(related_id).await?;
+            related
+                .tracks
+                .into_iter()
+                .map(|t| PartialMetadataWithoutId {
+                    title: t.name,
+                    identifier: t.id,
+                    lot: MediaLot::Music,
+                    is_recommendation: None,
+                    source: MediaSource::YoutubeMusic,
+                    image: t.cover.last().map(|c| c.url.to_owned()),
+                })
+                .collect()
+        } else {
+            vec![]
+        };
         Ok(MetadataDetails {
+            suggestions,
             lot: MediaLot::Music,
             title: details.track.name,
             identifier: details.track.id,
@@ -86,11 +100,7 @@ impl MediaProvider for YoutubeMusicService {
         _page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let results = self
-            .client
-            .music_search_tracks(query)
-            .await
-            .map_err(|e| anyhow!(e))?;
+        let results = self.client.music_search_tracks(query).await?;
         let data = SearchResults {
             details: SearchDetails {
                 total: 1,
