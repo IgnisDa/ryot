@@ -964,13 +964,15 @@ impl MediaProvider for TmdbMovieService {
                     "https://www.themoviedb.org/collections/{}-{}",
                     identifier, title
                 )),
-                images: images
-                    .into_iter()
-                    .unique()
-                    .map(|p| MetadataImage {
-                        url: StoredUrl::Url(self.base.get_image_url(p)),
-                    })
-                    .collect(),
+                images: Some(
+                    images
+                        .into_iter()
+                        .unique()
+                        .map(|p| MetadataImage {
+                            url: StoredUrl::Url(self.base.get_image_url(p)),
+                        })
+                        .collect(),
+                ),
             },
             parts,
         ))

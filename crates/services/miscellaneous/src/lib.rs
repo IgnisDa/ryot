@@ -2298,7 +2298,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await?
             .unwrap();
         let mut images = vec![];
-        for image in group.images.iter() {
+        for image in group.images.clone().unwrap_or_default().iter() {
             images.push(
                 self.0
                     .file_storage_service
@@ -2307,7 +2307,6 @@ ORDER BY RANDOM() LIMIT 10;
             );
         }
         group.display_images = images;
-
         let contents = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
@@ -2616,14 +2615,17 @@ ORDER BY RANDOM() LIMIT 10;
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
         ryot_log!(debug, "Updating person for {:?}", person_id);
-        let images = provider_person.images.map(|images| {
-            images
-                .into_iter()
-                .map(|i| MetadataImage {
-                    url: StoredUrl::Url(i),
-                })
-                .collect()
-        });
+        let images = provider_person
+            .images
+            .map(|images| {
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                    })
+                    .collect()
+            })
+            .filter(|i: &Vec<MetadataImage>| !i.is_empty());
         let mut default_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(Utc::now());

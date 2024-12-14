@@ -597,7 +597,10 @@ pub async fn update_metadata(
             meta.source_url = ActiveValue::Set(details.source_url);
             meta.provider_rating = ActiveValue::Set(details.provider_rating);
             meta.description = ActiveValue::Set(details.description);
-            meta.images = ActiveValue::Set(Some(images));
+            meta.images = ActiveValue::Set(match images.is_empty() {
+                true => None,
+                false => Some(images),
+            });
             meta.videos = ActiveValue::Set(Some(details.videos));
             meta.production_status = ActiveValue::Set(details.production_status);
             meta.original_language = ActiveValue::Set(details.original_language);
@@ -775,8 +778,14 @@ pub async fn commit_metadata_internal(
         description: ActiveValue::Set(details.description),
         publish_year: ActiveValue::Set(details.publish_year),
         publish_date: ActiveValue::Set(details.publish_date),
-        images: ActiveValue::Set(Some(images)),
-        videos: ActiveValue::Set(Some(details.videos)),
+        images: ActiveValue::Set(match images.is_empty() {
+            true => None,
+            false => Some(images),
+        }),
+        videos: ActiveValue::Set(match details.videos.is_empty() {
+            true => None,
+            false => Some(details.videos),
+        }),
         identifier: ActiveValue::Set(details.identifier),
         audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
         anime_specifics: ActiveValue::Set(details.anime_specifics),
@@ -1060,12 +1069,14 @@ pub async fn commit_metadata_group_internal(
         Some(eg) => {
             let mut eg: metadata_group::ActiveModel = eg.into();
             eg.parts = ActiveValue::Set(group_details.parts);
-            eg.images = ActiveValue::Set(group_details.images);
             eg.source_url = ActiveValue::Set(group_details.source_url);
+            eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
             let eg = eg.update(&ss.db).await?;
             eg.id
         }
         None => {
+            let mut group_details = group_details.clone();
+            group_details.images = group_details.images.filter(|i| !i.is_empty());
             let mut db_group: metadata_group::ActiveModel =
                 group_details.into_model("".to_string(), None).into();
             db_group.id = ActiveValue::NotSet;

@@ -158,13 +158,14 @@ impl MediaProvider for YoutubeMusicService {
                 source_url: album
                     .playlist_id
                     .map(|id| format!("https://music.youtube.com/playlist?list={}", id)),
-                images: self
-                    .largest_image(&album.cover)
-                    .into_iter()
-                    .map(|c| MetadataImage {
-                        url: StoredUrl::Url(c.url),
-                    })
-                    .collect(),
+                images: Some(
+                    self.largest_image(&album.cover)
+                        .into_iter()
+                        .map(|c| MetadataImage {
+                            url: StoredUrl::Url(c.url),
+                        })
+                        .collect(),
+                ),
             },
             album
                 .tracks

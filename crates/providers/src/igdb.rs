@@ -275,7 +275,7 @@ where id = {id};
         let title = details.name.unwrap_or_default();
         Ok((
             MetadataGroupWithoutId {
-                images: vec![],
+                images: None,
                 description: None,
                 title: title.clone(),
                 display_images: vec![],

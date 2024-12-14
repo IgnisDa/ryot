@@ -31,7 +31,10 @@ impl MigrationTrait for Migration {
                 .await?;
             create_daily_user_activity_table(manager).await?;
         }
-        db.execute_unprepared(r#"UPDATE "user" SET preferences = jsonb_set(preferences, '{features_enabled,media,music}', 'true', true)"#)
+        db.execute_unprepared(r#"
+UPDATE "user" SET preferences = jsonb_set(preferences, '{features_enabled,media,music}', 'true', true);
+ALTER TABLE "metadata_group" ALTER COLUMN "images" DROP NOT NULL;
+"#)
                 .await?;
         Ok(())
     }

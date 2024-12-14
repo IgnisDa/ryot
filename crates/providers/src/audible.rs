@@ -301,7 +301,7 @@ impl MediaProvider for AudibleService {
         let title = data.product.title;
         Ok((
             MetadataGroupWithoutId {
-                images: vec![],
+                images: None,
                 description: None,
                 title: title.clone(),
                 display_images: vec![],

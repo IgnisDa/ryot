@@ -37,11 +37,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(MetadataGroup::Description).text())
                     .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Source).text().not_null())
-                    .col(
-                        ColumnDef::new(MetadataGroup::Images)
-                            .json_binary()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(MetadataGroup::Images).json_binary())
                     .col(ColumnDef::new(MetadataGroup::IsPartial).boolean())
                     .col(ColumnDef::new(MetadataGroup::SourceUrl).text())
                     .to_owned(),
