@@ -28,6 +28,7 @@ reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = { workspace = true }
+rustypipe = { workspace = true }
 scraper = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
