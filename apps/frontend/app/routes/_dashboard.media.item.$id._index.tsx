@@ -382,6 +382,15 @@ export default function Page() {
 									)
 									.asMilliseconds(),
 							),
+						loaderData.metadataDetails.musicSpecifics?.duration &&
+							humanizeDuration(
+								dayjsLib
+									.duration(
+										loaderData.metadataDetails.musicSpecifics.duration,
+										"second",
+									)
+									.asMilliseconds(),
+							),
 						loaderData.metadataDetails.showSpecifics?.totalSeasons &&
 							`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
 						loaderData.metadataDetails.showSpecifics?.totalEpisodes &&

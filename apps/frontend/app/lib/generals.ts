@@ -275,6 +275,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 				)
 				.with(
 					MediaLot.AudioBook,
+					MediaLot.Music,
 					MediaLot.VideoGame,
 					MediaLot.Podcast,
 					() => "play",
