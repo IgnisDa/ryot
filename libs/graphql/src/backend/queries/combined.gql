@@ -323,13 +323,14 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 		sourceUrl
 		details {
 			id
-			title
 			lot
-			source
-			displayImages
-			identifier
+			title
 			parts
+			source
 			isPartial
+			identifier
+			description
+			displayImages
 		}
 	}
 }

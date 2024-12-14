@@ -1,15 +1,17 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::SearchDetails;
+use common_models::{SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
+use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId,
+    MetadataDetails, MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem,
+    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
+    model::richtext::ToHtml,
     param::{Language, LANGUAGES},
 };
 use traits::{MediaProvider, MediaProviderLanguages};
@@ -119,5 +121,43 @@ impl MediaProvider for YoutubeMusicService {
                 .collect(),
         };
         Ok(data)
+    }
+
+    async fn metadata_group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
+        let album = self.client.music_album(identifier).await?;
+        Ok((
+            MetadataGroupWithoutId {
+                title: album.name,
+                identifier: album.id,
+                lot: MediaLot::Music,
+                display_images: vec![],
+                source: MediaSource::YoutubeMusic,
+                parts: album.tracks.len().try_into().unwrap(),
+                description: album.description.map(|d| d.to_html()),
+                images: album
+                    .cover
+                    .into_iter()
+                    .rev()
+                    .map(|c| MetadataImage {
+                        url: StoredUrl::Url(c.url),
+                    })
+                    .collect(),
+            },
+            album
+                .tracks
+                .into_iter()
+                .map(|t| PartialMetadataWithoutId {
+                    title: t.name,
+                    identifier: t.id,
+                    lot: MediaLot::Music,
+                    is_recommendation: None,
+                    source: MediaSource::YoutubeMusic,
+                    image: t.cover.last().map(|t| t.url.to_owned()),
+                })
+                .collect(),
+        ))
     }
 }
