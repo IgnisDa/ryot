@@ -289,7 +289,9 @@ export default function Page() {
 								onClose={() => setSupersetModalOpened(null)}
 							/>
 							<Stack ref={parent}>
-								<NameAndCommentInputs />
+								<NameAndCommentInputs
+									openAssetsModal={() => setAssetsModalOpened(null)}
+								/>
 								<Group>
 									<WorkoutDurationTimer />
 									<StatDisplay
@@ -545,7 +547,9 @@ export default function Page() {
 	);
 }
 
-const NameAndCommentInputs = () => {
+const NameAndCommentInputs = (props: {
+	openAssetsModal: () => void;
+}) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
 
@@ -573,12 +577,17 @@ const NameAndCommentInputs = () => {
 	return (
 		<>
 			<TextInput
-				size="sm"
 				required
+				size="sm"
 				label="Name"
 				defaultValue={name}
 				placeholder="A name for your workout"
 				onChange={(e) => setName(e.currentTarget.value)}
+				rightSection={
+					<ActionIcon size="sm" onClick={props.openAssetsModal}>
+						<IconCamera size={30} />
+					</ActionIcon>
+				}
 			/>
 			<Textarea
 				size="sm"
@@ -980,11 +989,30 @@ const UploadAssetsModal = (props: {
 				</Text>
 				{fileUploadAllowed ? (
 					<>
-						{exercise &&
-						isString(props.modalOpenedBy) &&
-						exercise.images.length > 0 ? (
+						{isString(props.modalOpenedBy) ? (
+							exercise && exercise.images.length > 0 ? (
+								<Avatar.Group spacing="xs">
+									{exercise.images.map((i, imgIdx) => (
+										<ImageDisplay
+											key={i.key}
+											imageSrc={i.imageSrc}
+											removeImage={() => {
+												deleteUploadedAsset(i.key);
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														const images = draft.exercises[exerciseIdx].images;
+														images.splice(imgIdx, 1);
+														draft.exercises[exerciseIdx].images = images;
+													}),
+												);
+											}}
+										/>
+									))}
+								</Avatar.Group>
+							) : null
+						) : currentWorkout.images.length > 0 ? (
 							<Avatar.Group spacing="xs">
-								{exercise.images.map((i, imgIdx) => (
+								{currentWorkout.images.map((i, imgIdx) => (
 									<ImageDisplay
 										key={i.key}
 										imageSrc={i.imageSrc}
@@ -992,9 +1020,9 @@ const UploadAssetsModal = (props: {
 											deleteUploadedAsset(i.key);
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
-													const images = draft.exercises[exerciseIdx].images;
+													const images = draft.images;
 													images.splice(imgIdx, 1);
-													draft.exercises[exerciseIdx].images = images;
+													draft.images = images;
 												}),
 											);
 										}}
@@ -1037,10 +1065,10 @@ const UploadAssetsModal = (props: {
 											const data = await resp.json();
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
-													draft.exercises[exerciseIdx].images.push({
-														imageSrc,
-														key: data.key,
-													});
+													const media = { imageSrc, key: data.key };
+													if (exercise)
+														draft.exercises[exerciseIdx].images.push(media);
+													else draft.images.push(media);
 												}),
 											);
 										}
