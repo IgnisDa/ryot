@@ -104,6 +104,8 @@ query MetadataDetails($metadataId: String!) {
 		}
 		musicSpecifics {
 			duration
+			viewCount
+			byVariousArtists
 		}
 	}
 }

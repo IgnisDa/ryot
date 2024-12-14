@@ -87,7 +87,9 @@ impl MediaProvider for YoutubeMusicService {
             group_identifiers: details.track.album.into_iter().map(|a| a.id).collect(),
             source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
             music_specifics: Some(MusicSpecifics {
+                by_various_artists: Some(details.track.by_va),
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
+                view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
             }),
             url_images: self
                 .order_images_by_size(&details.track.cover)

@@ -297,6 +297,8 @@ pub struct AnimeSpecifics {
 #[graphql(input_name = "MusicSpecificsInput")]
 pub struct MusicSpecifics {
     pub duration: Option<i32>,
+    pub view_count: Option<i32>,
+    pub by_various_artists: Option<bool>,
 }
 
 #[derive(

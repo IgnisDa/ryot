@@ -1201,11 +1201,15 @@ export type MovieSpecificsInput = {
 
 export type MusicSpecifics = {
   __typename?: 'MusicSpecifics';
+  byVariousArtists?: Maybe<Scalars['Boolean']['output']>;
   duration?: Maybe<Scalars['Int']['output']>;
+  viewCount?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MusicSpecificsInput = {
+  byVariousArtists?: InputMaybe<Scalars['Boolean']['input']>;
   duration?: InputMaybe<Scalars['Int']['input']>;
+  viewCount?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MutationRoot = {
