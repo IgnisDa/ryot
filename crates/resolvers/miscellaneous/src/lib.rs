@@ -6,16 +6,15 @@ use common_models::{
     StringIdObject,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, MetadataGroupDetails, MetadataSearchResponse, PersonDetails,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    CoreDetails, GenreDetails, MetadataGroupDetails, MetadataSearchResponse, PeopleSearchResponse,
+    PersonDetails, SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupSearchItem, MetadataGroupsListInput,
-    MetadataListInput, MetadataPartialDetails, PeopleListInput, PeopleSearchItem,
-    ProgressUpdateInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    MetadataListInput, MetadataPartialDetails, PeopleListInput, ProgressUpdateInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -199,7 +198,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_search(&user_id, input).await

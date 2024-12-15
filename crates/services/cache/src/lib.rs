@@ -34,7 +34,8 @@ impl CacheService {
             | ApplicationCacheKey::TmdbSettings => None,
 
             ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-            | ApplicationCacheKey::MetadataSearch { .. } => Some(1),
+            | ApplicationCacheKey::MetadataSearch { .. }
+            | ApplicationCacheKey::PeopleSearch { .. } => Some(1),
 
             ApplicationCacheKey::UserAnalytics { .. } => Some(2),
 

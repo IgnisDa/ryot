@@ -43,8 +43,9 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataLotSourceMappings, MetadataSearchResponse, PersonDetails, ProviderLanguageInformation,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    MetadataLotSourceMappings, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
+    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
@@ -75,7 +76,7 @@ use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataGroupSearchItem, MetadataGroupsListInput,
     MetadataImage, MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
     MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PeopleListInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
+    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
@@ -1663,12 +1664,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.to_owned(),
         };
-        if let Some(cached) = self
-            .0
-            .cache_service
-            .get_key::<MetadataSearchResponse>(cache_key.clone())
-            .await?
-        {
+        if let Some(cached) = self.0.cache_service.get_key(cache_key.clone()).await? {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1753,7 +1749,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
+        let cache_key = ApplicationCacheKey::PeopleSearch {
+            user_id: user_id.clone(),
+            input: input.search.query.clone(),
+        };
+        if let Some(results) = self.cache.get(&cache_key).await {
+            return Ok(results);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1772,6 +1775,12 @@ ORDER BY RANDOM() LIMIT 10;
                 input.search.page,
                 &input.source_specifics,
                 preferences.general.display_nsfw,
+            )
+            .await?;
+        self.cache
+            .set_with_expiry(
+                cache_key,
+                ApplicationCacheValue::PeopleSearch(results.clone()),
             )
             .await?;
         Ok(results)

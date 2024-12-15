@@ -308,6 +308,10 @@ pub enum ApplicationCacheKey {
         user_id: String,
         input: MetadataSearchInput,
     },
+    PeopleSearch {
+        user_id: String,
+        input: PeopleSearchInput,
+    },
     UserAnalytics {
         user_id: String,
         input: UserAnalyticsInput,

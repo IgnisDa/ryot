@@ -310,10 +310,10 @@ pub struct MetadataSearchItem {
     pub publish_year: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PeopleSearchItem {
-    pub identifier: String,
     pub name: String,
+    pub identifier: String,
     pub image: Option<String>,
     pub birth_year: Option<i32>,
 }

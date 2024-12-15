@@ -21,7 +21,7 @@ use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
     ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataSearchItemResponse,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    PeopleSearchItem, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
@@ -422,6 +422,7 @@ pub struct EmptyCacheValue {
 }
 
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
+pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
@@ -430,6 +431,7 @@ pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
+    PeopleSearch(PeopleSearchResponse),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
