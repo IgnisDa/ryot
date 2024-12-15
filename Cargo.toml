@@ -106,6 +106,7 @@ regex = "=1.11.1"
 rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.13"
+rustypipe = "0.7.2"
 schematic = { version = "=0.17.7", features = [
     "config",
     "env",

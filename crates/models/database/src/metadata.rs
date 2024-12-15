@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExternalIdentifiers, MangaSpecifics,
-    MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataExternalIdentifiers,
+    MetadataFreeCreator, MetadataImage, MetadataVideo, MovieSpecifics, MusicSpecifics,
     PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 use nanoid::nanoid;
@@ -26,6 +26,7 @@ pub struct Model {
     pub source: MediaSource,
     pub is_nsfw: Option<bool>,
     pub is_partial: Option<bool>,
+    pub source_url: Option<String>,
     pub is_recommendation: Option<bool>,
     pub description: Option<String>,
     pub original_language: Option<String>,
@@ -42,7 +43,7 @@ pub struct Model {
     #[sea_orm(column_type = "Json")]
     pub watch_providers: Option<Vec<WatchProvider>>,
     #[sea_orm(column_type = "Json")]
-    pub external_identifiers: Option<ExternalIdentifiers>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
@@ -52,7 +53,7 @@ pub struct Model {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
-    pub state_changes: Option<MetadataStateChanges>,
+    pub music_specifics: Option<MusicSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

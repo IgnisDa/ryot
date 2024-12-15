@@ -10,17 +10,15 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
-    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput,
-    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
-    StoredUrl, StringIdObject, UserLevelCacheKey,
+    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput, MetadataSearchInput,
+    PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
-    COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS, MEDIA_LOT_MAPPINGS, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -29,8 +27,8 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
-        Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
+        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         Review, Seen, User, UserNotification, UserToEntity,
     },
@@ -42,11 +40,9 @@ use database_utils::{
     remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
-    ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataLotSourceMappings, MetadataSearchResponse,
-    PeopleSearchResponse, PersonDetails, ProviderLanguageInformation, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
+    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
@@ -60,11 +56,9 @@ use dependent_utils::{
     update_metadata_and_notify_users,
 };
 use enums::{
-    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-    ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    UserNotificationLot, UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
+    UserToMediaReason,
 };
-use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
@@ -91,53 +85,31 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::{AnilistService, NonMediaAnilistService},
-    audible::AudibleService,
-    google_books::GoogleBooksService,
-    igdb::IgdbService,
-    itunes::ITunesService,
-    listennotes::ListennotesService,
-    mal::{MalService, NonMediaMalService},
-    manga_updates::MangaUpdatesService,
-    openlibrary::OpenlibraryService,
-    tmdb::TmdbService,
-    vndb::VndbService,
+    anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
+    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
+    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
+    youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, query::UpdateMany, sea_query::NullOrdering, ActiveModelTrait,
     ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
-    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
-use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
-use unkey::{models::VerifyKeyRequest, Client};
+use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
-
-#[derive(Debug, Clone)]
-struct CustomService {}
-
-impl MediaProviderLanguages for CustomService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
-}
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -252,128 +224,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
-        if let Some(cached) = self
-            .0
-            .cache_service
-            .get_value(ApplicationCacheKey::CoreDetails)
-            .await?
-        {
-            return Ok(cached);
-        }
-        let mut files_enabled = self.0.config.file_storage.is_enabled();
-        if files_enabled && !self.0.file_storage_service.is_enabled().await {
-            files_enabled = false;
-        }
-        let download_required = Exercise::find().count(&self.0.db).await? == 0;
-        let core_details = CoreDetails {
-            page_size: PAGE_SIZE,
-            version: APP_VERSION.to_owned(),
-            file_storage_enabled: files_enabled,
-            frontend: self.0.config.frontend.clone(),
-            website_url: "https://ryot.io".to_owned(),
-            oidc_enabled: self.0.oidc_client.is_some(),
-            docs_link: "https://docs.ryot.io".to_owned(),
-            backend_errors: BackendError::iter().collect(),
-            disable_telemetry: self.0.config.disable_telemetry,
-            smtp_enabled: self.0.config.server.smtp.is_enabled(),
-            signup_allowed: self.0.config.users.allow_registration,
-            local_auth_disabled: self.0.config.users.disable_local_auth,
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
-            token_valid_for_days: self.0.config.users.token_valid_for_days,
-            is_server_key_validated: self.0.is_server_key_validated().await?,
-            metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
-                .iter()
-                .map(|(lot, sources)| MetadataLotSourceMappings {
-                    lot: *lot,
-                    sources: sources.to_vec(),
-                })
-                .collect(),
-            exercise_parameters: ExerciseParameters {
-                filters: ExerciseFilters {
-                    lot: ExerciseLot::iter().collect_vec(),
-                    level: ExerciseLevel::iter().collect_vec(),
-                    force: ExerciseForce::iter().collect_vec(),
-                    mechanic: ExerciseMechanic::iter().collect_vec(),
-                    equipment: ExerciseEquipment::iter().collect_vec(),
-                    muscle: ExerciseMuscle::iter().collect_vec(),
-                },
-                download_required,
-                lot_mapping: EXERCISE_LOT_MAPPINGS
-                    .iter()
-                    .map(|(lot, pbs)| ExerciseParametersLotMapping {
-                        lot: *lot,
-                        bests: pbs.to_vec(),
-                    })
-                    .collect(),
-            },
-            metadata_provider_languages: MediaSource::iter()
-                .map(|source| {
-                    let (supported, default) = match source {
-                        MediaSource::Itunes => (
-                            ITunesService::supported_languages(),
-                            ITunesService::default_language(),
-                        ),
-                        MediaSource::Audible => (
-                            AudibleService::supported_languages(),
-                            AudibleService::default_language(),
-                        ),
-                        MediaSource::Openlibrary => (
-                            OpenlibraryService::supported_languages(),
-                            OpenlibraryService::default_language(),
-                        ),
-                        MediaSource::Tmdb => (
-                            TmdbService::supported_languages(),
-                            TmdbService::default_language(),
-                        ),
-                        MediaSource::Listennotes => (
-                            ListennotesService::supported_languages(),
-                            ListennotesService::default_language(),
-                        ),
-                        MediaSource::GoogleBooks => (
-                            GoogleBooksService::supported_languages(),
-                            GoogleBooksService::default_language(),
-                        ),
-                        MediaSource::Igdb => (
-                            IgdbService::supported_languages(),
-                            IgdbService::default_language(),
-                        ),
-                        MediaSource::MangaUpdates => (
-                            MangaUpdatesService::supported_languages(),
-                            MangaUpdatesService::default_language(),
-                        ),
-                        MediaSource::Anilist => (
-                            AnilistService::supported_languages(),
-                            AnilistService::default_language(),
-                        ),
-                        MediaSource::Mal => (
-                            MalService::supported_languages(),
-                            MalService::default_language(),
-                        ),
-                        MediaSource::Custom => (
-                            CustomService::supported_languages(),
-                            CustomService::default_language(),
-                        ),
-                        MediaSource::Vndb => (
-                            VndbService::supported_languages(),
-                            VndbService::default_language(),
-                        ),
-                    };
-                    ProviderLanguageInformation {
-                        source,
-                        default,
-                        supported,
-                    }
-                })
-                .collect(),
-        };
-        self.0
-            .cache_service
-            .set_key(
-                ApplicationCacheKey::CoreDetails,
-                ApplicationCacheValue::CoreDetails(core_details.clone()),
-            )
-            .await?;
-        Ok(core_details)
+        self.0.core_details().await
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -546,55 +397,6 @@ ORDER BY RANDOM() LIMIT 10;
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        let slug = slug::slugify(&model.title);
-        let identifier = &model.identifier;
-        let source_url = match model.source {
-            MediaSource::Custom => None,
-            // DEV: This is updated by the specifics
-            MediaSource::MangaUpdates => None,
-            MediaSource::Itunes => Some(format!(
-                "https://podcasts.apple.com/us/podcast/{slug}/id{identifier}"
-            )),
-            MediaSource::GoogleBooks => Some(format!(
-                "https://www.google.co.in/books/edition/{slug}/{identifier}"
-            )),
-            MediaSource::Audible => Some(format!("https://www.audible.com/pd/{slug}/{identifier}")),
-            MediaSource::Openlibrary => {
-                Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
-            }
-            MediaSource::Tmdb => {
-                let bw = match model.lot {
-                    MediaLot::Movie => "movie",
-                    MediaLot::Show => "tv",
-                    _ => unreachable!(),
-                };
-                Some(format!(
-                    "https://www.themoviedb.org/{bw}/{identifier}-{slug}"
-                ))
-            }
-            MediaSource::Listennotes => Some(format!(
-                "https://www.listennotes.com/podcasts/{slug}-{identifier}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/games/{slug}")),
-            MediaSource::Anilist => {
-                let bw = match model.lot {
-                    MediaLot::Anime => "anime",
-                    MediaLot::Manga => "manga",
-                    _ => unreachable!(),
-                };
-                Some(format!("https://anilist.co/{bw}/{identifier}/{slug}"))
-            }
-            MediaSource::Mal => {
-                let bw = match model.lot {
-                    MediaLot::Anime => "anime",
-                    MediaLot::Manga => "manga",
-                    _ => unreachable!(),
-                };
-                Some(format!("https://myanimelist.net/{bw}/{identifier}/{slug}"))
-            }
-            MediaSource::Vndb => Some(format!("https://vndb.org/{identifier}")),
-        };
-
         let group = {
             let association = MetadataToMetadataGroup::find()
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
@@ -623,7 +425,6 @@ ORDER BY RANDOM() LIMIT 10;
             assets,
             genres,
             creators,
-            source_url,
             suggestions,
             id: model.id,
             lot: model.lot,
@@ -631,6 +432,7 @@ ORDER BY RANDOM() LIMIT 10;
             title: model.title,
             source: model.source,
             is_nsfw: model.is_nsfw,
+            source_url: model.source_url,
             is_partial: model.is_partial,
             identifier: model.identifier,
             description: model.description,
@@ -639,6 +441,7 @@ ORDER BY RANDOM() LIMIT 10;
             book_specifics: model.book_specifics,
             show_specifics: model.show_specifics,
             movie_specifics: model.movie_specifics,
+            music_specifics: model.music_specifics,
             manga_specifics: model.manga_specifics,
             anime_specifics: model.anime_specifics,
             provider_rating: model.provider_rating,
@@ -1677,11 +1480,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<MetadataSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(cached) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1752,13 +1556,11 @@ ORDER BY RANDOM() LIMIT 10;
             details: results.details,
             items: data,
         };
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::MetadataSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::MetadataSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
@@ -1767,11 +1569,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<PeopleSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(results) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1794,13 +1597,11 @@ ORDER BY RANDOM() LIMIT 10;
                 preferences.general.display_nsfw,
             )
             .await?;
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::PeopleSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::PeopleSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
@@ -1809,11 +1610,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<MetadataGroupSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(results) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1831,19 +1633,18 @@ ORDER BY RANDOM() LIMIT 10;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::MetadataGroupSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
+            MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
             MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => {
@@ -2015,34 +1816,36 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .collect();
         let is_partial = match input.lot {
-            MediaLot::Anime => input.anime_specifics.is_none(),
-            MediaLot::AudioBook => input.audio_book_specifics.is_none(),
+            MediaLot::Show => input.show_specifics.is_none(),
             MediaLot::Book => input.book_specifics.is_none(),
+            MediaLot::Music => input.music_specifics.is_none(),
+            MediaLot::Anime => input.anime_specifics.is_none(),
             MediaLot::Manga => input.manga_specifics.is_none(),
             MediaLot::Movie => input.movie_specifics.is_none(),
             MediaLot::Podcast => input.podcast_specifics.is_none(),
-            MediaLot::Show => input.show_specifics.is_none(),
+            MediaLot::AudioBook => input.audio_book_specifics.is_none(),
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
         let details = MetadataDetails {
-            identifier,
-            title: input.title,
-            description: input.description,
-            lot: input.lot,
-            source: MediaSource::Custom,
-            creators,
-            genres: input.genres.unwrap_or_default(),
-            s3_images: images,
             videos,
+            creators,
+            identifier,
+            lot: input.lot,
+            title: input.title,
+            s3_images: images,
+            source: MediaSource::Custom,
+            description: input.description,
             publish_year: input.publish_year,
-            anime_specifics: input.anime_specifics,
-            audio_book_specifics: input.audio_book_specifics,
+            show_specifics: input.show_specifics,
             book_specifics: input.book_specifics,
             manga_specifics: input.manga_specifics,
+            anime_specifics: input.anime_specifics,
             movie_specifics: input.movie_specifics,
+            music_specifics: input.music_specifics,
+            genres: input.genres.unwrap_or_default(),
             podcast_specifics: input.podcast_specifics,
-            show_specifics: input.show_specifics,
+            audio_book_specifics: input.audio_book_specifics,
             video_game_specifics: input.video_game_specifics,
             visual_novel_specifics: input.visual_novel_specifics,
             ..Default::default()
@@ -2350,33 +2153,7 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        let slug = slug::slugify(&details.name);
-        let identifier = &details.identifier;
-        let source_url = match details.source {
-            MediaSource::Custom
-            | MediaSource::Anilist
-            | MediaSource::Listennotes
-            | MediaSource::Itunes
-            | MediaSource::MangaUpdates
-            | MediaSource::Mal
-            | MediaSource::Vndb
-            | MediaSource::GoogleBooks => None,
-            MediaSource::Audible => Some(format!(
-                "https://www.audible.com/author/{slug}/{identifier}"
-            )),
-            MediaSource::Openlibrary => Some(format!(
-                "https://openlibrary.org/authors/{identifier}/{slug}"
-            )),
-            MediaSource::Tmdb => Some(format!(
-                "https://www.themoviedb.org/person/{identifier}-{slug}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/companies/{slug}")),
-        };
-        Ok(PersonDetails {
-            details,
-            contents,
-            source_url,
-        })
+        Ok(PersonDetails { details, contents })
     }
 
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
@@ -2425,7 +2202,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await?
             .unwrap();
         let mut images = vec![];
-        for image in group.images.iter() {
+        for image in group.images.clone().unwrap_or_default().iter() {
             images.push(
                 self.0
                     .file_storage_service
@@ -2434,28 +2211,6 @@ ORDER BY RANDOM() LIMIT 10;
             );
         }
         group.display_images = images;
-        let slug = slug::slugify(&group.title);
-        let identifier = &group.identifier;
-
-        let source_url = match group.source {
-            MediaSource::Custom
-            | MediaSource::Anilist
-            | MediaSource::Listennotes
-            | MediaSource::Itunes
-            | MediaSource::MangaUpdates
-            | MediaSource::Mal
-            | MediaSource::Openlibrary
-            | MediaSource::Vndb
-            | MediaSource::GoogleBooks => None,
-            MediaSource::Audible => Some(format!(
-                "https://www.audible.com/series/{slug}/{identifier}"
-            )),
-            MediaSource::Tmdb => Some(format!(
-                "https://www.themoviedb.org/collections/{identifier}-{slug}"
-            )),
-            MediaSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
-        };
-
         let contents = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
@@ -2466,7 +2221,6 @@ ORDER BY RANDOM() LIMIT 10;
             .await?;
         Ok(MetadataGroupDetails {
             details: group,
-            source_url,
             contents,
         })
     }
@@ -2766,14 +2520,17 @@ ORDER BY RANDOM() LIMIT 10;
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
         ryot_log!(debug, "Updating person for {:?}", person_id);
-        let images = provider_person.images.map(|images| {
-            images
-                .into_iter()
-                .map(|i| MetadataImage {
-                    url: StoredUrl::Url(i),
-                })
-                .collect()
-        });
+        let images = provider_person
+            .images
+            .map(|images| {
+                images
+                    .into_iter()
+                    .map(|i| MetadataImage {
+                        url: StoredUrl::Url(i),
+                    })
+                    .collect()
+            })
+            .filter(|i: &Vec<MetadataImage>| !i.is_empty());
         let mut default_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
@@ -2783,6 +2540,7 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
         to_update_person.place = ActiveValue::Set(provider_person.place);
         to_update_person.website = ActiveValue::Set(provider_person.website);
+        to_update_person.source_url = ActiveValue::Set(provider_person.source_url);
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
@@ -3154,65 +2912,6 @@ ORDER BY RANDOM() LIMIT 10;
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
-        }
-        Ok(())
-    }
-
-    async fn get_is_server_key_validated(&self) -> bool {
-        let pro_key = &self.0.config.server.pro_key;
-        if pro_key.is_empty() {
-            return false;
-        }
-        ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
-        let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-        #[skip_serializing_none]
-        #[derive(Debug, Serialize, Clone, Deserialize)]
-        struct Meta {
-            expiry: Option<NaiveDate>,
-        }
-        let unkey_client = Client::new("public");
-        let verify_request = VerifyKeyRequest::new(pro_key, &UNKEY_API_ID.to_string());
-        let validated_key = match unkey_client.verify_key(verify_request).await {
-            Ok(verify_response) => {
-                if !verify_response.valid {
-                    ryot_log!(debug, "Pro key is no longer valid.");
-                    return false;
-                }
-                verify_response
-            }
-            Err(verify_error) => {
-                ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
-                return false;
-            }
-        };
-        let key_meta = validated_key
-            .meta
-            .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
-        ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-        if let Some(meta) = key_meta {
-            if let Some(expiry) = meta.expiry {
-                if compile_timestamp > convert_naive_to_utc(expiry) {
-                    ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
-                    return false;
-                }
-            }
-        }
-        ryot_log!(debug, "Pro key verified successfully");
-        true
-    }
-
-    pub async fn perform_server_key_validation(&self) -> Result<()> {
-        let is_server_key_validated = self.get_is_server_key_validated().await;
-        let cs = &self.0.cache_service;
-        if is_server_key_validated {
-            cs.set_key(
-                ApplicationCacheKey::ServerKeyValidated,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
-            )
-            .await?;
-        } else {
-            cs.expire_key(ApplicationCacheKey::ServerKeyValidated)
-                .await?;
         }
         Ok(())
     }

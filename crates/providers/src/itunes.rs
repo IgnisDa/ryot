@@ -14,7 +14,7 @@ use media_models::{
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://itunes.apple.com";
 
@@ -22,16 +22,6 @@ static URL: &str = "https://itunes.apple.com";
 pub struct ITunesService {
     client: Client,
     language: String,
-}
-
-impl MediaProviderLanguages for ITunesService {
-    fn supported_languages() -> Vec<String> {
-        ["en_us", "ja_jp"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "en_us".to_owned()
-    }
 }
 
 impl ITunesService {
@@ -154,16 +144,20 @@ impl MediaProvider for ITunesService {
             .collect_vec();
         episodes.reverse();
         Ok(MetadataDetails {
-            identifier: details.identifier,
-            title: details.title,
-            publish_date,
-            publish_year: publish_date.map(|d| d.year()),
-            source: MediaSource::Itunes,
-            lot: MediaLot::Podcast,
-            description,
-            url_images,
-            creators,
             genres,
+            creators,
+            url_images,
+            description,
+            publish_date,
+            lot: MediaLot::Podcast,
+            source: MediaSource::Itunes,
+            title: details.title.clone(),
+            identifier: details.identifier,
+            publish_year: publish_date.map(|d| d.year()),
+            source_url: Some(format!(
+                "https://podcasts.apple.com/us/podcast/{}/id{}",
+                details.title, identifier
+            )),
             podcast_specifics: Some(PodcastSpecifics {
                 total_episodes: episodes.len(),
                 episodes,

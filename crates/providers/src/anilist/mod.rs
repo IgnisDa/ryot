@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
@@ -18,7 +18,7 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";
@@ -83,16 +83,6 @@ pub struct AnilistService {
     preferred_language: AnilistPreferredLanguage,
 }
 
-impl MediaProviderLanguages for AnilistService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
-}
-
 impl AnilistService {
     async fn new(config: &config::AnilistConfig) -> Self {
         let client = get_base_http_client(None);
@@ -137,7 +127,7 @@ impl MediaProvider for NonMediaAnilistService {
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let is_studio = matches!(
             source_specifics,
             Some(PersonSourceSpecifics {
@@ -307,6 +297,7 @@ impl MediaProvider for NonMediaAnilistService {
                 website: details.site_url,
                 description: None,
                 gender: None,
+                source_url: None,
                 place: None,
                 images: None,
                 death_date: None,
@@ -442,6 +433,7 @@ impl MediaProvider for NonMediaAnilistService {
                 related,
                 source_specifics: source_specifics.to_owned(),
                 website: None,
+                source_url: None,
             }
         };
         Ok(data)
@@ -703,9 +695,10 @@ async fn media_details(
         title.romaji,
         preferred_language,
     );
+    let identifier = media.id.to_string();
     Ok(MetadataDetails {
-        title,
-        identifier: media.id.to_string(),
+        title: title.clone(),
+        identifier: identifier.clone(),
         is_nsfw: media.is_adult,
         source: MediaSource::Anilist,
         description: media.description,
@@ -713,6 +706,10 @@ async fn media_details(
         people,
         creators: vec![],
         url_images: images,
+        source_url: Some(format!(
+            "https://anilist.co/{}/{}/{}",
+            lot, identifier, title
+        )),
         videos,
         genres: genres.into_iter().unique().collect(),
         publish_year: year,

@@ -9,7 +9,10 @@ use common_models::{
 };
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{ApplicationCacheValue, IgdbSettings, SearchResults};
+use dependent_models::{
+    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PeopleSearchResponse,
+    SearchResults,
+};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -28,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://api.igdb.com/v4";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload";
@@ -160,16 +163,6 @@ pub struct IgdbService {
     supporting_service: Arc<SupportingService>,
 }
 
-impl MediaProviderLanguages for IgdbService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
-}
-
 impl IgdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Self {
         let config = ss.config.video_games.clone();
@@ -189,7 +182,7 @@ impl MediaProvider for IgdbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -271,16 +264,18 @@ where id = {id};
                 }
             })
             .collect_vec();
+        let title = details.name.unwrap_or_default();
         Ok((
             MetadataGroupWithoutId {
-                display_images: vec![],
-                parts: items.len().try_into().unwrap(),
-                identifier: details.id.to_string(),
-                title: details.name.unwrap_or_default(),
+                images: None,
                 description: None,
-                images: vec![],
+                title: title.clone(),
+                display_images: vec![],
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
+                identifier: details.id.to_string(),
+                parts: items.len().try_into().unwrap(),
+                source_url: Some(format!("https://www.igdb.com/collection/{}", title)),
             },
             items,
         ))
@@ -292,7 +287,7 @@ where id = {id};
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -394,14 +389,21 @@ where id = {id};
                 },
             }
         }));
+        let name = detail.name;
         Ok(MetadataPerson {
+            related,
+            gender: None,
+            birth_date: None,
+            death_date: None,
+            name: name.clone(),
+            source_specifics: None,
+            source: MediaSource::Igdb,
+            description: detail.description,
             identifier: detail.id.to_string(),
-            name: detail.name,
+            source_url: Some(format!("https://www.igdb.com/companies/{}", name)),
             images: Some(Vec::from_iter(
                 detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
             )),
-            source: MediaSource::Igdb,
-            description: detail.description,
             place: detail
                 .country
                 .and_then(from_numeric)
@@ -411,11 +413,6 @@ where id = {id};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
-            related,
-            birth_date: None,
-            death_date: None,
-            gender: None,
-            source_specifics: None,
         })
     }
 
@@ -539,9 +536,8 @@ impl IgdbService {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
             .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
-            .await
-            .ok();
-        let access_token = if let Some(value) = maybe_settings.flatten() {
+            .await;
+        let access_token = if let Some(value) = maybe_settings {
             value.access_token
         } else {
             let access_token = self.get_access_token().await;
@@ -613,17 +609,19 @@ impl IgdbService {
                 source: MetadataVideoSource::Youtube,
             })
             .collect_vec();
+        let title = item.name.unwrap();
         MetadataDetails {
-            identifier: item.id.to_string(),
+            title: title.clone(),
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
-            title: item.name.unwrap(),
             description: item.summary,
+            identifier: item.id.to_string(),
             people,
             url_images: images,
             videos,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
+            source_url: Some(format!("https://www.igdb.com/games/{}", title)),
             genres: item
                 .genres
                 .unwrap_or_default()

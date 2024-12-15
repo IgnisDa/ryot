@@ -24,6 +24,7 @@ import {
 	IconDeviceTvOld,
 	IconHeadphones,
 	IconMicrophone,
+	IconMusic,
 } from "@tabler/icons-react";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -179,6 +180,7 @@ export const getLot = (lot: unknown) => {
 		.with("books", "book", () => MediaLot.Book)
 		.with("movies", "movie", () => MediaLot.Movie)
 		.with("tv", "show", "shows", () => MediaLot.Show)
+		.with("music", () => MediaLot.Music)
 		.with(
 			"visual_novel",
 			"visualnovel",
@@ -232,6 +234,10 @@ export const getLotGradient = (lot: MediaLot) =>
 			from: "green",
 			to: "yellow",
 		}))
+		.with(MediaLot.Music, () => ({
+			from: "orange",
+			to: "pink",
+		}))
 		.exhaustive();
 
 /**
@@ -269,6 +275,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 				)
 				.with(
 					MediaLot.AudioBook,
+					MediaLot.Music,
 					MediaLot.VideoGame,
 					MediaLot.Podcast,
 					() => "play",
@@ -308,6 +315,7 @@ export const getMetadataIcon = (lot: MediaLot) =>
 	match(lot)
 		.with(MediaLot.Book, () => IconBook)
 		.with(MediaLot.Manga, () => IconBooks)
+		.with(MediaLot.Music, () => IconMusic)
 		.with(MediaLot.Movie, () => IconDeviceTv)
 		.with(MediaLot.Anime, () => IconDeviceTvOld)
 		.with(MediaLot.VisualNovel, () => IconBook2)
@@ -487,6 +495,7 @@ type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
 
 export const MediaColors: EntityColor = {
 	ANIME: "blue",
+	MUSIC: "indigo.2",
 	AUDIO_BOOK: "orange",
 	BOOK: "lime",
 	MANGA: "purple",

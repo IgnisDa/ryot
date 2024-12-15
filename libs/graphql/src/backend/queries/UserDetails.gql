@@ -92,18 +92,19 @@ query UserDetails {
 					}
 					media {
 						enabled
-						anime
-						audioBook
-						book
-						manga
-						movie
-						podcast
 						show
+						book
+						anime
+						manga
+						music
+						movie
+						groups
+						people
+						genres
+						podcast
+						audioBook
 						videoGame
 						visualNovel
-						people
-						groups
-						genres
 					}
 				}
 			}

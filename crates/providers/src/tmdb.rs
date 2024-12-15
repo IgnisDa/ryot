@@ -12,12 +12,15 @@ use common_models::{
 };
 use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{ApplicationCacheValue, SearchResults, TmdbLanguage, TmdbSettings};
+use dependent_models::{
+    ApplicationCacheValue, MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults,
+    TmdbLanguage, TmdbSettings,
+};
 use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    ExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
@@ -33,7 +36,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://api.themoviedb.org/3";
 
@@ -375,7 +378,7 @@ impl TmdbService {
         &self,
         type_: &str,
         identifier: &str,
-    ) -> Result<ExternalIdentifiers> {
+    ) -> Result<MetadataExternalIdentifiers> {
         let rsp = self
             .client
             .get(format!("{}/{}/{}/external_ids", URL, type_, identifier))
@@ -383,18 +386,6 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         rsp.json().await.map_err(|e| anyhow!(e))
-    }
-}
-
-impl MediaProviderLanguages for TmdbService {
-    fn supported_languages() -> Vec<String> {
-        isolang::languages()
-            .filter_map(|l| l.to_639_1().map(String::from))
-            .collect()
-    }
-
-    fn default_language() -> String {
-        "en".to_owned()
     }
 }
 
@@ -418,7 +409,7 @@ impl MediaProvider for NonMediaTmdbService {
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let language = &self
             .base
             .supporting_service
@@ -474,7 +465,7 @@ impl MediaProvider for NonMediaTmdbService {
 
     async fn person_details(
         &self,
-        identity: &str,
+        identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let type_ = match source_specifics {
@@ -487,7 +478,7 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .base
             .client
-            .get(format!("{}/{}/{}", URL, type_, identity))
+            .get(format!("{}/{}/{}", URL, type_, identifier))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -497,7 +488,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(type_, identity, &mut images)
+            .save_all_images(type_, identifier, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -510,7 +501,7 @@ impl MediaProvider for NonMediaTmdbService {
             let cred_det: TmdbCreditsResponse = self
                 .base
                 .client
-                .get(format!("{}/{}/{}/combined_credits", URL, type_, identity))
+                .get(format!("{}/{}/{}/combined_credits", URL, type_, identifier))
                 .query(&json!({ "language": self.base.language }))
                 .send()
                 .await
@@ -545,7 +536,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .client
                         .get(format!("{}/discover/{}", URL, m_typ))
                         .query(
-                            &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
+                            &json!({ "with_companies": identifier, "page": i, "language": self.base.language }),
                         )
                         .send()
                         .await
@@ -575,24 +566,29 @@ impl MediaProvider for NonMediaTmdbService {
                 }
             }
         }
+        let name = details.name;
         let resp = MetadataPerson {
-            name: details.name,
+            related,
+            name: name.clone(),
             images: Some(images),
-            identifier: details.id.to_string(),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source: MediaSource::Tmdb,
-            place: details.origin_country.or(details.place_of_birth),
             website: details.homepage,
             birth_date: details.birthday,
             death_date: details.deathday,
+            identifier: details.id.to_string(),
+            source_specifics: source_specifics.to_owned(),
+            place: details.origin_country.or(details.place_of_birth),
+            source_url: Some(format!(
+                "https://www.themoviedb.org/person/{}-{}",
+                identifier, name
+            )),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
                 2 => Some("Male".to_owned()),
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
-            source_specifics: source_specifics.to_owned(),
-            related,
         };
         Ok(resp)
     }
@@ -790,21 +786,22 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_external_identifiers("movie", identifier)
             .await?;
+        let title = data.title.unwrap();
         Ok(MetadataDetails {
+            people,
+            title: title.clone(),
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
-            original_language: self.base.get_language_name(data.original_language),
             lot: MediaLot::Movie,
             source: MediaSource::Tmdb,
             production_status: data.status,
-            title: data.title.unwrap(),
             genres: data
                 .genres
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            people,
+            original_language: self.base.get_language_name(data.original_language),
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -823,6 +820,10 @@ impl MediaProvider for TmdbMovieService {
                 runtime: data.runtime,
             }),
             suggestions,
+            source_url: Some(format!(
+                "https://www.themoviedb.org/movie/{}-{}",
+                data.id, title
+            )),
             provider_rating: if let Some(av) = data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))
@@ -853,7 +854,7 @@ impl MediaProvider for TmdbMovieService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         let page = page.unwrap_or(1);
         let rsp = self
             .base
@@ -939,22 +940,29 @@ impl MediaProvider for TmdbMovieService {
                 is_recommendation: None,
             })
             .collect_vec();
+        let title = replace_from_end(data.name, " Collection", "");
         Ok((
             MetadataGroupWithoutId {
-                display_images: vec![],
-                parts: parts.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: replace_from_end(data.name, " Collection", ""),
-                description: data.overview,
-                images: images
-                    .into_iter()
-                    .unique()
-                    .map(|p| MetadataImage {
-                        url: StoredUrl::Url(self.base.get_image_url(p)),
-                    })
-                    .collect(),
                 lot: MediaLot::Movie,
+                title: title.clone(),
+                display_images: vec![],
                 source: MediaSource::Tmdb,
+                description: data.overview,
+                identifier: identifier.to_owned(),
+                parts: parts.len().try_into().unwrap(),
+                source_url: Some(format!(
+                    "https://www.themoviedb.org/collections/{}-{}",
+                    identifier, title
+                )),
+                images: Some(
+                    images
+                        .into_iter()
+                        .unique()
+                        .map(|p| MetadataImage {
+                            url: StoredUrl::Url(self.base.get_image_url(p)),
+                        })
+                        .collect(),
+                ),
             },
             parts,
         ))
@@ -1144,16 +1152,17 @@ impl MediaProvider for TmdbShowService {
             .count();
         let watch_providers = self.base.get_all_watch_providers("tv", identifier).await?;
         let external_identifiers = self.base.get_external_identifiers("tv", identifier).await?;
+        let title = show_data.name.unwrap();
         Ok(MetadataDetails {
-            identifier: show_data.id.to_string(),
-            title: show_data.name.unwrap(),
-            is_nsfw: show_data.adult,
-            original_language: self.base.get_language_name(show_data.original_language),
+            people,
             lot: MediaLot::Show,
-            production_status: show_data.status,
+            title: title.clone(),
+            is_nsfw: show_data.adult,
             source: MediaSource::Tmdb,
             description: show_data.overview,
-            people,
+            production_status: show_data.status,
+            identifier: show_data.id.to_string(),
+            original_language: self.base.get_language_name(show_data.original_language),
             genres: show_data
                 .genres
                 .unwrap_or_default()
@@ -1164,6 +1173,10 @@ impl MediaProvider for TmdbShowService {
             publish_date: convert_string_to_date(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
+            source_url: Some(format!(
+                "https://www.themoviedb.org/tv/{}-{}",
+                show_data.id, title
+            )),
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -1320,9 +1333,8 @@ async fn get_settings(
     let cc = &supporting_service.cache_service;
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
-        .await
-        .ok();
-    let tmdb_settings = if let Some(setting) = maybe_settings.flatten() {
+        .await;
+    let tmdb_settings = if let Some(setting) = maybe_settings {
         setting
     } else {
         #[derive(Debug, Serialize, Deserialize, Clone)]

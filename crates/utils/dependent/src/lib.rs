@@ -64,6 +64,7 @@ use providers::{
     openlibrary::OpenlibraryService,
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
+    youtube_music::YoutubeMusicService,
 };
 use rust_decimal::{
     prelude::{FromPrimitive, One, ToPrimitive},
@@ -132,6 +133,7 @@ pub async fn get_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(Error::new("This source is not supported".to_owned()));
     let service: Provider = match source {
+        MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
@@ -415,7 +417,6 @@ pub async fn update_metadata(
     let notifications = match maybe_details {
         Ok(details) => {
             let mut notifications = vec![];
-
             let meta = Metadata::find_by_id(metadata_id)
                 .one(&ss.db)
                 .await
@@ -594,9 +595,13 @@ pub async fn update_metadata(
             meta.title = ActiveValue::Set(details.title);
             meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
             meta.is_partial = ActiveValue::Set(Some(false));
+            meta.source_url = ActiveValue::Set(details.source_url);
             meta.provider_rating = ActiveValue::Set(details.provider_rating);
             meta.description = ActiveValue::Set(details.description);
-            meta.images = ActiveValue::Set(Some(images));
+            meta.images = ActiveValue::Set(match images.is_empty() {
+                true => None,
+                false => Some(images),
+            });
             meta.videos = ActiveValue::Set(Some(details.videos));
             meta.production_status = ActiveValue::Set(details.production_status);
             meta.original_language = ActiveValue::Set(details.original_language);
@@ -613,6 +618,7 @@ pub async fn update_metadata(
             meta.book_specifics = ActiveValue::Set(details.book_specifics);
             meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
             meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
+            meta.music_specifics = ActiveValue::Set(details.music_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
             let metadata = meta.update(&ss.db).await.unwrap();
 
@@ -771,11 +777,18 @@ pub async fn commit_metadata_internal(
         lot: ActiveValue::Set(details.lot),
         source: ActiveValue::Set(details.source),
         title: ActiveValue::Set(details.title),
+        source_url: ActiveValue::Set(details.source_url),
         description: ActiveValue::Set(details.description),
         publish_year: ActiveValue::Set(details.publish_year),
         publish_date: ActiveValue::Set(details.publish_date),
-        images: ActiveValue::Set(Some(images)),
-        videos: ActiveValue::Set(Some(details.videos)),
+        images: ActiveValue::Set(match images.is_empty() {
+            true => None,
+            false => Some(images),
+        }),
+        videos: ActiveValue::Set(match details.videos.is_empty() {
+            true => None,
+            false => Some(details.videos),
+        }),
         identifier: ActiveValue::Set(details.identifier),
         audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
         anime_specifics: ActiveValue::Set(details.anime_specifics),
@@ -788,6 +801,7 @@ pub async fn commit_metadata_internal(
         visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
         provider_rating: ActiveValue::Set(details.provider_rating),
         production_status: ActiveValue::Set(details.production_status),
+        music_specifics: ActiveValue::Set(details.music_specifics),
         original_language: ActiveValue::Set(details.original_language),
         external_identifiers: ActiveValue::Set(details.external_identifiers),
         is_nsfw: ActiveValue::Set(details.is_nsfw),
@@ -1055,8 +1069,17 @@ pub async fn commit_metadata_group_internal(
     let provider = get_metadata_provider(lot, source, ss).await?;
     let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
     let group_id = match existing_group {
-        Some(eg) => eg.id,
+        Some(eg) => {
+            let mut eg: metadata_group::ActiveModel = eg.into();
+            eg.parts = ActiveValue::Set(group_details.parts);
+            eg.source_url = ActiveValue::Set(group_details.source_url);
+            eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
+            let eg = eg.update(&ss.db).await?;
+            eg.id
+        }
         None => {
+            let mut group_details = group_details.clone();
+            group_details.images = group_details.images.filter(|i| !i.is_empty());
             let mut db_group: metadata_group::ActiveModel =
                 group_details.into_model("".to_string(), None).into();
             db_group.id = ActiveValue::NotSet;
@@ -1292,7 +1315,7 @@ pub async fn get_entity_recently_consumed(
                 },
             },
         ))
-        .await?
+        .await
         .is_some())
 }
 
@@ -1319,7 +1342,7 @@ pub async fn progress_update(
         let in_cache = ss
             .cache_service
             .get_value::<EmptyCacheValue>(cache.clone())
-            .await?;
+            .await;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {

@@ -38,11 +38,12 @@ impl StatisticsService {
         &self,
         user_id: &String,
     ) -> Result<ApplicationDateRange> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(cached) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let get_date = |ordering: Order| {
@@ -64,13 +65,11 @@ impl StatisticsService {
             end_date,
             start_date,
         };
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
+        )
+        .await?;
         Ok(response)
     }
 
@@ -274,12 +273,8 @@ impl StatisticsService {
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = self
-            .0
-            .cache_service
-            .get_value::<UserAnalytics>(cache_key.clone())
-            .await?
-        {
+        let cc = &self.0.cache_service;
+        if let Some(cached) = cc.get_value::<UserAnalytics>(cache_key.clone()).await {
             return Ok(cached);
         }
         #[derive(Debug, DerivePartialModel, FromQueryResult)]
@@ -379,13 +374,11 @@ impl StatisticsService {
                 workout_personal_bests,
             },
         };
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::UserAnalytics(response.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::UserAnalytics(response.clone()),
+        )
+        .await?;
         Ok(response)
     }
 }

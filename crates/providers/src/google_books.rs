@@ -17,7 +17,7 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 
@@ -25,16 +25,6 @@ static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 pub struct GoogleBooksService {
     client: Client,
     pass_raw_query: bool,
-}
-
-impl MediaProviderLanguages for GoogleBooksService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl GoogleBooksService {
@@ -221,11 +211,11 @@ impl GoogleBooksService {
             genres.push(g);
         }
         MetadataDetails {
-            identifier: id,
             lot: MediaLot::Book,
-            source: MediaSource::GoogleBooks,
-            title: item.title,
+            identifier: id.clone(),
+            title: item.title.clone(),
             description: item.description,
+            source: MediaSource::GoogleBooks,
             creators: creators.into_iter().unique().collect(),
             genres: genres.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
@@ -235,6 +225,10 @@ impl GoogleBooksService {
             }),
             url_images: images.unique().collect(),
             provider_rating: item.average_rating,
+            source_url: Some(format!(
+                "https://www.google.co.in/books/edition/{}/{}",
+                item.title, id
+            )),
             ..Default::default()
         }
     }

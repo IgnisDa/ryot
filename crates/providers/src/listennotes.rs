@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2";
 
@@ -31,16 +31,6 @@ pub struct ListennotesService {
     url: String,
     client: Client,
     supporting_service: Arc<SupportingService>,
-}
-
-impl MediaProviderLanguages for ListennotesService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl ListennotesService {
@@ -188,9 +178,8 @@ impl ListennotesService {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
             .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
-            .await
-            .ok();
-        let genres = if let Some(value) = maybe_settings.flatten() {
+            .await;
+        let genres = if let Some(value) = maybe_settings {
             value.genres
         } else {
             #[derive(Debug, Serialize, Deserialize, Default)]
@@ -266,12 +255,16 @@ impl ListennotesService {
         let podcast_data: Podcast = resp.json().await.map_err(|e| anyhow!(e))?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {
-            identifier: podcast_data.id,
-            title: podcast_data.title,
-            is_nsfw: podcast_data.explicit_content,
-            description: podcast_data.description,
             lot: MediaLot::Podcast,
+            identifier: podcast_data.id,
             source: MediaSource::Listennotes,
+            title: podcast_data.title.clone(),
+            description: podcast_data.description,
+            is_nsfw: podcast_data.explicit_content,
+            source_url: Some(format!(
+                "https://www.listennotes.com/podcasts/{}-{}",
+                podcast_data.title, identifier
+            )),
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),

@@ -4,7 +4,7 @@ use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
-use common_utils::{IsFeatureEnabled, TEMP_DIR};
+use common_utils::TEMP_DIR;
 use database_models::{
     exercise,
     prelude::{

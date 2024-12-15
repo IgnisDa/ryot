@@ -5,7 +5,7 @@ use chrono::{Datelike, NaiveDate};
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::{ryot_log, PAGE_SIZE};
 use convert_case::{Case, Casing};
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -17,7 +17,7 @@ use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://openlibrary.org";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
@@ -89,16 +89,6 @@ struct OpenAuthorLibrarySearchResponse {
     #[serde(alias = "numFound")]
     num_found: i32,
     docs: Vec<PeopleSearchOpenlibraryAuthor>,
-}
-
-impl MediaProviderLanguages for OpenlibraryService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl OpenlibraryService {
@@ -175,7 +165,7 @@ impl MediaProvider for OpenlibraryService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
@@ -215,12 +205,12 @@ impl MediaProvider for OpenlibraryService {
 
     async fn person_details(
         &self,
-        identity: &str,
+        identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
         let rsp = self
             .client
-            .get(format!("{}/authors/{}.json", URL, identity))
+            .get(format!("{}/authors/{}.json", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -240,7 +230,7 @@ impl MediaProvider for OpenlibraryService {
             .collect();
         let author_works: OpenlibraryEditionsResponse = self
             .client
-            .get(format!("{}/authors/{}/works.json", URL, identity))
+            .get(format!("{}/authors/{}/works.json", URL, identifier))
             .query(&serde_json::json!({ "limit": 600 }))
             .send()
             .await
@@ -275,21 +265,26 @@ impl MediaProvider for OpenlibraryService {
             }
         }
         ryot_log!(debug, "Found {} related works.", related.len());
+        let name = data.name;
         Ok(MetadataPerson {
-            identifier,
-            source: MediaSource::Openlibrary,
-            name: data.name,
+            related,
+            place: None,
             description,
+            gender: None,
+            name: name.clone(),
             images: Some(images),
+            source_specifics: None,
+            identifier: identifier.clone(),
+            source: MediaSource::Openlibrary,
+            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
+            death_date: data.death_date.and_then(|b| parse_date(&b)),
+            source_url: Some(format!(
+                "https://openlibrary.org/authors/{}/{}",
+                identifier, name
+            )),
             website: data
                 .links
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
-            birth_date: data.birth_date.and_then(|b| parse_date(&b)),
-            death_date: data.death_date.and_then(|b| parse_date(&b)),
-            related,
-            gender: None,
-            place: None,
-            source_specifics: None,
         })
     }
 
@@ -447,21 +442,25 @@ impl MediaProvider for OpenlibraryService {
                 });
             }
         }
-
+        let identifier = get_key(&data.key);
         Ok(MetadataDetails {
-            identifier: get_key(&data.key),
-            title: data.title,
-            description,
-            lot: MediaLot::Book,
-            source: MediaSource::Openlibrary,
             people,
             genres,
+            description,
+            suggestions,
             url_images: images,
+            lot: MediaLot::Book,
+            title: data.title.clone(),
+            identifier: identifier.clone(),
+            source: MediaSource::Openlibrary,
             publish_year: first_release_date.map(|d| d.year()),
+            source_url: Some(format!(
+                "https://openlibrary.org/works/{}/{}",
+                identifier, data.title
+            )),
             book_specifics: Some(BookSpecifics {
                 pages: Some(num_pages),
             }),
-            suggestions,
             ..Default::default()
         })
     }

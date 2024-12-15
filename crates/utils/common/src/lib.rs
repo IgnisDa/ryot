@@ -65,6 +65,7 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
         ],
     ),
     (MediaLot::Movie, &[MediaSource::Tmdb]),
+    (MediaLot::Music, &[MediaSource::YoutubeMusic]),
     (MediaLot::Show, &[MediaSource::Tmdb]),
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
@@ -86,13 +87,6 @@ macro_rules! ryot_log {
     (trace, $($arg:tt)*) => {
         tracing::trace!(target: "ryot", $($arg)*);
     };
-}
-
-/// Determine whether a feature is enabled
-pub trait IsFeatureEnabled {
-    fn is_enabled(&self) -> bool {
-        true
-    }
 }
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {

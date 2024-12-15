@@ -102,5 +102,10 @@ query MetadataDetails($metadataId: String!) {
 		videoGameSpecifics {
 			platforms
 		}
+		musicSpecifics {
+			duration
+			viewCount
+			byVariousArtists
+		}
 	}
 }

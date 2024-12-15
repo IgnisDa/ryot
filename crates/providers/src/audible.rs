@@ -5,7 +5,7 @@ use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use educe::Educe;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -20,9 +20,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
-static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 static AUDNEX_URL: &str = "https://api.audnex.us";
 
 #[derive(EnumIter, Display)]
@@ -134,16 +133,6 @@ pub struct AudibleService {
     locale: String,
 }
 
-impl MediaProviderLanguages for AudibleService {
-    fn supported_languages() -> Vec<String> {
-        LOCALES.into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
-}
-
 impl AudibleService {
     fn url_from_locale(locale: &str) -> String {
         let suffix = match locale {
@@ -181,7 +170,7 @@ impl MediaProvider for AudibleService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
         let client = Client::new();
@@ -236,19 +225,24 @@ impl MediaProvider for AudibleService {
             .json()
             .await
             .map_err(|e| anyhow!(e))?;
+        let name = data.name;
         Ok(MetadataPerson {
             place: None,
             gender: None,
             website: None,
-            name: data.name,
             related: vec![],
             death_date: None,
             birth_date: None,
+            name: name.clone(),
             identifier: data.asin,
             source_specifics: None,
-            description: data.description,
             source: MediaSource::Audible,
+            description: data.description,
             images: Some(Vec::from_iter(data.image)),
+            source_url: Some(format!(
+                "https://www.audible.com/author/{}/{}",
+                name, identity
+            )),
         })
     }
 
@@ -293,16 +287,21 @@ impl MediaProvider for AudibleService {
                 is_recommendation: None,
             })
         }
+        let title = data.product.title;
         Ok((
             MetadataGroupWithoutId {
-                display_images: vec![],
-                parts: collection_contents.len().try_into().unwrap(),
-                identifier: identifier.to_owned(),
-                title: data.product.title,
+                images: None,
                 description: None,
-                images: vec![],
+                title: title.clone(),
+                display_images: vec![],
                 lot: MediaLot::AudioBook,
                 source: MediaSource::Audible,
+                identifier: identifier.to_owned(),
+                parts: collection_contents.len().try_into().unwrap(),
+                source_url: Some(format!(
+                    "https://www.audible.com/series/{}/{}",
+                    identifier, title
+                )),
             },
             collection_contents,
         ))
@@ -452,14 +451,20 @@ impl AudibleService {
             None
         };
         MetadataDetails {
-            identifier: item.asin,
-            lot: MediaLot::AudioBook,
-            source: MediaSource::Audible,
-            is_nsfw: item.is_adult_product,
-            title: item.title,
-            description,
             people,
             creators,
+            description,
+            url_images: images,
+            provider_rating: rating,
+            lot: MediaLot::AudioBook,
+            title: item.title.clone(),
+            source: MediaSource::Audible,
+            identifier: item.asin.clone(),
+            is_nsfw: item.is_adult_product,
+            source_url: Some(format!(
+                "https://www.audible.com/pd/{}/{}",
+                item.title, item.asin
+            )),
             genres: item
                 .category_ladders
                 .unwrap_or_default()
@@ -477,8 +482,6 @@ impl AudibleService {
             audio_book_specifics: Some(AudioBookSpecifics {
                 runtime: item.runtime_length_min,
             }),
-            url_images: images,
-            provider_rating: rating,
             ..Default::default()
         }
     }

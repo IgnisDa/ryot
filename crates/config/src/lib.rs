@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use async_graphql::SimpleObject;
-use common_utils::{IsFeatureEnabled, PROJECT_NAME};
+use common_utils::PROJECT_NAME;
 use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
@@ -61,7 +61,9 @@ pub struct AnimeAndMangaConfig {
     pub manga_updates: MangaUpdatesConfig,
 }
 
-impl IsFeatureEnabled for AnimeAndMangaConfig {}
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case")]
+pub struct MusicConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
@@ -78,8 +80,6 @@ pub struct AudioBookConfig {
     #[setting(nested)]
     pub audible: AudibleConfig,
 }
-
-impl IsFeatureEnabled for AudioBookConfig {}
 
 derive_enum!(
     #[derive(ConfigEnum, Default)]
@@ -121,8 +121,6 @@ pub struct BookConfig {
     pub google_books: GoogleBooksConfig,
 }
 
-impl IsFeatureEnabled for BookConfig {}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 #[config(rename_all = "snake_case", env_prefix = "DATABASE_")]
 pub struct DatabaseConfig {
@@ -162,8 +160,6 @@ pub struct MovieAndShowConfig {
     pub tmdb: TmdbConfig,
 }
 
-impl IsFeatureEnabled for MovieAndShowConfig {}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
@@ -189,8 +185,6 @@ pub struct PodcastConfig {
     #[setting(nested)]
     pub itunes: ITunesConfig,
 }
-
-impl IsFeatureEnabled for PodcastConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_TWITCH_")]
@@ -230,8 +224,8 @@ pub struct VideoGameConfig {
     pub twitch: TwitchConfig,
 }
 
-impl IsFeatureEnabled for VideoGameConfig {
-    fn is_enabled(&self) -> bool {
+impl VideoGameConfig {
+    pub fn is_enabled(&self) -> bool {
         let mut enabled = false;
         if !self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty() {
             enabled = true;
@@ -243,8 +237,6 @@ impl IsFeatureEnabled for VideoGameConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "VISUAL_NOVEL_")]
 pub struct VisualNovelConfig {}
-
-impl IsFeatureEnabled for VisualNovelConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
@@ -264,8 +256,8 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
-impl IsFeatureEnabled for FileStorageConfig {
-    fn is_enabled(&self) -> bool {
+impl FileStorageConfig {
+    pub fn is_enabled(&self) -> bool {
         let mut enabled = false;
         if !self.s3_access_key_id.is_empty()
             && !self.s3_bucket_name.is_empty()
@@ -331,8 +323,8 @@ pub struct SmtpConfig {
     pub mailbox: String,
 }
 
-impl IsFeatureEnabled for SmtpConfig {
-    fn is_enabled(&self) -> bool {
+impl SmtpConfig {
+    pub fn is_enabled(&self) -> bool {
         let mut enabled = false;
         if !self.server.is_empty() && !self.user.is_empty() && !self.password.is_empty() {
             enabled = true;
@@ -408,6 +400,9 @@ pub struct UsersConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
+    /// Settings related to music.
+    #[setting(nested)]
+    pub music: MusicConfig,
     /// Settings related to anime and manga.
     #[setting(nested)]
     pub anime_and_manga: AnimeAndMangaConfig,

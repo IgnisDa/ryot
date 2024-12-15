@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "metadata_group")]
 #[graphql(name = "MetadataGroup")]
 #[boilermates("MetadataGroupWithoutId")]
+#[boilermates(attr_for("MetadataGroupWithoutId", "#[derive(Clone, Debug)]"))]
 pub struct Model {
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     #[sea_orm(primary_key, auto_increment = false)]
@@ -24,12 +25,13 @@ pub struct Model {
     pub title: String,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub images: Vec<MetadataImage>,
+    pub images: Option<Vec<MetadataImage>>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub is_partial: Option<bool>,
     pub description: Option<String>,
+    pub source_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

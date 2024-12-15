@@ -256,6 +256,7 @@ export type CreateCustomMetadataInput = {
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
+  musicSpecifics?: InputMaybe<MusicSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
   publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
@@ -666,11 +667,6 @@ export type ExportJob = {
   url: Scalars['String']['output'];
 };
 
-export type ExternalIdentifiers = {
-  __typename?: 'ExternalIdentifiers';
-  tvdbId?: Maybe<Scalars['Int']['output']>;
-};
-
 export type FitnessAnalyticsEquipment = {
   __typename?: 'FitnessAnalyticsEquipment';
   count: Scalars['Int']['output'];
@@ -765,7 +761,6 @@ export type GraphqlMetadataDetails = {
   bookSpecifics?: Maybe<BookSpecifics>;
   creators: Array<MetadataCreatorGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
-  externalIdentifiers?: Maybe<ExternalIdentifiers>;
   genres: Array<GenreListItem>;
   group?: Maybe<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];
@@ -775,6 +770,7 @@ export type GraphqlMetadataDetails = {
   lot: MediaLot;
   mangaSpecifics?: Maybe<MangaSpecifics>;
   movieSpecifics?: Maybe<MovieSpecifics>;
+  musicSpecifics?: Maybe<MusicSpecifics>;
   originalLanguage?: Maybe<Scalars['String']['output']>;
   podcastSpecifics?: Maybe<PodcastSpecifics>;
   productionStatus?: Maybe<Scalars['String']['output']>;
@@ -1023,6 +1019,7 @@ export enum MediaLot {
   Book = 'BOOK',
   Manga = 'MANGA',
   Movie = 'MOVIE',
+  Music = 'MUSIC',
   Podcast = 'PODCAST',
   Show = 'SHOW',
   VideoGame = 'VIDEO_GAME',
@@ -1056,7 +1053,8 @@ export enum MediaSource {
   MangaUpdates = 'MANGA_UPDATES',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB',
-  Vndb = 'VNDB'
+  Vndb = 'VNDB',
+  YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
 export enum MediaStateChanged {
@@ -1096,6 +1094,7 @@ export type MetadataGroup = {
   lot: MediaLot;
   parts: Scalars['Int']['output'];
   source: MediaSource;
+  sourceUrl?: Maybe<Scalars['String']['output']>;
   title: Scalars['String']['output'];
 };
 
@@ -1103,7 +1102,6 @@ export type MetadataGroupDetails = {
   __typename?: 'MetadataGroupDetails';
   contents: Array<Scalars['String']['output']>;
   details: MetadataGroup;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type MetadataGroupSearchInput = {
@@ -1199,6 +1197,19 @@ export type MovieSpecifics = {
 
 export type MovieSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MusicSpecifics = {
+  __typename?: 'MusicSpecifics';
+  byVariousArtists?: Maybe<Scalars['Boolean']['output']>;
+  duration?: Maybe<Scalars['Int']['output']>;
+  viewCount?: Maybe<Scalars['Int']['output']>;
+};
+
+export type MusicSpecificsInput = {
+  byVariousArtists?: InputMaybe<Scalars['Boolean']['input']>;
+  duration?: InputMaybe<Scalars['Int']['input']>;
+  viewCount?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MutationRoot = {
@@ -1646,6 +1657,7 @@ export type Person = {
   name: Scalars['String']['output'];
   place?: Maybe<Scalars['String']['output']>;
   source: MediaSource;
+  sourceUrl?: Maybe<Scalars['String']['output']>;
   website?: Maybe<Scalars['String']['output']>;
 };
 
@@ -1658,7 +1670,6 @@ export type PersonDetails = {
   __typename?: 'PersonDetails';
   contents: Array<PersonDetailsGroupedByRole>;
   details: Person;
-  sourceUrl?: Maybe<Scalars['String']['output']>;
 };
 
 export type PersonDetailsGroupedByRole = {
@@ -2578,6 +2589,7 @@ export type UserMediaFeaturesEnabledPreferences = {
   groups: Scalars['Boolean']['output'];
   manga: Scalars['Boolean']['output'];
   movie: Scalars['Boolean']['output'];
+  music: Scalars['Boolean']['output'];
   people: Scalars['Boolean']['output'];
   podcast: Scalars['Boolean']['output'];
   show: Scalars['Boolean']['output'];

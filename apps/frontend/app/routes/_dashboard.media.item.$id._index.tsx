@@ -59,6 +59,7 @@ import {
 import {
 	changeCase,
 	formatDateToNaiveDate,
+	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
 	isInteger,
@@ -404,6 +405,21 @@ export default function Page() {
 									)
 									.asMilliseconds(),
 							),
+						loaderData.metadataDetails.musicSpecifics?.duration &&
+							humanizeDuration(
+								dayjsLib
+									.duration(
+										loaderData.metadataDetails.musicSpecifics.duration,
+										"second",
+									)
+									.asMilliseconds(),
+							),
+						loaderData.metadataDetails.musicSpecifics?.viewCount &&
+							formatQuantityWithCompactNotation(
+								loaderData.metadataDetails.musicSpecifics.viewCount,
+							),
+						loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
+							"Various Artists",
 					]
 						.filter(Boolean)
 						.join(" • ")}
@@ -439,6 +455,7 @@ export default function Page() {
 										.with(MediaSource.Openlibrary, () => "openlibrary.svg")
 										.with(MediaSource.Tmdb, () => "tmdb.svg")
 										.with(MediaSource.Vndb, () => "vndb.ico")
+										.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 										.with(MediaSource.Custom, () => undefined)
 										.exhaustive()}`}
 								/>
@@ -467,6 +484,7 @@ export default function Page() {
 											MediaSource.Custom,
 											MediaSource.Itunes,
 											MediaSource.Openlibrary,
+											MediaSource.YoutubeMusic,
 											() => undefined,
 										)
 										.exhaustive()}

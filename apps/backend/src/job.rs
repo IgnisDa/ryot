@@ -24,13 +24,8 @@ pub async fn run_background_jobs(
 pub async fn run_frequent_jobs(
     _information: ScheduledJob,
     fitness_service: Data<Arc<FitnessService>>,
-    misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
-    misc_service
-        .perform_server_key_validation()
-        .await
-        .trace_ok();
     integration_service
         .yank_integrations_data()
         .await
@@ -152,9 +147,6 @@ pub async fn perform_application_job(
                 .sync_integrations_data_to_owned_collection()
                 .await
                 .is_ok()
-        }
-        ApplicationJob::PerformServerKeyValidation => {
-            misc_service.perform_server_key_validation().await.is_ok()
         }
         ApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             integration_service

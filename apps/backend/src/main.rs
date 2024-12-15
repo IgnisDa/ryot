@@ -121,7 +121,6 @@ async fn main() -> Result<()> {
 
     join_all(
         [
-            ApplicationJob::PerformServerKeyValidation,
             ApplicationJob::SyncIntegrationsData,
             ApplicationJob::UpdateExerciseLibrary,
         ]
@@ -190,7 +189,6 @@ async fn main() -> Result<()> {
     let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_4 = app_services.miscellaneous_service.clone();
 
     let monitor = Monitor::<TokioExecutor>::new()
         .register_with_count(
@@ -218,7 +216,6 @@ async fn main() -> Result<()> {
                 .layer(ApalisTraceLayer::new())
                 .data(integration_service_1.clone())
                 .data(fitness_service_2.clone())
-                .data(miscellaneous_service_4.clone())
                 .build_fn(run_frequent_jobs),
         )
         // application jobs

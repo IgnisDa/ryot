@@ -18,23 +18,13 @@ use reqwest::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.myanimelist.net/v2";
 
 #[derive(Debug, Clone)]
 pub struct MalService {
     client: Client,
-}
-
-impl MediaProviderLanguages for MalService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -256,13 +246,19 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
     }
     suggestions.shuffle(&mut rng());
     let is_nsfw = details.nsfw.map(|n| !matches!(n.as_str(), "white"));
+    let identifier = details.id.to_string();
+    let title = details.title;
     let data = MetadataDetails {
-        identifier: details.id.to_string(),
-        title: details.title,
+        identifier: identifier.clone(),
+        title: title.clone(),
         source: MediaSource::Mal,
         description: details.synopsis,
         lot,
         is_nsfw,
+        source_url: Some(format!(
+            "https://myanimelist.net/{}/{}/{}",
+            media_type, identifier, title
+        )),
         production_status: details.status.map(|s| s.to_case(Case::Title)),
         genres: details
             .genres

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -15,23 +15,13 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.mangaupdates.com/v1";
 
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {
     client: Client,
-}
-
-impl MediaProviderLanguages for MangaUpdatesService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl MangaUpdatesService {
@@ -172,7 +162,7 @@ impl MediaProvider for MangaUpdatesService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post(format!("{}/authors/search", URL))
@@ -251,11 +241,17 @@ impl MediaProvider for MangaUpdatesService {
             })
             .collect_vec();
         let resp = MetadataPerson {
-            identifier: identity.to_owned(),
-            source: MediaSource::MangaUpdates,
-            name: data.name.unwrap(),
+            related,
+            website: None,
+            death_date: None,
+            source_url: None,
+            description: None,
             gender: data.gender,
             place: data.birthplace,
+            source_specifics: None,
+            name: data.name.unwrap(),
+            identifier: identity.to_owned(),
+            source: MediaSource::MangaUpdates,
             images: Some(Vec::from_iter(data.image.and_then(|i| i.url.original))),
             birth_date: data.birthday.and_then(|b| {
                 if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
@@ -264,11 +260,6 @@ impl MediaProvider for MangaUpdatesService {
                     None
                 }
             }),
-            related,
-            death_date: None,
-            description: None,
-            website: None,
-            source_specifics: None,
         };
         Ok(resp)
     }

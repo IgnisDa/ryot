@@ -31,6 +31,8 @@ pub struct Model {
     pub manga_count: i32,
     pub movie_count: i32,
     pub movie_duration: i32,
+    pub music_count: i32,
+    pub music_duration: i32,
     pub show_count: i32,
     pub show_duration: i32,
     pub video_game_count: i32,

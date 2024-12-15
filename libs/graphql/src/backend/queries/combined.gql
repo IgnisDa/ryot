@@ -320,16 +320,17 @@ query CoreDetails {
 query MetadataGroupDetails($metadataGroupId: String!) {
 	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
 		contents
-		sourceUrl
 		details {
 			id
-			title
 			lot
-			source
-			displayImages
-			identifier
+			title
 			parts
+			source
 			isPartial
+			sourceUrl
+			identifier
+			description
+			displayImages
 		}
 	}
 }

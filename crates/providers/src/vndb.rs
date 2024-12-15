@@ -3,7 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -13,7 +13,7 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://api.vndb.org/kana";
 const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
@@ -26,16 +26,6 @@ const METADATA_FIELDS: &str = const_str::concat!(
 #[derive(Debug, Clone)]
 pub struct VndbService {
     client: Client,
-}
-
-impl MediaProviderLanguages for VndbService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl VndbService {
@@ -87,7 +77,7 @@ impl MediaProvider for VndbService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let data = self
             .client
             .post(format!("{}/producer", URL))
@@ -148,18 +138,19 @@ impl MediaProvider for VndbService {
         let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
-            identifier: item.id,
-            source: MediaSource::Vndb,
-            name: item.title.unwrap(),
-            description: item.description,
-            related: vec![],
+            place: None,
             gender: None,
             images: None,
+            website: None,
+            related: vec![],
             death_date: None,
             birth_date: None,
-            place: None,
-            website: None,
+            source_url: None,
+            identifier: item.id,
             source_specifics: None,
+            name: item.title.unwrap(),
+            source: MediaSource::Vndb,
+            description: item.description,
         })
     }
 
@@ -265,16 +256,18 @@ impl VndbService {
             .into_iter()
             .map(|t| t.name)
             .collect_vec();
+        let identifier = item.id;
         MetadataDetails {
-            identifier: item.id,
-            lot: MediaLot::VisualNovel,
             source: MediaSource::Vndb,
+            lot: MediaLot::VisualNovel,
+            identifier: identifier.clone(),
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),
                 2 => "Cancelled".to_owned(),
                 _ => unreachable!(),
             }),
+            source_url: Some(format!("https://vndb.org/{}", identifier)),
             title: item.title.unwrap(),
             description: item.description,
             people: people.into_iter().unique().collect(),

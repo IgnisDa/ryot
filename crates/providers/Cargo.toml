@@ -19,7 +19,6 @@ educe = { workspace = true }
 enums = { path = "../enums" }
 graphql_client = { workspace = true }
 hashbag = { workspace = true }
-isolang = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }
 paginate = { workspace = true }
@@ -28,6 +27,7 @@ reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = { workspace = true }
+rustypipe = { workspace = true }
 scraper = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }

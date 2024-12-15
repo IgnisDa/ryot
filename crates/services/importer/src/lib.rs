@@ -217,7 +217,7 @@ pub mod utils {
             .filter(exercise::Column::Name.eq(exercise_name))
             .one(&ss.db)
             .await?;
-        let generated_id = generate_exercise_id(&exercise_name, exercise_lot, user_id);
+        let generated_id = generate_exercise_id(exercise_name, exercise_lot, user_id);
         let exercise_id = match existing_exercise {
             Some(db_ex) if db_ex.source == ExerciseSource::Github || db_ex.id == generated_id => {
                 db_ex.id
