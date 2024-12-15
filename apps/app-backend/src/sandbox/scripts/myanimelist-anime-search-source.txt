@@ -98,7 +98,7 @@ const items = data
 			title,
 			image: pickImage(node.main_picture),
 			identifier: String(nodeId),
-			publish_year: parsePublishYear(node.start_date),
+			publishYear: parsePublishYear(node.start_date),
 		};
 	})
 	.filter((item) => item !== null);
