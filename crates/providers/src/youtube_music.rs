@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -189,7 +189,7 @@ impl MediaProvider for YoutubeMusicService {
         query: &str,
         _page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         let data = self.client.music_search_albums(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
@@ -267,7 +267,7 @@ impl MediaProvider for YoutubeMusicService {
         _page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let data = self.client.music_search_artists(query).await?;
         Ok(SearchResults {
             details: SearchDetails {

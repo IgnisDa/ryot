@@ -5,7 +5,7 @@ use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use educe::Educe;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -181,7 +181,7 @@ impl MediaProvider for AudibleService {
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
         let client = Client::new();

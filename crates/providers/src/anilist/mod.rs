@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
-use dependent_models::SearchResults;
+use dependent_models::{PeopleSearchResponse, SearchResults};
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
@@ -137,7 +137,7 @@ impl MediaProvider for NonMediaAnilistService {
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let is_studio = matches!(
             source_specifics,
             Some(PersonSourceSpecifics {

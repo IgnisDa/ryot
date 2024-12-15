@@ -8,11 +8,8 @@ use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
-use dependent_models::SearchResults;
-use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem,
-};
+use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
+use media_models::{MetadataDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId};
 use sea_orm::{prelude::DateTimeUtc, DatabaseConnection};
 
 #[async_trait]
@@ -48,7 +45,7 @@ pub trait MediaProvider {
         page: Option<i32>,
         source_specifics: &Option<PersonSourceSpecifics>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         bail!("This provider does not support searching people")
     }
 
@@ -69,7 +66,7 @@ pub trait MediaProvider {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         bail!("This provider does not support searching metadata groups")
     }
 

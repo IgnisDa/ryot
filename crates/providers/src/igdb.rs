@@ -9,7 +9,10 @@ use common_models::{
 };
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{ApplicationCacheValue, IgdbSettings, SearchResults};
+use dependent_models::{
+    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PeopleSearchResponse,
+    SearchResults,
+};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -189,7 +192,7 @@ impl MediaProvider for IgdbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -294,7 +297,7 @@ where id = {id};
         page: Option<i32>,
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
