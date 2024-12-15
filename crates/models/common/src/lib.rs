@@ -225,7 +225,6 @@ pub struct DailyUserActivityHourRecord {
 }
 
 /// The start date must be before the end date.
-#[skip_serializing_none]
 #[derive(
     Debug, Default, Serialize, Deserialize, SimpleObject, InputObject, Clone, Eq, PartialEq,
 )]

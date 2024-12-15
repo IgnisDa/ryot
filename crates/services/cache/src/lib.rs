@@ -79,14 +79,12 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get_value<T: DeserializeOwned>(
-        &self,
-        key: ApplicationCacheKey,
-    ) -> Result<Option<T>> {
+    pub async fn get_value<T: DeserializeOwned>(&self, key: ApplicationCacheKey) -> Option<T> {
         let cache = ApplicationCache::find()
             .filter(application_cache::Column::Key.eq(key.clone()))
             .one(&self.db)
-            .await?;
+            .await
+            .ok()?;
         let Some(db_value) = cache
             .filter(|cache| {
                 cache
@@ -95,10 +93,9 @@ impl CacheService {
             })
             .map(|m| m.value)
         else {
-            return Ok(None);
+            return None;
         };
-        let parsed = serde_json::from_value::<T>(db_value);
-        Ok(parsed.ok())
+        serde_json::from_value::<T>(db_value).ok()
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {

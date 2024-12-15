@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://api.igdb.com/v4";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload";
@@ -536,9 +536,8 @@ impl IgdbService {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
             .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
-            .await
-            .ok();
-        let access_token = if let Some(value) = maybe_settings.flatten() {
+            .await;
+        let access_token = if let Some(value) = maybe_settings {
             value.access_token
         } else {
             let access_token = self.get_access_token().await;

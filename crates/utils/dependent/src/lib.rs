@@ -1315,7 +1315,7 @@ pub async fn get_entity_recently_consumed(
                 },
             },
         ))
-        .await?
+        .await
         .is_some())
 }
 
@@ -1342,7 +1342,7 @@ pub async fn progress_update(
         let in_cache = ss
             .cache_service
             .get_value::<EmptyCacheValue>(cache.clone())
-            .await?;
+            .await;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {

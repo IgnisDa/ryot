@@ -43,7 +43,7 @@ impl StatisticsService {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await? {
+        if let Some(cached) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let get_date = |ordering: Order| {
@@ -274,7 +274,7 @@ impl StatisticsService {
             user_id: user_id.to_owned(),
         });
         let cc = &self.0.cache_service;
-        if let Some(cached) = cc.get_value::<UserAnalytics>(cache_key.clone()).await? {
+        if let Some(cached) = cc.get_value::<UserAnalytics>(cache_key.clone()).await {
             return Ok(cached);
         }
         #[derive(Debug, DerivePartialModel, FromQueryResult)]

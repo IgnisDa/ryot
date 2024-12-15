@@ -288,7 +288,6 @@ pub struct UserWorkoutTemplateDetails {
     pub collections: Vec<collection::Model>,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult, PartialEq, Eq,
 )]
@@ -328,7 +327,6 @@ pub struct DailyUserActivityItem {
     pub total_duration: i64,
 }
 
-#[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, PartialEq, Eq)]
 pub struct DailyUserActivitiesResponse {
     pub total_count: i64,
@@ -338,7 +336,6 @@ pub struct DailyUserActivitiesResponse {
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -347,7 +344,6 @@ pub struct FitnessAnalyticsExercise {
     pub exercise: String,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -356,7 +352,6 @@ pub struct FitnessAnalyticsMuscle {
     pub muscle: ExerciseMuscle,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -365,7 +360,6 @@ pub struct FitnessAnalyticsEquipment {
     pub equipment: ExerciseEquipment,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -383,7 +377,6 @@ pub struct UserFitnessAnalytics {
     pub workout_equipments: Vec<FitnessAnalyticsEquipment>,
 }
 
-#[skip_serializing_none]
 #[derive(
     Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Clone, Eq, PartialEq,
 )]
@@ -417,14 +410,13 @@ pub struct IgdbSettings {
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
-    pub _empty: (),
+    pub ignore: u8,
 }
 
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
-#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
     Empty(EmptyCacheValue),

@@ -36,7 +36,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://api.themoviedb.org/3";
 
@@ -1333,9 +1333,8 @@ async fn get_settings(
     let cc = &supporting_service.cache_service;
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
-        .await
-        .ok();
-    let tmdb_settings = if let Some(setting) = maybe_settings.flatten() {
+        .await;
+    let tmdb_settings = if let Some(setting) = maybe_settings {
         setting
     } else {
         #[derive(Debug, Serialize, Deserialize, Clone)]

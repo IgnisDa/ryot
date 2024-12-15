@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2";
 
@@ -178,9 +178,8 @@ impl ListennotesService {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
             .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
-            .await
-            .ok();
-        let genres = if let Some(value) = maybe_settings.flatten() {
+            .await;
+        let genres = if let Some(value) = maybe_settings {
             value.genres
         } else {
             #[derive(Debug, Serialize, Deserialize, Default)]
