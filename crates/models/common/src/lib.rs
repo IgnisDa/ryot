@@ -300,6 +300,23 @@ pub struct UserLevelCacheKey<T> {
     pub user_id: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetadataRecentlyConsumedCacheInput {
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProgressUpdateCacheInput {
+    pub metadata_id: String,
+    pub show_season_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
@@ -312,19 +329,6 @@ pub enum ApplicationCacheKey {
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
-    MetadataRecentlyConsumed {
-        user_id: String,
-        entity_id: String,
-        entity_lot: EntityLot,
-    },
-    ProgressUpdateCache {
-        user_id: String,
-        metadata_id: String,
-        show_season_number: Option<i32>,
-        show_episode_number: Option<i32>,
-        podcast_episode_number: Option<i32>,
-        anime_episode_number: Option<i32>,
-        manga_chapter_number: Option<Decimal>,
-        manga_volume_number: Option<i32>,
-    },
+    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
+    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }

@@ -14,8 +14,8 @@ use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
 use common_models::{
     ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
     DefaultCollection, IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput,
-    MetadataSearchInput, PeopleSearchInput, SearchDetails, SearchInput, StoredUrl, StringIdObject,
-    UserLevelCacheKey,
+    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    StoredUrl, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
@@ -1927,16 +1927,18 @@ ORDER BY RANDOM() LIMIT 10;
         let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
         let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
         let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-        let cache = ApplicationCacheKey::ProgressUpdateCache {
-            show_season_number: ssn,
-            manga_volume_number: mvn,
-            show_episode_number: sen,
-            anime_episode_number: aen,
-            manga_chapter_number: mcn,
-            podcast_episode_number: pen,
+        let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            metadata_id: si.metadata_id.clone(),
-        };
+            input: ProgressUpdateCacheInput {
+                show_season_number: ssn,
+                manga_volume_number: mvn,
+                show_episode_number: sen,
+                anime_episode_number: aen,
+                manga_chapter_number: mcn,
+                podcast_episode_number: pen,
+                metadata_id: si.metadata_id.clone(),
+            },
+        });
         self.0.cache_service.expire_key(cache).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();

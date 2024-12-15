@@ -6,7 +6,8 @@ use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MediaStateChanged, StoredUrl, StringIdObject,
+    MediaStateChanged, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -1261,11 +1262,13 @@ pub async fn mark_entity_as_recently_consumed(
 ) -> Result<()> {
     ss.cache_service
         .set_key(
-            ApplicationCacheKey::MetadataRecentlyConsumed {
-                entity_lot,
+            ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
                 user_id: user_id.to_owned(),
-                entity_id: entity_id.to_owned(),
-            },
+                input: MetadataRecentlyConsumedCacheInput {
+                    entity_lot,
+                    entity_id: entity_id.to_owned(),
+                },
+            }),
             ApplicationCacheValue::Empty(EmptyCacheValue::default()),
         )
         .await?;
@@ -1280,11 +1283,15 @@ pub async fn get_entity_recently_consumed(
 ) -> Result<bool> {
     Ok(ss
         .cache_service
-        .get_value::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed {
-            entity_lot,
-            user_id: user_id.to_owned(),
-            entity_id: entity_id.to_owned(),
-        })
+        .get_value::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: MetadataRecentlyConsumedCacheInput {
+                    entity_lot,
+                    entity_id: entity_id.to_owned(),
+                },
+            },
+        ))
         .await?
         .is_some())
 }
@@ -1296,16 +1303,18 @@ pub async fn progress_update(
     input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
-    let cache = ApplicationCacheKey::ProgressUpdateCache {
+    let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
         user_id: user_id.to_owned(),
-        metadata_id: input.metadata_id.clone(),
-        show_season_number: input.show_season_number,
-        show_episode_number: input.show_episode_number,
-        manga_volume_number: input.manga_volume_number,
-        manga_chapter_number: input.manga_chapter_number,
-        anime_episode_number: input.anime_episode_number,
-        podcast_episode_number: input.podcast_episode_number,
-    };
+        input: ProgressUpdateCacheInput {
+            metadata_id: input.metadata_id.clone(),
+            show_season_number: input.show_season_number,
+            show_episode_number: input.show_episode_number,
+            manga_volume_number: input.manga_volume_number,
+            manga_chapter_number: input.manga_chapter_number,
+            anime_episode_number: input.anime_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
+        },
+    });
     if respect_cache {
         let in_cache = ss
             .cache_service
