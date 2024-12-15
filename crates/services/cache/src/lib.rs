@@ -99,8 +99,8 @@ impl CacheService {
                 }
             }
             ApplicationCacheKey::IgdbSettings => {
-                if let Ok(Some(ApplicationCacheValue::IgdbSettings { access_token })) = parsed {
-                    return Ok(Some(ApplicationCacheValue::IgdbSettings { access_token }));
+                if let Ok(Some(ApplicationCacheValue::IgdbSettings(value))) = parsed {
+                    return Ok(Some(ApplicationCacheValue::IgdbSettings(value)));
                 }
             }
             ApplicationCacheKey::TmdbSettings => {
@@ -109,8 +109,8 @@ impl CacheService {
                 }
             }
             ApplicationCacheKey::ListennotesSettings => {
-                if let Ok(Some(ApplicationCacheValue::ListennotesSettings { genres })) = parsed {
-                    return Ok(Some(ApplicationCacheValue::ListennotesSettings { genres }));
+                if let Ok(Some(ApplicationCacheValue::ListennotesSettings(value))) = parsed {
+                    return Ok(Some(ApplicationCacheValue::ListennotesSettings(value)));
                 }
             }
             ApplicationCacheKey::MetadataRecentlyConsumed { .. }

@@ -406,13 +406,23 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct ListennotesSettings {
+    pub genres: HashMap<i32, String>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct IgdbSettings {
+    pub access_token: String,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
     Empty,
     TmdbSettings(TmdbSettings),
+    IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
-    IgdbSettings { access_token: String },
+    ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
-    ListennotesSettings { genres: HashMap<i32, String> },
 }
