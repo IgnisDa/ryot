@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use async_graphql::Result;
 use chrono::{Duration, Utc};
-use common_models::{ApplicationCacheKey, ApplicationCacheValue};
+use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
+use dependent_models::ApplicationCacheValue;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 pub struct CacheService {
@@ -26,20 +28,27 @@ impl CacheService {
 impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Option<i64> {
         match key {
-            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
-            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::ListennotesSettings
             | ApplicationCacheKey::ServerKeyValidated
             | ApplicationCacheKey::TmdbSettings => None,
-            ApplicationCacheKey::MetadataRecentlyConsumed { .. } => Some(1),
+
+            ApplicationCacheKey::MetadataRecentlyConsumed { .. }
+            | ApplicationCacheKey::MetadataSearch { .. }
+            | ApplicationCacheKey::PeopleSearch { .. }
+            | ApplicationCacheKey::MetadataGroupSearch { .. } => Some(1),
+
+            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
+
+            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
+
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
                 Some(self.config.server.progress_update_threshold)
             }
         }
     }
 
-    pub async fn set_with_expiry(
+    pub async fn set_key(
         &self,
         key: ApplicationCacheKey,
         value: ApplicationCacheValue,
@@ -48,8 +57,8 @@ impl CacheService {
         let expiry_hours = self.get_expiry_for_key(&key);
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            value: ActiveValue::Set(value),
             created_at: ActiveValue::Set(now),
+            value: ActiveValue::Set(serde_json::to_value(value)?),
             expires_at: ActiveValue::Set(expiry_hours.map(|hours| now + Duration::hours(hours))),
             ..Default::default()
         };
@@ -70,18 +79,26 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get_key(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
+    pub async fn get_value<T: DeserializeOwned>(
+        &self,
+        key: ApplicationCacheKey,
+    ) -> Result<Option<T>> {
         let cache = ApplicationCache::find()
-            .filter(application_cache::Column::Key.eq(key))
+            .filter(application_cache::Column::Key.eq(key.clone()))
             .one(&self.db)
             .await?;
-        Ok(cache
+        let Some(db_value) = cache
             .filter(|cache| {
                 cache
                     .expires_at
                     .map_or(true, |expires_at| expires_at > Utc::now())
             })
-            .map(|m| m.value))
+            .map(|m| m.value)
+        else {
+            return Ok(None);
+        };
+        let parsed = serde_json::from_value::<T>(db_value);
+        Ok(parsed.ok())
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {

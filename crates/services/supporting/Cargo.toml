@@ -11,6 +11,7 @@ cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 chrono-tz = { workspace = true }
 config = { path = "../../config" }
+dependent-models = { path = "../../models/dependent" }
 file-storage-service = { path = "../../services/file-storage" }
 openidconnect = { workspace = true }
 sea-orm = { workspace = true }

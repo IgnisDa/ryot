@@ -5,8 +5,9 @@ use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, MediaStateChanged, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    MediaStateChanged, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -18,16 +19,16 @@ use database_models::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
     },
-    queued_notification, review, seen, user_measurement, user_to_entity, workout,
+    review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
     remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -679,13 +680,15 @@ pub async fn get_users_monitoring_entity(
     )
 }
 
-pub async fn queue_notifications_to_user_platforms(
+pub async fn create_user_notification(
+    message: &str,
     user_id: &String,
-    msg: &str,
     db: &DatabaseConnection,
+    lot: UserNotificationLot,
 ) -> Result<bool> {
-    let insert_data = queued_notification::ActiveModel {
-        message: ActiveValue::Set(msg.to_owned()),
+    let insert_data = user_notification::ActiveModel {
+        lot: ActiveValue::Set(lot),
+        message: ActiveValue::Set(message.to_owned()),
         user_id: ActiveValue::Set(user_id.to_owned()),
         ..Default::default()
     };
@@ -702,7 +705,7 @@ pub async fn queue_media_state_changed_notification_for_user(
     let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        queue_notifications_to_user_platforms(user_id, msg, &ss.db)
+        create_user_notification(msg, user_id, &ss.db, UserNotificationLot::Queued)
             .await
             .trace_ok();
     } else {
@@ -1281,13 +1284,15 @@ pub async fn mark_entity_as_recently_consumed(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.cache_service
-        .set_with_expiry(
-            ApplicationCacheKey::MetadataRecentlyConsumed {
-                entity_lot,
+        .set_key(
+            ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
                 user_id: user_id.to_owned(),
-                entity_id: entity_id.to_owned(),
-            },
-            ApplicationCacheValue::Empty,
+                input: MetadataRecentlyConsumedCacheInput {
+                    entity_lot,
+                    entity_id: entity_id.to_owned(),
+                },
+            }),
+            ApplicationCacheValue::Empty(EmptyCacheValue::default()),
         )
         .await?;
     Ok(())
@@ -1301,11 +1306,15 @@ pub async fn get_entity_recently_consumed(
 ) -> Result<bool> {
     Ok(ss
         .cache_service
-        .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
-            entity_lot,
-            user_id: user_id.to_owned(),
-            entity_id: entity_id.to_owned(),
-        })
+        .get_value::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed(
+            UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: MetadataRecentlyConsumedCacheInput {
+                    entity_lot,
+                    entity_id: entity_id.to_owned(),
+                },
+            },
+        ))
         .await?
         .is_some())
 }
@@ -1317,18 +1326,23 @@ pub async fn progress_update(
     input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
-    let cache = ApplicationCacheKey::ProgressUpdateCache {
+    let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
         user_id: user_id.to_owned(),
-        metadata_id: input.metadata_id.clone(),
-        show_season_number: input.show_season_number,
-        show_episode_number: input.show_episode_number,
-        manga_volume_number: input.manga_volume_number,
-        manga_chapter_number: input.manga_chapter_number,
-        anime_episode_number: input.anime_episode_number,
-        podcast_episode_number: input.podcast_episode_number,
-    };
+        input: ProgressUpdateCacheInput {
+            metadata_id: input.metadata_id.clone(),
+            show_season_number: input.show_season_number,
+            show_episode_number: input.show_episode_number,
+            manga_volume_number: input.manga_volume_number,
+            manga_chapter_number: input.manga_chapter_number,
+            anime_episode_number: input.anime_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
+        },
+    });
     if respect_cache {
-        let in_cache = ss.cache_service.get_key(cache.clone()).await?;
+        let in_cache = ss
+            .cache_service
+            .get_value::<EmptyCacheValue>(cache.clone())
+            .await?;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1549,7 +1563,10 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(cache, ApplicationCacheValue::Empty)
+            .set_key(
+                cache,
+                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+            )
             .await?;
     }
     if seen.state == SeenState::Completed {
@@ -1747,7 +1764,7 @@ pub async fn get_focused_workout_summary(
 }
 
 /// Create a workout in the database and also update user and exercise associations.
-pub async fn create_or_update_workout(
+pub async fn create_or_update_user_workout(
     input: UserWorkoutInput,
     user_id: &String,
     ss: &Arc<SupportingService>,
@@ -2336,7 +2353,7 @@ where
             }
             ImportCompletedItem::Workout(workout) => {
                 need_to_schedule_user_for_workout_revision = true;
-                if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
+                if let Err(err) = create_or_update_user_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
                         lot: None,
                         error: Some(err.message),
@@ -2347,7 +2364,7 @@ where
             }
             ImportCompletedItem::ApplicationWorkout(workout) => {
                 let workout_input = db_workout_to_workout_input(workout.details);
-                match create_or_update_workout(workout_input, user_id, ss).await {
+                match create_or_update_user_workout(workout_input, user_id, ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             lot: None,

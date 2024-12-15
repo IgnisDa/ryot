@@ -5,18 +5,17 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, SearchDetails, StoredUrl,
+    ApplicationCacheKey, IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl,
 };
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{ApplicationCacheValue, IgdbSettings, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    VideoGameSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -542,18 +541,19 @@ impl IgdbService {
 
     async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.supporting_service.cache_service;
-        let maybe_settings = cc.get_key(ApplicationCacheKey::IgdbSettings).await.ok();
-        let access_token = if let Some(Some(ApplicationCacheValue::IgdbSettings { access_token })) =
-            maybe_settings
-        {
-            access_token
+        let maybe_settings = cc
+            .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
+            .await
+            .ok();
+        let access_token = if let Some(value) = maybe_settings.flatten() {
+            value.access_token
         } else {
             let access_token = self.get_access_token().await;
-            cc.set_with_expiry(
+            cc.set_key(
                 ApplicationCacheKey::IgdbSettings,
-                ApplicationCacheValue::IgdbSettings {
+                ApplicationCacheValue::IgdbSettings(IgdbSettings {
                     access_token: access_token.clone(),
-                },
+                }),
             )
             .await
             .ok();

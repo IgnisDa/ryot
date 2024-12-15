@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{NamedObject, SearchDetails};
+use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -12,7 +12,7 @@ use itertools::Itertools;
 use media_models::{
     AudioBookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
     MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics,
+    PeopleSearchItem,
 };
 use paginate::Pages;
 use reqwest::Client;

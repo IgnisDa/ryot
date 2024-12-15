@@ -1,19 +1,21 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{BackgroundJob, SearchInput, StringIdObject};
+use common_models::{
+    BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
+    StringIdObject,
+};
 use dependent_models::{
-    CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails, SearchResults,
+    CoreDetails, GenreDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
+    MetadataSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupSearchInput,
-    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails,
-    MetadataSearchInput, MetadataSearchItemResponse, PeopleListInput, PeopleSearchInput,
-    PeopleSearchItem, ProgressUpdateInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupsListInput, MetadataListInput,
+    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -97,7 +99,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataSearchInput,
-    ) -> Result<SearchResults<MetadataSearchItemResponse>> {
+    ) -> Result<MetadataSearchResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_search(&user_id, input).await
@@ -197,7 +199,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_search(&user_id, input).await
@@ -208,7 +210,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataGroupSearchInput,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(&user_id, input).await

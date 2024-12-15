@@ -1198,8 +1198,11 @@ dependencies = [
  "common-utils",
  "config",
  "database-models",
+ "dependent-models",
  "sea-orm",
  "sea-query",
+ "serde",
+ "serde_json",
  "tracing",
  "uuid",
 ]
@@ -1797,6 +1800,7 @@ name = "dependent-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "chrono",
  "common-models",
  "config",
  "database-models",
@@ -1806,7 +1810,9 @@ dependencies = [
  "media-models",
  "rust_decimal",
  "schematic",
+ "sea-orm",
  "serde",
+ "serde_json",
  "serde_with 3.11.0",
  "strum",
 ]
@@ -6287,6 +6293,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "dependent-models",
  "statistics-service",
  "traits",
 ]
@@ -6299,6 +6306,7 @@ dependencies = [
  "common-models",
  "database-models",
  "database-utils",
+ "dependent-models",
  "enums",
  "hashbag",
  "itertools 0.13.0",
@@ -6402,6 +6410,7 @@ dependencies = [
  "chrono-tz",
  "common-models",
  "config",
+ "dependent-models",
  "file-storage-service",
  "openidconnect",
  "sea-orm",

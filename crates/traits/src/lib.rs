@@ -4,14 +4,14 @@ use anyhow::{bail, Result};
 use application_utils::AuthContext;
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
-use common_models::BackendError;
+use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::SearchResults;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    PartialMetadataWithoutId, PeopleSearchItem,
 };
 use sea_orm::{prelude::DateTimeUtc, DatabaseConnection};
 

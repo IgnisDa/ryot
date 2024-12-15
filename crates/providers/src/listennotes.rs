@@ -4,9 +4,9 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{ApplicationCacheKey, ApplicationCacheValue, SearchDetails};
+use common_models::{ApplicationCacheKey, SearchDetails};
 use common_utils::{convert_naive_to_utc, PAGE_SIZE};
-use dependent_models::SearchResults;
+use dependent_models::{ApplicationCacheValue, ListennotesSettings, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -187,13 +187,11 @@ impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
-            .get_key(ApplicationCacheKey::ListennotesSettings)
+            .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await
             .ok();
-        let genres = if let Some(Some(ApplicationCacheValue::ListennotesSettings { genres })) =
-            maybe_settings
-        {
-            genres
+        let genres = if let Some(value) = maybe_settings.flatten() {
+            value.genres
         } else {
             #[derive(Debug, Serialize, Deserialize, Default)]
             #[serde(rename_all = "snake_case")]
@@ -216,11 +214,11 @@ impl ListennotesService {
             for genre in data.genres {
                 genres.insert(genre.id, genre.name);
             }
-            cc.set_with_expiry(
+            cc.set_key(
                 ApplicationCacheKey::ListennotesSettings,
-                ApplicationCacheValue::ListennotesSettings {
+                ApplicationCacheValue::ListennotesSettings(ListennotesSettings {
                     genres: genres.clone(),
-                },
+                }),
             )
             .await
             .ok();
