@@ -5,8 +5,8 @@ use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, MediaStateChanged, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    MediaStateChanged, StoredUrl, StringIdObject,
 };
 use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -24,7 +24,7 @@ use database_utils::{
     admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
     remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,

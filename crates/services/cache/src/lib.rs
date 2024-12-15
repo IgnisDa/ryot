@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use async_graphql::Result;
 use chrono::{Duration, Utc};
-use common_models::{ApplicationCacheKey, ApplicationCacheValue};
+use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
+use dependent_models::ApplicationCacheValue;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use uuid::Uuid;
@@ -48,7 +49,7 @@ impl CacheService {
         let expiry_hours = self.get_expiry_for_key(&key);
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            value: ActiveValue::Set(value),
+            value: ActiveValue::Set(serde_json::to_value(value)?),
             created_at: ActiveValue::Set(now),
             expires_at: ActiveValue::Set(expiry_hours.map(|hours| now + Duration::hours(hours))),
             ..Default::default()
@@ -72,16 +73,55 @@ impl CacheService {
 
     pub async fn get_key(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
         let cache = ApplicationCache::find()
-            .filter(application_cache::Column::Key.eq(key))
+            .filter(application_cache::Column::Key.eq(key.clone()))
             .one(&self.db)
             .await?;
-        Ok(cache
+        let Some(db_value) = cache
             .filter(|cache| {
                 cache
                     .expires_at
                     .map_or(true, |expires_at| expires_at > Utc::now())
             })
-            .map(|m| m.value))
+            .map(|m| m.value)
+        else {
+            return Ok(None);
+        };
+        let parsed = serde_json::from_value(db_value);
+        match key {
+            ApplicationCacheKey::UserAnalytics { .. } => {
+                if let Ok(Some(ApplicationCacheValue::UserAnalytics(value))) = parsed {
+                    return Ok(Some(ApplicationCacheValue::UserAnalytics(value)));
+                }
+            }
+            ApplicationCacheKey::UserAnalyticsParameters { .. } => {
+                if let Ok(Some(ApplicationCacheValue::UserAnalyticsParameters(value))) = parsed {
+                    return Ok(Some(ApplicationCacheValue::UserAnalyticsParameters(value)));
+                }
+            }
+            ApplicationCacheKey::IgdbSettings => {
+                if let Ok(Some(ApplicationCacheValue::IgdbSettings { access_token })) = parsed {
+                    return Ok(Some(ApplicationCacheValue::IgdbSettings { access_token }));
+                }
+            }
+            ApplicationCacheKey::TmdbSettings => {
+                if let Ok(Some(ApplicationCacheValue::TmdbSettings(value))) = parsed {
+                    return Ok(Some(ApplicationCacheValue::TmdbSettings(value)));
+                }
+            }
+            ApplicationCacheKey::ListennotesSettings => {
+                if let Ok(Some(ApplicationCacheValue::ListennotesSettings { genres })) = parsed {
+                    return Ok(Some(ApplicationCacheValue::ListennotesSettings { genres }));
+                }
+            }
+            ApplicationCacheKey::MetadataRecentlyConsumed { .. }
+            | ApplicationCacheKey::ProgressUpdateCache { .. }
+            | ApplicationCacheKey::ServerKeyValidated => {
+                if let Ok(Some(ApplicationCacheValue::Empty)) = parsed {
+                    return Ok(Some(ApplicationCacheValue::Empty));
+                }
+            }
+        };
+        return Ok(None);
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {

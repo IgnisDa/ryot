@@ -4,9 +4,9 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{ApplicationCacheKey, ApplicationCacheValue, SearchDetails};
+use common_models::{ApplicationCacheKey, SearchDetails};
 use common_utils::{convert_naive_to_utc, PAGE_SIZE};
-use dependent_models::SearchResults;
+use dependent_models::{ApplicationCacheValue, SearchResults};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
