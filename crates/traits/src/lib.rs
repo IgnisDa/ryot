@@ -84,8 +84,9 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
-        let details = self.metadata_details(identifier).await?;
-        Ok(details.suggestions)
+        self.metadata_details(identifier)
+            .await
+            .map(|d| d.suggestions)
     }
 }
 
