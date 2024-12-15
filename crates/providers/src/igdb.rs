@@ -537,22 +537,24 @@ impl IgdbService {
 
     async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.supporting_service.cache_service;
-        let maybe_settings = cc.get_key(ApplicationCacheKey::IgdbSettings).await.ok();
-        let access_token =
-            if let Some(Some(ApplicationCacheValue::IgdbSettings(value))) = maybe_settings {
-                value.access_token
-            } else {
-                let access_token = self.get_access_token().await;
-                cc.set_with_expiry(
-                    ApplicationCacheKey::IgdbSettings,
-                    ApplicationCacheValue::IgdbSettings(IgdbSettings {
-                        access_token: access_token.clone(),
-                    }),
-                )
-                .await
-                .ok();
-                access_token
-            };
+        let maybe_settings = cc
+            .get_key::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
+            .await
+            .ok();
+        let access_token = if let Some(value) = maybe_settings.flatten() {
+            value.access_token
+        } else {
+            let access_token = self.get_access_token().await;
+            cc.set_with_expiry(
+                ApplicationCacheKey::IgdbSettings,
+                ApplicationCacheValue::IgdbSettings(IgdbSettings {
+                    access_token: access_token.clone(),
+                }),
+            )
+            .await
+            .ok();
+            access_token
+        };
         Ok(get_base_http_client(Some(vec![
             (
                 HeaderName::from_static("client-id"),

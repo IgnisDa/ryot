@@ -187,44 +187,43 @@ impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
-            .get_key(ApplicationCacheKey::ListennotesSettings)
+            .get_key::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await
             .ok();
-        let genres =
-            if let Some(Some(ApplicationCacheValue::ListennotesSettings(value))) = maybe_settings {
-                value.genres
-            } else {
-                #[derive(Debug, Serialize, Deserialize, Default)]
-                #[serde(rename_all = "snake_case")]
-                pub struct ListennotesIdAndNamedObject {
-                    pub id: i32,
-                    pub name: String,
-                }
-                #[derive(Debug, Serialize, Deserialize, Default)]
-                struct GenreResponse {
-                    genres: Vec<ListennotesIdAndNamedObject>,
-                }
-                let rsp = self
-                    .client
-                    .get(format!("{}/genres", self.url))
-                    .send()
-                    .await
-                    .unwrap();
-                let data: GenreResponse = rsp.json().await.unwrap_or_default();
-                let mut genres = HashMap::new();
-                for genre in data.genres {
-                    genres.insert(genre.id, genre.name);
-                }
-                cc.set_with_expiry(
-                    ApplicationCacheKey::ListennotesSettings,
-                    ApplicationCacheValue::ListennotesSettings(ListennotesSettings {
-                        genres: genres.clone(),
-                    }),
-                )
+        let genres = if let Some(value) = maybe_settings.flatten() {
+            value.genres
+        } else {
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            #[serde(rename_all = "snake_case")]
+            pub struct ListennotesIdAndNamedObject {
+                pub id: i32,
+                pub name: String,
+            }
+            #[derive(Debug, Serialize, Deserialize, Default)]
+            struct GenreResponse {
+                genres: Vec<ListennotesIdAndNamedObject>,
+            }
+            let rsp = self
+                .client
+                .get(format!("{}/genres", self.url))
+                .send()
                 .await
-                .ok();
-                genres
-            };
+                .unwrap();
+            let data: GenreResponse = rsp.json().await.unwrap_or_default();
+            let mut genres = HashMap::new();
+            for genre in data.genres {
+                genres.insert(genre.id, genre.name);
+            }
+            cc.set_with_expiry(
+                ApplicationCacheKey::ListennotesSettings,
+                ApplicationCacheValue::ListennotesSettings(ListennotesSettings {
+                    genres: genres.clone(),
+                }),
+            )
+            .await
+            .ok();
+            genres
+        };
         Ok(genres)
     }
 

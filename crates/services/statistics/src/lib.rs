@@ -41,8 +41,11 @@ impl StatisticsService {
         let cache_key = ApplicationCacheKey::UserAnalyticsParameters {
             user_id: user_id.to_owned(),
         };
-        if let Some(ApplicationCacheValue::UserAnalyticsParameters(cached)) =
-            self.0.cache_service.get_key(cache_key.clone()).await?
+        if let Some(cached) = self
+            .0
+            .cache_service
+            .get_key::<ApplicationDateRange>(cache_key.clone())
+            .await?
         {
             return Ok(cached);
         }
@@ -275,8 +278,11 @@ impl StatisticsService {
             input: input.clone(),
             user_id: user_id.to_owned(),
         };
-        if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
-            self.0.cache_service.get_key(cache_key.clone()).await?
+        if let Some(cached) = self
+            .0
+            .cache_service
+            .get_key::<UserAnalytics>(cache_key.clone())
+            .await?
         {
             return Ok(cached);
         }
