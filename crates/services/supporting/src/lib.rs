@@ -66,7 +66,7 @@ impl SupportingService {
 
     pub async fn is_server_key_validated(&self) -> Result<bool> {
         self.cache_service
-            .get_key::<EmptyCacheValue>(ApplicationCacheKey::ServerKeyValidated)
+            .get_value::<EmptyCacheValue>(ApplicationCacheKey::ServerKeyValidated)
             .await
             .map(|v| v.is_some())
     }

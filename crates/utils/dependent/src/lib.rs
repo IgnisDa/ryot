@@ -1260,7 +1260,7 @@ pub async fn mark_entity_as_recently_consumed(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.cache_service
-        .set_with_expiry(
+        .set_key(
             ApplicationCacheKey::MetadataRecentlyConsumed {
                 entity_lot,
                 user_id: user_id.to_owned(),
@@ -1280,7 +1280,7 @@ pub async fn get_entity_recently_consumed(
 ) -> Result<bool> {
     Ok(ss
         .cache_service
-        .get_key::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed {
+        .get_value::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed {
             entity_lot,
             user_id: user_id.to_owned(),
             entity_id: entity_id.to_owned(),
@@ -1309,7 +1309,7 @@ pub async fn progress_update(
     if respect_cache {
         let in_cache = ss
             .cache_service
-            .get_key::<EmptyCacheValue>(cache.clone())
+            .get_value::<EmptyCacheValue>(cache.clone())
             .await?;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
@@ -1531,7 +1531,7 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(
+            .set_key(
                 cache,
                 ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )

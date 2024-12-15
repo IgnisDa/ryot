@@ -1664,7 +1664,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.to_owned(),
         };
-        if let Some(cached) = self.0.cache_service.get_key(cache_key.clone()).await? {
+        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1737,7 +1737,7 @@ ORDER BY RANDOM() LIMIT 10;
         };
         self.0
             .cache_service
-            .set_with_expiry(
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::MetadataSearch(results.clone()),
             )
@@ -1751,10 +1751,10 @@ ORDER BY RANDOM() LIMIT 10;
         input: PeopleSearchInput,
     ) -> Result<PeopleSearchResponse> {
         let cache_key = ApplicationCacheKey::PeopleSearch {
+            input: input.clone(),
             user_id: user_id.clone(),
-            input: input.search.query.clone(),
         };
-        if let Some(results) = self.cache.get(&cache_key).await {
+        if let Some(results) = self.0.cache_service.get(&cache_key).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1777,8 +1777,9 @@ ORDER BY RANDOM() LIMIT 10;
                 preferences.general.display_nsfw,
             )
             .await?;
-        self.cache
-            .set_with_expiry(
+        self.0
+            .cache_service
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::PeopleSearch(results.clone()),
             )
@@ -3171,7 +3172,7 @@ ORDER BY RANDOM() LIMIT 10;
         let is_server_key_validated = self.get_is_server_key_validated().await;
         let cs = &self.0.cache_service;
         if is_server_key_validated {
-            cs.set_with_expiry(
+            cs.set_key(
                 ApplicationCacheKey::ServerKeyValidated,
                 ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )

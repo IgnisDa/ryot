@@ -44,7 +44,7 @@ impl StatisticsService {
         if let Some(cached) = self
             .0
             .cache_service
-            .get_key::<ApplicationDateRange>(cache_key.clone())
+            .get_value::<ApplicationDateRange>(cache_key.clone())
             .await?
         {
             return Ok(cached);
@@ -70,7 +70,7 @@ impl StatisticsService {
         };
         self.0
             .cache_service
-            .set_with_expiry(
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
             )
@@ -281,7 +281,7 @@ impl StatisticsService {
         if let Some(cached) = self
             .0
             .cache_service
-            .get_key::<UserAnalytics>(cache_key.clone())
+            .get_value::<UserAnalytics>(cache_key.clone())
             .await?
         {
             return Ok(cached);
@@ -385,7 +385,7 @@ impl StatisticsService {
         };
         self.0
             .cache_service
-            .set_with_expiry(
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::UserAnalytics(response.clone()),
             )

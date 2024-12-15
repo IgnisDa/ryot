@@ -538,14 +538,14 @@ impl IgdbService {
     async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
-            .get_key::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
+            .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
             .await
             .ok();
         let access_token = if let Some(value) = maybe_settings.flatten() {
             value.access_token
         } else {
             let access_token = self.get_access_token().await;
-            cc.set_with_expiry(
+            cc.set_key(
                 ApplicationCacheKey::IgdbSettings,
                 ApplicationCacheValue::IgdbSettings(IgdbSettings {
                     access_token: access_token.clone(),

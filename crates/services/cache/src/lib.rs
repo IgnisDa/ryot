@@ -47,7 +47,7 @@ impl CacheService {
         }
     }
 
-    pub async fn set_with_expiry(
+    pub async fn set_key(
         &self,
         key: ApplicationCacheKey,
         value: ApplicationCacheValue,
@@ -78,7 +78,7 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get_key<T: DeserializeOwned>(
+    pub async fn get_value<T: DeserializeOwned>(
         &self,
         key: ApplicationCacheKey,
     ) -> Result<Option<T>> {

@@ -187,7 +187,7 @@ impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
         let cc = &self.supporting_service.cache_service;
         let maybe_settings = cc
-            .get_key::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
+            .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await
             .ok();
         let genres = if let Some(value) = maybe_settings.flatten() {
@@ -214,7 +214,7 @@ impl ListennotesService {
             for genre in data.genres {
                 genres.insert(genre.id, genre.name);
             }
-            cc.set_with_expiry(
+            cc.set_key(
                 ApplicationCacheKey::ListennotesSettings,
                 ApplicationCacheValue::ListennotesSettings(ListennotesSettings {
                     genres: genres.clone(),

@@ -1319,7 +1319,7 @@ async fn get_settings(
 ) -> Result<TmdbSettings> {
     let cc = &supporting_service.cache_service;
     let maybe_settings = cc
-        .get_key::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
+        .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
         .await
         .ok();
     let tmdb_settings = if let Some(setting) = maybe_settings.flatten() {
@@ -1344,7 +1344,7 @@ async fn get_settings(
             image_url: data_1.images.secure_base_url,
             languages: data_2,
         };
-        cc.set_with_expiry(
+        cc.set_key(
             ApplicationCacheKey::TmdbSettings,
             ApplicationCacheValue::TmdbSettings(settings.clone()),
         )
