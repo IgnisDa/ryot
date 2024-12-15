@@ -1072,19 +1072,26 @@ const UploadAssetsModal = (props: {
 											});
 											const toSubmitForm = new FormData();
 											toSubmitForm.append("file", fileObj, "image.jpg");
-											const resp = await fetch(
-												$path("/actions", { intent: "uploadWorkoutAsset" }),
-												{ method: "POST", body: toSubmitForm },
-											);
-											const data = await resp.json();
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const media = { imageSrc, key: data.key };
-													if (exercise)
-														draft.exercises[exerciseIdx].images.push(media);
-													else draft.images.push(media);
-												}),
-											);
+											try {
+												const resp = await fetch(
+													$path("/actions", { intent: "uploadWorkoutAsset" }),
+													{ method: "POST", body: toSubmitForm },
+												);
+												const data = await resp.json();
+												setCurrentWorkout(
+													produce(currentWorkout, (draft) => {
+														const media = { imageSrc, key: data.key };
+														if (exercise)
+															draft.exercises[exerciseIdx].images.push(media);
+														else draft.images.push(media);
+													}),
+												);
+											} catch {
+												notifications.show({
+													color: "red",
+													message: "Error while uploading image",
+												});
+											}
 										}
 									}}
 								>
