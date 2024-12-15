@@ -1,0 +1,220 @@
+const parseJsonResponse = (responseBody) => {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("Anilist returned invalid JSON");
+	}
+};
+
+const extractGraphQlErrorMessage = (payload) => {
+	if (!Array.isArray(payload?.errors) || payload.errors.length === 0) return null;
+
+	const firstError = payload.errors[0];
+	const message =
+		typeof firstError?.message === "string" ? firstError.message.trim() : "";
+
+	return message || "unknown GraphQL error";
+};
+
+const toTitleCase = (value) => {
+	const words = value
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.split(/\s+/)
+		.filter((word) => word.length > 0);
+
+	return words
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+};
+
+const collectImages = (coverImage, bannerImage) => {
+	const imageSet = new Set();
+	const candidates = [coverImage?.extraLarge, bannerImage];
+
+	for (const candidate of candidates) {
+		if (typeof candidate !== "string") continue;
+
+		const trimmedCandidate = candidate.trim();
+		if (trimmedCandidate) imageSet.add(trimmedCandidate);
+	}
+
+	return [...imageSet];
+};
+
+const collectGenres = (genres, tags) => {
+	const genreSet = new Set();
+
+	if (Array.isArray(genres)) {
+		for (const genre of genres) {
+			if (typeof genre !== "string") continue;
+			const trimmedGenre = genre.trim();
+			if (trimmedGenre) genreSet.add(trimmedGenre);
+		}
+	}
+
+	if (Array.isArray(tags)) {
+		for (const tag of tags) {
+			const name = typeof tag?.name === "string" ? tag.name.trim() : "";
+			if (name) genreSet.add(name);
+		}
+	}
+
+	return [...genreSet];
+};
+
+const toIsoDateTime = (unixSeconds) => {
+	if (typeof unixSeconds !== "number" || !Number.isFinite(unixSeconds)) return null;
+
+	const candidate = new Date(Math.trunc(unixSeconds) * 1000);
+	if (Number.isNaN(candidate.valueOf())) return null;
+
+	return candidate.toISOString();
+};
+
+const parseAiringSchedule = (airingSchedule, nextAiringEpisode) => {
+	const scheduleByEpisode = new Map();
+
+	const nodes = Array.isArray(airingSchedule?.nodes) ? airingSchedule.nodes : [];
+	for (const node of nodes) {
+		if (!node || typeof node !== "object") continue;
+
+		const episode =
+			typeof node.episode === "number" && Number.isFinite(node.episode)
+				? Math.trunc(node.episode)
+				: null;
+		if (episode === null) continue;
+
+		const airingAt = toIsoDateTime(node.airingAt);
+		if (!airingAt) continue;
+
+		scheduleByEpisode.set(episode, airingAt);
+	}
+
+	if (nextAiringEpisode && typeof nextAiringEpisode === "object") {
+		const episode =
+			typeof nextAiringEpisode.episode === "number" &&
+			Number.isFinite(nextAiringEpisode.episode)
+				? Math.trunc(nextAiringEpisode.episode)
+				: null;
+		const airingAt = toIsoDateTime(nextAiringEpisode.airingAt);
+
+		if (episode !== null && airingAt) scheduleByEpisode.set(episode, airingAt);
+	}
+
+	const schedule = [...scheduleByEpisode.entries()]
+		.sort((a, b) => a[0] - b[0])
+		.map(([episode, airingAt]) => ({ episode, airing_at: airingAt }));
+
+	return schedule.length > 0 ? schedule : null;
+};
+
+const parsePublishYear = (startDate) => {
+	const year = startDate?.year;
+	if (typeof year !== "number" || !Number.isFinite(year)) return null;
+
+	return Math.trunc(year);
+};
+
+const contextIdentifier =
+	typeof context?.identifier === "string" ? context.identifier.trim() : "";
+if (!contextIdentifier) throw new Error("identifier is required");
+
+if (!/^\d+$/.test(contextIdentifier))
+	throw new Error("identifier must be a numeric Anilist media id");
+
+const mediaId = Number(contextIdentifier);
+if (!Number.isSafeInteger(mediaId) || mediaId <= 0)
+	throw new Error("identifier must be a positive safe integer Anilist media id");
+
+const graphqlQuery = `
+query MediaDetailsQuery($id: Int!) {
+  Media(id: $id) {
+    id
+    type
+    genres
+    status
+    isAdult
+    episodes
+    description
+    bannerImage
+    averageScore
+    tags { name }
+    startDate { year }
+    title { userPreferred }
+    coverImage { extraLarge }
+    nextAiringEpisode { episode airingAt }
+    airingSchedule { nodes { episode airingAt } }
+  }
+}
+`;
+
+const response = await httpCall("POST", "https://graphql.anilist.co", {
+	body: JSON.stringify({ query: graphqlQuery, variables: { id: mediaId } }),
+	headers: {
+		Accept: "application/json",
+		"Content-Type": "application/json",
+	},
+});
+
+if (!response?.success)
+	throw new Error(response?.error ?? "Anilist anime details request failed");
+
+const payload = parseJsonResponse(response.data.body);
+
+const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+if (graphQlErrorMessage)
+	throw new Error(`Anilist anime details GraphQL error: ${graphQlErrorMessage}`);
+
+const media =
+	payload?.data?.Media && typeof payload.data.Media === "object"
+		? payload.data.Media
+		: null;
+
+if (!media) throw new Error("Anilist returned no media data");
+
+if (media.type !== "ANIME")
+	throw new Error("Anilist media is not an anime entry");
+
+const payloadIdentifier =
+	typeof media.id === "number" && Number.isFinite(media.id)
+		? String(Math.trunc(media.id))
+		: contextIdentifier;
+
+const title = typeof media?.title?.userPreferred === "string"
+	? media.title.userPreferred
+	: "";
+if (!title) throw new Error("Anilist anime payload is missing title");
+
+const episodes =
+	typeof media?.episodes === "number" && Number.isFinite(media.episodes)
+		? Math.max(0, Math.trunc(media.episodes))
+		: null;
+
+const productionStatus =
+	typeof media?.status === "string" && media.status.trim()
+		? toTitleCase(media.status)
+		: null;
+
+return {
+	name: title,
+	external_id: payloadIdentifier,
+	properties: {
+		genres: collectGenres(media.genres, media.tags),
+		assets: { remote_images: collectImages(media.coverImage, media.bannerImage) },
+		is_nsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+		episodes,
+		description: typeof media?.description === "string" ? media.description : null,
+		publish_year: parsePublishYear(media.startDate),
+		provider_rating:
+			typeof media?.averageScore === "number" &&
+			Number.isFinite(media.averageScore)
+				? media.averageScore
+				: null,
+		production_status: productionStatus,
+		airing_schedule: parseAiringSchedule(
+			media.airingSchedule,
+			media.nextAiringEpisode,
+		),
+	},
+};
