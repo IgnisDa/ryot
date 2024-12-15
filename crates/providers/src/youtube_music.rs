@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{SearchDetails, StoredUrl};
+use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
@@ -9,7 +9,7 @@ use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
     MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MusicSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
