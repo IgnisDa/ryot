@@ -43,8 +43,8 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataLotSourceMappings, PersonDetails, ProviderLanguageInformation, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    MetadataLotSourceMappings, MetadataSearchResponse, PersonDetails, ProviderLanguageInformation,
+    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
@@ -1658,7 +1658,19 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: MetadataSearchInput,
-    ) -> Result<SearchResults<MetadataSearchItemResponse>> {
+    ) -> Result<MetadataSearchResponse> {
+        let cache_key = ApplicationCacheKey::MetadataSearch {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        };
+        if let Some(cached) = self
+            .0
+            .cache_service
+            .get_key::<MetadataSearchResponse>(cache_key.clone())
+            .await?
+        {
+            return Ok(cached);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1727,6 +1739,13 @@ ORDER BY RANDOM() LIMIT 10;
             details: results.details,
             items: data,
         };
+        self.0
+            .cache_service
+            .set_with_expiry(
+                cache_key,
+                ApplicationCacheValue::MetadataSearch(results.clone()),
+            )
+            .await?;
         Ok(results)
     }
 

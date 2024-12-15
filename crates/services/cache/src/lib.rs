@@ -28,13 +28,18 @@ impl CacheService {
 impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Option<i64> {
         match key {
-            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
-            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::ListennotesSettings
             | ApplicationCacheKey::ServerKeyValidated
             | ApplicationCacheKey::TmdbSettings => None,
-            ApplicationCacheKey::MetadataRecentlyConsumed { .. } => Some(1),
+
+            ApplicationCacheKey::MetadataRecentlyConsumed { .. }
+            | ApplicationCacheKey::MetadataSearch { .. } => Some(1),
+
+            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
+
+            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
+
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
                 Some(self.config.server.progress_update_threshold)
             }

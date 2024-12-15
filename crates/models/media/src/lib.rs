@@ -24,11 +24,11 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItemResponse {
-    pub item: MetadataSearchItem,
     /// Whether the user has interacted with this media item.
     pub has_interacted: bool,
+    pub item: MetadataSearchItem,
     pub database_id: Option<String>,
 }
 
@@ -302,10 +302,10 @@ pub struct MangaSpecifics {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItem {
-    pub identifier: String,
     pub title: String,
+    pub identifier: String,
     pub image: Option<String>,
     pub publish_year: Option<i32>,
 }

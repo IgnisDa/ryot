@@ -20,9 +20,9 @@ use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
-    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataSearchItemResponse,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
@@ -421,6 +421,8 @@ pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -428,6 +430,7 @@ pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
+    MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
 }

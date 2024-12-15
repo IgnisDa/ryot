@@ -167,7 +167,7 @@ pub struct SearchInput {
     pub query: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
 pub struct SearchDetails {
     pub total: i32,
     pub next_page: Option<i32>,
@@ -303,6 +303,10 @@ pub enum ApplicationCacheKey {
     ServerKeyValidated,
     UserAnalyticsParameters {
         user_id: String,
+    },
+    MetadataSearch {
+        user_id: String,
+        input: MetadataSearchInput,
     },
     UserAnalytics {
         user_id: String,
