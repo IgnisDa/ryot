@@ -1051,6 +1051,16 @@ const UploadAssetsModal = (props: {
 								<ActionIcon
 									size="xl"
 									onClick={async () => {
+										if (
+											props.modalOpenedBy === null &&
+											!coreDetails.isServerKeyValidated
+										) {
+											notifications.show({
+												color: "red",
+												message: PRO_REQUIRED_MESSAGE,
+											});
+											return;
+										}
 										const imageSrc = webcamRef.current?.getScreenshot();
 										if (imageSrc) {
 											const buffer = Buffer.from(
