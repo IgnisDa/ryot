@@ -38,8 +38,8 @@ import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
-	getCachedCoreDetails,
 	getCookiesForApplication,
+	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -68,7 +68,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 		);
 	}
-	const [coreDetails] = await Promise.all([getCachedCoreDetails()]);
+	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,

@@ -252,12 +252,20 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
+        if let Some(cached) = self
+            .0
+            .cache_service
+            .get_value(ApplicationCacheKey::CoreDetails)
+            .await?
+        {
+            return Ok(cached);
+        }
         let mut files_enabled = self.0.config.file_storage.is_enabled();
         if files_enabled && !self.0.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
         let download_required = Exercise::find().count(&self.0.db).await? == 0;
-        Ok(CoreDetails {
+        let core_details = CoreDetails {
             page_size: PAGE_SIZE,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
@@ -357,7 +365,15 @@ ORDER BY RANDOM() LIMIT 10;
                     }
                 })
                 .collect(),
-        })
+        };
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::CoreDetails,
+                ApplicationCacheValue::CoreDetails(core_details.clone()),
+            )
+            .await?;
+        Ok(core_details)
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {

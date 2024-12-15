@@ -80,7 +80,7 @@ import {
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
-	getCachedCoreDetails,
+	getCoreDetails,
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
@@ -153,7 +153,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const coreDetails = await getCachedCoreDetails();
+			const coreDetails = await getCoreDetails();
 			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
 				(m) => m.lot === lot,
 			);

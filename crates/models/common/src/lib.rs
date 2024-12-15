@@ -320,6 +320,7 @@ pub struct ProgressUpdateCacheInput {
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
+    CoreDetails,
     IgdbSettings,
     TmdbSettings,
     ServerKeyValidated,

@@ -174,13 +174,10 @@ export const getDecodedJwt = (request: Request) => {
 	}>(token);
 };
 
-export const getCachedCoreDetails = async () => {
-	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
-		staleTime: dayjsLib.duration({ minutes: 5 }).asMilliseconds(),
-		queryFn: () =>
-			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
-	});
+export const getCoreDetails = async () => {
+	return await serverGqlService
+		.request(CoreDetailsDocument)
+		.then((d) => d.coreDetails);
 };
 
 const getCachedUserDetails = async (request: Request) => {
@@ -353,7 +350,7 @@ export const getCookiesForApplication = async (
 	token: string,
 	tokenValidForDays?: number,
 ) => {
-	const [coreDetails] = await Promise.all([getCachedCoreDetails()]);
+	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	const maxAge =
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
@@ -400,7 +397,7 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 	totalResults: number,
 	currentPage: number,
 ) => {
-	const coreDetails = await getCachedCoreDetails();
+	const coreDetails = await getCoreDetails();
 	const { searchParams } = new URL(request.url);
 	const totalPages = Math.ceil(totalResults / coreDetails.pageSize);
 	if (currentPage > totalPages && currentPage !== 1) {

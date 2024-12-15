@@ -33,7 +33,8 @@ impl CacheService {
             | ApplicationCacheKey::ServerKeyValidated
             | ApplicationCacheKey::TmdbSettings => None,
 
-            ApplicationCacheKey::MetadataRecentlyConsumed { .. }
+            ApplicationCacheKey::CoreDetails
+            | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. } => Some(1),
