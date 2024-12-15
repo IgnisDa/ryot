@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{meta, Meta};
-use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle, MediaLot};
+use enums::{EntityLot, ExerciseEquipment, ExerciseMuscle, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
@@ -161,10 +161,12 @@ pub struct NamedObject {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, InputObject, Clone, Default)]
+#[derive(
+    Clone, Debug, Default, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
+)]
 pub struct SearchInput {
-    pub query: Option<String>,
     pub page: Option<i32>,
+    pub query: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
@@ -175,10 +177,10 @@ pub struct SearchDetails {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
-    pub creator_user_id: String,
-    pub collection_name: String,
     pub entity_id: String,
     pub entity_lot: EntityLot,
+    pub creator_user_id: String,
+    pub collection_name: String,
     pub information: Option<serde_json::Value>,
 }
 
@@ -366,6 +368,49 @@ pub struct TmdbLanguage {
 pub struct TmdbSettings {
     pub image_url: String,
     pub languages: Vec<TmdbLanguage>,
+}
+
+#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataGroupSearchInput {
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub search: SearchInput,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    InputObject,
+    Clone,
+    SimpleObject,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    Hash,
+    Default,
+    Schematic,
+)]
+#[graphql(input_name = "PersonSourceSpecificsInput")]
+#[serde(rename_all = "snake_case")]
+pub struct PersonSourceSpecifics {
+    pub is_tmdb_company: Option<bool>,
+    pub is_anilist_studio: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct PeopleSearchInput {
+    pub search: SearchInput,
+    pub source: MediaSource,
+    pub source_specifics: Option<PersonSourceSpecifics>,
+}
+
+#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub struct MetadataSearchInput {
+    pub search: SearchInput,
+    pub lot: MediaLot,
+    pub source: MediaSource,
 }
 
 #[skip_serializing_none]

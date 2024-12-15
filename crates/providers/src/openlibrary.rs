@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
-use common_models::SearchDetails;
+use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::{ryot_log, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
@@ -11,7 +11,7 @@ use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics,
+    PeopleSearchItem,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};

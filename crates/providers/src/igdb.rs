@@ -5,7 +5,8 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, SearchDetails, StoredUrl,
+    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, PersonSourceSpecifics,
+    SearchDetails, StoredUrl,
 };
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -15,8 +16,7 @@ use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    VideoGameSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
