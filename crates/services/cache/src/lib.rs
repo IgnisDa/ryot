@@ -57,8 +57,8 @@ impl CacheService {
         let expiry_hours = self.get_expiry_for_key(&key);
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            value: ActiveValue::Set(serde_json::to_value(value)?),
             created_at: ActiveValue::Set(now),
+            value: ActiveValue::Set(serde_json::to_value(value)?),
             expires_at: ActiveValue::Set(expiry_hours.map(|hours| now + Duration::hours(hours))),
             ..Default::default()
         };
