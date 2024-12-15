@@ -43,9 +43,9 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataLotSourceMappings, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
-    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    MetadataGroupSearchResponse, MetadataLotSourceMappings, MetadataSearchResponse,
+    PeopleSearchResponse, PersonDetails, ProviderLanguageInformation, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
@@ -73,8 +73,8 @@ use media_models::{
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataDetails, MetadataFreeCreator, MetadataGroupSearchItem, MetadataGroupsListInput,
-    MetadataImage, MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
+    MetadataDetails, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
+    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
     MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
@@ -1791,7 +1791,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: MetadataGroupSearchInput,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
+        let cache_key = ApplicationCacheKey::MetadataGroupSearch {
+            input: input.clone(),
+            user_id: user_id.clone(),
+        };
+        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+            return Ok(results);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1806,6 +1813,13 @@ ORDER BY RANDOM() LIMIT 10;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
+            .await?;
+        self.0
+            .cache_service
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+            )
             .await?;
         Ok(results)
     }

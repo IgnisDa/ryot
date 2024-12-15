@@ -20,9 +20,10 @@ use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
-    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataSearchItemResponse,
-    PeopleSearchItem, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataGroupSearchItem,
+    MetadataSearchItemResponse, PeopleSearchItem, PersonDetailsGroupedByRole, ReviewItem,
+    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -423,6 +424,7 @@ pub struct EmptyCacheValue {
 
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
+pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
@@ -435,4 +437,5 @@ pub enum ApplicationCacheValue {
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
+    MetadataGroupSearch(MetadataGroupSearchResponse),
 }

@@ -769,12 +769,12 @@ pub struct CommitPersonInput {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupSearchItem {
     pub name: String,
     pub identifier: String,
-    pub image: Option<String>,
     pub parts: Option<usize>,
+    pub image: Option<String>,
 }
 
 #[skip_serializing_none]
