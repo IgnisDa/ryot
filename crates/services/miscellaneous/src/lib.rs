@@ -15,6 +15,7 @@ use common_models::{
     ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
     DefaultCollection, IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput,
     MetadataSearchInput, PeopleSearchInput, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    UserLevelCacheKey,
 };
 use common_utils::{
     convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
@@ -1660,10 +1661,10 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<MetadataSearchResponse> {
-        let cache_key = ApplicationCacheKey::MetadataSearch {
+        let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
-        };
+        });
         if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(cached);
         }
@@ -1750,10 +1751,10 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<PeopleSearchResponse> {
-        let cache_key = ApplicationCacheKey::PeopleSearch {
+        let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
-        };
+        });
         if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(results);
         }
@@ -1792,10 +1793,10 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<MetadataGroupSearchResponse> {
-        let cache_key = ApplicationCacheKey::MetadataGroupSearch {
+        let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
-        };
+        });
         if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(results);
         }

@@ -3,7 +3,7 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use async_graphql::Result;
 use common_models::{
     ApplicationCacheKey, ApplicationDateRange, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, UserAnalyticsInput,
+    DailyUserActivityHourRecord, UserAnalyticsInput, UserLevelCacheKey,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
@@ -38,15 +38,11 @@ impl StatisticsService {
         &self,
         user_id: &String,
     ) -> Result<ApplicationDateRange> {
-        let cache_key = ApplicationCacheKey::UserAnalyticsParameters {
+        let cache_key = ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
+            input: (),
             user_id: user_id.to_owned(),
-        };
-        if let Some(cached) = self
-            .0
-            .cache_service
-            .get_value::<ApplicationDateRange>(cache_key.clone())
-            .await?
-        {
+        });
+        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(cached);
         }
         let get_date = |ordering: Order| {
@@ -274,10 +270,10 @@ impl StatisticsService {
         user_id: &String,
         input: UserAnalyticsInput,
     ) -> Result<UserAnalytics> {
-        let cache_key = ApplicationCacheKey::UserAnalytics {
+        let cache_key = ApplicationCacheKey::UserAnalytics(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
-        };
+        });
         if let Some(cached) = self
             .0
             .cache_service

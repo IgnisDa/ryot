@@ -294,32 +294,24 @@ pub struct MetadataSearchInput {
     pub source: MediaSource,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserLevelCacheKey<T> {
+    pub input: T,
+    pub user_id: String,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
     IgdbSettings,
     TmdbSettings,
-    ListennotesSettings,
     ServerKeyValidated,
-    UserAnalyticsParameters {
-        user_id: String,
-    },
-    MetadataSearch {
-        user_id: String,
-        input: MetadataSearchInput,
-    },
-    PeopleSearch {
-        user_id: String,
-        input: PeopleSearchInput,
-    },
-    MetadataGroupSearch {
-        user_id: String,
-        input: MetadataGroupSearchInput,
-    },
-    UserAnalytics {
-        user_id: String,
-        input: UserAnalyticsInput,
-    },
+    ListennotesSettings,
+    UserAnalyticsParameters(UserLevelCacheKey<()>),
+    PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
+    UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
+    MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
+    MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     MetadataRecentlyConsumed {
         user_id: String,
         entity_id: String,
