@@ -5,6 +5,7 @@ use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use common_models::ApplicationCacheKey;
+use dependent_models::EmptyCacheValue;
 use file_storage_service::FileStorageService;
 use openidconnect::core::CoreClient;
 use sea_orm::DatabaseConnection;
@@ -65,7 +66,7 @@ impl SupportingService {
 
     pub async fn is_server_key_validated(&self) -> Result<bool> {
         self.cache_service
-            .get_key(ApplicationCacheKey::ServerKeyValidated)
+            .get_key::<EmptyCacheValue>(ApplicationCacheKey::ServerKeyValidated)
             .await
             .map(|v| v.is_some())
     }

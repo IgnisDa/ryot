@@ -6258,6 +6258,7 @@ dependencies = [
  "chrono-tz",
  "common-models",
  "config",
+ "dependent-models",
  "file-storage-service",
  "openidconnect",
  "sea-orm",

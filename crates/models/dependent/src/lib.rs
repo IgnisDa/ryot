@@ -416,10 +416,15 @@ pub struct IgdbSettings {
     pub access_token: String,
 }
 
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct EmptyCacheValue {
+    pub _empty: (),
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
-    Empty,
+    Empty(EmptyCacheValue),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),

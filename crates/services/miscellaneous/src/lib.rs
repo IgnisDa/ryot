@@ -41,7 +41,7 @@ use database_utils::{
     remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
+    ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
     MetadataLotSourceMappings, PersonDetails, ProviderLanguageInformation, SearchResults,
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
@@ -3145,7 +3145,7 @@ ORDER BY RANDOM() LIMIT 10;
         if is_server_key_validated {
             cs.set_with_expiry(
                 ApplicationCacheKey::ServerKeyValidated,
-                ApplicationCacheValue::Empty,
+                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )
             .await?;
         } else {

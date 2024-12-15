@@ -24,7 +24,7 @@ use database_utils::{
     admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
     remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
+use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enums::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
@@ -1266,7 +1266,7 @@ pub async fn mark_entity_as_recently_consumed(
                 user_id: user_id.to_owned(),
                 entity_id: entity_id.to_owned(),
             },
-            ApplicationCacheValue::Empty,
+            ApplicationCacheValue::Empty(EmptyCacheValue::default()),
         )
         .await?;
     Ok(())
@@ -1280,7 +1280,7 @@ pub async fn get_entity_recently_consumed(
 ) -> Result<bool> {
     Ok(ss
         .cache_service
-        .get_key(ApplicationCacheKey::MetadataRecentlyConsumed {
+        .get_key::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed {
             entity_lot,
             user_id: user_id.to_owned(),
             entity_id: entity_id.to_owned(),
@@ -1307,7 +1307,10 @@ pub async fn progress_update(
         podcast_episode_number: input.podcast_episode_number,
     };
     if respect_cache {
-        let in_cache = ss.cache_service.get_key(cache.clone()).await?;
+        let in_cache = ss
+            .cache_service
+            .get_key::<EmptyCacheValue>(cache.clone())
+            .await?;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1528,7 +1531,10 @@ pub async fn progress_update(
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
-            .set_with_expiry(cache, ApplicationCacheValue::Empty)
+            .set_with_expiry(
+                cache,
+                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+            )
             .await?;
     }
     if seen.state == SeenState::Completed {

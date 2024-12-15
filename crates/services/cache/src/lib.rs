@@ -8,6 +8,7 @@ use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 pub struct CacheService {
@@ -71,7 +72,10 @@ impl CacheService {
         Ok(insert_id)
     }
 
-    pub async fn get_key(&self, key: ApplicationCacheKey) -> Result<Option<ApplicationCacheValue>> {
+    pub async fn get_key<T: DeserializeOwned>(
+        &self,
+        key: ApplicationCacheKey,
+    ) -> Result<Option<T>> {
         let cache = ApplicationCache::find()
             .filter(application_cache::Column::Key.eq(key.clone()))
             .one(&self.db)
@@ -86,42 +90,8 @@ impl CacheService {
         else {
             return Ok(None);
         };
-        let parsed = serde_json::from_value(db_value);
-        match key {
-            ApplicationCacheKey::UserAnalytics { .. } => {
-                if let Ok(Some(ApplicationCacheValue::UserAnalytics(value))) = parsed {
-                    return Ok(Some(ApplicationCacheValue::UserAnalytics(value)));
-                }
-            }
-            ApplicationCacheKey::UserAnalyticsParameters { .. } => {
-                if let Ok(Some(ApplicationCacheValue::UserAnalyticsParameters(value))) = parsed {
-                    return Ok(Some(ApplicationCacheValue::UserAnalyticsParameters(value)));
-                }
-            }
-            ApplicationCacheKey::IgdbSettings => {
-                if let Ok(Some(ApplicationCacheValue::IgdbSettings(value))) = parsed {
-                    return Ok(Some(ApplicationCacheValue::IgdbSettings(value)));
-                }
-            }
-            ApplicationCacheKey::TmdbSettings => {
-                if let Ok(Some(ApplicationCacheValue::TmdbSettings(value))) = parsed {
-                    return Ok(Some(ApplicationCacheValue::TmdbSettings(value)));
-                }
-            }
-            ApplicationCacheKey::ListennotesSettings => {
-                if let Ok(Some(ApplicationCacheValue::ListennotesSettings(value))) = parsed {
-                    return Ok(Some(ApplicationCacheValue::ListennotesSettings(value)));
-                }
-            }
-            ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-            | ApplicationCacheKey::ProgressUpdateCache { .. }
-            | ApplicationCacheKey::ServerKeyValidated => {
-                if let Ok(Some(ApplicationCacheValue::Empty)) = parsed {
-                    return Ok(Some(ApplicationCacheValue::Empty));
-                }
-            }
-        };
-        return Ok(None);
+        let parsed = serde_json::from_value::<T>(db_value);
+        Ok(parsed.ok())
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {
