@@ -1754,7 +1754,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.clone(),
         };
-        if let Some(results) = self.0.cache_service.get(&cache_key).await {
+        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
