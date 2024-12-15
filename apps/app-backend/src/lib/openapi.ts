@@ -12,15 +12,11 @@ export const ERROR_CODES = {
 } as const;
 
 const createErrorSchema = (code: string, name: string) =>
-	z
-		.object({
-			code: z.literal(code),
-			message: z.string(),
-		})
-		.openapi(name);
+	z.object({ message: z.string(), code: z.literal(code) }).openapi(name);
 
 export const commonErrors = {
 	notFound: createErrorSchema(ERROR_CODES.NOT_FOUND, "NotFoundError"),
+	timeout: createErrorSchema(ERROR_CODES.TIMEOUT, "TimeoutError"),
 	unauthenticated: createErrorSchema(
 		ERROR_CODES.UNAUTHENTICATED,
 		"UnauthenticatedError",
@@ -29,7 +25,6 @@ export const commonErrors = {
 		ERROR_CODES.VALIDATION_FAILED,
 		"ValidationFailedError",
 	),
-	timeout: createErrorSchema(ERROR_CODES.TIMEOUT, "TimeoutError"),
 	internalError: createErrorSchema(
 		ERROR_CODES.INTERNAL_ERROR,
 		"InternalServerError",
@@ -41,9 +36,7 @@ export const commonErrors = {
 } as const;
 
 export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
-	if (errors.length === 1) {
-		return errors[0];
-	}
+	if (errors.length === 1) return errors[0];
 	return z.discriminatedUnion("code", errors as any);
 };
 
@@ -113,12 +106,8 @@ export const jsonResponse = <TSchema extends z.ZodType>(
 	schema: TSchema,
 ) => ({ description, content: jsonContent(schema) });
 
-export const createAuthRoute = <TRoute extends RouteConfig>(
-	route: TRoute,
-): TRoute => {
-	return {
-		...route,
-		middleware: [requireAuth],
-		security: [{ "X-Api-Key": [] }],
-	};
-};
+export const createAuthRoute = <TRoute extends RouteConfig>(route: TRoute) => ({
+	...route,
+	middleware: [requireAuth],
+	security: [{ "X-Api-Key": [] }],
+});
