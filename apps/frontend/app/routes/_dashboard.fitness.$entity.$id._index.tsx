@@ -1,6 +1,7 @@
 import {
 	ActionIcon,
 	Anchor,
+	Avatar,
 	Box,
 	Button,
 	Container,
@@ -556,6 +557,16 @@ export default function Page() {
 							</Text>
 							<Text span>{loaderData.information.comment}</Text>
 						</Box>
+					) : null}
+					{loaderData.information.assets &&
+					loaderData.information.assets.images.length > 0 ? (
+						<Avatar.Group>
+							{loaderData.information.assets.images.map((i) => (
+								<Anchor key={i} href={i} target="_blank">
+									<Avatar src={i} />
+								</Anchor>
+							))}
+						</Avatar.Group>
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
 						<ExerciseHistory

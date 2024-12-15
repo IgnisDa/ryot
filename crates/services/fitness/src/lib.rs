@@ -22,7 +22,7 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use dependent_utils::{
-    create_custom_exercise, create_or_update_workout, create_user_measurement,
+    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, get_focused_workout_summary,
 };
 use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
@@ -527,7 +527,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = create_or_update_workout(input, user_id, &self.0).await?;
+        let identifier = create_or_update_user_workout(input, user_id, &self.0).await?;
         Ok(identifier)
     }
 

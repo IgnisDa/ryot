@@ -1,4 +1,3 @@
-// FIXME: Remove this migration completely
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
@@ -7,9 +6,10 @@ use super::m20230417_create_user::User;
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum QueuedNotification {
-    Table,
+pub enum UserNotification {
     Id,
+    Lot,
+    Table,
     UserId,
     Message,
 }
@@ -20,23 +20,21 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(QueuedNotification::Table)
+                    .table(UserNotification::Table)
                     .col(
-                        ColumnDef::new(QueuedNotification::Id)
-                            .text()
+                        ColumnDef::new(UserNotification::Id)
+                            .uuid()
                             .not_null()
+                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(QueuedNotification::Message)
-                            .text()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(QueuedNotification::UserId).text().not_null())
+                    .col(ColumnDef::new(UserNotification::Lot).text().not_null())
+                    .col(ColumnDef::new(UserNotification::Message).text().not_null())
+                    .col(ColumnDef::new(UserNotification::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("queued_notification_to_user_foreign_key")
-                            .from(QueuedNotification::Table, QueuedNotification::UserId)
+                            .name("notification_to_user_foreign_key")
+                            .from(UserNotification::Table, UserNotification::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -47,9 +45,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("queued_notification__user_id__index")
-                    .table(QueuedNotification::Table)
-                    .col(QueuedNotification::UserId)
+                    .name("notification__user_id__index")
+                    .table(UserNotification::Table)
+                    .col(UserNotification::UserId)
                     .to_owned(),
             )
             .await?;

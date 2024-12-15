@@ -78,7 +78,7 @@ export type InProgressWorkout = {
 	videos: Array<string>;
 	repeatedFrom?: string;
 	supersets: Superset[];
-	images: Array<string>;
+	images: Array<Media>;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
@@ -209,8 +209,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			assets: {
-				images: [...currentWorkout.images],
 				videos: [...currentWorkout.videos],
+				images: currentWorkout.images.map((m) => m.key),
 			},
 		},
 	};

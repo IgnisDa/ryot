@@ -2,13 +2,16 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ApplicationDateRange, DailyUserActivitiesResponse,
-    DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord, DailyUserActivityItem,
-    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
-    UserAnalyticsInput, UserFitnessAnalytics,
+    ApplicationCacheKey, ApplicationDateRange, DailyUserActivitiesResponseGroupedBy,
+    DailyUserActivityHourRecord, UserAnalyticsInput, UserLevelCacheKey,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
+use dependent_models::{
+    ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
+    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
+    UserFitnessAnalytics,
+};
 use enums::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -35,12 +38,11 @@ impl StatisticsService {
         &self,
         user_id: &String,
     ) -> Result<ApplicationDateRange> {
-        let cache_key = ApplicationCacheKey::UserAnalyticsParameters {
+        let cache_key = ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
+            input: (),
             user_id: user_id.to_owned(),
-        };
-        if let Some(ApplicationCacheValue::UserAnalyticsParameters(cached)) =
-            self.0.cache_service.get_key(cache_key.clone()).await?
-        {
+        });
+        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
             return Ok(cached);
         }
         let get_date = |ordering: Order| {
@@ -64,7 +66,7 @@ impl StatisticsService {
         };
         self.0
             .cache_service
-            .set_with_expiry(
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::UserAnalyticsParameters(response.clone()),
             )
@@ -268,12 +270,15 @@ impl StatisticsService {
         user_id: &String,
         input: UserAnalyticsInput,
     ) -> Result<UserAnalytics> {
-        let cache_key = ApplicationCacheKey::UserAnalytics {
+        let cache_key = ApplicationCacheKey::UserAnalytics(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
-        };
-        if let Some(ApplicationCacheValue::UserAnalytics(cached)) =
-            self.0.cache_service.get_key(cache_key.clone()).await?
+        });
+        if let Some(cached) = self
+            .0
+            .cache_service
+            .get_value::<UserAnalytics>(cache_key.clone())
+            .await?
         {
             return Ok(cached);
         }
@@ -376,7 +381,7 @@ impl StatisticsService {
         };
         self.0
             .cache_service
-            .set_with_expiry(
+            .set_key(
                 cache_key,
                 ApplicationCacheValue::UserAnalytics(response.clone()),
             )

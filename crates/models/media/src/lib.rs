@@ -4,7 +4,8 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
+    CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics, SearchInput, StoredUrl,
+    StringIdObject,
 };
 use common_utils::deserialize_date;
 use enums::{
@@ -23,11 +24,11 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItemResponse {
-    pub item: MetadataSearchItem,
     /// Whether the user has interacted with this media item.
     pub has_interacted: bool,
+    pub item: MetadataSearchItem,
     pub database_id: Option<String>,
 }
 
@@ -301,18 +302,18 @@ pub struct MangaSpecifics {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItem {
-    pub identifier: String,
     pub title: String,
+    pub identifier: String,
     pub image: Option<String>,
     pub publish_year: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PeopleSearchItem {
-    pub identifier: String,
     pub name: String,
+    pub identifier: String,
     pub image: Option<String>,
     pub birth_year: Option<i32>,
 }
@@ -371,34 +372,12 @@ pub enum ProgressUpdateResultUnion {
     Error(ProgressUpdateError),
 }
 
-#[skip_serializing_none]
-#[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    InputObject,
-    Clone,
-    SimpleObject,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    Hash,
-    Default,
-    Schematic,
-)]
-#[graphql(input_name = "PersonSourceSpecificsInput")]
-#[serde(rename_all = "snake_case")]
-pub struct PersonSourceSpecifics {
-    pub is_tmdb_company: Option<bool>,
-    pub is_anilist_studio: Option<bool>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
 pub struct PartialMetadataPerson {
     pub name: String,
+    pub role: String,
     pub identifier: String,
     pub source: MediaSource,
-    pub role: String,
     pub character: Option<String>,
     #[graphql(skip)]
     pub source_specifics: Option<PersonSourceSpecifics>,
@@ -790,12 +769,12 @@ pub struct CommitPersonInput {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupSearchItem {
     pub name: String,
     pub identifier: String,
-    pub image: Option<String>,
     pub parts: Option<usize>,
+    pub image: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -1413,27 +1392,6 @@ pub enum UserUpcomingCalendarEventInput {
 pub struct PresignedPutUrlInput {
     pub file_name: String,
     pub prefix: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct PeopleSearchInput {
-    pub search: SearchInput,
-    pub source: MediaSource,
-    pub source_specifics: Option<PersonSourceSpecifics>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MetadataGroupSearchInput {
-    pub search: SearchInput,
-    pub lot: MediaLot,
-    pub source: MediaSource,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MetadataSearchInput {
-    pub search: SearchInput,
-    pub lot: MediaLot,
-    pub source: MediaSource,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]

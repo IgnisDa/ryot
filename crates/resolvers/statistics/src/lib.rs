@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{ApplicationDateRange, UserAnalytics, UserAnalyticsInput};
+use common_models::{ApplicationDateRange, UserAnalyticsInput};
+use dependent_models::UserAnalytics;
 use statistics_service::StatisticsService;
 use traits::AuthProvider;
 

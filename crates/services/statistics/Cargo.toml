@@ -8,6 +8,7 @@ async-graphql = { workspace = true }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 hashbag = { workspace = true }
 itertools = { workspace = true }

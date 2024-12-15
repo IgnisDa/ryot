@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{SearchDetails, StoredUrl};
+use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
 use dependent_models::SearchResults;
@@ -13,7 +13,7 @@ use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics,
+    PeopleSearchItem,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;

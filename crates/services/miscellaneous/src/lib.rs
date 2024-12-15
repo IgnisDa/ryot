@@ -12,9 +12,10 @@ use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, BackendError, BackgroundJob,
-    ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject, MediaStateChanged,
-    SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput,
+    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    StoredUrl, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
@@ -31,9 +32,9 @@ use database_models::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
         Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserToEntity,
+        Review, Seen, User, UserNotification, UserToEntity,
     },
-    queued_notification, review, seen, user, user_to_entity,
+    review, seen, user, user_notification, user_to_entity,
 };
 use database_utils::{
     apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
@@ -41,26 +42,27 @@ use database_utils::{
     remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    CoreDetails, ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping, GenreDetails,
-    MetadataBaseData, MetadataGroupDetails, MetadataLotSourceMappings, PersonDetails,
-    ProviderLanguageInformation, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
+    ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataLotSourceMappings, MetadataSearchResponse,
+    PeopleSearchResponse, PersonDetails, ProviderLanguageInformation, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_partial_metadata,
+    commit_metadata_internal, commit_person, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update,
-    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
-    refresh_collection_to_entity_association, update_metadata_and_notify_users,
+    queue_media_state_changed_notification_for_user, refresh_collection_to_entity_association,
+    update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    UserToMediaReason,
+    UserNotificationLot, UserToMediaReason,
 };
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
@@ -72,15 +74,14 @@ use media_models::{
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataDetails, MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
-    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
-    MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
-    PeopleSearchInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataDetails, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
+    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
+    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -1659,7 +1660,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: MetadataSearchInput,
-    ) -> Result<SearchResults<MetadataSearchItemResponse>> {
+    ) -> Result<MetadataSearchResponse> {
+        let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        });
+        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
+            return Ok(cached);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1728,6 +1736,13 @@ ORDER BY RANDOM() LIMIT 10;
             details: results.details,
             items: data,
         };
+        self.0
+            .cache_service
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::MetadataSearch(results.clone()),
+            )
+            .await?;
         Ok(results)
     }
 
@@ -1735,7 +1750,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: PeopleSearchInput,
-    ) -> Result<SearchResults<PeopleSearchItem>> {
+    ) -> Result<PeopleSearchResponse> {
+        let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.clone(),
+        });
+        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+            return Ok(results);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1756,6 +1778,13 @@ ORDER BY RANDOM() LIMIT 10;
                 preferences.general.display_nsfw,
             )
             .await?;
+        self.0
+            .cache_service
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::PeopleSearch(results.clone()),
+            )
+            .await?;
         Ok(results)
     }
 
@@ -1763,7 +1792,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: &String,
         input: MetadataGroupSearchInput,
-    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+    ) -> Result<MetadataGroupSearchResponse> {
+        let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.clone(),
+        });
+        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+            return Ok(results);
+        }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults {
@@ -1778,6 +1814,13 @@ ORDER BY RANDOM() LIMIT 10;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
+            .await?;
+        self.0
+            .cache_service
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+            )
             .await?;
         Ok(results)
     }
@@ -1884,16 +1927,18 @@ ORDER BY RANDOM() LIMIT 10;
         let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
         let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
         let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-        let cache = ApplicationCacheKey::ProgressUpdateCache {
-            show_season_number: ssn,
-            manga_volume_number: mvn,
-            show_episode_number: sen,
-            anime_episode_number: aen,
-            manga_chapter_number: mcn,
-            podcast_episode_number: pen,
+        let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
             user_id: user_id.to_owned(),
-            metadata_id: si.metadata_id.clone(),
-        };
+            input: ProgressUpdateCacheInput {
+                show_season_number: ssn,
+                manga_volume_number: mvn,
+                show_episode_number: sen,
+                anime_episode_number: aen,
+                manga_chapter_number: mcn,
+                podcast_episode_number: pen,
+                metadata_id: si.metadata_id.clone(),
+            },
+        });
         self.0.cache_service.expire_key(cache).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
@@ -2430,10 +2475,11 @@ ORDER BY RANDOM() LIMIT 10;
                 let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
                 if get_current_date(&self.0.timezone) == reminder.reminder {
                     for user in related_users {
-                        queue_notifications_to_user_platforms(
-                            &user.user_id,
+                        create_user_notification(
                             &reminder.text,
+                            &user.user_id,
                             &self.0.db,
+                            UserNotificationLot::Queued,
                         )
                         .await?;
                         remove_entity_from_collection(
@@ -2838,13 +2884,14 @@ ORDER BY RANDOM() LIMIT 10;
                 event.entity_lot,
                 Some("reviews"),
             );
-            queue_notifications_to_user_platforms(
-                &user_id,
+            create_user_notification(
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
                 ),
+                &user_id,
                 &self.0.db,
+                UserNotificationLot::Queued,
             )
             .await?;
         }
@@ -2978,7 +3025,10 @@ ORDER BY RANDOM() LIMIT 10;
             Genre::delete_by_id(genre).exec(&self.0.db).await?;
         }
         ryot_log!(debug, "Deleting all queued notifications");
-        QueuedNotification::delete_many().exec(&self.0.db).await?;
+        UserNotification::delete_many()
+            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
+            .exec(&self.0.db)
+            .await?;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
@@ -3055,8 +3105,9 @@ ORDER BY RANDOM() LIMIT 10;
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = QueuedNotification::find()
-                .filter(queued_notification::Column::UserId.eq(&user_details.id))
+            let notifications = UserNotification::find()
+                .filter(user_notification::Column::UserId.eq(&user_details.id))
+                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
                 .all(&self.0.db)
                 .await?;
             if notifications.is_empty() {
@@ -3138,9 +3189,9 @@ ORDER BY RANDOM() LIMIT 10;
         let is_server_key_validated = self.get_is_server_key_validated().await;
         let cs = &self.0.cache_service;
         if is_server_key_validated {
-            cs.set_with_expiry(
+            cs.set_key(
                 ApplicationCacheKey::ServerKeyValidated,
-                ApplicationCacheValue::Empty,
+                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )
             .await?;
         } else {

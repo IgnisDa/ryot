@@ -8,12 +8,11 @@ use application_utils::{get_base_http_client, get_current_date};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IdObject, NamedObject, SearchDetails, StoredUrl,
-    TmdbLanguage, TmdbSettings,
+    ApplicationCacheKey, IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl,
 };
 use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{ApplicationCacheValue, SearchResults, TmdbLanguage, TmdbSettings};
 use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -21,8 +20,8 @@ use media_models::{
     ExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
-    ShowSpecifics, WatchProvider,
+    PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
+    WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -1319,37 +1318,39 @@ async fn get_settings(
     supporting_service: &Arc<SupportingService>,
 ) -> Result<TmdbSettings> {
     let cc = &supporting_service.cache_service;
-    let maybe_settings = cc.get_key(ApplicationCacheKey::TmdbSettings).await.ok();
-    let tmdb_settings =
-        if let Some(Some(ApplicationCacheValue::TmdbSettings(setting))) = maybe_settings {
-            setting
-        } else {
-            #[derive(Debug, Serialize, Deserialize, Clone)]
-            struct TmdbImageConfiguration {
-                secure_base_url: String,
-            }
-            #[derive(Debug, Serialize, Deserialize, Clone)]
-            struct TmdbConfiguration {
-                images: TmdbImageConfiguration,
-            }
-            let rsp = client.get(format!("{}/configuration", URL)).send().await?;
-            let data_1: TmdbConfiguration = rsp.json().await?;
-            let rsp = client
-                .get(format!("{}/configuration/languages", URL))
-                .send()
-                .await?;
-            let data_2: Vec<TmdbLanguage> = rsp.json().await?;
-            let settings = TmdbSettings {
-                image_url: data_1.images.secure_base_url,
-                languages: data_2,
-            };
-            cc.set_with_expiry(
-                ApplicationCacheKey::TmdbSettings,
-                ApplicationCacheValue::TmdbSettings(settings.clone()),
-            )
-            .await
-            .ok();
-            settings
+    let maybe_settings = cc
+        .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
+        .await
+        .ok();
+    let tmdb_settings = if let Some(setting) = maybe_settings.flatten() {
+        setting
+    } else {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbImageConfiguration {
+            secure_base_url: String,
+        }
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbConfiguration {
+            images: TmdbImageConfiguration,
+        }
+        let rsp = client.get(format!("{}/configuration", URL)).send().await?;
+        let data_1: TmdbConfiguration = rsp.json().await?;
+        let rsp = client
+            .get(format!("{}/configuration/languages", URL))
+            .send()
+            .await?;
+        let data_2: Vec<TmdbLanguage> = rsp.json().await?;
+        let settings = TmdbSettings {
+            image_url: data_1.images.secure_base_url,
+            languages: data_2,
         };
+        cc.set_key(
+            ApplicationCacheKey::TmdbSettings,
+            ApplicationCacheValue::TmdbSettings(settings.clone()),
+        )
+        .await
+        .ok();
+        settings
+    };
     Ok(tmdb_settings)
 }
