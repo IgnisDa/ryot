@@ -196,6 +196,7 @@ pub struct MetadataLotSourceMappings {
     pub sources: Vec<MediaSource>,
 }
 
+#[skip_serializing_none]
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
@@ -408,9 +409,10 @@ pub struct IgdbSettings {
     pub access_token: String,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
-    pub ignore: u8,
+    pub _empty: (),
 }
 
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
@@ -418,6 +420,7 @@ pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
+#[serde(untagged)]
 pub enum ApplicationCacheValue {
     Empty(EmptyCacheValue),
     CoreDetails(CoreDetails),
