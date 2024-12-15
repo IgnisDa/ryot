@@ -15,23 +15,13 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.mangaupdates.com/v1";
 
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {
     client: Client,
-}
-
-impl MediaProviderLanguages for MangaUpdatesService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl MangaUpdatesService {

@@ -323,7 +323,6 @@ pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
     TmdbSettings,
-    ServerKeyValidated,
     ListennotesSettings,
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),

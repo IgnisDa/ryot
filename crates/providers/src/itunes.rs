@@ -14,7 +14,7 @@ use media_models::{
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://itunes.apple.com";
 
@@ -22,16 +22,6 @@ static URL: &str = "https://itunes.apple.com";
 pub struct ITunesService {
     client: Client,
     language: String,
-}
-
-impl MediaProviderLanguages for ITunesService {
-    fn supported_languages() -> Vec<String> {
-        ["en_us", "ja_jp"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "en_us".to_owned()
-    }
 }
 
 impl ITunesService {

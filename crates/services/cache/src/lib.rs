@@ -30,7 +30,6 @@ impl CacheService {
         match key {
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::ListennotesSettings
-            | ApplicationCacheKey::ServerKeyValidated
             | ApplicationCacheKey::TmdbSettings => None,
 
             ApplicationCacheKey::CoreDetails

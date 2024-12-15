@@ -18,23 +18,13 @@ use reqwest::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.myanimelist.net/v2";
 
 #[derive(Debug, Clone)]
 pub struct MalService {
     client: Client,
-}
-
-impl MediaProviderLanguages for MalService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 #[derive(Debug, Clone)]

@@ -14,9 +14,8 @@ use media_models::{
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
     model::{richtext::ToHtml, Thumbnail},
-    param::{Language, LANGUAGES},
 };
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 pub struct YoutubeMusicService {
     client: RustyPipeQuery,
@@ -28,16 +27,6 @@ impl YoutubeMusicService {
         Self {
             client: client.query(),
         }
-    }
-}
-
-impl MediaProviderLanguages for YoutubeMusicService {
-    fn supported_languages() -> Vec<String> {
-        LANGUAGES.iter().map(|l| l.name().to_owned()).collect()
-    }
-
-    fn default_language() -> String {
-        Language::En.name().to_owned()
     }
 }
 

@@ -13,7 +13,7 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://api.vndb.org/kana";
 const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
@@ -26,16 +26,6 @@ const METADATA_FIELDS: &str = const_str::concat!(
 #[derive(Debug, Clone)]
 pub struct VndbService {
     client: Client,
-}
-
-impl MediaProviderLanguages for VndbService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl VndbService {

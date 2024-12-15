@@ -19,7 +19,6 @@ educe = { workspace = true }
 enums = { path = "../enums" }
 graphql_client = { workspace = true }
 hashbag = { workspace = true }
-isolang = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }
 paginate = { workspace = true }

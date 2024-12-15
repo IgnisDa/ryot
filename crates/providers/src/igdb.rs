@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.igdb.com/v4";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload";
@@ -161,16 +161,6 @@ pub struct IgdbService {
     image_url: String,
     image_size: String,
     supporting_service: Arc<SupportingService>,
-}
-
-impl MediaProviderLanguages for IgdbService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl IgdbService {

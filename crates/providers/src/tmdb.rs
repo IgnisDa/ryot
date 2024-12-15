@@ -36,7 +36,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://api.themoviedb.org/3";
 
@@ -386,18 +386,6 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         rsp.json().await.map_err(|e| anyhow!(e))
-    }
-}
-
-impl MediaProviderLanguages for TmdbService {
-    fn supported_languages() -> Vec<String> {
-        isolang::languages()
-            .filter_map(|l| l.to_639_1().map(String::from))
-            .collect()
-    }
-
-    fn default_language() -> String {
-        "en".to_owned()
     }
 }
 

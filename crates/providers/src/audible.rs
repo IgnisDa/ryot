@@ -20,9 +20,8 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
-static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 static AUDNEX_URL: &str = "https://api.audnex.us";
 
 #[derive(EnumIter, Display)]
@@ -132,16 +131,6 @@ pub struct AudibleService {
     url: String,
     client: Client,
     locale: String,
-}
-
-impl MediaProviderLanguages for AudibleService {
-    fn supported_languages() -> Vec<String> {
-        LOCALES.into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl AudibleService {

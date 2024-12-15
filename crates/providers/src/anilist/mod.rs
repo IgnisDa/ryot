@@ -18,7 +18,7 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::MediaProvider;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";
@@ -81,16 +81,6 @@ struct StudioQuery;
 pub struct AnilistService {
     client: Client,
     preferred_language: AnilistPreferredLanguage,
-}
-
-impl MediaProviderLanguages for AnilistService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl AnilistService {

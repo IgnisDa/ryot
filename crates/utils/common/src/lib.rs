@@ -89,13 +89,6 @@ macro_rules! ryot_log {
     };
 }
 
-/// Determine whether a feature is enabled
-pub trait IsFeatureEnabled {
-    fn is_enabled(&self) -> bool {
-        true
-    }
-}
-
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)

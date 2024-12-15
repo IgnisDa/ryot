@@ -10,7 +10,7 @@ use common_models::{
     BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
     DailyUserActivityHourRecordEntity, DefaultCollection, IdAndNamedObject, StringIdObject,
 };
-use common_utils::{ryot_log, IsFeatureEnabled};
+use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_to_entity, daily_user_activity,
     functions::associate_user_with_entity,
@@ -65,27 +65,10 @@ pub fn ilike_sql(value: &str) -> String {
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
-    let mut user = User::find_by_id(user_id)
+    let user = User::find_by_id(user_id)
         .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("No user found"))?;
-    let config = &ss.config;
-    let features_enabled = &mut user.preferences.features_enabled;
-    features_enabled.media.anime =
-        config.anime_and_manga.is_enabled() && features_enabled.media.anime;
-    features_enabled.media.audio_book =
-        config.audio_books.is_enabled() && features_enabled.media.audio_book;
-    features_enabled.media.music = config.music.is_enabled() && features_enabled.media.music;
-    features_enabled.media.book = config.books.is_enabled() && features_enabled.media.book;
-    features_enabled.media.show =
-        config.movies_and_shows.is_enabled() && features_enabled.media.show;
-    features_enabled.media.manga =
-        config.anime_and_manga.is_enabled() && features_enabled.media.manga;
-    features_enabled.media.movie =
-        config.movies_and_shows.is_enabled() && features_enabled.media.movie;
-    features_enabled.media.podcast = config.podcasts.is_enabled() && features_enabled.media.podcast;
-    features_enabled.media.video_game =
-        config.video_games.is_enabled() && features_enabled.media.video_game;
     Ok(user)
 }
 

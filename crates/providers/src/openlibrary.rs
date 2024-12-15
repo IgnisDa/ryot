@@ -17,7 +17,7 @@ use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://openlibrary.org";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
@@ -89,16 +89,6 @@ struct OpenAuthorLibrarySearchResponse {
     #[serde(alias = "numFound")]
     num_found: i32,
     docs: Vec<PeopleSearchOpenlibraryAuthor>,
-}
-
-impl MediaProviderLanguages for OpenlibraryService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl OpenlibraryService {

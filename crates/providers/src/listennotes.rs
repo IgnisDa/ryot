@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use supporting_service::SupportingService;
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2";
 
@@ -31,16 +31,6 @@ pub struct ListennotesService {
     url: String,
     client: Client,
     supporting_service: Arc<SupportingService>,
-}
-
-impl MediaProviderLanguages for ListennotesService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl ListennotesService {

@@ -89,14 +89,6 @@ pub trait MediaProvider {
     }
 }
 
-pub trait MediaProviderLanguages {
-    /// Get all the languages that a provider supports.
-    fn supported_languages() -> Vec<String>;
-
-    /// The default language to be used for this provider.
-    fn default_language() -> String;
-}
-
 #[async_trait]
 pub trait AuthProvider {
     #[allow(dead_code)]

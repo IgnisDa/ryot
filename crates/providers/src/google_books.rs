@@ -17,7 +17,7 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, MediaProviderLanguages};
+use traits::{MediaProvider, };
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 
@@ -25,16 +25,6 @@ static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 pub struct GoogleBooksService {
     client: Client,
     pass_raw_query: bool,
-}
-
-impl MediaProviderLanguages for GoogleBooksService {
-    fn supported_languages() -> Vec<String> {
-        vec!["us".to_owned()]
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
 }
 
 impl GoogleBooksService {

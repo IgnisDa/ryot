@@ -10,17 +10,15 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration, NaiveDate, TimeZone, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
-    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-    DefaultCollection, IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput,
-    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
-    StoredUrl, StringIdObject, UserLevelCacheKey,
+    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput, MetadataSearchInput,
+    PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    convert_naive_to_utc, get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled,
-    COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS, MEDIA_LOT_MAPPINGS, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
@@ -29,8 +27,8 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Exercise,
-        Genre, ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
+        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         Review, Seen, User, UserNotification, UserToEntity,
     },
@@ -42,11 +40,9 @@ use database_utils::{
     remove_entity_from_collection, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, EmptyCacheValue, ExerciseFilters, ExerciseParameters,
-    ExerciseParametersLotMapping, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataLotSourceMappings, MetadataSearchResponse,
-    PeopleSearchResponse, PersonDetails, ProviderLanguageInformation, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
+    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
@@ -60,11 +56,9 @@ use dependent_utils::{
     update_metadata_and_notify_users,
 };
 use enums::{
-    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-    ExerciseMuscle, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    UserNotificationLot, UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
+    UserToMediaReason,
 };
-use env_utils::{APP_VERSION, UNKEY_API_ID};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
@@ -91,17 +85,9 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::{AnilistService, NonMediaAnilistService},
-    audible::AudibleService,
-    google_books::GoogleBooksService,
-    igdb::IgdbService,
-    itunes::ITunesService,
-    listennotes::ListennotesService,
-    mal::{MalService, NonMediaMalService},
-    manga_updates::MangaUpdatesService,
-    openlibrary::OpenlibraryService,
-    tmdb::TmdbService,
-    vndb::VndbService,
+    anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
+    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
+    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
@@ -109,36 +95,21 @@ use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, query::UpdateMany, sea_query::NullOrdering, ActiveModelTrait,
     ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
-    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use supporting_service::SupportingService;
 use tokio::time::{sleep, Duration as TokioDuration};
-use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
-use unkey::{models::VerifyKeyRequest, Client};
+use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
-
-#[derive(Debug, Clone)]
-struct CustomService {}
-
-impl MediaProviderLanguages for CustomService {
-    fn supported_languages() -> Vec<String> {
-        ["us"].into_iter().map(String::from).collect()
-    }
-
-    fn default_language() -> String {
-        "us".to_owned()
-    }
-}
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -253,126 +224,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
-        let cc = &self.0.cache_service;
-        if let Some(cached) = cc.get_value(ApplicationCacheKey::CoreDetails).await? {
-            return Ok(cached);
-        }
-        let mut files_enabled = self.0.config.file_storage.is_enabled();
-        if files_enabled && !self.0.file_storage_service.is_enabled().await {
-            files_enabled = false;
-        }
-        let download_required = Exercise::find().count(&self.0.db).await? == 0;
-        let core_details = CoreDetails {
-            page_size: PAGE_SIZE,
-            version: APP_VERSION.to_owned(),
-            file_storage_enabled: files_enabled,
-            frontend: self.0.config.frontend.clone(),
-            website_url: "https://ryot.io".to_owned(),
-            oidc_enabled: self.0.oidc_client.is_some(),
-            docs_link: "https://docs.ryot.io".to_owned(),
-            backend_errors: BackendError::iter().collect(),
-            disable_telemetry: self.0.config.disable_telemetry,
-            smtp_enabled: self.0.config.server.smtp.is_enabled(),
-            signup_allowed: self.0.config.users.allow_registration,
-            local_auth_disabled: self.0.config.users.disable_local_auth,
-            repository_link: "https://github.com/ignisda/ryot".to_owned(),
-            token_valid_for_days: self.0.config.users.token_valid_for_days,
-            is_server_key_validated: self.0.is_server_key_validated().await?,
-            metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
-                .iter()
-                .map(|(lot, sources)| MetadataLotSourceMappings {
-                    lot: *lot,
-                    sources: sources.to_vec(),
-                })
-                .collect(),
-            exercise_parameters: ExerciseParameters {
-                filters: ExerciseFilters {
-                    lot: ExerciseLot::iter().collect_vec(),
-                    level: ExerciseLevel::iter().collect_vec(),
-                    force: ExerciseForce::iter().collect_vec(),
-                    mechanic: ExerciseMechanic::iter().collect_vec(),
-                    equipment: ExerciseEquipment::iter().collect_vec(),
-                    muscle: ExerciseMuscle::iter().collect_vec(),
-                },
-                download_required,
-                lot_mapping: EXERCISE_LOT_MAPPINGS
-                    .iter()
-                    .map(|(lot, pbs)| ExerciseParametersLotMapping {
-                        lot: *lot,
-                        bests: pbs.to_vec(),
-                    })
-                    .collect(),
-            },
-            metadata_provider_languages: MediaSource::iter()
-                .map(|source| {
-                    let (supported, default) = match source {
-                        MediaSource::YoutubeMusic => (
-                            YoutubeMusicService::supported_languages(),
-                            YoutubeMusicService::default_language(),
-                        ),
-                        MediaSource::Itunes => (
-                            ITunesService::supported_languages(),
-                            ITunesService::default_language(),
-                        ),
-                        MediaSource::Audible => (
-                            AudibleService::supported_languages(),
-                            AudibleService::default_language(),
-                        ),
-                        MediaSource::Openlibrary => (
-                            OpenlibraryService::supported_languages(),
-                            OpenlibraryService::default_language(),
-                        ),
-                        MediaSource::Tmdb => (
-                            TmdbService::supported_languages(),
-                            TmdbService::default_language(),
-                        ),
-                        MediaSource::Listennotes => (
-                            ListennotesService::supported_languages(),
-                            ListennotesService::default_language(),
-                        ),
-                        MediaSource::GoogleBooks => (
-                            GoogleBooksService::supported_languages(),
-                            GoogleBooksService::default_language(),
-                        ),
-                        MediaSource::Igdb => (
-                            IgdbService::supported_languages(),
-                            IgdbService::default_language(),
-                        ),
-                        MediaSource::MangaUpdates => (
-                            MangaUpdatesService::supported_languages(),
-                            MangaUpdatesService::default_language(),
-                        ),
-                        MediaSource::Anilist => (
-                            AnilistService::supported_languages(),
-                            AnilistService::default_language(),
-                        ),
-                        MediaSource::Mal => (
-                            MalService::supported_languages(),
-                            MalService::default_language(),
-                        ),
-                        MediaSource::Custom => (
-                            CustomService::supported_languages(),
-                            CustomService::default_language(),
-                        ),
-                        MediaSource::Vndb => (
-                            VndbService::supported_languages(),
-                            VndbService::default_language(),
-                        ),
-                    };
-                    ProviderLanguageInformation {
-                        source,
-                        default,
-                        supported,
-                    }
-                })
-                .collect(),
-        };
-        cc.set_key(
-            ApplicationCacheKey::CoreDetails,
-            ApplicationCacheValue::CoreDetails(core_details.clone()),
-        )
-        .await?;
-        Ok(core_details)
+        self.0.core_details().await
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -3060,65 +2912,6 @@ ORDER BY RANDOM() LIMIT 10;
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
-        }
-        Ok(())
-    }
-
-    async fn get_is_server_key_validated(&self) -> bool {
-        let pro_key = &self.0.config.server.pro_key;
-        if pro_key.is_empty() {
-            return false;
-        }
-        ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
-        let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-        #[skip_serializing_none]
-        #[derive(Debug, Serialize, Clone, Deserialize)]
-        struct Meta {
-            expiry: Option<NaiveDate>,
-        }
-        let unkey_client = Client::new("public");
-        let verify_request = VerifyKeyRequest::new(pro_key, &UNKEY_API_ID.to_string());
-        let validated_key = match unkey_client.verify_key(verify_request).await {
-            Ok(verify_response) => {
-                if !verify_response.valid {
-                    ryot_log!(debug, "Pro key is no longer valid.");
-                    return false;
-                }
-                verify_response
-            }
-            Err(verify_error) => {
-                ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
-                return false;
-            }
-        };
-        let key_meta = validated_key
-            .meta
-            .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
-        ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-        if let Some(meta) = key_meta {
-            if let Some(expiry) = meta.expiry {
-                if compile_timestamp > convert_naive_to_utc(expiry) {
-                    ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
-                    return false;
-                }
-            }
-        }
-        ryot_log!(debug, "Pro key verified successfully");
-        true
-    }
-
-    pub async fn perform_server_key_validation(&self) -> Result<()> {
-        let is_server_key_validated = self.get_is_server_key_validated().await;
-        let cs = &self.0.cache_service;
-        if is_server_key_validated {
-            cs.set_key(
-                ApplicationCacheKey::ServerKeyValidated,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
-            )
-            .await?;
-        } else {
-            cs.expire_key(ApplicationCacheKey::ServerKeyValidated)
-                .await?;
         }
         Ok(())
     }

@@ -31,7 +31,6 @@ pub enum ApplicationJob {
     PerformBackgroundTasks,
     RecalculateCalendarEvents,
     ReviseUserWorkouts(String),
-    PerformServerKeyValidation,
     UpdateMetadataGroup(String),
     UpdateMetadata(String, bool),
     HandleOnSeenComplete(String),
