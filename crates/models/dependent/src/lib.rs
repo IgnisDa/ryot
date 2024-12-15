@@ -420,8 +420,8 @@ pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
-pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
+pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[skip_serializing_none]
