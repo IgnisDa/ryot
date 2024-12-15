@@ -140,10 +140,10 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
 	getCookieValue,
+	getCoreDetails,
 	getDecodedJwt,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -164,7 +164,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [userPreferences, userCollections, coreDetails] = await Promise.all([
 		getCachedUserPreferences(request),
 		getCachedUserCollectionsList(request),
-		getCachedCoreDetails(),
+		getCoreDetails(),
 	]);
 	const desktopSidebarCollapsed = getCookieValue(
 		request,

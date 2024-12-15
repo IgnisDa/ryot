@@ -10,8 +10,8 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
-	getCachedCoreDetails,
 	getCookiesForApplication,
+	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -49,7 +49,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				type: "error",
 			});
 	}
-	await getCachedCoreDetails();
+	await getCoreDetails();
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});

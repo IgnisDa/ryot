@@ -157,46 +157,46 @@ pub struct MetadataBaseData {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParametersLotMapping {
     pub lot: ExerciseLot,
     pub bests: Vec<WorkoutSetPersonalBest>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseFilters {
     #[graphql(name = "type")]
     pub lot: Vec<ExerciseLot>,
     pub level: Vec<ExerciseLevel>,
     pub force: Vec<ExerciseForce>,
+    pub muscle: Vec<ExerciseMuscle>,
     pub mechanic: Vec<ExerciseMechanic>,
     pub equipment: Vec<ExerciseEquipment>,
-    pub muscle: Vec<ExerciseMuscle>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParameters {
+    pub download_required: bool,
     /// All filters applicable to an exercises query.
     pub filters: ExerciseFilters,
-    pub download_required: bool,
     /// Exercise type mapped to the personal bests possible.
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct ProviderLanguageInformation {
     pub source: MediaSource,
     pub supported: Vec<String>,
     pub default: String,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct MetadataLotSourceMappings {
     pub lot: MediaLot,
     pub sources: Vec<MediaSource>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
     pub version: String,
@@ -428,6 +428,7 @@ pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
     Empty(EmptyCacheValue),
+    CoreDetails(CoreDetails),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),

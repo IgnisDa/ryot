@@ -285,16 +285,16 @@ impl IsFeatureEnabled for FileStorageConfig {
 
 /// The configuration related to Umami analytics. More information
 /// [here](https://umami.is/docs/tracker-configuration).
-#[derive(Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
 pub struct FrontendUmamiConfig {
+    pub domains: String,
     /// For example: https://umami.is/script.js.
     pub script_url: String,
     pub website_id: String,
-    pub domains: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, Clone, Config, SimpleObject)]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
