@@ -253,12 +253,16 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
+        let cc = &self.0.cache_service;
+        if let Some(cached) = cc.get_value(ApplicationCacheKey::CoreDetails).await? {
+            return Ok(cached);
+        }
         let mut files_enabled = self.0.config.file_storage.is_enabled();
         if files_enabled && !self.0.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
         let download_required = Exercise::find().count(&self.0.db).await? == 0;
-        Ok(CoreDetails {
+        let core_details = CoreDetails {
             page_size: PAGE_SIZE,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
@@ -362,7 +366,13 @@ ORDER BY RANDOM() LIMIT 10;
                     }
                 })
                 .collect(),
-        })
+        };
+        cc.set_key(
+            ApplicationCacheKey::CoreDetails,
+            ApplicationCacheValue::CoreDetails(core_details.clone()),
+        )
+        .await?;
+        Ok(core_details)
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -1618,11 +1628,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<MetadataSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(cached) = cc.get_value(cache_key.clone()).await? {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1693,13 +1704,11 @@ ORDER BY RANDOM() LIMIT 10;
             details: results.details,
             items: data,
         };
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::MetadataSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::MetadataSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
@@ -1708,11 +1717,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<PeopleSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(results) = cc.get_value(cache_key.clone()).await? {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1735,13 +1745,11 @@ ORDER BY RANDOM() LIMIT 10;
                 preferences.general.display_nsfw,
             )
             .await?;
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::PeopleSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::PeopleSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
@@ -1750,11 +1758,12 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<MetadataGroupSearchResponse> {
+        let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = self.0.cache_service.get_value(cache_key.clone()).await? {
+        if let Some(results) = cc.get_value(cache_key.clone()).await? {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1772,13 +1781,11 @@ ORDER BY RANDOM() LIMIT 10;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
-        self.0
-            .cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::MetadataGroupSearch(results.clone()),
-            )
-            .await?;
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+        )
+        .await?;
         Ok(results)
     }
 
