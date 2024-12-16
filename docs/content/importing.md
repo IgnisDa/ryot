@@ -134,8 +134,8 @@ along with ratings, history, and comments.
 
 ## MyAnimeList
 
-Manga and Anime can be imported from [MyAnimeList](https://myanimelist.net)
-along with ratings, history and progress.
+Manga and Anime can be imported from [MyAnimeList](https://myanimelist.net) along with
+ratings, history and progress.
 
 ### Steps
 
@@ -143,6 +143,18 @@ along with ratings, history and progress.
   [exports](http://myanimelist.net/panel.php?go=export).
 - Export your anime and manga history.
 - Upload these files in the input.
+
+## Anilist
+
+Manga and anime can be imported from [Anilist](https://anilist.co) along with ratings,
+history and progress.
+
+### Steps
+
+- Login to your Anilist account and go to your [account
+  settings](https://anilist.co/settings/account).
+- Scroll down to the "GDPR Data Download" section and click on "Download".
+- Upload the JSON file in the input.
 
 ## StoryGraph
 
