@@ -20,7 +20,6 @@ jobs:
       should-run: ${{ steps.set_outputs.outputs.should-run }}
       image-names: ${{ steps.set_outputs.outputs.image-names }}
       should-release: ${{ steps.set_outputs.outputs.should-release }}
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +70,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,7 +97,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -128,7 +125,6 @@ jobs:
       - build-transactional
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -137,7 +133,6 @@ jobs:
             command: cargo
           - target: aarch64-unknown-linux-gnu
             command: cross
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -203,7 +198,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -262,7 +256,6 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -289,7 +282,8 @@ jobs:
       - build-docker
     if: needs.pre-workflow-checks.outputs.should-release == 'true'
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
