@@ -59,7 +59,7 @@ use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
     UserToMediaReason,
 };
-use futures::TryStreamExt;
+use futures::{future::join_all, TryStreamExt};
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
@@ -1896,10 +1896,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
-        for (metadata_id, _) in meta_map {
-            self.update_metadata_and_notify_users(&metadata_id, true)
-                .await
-                .ok();
+        for (m1, m2, m3) in meta_map.keys().tuple_windows() {
+            let promises = vec![m1, m2, m3].into_iter();
+            let promises = promises.map(|m| self.update_metadata_and_notify_users(m, true));
+            join_all(promises).await;
         }
         Ok(())
     }
@@ -1911,10 +1911,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             person_map
         );
-        for (person_id, _) in person_map {
-            self.update_person_and_notify_users(person_id.parse().unwrap())
-                .await
-                .ok();
+        for (p1, p2, p3) in person_map.keys().tuple_windows() {
+            let promises = vec![p1, p2, p3].into_iter();
+            let promises = promises.map(|p| self.update_person_and_notify_users(p));
+            join_all(promises).await;
         }
         Ok(())
     }
@@ -2596,7 +2596,7 @@ ORDER BY RANDOM() LIMIT 10;
         update_metadata_and_notify_users(metadata_id, force_update, &self.0).await
     }
 
-    pub async fn update_person_and_notify_users(&self, person_id: String) -> Result<()> {
+    pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
         let notifications = self
             .update_person(person_id.clone())
             .await
