@@ -3422,6 +3422,7 @@ dependencies = [
  "indexmap 2.7.0",
  "itertools 0.13.0",
  "media-models",
+ "nest_struct",
  "providers",
  "reqwest 0.12.9",
  "rust_decimal",
@@ -3987,6 +3988,18 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "nest_struct"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ee4a24a522d42071ff79dfbef2e0d78b05cf383d2e94a7020eefc5f58274e9d"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]
