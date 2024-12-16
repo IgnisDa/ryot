@@ -217,6 +217,7 @@ pub enum ImportSource {
     Hevy,
     Trakt,
     Movary,
+    Anilist,
     Jellyfin,
     OpenScale,
     StrongApp,
