@@ -109,6 +109,8 @@ use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
+static ENTITY_UPDATE_CHUNK_SIZE: usize = 5;
+
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
@@ -1890,30 +1892,28 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn update_monitored_metadata_and_queue_notifications(&self) -> Result<()> {
-        let meta_map = self.get_monitored_entities(EntityLot::Metadata).await?;
+        let m_map = self.get_monitored_entities(EntityLot::Metadata).await?;
         ryot_log!(
             debug,
             "Users to be notified for metadata state changes: {:?}",
-            meta_map
+            m_map
         );
-        for (m1, m2, m3, m4, m5) in meta_map.keys().tuple_windows() {
-            let promises = vec![m1, m2, m3, m4, m5].into_iter();
-            let promises = promises.map(|m| self.update_metadata_and_notify_users(m, true));
+        for items in m_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE).into_iter() {
+            let promises = items.map(|m| self.update_metadata_and_notify_users(m, true));
             join_all(promises).await;
         }
         Ok(())
     }
 
     async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
-        let person_map = self.get_monitored_entities(EntityLot::Person).await?;
+        let p_map = self.get_monitored_entities(EntityLot::Person).await?;
         ryot_log!(
             debug,
             "Users to be notified for people state changes: {:?}",
-            person_map
+            p_map
         );
-        for (p1, p2, p3, p4, p5) in person_map.keys().tuple_windows() {
-            let promises = vec![p1, p2, p3, p4, p5].into_iter();
-            let promises = promises.map(|p| self.update_person_and_notify_users(p));
+        for items in p_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE).into_iter() {
+            let promises = items.map(|p| self.update_person_and_notify_users(p));
             join_all(promises).await;
         }
         Ok(())
