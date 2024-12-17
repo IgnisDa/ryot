@@ -885,6 +885,7 @@ export type ImportResultResponse = {
 };
 
 export enum ImportSource {
+  Anilist = 'ANILIST',
   Audiobookshelf = 'AUDIOBOOKSHELF',
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',

@@ -9,13 +9,10 @@ use std::{
 
 use anyhow::{bail, Result};
 use apalis::{
-    cron::{CronStream, Schedule},
-    layers::{
-        limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
-    },
+    layers::{limit::RateLimitLayer as ApalisRateLimitLayer, WorkerBuilderExt},
     prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
-    utils::TokioExecutor,
 };
+use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
@@ -30,7 +27,6 @@ use tokio::{
     net::TcpListener,
     time::{sleep, Duration as TokioDuration},
 };
-use tower::buffer::BufferLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
@@ -119,13 +115,14 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    join_all(
-        [
-            ApplicationJob::SyncIntegrationsData,
-            ApplicationJob::UpdateExerciseLibrary,
-        ]
-        .map(|j| perform_application_job_storage.enqueue(j)),
-    )
+    join_all([
+        perform_application_job_storage
+            .clone()
+            .enqueue(ApplicationJob::SyncIntegrationsData),
+        perform_application_job_storage
+            .clone()
+            .enqueue(ApplicationJob::UpdateExerciseLibrary),
+    ])
     .await;
 
     let app_services = create_app_services(
@@ -190,63 +187,51 @@ async fn main() -> Result<()> {
     let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
 
-    let monitor = Monitor::<TokioExecutor>::new()
-        .register_with_count(
-            1,
+    let monitor = Monitor::new()
+        .register(
             WorkerBuilder::new("daily_background_jobs")
-                .stream(
-                    // every day
-                    CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz)
-                        .into_stream(),
-                )
-                .layer(ApalisTraceLayer::new())
+                .enable_tracing()
                 .data(miscellaneous_service_1.clone())
+                .backend(
+                    // every day
+                    CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
+                )
                 .build_fn(run_background_jobs),
         )
-        .register_with_count(
-            1,
+        .register(
             WorkerBuilder::new("frequent_jobs")
-                .stream(
-                    CronStream::new_with_timezone(
-                        Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
-                        tz,
-                    )
-                    .into_stream(),
-                )
-                .layer(ApalisTraceLayer::new())
+                .enable_tracing()
                 .data(integration_service_1.clone())
                 .data(fitness_service_2.clone())
+                .backend(CronStream::new_with_timezone(
+                    Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
+                    tz,
+                ))
                 .build_fn(run_frequent_jobs),
         )
         // application jobs
-        .register_with_count(
-            1,
+        .register(
             WorkerBuilder::new("perform_core_application_job")
-                .layer(ApalisTraceLayer::new())
+                .enable_tracing()
                 .data(integration_service_2.clone())
                 .data(miscellaneous_service_3.clone())
-                .source(perform_core_application_job_storage)
+                .backend(perform_core_application_job_storage)
                 .build_fn(perform_core_application_job),
         )
-        .register_with_count(
-            3,
+        .register(
             WorkerBuilder::new("perform_application_job")
+                .enable_tracing()
                 .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
                 .data(statistics_service_1.clone())
                 .data(integration_service_3.clone())
                 .data(miscellaneous_service_2.clone())
-                .source(perform_application_job_storage)
-                // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
-                .chain(|s| {
-                    s.layer(BufferLayer::new(1024))
-                        .layer(ApalisRateLimitLayer::new(
-                            rate_limit_count,
-                            Duration::new(5, 0),
-                        ))
-                        .layer(ApalisTraceLayer::new())
-                })
+                .layer(ApalisRateLimitLayer::new(
+                    rate_limit_count,
+                    Duration::new(5, 0),
+                ))
+                .backend(perform_application_job_storage)
                 .build_fn(perform_application_job),
         )
         .run();

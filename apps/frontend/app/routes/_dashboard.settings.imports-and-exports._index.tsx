@@ -110,7 +110,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(ImportSource.GenericJson, async () => ({
+				.with(ImportSource.GenericJson, ImportSource.Anilist, async () => ({
 					genericJson: processSubmission(formData, jsonImportFormSchema),
 				}))
 				.with(ImportSource.Jellyfin, async () => ({
@@ -376,16 +376,20 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(ImportSource.GenericJson, () => (
-												<>
-													<FileInput
-														label="JSON export file"
-														accept=".json"
-														required
-														name="export"
-													/>
-												</>
-											))
+											.with(
+												ImportSource.Anilist,
+												ImportSource.GenericJson,
+												() => (
+													<>
+														<FileInput
+															label="JSON export file"
+															accept=".json"
+															required
+															name="export"
+														/>
+													</>
+												),
+											)
 											.exhaustive()}
 										<Button
 											mt="md"

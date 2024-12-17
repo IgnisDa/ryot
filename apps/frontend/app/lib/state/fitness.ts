@@ -108,15 +108,15 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 export const getDefaultWorkout = (
 	fitnessEntity: FitnessAction,
 ): InProgressWorkout => {
-	const date = new Date();
+	const date = dayjsLib().add(7, "second");
 	return {
 		images: [],
 		videos: [],
 		supersets: [],
 		exercises: [],
-		currentActionOrCompleted: fitnessEntity,
 		startTime: date.toISOString(),
-		name: `${getTimeOfDay(date.getHours())} Workout`,
+		currentActionOrCompleted: fitnessEntity,
+		name: `${getTimeOfDay(date.hour())} Workout`,
 	};
 };
 

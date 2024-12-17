@@ -271,12 +271,12 @@ impl TmdbService {
                     _ => continue,
                 };
                 suggestions.push(PartialMetadataWithoutId {
-                    title: name,
-                    image: entry.poster_path.map(|p| self.get_image_url(p)),
-                    identifier: entry.id.to_string(),
-                    source: MediaSource::Tmdb,
                     lot,
+                    title: name,
                     is_recommendation: None,
+                    source: MediaSource::Tmdb,
+                    identifier: entry.id.to_string(),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
                 });
             }
             if new_recs.page >= new_recs.total_pages {
@@ -770,7 +770,7 @@ impl MediaProvider for TmdbMovieService {
                 })
                 .collect_vec(),
         );
-        let mut image_ids = Vec::from_iter(data.poster_path);
+        let mut image_ids = Vec::from_iter(data.poster_path.clone());
         if let Some(u) = data.backdrop_path {
             image_ids.push(u);
         }
@@ -786,22 +786,31 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_external_identifiers("movie", identifier)
             .await?;
-        let title = data.title.unwrap();
+        let title = data.title.clone().unwrap();
         Ok(MetadataDetails {
             people,
-            title: title.clone(),
-            identifier: data.id.to_string(),
+            videos,
+            suggestions,
+            watch_providers,
             is_nsfw: data.adult,
+            title: title.clone(),
             lot: MediaLot::Movie,
             source: MediaSource::Tmdb,
-            production_status: data.status,
+            identifier: data.id.to_string(),
+            production_status: data.status.clone(),
+            external_identifiers: Some(external_identifiers),
+            original_language: self.base.get_language_name(data.original_language.clone()),
+            publish_date: data
+                .release_date
+                .clone()
+                .and_then(|r| convert_string_to_date(&r)),
+            description: data.overview,
             genres: data
                 .genres
                 .unwrap_or_default()
                 .into_iter()
                 .map(|g| g.name)
                 .collect(),
-            original_language: self.base.get_language_name(data.original_language),
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -809,36 +818,25 @@ impl MediaProvider for TmdbMovieService {
                     image: self.base.get_image_url(p),
                 })
                 .collect(),
-            videos,
             publish_year: data
                 .release_date
                 .as_ref()
                 .and_then(|r| convert_date_to_year(r)),
-            publish_date: data.release_date.and_then(|r| convert_string_to_date(&r)),
-            description: data.overview,
             movie_specifics: Some(MovieSpecifics {
                 runtime: data.runtime,
             }),
-            suggestions,
             source_url: Some(format!(
                 "https://www.themoviedb.org/movie/{}-{}",
                 data.id, title
             )),
-            provider_rating: if let Some(av) = data.vote_average {
-                if av != dec!(0) {
-                    Some(av * dec!(10))
-                } else {
-                    None
-                }
-            } else {
-                None
-            },
+            provider_rating: data
+                .vote_average
+                .filter(|&av| av != dec!(0))
+                .map(|av| av * dec!(10)),
             group_identifiers: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
                 .map(|c| c.id.to_string())
                 .collect(),
-            watch_providers,
-            external_identifiers: Some(external_identifiers),
             ..Default::default()
         })
     }
@@ -966,13 +964,6 @@ impl MediaProvider for TmdbMovieService {
             },
             parts,
         ))
-    }
-
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base.get_all_suggestions("movie", identifier).await
     }
 }
 
@@ -1155,6 +1146,9 @@ impl MediaProvider for TmdbShowService {
         let title = show_data.name.unwrap();
         Ok(MetadataDetails {
             people,
+            videos,
+            suggestions,
+            watch_providers,
             lot: MediaLot::Show,
             title: title.clone(),
             is_nsfw: show_data.adult,
@@ -1162,14 +1156,11 @@ impl MediaProvider for TmdbShowService {
             description: show_data.overview,
             production_status: show_data.status,
             identifier: show_data.id.to_string(),
+            external_identifiers: Some(external_identifiers),
             original_language: self.base.get_language_name(show_data.original_language),
-            genres: show_data
-                .genres
-                .unwrap_or_default()
-                .into_iter()
-                .map(|g| g.name)
-                .unique()
-                .collect(),
+            publish_year: convert_date_to_year(
+                &show_data.first_air_date.clone().unwrap_or_default(),
+            ),
             publish_date: convert_string_to_date(
                 &show_data.first_air_date.clone().unwrap_or_default(),
             ),
@@ -1177,6 +1168,17 @@ impl MediaProvider for TmdbShowService {
                 "https://www.themoviedb.org/tv/{}-{}",
                 show_data.id, title
             )),
+            provider_rating: show_data
+                .vote_average
+                .filter(|&av| av != dec!(0))
+                .map(|av| av * dec!(10)),
+            genres: show_data
+                .genres
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| g.name)
+                .unique()
+                .collect(),
             url_images: image_ids
                 .into_iter()
                 .unique()
@@ -1184,8 +1186,6 @@ impl MediaProvider for TmdbShowService {
                     image: self.base.get_image_url(p),
                 })
                 .collect(),
-            videos,
-            publish_year: convert_date_to_year(&show_data.first_air_date.unwrap_or_default()),
             show_specifics: Some(ShowSpecifics {
                 runtime: if total_runtime == 0 {
                     None
@@ -1241,18 +1241,6 @@ impl MediaProvider for TmdbShowService {
                     })
                     .collect(),
             }),
-            suggestions,
-            watch_providers,
-            external_identifiers: Some(external_identifiers),
-            provider_rating: if let Some(av) = show_data.vote_average {
-                if av != dec!(0) {
-                    Some(av * dec!(10))
-                } else {
-                    None
-                }
-            } else {
-                None
-            },
             ..Default::default()
         })
     }
@@ -1306,13 +1294,6 @@ impl MediaProvider for TmdbShowService {
             },
             items: resp.to_vec(),
         })
-    }
-
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base.get_all_suggestions("tv", identifier).await
     }
 }
 
