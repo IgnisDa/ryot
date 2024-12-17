@@ -8,6 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
+apalis-cron = { workspace = true }
 application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
