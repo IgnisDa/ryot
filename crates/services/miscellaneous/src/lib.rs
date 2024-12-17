@@ -1898,8 +1898,15 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             m_map
         );
-        for items in m_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE).into_iter() {
-            let promises = items.map(|m| self.update_metadata_and_notify_users(m, true));
+        let chunks = m_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let items = chunks
+            .into_iter()
+            .map(|chunk| chunk.into_iter().collect_vec())
+            .collect_vec();
+        for chunk in items {
+            let promises = chunk
+                .into_iter()
+                .map(|m| self.update_metadata_and_notify_users(m, true));
             join_all(promises).await;
         }
         Ok(())
@@ -1912,8 +1919,15 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             p_map
         );
-        for items in p_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE).into_iter() {
-            let promises = items.map(|p| self.update_person_and_notify_users(p));
+        let chunks = p_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let items = chunks
+            .into_iter()
+            .map(|chunk| chunk.into_iter().collect_vec())
+            .collect_vec();
+        for chunk in items {
+            let promises = chunk
+                .into_iter()
+                .map(|p| self.update_person_and_notify_users(p));
             join_all(promises).await;
         }
         Ok(())
@@ -2603,7 +2617,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap_or_default();
         if !notifications.is_empty() {
             let users_to_notify =
-                get_users_and_cte_monitoring_entity(&person_id, EntityLot::Person, &self.0.db)
+                get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &self.0.db)
                     .await?;
             for notification in notifications {
                 for (user_id, cte_id) in users_to_notify.iter() {

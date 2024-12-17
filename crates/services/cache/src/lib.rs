@@ -85,16 +85,13 @@ impl CacheService {
             .one(&self.db)
             .await
             .ok()?;
-        let Some(db_value) = cache
+        let db_value = cache
             .filter(|cache| {
                 cache
                     .expires_at
                     .map_or(true, |expires_at| expires_at > Utc::now())
             })
-            .map(|m| m.value)
-        else {
-            return None;
-        };
+            .map(|m| m.value)?;
         serde_json::from_value::<T>(db_value).ok()
     }
 
