@@ -1896,8 +1896,8 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
-        for (m1, m2, m3) in meta_map.keys().tuple_windows() {
-            let promises = vec![m1, m2, m3].into_iter();
+        for (m1, m2, m3, m4, m5) in meta_map.keys().tuple_windows() {
+            let promises = vec![m1, m2, m3, m4, m5].into_iter();
             let promises = promises.map(|m| self.update_metadata_and_notify_users(m, true));
             join_all(promises).await;
         }
@@ -1911,8 +1911,8 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             person_map
         );
-        for (p1, p2, p3) in person_map.keys().tuple_windows() {
-            let promises = vec![p1, p2, p3].into_iter();
+        for (p1, p2, p3, p4, p5) in person_map.keys().tuple_windows() {
+            let promises = vec![p1, p2, p3, p4, p5].into_iter();
             let promises = promises.map(|p| self.update_person_and_notify_users(p));
             join_all(promises).await;
         }
