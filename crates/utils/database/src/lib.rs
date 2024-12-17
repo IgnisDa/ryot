@@ -39,10 +39,9 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{OnConflict, PgFunc},
+    sea_query::{NullOrdering, OnConflict, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    Iterable, ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
-    TransactionTrait,
+    Iterable, Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -511,7 +510,11 @@ pub async fn calculate_user_activities_and_summary(
         }
         false => DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .order_by_desc(daily_user_activity::Column::Date)
+            .order_by_with_nulls(
+                daily_user_activity::Column::Date,
+                Order::Desc,
+                NullOrdering::Last,
+            )
             .one(db)
             .await?
             .and_then(|i| i.date)
@@ -761,14 +764,13 @@ pub async fn calculate_user_activities_and_summary(
     }
 
     for (_, activity) in activities.iter_mut() {
-        if let Some(entity) = DailyUserActivity::find()
+        let deleted = DailyUserActivity::delete_many()
             .filter(daily_user_activity::Column::Date.eq(activity.date))
             .filter(daily_user_activity::Column::UserId.eq(user_id))
-            .one(db)
-            .await?
-        {
-            ryot_log!(debug, "Deleting activity = {:?}", activity.date);
-            entity.delete(db).await?;
+            .exec(db)
+            .await?;
+        if deleted.rows_affected > 0 {
+            ryot_log!(debug, "Deleted existing activity = {:?}", activity.date);
         }
         ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
