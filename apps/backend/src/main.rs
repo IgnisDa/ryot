@@ -191,6 +191,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("daily_background_jobs")
                 .enable_tracing()
+                .catch_panic()
                 .data(miscellaneous_service_1.clone())
                 .backend(
                     // every day
@@ -201,6 +202,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
+                .catch_panic()
                 .data(integration_service_1.clone())
                 .data(fitness_service_2.clone())
                 .backend(CronStream::new_with_timezone(
@@ -213,6 +215,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("perform_core_application_job")
                 .enable_tracing()
+                .catch_panic()
                 .data(integration_service_2.clone())
                 .data(miscellaneous_service_3.clone())
                 .backend(perform_core_application_job_storage)
@@ -221,6 +224,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("perform_application_job")
                 .enable_tracing()
+                .catch_panic()
                 .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
