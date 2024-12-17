@@ -4,20 +4,20 @@
 	"separateMultipleMajor": true,
 	"packageRules": [
 		{
-			"managers": ["npm"],
-			"groupName": "npm dependencies",
+			"extends": ["monorepo:yarn"],
+			"groupName": "NodeJS dependencies",
 			"schedule": ["every 2 weeks on Monday before 5am"],
 			"packagePatterns": ["*"]
 		},
 		{
 			"managers": ["cargo"],
-			"groupName": "rust dependencies",
+			"groupName": "Rust dependencies",
 			"schedule": ["every 2 weeks on Monday before 5am"],
 			"packagePatterns": ["*"]
 		},
 		{
 			"managers": ["poetry"],
-			"groupName": "python dependencies",
+			"groupName": "Python dependencies",
 			"schedule": ["every 2 weeks on Monday before 5am"],
 			"packagePatterns": ["*"]
 		}
