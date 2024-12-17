@@ -1,0 +1,25 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:base"],
+	"separateMultipleMajor": true,
+	"packageRules": [
+		{
+			"managers": ["npm"],
+			"groupName": "npm dependencies",
+			"schedule": ["every 2 weeks on Monday before 5am"],
+			"packagePatterns": ["*"]
+		},
+		{
+			"managers": ["cargo"],
+			"groupName": "rust dependencies",
+			"schedule": ["every 2 weeks on Monday before 5am"],
+			"packagePatterns": ["*"]
+		},
+		{
+			"managers": ["poetry"],
+			"groupName": "python dependencies",
+			"schedule": ["every 2 weeks on Monday before 5am"],
+			"packagePatterns": ["*"]
+		}
+	]
+}
