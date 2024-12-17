@@ -109,6 +109,8 @@ use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
 
+static UPDATE_CHUNK_SIZE: usize = 3;
+
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
@@ -1896,10 +1898,11 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
-        for (m1, m2, m3) in meta_map.keys().tuple_windows() {
-            let promises = vec![m1, m2, m3].into_iter();
-            let promises = promises.map(|m| self.update_metadata_and_notify_users(m, true));
-            join_all(promises).await;
+        let promises = meta_map
+            .keys()
+            .map(|m| self.update_metadata_and_notify_users(m, true));
+        for items in promises.chunks(UPDATE_CHUNK_SIZE).into_iter() {
+            join_all(items).await;
         }
         Ok(())
     }
@@ -1911,10 +1914,11 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             person_map
         );
-        for (p1, p2, p3) in person_map.keys().tuple_windows() {
-            let promises = vec![p1, p2, p3].into_iter();
-            let promises = promises.map(|p| self.update_person_and_notify_users(p));
-            join_all(promises).await;
+        let promises = person_map
+            .keys()
+            .map(|p| self.update_person_and_notify_users(p));
+        for items in promises.chunks(UPDATE_CHUNK_SIZE).into_iter() {
+            join_all(items).await;
         }
         Ok(())
     }
