@@ -2812,9 +2812,9 @@ ORDER BY RANDOM() LIMIT 10;
             ryot_log!(debug, "Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.0.db).await?;
         }
-        ryot_log!(debug, "Deleting all queued notifications");
+        ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
-            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
+            .filter(user_notification::Column::IsAddressed.eq(true))
             .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleting revoked access tokens");
@@ -2830,7 +2830,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn put_entities_in_partial_state(&self) -> Result<()> {
+    async fn put_entities_in_partial_state(&self) -> Result<()> {
         async fn update_partial_states<Column1, Column2, Column3, T>(
             ute_filter_column: Column1,
             updater: UpdateMany<T>,
@@ -2889,7 +2889,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn send_pending_notifications(&self) -> Result<()> {
+    async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
@@ -2901,6 +2901,7 @@ ORDER BY RANDOM() LIMIT 10;
             if notifications.is_empty() {
                 continue;
             }
+            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
             let msg = notifications
                 .into_iter()
                 .map(|n| n.message)
@@ -2926,6 +2927,11 @@ ORDER BY RANDOM() LIMIT 10;
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
+            UserNotification::update_many()
+                .filter(user_notification::Column::Id.is_in(notification_ids))
+                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+                .exec(&self.0.db)
+                .await?;
         }
         Ok(())
     }

@@ -12,6 +12,7 @@ pub struct Model {
     pub message: String,
     pub user_id: String,
     pub lot: UserNotificationLot,
+    pub is_addressed: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
