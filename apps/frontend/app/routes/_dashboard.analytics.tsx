@@ -258,11 +258,11 @@ export default function Page() {
 							<Grid.Col span={{ base: 12, md: 6 }}>
 								<TimeOfDayChart />
 							</Grid.Col>
-							<Grid.Col span={{ base: 12, md: 6 }}>
-								<StatisticsCard />
-							</Grid.Col>
 							<Grid.Col span={12}>
 								<ActivitySection />
+							</Grid.Col>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<StatisticsCard />
 							</Grid.Col>
 						</Grid>
 					)}
