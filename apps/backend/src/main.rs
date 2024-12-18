@@ -16,10 +16,12 @@ use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
+use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use futures::future::join_all;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
+use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
@@ -135,9 +137,6 @@ async fn main() -> Result<()> {
     .await;
 
     if cfg!(debug_assertions) {
-        use dependent_models::CompleteExport;
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
-
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
             .parent()
@@ -254,9 +253,9 @@ fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
+        max_n_old_files: 2,
         directory: tmp_dir,
         filename: PROJECT_NAME,
-        max_n_old_files: 2,
         preferred_max_file_size_mib: 1,
     }
     .init()?;
