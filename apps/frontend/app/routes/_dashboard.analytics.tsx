@@ -109,7 +109,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
-	return [{ title: "Fitness Analytics | Ryot" }];
+	return [{ title: "Analytics | Ryot" }];
 };
 
 const useTimeSpanSettings = () => {
