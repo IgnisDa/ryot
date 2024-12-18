@@ -1,14 +1,33 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
-    DeployJsonImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    DeployJsonImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use nest_struct::nest_struct;
+use rust_decimal::Decimal;
 use serde::Deserialize;
+use supporting_service::SupportingService;
+
+use super::utils;
+
+fn anilist_series_type_to_lot(series_type: u8) -> MediaLot {
+    match series_type {
+        1 => MediaLot::Manga,
+        _ => MediaLot::Anime,
+    }
+}
+
+fn anilist_private_status_to_visibility(private: u8) -> Visibility {
+    match private {
+        1 => Visibility::Private,
+        _ => Visibility::Public,
+    }
+}
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
@@ -32,16 +51,22 @@ struct AnilistExport {
     >,
     reviews: Vec<
         nest! {
-            score: u8,
+            id: u64,
             private: u8,
             text: String,
             series_id: i32,
+            score: Decimal,
             summary: String,
+            series_type: u8,
+            updated_at: String,
         },
     >,
 }
 
-pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
+pub async fn import(
+    input: DeployJsonImportInput,
+    ss: &Arc<SupportingService>,
+) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let data = serde_json::from_str::<AnilistExport>(&export)?;
     let user_lists = data.user.custom_lists;
@@ -59,19 +84,14 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         .map(|(idx, list_name)| (idx, list_name))
         .collect::<HashMap<_, _>>();
     for item in data.lists {
-        let lot = match item.series_type {
-            1 => MediaLot::Manga,
-            _ => MediaLot::Anime,
-        };
         let progress = [item.progress, item.progress_volume].into_iter().max();
+        let lot = anilist_series_type_to_lot(item.series_type);
         let mut db_item = ImportOrExportMetadataItem {
             lot,
+            source: MediaSource::Anilist,
             source_id: item.id.to_string(),
             identifier: item.series_id.to_string(),
-            source: MediaSource::Anilist,
-            collections: vec![],
-            reviews: vec![],
-            seen_history: vec![],
+            ..Default::default()
         };
         for num in 1..progress.unwrap_or_default() + 1 {
             let mut history = ImportOrExportMetadataItemSeen {
@@ -110,8 +130,31 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
             completed.push(ImportCompletedItem::Metadata(db_item));
         }
     }
-    dbg!(&completed);
-    todo!();
+    for review in data.reviews {
+        let lot = anilist_series_type_to_lot(review.series_type);
+        let visibility = anilist_private_status_to_visibility(review.private);
+        let entire_text = format!("{}\n\n{}", review.summary, review.text);
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            source: MediaSource::Anilist,
+            source_id: review.id.to_string(),
+            identifier: review.series_id.to_string(),
+            reviews: vec![ImportOrExportItemRating {
+                rating: Some(review.score),
+                review: Some(ImportOrExportItemReview {
+                    text: Some(entire_text),
+                    visibility: Some(visibility),
+                    date: Some(utils::get_date_time_with_offset(
+                        parse_date_string(&review.updated_at),
+                        &ss.timezone,
+                    )),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
     Ok(ImportResult {
         completed,
         ..Default::default()
