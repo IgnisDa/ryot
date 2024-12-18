@@ -26,7 +26,6 @@ use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use unkey::{models::VerifyKeyRequest, Client};
 
 pub struct SupportingService {
@@ -90,7 +89,6 @@ impl SupportingService {
         }
         ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
         let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-        #[skip_serializing_none]
         #[derive(Debug, Serialize, Clone, Deserialize)]
         struct Meta {
             expiry: Option<NaiveDate>,
