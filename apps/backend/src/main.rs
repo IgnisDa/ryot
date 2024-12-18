@@ -10,7 +10,7 @@ use std::{
 use anyhow::{bail, Result};
 use apalis::{
     layers::{limit::RateLimitLayer as ApalisRateLimitLayer, WorkerBuilderExt},
-    prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
+    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
@@ -115,16 +115,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    join_all([
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::SyncIntegrationsData),
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::UpdateExerciseLibrary),
-    ])
-    .await;
-
     let app_services = create_app_services(
         db,
         tz,
@@ -132,6 +122,15 @@ async fn main() -> Result<()> {
         config,
         &perform_application_job_storage,
         &perform_core_application_job_storage,
+    )
+    .await;
+
+    join_all(
+        [
+            ApplicationJob::SyncIntegrationsData,
+            ApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|job| app_services.supporting_service.perform_application_job(job)),
     )
     .await;
 
