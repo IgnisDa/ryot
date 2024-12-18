@@ -102,24 +102,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
 
-	const userAgent = request.headers.get("user-agent") || "";
-	const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-	let isIOS18 = false;
-
-	if (isIOS) {
-		const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
-		if (match) {
-			const version = Number.parseInt(match[1], 10);
-			isIOS18 = version >= 18;
-		}
-	}
-
-	return data({ toast, defaultColorScheme, isIOS18 }, { headers });
+	return data({ toast, defaultColorScheme }, { headers });
 };
 
 const DefaultHeadTags = () => {
-	const loaderData = useLoaderData<typeof loader>();
-
 	return (
 		<>
 			<meta charSet="utf-8" />
@@ -128,12 +114,7 @@ const DefaultHeadTags = () => {
 				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
 			/>
 			<link rel="manifest" href="/manifest.json" />
-			<link
-				rel="apple-touch-icon"
-				href={
-					loaderData.isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"
-				}
-			/>
+			<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
 		</>
 	);
 };
