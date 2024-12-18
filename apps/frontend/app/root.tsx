@@ -134,18 +134,17 @@ export default function App() {
 			<body>
 				<QueryClientProvider client={queryClient}>
 					<MantineProvider
-						classNamesPrefix="mnt"
 						theme={theme}
+						classNamesPrefix="mnt"
 						forceColorScheme={loaderData.defaultColorScheme}
 					>
 						<ConfirmationMountPoint />
-						{navigation.state === "loading" ||
-						navigation.state === "submitting" ? (
+						{["loading", "submitting"].includes(navigation.state) ? (
 							<Loader
-								pos="fixed"
-								right={10}
 								top={10}
 								size="sm"
+								right={10}
+								pos="fixed"
 								color="yellow"
 								style={{ zIndex: 10 }}
 							/>
