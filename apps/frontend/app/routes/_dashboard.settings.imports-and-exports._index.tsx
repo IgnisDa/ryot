@@ -453,15 +453,20 @@ export default function Page() {
 															/>
 														) : null}
 													</Accordion.Control>
-													<Accordion.Panel>
+													<Accordion.Panel
+														styles={{ content: { paddingTop: 0 } }}
+													>
 														{report.details ? (
-															<>
-																<Text>
-																	Total imported: {report.details.import.total}
-																</Text>
-																<Text>
-																	Failed: {report.details.failedItems.length}
-																</Text>
+															<Stack>
+																<Box>
+																	<Text>
+																		Total imported:{" "}
+																		{report.details.import.total}
+																	</Text>
+																	<Text>
+																		Failed: {report.details.failedItems.length}
+																	</Text>
+																</Box>
 																{report.details.failedItems.length > 0 ? (
 																	<Code mah={400} block>
 																		{JSON.stringify(
@@ -471,7 +476,7 @@ export default function Page() {
 																		)}
 																	</Code>
 																) : null}
-															</>
+															</Stack>
 														) : (
 															<Text>This import never finished</Text>
 														)}
