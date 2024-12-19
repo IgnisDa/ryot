@@ -41,6 +41,7 @@ export type ExerciseSet = {
 	confirmedAt: string | null;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
+	displayRestTimeTrigger?: boolean;
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 

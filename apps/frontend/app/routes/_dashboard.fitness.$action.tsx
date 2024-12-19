@@ -83,6 +83,7 @@ import {
 	IconPhoto,
 	IconReorder,
 	IconReplace,
+	IconStopwatch,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -130,7 +131,6 @@ import {
 } from "~/lib/hooks";
 import {
 	type CurrentWorkoutTimer,
-	type Exercise,
 	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
@@ -1692,11 +1692,11 @@ const tasksAfterSetConfirmed = (
 	setIdx: number,
 	exerciseIdx: number,
 	draft: Draft<InProgressWorkout>,
-	currentExercise: Draft<Exercise>,
 	exerciseDetails: ExerciseDetails,
 	userExerciseDetails: UserExerciseDetails,
 	userPreferences: ReturnType<typeof useUserPreferences>,
 ) => {
+	const currentExercise = draft.exercises[exerciseIdx];
 	const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
 	focusOnExercise(nextSet.exerciseIdx);
 	if (nextSet.wasLastSet) {
@@ -1765,10 +1765,8 @@ const SetDisplay = (props: {
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdx === props.setIdx;
-
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
-
-	invariant(exerciseDetails && userExerciseDetails);
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 
 	return (
 		<>
@@ -2050,73 +2048,104 @@ const SetDisplay = (props: {
 							duration={200}
 							timingFunction="ease-in-out"
 						>
-							{(style) => (
-								<ActionIcon
-									variant={set.confirmedAt ? "filled" : "outline"}
-									style={style}
-									disabled={
-										!match(exercise.lot)
-											.with(
-												ExerciseLot.DistanceAndDuration,
-												() =>
-													isString(set.statistic.distance) &&
-													isString(set.statistic.duration),
-											)
-											.with(ExerciseLot.Duration, () =>
-												isString(set.statistic.duration),
-											)
-											.with(ExerciseLot.Reps, () =>
-												isString(set.statistic.reps),
-											)
-											.with(
-												ExerciseLot.RepsAndWeight,
-												() =>
-													isString(set.statistic.reps) &&
-													isString(set.statistic.weight),
-											)
-											.exhaustive()
-									}
-									color="green"
-									onClick={() => {
-										playCheckSound();
-										const newConfirmed = !set.confirmedAt;
-										if (
-											!newConfirmed &&
-											currentTimer?.triggeredBy?.exerciseIdentifier ===
-												exercise.identifier &&
-											currentTimer?.triggeredBy?.setIdx === props.setIdx
-										)
-											props.stopTimer();
-										if (set.restTimer && newConfirmed)
+							{(style) =>
+								set.displayRestTimeTrigger ? (
+									<ActionIcon
+										color="blue"
+										style={style}
+										variant="outline"
+										onClick={() => {
+											invariant(set.restTimer);
 											props.startTimer(set.restTimer.duration, {
-												exerciseIdentifier: exercise.identifier,
 												setIdx: props.setIdx,
+												exerciseIdentifier: exercise.identifier,
 											});
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												const currentExercise =
-													draft.exercises[props.exerciseIdx];
-												currentExercise.sets[props.setIdx].confirmedAt =
-													newConfirmed ? dayjsLib().toISOString() : null;
-												currentExercise.scrollMarginRemoved = true;
-												if (newConfirmed) {
-													tasksAfterSetConfirmed(
-														props.setIdx,
-														props.exerciseIdx,
-														draft,
-														currentExercise,
-														exerciseDetails,
-														userExerciseDetails,
-														userPreferences,
-													);
-												}
-											}),
-										);
-									}}
-								>
-									<IconCheck />
-								</ActionIcon>
-							)}
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													const currentExercise =
+														draft.exercises[props.exerciseIdx];
+													const currentSet = currentExercise.sets[props.setIdx];
+													currentSet.displayRestTimeTrigger = false;
+												}),
+											);
+										}}
+									>
+										<IconStopwatch />
+									</ActionIcon>
+								) : (
+									<ActionIcon
+										variant={set.confirmedAt ? "filled" : "outline"}
+										style={style}
+										disabled={
+											!match(exercise.lot)
+												.with(
+													ExerciseLot.DistanceAndDuration,
+													() =>
+														isString(set.statistic.distance) &&
+														isString(set.statistic.duration),
+												)
+												.with(ExerciseLot.Duration, () =>
+													isString(set.statistic.duration),
+												)
+												.with(ExerciseLot.Reps, () =>
+													isString(set.statistic.reps),
+												)
+												.with(
+													ExerciseLot.RepsAndWeight,
+													() =>
+														isString(set.statistic.reps) &&
+														isString(set.statistic.weight),
+												)
+												.exhaustive()
+										}
+										color="green"
+										onClick={() => {
+											playCheckSound();
+											const newConfirmed = !set.confirmedAt;
+											if (
+												!newConfirmed &&
+												currentTimer?.triggeredBy?.exerciseIdentifier ===
+													exercise.identifier &&
+												currentTimer?.triggeredBy?.setIdx === props.setIdx
+											)
+												props.stopTimer();
+											if (set.restTimer && newConfirmed && !promptForRestTimer)
+												props.startTimer(set.restTimer.duration, {
+													setIdx: props.setIdx,
+													exerciseIdentifier: exercise.identifier,
+												});
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													const currentExercise =
+														draft.exercises[props.exerciseIdx];
+													const currentSet = currentExercise.sets[props.setIdx];
+													currentSet.confirmedAt = newConfirmed
+														? dayjsLib().toISOString()
+														: null;
+													currentExercise.scrollMarginRemoved = true;
+													if (newConfirmed) {
+														if (promptForRestTimer && set.restTimer) {
+															currentSet.displayRestTimeTrigger = true;
+														} else {
+															invariant(exerciseDetails && userExerciseDetails);
+															tasksAfterSetConfirmed(
+																props.setIdx,
+																props.exerciseIdx,
+																draft,
+																exerciseDetails,
+																userExerciseDetails,
+																userPreferences,
+															);
+														}
+													}
+												}),
+											);
+										}}
+									>
+										<IconCheck />
+									</ActionIcon>
+								)
+							}
 						</Transition>
 					</Group>
 				</Flex>
