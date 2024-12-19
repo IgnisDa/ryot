@@ -165,6 +165,23 @@ export default function Page() {
 								Synchronize
 							</Button>
 						</Stack>
+						<Stack>
+							<Box>
+								<Title order={4}>Delete all cache</Title>
+								<Text>
+									Delete all application cache. Use this if you updated a
+									critical configuration parameter and you can not see the
+									changes reflected in the UI.
+								</Text>
+							</Box>
+							<Button
+								disabled={isEditDisabled}
+								{...btnProps}
+								value={BackgroundJob.DeleteAllApplicationCache}
+							>
+								Delete all cache
+							</Button>
+						</Stack>
 					</SimpleGrid>
 				</Stack>
 			</Form>
