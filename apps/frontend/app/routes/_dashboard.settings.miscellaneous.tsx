@@ -64,13 +64,6 @@ export default function Page() {
 	);
 }
 
-const btnProps = {
-	mt: "auto",
-	name: "jobName",
-	variant: "light",
-	type: "submit" as const,
-};
-
 const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
@@ -147,7 +140,14 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 				<Title order={4}>{title}</Title>
 				<Text>{description}</Text>
 			</Box>
-			<Button {...btnProps} value={props.job} disabled={isEditDisabled}>
+			<Button
+				mt="auto"
+				type="submit"
+				name="jobName"
+				variant="light"
+				value={props.job}
+				disabled={isEditDisabled}
+			>
 				{title}
 			</Button>
 		</Stack>
