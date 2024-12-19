@@ -20,8 +20,9 @@ S3 instance offered by [Minio](https://play.min.io).
     The Minio team resets this instance every 24 hours, hence this method is not suitable
     if you want to store the data for a long time.
 
-- Go to the [Minio playground](https://play.min.io). The username is `minioadmin` and
-  password is `minioadmin`.
+- Go to the [Minio playground](https://play.min.io). The login credentials are changed
+  everyday and you can find them
+  [here](https://min.io/docs/minio/linux/administration/minio-console.html#logging-in).
 - Click on "Buckets" under the "Administrator" section and then on "Create Bucket".
 - Set a name and click on "Create Bucket".
 - Click on "Access Keys" under the "User" section and then on "Create access key".

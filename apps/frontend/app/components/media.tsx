@@ -10,8 +10,6 @@ import {
 	ThemeIcon,
 	Tooltip,
 } from "@mantine/core";
-import { $path } from "remix-routes";
-import "@mantine/dates/styles.css";
 import { useInViewport } from "@mantine/hooks";
 import { Form, Link } from "@remix-run/react";
 import {
@@ -34,6 +32,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {

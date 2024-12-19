@@ -15,6 +15,7 @@ import {
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { useDashboardLayoutData, useUserDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
@@ -44,10 +45,6 @@ const jobSchema = z.object({
 });
 
 export default function Page() {
-	const userDetails = useUserDetails();
-	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemo;
-
 	return (
 		<Container size="lg">
 			<Form replace method="POST">
@@ -57,132 +54,9 @@ export default function Page() {
 						cols={{ base: 1, lg: 2 }}
 						spacing={{ base: "xl", md: "md" }}
 					>
-						{userDetails.lot === UserLot.Admin ? (
-							<>
-								<Stack>
-									<Box>
-										<Title order={4}>Update all metadata</Title>
-										<Text>
-											Fetch and update the metadata for all the media items that
-											are stored. The more media you have, the longer this will
-											take. This also updates people and group data from remote
-											providers.
-										</Text>
-									</Box>
-									<Button
-										disabled={isEditDisabled}
-										{...btnProps}
-										value={BackgroundJob.UpdateAllMetadata}
-									>
-										Update metadata
-									</Button>
-								</Stack>
-								<Stack>
-									<Box>
-										<Title order={4}>Update Calendar Events</Title>
-										<Text>
-											Create any pending calendar events, or delete ones that
-											have changed. Useful if you have added new media items or
-											publish dates have changed. This is run every 24 hours
-											automatically.
-										</Text>
-									</Box>
-									<Button
-										disabled={isEditDisabled}
-										{...btnProps}
-										value={BackgroundJob.RecalculateCalendarEvents}
-									>
-										Update calendar events
-									</Button>
-								</Stack>
-								<Stack>
-									<Box>
-										<Title order={4}>Update Exercises</Title>
-										<Text>
-											Update the exercise database. Exercise data is downloaded
-											on startup but they can be updated manually. Trigger this
-											job when there are new exercises available.
-										</Text>
-									</Box>
-									<Button
-										disabled={isEditDisabled}
-										{...btnProps}
-										value={BackgroundJob.UpdateAllExercises}
-									>
-										Update exercises
-									</Button>
-								</Stack>
-								<Stack>
-									<Box>
-										<Title order={4}>Perform all background tasks</Title>
-										<Text>
-											Update the user summaries, recalculate media associations
-											for all users, update all monitored entities and remove
-											useless data. The more users you have, the longer this
-											will take.
-										</Text>
-									</Box>
-									<Button
-										disabled={isEditDisabled}
-										{...btnProps}
-										value={BackgroundJob.PerformBackgroundTasks}
-									>
-										Perform background tasks
-									</Button>
-								</Stack>
-							</>
-						) : null}
-						<Stack>
-							<Box>
-								<Title order={4}>Regenerate Summaries</Title>
-								<Text>
-									Regenerate all pre-computed summaries from the beginning. This
-									may be useful if, for some reason, summaries are faulty or
-									preconditions have changed. This may take some time.
-								</Text>
-							</Box>
-							<Button
-								disabled={isEditDisabled}
-								{...btnProps}
-								value={BackgroundJob.CalculateUserActivitiesAndSummary}
-							>
-								Clean and regenerate
-							</Button>
-						</Stack>
-						<Stack>
-							<Box>
-								<Title order={4}>Revise workouts</Title>
-								<Text>
-									Revise all workouts. This may be useful if exercises done
-									during a workout have changed or workouts have been edited or
-									deleted.
-								</Text>
-							</Box>
-							<Button
-								disabled={isEditDisabled}
-								{...btnProps}
-								value={BackgroundJob.ReviseUserWorkouts}
-							>
-								Revise workouts
-							</Button>
-						</Stack>
-						<Stack>
-							<Box>
-								<Title order={4}>Synchronize integrations progress</Title>
-								<Text>
-									Get/push data for all configured integrations and update
-									progress if applicable. The more integrations you have
-									enabled, the longer this will take.
-								</Text>
-							</Box>
-							<Button
-								disabled={isEditDisabled}
-								{...btnProps}
-								value={BackgroundJob.SyncIntegrationsData}
-							>
-								Synchronize
-							</Button>
-						</Stack>
+						{Object.values(BackgroundJob).map((job) => (
+							<DisplayJobBtn key={job} job={job} />
+						))}
 					</SimpleGrid>
 				</Stack>
 			</Form>
@@ -190,8 +64,92 @@ export default function Page() {
 	);
 }
 
-const btnProps = {
-	variant: "light",
-	type: "submit" as const,
-	name: "jobName",
+const DisplayJobBtn = (props: { job: BackgroundJob }) => {
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
+
+	const [title, description, isAdminOnly] = match(props.job)
+		.with(
+			BackgroundJob.UpdateAllMetadata,
+			() =>
+				[
+					"Update all metadata",
+					"Fetch and update the metadata for all the media items that are stored. The more media you have, the longer this will take. This also updates people and group data from remote providers.",
+					true,
+				] as const,
+		)
+		.with(
+			BackgroundJob.UpdateAllExercises,
+			() =>
+				[
+					"Update all exercises",
+					"Update the exercise database. Exercise data is downloaded on startup but they can be updated manually. Trigger this job when there are new exercises available.",
+					true,
+				] as const,
+		)
+		.with(
+			BackgroundJob.PerformBackgroundTasks,
+			() =>
+				[
+					"Perform background tasks",
+					"Update the user summaries, recalculate media associations for all users, update all monitored entities and remove useless data. The more users you have, the longer this will take.",
+					true,
+				] as const,
+		)
+		.with(
+			BackgroundJob.DeleteAllApplicationCache,
+			() =>
+				[
+					"Delete all cache",
+					"Delete all application caches. Use this if you updated a critical configuration parameter and can not see the changes reflected in the UI.",
+					true,
+				] as const,
+		)
+		.with(
+			BackgroundJob.CalculateUserActivitiesAndSummary,
+			() =>
+				[
+					"Regenerate Summaries",
+					"Regenerate all pre-computed summaries from the beginning. This may be useful if, for some reason, summaries are faulty or preconditions have changed. This may take some time.",
+				] as const,
+		)
+		.with(
+			BackgroundJob.ReviseUserWorkouts,
+			() =>
+				[
+					"Revise workouts",
+					"Revise all workouts. This may be useful if exercises done during a workout have changed or workouts have been edited or deleted.",
+				] as const,
+		)
+		.with(
+			BackgroundJob.SyncIntegrationsData,
+			() =>
+				[
+					"Synchronize integrations progress",
+					"Get/push data for all configured integrations and update progress if applicable. The more integrations you have enabled, the longer this will take.",
+				] as const,
+		)
+		.exhaustive();
+
+	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
+
+	return (
+		<Stack>
+			<Box>
+				<Title order={4}>{title}</Title>
+				<Text>{description}</Text>
+			</Box>
+			<Button
+				mt="auto"
+				type="submit"
+				name="jobName"
+				variant="light"
+				value={props.job}
+				disabled={isEditDisabled}
+			>
+				{title}
+			</Button>
+		</Stack>
+	);
 };

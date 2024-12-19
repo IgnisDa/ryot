@@ -47,6 +47,7 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -103,10 +104,13 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+import Cookies from "js-cookie";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
+import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
@@ -132,6 +136,7 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	type UpdateProgressData,
@@ -148,12 +153,6 @@ import {
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
-import "@mantine/dates/styles.css";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { useQuery } from "@tanstack/react-query";
-import Cookies from "js-cookie";
-import { ClientOnly } from "remix-utils/client-only";
-import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";

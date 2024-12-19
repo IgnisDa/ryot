@@ -1,6 +1,5 @@
 // biome-ignore lint/style/useNodejsImportProtocol: this is a dependency
 import { Buffer } from "buffer";
-import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Carousel } from "@mantine/carousel";
@@ -89,7 +88,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
-import { produce } from "immer";
+import { type Draft, produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -131,6 +130,7 @@ import {
 } from "~/lib/hooks";
 import {
 	type CurrentWorkoutTimer,
+	type Exercise,
 	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
@@ -170,6 +170,9 @@ const deleteUploadedAsset = (key: string) => {
 	});
 };
 
+type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
+type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -203,9 +206,9 @@ export default function Page() {
 	const [
 		timerDrawerOpened,
 		{
-			close: timerDrawerClose,
-			toggle: timerDrawerToggle,
-			open: timerDrawerOpen,
+			open: openTimerDrawer,
+			close: closeTimerDrawer,
+			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
@@ -222,16 +225,16 @@ export default function Page() {
 	>(undefined);
 
 	useInterval(() => {
-		const timeRemaining = dayjsLib(currentTimer?.endAt).diff(
+		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
 			dayjsLib(),
 			"second",
 		);
-		if (timeRemaining && timeRemaining <= 3) {
+		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => timerDrawerClose(), 500);
+				setTimeout(() => closeTimerDrawer(), 500);
 			}
 		}
 	}, 1000);
@@ -243,8 +246,25 @@ export default function Page() {
 		setCurrentTimer({
 			triggeredBy,
 			totalTime: duration,
-			endAt: dayjsLib().add(duration, "second").toISOString(),
+			willEndAt: dayjsLib().add(duration, "second").toISOString(),
 		});
+	};
+
+	const pauseOrResumeTimer = () => {
+		if (currentTimer)
+			setCurrentTimer(
+				produce(currentTimer, (draft) => {
+					draft.willEndAt = dayjsLib(draft.willEndAt)
+						.add(
+							dayjsLib().diff(dayjsLib(draft.wasPausedAt), "second"),
+							"second",
+						)
+						.toISOString();
+					draft.wasPausedAt = draft.wasPausedAt
+						? undefined
+						: dayjsLib().toISOString();
+				}),
+			);
 	};
 
 	const stopTimer = () => {
@@ -274,10 +294,11 @@ export default function Page() {
 								closeModal={() => setAssetsModalOpened(undefined)}
 							/>
 							<TimerDrawer
-								opened={timerDrawerOpened}
-								onClose={timerDrawerClose}
-								startTimer={startTimer}
 								stopTimer={stopTimer}
+								startTimer={startTimer}
+								opened={timerDrawerOpened}
+								onClose={closeTimerDrawer}
+								pauseOrResumeTimer={pauseOrResumeTimer}
 							/>
 							<ReorderDrawer
 								opened={reorderDrawerOpened}
@@ -352,7 +373,7 @@ export default function Page() {
 										color="orange"
 										variant="subtle"
 										size="compact-sm"
-										onClick={timerDrawerToggle}
+										onClick={toggleTimerDrawer}
 										style={
 											loaderData.isCreatingTemplate ||
 											loaderData.isUpdatingWorkout
@@ -503,7 +524,7 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
-										openTimerDrawer={timerDrawerOpen}
+										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={reorderDrawerToggle}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
@@ -635,7 +656,11 @@ const RestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? formatTimerDuration(dayjsLib(currentTimer.endAt).diff(dayjsLib()))
+		? formatTimerDuration(
+				dayjsLib(currentTimer.willEndAt).diff(
+					dayjsLib(currentTimer.wasPausedAt),
+				),
+			)
 		: "Timer";
 };
 
@@ -954,8 +979,8 @@ const focusOnExercise = (idx: number) => {
 };
 
 const exerciseHasDetailsToShow = (
-	details?: ExerciseDetailsQuery["exerciseDetails"],
-	userDetails?: UserExerciseDetailsQuery["userExerciseDetails"],
+	details?: ExerciseDetails,
+	userDetails?: UserExerciseDetails,
 ) =>
 	(details?.attributes.images.length || 0) > 0 ||
 	(userDetails?.history?.length || 0) > 0;
@@ -1210,7 +1235,9 @@ const ExerciseDisplay = (props: {
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
-									<DisplayLastExerciseSetRestTimer />
+									<DisplayExerciseSetRestTimer
+										openTimerDrawer={props.openTimerDrawer}
+									/>
 								) : null}
 								<ActionIcon
 									variant="transparent"
@@ -1569,7 +1596,9 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const DisplayLastExerciseSetRestTimer = () => {
+const DisplayExerciseSetRestTimer = (props: {
+	openTimerDrawer: () => void;
+}) => {
 	const [currentTimer] = useTimerAtom();
 	forceUpdateEverySecond();
 
@@ -1577,21 +1606,30 @@ const DisplayLastExerciseSetRestTimer = () => {
 
 	return (
 		<RingProgress
-			roundCaps
 			size={30}
+			roundCaps
 			thickness={2}
 			style={{ cursor: "pointer" }}
+			onClick={props.openTimerDrawer}
 			sections={[
 				{
 					value:
-						(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+						(dayjsLib(currentTimer.willEndAt).diff(
+							dayjsLib(currentTimer.wasPausedAt),
+							"seconds",
+						) *
+							100) /
 						currentTimer.totalTime,
 					color: "blue",
 				},
 			]}
 			label={
 				<Text ta="center" size="xs">
-					{Math.ceil(dayjsLib(currentTimer.endAt).diff(dayjsLib()) / 1000)}
+					{Math.floor(
+						dayjsLib(currentTimer.willEndAt).diff(
+							dayjsLib(currentTimer.wasPausedAt),
+						) / 1000,
+					)}
 				</Text>
 			}
 		/>
@@ -1639,6 +1677,32 @@ const getNextSetInWorkout = (
 		setIdx: currentSetIdx + 1,
 		wasLastSet: false,
 	};
+};
+
+const tasksAfterSetConfirmed = (
+	setIdx: number,
+	exerciseIdx: number,
+	draft: Draft<InProgressWorkout>,
+	currentExercise: Draft<Exercise>,
+	exerciseDetails: ExerciseDetails,
+	userExerciseDetails: UserExerciseDetails,
+	userPreferences: ReturnType<typeof useUserPreferences>,
+) => {
+	const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
+	focusOnExercise(nextSet.exerciseIdx);
+	if (nextSet.wasLastSet) {
+		currentExercise.isCollapsed = true;
+		currentExercise.isShowDetailsOpen = false;
+		const nextExercise = draft.exercises[nextSet.exerciseIdx];
+		const nextExerciseHasDetailsToShow =
+			nextExercise &&
+			exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+		if (nextExerciseHasDetailsToShow) {
+			nextExercise.isCollapsed = false;
+			if (userPreferences.fitness.logging.showDetailsWhileEditing)
+				nextExercise.isShowDetailsOpen = true;
+		}
+	}
 };
 
 const SetDisplay = (props: {
@@ -1694,6 +1758,8 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdx === props.setIdx;
 
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
+
+	invariant(exerciseDetails && userExerciseDetails);
 
 	return (
 		<>
@@ -2025,32 +2091,15 @@ const SetDisplay = (props: {
 													newConfirmed ? dayjsLib().toISOString() : null;
 												currentExercise.scrollMarginRemoved = true;
 												if (newConfirmed) {
-													const nextSet = getNextSetInWorkout(
-														draft,
-														props.exerciseIdx,
+													tasksAfterSetConfirmed(
 														props.setIdx,
+														props.exerciseIdx,
+														draft,
+														currentExercise,
+														exerciseDetails,
+														userExerciseDetails,
+														userPreferences,
 													);
-													focusOnExercise(nextSet.exerciseIdx);
-													if (nextSet.wasLastSet) {
-														currentExercise.isCollapsed = true;
-														currentExercise.isShowDetailsOpen = false;
-														const nextExercise =
-															draft.exercises[nextSet.exerciseIdx];
-														const nextExerciseHasDetailsToShow =
-															nextExercise &&
-															exerciseHasDetailsToShow(
-																exerciseDetails,
-																userExerciseDetails,
-															);
-														if (nextExerciseHasDetailsToShow) {
-															nextExercise.isCollapsed = false;
-															if (
-																userPreferences.fitness.logging
-																	.showDetailsWhileEditing
-															)
-																nextExercise.isShowDetailsOpen = true;
-														}
-													}
 												}
 											}),
 										);
@@ -2173,7 +2222,8 @@ const DisplaySetRestTimer = (props: {
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}
 			value={
-				(dayjsLib(props.currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
+					100) /
 				props.currentTimer.totalTime
 			}
 		/>
@@ -2193,10 +2243,12 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
+	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	forceUpdateEverySecond();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
+
+	forceUpdateEverySecond();
 
 	return (
 		<Drawer
@@ -2210,40 +2262,14 @@ const TimerDrawer = (props: {
 			<Stack align="center">
 				{currentTimer ? (
 					<>
-						<RingProgress
-							roundCaps
-							size={300}
-							thickness={8}
-							sections={[
-								{
-									value:
-										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
-											100) /
-										currentTimer.totalTime,
-									color: "orange",
-								},
-							]}
-							label={
-								<>
-									<Text ta="center" fz={64}>
-										{formatTimerDuration(
-											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
-										)}
-									</Text>
-									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{formatTimerDuration(currentTimer.totalTime * 1000)}
-									</Text>
-								</>
-							}
-						/>
-						<Button.Group>
+						<Group gap="xl">
 							<Button
 								color="orange"
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.subtract(30, "seconds")
 													.toISOString();
 												draft.totalTime -= 30;
@@ -2254,18 +2280,23 @@ const TimerDrawer = (props: {
 								size="compact-lg"
 								variant="outline"
 								disabled={
-									dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") <= 30
+									dayjsLib(currentTimer.willEndAt).diff(
+										dayjsLib(currentTimer.wasPausedAt),
+										"seconds",
+									) <= 30
 								}
 							>
 								-30 sec
 							</Button>
 							<Button
 								color="orange"
+								size="compact-lg"
+								variant="outline"
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.add(30, "seconds")
 													.toISOString();
 												draft.totalTime += 30;
@@ -2273,52 +2304,94 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-lg"
-								variant="outline"
 							>
 								+30 sec
 							</Button>
+						</Group>
+						<RingProgress
+							roundCaps
+							size={300}
+							thickness={8}
+							sections={[
+								{
+									color: "orange",
+									value:
+										(dayjsLib(currentTimer.willEndAt).diff(
+											dayjsLib(currentTimer.wasPausedAt),
+											"seconds",
+										) *
+											100) /
+										currentTimer.totalTime,
+								},
+							]}
+							label={
+								<>
+									<Text ta="center" fz={64}>
+										{formatTimerDuration(
+											dayjsLib(currentTimer.willEndAt).diff(
+												dayjsLib(currentTimer.wasPausedAt),
+											),
+										)}
+									</Text>
+									<Text ta="center" c="dimmed" fz="lg" mt="-md">
+										{formatTimerDuration(currentTimer.totalTime * 1000)}
+									</Text>
+								</>
+							}
+						/>
+						<Group gap="xl">
 							<Button
 								color="orange"
+								variant="outline"
+								size="compact-lg"
+								onClick={() => {
+									props.pauseOrResumeTimer();
+								}}
+							>
+								{currentTimer.wasPausedAt ? "Resume" : "Pause"}
+							</Button>
+							<Button
+								color="orange"
+								variant="outline"
+								size="compact-lg"
 								onClick={() => {
 									props.onClose();
 									props.stopTimer();
 								}}
-								size="compact-lg"
 							>
 								Skip
 							</Button>
-						</Button.Group>
+						</Group>
 					</>
 				) : (
 					<>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(180)}
 						>
 							3 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(300)}
 						>
 							5 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(480)}
 						>
 							8 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
