@@ -87,8 +87,8 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
-										disabled={isEditDisabled}
 										{...btnProps}
+										disabled={isEditDisabled}
 										value={BackgroundJob.UpdateAllExercises}
 									>
 										Update exercises
@@ -173,7 +173,8 @@ export default function Page() {
 }
 
 const btnProps = {
+	mt: "auto",
+	name: "jobName",
 	variant: "light",
 	type: "submit" as const,
-	name: "jobName",
 };
