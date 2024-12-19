@@ -69,6 +69,7 @@ pub async fn import(
 ) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let data = serde_json::from_str::<AnilistExport>(&export)?;
+    dbg!(&data);
     let user_lists = data.user.custom_lists;
     let mut completed = vec![];
     let anime_custom_lists = user_lists
@@ -126,7 +127,7 @@ pub async fn import(
                 _ => unreachable!(),
             }
         }
-        if !db_item.seen_history.is_empty() && !db_item.collections.is_empty() {
+        if !db_item.seen_history.is_empty() || !db_item.collections.is_empty() {
             completed.push(ImportCompletedItem::Metadata(db_item));
         }
     }
