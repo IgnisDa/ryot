@@ -59,10 +59,15 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { queryClient, queryFactory } from "~/lib/generals";
+import {
+	PRO_REQUIRED_MESSAGE,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useComplexJsonUpdate,
 	useConfirmSubmit,
+	useCoreDetails,
 	useDashboardLayoutData,
 	useIsFitnessActionActive,
 	useUserPreferences,
@@ -127,6 +132,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -594,35 +600,55 @@ export default function Page() {
 									"promptForRestTimer",
 									"showDetailsWhileEditing",
 								] as const
-							).map((option) => (
-								<Switch
-									size="xs"
-									key={option}
-									disabled={!!isEditDisabled}
-									defaultChecked={userPreferences.fitness.logging[option]}
-									onChange={(ev) => {
-										appendPref(
-											`fitness.logging.${snakeCase(option)}`,
-											String(ev.currentTarget.checked),
-										);
-									}}
-									label={match(option)
-										.with(
-											"muteSounds",
-											() => "Mute sounds while logging workouts",
-										)
-										.with(
-											"promptForRestTimer",
-											() => "Prompt for rest timer when confirming sets",
-										)
-										.with(
-											"showDetailsWhileEditing",
-											() =>
+							).map((option) => {
+								const [label, isGatedBehindServerKeyValidation] = match(option)
+									.with(
+										"muteSounds",
+										() => ["Mute sounds while logging workouts"] as const,
+									)
+									.with(
+										"promptForRestTimer",
+										() =>
+											[
+												"Prompt for rest timer when confirming sets",
+												true,
+											] as const,
+									)
+									.with(
+										"showDetailsWhileEditing",
+										() =>
+											[
 												"Show details and history while editing workouts/templates",
-										)
-										.exhaustive()}
-								/>
-							))}
+											] as const,
+									)
+									.exhaustive();
+
+								return (
+									<Switch
+										size="xs"
+										key={option}
+										label={label}
+										disabled={!!isEditDisabled}
+										defaultChecked={userPreferences.fitness.logging[option]}
+										onChange={(ev) => {
+											if (
+												isGatedBehindServerKeyValidation &&
+												!coreDetails.isServerKeyValidated
+											) {
+												notifications.show({
+													color: "red",
+													message: PRO_REQUIRED_MESSAGE,
+												});
+												return;
+											}
+											appendPref(
+												`fitness.logging.${snakeCase(option)}`,
+												String(ev.currentTarget.checked),
+											);
+										}}
+									/>
+								);
+							})}
 							<Divider />
 							<Input.Wrapper label="The default measurements you want to keep track of">
 								<SimpleGrid cols={2} mt="xs">
