@@ -1,9 +1,9 @@
+import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	Accordion,
 	Anchor,
 	Box,
 	Button,
-	Code,
 	Container,
 	Divider,
 	FileInput,
@@ -468,13 +468,16 @@ export default function Page() {
 																	</Text>
 																</Box>
 																{report.details.failedItems.length > 0 ? (
-																	<Code mah={400} block>
-																		{JSON.stringify(
+																	<CodeHighlight
+																		mah={400}
+																		language="json"
+																		style={{ overflow: "scroll" }}
+																		code={JSON.stringify(
 																			report.details.failedItems,
 																			null,
-																			4,
+																			2,
 																		)}
-																	</Code>
+																	/>
 																) : null}
 															</Stack>
 														) : (
