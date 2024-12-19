@@ -588,33 +588,41 @@ export default function Page() {
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Divider />
-							{(["muteSounds", "showDetailsWhileEditing"] as const).map(
-								(option) => (
-									<Switch
-										key={option}
-										label={match(option)
-											.with(
-												"muteSounds",
-												() => "Mute sounds while logging workouts",
-											)
-											.with(
-												"showDetailsWhileEditing",
-												() =>
-													"Show details and history while editing workouts/templates",
-											)
-											.exhaustive()}
-										size="xs"
-										disabled={!!isEditDisabled}
-										defaultChecked={userPreferences.fitness.logging[option]}
-										onChange={(ev) => {
-											appendPref(
-												`fitness.logging.${snakeCase(option)}`,
-												String(ev.currentTarget.checked),
-											);
-										}}
-									/>
-								),
-							)}
+							{(
+								[
+									"muteSounds",
+									"promptForRestTimer",
+									"showDetailsWhileEditing",
+								] as const
+							).map((option) => (
+								<Switch
+									size="xs"
+									key={option}
+									disabled={!!isEditDisabled}
+									defaultChecked={userPreferences.fitness.logging[option]}
+									onChange={(ev) => {
+										appendPref(
+											`fitness.logging.${snakeCase(option)}`,
+											String(ev.currentTarget.checked),
+										);
+									}}
+									label={match(option)
+										.with(
+											"muteSounds",
+											() => "Mute sounds while logging workouts",
+										)
+										.with(
+											"promptForRestTimer",
+											() => "Prompt for rest timer when confirming sets",
+										)
+										.with(
+											"showDetailsWhileEditing",
+											() =>
+												"Show details and history while editing workouts/templates",
+										)
+										.exhaustive()}
+								/>
+							))}
 							<Divider />
 							<Input.Wrapper label="The default measurements you want to keep track of">
 								<SimpleGrid cols={2} mt="xs">
