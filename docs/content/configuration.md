@@ -17,6 +17,11 @@ Ryot serves the final configuration loaded at the `/backend/config` endpoint as 
 | `VIDEO_GAMES_TWITCH_CLIENT_ID`     | The client ID issued by Twitch. **Required** to enable video games tracking. [More information](guides/video-games.md) |
 | `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | The client secret issued by Twitch. **Required** to enable video games tracking.                                       |
 
+## Delete all cache
+
+Configuration is cached in database. If you need to clear it, login as the admin user and
+go to the "Miscellaneous" settings and deploy the job to "Delete all cache".
+
 ## Health endpoint
 
 The `/health` endpoint can be used for checking service healthiness. More information
