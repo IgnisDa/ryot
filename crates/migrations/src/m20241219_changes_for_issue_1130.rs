@@ -16,6 +16,23 @@ impl MigrationTrait for Migration {
             )
             .await?;
         }
+        db.execute_unprepared(
+            r#"
+UPDATE
+  "user"
+SET
+  preferences = JSONB_SET(
+    preferences,
+    '{notifications,to_send}',
+    (preferences -> 'notifications' -> 'to_send') || '"NewWorkoutCreated"'
+  )
+where
+  NOT (
+    preferences -> 'notifications' -> 'to_send' ? 'NewWorkoutCreated'
+  );
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
