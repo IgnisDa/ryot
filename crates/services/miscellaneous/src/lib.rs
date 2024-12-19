@@ -2602,7 +2602,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
-    pub async fn delete_all_application_caches(&self) -> Result<()> {
+    pub async fn delete_all_application_cache(&self) -> Result<()> {
         ApplicationCache::delete_many().exec(&self.0.db).await?;
         Ok(())
     }

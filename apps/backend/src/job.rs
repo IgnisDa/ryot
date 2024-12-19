@@ -88,7 +88,7 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
         ApplicationJob::DeleteAllApplicationCache => {
-            misc_service.delete_all_application_caches().await.is_ok()
+            misc_service.delete_all_application_cache().await.is_ok()
         }
         ApplicationJob::RecalculateUserActivitiesAndSummary(user_id, calculate_from_beginning) => {
             statistics_service
