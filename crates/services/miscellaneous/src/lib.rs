@@ -13,9 +13,9 @@ use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput, MetadataSearchInput,
-    PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl,
-    StringIdObject, UserLevelCacheKey,
+    IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
+    ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
@@ -2508,7 +2508,7 @@ ORDER BY RANDOM() LIMIT 10;
                 };
                 (
                     meta.id.to_string(),
-                    (notification, MediaStateChanged::MetadataPublished),
+                    (notification, UserNotificationContent::MetadataPublished),
                 )
             })
             .collect_vec();
@@ -2523,7 +2523,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn update_person(&self, person_id: String) -> Result<Vec<(String, MediaStateChanged)>> {
+    async fn update_person(
+        &self,
+        person_id: String,
+    ) -> Result<Vec<(String, UserNotificationContent)>> {
         let mut notifications = vec![];
         let person = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
@@ -2592,7 +2595,7 @@ ORDER BY RANDOM() LIMIT 10;
                         "{} has been associated with {} as {}",
                         person.name, title, data.role
                     ),
-                    MediaStateChanged::PersonMediaAssociated,
+                    UserNotificationContent::PersonMediaAssociated,
                 ));
                 default_state_changes.media_associated.insert(search_for);
             }
@@ -2661,7 +2664,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(user::Column::Id.is_in(monitored_by))
             .filter(Expr::cust(format!(
                 "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
-                MediaStateChanged::ReviewPosted
+                UserNotificationContent::ReviewPosted
             )))
             .into_tuple::<String>()
             .all(&self.0.db)

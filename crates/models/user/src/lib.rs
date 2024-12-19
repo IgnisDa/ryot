@@ -1,5 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::MediaStateChanged;
+use common_models::UserNotificationContent;
 use educe::Educe;
 use enums::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
@@ -24,8 +24,8 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
 )]
 #[educe(Default)]
 pub struct UserNotificationsPreferences {
-    #[educe(Default(expression = MediaStateChanged::iter().collect()))]
-    pub to_send: Vec<MediaStateChanged>,
+    #[educe(Default(expression = UserNotificationContent::iter().collect()))]
+    pub to_send: Vec<UserNotificationContent>,
     #[educe(Default = true)]
     pub enabled: bool,
 }

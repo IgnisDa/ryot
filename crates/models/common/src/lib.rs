@@ -183,17 +183,17 @@ pub struct ChangeCollectionToEntityInput {
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-pub enum MediaStateChanged {
+pub enum UserNotificationContent {
+    ReviewPosted,
     MetadataPublished,
     MetadataStatusChanged,
-    MetadataReleaseDateChanged,
-    MetadataNumberOfSeasonsChanged,
-    MetadataEpisodeReleased,
-    MetadataEpisodeNameChanged,
-    MetadataChaptersOrEpisodesChanged,
-    MetadataEpisodeImagesChanged,
     PersonMediaAssociated,
-    ReviewPosted,
+    MetadataEpisodeReleased,
+    MetadataReleaseDateChanged,
+    MetadataEpisodeNameChanged,
+    MetadataEpisodeImagesChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataChaptersOrEpisodesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
