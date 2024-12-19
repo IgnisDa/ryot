@@ -139,7 +139,6 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     SyncIntegrationsData,
     PerformBackgroundTasks,
-    RecalculateCalendarEvents,
     CalculateUserActivitiesAndSummary,
 }
 
