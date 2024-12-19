@@ -69,7 +69,6 @@ pub async fn import(
 ) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let data = serde_json::from_str::<AnilistExport>(&export)?;
-    dbg!(&data);
     let user_lists = data.user.custom_lists;
     let mut completed = vec![];
     let anime_custom_lists = user_lists
