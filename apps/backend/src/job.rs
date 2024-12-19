@@ -24,6 +24,7 @@ pub async fn run_background_jobs(
 pub async fn run_frequent_jobs(
     _information: ScheduledJob,
     fitness_service: Data<Arc<FitnessService>>,
+    misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
     integration_service
@@ -32,6 +33,10 @@ pub async fn run_frequent_jobs(
         .trace_ok();
     fitness_service
         .process_users_scheduled_for_workout_revision()
+        .await
+        .trace_ok();
+    misc_service
+        .send_pending_immediate_notifications()
         .await
         .trace_ok();
     Ok(())

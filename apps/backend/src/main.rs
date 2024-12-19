@@ -186,6 +186,7 @@ async fn main() -> Result<()> {
     let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
     let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_4 = app_services.miscellaneous_service.clone();
 
     let monitor = Monitor::new()
         .register(
@@ -201,6 +202,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
+                .data(miscellaneous_service_4.clone())
                 .data(integration_service_1.clone())
                 .data(fitness_service_2.clone())
                 .backend(CronStream::new_with_timezone(

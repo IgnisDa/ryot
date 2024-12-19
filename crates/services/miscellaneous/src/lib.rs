@@ -2889,7 +2889,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn send_pending_notifications(&self) -> Result<()> {
+    async fn send_pending_queued_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
@@ -2909,6 +2909,11 @@ ORDER BY RANDOM() LIMIT 10;
                 .join("\n");
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .filter(
+                    user_notification::Column::IsAddressed
+                        .eq(false)
+                        .or(user_notification::Column::IsAddressed.is_null()),
+                )
                 .all(&self.0.db)
                 .await?;
             for notification in platforms {
@@ -2925,6 +2930,56 @@ ORDER BY RANDOM() LIMIT 10;
                     send_notification(notification.platform_specifics, &self.0.config, &msg).await
                 {
                     ryot_log!(trace, "Error sending notification: {:?}", err);
+                }
+            }
+            UserNotification::update_many()
+                .filter(user_notification::Column::Id.is_in(notification_ids))
+                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+                .exec(&self.0.db)
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn send_pending_immediate_notifications(&self) -> Result<()> {
+        let users = User::find().all(&self.0.db).await?;
+        for user_details in users {
+            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
+            let notifications = UserNotification::find()
+                .filter(user_notification::Column::UserId.eq(&user_details.id))
+                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Immediate))
+                .filter(
+                    user_notification::Column::IsAddressed
+                        .eq(false)
+                        .or(user_notification::Column::IsAddressed.is_null()),
+                )
+                .all(&self.0.db)
+                .await?;
+            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
+            let platforms = NotificationPlatform::find()
+                .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .all(&self.0.db)
+                .await?;
+            for notification in notifications {
+                for platform in platforms.iter() {
+                    if platform.is_disabled.unwrap_or_default() {
+                        ryot_log!(
+                        debug,
+                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
+                        user_details.id,
+                        platform.lot
+                    );
+                        continue;
+                    }
+                    if let Err(err) = send_notification(
+                        platform.platform_specifics.to_owned(),
+                        &self.0.config,
+                        &notification.message,
+                    )
+                    .await
+                    {
+                        ryot_log!(trace, "Error sending notification: {:?}", err);
+                    }
                 }
             }
             UserNotification::update_many()
@@ -2969,7 +3024,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .trace_ok();
         ryot_log!(trace, "Sending all pending notifications");
-        self.send_pending_notifications().await.trace_ok();
+        self.send_pending_queued_notifications().await.trace_ok();
         ryot_log!(trace, "Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association()
             .await
