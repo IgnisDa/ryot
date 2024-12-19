@@ -1142,6 +1142,15 @@ const UploadAssetsModal = (props: {
 	);
 };
 
+const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
+	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
+	return isCompleted
+		? ("complete" as const)
+		: cw.exercises[index].sets.some((s) => s.confirmedAt)
+			? ("in-progress" as const)
+			: ("not-started" as const);
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
@@ -2408,15 +2417,6 @@ const TimerDrawer = (props: {
 			</Stack>
 		</Drawer>
 	);
-};
-
-const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
-	return isCompleted
-		? ("complete" as const)
-		: cw.exercises[index].sets.some((s) => s.confirmedAt)
-			? ("in-progress" as const)
-			: ("not-started" as const);
 };
 
 const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
