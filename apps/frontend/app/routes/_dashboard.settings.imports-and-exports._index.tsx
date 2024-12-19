@@ -458,15 +458,16 @@ export default function Page() {
 													>
 														{report.details ? (
 															<Stack>
-																<Box>
-																	<Text>
-																		Total imported:{" "}
-																		{report.details.import.total}
+																<Text>
+																	<Text span fw="bold" mr={4}>
+																		Total imported:
 																	</Text>
-																	<Text>
-																		Failed: {report.details.failedItems.length}
+																	{report.details.import.total},
+																	<Text span fw="bold" ml="md" mr={4}>
+																		Failed:
 																	</Text>
-																</Box>
+																	{report.details.failedItems.length}
+																</Text>
 																{report.details.failedItems.length > 0 ? (
 																	<CodeHighlight
 																		mah={400}
