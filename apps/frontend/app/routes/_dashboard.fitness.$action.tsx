@@ -88,7 +88,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
-import { produce } from "immer";
+import { type Draft, produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -130,6 +130,7 @@ import {
 } from "~/lib/hooks";
 import {
 	type CurrentWorkoutTimer,
+	type Exercise,
 	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
@@ -168,6 +169,9 @@ const deleteUploadedAsset = (key: string) => {
 		body: formData,
 	});
 };
+
+type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
+type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -975,8 +979,8 @@ const focusOnExercise = (idx: number) => {
 };
 
 const exerciseHasDetailsToShow = (
-	details?: ExerciseDetailsQuery["exerciseDetails"],
-	userDetails?: UserExerciseDetailsQuery["userExerciseDetails"],
+	details?: ExerciseDetails,
+	userDetails?: UserExerciseDetails,
 ) =>
 	(details?.attributes.images.length || 0) > 0 ||
 	(userDetails?.history?.length || 0) > 0;
@@ -1675,6 +1679,32 @@ const getNextSetInWorkout = (
 	};
 };
 
+const tasksAfterSetConfirmed = (
+	setIdx: number,
+	exerciseIdx: number,
+	draft: Draft<InProgressWorkout>,
+	currentExercise: Draft<Exercise>,
+	exerciseDetails: ExerciseDetails,
+	userExerciseDetails: UserExerciseDetails,
+	userPreferences: ReturnType<typeof useUserPreferences>,
+) => {
+	const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
+	focusOnExercise(nextSet.exerciseIdx);
+	if (nextSet.wasLastSet) {
+		currentExercise.isCollapsed = true;
+		currentExercise.isShowDetailsOpen = false;
+		const nextExercise = draft.exercises[nextSet.exerciseIdx];
+		const nextExerciseHasDetailsToShow =
+			nextExercise &&
+			exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+		if (nextExerciseHasDetailsToShow) {
+			nextExercise.isCollapsed = false;
+			if (userPreferences.fitness.logging.showDetailsWhileEditing)
+				nextExercise.isShowDetailsOpen = true;
+		}
+	}
+};
+
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -1728,6 +1758,8 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdx === props.setIdx;
 
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
+
+	invariant(exerciseDetails && userExerciseDetails);
 
 	return (
 		<>
@@ -2059,32 +2091,15 @@ const SetDisplay = (props: {
 													newConfirmed ? dayjsLib().toISOString() : null;
 												currentExercise.scrollMarginRemoved = true;
 												if (newConfirmed) {
-													const nextSet = getNextSetInWorkout(
-														draft,
-														props.exerciseIdx,
+													tasksAfterSetConfirmed(
 														props.setIdx,
+														props.exerciseIdx,
+														draft,
+														currentExercise,
+														exerciseDetails,
+														userExerciseDetails,
+														userPreferences,
 													);
-													focusOnExercise(nextSet.exerciseIdx);
-													if (nextSet.wasLastSet) {
-														currentExercise.isCollapsed = true;
-														currentExercise.isShowDetailsOpen = false;
-														const nextExercise =
-															draft.exercises[nextSet.exerciseIdx];
-														const nextExerciseHasDetailsToShow =
-															nextExercise &&
-															exerciseHasDetailsToShow(
-																exerciseDetails,
-																userExerciseDetails,
-															);
-														if (nextExerciseHasDetailsToShow) {
-															nextExercise.isCollapsed = false;
-															if (
-																userPreferences.fitness.logging
-																	.showDetailsWhileEditing
-															)
-																nextExercise.isShowDetailsOpen = true;
-														}
-													}
 												}
 											}),
 										);
