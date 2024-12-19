@@ -247,6 +247,8 @@ export default function Page() {
 		});
 	};
 
+	const pauseTimer = () => {};
+
 	const stopTimer = () => {
 		const triggeredBy = currentTimer?.triggeredBy;
 		if (currentWorkout && triggeredBy) {
@@ -274,10 +276,11 @@ export default function Page() {
 								closeModal={() => setAssetsModalOpened(undefined)}
 							/>
 							<TimerDrawer
+								stopTimer={stopTimer}
+								startTimer={startTimer}
+								pauseTimer={pauseTimer}
 								opened={timerDrawerOpened}
 								onClose={timerDrawerClose}
-								startTimer={startTimer}
-								stopTimer={stopTimer}
 							/>
 							<ReorderDrawer
 								opened={reorderDrawerOpened}
@@ -2193,6 +2196,7 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
+	pauseTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
 	forceUpdateEverySecond();
@@ -2285,7 +2289,7 @@ const TimerDrawer = (props: {
 								variant="outline"
 								onClick={() => {
 									props.onClose();
-									props.stopTimer();
+									props.pauseTimer();
 								}}
 								size="compact-lg"
 							>
