@@ -491,6 +491,10 @@ export default function Page() {
 												UserNotificationContent.PersonMediaAssociated,
 												() => "New media is associated with a person",
 											)
+											.with(
+												UserNotificationContent.NewWorkoutCreated,
+												() => "A new workout is created",
+											)
 											.exhaustive()}
 										defaultChecked={userPreferences.notifications.toSend.includes(
 											name,
