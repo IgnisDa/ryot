@@ -112,6 +112,23 @@ export default function Page() {
 										Perform background tasks
 									</Button>
 								</Stack>
+								<Stack>
+									<Box>
+										<Title order={4}>Delete all cache</Title>
+										<Text>
+											Delete all application caches. Use this if you updated a
+											critical configuration parameter and can not see the
+											changes reflected in the UI.
+										</Text>
+									</Box>
+									<Button
+										disabled={isEditDisabled}
+										{...btnProps}
+										value={BackgroundJob.DeleteAllApplicationCache}
+									>
+										Delete all cache
+									</Button>
+								</Stack>
 							</>
 						) : null}
 						<Stack>
@@ -163,23 +180,6 @@ export default function Page() {
 								value={BackgroundJob.SyncIntegrationsData}
 							>
 								Synchronize
-							</Button>
-						</Stack>
-						<Stack>
-							<Box>
-								<Title order={4}>Delete all cache</Title>
-								<Text>
-									Delete all application cache. Use this if you updated a
-									critical configuration parameter and you can not see the
-									changes reflected in the UI.
-								</Text>
-							</Box>
-							<Button
-								disabled={isEditDisabled}
-								{...btnProps}
-								value={BackgroundJob.DeleteAllApplicationCache}
-							>
-								Delete all cache
 							</Button>
 						</Stack>
 					</SimpleGrid>
