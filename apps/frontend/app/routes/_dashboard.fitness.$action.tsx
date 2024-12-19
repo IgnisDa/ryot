@@ -203,9 +203,9 @@ export default function Page() {
 	const [
 		timerDrawerOpened,
 		{
-			close: timerDrawerClose,
-			toggle: timerDrawerToggle,
-			open: timerDrawerOpen,
+			open: openTimerDrawer,
+			close: closeTimerDrawer,
+			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
@@ -231,7 +231,7 @@ export default function Page() {
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => timerDrawerClose(), 500);
+				setTimeout(() => closeTimerDrawer(), 500);
 			}
 		}
 	}, 1000);
@@ -294,7 +294,7 @@ export default function Page() {
 								stopTimer={stopTimer}
 								startTimer={startTimer}
 								opened={timerDrawerOpened}
-								onClose={timerDrawerClose}
+								onClose={closeTimerDrawer}
 								pauseOrResumeTimer={pauseOrResumeTimer}
 							/>
 							<ReorderDrawer
@@ -370,7 +370,7 @@ export default function Page() {
 										color="orange"
 										variant="subtle"
 										size="compact-sm"
-										onClick={timerDrawerToggle}
+										onClick={toggleTimerDrawer}
 										style={
 											loaderData.isCreatingTemplate ||
 											loaderData.isUpdatingWorkout
@@ -521,7 +521,7 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
-										openTimerDrawer={timerDrawerOpen}
+										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={reorderDrawerToggle}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
@@ -653,7 +653,11 @@ const RestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? formatTimerDuration(dayjsLib(currentTimer.willEndAt).diff(dayjsLib()))
+		? formatTimerDuration(
+				dayjsLib(currentTimer.willEndAt).diff(
+					dayjsLib(currentTimer.wasPausedAt),
+				),
+			)
 		: "Timer";
 };
 
@@ -1615,7 +1619,11 @@ const DisplayLastExerciseSetRestTimer = (props: {
 			]}
 			label={
 				<Text ta="center" size="xs">
-					{Math.ceil(dayjsLib(currentTimer.willEndAt).diff(dayjsLib()) / 1000)}
+					{Math.floor(
+						dayjsLib(currentTimer.willEndAt).diff(
+							dayjsLib(currentTimer.wasPausedAt),
+						) / 1000,
+					)}
 				</Text>
 			}
 		/>
@@ -2256,7 +2264,7 @@ const TimerDrawer = (props: {
 								variant="outline"
 								disabled={
 									dayjsLib(currentTimer.willEndAt).diff(
-										dayjsLib(),
+										dayjsLib(currentTimer.wasPausedAt),
 										"seconds",
 									) <= 30
 								}
@@ -2265,6 +2273,8 @@ const TimerDrawer = (props: {
 							</Button>
 							<Button
 								color="orange"
+								size="compact-lg"
+								variant="outline"
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
@@ -2277,8 +2287,6 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-lg"
-								variant="outline"
 							>
 								+30 sec
 							</Button>
@@ -2289,21 +2297,23 @@ const TimerDrawer = (props: {
 							thickness={8}
 							sections={[
 								{
+									color: "orange",
 									value:
 										(dayjsLib(currentTimer.willEndAt).diff(
-											dayjsLib(),
+											dayjsLib(currentTimer.wasPausedAt),
 											"seconds",
 										) *
 											100) /
 										currentTimer.totalTime,
-									color: "orange",
 								},
 							]}
 							label={
 								<>
 									<Text ta="center" fz={64}>
 										{formatTimerDuration(
-											dayjsLib(currentTimer.willEndAt).diff(dayjsLib()),
+											dayjsLib(currentTimer.willEndAt).diff(
+												dayjsLib(currentTimer.wasPausedAt),
+											),
 										)}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
@@ -2339,32 +2349,32 @@ const TimerDrawer = (props: {
 				) : (
 					<>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(180)}
 						>
 							3 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(300)}
 						>
 							5 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(480)}
 						>
 							8 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
