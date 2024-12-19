@@ -32,6 +32,7 @@ query UserDetails {
 				fitness {
 					logging {
 						muteSounds
+						promptForRestTimer
 						showDetailsWhileEditing
 					}
 					exercises {
