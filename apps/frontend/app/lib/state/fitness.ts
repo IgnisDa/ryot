@@ -249,8 +249,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 };
 
 export type CurrentWorkoutTimer = {
-	endAt: string;
+	willEndAt: string;
 	totalTime: number;
+	wasPausedAt?: string;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 

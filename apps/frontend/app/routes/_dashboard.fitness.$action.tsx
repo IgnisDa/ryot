@@ -222,11 +222,11 @@ export default function Page() {
 	>(undefined);
 
 	useInterval(() => {
-		const timeRemaining = dayjsLib(currentTimer?.endAt).diff(
+		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
 			dayjsLib(),
 			"second",
 		);
-		if (timeRemaining && timeRemaining <= 3) {
+		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
@@ -243,11 +243,26 @@ export default function Page() {
 		setCurrentTimer({
 			triggeredBy,
 			totalTime: duration,
-			endAt: dayjsLib().add(duration, "second").toISOString(),
+			willEndAt: dayjsLib().add(duration, "second").toISOString(),
 		});
 	};
 
-	const pauseTimer = () => {};
+	const pauseOrResumeTimer = () => {
+		if (currentTimer)
+			setCurrentTimer(
+				produce(currentTimer, (draft) => {
+					draft.willEndAt = dayjsLib(draft.willEndAt)
+						.add(
+							dayjsLib().diff(dayjsLib(draft.wasPausedAt), "second"),
+							"second",
+						)
+						.toISOString();
+					draft.wasPausedAt = draft.wasPausedAt
+						? undefined
+						: dayjsLib().toISOString();
+				}),
+			);
+	};
 
 	const stopTimer = () => {
 		const triggeredBy = currentTimer?.triggeredBy;
@@ -278,9 +293,9 @@ export default function Page() {
 							<TimerDrawer
 								stopTimer={stopTimer}
 								startTimer={startTimer}
-								pauseTimer={pauseTimer}
 								opened={timerDrawerOpened}
 								onClose={timerDrawerClose}
+								pauseOrResumeTimer={pauseOrResumeTimer}
 							/>
 							<ReorderDrawer
 								opened={reorderDrawerOpened}
@@ -638,7 +653,7 @@ const RestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? formatTimerDuration(dayjsLib(currentTimer.endAt).diff(dayjsLib()))
+		? formatTimerDuration(dayjsLib(currentTimer.willEndAt).diff(dayjsLib()))
 		: "Timer";
 };
 
@@ -1213,7 +1228,9 @@ const ExerciseDisplay = (props: {
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
-									<DisplayLastExerciseSetRestTimer />
+									<DisplayLastExerciseSetRestTimer
+										openTimerDrawer={props.openTimerDrawer}
+									/>
 								) : null}
 								<ActionIcon
 									variant="transparent"
@@ -1572,7 +1589,9 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const DisplayLastExerciseSetRestTimer = () => {
+const DisplayLastExerciseSetRestTimer = (props: {
+	openTimerDrawer: () => void;
+}) => {
 	const [currentTimer] = useTimerAtom();
 	forceUpdateEverySecond();
 
@@ -1580,21 +1599,23 @@ const DisplayLastExerciseSetRestTimer = () => {
 
 	return (
 		<RingProgress
-			roundCaps
 			size={30}
+			roundCaps
 			thickness={2}
 			style={{ cursor: "pointer" }}
+			onClick={props.openTimerDrawer}
 			sections={[
 				{
 					value:
-						(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+						(dayjsLib(currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
+							100) /
 						currentTimer.totalTime,
 					color: "blue",
 				},
 			]}
 			label={
 				<Text ta="center" size="xs">
-					{Math.ceil(dayjsLib(currentTimer.endAt).diff(dayjsLib()) / 1000)}
+					{Math.ceil(dayjsLib(currentTimer.willEndAt).diff(dayjsLib()) / 1000)}
 				</Text>
 			}
 		/>
@@ -2176,7 +2197,8 @@ const DisplaySetRestTimer = (props: {
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}
 			value={
-				(dayjsLib(props.currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
+					100) /
 				props.currentTimer.totalTime
 			}
 		/>
@@ -2196,11 +2218,12 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
-	pauseTimer: () => void;
+	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	forceUpdateEverySecond();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
+
+	forceUpdateEverySecond();
 
 	return (
 		<Drawer
@@ -2221,7 +2244,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.subtract(30, "seconds")
 													.toISOString();
 												draft.totalTime -= 30;
@@ -2232,7 +2255,10 @@ const TimerDrawer = (props: {
 								size="compact-lg"
 								variant="outline"
 								disabled={
-									dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") <= 30
+									dayjsLib(currentTimer.willEndAt).diff(
+										dayjsLib(),
+										"seconds",
+									) <= 30
 								}
 							>
 								-30 sec
@@ -2243,7 +2269,7 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.add(30, "seconds")
 													.toISOString();
 												draft.totalTime += 30;
@@ -2264,7 +2290,10 @@ const TimerDrawer = (props: {
 							sections={[
 								{
 									value:
-										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
+										(dayjsLib(currentTimer.willEndAt).diff(
+											dayjsLib(),
+											"seconds",
+										) *
 											100) /
 										currentTimer.totalTime,
 									color: "orange",
@@ -2274,7 +2303,7 @@ const TimerDrawer = (props: {
 								<>
 									<Text ta="center" fz={64}>
 										{formatTimerDuration(
-											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
+											dayjsLib(currentTimer.willEndAt).diff(dayjsLib()),
 										)}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
@@ -2287,21 +2316,21 @@ const TimerDrawer = (props: {
 							<Button
 								color="orange"
 								variant="outline"
-								onClick={() => {
-									props.onClose();
-									props.pauseTimer();
-								}}
 								size="compact-lg"
+								onClick={() => {
+									props.pauseOrResumeTimer();
+								}}
 							>
-								Pause
+								{currentTimer.wasPausedAt ? "Resume" : "Pause"}
 							</Button>
 							<Button
 								color="orange"
+								variant="outline"
+								size="compact-lg"
 								onClick={() => {
 									props.onClose();
 									props.stopTimer();
 								}}
-								size="compact-lg"
 							>
 								Skip
 							</Button>
