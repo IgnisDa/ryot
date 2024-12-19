@@ -697,15 +697,16 @@ pub async fn create_user_notification(
     Ok(true)
 }
 
-pub async fn queue_media_state_changed_notification_for_user(
+pub async fn create_notification_for_user(
     user_id: &String,
     notification: &(String, UserNotificationContent),
+    lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        create_user_notification(msg, user_id, &ss.db, UserNotificationLot::Queued)
+        create_user_notification(msg, user_id, &ss.db, lot)
             .await
             .trace_ok();
     } else {
@@ -749,9 +750,14 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for (user_id, cte_id) in users_to_notify.iter() {
-                queue_media_state_changed_notification_for_user(user_id, &notification, ss)
-                    .await
-                    .trace_ok();
+                create_notification_for_user(
+                    user_id,
+                    &notification,
+                    UserNotificationLot::Queued,
+                    ss,
+                )
+                .await
+                .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
