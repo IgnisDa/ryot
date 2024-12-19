@@ -1232,7 +1232,7 @@ const ExerciseDisplay = (props: {
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
-									<DisplayLastExerciseSetRestTimer
+									<DisplayExerciseSetRestTimer
 										openTimerDrawer={props.openTimerDrawer}
 									/>
 								) : null}
@@ -1593,7 +1593,7 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const DisplayLastExerciseSetRestTimer = (props: {
+const DisplayExerciseSetRestTimer = (props: {
 	openTimerDrawer: () => void;
 }) => {
 	const [currentTimer] = useTimerAtom();
