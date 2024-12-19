@@ -26,7 +26,6 @@ use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use unkey::{models::VerifyKeyRequest, Client};
 
 pub struct SupportingService {
@@ -90,7 +89,6 @@ impl SupportingService {
         }
         ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
         let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-        #[skip_serializing_none]
         #[derive(Debug, Serialize, Clone, Deserialize)]
         struct Meta {
             expiry: Option<NaiveDate>,
@@ -195,45 +193,21 @@ impl SupportingService {
                                 .collect(),
                             "us".to_owned(),
                         ),
-                        MediaSource::Openlibrary => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
                         MediaSource::Tmdb => (
                             isolang::languages()
                                 .filter_map(|l| l.to_639_1().map(String::from))
                                 .collect(),
                             "en".to_owned(),
                         ),
-                        MediaSource::Listennotes => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::GoogleBooks => (vec!["us".to_owned()], "us".to_owned()),
-                        MediaSource::Igdb => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::MangaUpdates => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Anilist => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Mal => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Custom => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Vndb => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
+                        MediaSource::GoogleBooks
+                        | MediaSource::Listennotes
+                        | MediaSource::Openlibrary
+                        | MediaSource::Igdb
+                        | MediaSource::MangaUpdates
+                        | MediaSource::Anilist
+                        | MediaSource::Mal
+                        | MediaSource::Custom
+                        | MediaSource::Vndb => (vec!["us".to_owned()], "us".to_owned()),
                     };
                     ProviderLanguageInformation {
                         source,

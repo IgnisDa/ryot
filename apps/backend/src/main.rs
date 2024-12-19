@@ -10,16 +10,18 @@ use std::{
 use anyhow::{bail, Result};
 use apalis::{
     layers::{limit::RateLimitLayer as ApalisRateLimitLayer, WorkerBuilderExt},
-    prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
+    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
+use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use futures::future::join_all;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
+use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
@@ -115,16 +117,6 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    join_all([
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::SyncIntegrationsData),
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::UpdateExerciseLibrary),
-    ])
-    .await;
-
     let app_services = create_app_services(
         db,
         tz,
@@ -135,10 +127,16 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    if cfg!(debug_assertions) {
-        use dependent_models::CompleteExport;
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
+    join_all(
+        [
+            ApplicationJob::SyncIntegrationsData,
+            ApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|job| app_services.supporting_service.perform_application_job(job)),
+    )
+    .await;
 
+    if cfg!(debug_assertions) {
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
             .parent()
@@ -191,6 +189,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("daily_background_jobs")
                 .enable_tracing()
+                .catch_panic()
                 .data(miscellaneous_service_1.clone())
                 .backend(
                     // every day
@@ -201,6 +200,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
+                .catch_panic()
                 .data(integration_service_1.clone())
                 .data(fitness_service_2.clone())
                 .backend(CronStream::new_with_timezone(
@@ -213,6 +213,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("perform_core_application_job")
                 .enable_tracing()
+                .catch_panic()
                 .data(integration_service_2.clone())
                 .data(miscellaneous_service_3.clone())
                 .backend(perform_core_application_job_storage)
@@ -221,6 +222,7 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("perform_application_job")
                 .enable_tracing()
+                .catch_panic()
                 .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
@@ -251,9 +253,9 @@ fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
+        max_n_old_files: 2,
         directory: tmp_dir,
         filename: PROJECT_NAME,
-        max_n_old_files: 2,
         preferred_max_file_size_mib: 1,
     }
     .init()?;

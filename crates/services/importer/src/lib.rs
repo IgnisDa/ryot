@@ -81,7 +81,7 @@ impl ImporterService {
         let import_id = db_import_job.id.clone();
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
-            ImportSource::Anilist => anilist::import(input.generic_json.unwrap()).await,
+            ImportSource::Anilist => anilist::import(input.generic_json.unwrap(), &self.0).await,
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), &self.0, &user_id).await
             }

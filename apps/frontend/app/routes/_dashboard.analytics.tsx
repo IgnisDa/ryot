@@ -109,7 +109,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
-	return [{ title: "Fitness Analytics | Ryot" }];
+	return [{ title: "Analytics | Ryot" }];
 };
 
 const useTimeSpanSettings = () => {
@@ -256,10 +256,10 @@ export default function Page() {
 								<ExercisesChart />
 							</Grid.Col>
 							<Grid.Col span={{ base: 12, md: 6 }}>
-								<TimeOfDayChart />
+								<StatisticsCard />
 							</Grid.Col>
 							<Grid.Col span={{ base: 12, md: 6 }}>
-								<StatisticsCard />
+								<TimeOfDayChart />
 							</Grid.Col>
 							<Grid.Col span={12}>
 								<ActivitySection />

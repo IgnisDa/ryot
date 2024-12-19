@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-apalis = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 database-models = { path = "../models/database" }

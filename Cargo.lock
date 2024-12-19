@@ -848,7 +848,6 @@ dependencies = [
  "statistics-service",
  "supporting-service",
  "tokio",
- "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -861,7 +860,6 @@ dependencies = [
 name = "background"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "chrono",
  "chrono-tz",
  "database-models",
@@ -6310,7 +6308,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
  "tracing",
  "unkey",
 ]
