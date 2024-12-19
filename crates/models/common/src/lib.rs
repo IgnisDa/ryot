@@ -186,6 +186,7 @@ pub struct ChangeCollectionToEntityInput {
 pub enum UserNotificationContent {
     ReviewPosted,
     MetadataPublished,
+    NewWorkoutCreated,
     MetadataStatusChanged,
     PersonMediaAssociated,
     MetadataEpisodeReleased,
