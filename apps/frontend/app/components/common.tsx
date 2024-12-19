@@ -1,5 +1,6 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
@@ -104,14 +105,16 @@ export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
 }) => {
 	const userPreferences = useUserPreferences();
+	const [parent] = useAutoAnimate();
 
 	return (
 		<SimpleGrid
+			spacing="lg"
+			ref={parent}
 			cols={match(userPreferences.general.gridPacking)
 				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
 				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
 				.exhaustive()}
-			spacing="lg"
 		>
 			{props.children}
 		</SimpleGrid>
