@@ -19,6 +19,7 @@ pub enum CoreApplicationJob {
 // The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
+    DeleteAllApplicationCache,
     UpdatePerson(String),
     SyncIntegrationsData,
     UpdateExerciseLibrary,

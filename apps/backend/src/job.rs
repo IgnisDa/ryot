@@ -87,6 +87,9 @@ pub async fn perform_application_job(
             .start_importing(user_id, input)
             .await
             .is_ok(),
+        ApplicationJob::DeleteAllApplicationCache => {
+            misc_service.delete_all_application_caches().await.is_ok()
+        }
         ApplicationJob::RecalculateUserActivitiesAndSummary(user_id, calculate_from_beginning) => {
             statistics_service
                 .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)

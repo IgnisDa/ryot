@@ -877,6 +877,7 @@ pub async fn deploy_background_job(
     match job_name {
         BackgroundJob::UpdateAllMetadata
         | BackgroundJob::UpdateAllExercises
+        | BackgroundJob::DeleteAllApplicationCache
         | BackgroundJob::PerformBackgroundTasks => {
             admin_account_guard(user_id, ss).await?;
         }
@@ -895,6 +896,10 @@ pub async fn deploy_background_job(
             for metadata_id in many_metadata {
                 deploy_update_metadata_job(&metadata_id, true, ss).await?;
             }
+        }
+        BackgroundJob::DeleteAllApplicationCache => {
+            ss.perform_application_job(ApplicationJob::DeleteAllApplicationCache)
+                .await?;
         }
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::UpdateExerciseLibrary)
