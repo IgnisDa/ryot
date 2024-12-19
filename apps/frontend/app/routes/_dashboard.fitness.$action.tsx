@@ -182,27 +182,6 @@ export default function Page() {
 	const navigate = useNavigate();
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const playCompleteTimerSound = () => {
-		const sound = new Howl({ src: ["/timer-completed.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
-		if (document.visibilityState === "visible") return;
-		sendNotificationToServiceWorker(
-			"Timer completed",
-			"Let's get this done!",
-			"timer-completed",
-			{ event: "open-link", link: window.location.href },
-		);
-	};
-	useInterval(() => {
-		if (
-			loaderData.action === FitnessAction.LogWorkout &&
-			navigator.serviceWorker.controller &&
-			document.visibilityState === "visible"
-		)
-			postMessageToServiceWorker({
-				event: "remove-timer-completed-notification",
-			});
-	}, 5000);
 	const [
 		timerDrawerOpened,
 		{
@@ -225,6 +204,16 @@ export default function Page() {
 	>(undefined);
 
 	useInterval(() => {
+		if (
+			loaderData.action === FitnessAction.LogWorkout &&
+			navigator.serviceWorker.controller &&
+			document.visibilityState === "visible"
+		)
+			postMessageToServiceWorker({
+				event: "remove-timer-completed-notification",
+			});
+	}, 5000);
+	useInterval(() => {
 		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
 			dayjsLib(),
 			"second",
@@ -239,6 +228,17 @@ export default function Page() {
 		}
 	}, 1000);
 
+	const playCompleteTimerSound = () => {
+		const sound = new Howl({ src: ["/timer-completed.mp3"] });
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (document.visibilityState === "visible") return;
+		sendNotificationToServiceWorker(
+			"Timer completed",
+			"Let's get this done!",
+			"timer-completed",
+			{ event: "open-link", link: window.location.href },
+		);
+	};
 	const startTimer = (
 		duration: number,
 		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
@@ -249,7 +249,6 @@ export default function Page() {
 			willEndAt: dayjsLib().add(duration, "second").toISOString(),
 		});
 	};
-
 	const pauseOrResumeTimer = () => {
 		if (currentTimer)
 			setCurrentTimer(
@@ -266,7 +265,6 @@ export default function Page() {
 				}),
 			);
 	};
-
 	const stopTimer = () => {
 		const triggeredBy = currentTimer?.triggeredBy;
 		if (currentWorkout && triggeredBy) {
