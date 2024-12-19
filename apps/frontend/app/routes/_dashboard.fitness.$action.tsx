@@ -2210,33 +2210,7 @@ const TimerDrawer = (props: {
 			<Stack align="center">
 				{currentTimer ? (
 					<>
-						<RingProgress
-							roundCaps
-							size={300}
-							thickness={8}
-							sections={[
-								{
-									value:
-										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
-											100) /
-										currentTimer.totalTime,
-									color: "orange",
-								},
-							]}
-							label={
-								<>
-									<Text ta="center" fz={64}>
-										{formatTimerDuration(
-											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
-										)}
-									</Text>
-									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{formatTimerDuration(currentTimer.totalTime * 1000)}
-									</Text>
-								</>
-							}
-						/>
-						<Button.Group>
+						<Group gap="xl">
 							<Button
 								color="orange"
 								onClick={() => {
@@ -2278,6 +2252,45 @@ const TimerDrawer = (props: {
 							>
 								+30 sec
 							</Button>
+						</Group>
+						<RingProgress
+							roundCaps
+							size={300}
+							thickness={8}
+							sections={[
+								{
+									value:
+										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
+											100) /
+										currentTimer.totalTime,
+									color: "orange",
+								},
+							]}
+							label={
+								<>
+									<Text ta="center" fz={64}>
+										{formatTimerDuration(
+											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
+										)}
+									</Text>
+									<Text ta="center" c="dimmed" fz="lg" mt="-md">
+										{formatTimerDuration(currentTimer.totalTime * 1000)}
+									</Text>
+								</>
+							}
+						/>
+						<Group gap="xl">
+							<Button
+								color="orange"
+								variant="outline"
+								onClick={() => {
+									props.onClose();
+									props.stopTimer();
+								}}
+								size="compact-lg"
+							>
+								Pause
+							</Button>
 							<Button
 								color="orange"
 								onClick={() => {
@@ -2288,7 +2301,7 @@ const TimerDrawer = (props: {
 							>
 								Skip
 							</Button>
-						</Button.Group>
+						</Group>
 					</>
 				) : (
 					<>
