@@ -1611,7 +1611,10 @@ const DisplayExerciseSetRestTimer = (props: {
 			sections={[
 				{
 					value:
-						(dayjsLib(currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
+						(dayjsLib(currentTimer.willEndAt).diff(
+							dayjsLib(currentTimer.wasPausedAt),
+							"seconds",
+						) *
 							100) /
 						currentTimer.totalTime,
 					color: "blue",
