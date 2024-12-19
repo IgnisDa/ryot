@@ -267,6 +267,7 @@ export const BaseMediaDisplayItem = (props: {
 		bottomLeft?: ReactNode;
 	};
 }) => {
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
@@ -292,7 +293,8 @@ export const BaseMediaDisplayItem = (props: {
 							pos="relative"
 							style={{ overflow: "hidden" }}
 							className={clsx({
-								[classes.highlightImage]: props.highlightImage,
+								[classes.highlightImage]:
+									coreDetails.isServerKeyValidated && props.highlightImage,
 							})}
 						>
 							<Image
