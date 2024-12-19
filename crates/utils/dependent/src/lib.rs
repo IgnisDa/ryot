@@ -693,7 +693,11 @@ pub async fn create_user_notification(
         ..Default::default()
     };
     let notification = insert_data.insert(db).await?;
-    ryot_log!(debug, "Queued notification with id = {}", notification.id);
+    ryot_log!(
+        debug,
+        "Created user notification with id = {}",
+        notification.id
+    );
     Ok(true)
 }
 
@@ -2048,9 +2052,21 @@ pub async fn create_or_update_user_workout(
         old_workout.delete(&ss.db).await?;
     }
     let data = insert.insert(&ss.db).await?;
-    if to_update_workout.is_some() {
-        schedule_user_for_workout_revision(user_id, ss).await?;
-    }
+    match to_update_workout {
+        Some(_) => schedule_user_for_workout_revision(user_id, ss).await?,
+        None => {
+            create_notification_for_user(
+                user_id,
+                &(
+                    "New workout created".to_owned(),
+                    UserNotificationContent::NewWorkoutCreated,
+                ),
+                UserNotificationLot::Immediate,
+                ss,
+            )
+            .await?
+        }
+    };
     Ok(data.id)
 }
 
