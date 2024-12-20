@@ -10,6 +10,7 @@ use media_models::{
 };
 use nest_struct::nest_struct;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::Deserialize;
 use supporting_service::SupportingService;
 
@@ -42,11 +43,13 @@ struct AnilistExport {
         nest! {
             id: u64,
             progress: u8,
+            score: Decimal,
             series_id: i32,
             series_type: u8,
             updated_at: String,
             progress_volume: u8,
             custom_lists: String,
+            notes: Option<String>,
         },
     >,
     reviews: Vec<
@@ -86,7 +89,7 @@ pub async fn import(
     for item in data.lists {
         let progress = [item.progress, item.progress_volume].into_iter().max();
         let lot = anilist_series_type_to_lot(item.series_type);
-        let mut db_item = ImportOrExportMetadataItem {
+        let mut to_push_item = ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Anilist,
             source_id: item.id.to_string(),
@@ -108,27 +111,40 @@ pub async fn import(
                 }
                 _ => unreachable!(),
             }
-            db_item.seen_history.push(history);
+            to_push_item.seen_history.push(history);
         }
         let in_lists = serde_json::from_str::<Vec<usize>>(&item.custom_lists)?;
         for in_list in in_lists.iter() {
             match lot {
                 MediaLot::Anime => {
                     if let Some(list) = anime_custom_lists.get(in_list) {
-                        db_item.collections.push(list.clone());
+                        to_push_item.collections.push(list.clone());
                     }
                 }
                 MediaLot::Manga => {
                     if let Some(list) = manga_custom_lists.get(in_list) {
-                        db_item.collections.push(list.clone());
+                        to_push_item.collections.push(list.clone());
                     }
                 }
                 _ => unreachable!(),
             }
         }
-        if !db_item.seen_history.is_empty() || !db_item.collections.is_empty() {
-            completed.push(ImportCompletedItem::Metadata(db_item));
+        let mut default_review = ImportOrExportItemRating {
+            ..Default::default()
+        };
+        if item.score > dec!(0) {
+            default_review.rating = Some(item.score);
         }
+        if let Some(notes) = item.notes {
+            if !notes.is_empty() {
+                default_review.review = Some(ImportOrExportItemReview {
+                    text: Some(notes),
+                    ..Default::default()
+                });
+            }
+        }
+        to_push_item.reviews.push(default_review);
+        completed.push(ImportCompletedItem::Metadata(to_push_item));
     }
     for review in data.reviews {
         let lot = anilist_series_type_to_lot(review.series_type);
