@@ -849,10 +849,6 @@ pub async fn commit_metadata(
         let media = commit_metadata_internal(details, None, ss).await?;
         return Ok(media);
     };
-    if input.force_update.unwrap_or_default() {
-        ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
-        update_metadata_and_notify_users(&m.id, true, ss).await?;
-    }
     Ok(m)
 }
 
@@ -2171,7 +2167,6 @@ where
                     CommitMediaInput {
                         identifier,
                         lot: metadata.lot,
-                        force_update: None,
                         source: metadata.source,
                     },
                     ss,

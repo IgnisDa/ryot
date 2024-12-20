@@ -2651,7 +2651,6 @@ ORDER BY RANDOM() LIMIT 10;
             lot: metadata_group.lot,
             source: metadata_group.source,
             identifier: metadata_group.identifier,
-            force_update: None,
         })
         .await?;
         Ok(())
