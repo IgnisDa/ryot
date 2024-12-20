@@ -28,7 +28,6 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "exercise")]
 #[graphql(name = "Exercise", input_name = "ExerciseInput")]
 pub struct Model {
-    #[graphql(skip_input)]
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub name: String,

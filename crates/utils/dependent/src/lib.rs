@@ -1859,16 +1859,6 @@ pub async fn create_or_update_user_workout(
         ex.sets
             .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
         for set in ex.sets.iter_mut() {
-            let mut actual_rest_time = None;
-            if exercise_idx != 0
-                && set.confirmed_at.is_some()
-                && first_set_of_exercise_confirmed_at.is_some()
-            {
-                actual_rest_time = Some(
-                    (set.confirmed_at.unwrap() - first_set_of_exercise_confirmed_at.unwrap())
-                        .num_seconds(),
-                );
-            }
             first_set_of_exercise_confirmed_at = set.confirmed_at;
             clean_values(set, &db_ex.lot);
             if let Some(r) = set.statistic.reps {
@@ -1890,7 +1880,6 @@ pub async fn create_or_update_user_workout(
             let mut value = WorkoutSetRecord {
                 lot: set.lot,
                 rpe: set.rpe,
-                actual_rest_time,
                 totals: Some(totals),
                 note: set.note.clone(),
                 rest_time: set.rest_time,
@@ -2089,7 +2078,6 @@ pub async fn create_custom_exercise(
     input: exercise::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let exercise_id = input.id.clone();
     let mut input = input;
     input.id = generate_exercise_id(&input.name, input.lot, user_id);
     input.created_by_user_id = Some(user_id.clone());
@@ -2103,17 +2091,7 @@ pub async fn create_custom_exercise(
         .collect();
     input.attributes.images = vec![];
     let input: exercise::ActiveModel = input.into();
-    let exercise = match Exercise::find_by_id(exercise_id)
-        .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
-        .one(&ss.db)
-        .await?
-    {
-        None => input.insert(&ss.db).await?,
-        Some(_) => {
-            let input = input.reset_all();
-            input.update(&ss.db).await?
-        }
-    };
+    let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entity_to_collection(
         &user_id.clone(),
