@@ -2260,7 +2260,6 @@ export type UpdateCustomExerciseInput = {
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
-  oldId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
 

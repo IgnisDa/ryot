@@ -607,7 +607,7 @@ export default function Page() {
 											to={$path(
 												"/fitness/exercises/:action",
 												{ action: "update" },
-												{ name: loaderData.exerciseDetails.id },
+												{ id: loaderData.exerciseDetails.id },
 											)}
 										>
 											Edit exercise
