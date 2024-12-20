@@ -174,7 +174,6 @@ export default function Page() {
 	return (
 		<Container>
 			<Form
-				replace
 				method="POST"
 				encType="multipart/form-data"
 				action={withQuery(".", { intent: loaderData.action })}
@@ -201,7 +200,7 @@ export default function Page() {
 						label="Type"
 						data={Object.values(ExerciseLot)}
 						defaultValue={loaderData.details?.lot}
-						disabled={loaderData.action === Action.Update}
+						readOnly={loaderData.action === Action.Update}
 					/>
 					<Group wrap="nowrap">
 						<Select
