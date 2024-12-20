@@ -197,11 +197,11 @@ pub async fn commit_person(
         Ok(p)
     } else {
         let person = person::ActiveModel {
-            identifier: ActiveValue::Set(input.identifier),
-            source: ActiveValue::Set(input.source),
-            source_specifics: ActiveValue::Set(input.source_specifics),
             name: ActiveValue::Set(input.name),
+            source: ActiveValue::Set(input.source),
             is_partial: ActiveValue::Set(Some(true)),
+            identifier: ActiveValue::Set(input.identifier),
+            source_specifics: ActiveValue::Set(input.source_specifics),
             ..Default::default()
         };
         let person = person.insert(db).await?;
@@ -218,20 +218,20 @@ async fn associate_person_with_metadata(
     let role = person.role.clone();
     let db_person = commit_person(
         CommitPersonInput {
-            identifier: person.identifier.clone(),
-            source: person.source,
-            source_specifics: person.source_specifics,
             name: person.name,
+            source: person.source,
+            identifier: person.identifier.clone(),
+            source_specifics: person.source_specifics,
         },
         db,
     )
     .await?;
     let intermediate = metadata_to_person::ActiveModel {
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-        person_id: ActiveValue::Set(db_person.id),
         role: ActiveValue::Set(role),
-        index: ActiveValue::Set(Some(index.try_into().unwrap())),
+        person_id: ActiveValue::Set(db_person.id),
         character: ActiveValue::Set(person.character),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        index: ActiveValue::Set(Some(index.try_into().unwrap())),
     };
     intermediate.insert(db).await.ok();
     Ok(())
@@ -257,8 +257,8 @@ async fn associate_genre_with_metadata(
         c.insert(db).await.unwrap()
     };
     let intermediate = metadata_to_genre::ActiveModel {
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         genre_id: ActiveValue::Set(db_genre.id),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
     };
     intermediate.insert(db).await.ok();
     Ok(())
@@ -314,8 +314,8 @@ async fn associate_suggestion_with_metadata(
 ) -> Result<()> {
     let db_partial_metadata = create_partial_metadata(data, db).await?;
     let intermediate = metadata_to_metadata::ActiveModel {
-        from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+        from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
         ..Default::default()
     };
