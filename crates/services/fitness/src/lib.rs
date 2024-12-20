@@ -131,6 +131,7 @@ impl FitnessService {
                         personal_bests: None,
                         rest_time: s.rest_time,
                         statistic: s.statistic,
+                        rest_timer_started_at: s.rest_timer_started_at,
                     })
                     .collect(),
                 notes: exercise.notes,

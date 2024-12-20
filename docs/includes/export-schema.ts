@@ -257,6 +257,7 @@ export interface WorkoutSetRecord {
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;
 	rest_time: number | null;
+	rest_timer_started_at: string | null;
 	rpe: number | null;
 	statistic: WorkoutSetStatistic;
 	totals: WorkoutSetTotals | null;

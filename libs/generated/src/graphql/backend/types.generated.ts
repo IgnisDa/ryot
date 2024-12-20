@@ -2780,6 +2780,7 @@ export type UserWorkoutSetRecord = {
   lot: SetLot;
   note?: InputMaybe<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
+  restTimerStartedAt?: InputMaybe<Scalars['DateTime']['input']>;
   rpe?: InputMaybe<Scalars['Int']['input']>;
   statistic: SetStatisticInput;
 };
@@ -2908,12 +2909,12 @@ export enum WorkoutSetPersonalBest {
 /** Details about the set performed. */
 export type WorkoutSetRecord = {
   __typename?: 'WorkoutSetRecord';
-  actualRestTime?: Maybe<Scalars['Int']['output']>;
   confirmedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: SetLot;
   note?: Maybe<Scalars['String']['output']>;
   personalBests?: Maybe<Array<WorkoutSetPersonalBest>>;
   restTime?: Maybe<Scalars['Int']['output']>;
+  restTimerStartedAt?: Maybe<Scalars['DateTime']['output']>;
   rpe?: Maybe<Scalars['Int']['output']>;
   statistic: WorkoutSetStatistic;
   totals?: Maybe<WorkoutSetTotals>;

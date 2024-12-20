@@ -127,6 +127,7 @@ pub async fn import(
                     rpe: set.rpe,
                     rest_time: None,
                     confirmed_at: None,
+                    rest_timer_started_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,

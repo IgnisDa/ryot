@@ -255,6 +255,7 @@ pub struct WorkoutSetRecord {
     pub statistic: WorkoutSetStatistic,
     pub totals: Option<WorkoutSetTotals>,
     pub confirmed_at: Option<DateTimeUtc>,
+    pub rest_timer_started_at: Option<DateTimeUtc>,
     pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
 }
 
@@ -576,6 +577,7 @@ pub struct UserWorkoutSetRecord {
     pub rest_time: Option<u16>,
     pub statistic: WorkoutSetStatistic,
     pub confirmed_at: Option<DateTimeUtc>,
+    pub rest_timer_started_at: Option<DateTimeUtc>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

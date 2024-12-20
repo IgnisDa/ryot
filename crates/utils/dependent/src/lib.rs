@@ -1886,6 +1886,7 @@ pub async fn create_or_update_user_workout(
                 personal_bests: Some(vec![]),
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
+                rest_timer_started_at: set.rest_timer_started_at,
             };
             value.statistic.one_rm = calculate_one_rm(&value);
             value.statistic.pace = calculate_pace(&value);
@@ -2434,6 +2435,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                         confirmed_at: s.confirmed_at,
+                        rest_timer_started_at: s.rest_timer_started_at,
                     })
                     .collect(),
                 notes: e.notes,

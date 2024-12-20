@@ -168,6 +168,7 @@ async fn import_exercises(
                     lot: set_lot,
                     rest_time: None,
                     confirmed_at: None,
+                    rest_timer_started_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,
