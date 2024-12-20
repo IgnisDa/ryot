@@ -23,7 +23,7 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, generate_exercise_id, get_focused_workout_summary,
+    db_workout_to_workout_input, get_focused_workout_summary,
 };
 use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
@@ -657,41 +657,30 @@ impl FitnessService {
         user_id: String,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let old_exercise = Exercise::find_by_id(input.old_id.clone())
-            .one(&self.0.db)
-            .await?
-            .unwrap();
-        match input.should_delete.unwrap_or_default() {
-            false => {
-                let new_id = generate_exercise_id(&old_exercise.name, input.update.lot, &user_id);
-                let new_id = Some(format!("{}_{}", new_id, nanoid!(5)));
-                let new_exercise =
-                    create_custom_exercise(&user_id, input.update.clone(), new_id, &self.0).await?;
-                self.merge_exercise(user_id, input.old_id, new_exercise)
-                    .await?;
-            }
-            true => {
-                let ute = UserToEntity::find()
-                    .filter(user_to_entity::Column::UserId.eq(&user_id))
-                    .filter(user_to_entity::Column::ExerciseId.eq(input.old_id.clone()))
-                    .one(&self.0.db)
-                    .await?
-                    .ok_or_else(|| Error::new("Exercise does not exist"))?;
-                if let Some(exercise_extra_information) = ute.exercise_extra_information {
-                    if !exercise_extra_information.history.is_empty() {
-                        return Err(Error::new(
-                            "Exercise is associated with one or more workouts.",
-                        ));
-                    }
-                }
-            }
-        }
+        let id = input.update.id.clone();
+        let old_exercise = Exercise::find_by_id(&id).one(&self.0.db).await?.unwrap();
         for image in old_exercise.attributes.internal_images.iter() {
             if let StoredUrl::S3(key) = image.to_owned() {
                 self.0.file_storage_service.delete_object(key).await;
             }
         }
-        old_exercise.delete(&self.0.db).await?;
+        if input.should_delete.unwrap_or_default() {
+            let ute = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(&id))
+                .one(&self.0.db)
+                .await?
+                .ok_or_else(|| Error::new("Exercise does not exist"))?;
+            if let Some(exercise_extra_information) = ute.exercise_extra_information {
+                if !exercise_extra_information.history.is_empty() {
+                    return Err(Error::new(
+                        "Exercise is associated with one or more workouts.",
+                    ));
+                }
+            }
+            old_exercise.delete(&self.0.db).await?;
+            return Ok(true);
+        }
         Ok(true)
     }
 
