@@ -89,7 +89,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
-import { type Draft, produce } from "immer";
+import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -173,6 +173,44 @@ const deleteUploadedAsset = (key: string) => {
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
+const usePerformTasksAfterSetConfirmed = () => {
+	const userPreferences = useUserPreferences();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+
+	const performTask = async (setIdx: number, exerciseIdx: number) => {
+		const exerciseId = currentWorkout?.exercises[exerciseIdx].exerciseId;
+		if (!exerciseId) return;
+		const exerciseDetails = await queryClient.ensureQueryData(
+			getExerciseDetailsQuery(exerciseId),
+		);
+		const userExerciseDetails = await queryClient.ensureQueryData(
+			getUserExerciseDetailsQuery(exerciseId),
+		);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				const currentExercise = draft.exercises[exerciseIdx];
+				const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
+				focusOnExercise(nextSet.exerciseIdx);
+				if (nextSet.wasLastSet) {
+					currentExercise.isCollapsed = true;
+					currentExercise.isShowDetailsOpen = false;
+					const nextExercise = draft.exercises[nextSet.exerciseIdx];
+					const nextExerciseHasDetailsToShow =
+						nextExercise &&
+						exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+					if (nextExerciseHasDetailsToShow) {
+						nextExercise.isCollapsed = false;
+						if (userPreferences.fitness.logging.showDetailsWhileEditing)
+							nextExercise.isShowDetailsOpen = true;
+					}
+				}
+			}),
+		);
+	};
+
+	return performTask;
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -202,6 +240,7 @@ export default function Page() {
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 
 	useInterval(() => {
 		if (
@@ -221,6 +260,22 @@ export default function Page() {
 		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
+				const triggeredBy = currentTimer?.triggeredBy;
+				if (promptForRestTimer && triggeredBy && currentWorkout) {
+					const exerciseIdx = currentWorkout?.exercises.findIndex(
+						(c) => c.identifier === triggeredBy.exerciseIdentifier,
+					);
+					if (exerciseIdx !== undefined && exerciseIdx !== -1) {
+						// usePerformTasksAfterSetConfirmed(
+						// 	triggeredBy.setIdx,
+						// 	exerciseIdx,
+						// 	createDraft(currentWorkout),
+						// 	exerciseDetails,
+						// 	userExerciseDetails,
+						// 	userPreferences,
+						// );
+					}
+				}
 				playCompleteTimerSound();
 				stopTimer();
 				setTimeout(() => closeTimerDrawer(), 500);
@@ -1686,32 +1741,6 @@ const getNextSetInWorkout = (
 	};
 };
 
-const tasksAfterSetConfirmed = (
-	setIdx: number,
-	exerciseIdx: number,
-	draft: Draft<InProgressWorkout>,
-	exerciseDetails: ExerciseDetails,
-	userExerciseDetails: UserExerciseDetails,
-	userPreferences: ReturnType<typeof useUserPreferences>,
-) => {
-	const currentExercise = draft.exercises[exerciseIdx];
-	const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
-	focusOnExercise(nextSet.exerciseIdx);
-	if (nextSet.wasLastSet) {
-		currentExercise.isCollapsed = true;
-		currentExercise.isShowDetailsOpen = false;
-		const nextExercise = draft.exercises[nextSet.exerciseIdx];
-		const nextExerciseHasDetailsToShow =
-			nextExercise &&
-			exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-		if (nextExerciseHasDetailsToShow) {
-			nextExercise.isCollapsed = false;
-			if (userPreferences.fitness.logging.showDetailsWhileEditing)
-				nextExercise.isShowDetailsOpen = true;
-		}
-	}
-};
-
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -1737,12 +1766,7 @@ const SetDisplay = (props: {
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
-	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -2099,7 +2123,7 @@ const SetDisplay = (props: {
 												.exhaustive()
 										}
 										color="green"
-										onClick={() => {
+										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
 											if (
@@ -2123,23 +2147,20 @@ const SetDisplay = (props: {
 														? dayjsLib().toISOString()
 														: null;
 													currentExercise.scrollMarginRemoved = true;
-													if (newConfirmed) {
-														if (promptForRestTimer && set.restTimer) {
-															currentSet.displayRestTimeTrigger = true;
-														} else {
-															invariant(exerciseDetails && userExerciseDetails);
-															tasksAfterSetConfirmed(
-																props.setIdx,
-																props.exerciseIdx,
-																draft,
-																exerciseDetails,
-																userExerciseDetails,
-																userPreferences,
-															);
-														}
-													}
+													if (
+														newConfirmed &&
+														promptForRestTimer &&
+														set.restTimer
+													)
+														currentSet.displayRestTimeTrigger = true;
 												}),
 											);
+											if (newConfirmed && !promptForRestTimer) {
+												await performTasksAfterSetConfirmed(
+													props.setIdx,
+													props.exerciseIdx,
+												);
+											}
 										}}
 									>
 										<IconCheck />
