@@ -129,7 +129,6 @@ impl FitnessService {
                         totals: None,
                         confirmed_at: None,
                         personal_bests: None,
-                        actual_rest_time: None,
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                     })
