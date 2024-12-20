@@ -1213,38 +1213,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn commit_metadata_group_internal(
-        &self,
-        identifier: &String,
-        lot: MediaLot,
-        source: MediaSource,
-    ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.0.db)
-            .await?;
-        let provider = get_metadata_provider(lot, source, &self.0).await?;
-        let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-        let group_id = match existing_group {
-            Some(eg) => {
-                let mut eg: metadata_group::ActiveModel = eg.into();
-                eg.is_partial = ActiveValue::Set(Some(false));
-                let eg = eg.update(&self.0.db).await?;
-                eg.id
-            }
-            None => {
-                let mut db_group: metadata_group::ActiveModel =
-                    group_details.into_model("".to_string(), None).into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.0.db).await?;
-                new_group.id
-            }
-        };
-        Ok((group_id, associated_items))
-    }
-
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
@@ -2626,13 +2594,13 @@ ORDER BY RANDOM() LIMIT 10;
         let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .unwrap();
-        self.commit_metadata_group(CommitMediaInput {
-            lot: metadata_group.lot,
-            source: metadata_group.source,
-            identifier: metadata_group.identifier,
-            force_update: None,
-        })
+            .ok_or_else(|| Error::new("Metadata group does not exist"))?;
+        commit_metadata_group_internal(
+            &metadata_group.identifier,
+            metadata_group.lot,
+            metadata_group.source,
+            &self.0,
+        )
         .await?;
         Ok(())
     }
