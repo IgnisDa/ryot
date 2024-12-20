@@ -565,7 +565,7 @@ impl FitnessService {
         user_id: &String,
         input: exercise::Model,
     ) -> Result<String> {
-        create_custom_exercise(user_id, input, None, &self.0).await
+        create_custom_exercise(user_id, input, &self.0).await
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
@@ -658,6 +658,7 @@ impl FitnessService {
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let id = input.update.id.clone();
+        let mut update = input.update.clone();
         let old_exercise = Exercise::find_by_id(&id).one(&self.0.db).await?.unwrap();
         for image in old_exercise.attributes.internal_images.iter() {
             if let StoredUrl::S3(key) = image.to_owned() {
@@ -681,6 +682,20 @@ impl FitnessService {
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
         }
+        update.source = ExerciseSource::Custom;
+        update.created_by_user_id = Some(user_id.clone());
+        update.attributes.internal_images = update
+            .attributes
+            .images
+            .clone()
+            .into_iter()
+            .map(StoredUrl::S3)
+            .collect();
+        update.attributes.images = vec![];
+        let input: exercise::ActiveModel = update.into();
+        let mut input = input.reset_all();
+        input.id = ActiveValue::Unchanged(id);
+        input.update(&self.0.db).await?;
         Ok(true)
     }
 

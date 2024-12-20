@@ -2087,14 +2087,10 @@ pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> Stri
 pub async fn create_custom_exercise(
     user_id: &String,
     input: exercise::Model,
-    new_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let mut input = input;
-    input.id = match new_id {
-        Some(id) => id,
-        None => generate_exercise_id(&input.name, input.lot, user_id),
-    };
+    input.id = generate_exercise_id(&input.name, input.lot, user_id);
     input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
     input.attributes.internal_images = input
@@ -2157,7 +2153,7 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Exercise(exercise) => {
-                create_custom_exercise(user_id, exercise, None, ss).await?;
+                create_custom_exercise(user_id, exercise, ss).await?;
             }
             ImportCompletedItem::Collection(col_details) => {
                 create_or_update_collection(&ss.db, user_id, col_details).await?;
