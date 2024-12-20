@@ -252,7 +252,6 @@ pub struct WorkoutSetRecord {
     pub rpe: Option<u8>,
     pub note: Option<String>,
     pub rest_time: Option<u16>,
-    pub actual_rest_time: Option<i64>,
     pub statistic: WorkoutSetStatistic,
     pub totals: Option<WorkoutSetTotals>,
     pub confirmed_at: Option<DateTimeUtc>,
