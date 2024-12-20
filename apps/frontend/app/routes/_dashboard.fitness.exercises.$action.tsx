@@ -38,7 +38,6 @@ import {
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
-import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -119,13 +118,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				return redirect(getExerciseDetailsPath(createCustomExercise));
 			})
 			.with(Action.Update, async () => {
-				invariant(submission.oldId);
+				invariant(submission.id);
+				const id = submission.id;
 				await serverGqlService.authenticatedRequest(
 					request,
 					UpdateCustomExerciseDocument,
-					{ input: { ...input, oldId: submission.oldId } },
+					{ input: { ...input, id: id } },
 				);
-				return redirect($path("/fitness/exercises/list"));
+				return redirect(getExerciseDetailsPath(id));
 			})
 			.run();
 	} catch (e) {
@@ -147,17 +147,17 @@ const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
-	oldId: optionalString,
 	name: z.string(),
+	id: optionalString,
+	muscles: optionalString,
+	instructions: optionalString,
+	images: optionalStringArray,
 	lot: z.nativeEnum(ExerciseLot),
+	shouldDelete: zx.BoolAsString.optional(),
 	level: z.nativeEnum(ExerciseLevel),
 	force: z.nativeEnum(ExerciseForce).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
-	muscles: optionalString,
-	instructions: optionalString,
-	images: optionalStringArray,
-	shouldDelete: zx.BoolAsString.optional(),
 });
 
 export default function Page() {
@@ -178,8 +178,8 @@ export default function Page() {
 					<Title>{title} Exercise</Title>
 					{loaderData.details?.id ? (
 						<input
+							name="id"
 							type="hidden"
-							name="oldId"
 							defaultValue={loaderData.details.id}
 						/>
 					) : null}
