@@ -2064,6 +2064,8 @@ const SetDisplay = (props: {
 														draft.exercises[props.exerciseIdx];
 													const currentSet = currentExercise.sets[props.setIdx];
 													currentSet.displayRestTimeTrigger = false;
+													currentSet.restTimerStartedAt =
+														dayjsLib().toISOString();
 												}),
 											);
 										}}

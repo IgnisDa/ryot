@@ -39,6 +39,7 @@ export type ExerciseSet = {
 	lot: SetLot;
 	rpe?: number | null;
 	confirmedAt: string | null;
+	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
 	displayRestTimeTrigger?: boolean;
@@ -227,6 +228,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					lot: set.lot,
 					statistic: set.statistic,
 					restTime: set.restTimer?.duration,
+					restTimerStartedAt: set.restTimerStartedAt,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()
 						: null,
