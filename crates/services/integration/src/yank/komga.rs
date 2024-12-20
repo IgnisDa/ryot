@@ -361,7 +361,6 @@ async fn process_events(
             source,
             identifier: id,
             lot: MediaLot::Manga,
-            force_update: None,
         },
         ImportOrExportMetadataItemSeen {
             progress: Some(calculate_percentage(

@@ -215,7 +215,6 @@ export type CollectionItem = {
 };
 
 export type CommitMediaInput = {
-  forceUpdate?: InputMaybe<Scalars['Boolean']['input']>;
   identifier: Scalars['String']['input'];
   lot: MediaLot;
   source: MediaSource;

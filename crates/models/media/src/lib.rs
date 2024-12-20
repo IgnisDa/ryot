@@ -830,7 +830,6 @@ pub struct CommitMediaInput {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
-    pub force_update: Option<bool>,
 }
 
 #[derive(
