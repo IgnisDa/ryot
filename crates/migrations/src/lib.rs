@@ -54,6 +54,7 @@ mod m20241126_changes_for_issue_1113;
 mod m20241129_changes_for_issue_1114;
 mod m20241214_create_user_notification;
 mod m20241215_changes_for_issue_1131;
+mod m20241220_changes_for_issue_1141;
 mod m20241220_changes_for_issue_49;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -131,6 +132,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20241214_create_user_notification::Migration),
             Box::new(m20241215_changes_for_issue_1131::Migration),
             Box::new(m20241220_changes_for_issue_49::Migration),
+            Box::new(m20241220_changes_for_issue_1141::Migration),
         ]
     }
 }

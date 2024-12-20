@@ -1213,38 +1213,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn commit_metadata_group_internal(
-        &self,
-        identifier: &String,
-        lot: MediaLot,
-        source: MediaSource,
-    ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.0.db)
-            .await?;
-        let provider = get_metadata_provider(lot, source, &self.0).await?;
-        let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-        let group_id = match existing_group {
-            Some(eg) => {
-                let mut eg: metadata_group::ActiveModel = eg.into();
-                eg.is_partial = ActiveValue::Set(Some(false));
-                let eg = eg.update(&self.0.db).await?;
-                eg.id
-            }
-            None => {
-                let mut db_group: metadata_group::ActiveModel =
-                    group_details.into_model("".to_string(), None).into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.0.db).await?;
-                new_group.id
-            }
-        };
-        Ok((group_id, associated_items))
-    }
-
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
@@ -1674,25 +1642,10 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let (group_id, associated_items) =
+        let id =
             commit_metadata_group_internal(&input.identifier, input.lot, input.source, &self.0)
                 .await?;
-        for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
-            MetadataToMetadataGroup::delete_many()
-                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
-                .exec(&self.0.db)
-                .await
-                .ok();
-            let intermediate = metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(group_id.clone()),
-                metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            intermediate.insert(&self.0.db).await.ok();
-        }
-        Ok(StringIdObject { id: group_id })
+        Ok(StringIdObject { id })
     }
 
     pub async fn create_or_update_review(
@@ -2602,6 +2555,11 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
+    pub async fn delete_all_application_cache(&self) -> Result<()> {
+        ApplicationCache::delete_many().exec(&self.0.db).await?;
+        Ok(())
+    }
+
     pub async fn update_metadata_and_notify_users(
         &self,
         metadata_id: &String,
@@ -2641,13 +2599,13 @@ ORDER BY RANDOM() LIMIT 10;
         let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .unwrap();
-        self.commit_metadata_group(CommitMediaInput {
-            lot: metadata_group.lot,
-            source: metadata_group.source,
-            identifier: metadata_group.identifier,
-            force_update: None,
-        })
+            .ok_or_else(|| Error::new("Metadata group does not exist"))?;
+        commit_metadata_group_internal(
+            &metadata_group.identifier,
+            metadata_group.lot,
+            metadata_group.source,
+            &self.0,
+        )
         .await?;
         Ok(())
     }

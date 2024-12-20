@@ -63,8 +63,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             else {
                 failed_items.push(ImportFailedItem {
                     lot: Some(lot),
-                    identifier: item.key.clone(),
                     step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
                     error: Some("No TMDb ID associated with this media".to_string()),
                 });
                 continue;

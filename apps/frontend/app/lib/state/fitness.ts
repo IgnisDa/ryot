@@ -39,8 +39,10 @@ export type ExerciseSet = {
 	lot: SetLot;
 	rpe?: number | null;
 	confirmedAt: string | null;
+	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
+	displayRestTimeTrigger?: boolean;
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 
@@ -226,6 +228,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					lot: set.lot,
 					statistic: set.statistic,
 					restTime: set.restTimer?.duration,
+					restTimerStartedAt: set.restTimerStartedAt,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()
 						: null,
@@ -249,8 +252,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 };
 
 export type CurrentWorkoutTimer = {
-	endAt: string;
+	willEndAt: string;
 	totalTime: number;
+	wasPausedAt?: string;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 

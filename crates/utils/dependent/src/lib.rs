@@ -13,11 +13,12 @@ use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
-    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
-    monitored_entity, person,
+    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+    metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
-        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
+        Seen, UserToEntity, Workout,
     },
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
@@ -849,10 +850,6 @@ pub async fn commit_metadata(
         let media = commit_metadata_internal(details, None, ss).await?;
         return Ok(media);
     };
-    if input.force_update.unwrap_or_default() {
-        ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
-        update_metadata_and_notify_users(&m.id, true, ss).await?;
-    }
     Ok(m)
 }
 
@@ -877,7 +874,7 @@ pub async fn deploy_background_job(
     match job_name {
         BackgroundJob::UpdateAllMetadata
         | BackgroundJob::UpdateAllExercises
-        | BackgroundJob::RecalculateCalendarEvents
+        | BackgroundJob::DeleteAllApplicationCache
         | BackgroundJob::PerformBackgroundTasks => {
             admin_account_guard(user_id, ss).await?;
         }
@@ -897,12 +894,12 @@ pub async fn deploy_background_job(
                 deploy_update_metadata_job(&metadata_id, true, ss).await?;
             }
         }
-        BackgroundJob::UpdateAllExercises => {
-            ss.perform_application_job(ApplicationJob::UpdateExerciseLibrary)
+        BackgroundJob::DeleteAllApplicationCache => {
+            ss.perform_application_job(ApplicationJob::DeleteAllApplicationCache)
                 .await?;
         }
-        BackgroundJob::RecalculateCalendarEvents => {
-            ss.perform_application_job(ApplicationJob::RecalculateCalendarEvents)
+        BackgroundJob::UpdateAllExercises => {
+            ss.perform_application_job(ApplicationJob::UpdateExerciseLibrary)
                 .await?;
         }
         BackgroundJob::PerformBackgroundTasks => {
@@ -1059,7 +1056,7 @@ pub async fn commit_metadata_group_internal(
     lot: MediaLot,
     source: MediaSource,
     ss: &Arc<SupportingService>,
-) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
+) -> Result<String> {
     let existing_group = MetadataGroup::find()
         .filter(metadata_group::Column::Identifier.eq(identifier))
         .filter(metadata_group::Column::Lot.eq(lot))
@@ -1087,7 +1084,22 @@ pub async fn commit_metadata_group_internal(
             new_group.id
         }
     };
-    Ok((group_id, associated_items))
+    for (idx, media) in associated_items.into_iter().enumerate() {
+        let db_partial_metadata = create_partial_metadata(media, &ss.db).await?;
+        MetadataToMetadataGroup::delete_many()
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
+            .exec(&ss.db)
+            .await
+            .ok();
+        let intermediate = metadata_to_metadata_group::ActiveModel {
+            metadata_group_id: ActiveValue::Set(group_id.clone()),
+            metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+        };
+        intermediate.insert(&ss.db).await.ok();
+    }
+    Ok(group_id)
 }
 
 async fn seen_history(
@@ -1886,6 +1898,7 @@ pub async fn create_or_update_user_workout(
                 personal_bests: Some(vec![]),
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
+                rest_timer_started_at: set.rest_timer_started_at,
             };
             value.statistic.one_rm = calculate_one_rm(&value);
             value.statistic.pace = calculate_pace(&value);
@@ -2159,7 +2172,6 @@ where
                     CommitMediaInput {
                         identifier,
                         lot: metadata.lot,
-                        force_update: None,
                         source: metadata.source,
                     },
                     ss,
@@ -2250,7 +2262,7 @@ where
                 )
                 .await
                 {
-                    Ok(r) => r.0,
+                    Ok(r) => r,
                     Err(e) => {
                         ryot_log!(error, "{e:?}");
                         import.failed.push(ImportFailedItem {
@@ -2423,6 +2435,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                         confirmed_at: s.confirmed_at,
+                        rest_timer_started_at: s.rest_timer_started_at,
                     })
                     .collect(),
                 notes: e.notes,

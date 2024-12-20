@@ -800,8 +800,8 @@ pub struct MetadataPartialDetails {
 #[derive(Debug, InputObject)]
 pub struct CommitPersonInput {
     pub name: String,
-    pub source: MediaSource,
     pub identifier: String,
+    pub source: MediaSource,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
@@ -830,7 +830,6 @@ pub struct CommitMediaInput {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
-    pub force_update: Option<bool>,
 }
 
 #[derive(
