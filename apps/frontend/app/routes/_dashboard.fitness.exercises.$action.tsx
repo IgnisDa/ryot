@@ -53,7 +53,7 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	name: z.string().optional(),
+	id: z.string().optional(),
 });
 
 enum Action {
@@ -67,11 +67,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
-			invariant(query.name);
+			invariant(query.id);
 			const { exerciseDetails } = await serverGqlService.authenticatedRequest(
 				request,
 				ExerciseDetailsDocument,
-				{ exerciseId: query.name },
+				{ exerciseId: query.id },
 			);
 			return exerciseDetails;
 		})
@@ -110,6 +110,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		const intent = getActionIntent(request);
 		return await match(intent)
 			.with(Action.Create, async () => {
+				input.id = "dummy";
 				const { createCustomExercise } =
 					await serverGqlService.authenticatedRequest(
 						request,
@@ -119,12 +120,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				return redirect(getExerciseDetailsPath(createCustomExercise));
 			})
 			.with(Action.Update, async () => {
-				invariant(submission.id);
 				const id = submission.id;
+				invariant(id);
 				await serverGqlService.authenticatedRequest(
 					request,
 					UpdateCustomExerciseDocument,
-					{ input: { ...input, id: id } },
+					{ input },
 				);
 				const redirectUrl = submission.shouldDelete
 					? $path("/fitness/exercises/list")
@@ -154,8 +155,8 @@ const schema = z.object({
 	name: z.string(),
 	id: optionalString,
 	muscles: optionalString,
-	instructions: optionalString,
 	images: optionalStringArray,
+	instructions: optionalString,
 	lot: z.nativeEnum(ExerciseLot),
 	shouldDelete: zx.BoolAsString.optional(),
 	level: z.nativeEnum(ExerciseLevel),
@@ -188,62 +189,63 @@ export default function Page() {
 						/>
 					) : null}
 					<TextInput
-						label="Name"
 						required
 						autoFocus
 						name="name"
+						label="Name"
 						defaultValue={loaderData.details?.name}
 					/>
 					<Select
-						label="Type"
-						data={Object.values(ExerciseLot)}
 						required
 						name="lot"
+						label="Type"
+						data={Object.values(ExerciseLot)}
 						defaultValue={loaderData.details?.lot}
+						disabled={loaderData.action === Action.Update}
 					/>
 					<Group wrap="nowrap">
 						<Select
-							label="Level"
-							data={Object.values(ExerciseLevel)}
 							required
 							name="level"
+							label="Level"
 							w={{ base: "100%", md: "50%" }}
+							data={Object.values(ExerciseLevel)}
 							defaultValue={loaderData.details?.level}
 						/>
 						<Select
-							label="Force"
-							data={Object.values(ExerciseForce)}
 							name="force"
+							label="Force"
 							w={{ base: "100%", md: "50%" }}
+							data={Object.values(ExerciseForce)}
 							defaultValue={loaderData.details?.force}
 						/>
 					</Group>
 					<Group wrap="nowrap">
 						<Select
-							label="Equipment"
-							data={Object.values(ExerciseEquipment)}
 							name="equipment"
+							label="Equipment"
 							w={{ base: "100%", md: "50%" }}
+							data={Object.values(ExerciseEquipment)}
 							defaultValue={loaderData.details?.equipment}
 						/>
 						<Select
-							label="Mechanic"
-							data={Object.values(ExerciseMechanic)}
 							name="mechanic"
+							label="Mechanic"
 							w={{ base: "100%", md: "50%" }}
+							data={Object.values(ExerciseMechanic)}
 							defaultValue={loaderData.details?.mechanic}
 						/>
 					</Group>
 					<MultiSelect
+						name="muscles"
 						label="Muscles"
 						data={Object.values(ExerciseMuscle)}
-						name="muscles"
 						defaultValue={loaderData.details?.muscles}
 					/>
 					<Textarea
+						name="instructions"
 						label="Instructions"
 						description="Separate each instruction with a newline"
-						name="instructions"
 						defaultValue={loaderData.details?.attributes.instructions.join(
 							"\n",
 						)}
@@ -251,24 +253,24 @@ export default function Page() {
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput
-							label="Images"
-							name="images"
 							multiple
+							name="images"
+							label="Images"
+							leftSection={<IconPhoto />}
+							accept="image/png,image/jpeg,image/jpg"
 							description={
 								loaderData.details &&
 								"Please re-upload the images while updating the exercise, old ones will be deleted"
 							}
-							accept="image/png,image/jpeg,image/jpg"
-							leftSection={<IconPhoto />}
 						/>
 					) : null}
 					<Group w="100%" grow>
 						{loaderData.details ? (
 							<Button
 								color="red"
+								value="true"
 								type="submit"
 								name="shouldDelete"
-								value="true"
 							>
 								Delete
 							</Button>
