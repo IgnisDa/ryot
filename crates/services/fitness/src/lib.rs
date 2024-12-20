@@ -627,7 +627,7 @@ impl FitnessService {
         Ok(())
     }
 
-    async fn change_exercise_name_in_history(
+    async fn change_exercise_id_in_history(
         &self,
         new_name: String,
         old_entity: user_to_entity::Model,
@@ -781,7 +781,7 @@ impl FitnessService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        self.change_exercise_name_in_history(merge_into, old_entity)
+        self.change_exercise_id_in_history(merge_into, old_entity)
             .await?;
         schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
