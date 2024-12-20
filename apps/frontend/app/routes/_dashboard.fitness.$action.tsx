@@ -241,6 +241,7 @@ export default function Page() {
 		string | null | undefined
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 
 	useInterval(() => {
 		if (
@@ -266,14 +267,7 @@ export default function Page() {
 						(c) => c.identifier === triggeredBy.exerciseIdentifier,
 					);
 					if (exerciseIdx !== undefined && exerciseIdx !== -1) {
-						// usePerformTasksAfterSetConfirmed(
-						// 	triggeredBy.setIdx,
-						// 	exerciseIdx,
-						// 	createDraft(currentWorkout),
-						// 	exerciseDetails,
-						// 	userExerciseDetails,
-						// 	userPreferences,
-						// );
+						performTasksAfterSetConfirmed(triggeredBy.setIdx, exerciseIdx);
 					}
 				}
 				playCompleteTimerSound();
