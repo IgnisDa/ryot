@@ -2087,11 +2087,14 @@ pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> Stri
 pub async fn create_custom_exercise(
     user_id: &String,
     input: exercise::Model,
+    new_id: Option<String>,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let exercise_id = input.id.clone();
     let mut input = input;
-    input.id = generate_exercise_id(&input.name, input.lot, user_id);
+    input.id = match new_id {
+        Some(id) => id,
+        None => generate_exercise_id(&input.name, input.lot, user_id),
+    };
     input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
     input.attributes.internal_images = input
@@ -2103,17 +2106,7 @@ pub async fn create_custom_exercise(
         .collect();
     input.attributes.images = vec![];
     let input: exercise::ActiveModel = input.into();
-    let exercise = match Exercise::find_by_id(exercise_id)
-        .filter(exercise::Column::Source.eq(ExerciseSource::Custom))
-        .one(&ss.db)
-        .await?
-    {
-        None => input.insert(&ss.db).await?,
-        Some(_) => {
-            let input = input.reset_all();
-            input.update(&ss.db).await?
-        }
-    };
+    let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entity_to_collection(
         &user_id.clone(),
@@ -2164,7 +2157,7 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Exercise(exercise) => {
-                create_custom_exercise(user_id, exercise, ss).await?;
+                create_custom_exercise(user_id, exercise, None, ss).await?;
             }
             ImportCompletedItem::Collection(col_details) => {
                 create_or_update_collection(&ss.db, user_id, col_details).await?;
