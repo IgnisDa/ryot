@@ -38,6 +38,7 @@ import {
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -125,7 +126,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					UpdateCustomExerciseDocument,
 					{ input: { ...input, id: id } },
 				);
-				return redirect(getExerciseDetailsPath(id));
+				const redirectUrl = submission.shouldDelete
+					? $path("/fitness/exercises/list")
+					: getExerciseDetailsPath(id);
+				return redirect(redirectUrl);
 			})
 			.run();
 	} catch (e) {
