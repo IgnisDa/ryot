@@ -779,13 +779,14 @@ pub async fn commit_person(
 pub async fn commit_metadata(
     input: CommitMediaInput,
     ss: &Arc<SupportingService>,
-) -> Result<metadata::Model> {
+) -> Result<StringIdObject> {
     match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&input.unique.identifier))
         .filter(metadata::Column::Lot.eq(input.unique.lot))
         .filter(metadata::Column::Source.eq(input.unique.source))
         .one(&ss.db)
         .await?
+        .map(|m| StringIdObject { id: m.id })
     {
         Some(m) => Ok(m),
         None => {
@@ -797,8 +798,8 @@ pub async fn commit_metadata(
                 identifier: ActiveValue::Set(input.unique.identifier.clone()),
                 ..Default::default()
             };
-            let new_metadata = new_metadata.insert(&ss.db).await?;
-            Ok(new_metadata)
+            let new_metadata = new_metadata.insert(&ss.db).await?.id;
+            Ok(StringIdObject { id: new_metadata })
         }
     }
 }

@@ -268,6 +268,7 @@ impl IntegrationService {
                     yank::audiobookshelf::yank_progress(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
+                        &self.0,
                         GoogleBooksService::new(&self.0.config.books.google_books).await,
                         |input| {
                             commit_metadata(

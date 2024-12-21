@@ -31,6 +31,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = { workspace = true }
 specific-models = { path = "../../models/specific" }
+specific-utils = { path = "../../utils/specific" }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tracing = { workspace = true }

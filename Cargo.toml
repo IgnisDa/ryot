@@ -43,6 +43,7 @@ members = [
     "crates/utils/dependent",
     "crates/utils/external",
     "crates/utils/env",
+    "crates/utils/specific",
 ]
 resolver = "2"
 

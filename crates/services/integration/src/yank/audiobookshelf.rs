@@ -1,11 +1,10 @@
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result as GqlResult;
-use common_models::DefaultCollection;
+use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
-use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
 use media_models::{
@@ -18,6 +17,8 @@ use reqwest::{
 };
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
+use specific_utils::audiobookshelf::get_updated_metadata;
+use supporting_service::SupportingService;
 
 fn get_http_client(access_token: &String) -> Client {
     get_base_http_client(Some(vec![(
@@ -29,12 +30,13 @@ fn get_http_client(access_token: &String) -> Client {
 pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
+    ss: &Arc<SupportingService>,
     // TODO: Find a way to use `get_identifier_from_book_isbn` function
     isbn_service: GoogleBooksService,
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = GqlResult<metadata::Model>>,
+    F: Future<Output = GqlResult<StringIdObject>>,
 {
     let url = format!("{}/api", base_url);
     let client = get_http_client(&access_token);
@@ -88,13 +90,14 @@ where
                     Some(pe) => {
                         let lot = MediaLot::Podcast;
                         let source = MediaSource::Itunes;
-                        let podcast = commit_metadata(UniqueMediaIdentifier {
+                        commit_metadata(UniqueMediaIdentifier {
                             lot,
                             source,
                             identifier: itunes_id.clone(),
                         })
                         .await
                         .unwrap();
+                        let podcast = get_updated_metadata(&itunes_id, ss).await?;
                         match podcast
                             .podcast_specifics
                             .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))

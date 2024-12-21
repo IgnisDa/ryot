@@ -1390,9 +1390,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        commit_metadata(input, &self.0)
-            .await
-            .map(|m| StringIdObject { id: m.id })
+        commit_metadata(input, &self.0).await
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {

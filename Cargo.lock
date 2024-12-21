@@ -3339,6 +3339,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.11.0",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tracing",
  "traits",
@@ -3414,6 +3415,7 @@ dependencies = [
  "serde_json",
  "sonarr-api-rs",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tokio",
  "tracing",
@@ -5880,6 +5882,19 @@ dependencies = [
  "serde",
  "serde_with 3.11.0",
  "strum",
+]
+
+[[package]]
+name = "specific-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "database-models",
+ "dependent-utils",
+ "enums",
+ "sea-orm",
+ "supporting-service",
+ "tokio",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use anyhow::anyhow;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result;
+use common_models::StringIdObject;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
-use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
@@ -19,17 +19,20 @@ use reqwest::{
 };
 use serde_json::json;
 use specific_models::audiobookshelf as audiobookshelf_models;
+use specific_utils::audiobookshelf::get_updated_metadata;
+use supporting_service::SupportingService;
 
 use super::{utils, ImportFailStep, ImportFailedItem};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
+    ss: &Arc<SupportingService>,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = Result<metadata::Model>>,
+    F: Future<Output = Result<StringIdObject>>,
 {
     let mut completed = vec![];
     let mut failed = vec![];
@@ -119,12 +122,13 @@ where
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                let podcast = commit_metadata(UniqueMediaIdentifier {
+                                commit_metadata(UniqueMediaIdentifier {
                                     lot,
                                     source,
                                     identifier: itunes_id.clone(),
                                 })
                                 .await?;
+                                let podcast = get_updated_metadata(&itunes_id, ss).await?;
                                 if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                     get_podcast_episode_number_by_name(&p, &episode.title)
                                 }) {
