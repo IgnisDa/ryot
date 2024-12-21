@@ -43,7 +43,6 @@ pub enum ApplicationJob {
     Mp(MediumPriorityApplicationJob),
 }
 
-// Cron Jobs
 pub struct ScheduledJob(pub DateTime<Tz>);
 
 impl From<DateTime<Tz>> for ScheduledJob {
