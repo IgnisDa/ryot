@@ -36,8 +36,6 @@ pub async fn run_frequent_jobs(
     Ok(())
 }
 
-// Application Jobs
-
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
     integration_service: Data<Arc<IntegrationService>>,
