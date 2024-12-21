@@ -2181,6 +2181,9 @@ where
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
+                if metadata_group.reviews.is_empty() && metadata_group.collections.is_empty() {
+                    continue;
+                }
                 let metadata_group_id = match commit_metadata_group(
                     CommitMediaInput {
                         name: metadata_group.title.clone(),
@@ -2235,6 +2238,9 @@ where
                 }
             }
             ImportCompletedItem::Person(person) => {
+                if person.reviews.is_empty() && person.collections.is_empty() {
+                    continue;
+                }
                 let db_person = match commit_person(
                     CommitPersonInput {
                         identifier: person.identifier.clone(),
