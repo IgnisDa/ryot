@@ -36,6 +36,13 @@ pub enum LowPriorityApplicationJob {
     RecalculateUserActivitiesAndSummary(String, bool),
 }
 
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum ApplicationJob {
+    Lp(LowPriorityApplicationJob),
+    Hp(HighPriorityApplicationJob),
+    Mp(MediumPriorityApplicationJob),
+}
+
 // Cron Jobs
 pub struct ScheduledJob(pub DateTime<Tz>);
 

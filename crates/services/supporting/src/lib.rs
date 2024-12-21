@@ -3,7 +3,8 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background_models::{
-    HighPriorityApplicationJob, LowPriorityApplicationJob, MediumPriorityApplicationJob,
+    ApplicationJob, HighPriorityApplicationJob, LowPriorityApplicationJob,
+    MediumPriorityApplicationJob,
 };
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
@@ -69,27 +70,18 @@ impl SupportingService {
         }
     }
 
-    pub async fn perform_medium_priority_application_job(
-        &self,
-        job: MediumPriorityApplicationJob,
-    ) -> Result<()> {
-        self.mp_application_job.clone().enqueue(job).await.unwrap();
-        Ok(())
-    }
-
-    pub async fn perform_high_priority_application_job(
-        &self,
-        job: HighPriorityApplicationJob,
-    ) -> Result<()> {
-        self.hp_application_job.clone().enqueue(job).await.unwrap();
-        Ok(())
-    }
-
-    pub async fn perform_low_priority_application_job(
-        &self,
-        job: LowPriorityApplicationJob,
-    ) -> Result<()> {
-        self.lp_application_job.clone().enqueue(job).await.unwrap();
+    pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
+        match job {
+            ApplicationJob::Lp(job) => {
+                self.lp_application_job.clone().enqueue(job).await.ok();
+            }
+            ApplicationJob::Hp(job) => {
+                self.hp_application_job.clone().enqueue(job).await.ok();
+            }
+            ApplicationJob::Mp(job) => {
+                self.mp_application_job.clone().enqueue(job).await.ok();
+            }
+        }
         Ok(())
     }
 

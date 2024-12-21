@@ -11,7 +11,8 @@ use axum::{
     Extension,
 };
 use background_models::{
-    HighPriorityApplicationJob, LowPriorityApplicationJob, MediumPriorityApplicationJob,
+    ApplicationJob, HighPriorityApplicationJob, LowPriorityApplicationJob,
+    MediumPriorityApplicationJob,
 };
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
@@ -134,7 +135,7 @@ pub async fn create_app_services(
             MediumPriorityApplicationJob::SyncIntegrationsData,
             MediumPriorityApplicationJob::UpdateExerciseLibrary,
         ]
-        .map(|job| supporting_service.perform_medium_priority_application_job(job)),
+        .map(|job| supporting_service.perform_application_job(ApplicationJob::Mp(job))),
     )
     .await;
 
