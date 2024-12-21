@@ -110,10 +110,9 @@ pub struct UserExerciseDetails {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UpdateCustomExerciseInput {
-    pub old_id: String,
-    pub should_delete: Option<bool>,
     #[graphql(flatten)]
     pub update: exercise::Model,
+    pub should_delete: Option<bool>,
 }
 
 #[derive(Union)]

@@ -129,7 +129,6 @@ impl FitnessService {
                         totals: None,
                         confirmed_at: None,
                         personal_bests: None,
-                        actual_rest_time: None,
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                     })
@@ -631,12 +630,15 @@ impl FitnessService {
         Ok(())
     }
 
-    async fn change_exercise_name_in_history(
+    async fn change_exercise_id_in_history(
         &self,
         new_name: String,
         old_entity: user_to_entity::Model,
     ) -> Result<()> {
-        for workout in old_entity.exercise_extra_information.unwrap().history {
+        let Some(exercise_extra_information) = old_entity.exercise_extra_information else {
+            return Ok(());
+        };
+        for workout in exercise_extra_information.history {
             let db_workout = Workout::find_by_id(workout.workout_id)
                 .one(&self.0.db)
                 .await?
@@ -658,45 +660,45 @@ impl FitnessService {
         user_id: String,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let entity = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(input.old_id.clone()))
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        let old_exercise = Exercise::find_by_id(input.old_id.clone())
-            .one(&self.0.db)
-            .await?
-            .unwrap();
+        let id = input.update.id.clone();
+        let mut update = input.update.clone();
+        let old_exercise = Exercise::find_by_id(&id).one(&self.0.db).await?.unwrap();
+        for image in old_exercise.attributes.internal_images.iter() {
+            if let StoredUrl::S3(key) = image.to_owned() {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
         if input.should_delete.unwrap_or_default() {
-            if !entity
-                .exercise_extra_information
-                .unwrap_or_default()
-                .history
-                .is_empty()
-            {
-                return Err(Error::new(
-                    "Exercise is associated with one or more workouts.",
-                ));
+            let ute = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(&id))
+                .one(&self.0.db)
+                .await?
+                .ok_or_else(|| Error::new("Exercise does not exist"))?;
+            if let Some(exercise_extra_information) = ute.exercise_extra_information {
+                if !exercise_extra_information.history.is_empty() {
+                    return Err(Error::new(
+                        "Exercise is associated with one or more workouts.",
+                    ));
+                }
             }
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
         }
-        if input.old_id != input.update.id
-            && Exercise::find_by_id(input.update.id.clone())
-                .one(&self.0.db)
-                .await?
-                .is_some()
-        {
-            return Err(Error::new("Exercise with the new name already exists."));
-        }
-        for image in old_exercise.attributes.internal_images {
-            if let StoredUrl::S3(key) = image {
-                self.0.file_storage_service.delete_object(key).await;
-            }
-        }
-        self.create_custom_exercise(&user_id, input.update.clone())
-            .await?;
+        update.source = ExerciseSource::Custom;
+        update.created_by_user_id = Some(user_id.clone());
+        update.attributes.internal_images = update
+            .attributes
+            .images
+            .clone()
+            .into_iter()
+            .map(StoredUrl::S3)
+            .collect();
+        update.attributes.images = vec![];
+        let input: exercise::ActiveModel = update.into();
+        let mut input = input.reset_all();
+        input.id = ActiveValue::Unchanged(id);
+        input.update(&self.0.db).await?;
         Ok(true)
     }
 
@@ -786,7 +788,7 @@ impl FitnessService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        self.change_exercise_name_in_history(merge_into, old_entity)
+        self.change_exercise_id_in_history(merge_into, old_entity)
             .await?;
         schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
