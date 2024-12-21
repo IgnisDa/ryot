@@ -2531,12 +2531,12 @@ ORDER BY RANDOM() LIMIT 10;
                 intermediate.insert(&self.0.db).await.unwrap();
             }
             let search_for = MediaAssociatedPersonStateChanges {
+                role: data.role.clone(),
                 media: UniqueMediaIdentifier {
-                    identifier: pm.identifier.clone(),
                     lot: pm.lot,
                     source: pm.source,
+                    identifier: pm.identifier.clone(),
                 },
-                role: data.role.clone(),
             };
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
