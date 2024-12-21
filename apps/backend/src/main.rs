@@ -14,7 +14,7 @@ use apalis::{
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
-use background::ApplicationJob;
+use background_models::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;

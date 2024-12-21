@@ -9,7 +9,7 @@ use application_utils::{
     graphql_to_db_order,
 };
 use async_graphql::{Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,

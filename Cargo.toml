@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "apps/backend",
-    "crates/background",
     "crates/config",
     "crates/enums",
     "crates/migrations",
+    "crates/models/background",
     "crates/models/common",
     "crates/models/database",
     "crates/models/dependent",

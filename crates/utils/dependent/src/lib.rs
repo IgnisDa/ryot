@@ -8,7 +8,7 @@ use std::{
 
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,

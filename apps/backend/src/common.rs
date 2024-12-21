@@ -10,7 +10,7 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;

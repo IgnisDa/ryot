@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::ApplicationJob;
 use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{

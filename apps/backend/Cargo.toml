@@ -14,7 +14,7 @@ async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
-background = { path = "../../crates/background" }
+background-models = { path = "../../crates/models/background" }
 cache-service = { path = "../../crates/services/cache" }
 chrono-tz = { workspace = true }
 collection-resolver = { path = "../../crates/resolvers/collection" }

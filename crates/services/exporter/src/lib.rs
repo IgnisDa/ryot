@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::ApplicationJob;
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
 use common_utils::TEMP_DIR;

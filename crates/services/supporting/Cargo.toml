@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 async-graphql = { workspace = true }
 apalis = { workspace = true }
-background = { path = "../../background" }
+background-models = { path = "../../models/background" }
 cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }

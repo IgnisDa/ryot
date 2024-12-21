@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
-use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
+use background_models::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
 use exporter_service::ExporterService;
 use fitness_service::FitnessService;

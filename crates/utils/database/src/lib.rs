@@ -4,7 +4,7 @@ use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
 };
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::ApplicationJob;
 use chrono::{Timelike, Utc};
 use common_models::{
     BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,

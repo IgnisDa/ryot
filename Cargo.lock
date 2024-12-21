@@ -810,7 +810,7 @@ dependencies = [
  "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
- "background",
+ "background-models",
  "cache-service",
  "chrono-tz",
  "collection-resolver",
@@ -856,7 +856,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "background"
+name = "background-models"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -1698,7 +1698,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -1750,7 +1750,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -2224,7 +2224,7 @@ name = "exporter-service"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -2366,7 +2366,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "common-models",
  "common-utils",
  "const-str",
@@ -3306,7 +3306,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3823,7 +3823,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -6301,7 +6301,7 @@ version = "0.1.0"
 dependencies = [
  "apalis",
  "async-graphql",
- "background",
+ "background-models",
  "cache-service",
  "chrono",
  "chrono-tz",

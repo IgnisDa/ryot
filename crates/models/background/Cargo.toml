@@ -1,13 +1,13 @@
 [package]
-name = "background"
+name = "background-models"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-database-models = { path = "../models/database" }
-media-models = { path = "../models/media" }
+database-models = { path = "../database" }
+media-models = { path = "../media" }
 serde = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }

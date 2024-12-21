@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
