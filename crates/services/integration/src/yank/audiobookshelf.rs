@@ -67,13 +67,7 @@ where
                     )
                     .await
                     {
-                        Some(id) => (
-                            item.id.clone(),
-                            id.0,
-                            MediaLot::Book,
-                            MediaSource::GoogleBooks,
-                            None,
-                        ),
+                        Some(id) => (item.id.clone(), id.0, MediaLot::Book, id.1, None),
                         _ => {
                             ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
                             continue;
