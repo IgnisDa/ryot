@@ -314,7 +314,7 @@ async fn associate_metadata_group_with_metadata(
     Ok(())
 }
 
-async fn change_metadata_associations(
+pub async fn change_metadata_associations(
     metadata_id: &String,
     genres: Vec<String>,
     suggestions: Vec<PartialMetadataWithoutId>,
@@ -717,77 +717,6 @@ pub async fn update_metadata_and_notify_users(
     Ok(())
 }
 
-pub async fn commit_metadata_internal(
-    details: MetadataDetails,
-    is_partial: Option<bool>,
-    ss: &Arc<SupportingService>,
-) -> Result<metadata::Model> {
-    let mut images = vec![];
-    images.extend(details.url_images.into_iter().map(|i| MetadataImage {
-        url: StoredUrl::Url(i.image),
-    }));
-    images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
-        url: StoredUrl::S3(i.image),
-    }));
-    let metadata = metadata::ActiveModel {
-        lot: ActiveValue::Set(details.lot),
-        source: ActiveValue::Set(details.source),
-        title: ActiveValue::Set(details.title),
-        source_url: ActiveValue::Set(details.source_url),
-        description: ActiveValue::Set(details.description),
-        publish_year: ActiveValue::Set(details.publish_year),
-        publish_date: ActiveValue::Set(details.publish_date),
-        images: ActiveValue::Set(match images.is_empty() {
-            true => None,
-            false => Some(images),
-        }),
-        videos: ActiveValue::Set(match details.videos.is_empty() {
-            true => None,
-            false => Some(details.videos),
-        }),
-        identifier: ActiveValue::Set(details.identifier),
-        audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
-        anime_specifics: ActiveValue::Set(details.anime_specifics),
-        book_specifics: ActiveValue::Set(details.book_specifics),
-        manga_specifics: ActiveValue::Set(details.manga_specifics),
-        movie_specifics: ActiveValue::Set(details.movie_specifics),
-        podcast_specifics: ActiveValue::Set(details.podcast_specifics),
-        show_specifics: ActiveValue::Set(details.show_specifics),
-        video_game_specifics: ActiveValue::Set(details.video_game_specifics),
-        visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
-        provider_rating: ActiveValue::Set(details.provider_rating),
-        production_status: ActiveValue::Set(details.production_status),
-        music_specifics: ActiveValue::Set(details.music_specifics),
-        original_language: ActiveValue::Set(details.original_language),
-        external_identifiers: ActiveValue::Set(details.external_identifiers),
-        is_nsfw: ActiveValue::Set(details.is_nsfw),
-        is_partial: ActiveValue::Set(is_partial),
-        free_creators: ActiveValue::Set(if details.creators.is_empty() {
-            None
-        } else {
-            Some(details.creators)
-        }),
-        watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
-            None
-        } else {
-            Some(details.watch_providers)
-        }),
-        ..Default::default()
-    };
-    let metadata = metadata.insert(&ss.db).await?;
-
-    change_metadata_associations(
-        &metadata.id,
-        details.genres.clone(),
-        details.suggestions.clone(),
-        details.groups.clone(),
-        details.people.clone(),
-        ss,
-    )
-    .await?;
-    Ok(metadata)
-}
-
 pub async fn commit_metadata_group(
     input: CommitMediaInput,
     ss: &Arc<SupportingService>,
@@ -848,21 +777,30 @@ pub async fn commit_person(
 }
 
 pub async fn commit_metadata(
-    input: UniqueMediaIdentifier,
+    input: CommitMediaInput,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
-    let Some(m) = Metadata::find()
-        .filter(metadata::Column::Lot.eq(input.lot))
-        .filter(metadata::Column::Source.eq(input.source))
-        .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
+    match Metadata::find()
+        .filter(metadata::Column::Identifier.eq(&input.unique.identifier))
+        .filter(metadata::Column::Lot.eq(input.unique.lot))
+        .filter(metadata::Column::Source.eq(input.unique.source))
         .one(&ss.db)
         .await?
-    else {
-        let details = details_from_provider(input.lot, input.source, &input.identifier, ss).await?;
-        let media = commit_metadata_internal(details, None, ss).await?;
-        return Ok(media);
-    };
-    Ok(m)
+    {
+        Some(m) => Ok(m),
+        None => {
+            let new_metadata = metadata::ActiveModel {
+                title: ActiveValue::Set(input.name),
+                lot: ActiveValue::Set(input.unique.lot),
+                is_partial: ActiveValue::Set(Some(true)),
+                source: ActiveValue::Set(input.unique.source),
+                identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                ..Default::default()
+            };
+            let new_metadata = new_metadata.insert(&ss.db).await?;
+            Ok(new_metadata)
+        }
+    }
 }
 
 pub async fn deploy_update_metadata_job(
@@ -2152,10 +2090,13 @@ where
                 ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
                 let identifier = metadata.identifier.clone();
                 let db_metadata = match commit_metadata(
-                    UniqueMediaIdentifier {
-                        identifier,
-                        lot: metadata.lot,
-                        source: metadata.source,
+                    CommitMediaInput {
+                        name: metadata.source_id.clone(),
+                        unique: UniqueMediaIdentifier {
+                            identifier,
+                            lot: metadata.lot,
+                            source: metadata.source,
+                        },
                     },
                     ss,
                 )

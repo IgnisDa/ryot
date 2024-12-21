@@ -16,7 +16,7 @@ use dependent_utils::{
 use enums::{ExerciseLot, ExerciseSource};
 use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
-use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
+use media_models::{CommitMediaInput, DeployImportJobInput, ImportOrExportMetadataItem};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -111,7 +111,15 @@ impl ImporterService {
                     input.url_and_key.unwrap(),
                     &get_google_books_service(&self.0.config).await.unwrap(),
                     &get_openlibrary_service(&self.0.config).await.unwrap(),
-                    |input| commit_metadata(input, &self.0),
+                    |input| {
+                        commit_metadata(
+                            CommitMediaInput {
+                                unique: input,
+                                name: "Loading...".to_owned(),
+                            },
+                            &self.0,
+                        )
+                    },
                 )
                 .await
             }

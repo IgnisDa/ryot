@@ -349,10 +349,7 @@ impl MiscellaneousMutation {
         input: CommitMediaInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service
-            .commit_metadata(input)
-            .await
-            .map(|m| StringIdObject { id: m.id })
+        service.commit_metadata(input).await
     }
 
     /// Fetches details about a person and creates a person item in the database.

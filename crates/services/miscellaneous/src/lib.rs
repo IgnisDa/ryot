@@ -45,7 +45,7 @@ use dependent_models::{
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, commit_metadata, commit_metadata_group, commit_metadata_internal,
+    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
@@ -1390,8 +1390,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
-        commit_metadata(input.unique, &self.0).await
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
+        commit_metadata(input, &self.0)
+            .await
+            .map(|m| StringIdObject { id: m.id })
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
@@ -1798,20 +1800,81 @@ ORDER BY RANDOM() LIMIT 10;
             visual_novel_specifics: input.visual_novel_specifics,
             ..Default::default()
         };
-        let media = commit_metadata_internal(details, Some(is_partial), &self.0).await?;
+        let mut images = vec![];
+        images.extend(details.url_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::Url(i.image),
+        }));
+        images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
+            url: StoredUrl::S3(i.image),
+        }));
+        let metadata = metadata::ActiveModel {
+            lot: ActiveValue::Set(details.lot),
+            title: ActiveValue::Set(details.title),
+            source: ActiveValue::Set(details.source),
+            is_nsfw: ActiveValue::Set(details.is_nsfw),
+            is_partial: ActiveValue::Set(Some(is_partial)),
+            source_url: ActiveValue::Set(details.source_url),
+            identifier: ActiveValue::Set(details.identifier),
+            description: ActiveValue::Set(details.description),
+            publish_year: ActiveValue::Set(details.publish_year),
+            publish_date: ActiveValue::Set(details.publish_date),
+            show_specifics: ActiveValue::Set(details.show_specifics),
+            book_specifics: ActiveValue::Set(details.book_specifics),
+            manga_specifics: ActiveValue::Set(details.manga_specifics),
+            anime_specifics: ActiveValue::Set(details.anime_specifics),
+            movie_specifics: ActiveValue::Set(details.movie_specifics),
+            music_specifics: ActiveValue::Set(details.music_specifics),
+            provider_rating: ActiveValue::Set(details.provider_rating),
+            podcast_specifics: ActiveValue::Set(details.podcast_specifics),
+            production_status: ActiveValue::Set(details.production_status),
+            original_language: ActiveValue::Set(details.original_language),
+            external_identifiers: ActiveValue::Set(details.external_identifiers),
+            audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
+            video_game_specifics: ActiveValue::Set(details.video_game_specifics),
+            visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
+            images: ActiveValue::Set(match images.is_empty() {
+                true => None,
+                false => Some(images),
+            }),
+            videos: ActiveValue::Set(match details.videos.is_empty() {
+                true => None,
+                false => Some(details.videos),
+            }),
+            free_creators: ActiveValue::Set(if details.creators.is_empty() {
+                None
+            } else {
+                Some(details.creators)
+            }),
+            watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
+                None
+            } else {
+                Some(details.watch_providers)
+            }),
+            ..Default::default()
+        };
+        let metadata = metadata.insert(&self.0.db).await?;
+        change_metadata_associations(
+            &metadata.id,
+            details.genres.clone(),
+            details.suggestions.clone(),
+            details.groups.clone(),
+            details.people.clone(),
+            &self.0,
+        )
+        .await?;
         add_entity_to_collection(
             &user_id,
             ChangeCollectionToEntityInput {
+                entity_id: metadata.id.clone(),
+                entity_lot: EntityLot::Metadata,
                 creator_user_id: user_id.to_owned(),
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: media.id.clone(),
-                entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
             &self.0,
         )
         .await?;
-        Ok(media)
+        Ok(metadata)
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
