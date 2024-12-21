@@ -133,7 +133,7 @@ impl ImporterService {
         let mut model: import_report::ActiveModel = db_import_job.into();
         match maybe_import {
             Ok(import) => {
-                match process_import(&user_id, false, import, &self.0, |progress| {
+                match process_import(&user_id, true, false, import, &self.0, |progress| {
                     let id = import_id.clone();
                     async move {
                         ImportReport::update_many()

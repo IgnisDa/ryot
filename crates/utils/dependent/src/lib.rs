@@ -1,4 +1,10 @@
-use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    future::Future,
+    iter::zip,
+    sync::Arc,
+};
 
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
@@ -362,7 +368,6 @@ async fn change_metadata_associations(
 
 pub async fn update_metadata(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, MediaStateChanged)>> {
     let metadata = Metadata::find_by_id(metadata_id)
@@ -370,20 +375,18 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
-    if !force_update {
-        // check whether the metadata needs to be updated
-        let provider = get_metadata_provider(metadata.lot, metadata.source, ss).await?;
-        if let Ok(false) = provider
-            .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
-            .await
-        {
-            ryot_log!(
-                debug,
-                "Metadata {:?} does not need to be updated",
-                metadata_id
-            );
-            return Ok(vec![]);
-        }
+    // check whether the metadata needs to be updated
+    let provider = get_metadata_provider(metadata.lot, metadata.source, ss).await?;
+    if let Ok(false) = provider
+        .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
+        .await
+    {
+        ryot_log!(
+            debug,
+            "Metadata {:?} does not need to be updated",
+            metadata_id
+        );
+        return Ok(vec![]);
     }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
@@ -717,12 +720,9 @@ pub async fn refresh_collection_to_entity_association(
 
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let notifications = update_metadata(metadata_id, force_update, ss)
-        .await
-        .unwrap();
+    let notifications = update_metadata(metadata_id, ss).await?;
     if !notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
@@ -862,14 +862,10 @@ pub async fn commit_metadata(
 
 pub async fn deploy_update_metadata_job(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::UpdateMetadata(
-        metadata_id.to_owned(),
-        force_update,
-    ))
-    .await?;
+    ss.perform_application_job(ApplicationJob::UpdateMetadata(metadata_id.to_owned()))
+        .await?;
     Ok(true)
 }
 
@@ -898,7 +894,7 @@ pub async fn deploy_background_job(
                 .await
                 .unwrap();
             for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, true, ss).await?;
+                deploy_update_metadata_job(&metadata_id, ss).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {
@@ -2155,6 +2151,7 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
+    run_updates: bool,
     respect_cache: bool,
     import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2175,6 +2172,10 @@ where
     let total = import.completed.len();
 
     let mut need_to_schedule_user_for_workout_revision = false;
+
+    let mut metadata_to_update = HashSet::new();
+    let mut metadata_groups_to_update = HashSet::new();
+    let mut people_to_update = HashSet::new();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
@@ -2212,7 +2213,6 @@ where
                 {
                     Ok(r) => r,
                     Err(e) => {
-                        ryot_log!(error, "{e:?}");
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             step: ImportFailStep::MediaDetailsFromProvider,
@@ -2222,6 +2222,7 @@ where
                         continue;
                     }
                 };
+                metadata_to_update.insert(db_metadata.id.clone());
                 for seen in metadata.seen_history.iter() {
                     let progress = if seen.progress.is_some() {
                         seen.progress
@@ -2296,7 +2297,6 @@ where
                 {
                     Ok(r) => r,
                     Err(e) => {
-                        ryot_log!(error, "{e:?}");
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata_group.lot),
                             step: ImportFailStep::MediaDetailsFromProvider,
@@ -2306,6 +2306,7 @@ where
                         continue;
                     }
                 };
+                metadata_groups_to_update.insert(metadata_group_id.clone());
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2335,7 +2336,7 @@ where
                 }
             }
             ImportCompletedItem::Person(person) => {
-                let db_person = commit_person(
+                let db_person = match commit_person(
                     CommitPersonInput {
                         identifier: person.identifier.clone(),
                         name: person.name.clone(),
@@ -2344,7 +2345,20 @@ where
                     },
                     &ss.db,
                 )
-                .await?;
+                .await
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            lot: None,
+                            error: Some(e.message),
+                            identifier: person.identifier.clone(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                        });
+                        continue;
+                    }
+                };
+                people_to_update.insert(db_person.id.clone());
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2428,6 +2442,20 @@ where
 
     if need_to_schedule_user_for_workout_revision {
         schedule_user_for_workout_revision(user_id, ss).await?;
+    }
+
+    if run_updates {
+        for metadata_id in metadata_to_update {
+            deploy_update_metadata_job(&metadata_id, ss).await?;
+        }
+        for metadata_group_id in metadata_groups_to_update {
+            ss.perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group_id))
+                .await?;
+        }
+        for person_id in people_to_update {
+            ss.perform_application_job(ApplicationJob::UpdatePerson(person_id))
+                .await?;
+        }
     }
 
     let details = ImportResultResponse {

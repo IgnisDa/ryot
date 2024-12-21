@@ -65,9 +65,14 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0, |_| async {
-            Ok(())
-        })
+        match process_import(
+            &integration.user_id,
+            false,
+            true,
+            import,
+            &self.0,
+            |_| async { Ok(()) },
+        )
         .await
         {
             Ok(_) => {

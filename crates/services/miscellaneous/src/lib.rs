@@ -383,12 +383,8 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(metadata)
     }
 
-    pub async fn deploy_update_metadata_job(
-        &self,
-        metadata_id: &String,
-        force_update: bool,
-    ) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, force_update, &self.0).await
+    pub async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
+        deploy_update_metadata_job(metadata_id, &self.0).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -1863,7 +1859,7 @@ ORDER BY RANDOM() LIMIT 10;
         for chunk in items {
             let promises = chunk
                 .into_iter()
-                .map(|m| self.update_metadata_and_notify_users(m, true));
+                .map(|m| self.update_metadata_and_notify_users(m));
             join_all(promises).await;
         }
         Ok(())
@@ -2559,12 +2555,8 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
-    pub async fn update_metadata_and_notify_users(
-        &self,
-        metadata_id: &String,
-        force_update: bool,
-    ) -> Result<()> {
-        update_metadata_and_notify_users(metadata_id, force_update, &self.0).await
+    pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
+        update_metadata_and_notify_users(metadata_id, &self.0).await
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {

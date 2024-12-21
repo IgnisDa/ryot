@@ -95,8 +95,8 @@ pub async fn perform_application_job(
         ApplicationJob::ReviseUserWorkouts(user_id) => {
             fitness_service.revise_user_workouts(user_id).await.is_ok()
         }
-        ApplicationJob::UpdateMetadata(metadata_id, force_update) => misc_service
-            .update_metadata_and_notify_users(&metadata_id, force_update)
+        ApplicationJob::UpdateMetadata(metadata_id) => misc_service
+            .update_metadata_and_notify_users(&metadata_id)
             .await
             .is_ok(),
         ApplicationJob::UpdatePerson(person_id) => misc_service

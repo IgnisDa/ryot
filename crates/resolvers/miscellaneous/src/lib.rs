@@ -290,7 +290,7 @@ impl MiscellaneousMutation {
         metadata_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_metadata_job(&metadata_id, true).await
+        service.deploy_update_metadata_job(&metadata_id).await
     }
 
     /// Deploy a job to update a person's metadata.
