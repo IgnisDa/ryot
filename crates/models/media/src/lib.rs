@@ -481,7 +481,7 @@ pub struct MetadataDetails {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub suggestions: Vec<PartialMetadataWithoutId>,
-    pub group_identifiers: Vec<String>,
+    pub groups: Vec<CommitMediaInput>,
     pub provider_rating: Option<Decimal>,
     pub watch_providers: Vec<WatchProvider>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
@@ -826,19 +826,36 @@ pub struct MetadataGroupSearchItem {
     InputObject,
     Hash,
 )]
-pub struct CommitMediaInput {
+pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
-    pub force_update: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    FromJsonQueryResult,
+)]
+pub struct CommitMediaInput {
+    pub name: String,
+    pub unique: UniqueMediaIdentifier,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
 )]
 pub struct MediaAssociatedPersonStateChanges {
-    pub media: CommitMediaInput,
     pub role: String,
+    pub media: UniqueMediaIdentifier,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]

@@ -10,7 +10,7 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
 use media_models::{MetadataDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId};
-use sea_orm::{prelude::DateTimeUtc, DatabaseConnection};
+use sea_orm::DatabaseConnection;
 
 #[async_trait]
 pub trait MediaProvider {
@@ -29,12 +29,6 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         bail!("This provider does not support getting media details")
-    }
-
-    /// Get whether a metadata has been updated since the given date.
-    #[allow(unused_variables)]
-    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        bail!("This provider does not support checking if metadata has been updated")
     }
 
     /// Search for people via a query.

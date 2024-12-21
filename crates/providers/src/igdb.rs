@@ -16,9 +16,10 @@ use dependent_models::{
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, VideoGameSpecifics,
+    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
+    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -434,11 +435,18 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![c.id.to_string()],
+            Some(c) => vec![CommitMediaInput {
+                name: "Loading...".to_string(),
+                unique: UniqueMediaIdentifier {
+                    lot: MediaLot::VideoGame,
+                    source: MediaSource::Igdb,
+                    identifier: c.id.to_string(),
+                },
+            }],
             None => vec![],
         };
         let mut game_details = self.igdb_response_to_search_response(detail);
-        game_details.group_identifiers = groups;
+        game_details.groups = groups;
         Ok(game_details)
     }
 

@@ -457,6 +457,7 @@ const MediaSearchItem = (props: {
 		if (props.maybeItemId) return props.maybeItemId;
 		setIsLoading(true);
 		const data = new FormData();
+		data.append("name", props.item.item.title);
 		data.append("identifier", props.item.item.identifier);
 		data.append("lot", props.lot);
 		data.append("source", props.source);

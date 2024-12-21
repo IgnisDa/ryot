@@ -69,7 +69,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const { commitMetadata } = await serverGqlService.authenticatedRequest(
 				request,
 				CommitMetadataDocument,
-				{ input: submission },
+				{
+					input: {
+						name: submission.name,
+						unique: {
+							lot: submission.lot,
+							source: submission.source,
+							identifier: submission.identifier,
+						},
+					},
+				},
 			);
 			returnData = { commitMedia: commitMetadata };
 		})
@@ -113,7 +122,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					CommitMetadataGroupDocument,
-					{ input: submission },
+					{
+						input: {
+							name: submission.name,
+							unique: {
+								lot: submission.lot,
+								source: submission.source,
+								identifier: submission.identifier,
+							},
+						},
+					},
 				);
 			returnData = { commitMetadataGroup };
 		})
@@ -462,6 +480,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const commitMediaSchema = z.object({
+	name: z.string(),
 	identifier: z.string(),
 	lot: z.nativeEnum(MediaLot),
 	source: z.nativeEnum(MediaSource),

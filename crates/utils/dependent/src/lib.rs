@@ -1,4 +1,10 @@
-use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    future::Future,
+    iter::zip,
+    sync::Arc,
+};
 
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
@@ -13,8 +19,8 @@ use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
-    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
-    monitored_entity, person,
+    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+    metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
@@ -49,7 +55,7 @@ use media_models::{
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
 };
 use nanoid::nanoid;
 use providers::{
@@ -179,35 +185,6 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
-pub async fn commit_person(
-    input: CommitPersonInput,
-    db: &DatabaseConnection,
-) -> Result<StringIdObject> {
-    if let Some(p) = Person::find()
-        .filter(person::Column::Source.eq(input.source))
-        .filter(person::Column::Identifier.eq(input.identifier.clone()))
-        .apply_if(input.source_specifics.clone(), |query, v| {
-            query.filter(person::Column::SourceSpecifics.eq(v))
-        })
-        .one(db)
-        .await?
-        .map(|p| StringIdObject { id: p.id })
-    {
-        Ok(p)
-    } else {
-        let person = person::ActiveModel {
-            identifier: ActiveValue::Set(input.identifier),
-            source: ActiveValue::Set(input.source),
-            source_specifics: ActiveValue::Set(input.source_specifics),
-            name: ActiveValue::Set(input.name),
-            is_partial: ActiveValue::Set(Some(true)),
-            ..Default::default()
-        };
-        let person = person.insert(db).await?;
-        Ok(StringIdObject { id: person.id })
-    }
-}
-
 async fn associate_person_with_metadata(
     metadata_id: &str,
     person: PartialMetadataPerson,
@@ -217,20 +194,20 @@ async fn associate_person_with_metadata(
     let role = person.role.clone();
     let db_person = commit_person(
         CommitPersonInput {
-            identifier: person.identifier.clone(),
-            source: person.source,
-            source_specifics: person.source_specifics,
             name: person.name,
+            source: person.source,
+            identifier: person.identifier.clone(),
+            source_specifics: person.source_specifics,
         },
         db,
     )
     .await?;
     let intermediate = metadata_to_person::ActiveModel {
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-        person_id: ActiveValue::Set(db_person.id),
         role: ActiveValue::Set(role),
-        index: ActiveValue::Set(Some(index.try_into().unwrap())),
+        person_id: ActiveValue::Set(db_person.id),
         character: ActiveValue::Set(person.character),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        index: ActiveValue::Set(Some(index.try_into().unwrap())),
     };
     intermediate.insert(db).await.ok();
     Ok(())
@@ -256,8 +233,8 @@ async fn associate_genre_with_metadata(
         c.insert(db).await.unwrap()
     };
     let intermediate = metadata_to_genre::ActiveModel {
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         genre_id: ActiveValue::Set(db_genre.id),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
     };
     intermediate.insert(db).await.ok();
     Ok(())
@@ -313,8 +290,8 @@ async fn associate_suggestion_with_metadata(
 ) -> Result<()> {
     let db_partial_metadata = create_partial_metadata(data, db).await?;
     let intermediate = metadata_to_metadata::ActiveModel {
-        from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+        from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
         ..Default::default()
     };
@@ -322,26 +299,26 @@ async fn associate_suggestion_with_metadata(
     Ok(())
 }
 
-async fn deploy_associate_group_with_metadata_job(
-    lot: MediaLot,
-    source: MediaSource,
-    identifier: String,
+async fn associate_metadata_group_with_metadata(
+    metadata_id: &String,
+    metadata_group: CommitMediaInput,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::AssociateGroupWithMetadata(
-        lot, source, identifier,
-    ))
-    .await
+    let db_group = commit_metadata_group(metadata_group, ss).await?;
+    let intermediate = metadata_to_metadata_group::ActiveModel {
+        part: ActiveValue::Set(0),
+        metadata_group_id: ActiveValue::Set(db_group.id),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+    };
+    intermediate.insert(&ss.db).await.ok();
+    Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn change_metadata_associations(
+pub async fn change_metadata_associations(
     metadata_id: &String,
-    lot: MediaLot,
-    source: MediaSource,
     genres: Vec<String>,
     suggestions: Vec<PartialMetadataWithoutId>,
-    groups: Vec<String>,
+    groups: Vec<CommitMediaInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -373,8 +350,8 @@ async fn change_metadata_associations(
             .await
             .ok();
     }
-    for group_identifier in groups {
-        deploy_associate_group_with_metadata_job(lot, source, group_identifier, ss)
+    for group in groups {
+        associate_metadata_group_with_metadata(metadata_id, group, ss)
             .await
             .ok();
     }
@@ -383,7 +360,6 @@ async fn change_metadata_associations(
 
 pub async fn update_metadata(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, MediaStateChanged)>> {
     let metadata = Metadata::find_by_id(metadata_id)
@@ -391,21 +367,6 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
-    if !force_update {
-        // check whether the metadata needs to be updated
-        let provider = get_metadata_provider(metadata.lot, metadata.source, ss).await?;
-        if let Ok(false) = provider
-            .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
-            .await
-        {
-            ryot_log!(
-                debug,
-                "Metadata {:?} does not need to be updated",
-                metadata_id
-            );
-            return Ok(vec![]);
-        }
-    }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
@@ -624,11 +585,9 @@ pub async fn update_metadata(
 
             change_metadata_associations(
                 &metadata.id,
-                metadata.lot,
-                metadata.source,
                 details.genres,
                 details.suggestions,
-                details.group_identifiers,
+                details.groups,
                 details.people,
                 ss,
             )
@@ -738,12 +697,9 @@ pub async fn refresh_collection_to_entity_association(
 
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let notifications = update_metadata(metadata_id, force_update, ss)
-        .await
-        .unwrap();
+    let notifications = update_metadata(metadata_id, ss).await?;
     if !notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
@@ -761,111 +717,99 @@ pub async fn update_metadata_and_notify_users(
     Ok(())
 }
 
-pub async fn commit_metadata_internal(
-    details: MetadataDetails,
-    is_partial: Option<bool>,
+pub async fn commit_metadata_group(
+    input: CommitMediaInput,
     ss: &Arc<SupportingService>,
-) -> Result<metadata::Model> {
-    let mut images = vec![];
-    images.extend(details.url_images.into_iter().map(|i| MetadataImage {
-        url: StoredUrl::Url(i.image),
-    }));
-    images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
-        url: StoredUrl::S3(i.image),
-    }));
-    let metadata = metadata::ActiveModel {
-        lot: ActiveValue::Set(details.lot),
-        source: ActiveValue::Set(details.source),
-        title: ActiveValue::Set(details.title),
-        source_url: ActiveValue::Set(details.source_url),
-        description: ActiveValue::Set(details.description),
-        publish_year: ActiveValue::Set(details.publish_year),
-        publish_date: ActiveValue::Set(details.publish_date),
-        images: ActiveValue::Set(match images.is_empty() {
-            true => None,
-            false => Some(images),
-        }),
-        videos: ActiveValue::Set(match details.videos.is_empty() {
-            true => None,
-            false => Some(details.videos),
-        }),
-        identifier: ActiveValue::Set(details.identifier),
-        audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
-        anime_specifics: ActiveValue::Set(details.anime_specifics),
-        book_specifics: ActiveValue::Set(details.book_specifics),
-        manga_specifics: ActiveValue::Set(details.manga_specifics),
-        movie_specifics: ActiveValue::Set(details.movie_specifics),
-        podcast_specifics: ActiveValue::Set(details.podcast_specifics),
-        show_specifics: ActiveValue::Set(details.show_specifics),
-        video_game_specifics: ActiveValue::Set(details.video_game_specifics),
-        visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
-        provider_rating: ActiveValue::Set(details.provider_rating),
-        production_status: ActiveValue::Set(details.production_status),
-        music_specifics: ActiveValue::Set(details.music_specifics),
-        original_language: ActiveValue::Set(details.original_language),
-        external_identifiers: ActiveValue::Set(details.external_identifiers),
-        is_nsfw: ActiveValue::Set(details.is_nsfw),
-        is_partial: ActiveValue::Set(is_partial),
-        free_creators: ActiveValue::Set(if details.creators.is_empty() {
-            None
-        } else {
-            Some(details.creators)
-        }),
-        watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
-            None
-        } else {
-            Some(details.watch_providers)
-        }),
-        ..Default::default()
-    };
-    let metadata = metadata.insert(&ss.db).await?;
+) -> Result<StringIdObject> {
+    match MetadataGroup::find()
+        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
+        .filter(metadata_group::Column::Lot.eq(input.unique.lot))
+        .filter(metadata_group::Column::Source.eq(input.unique.source))
+        .one(&ss.db)
+        .await?
+        .map(|m| StringIdObject { id: m.id })
+    {
+        Some(m) => Ok(m),
+        None => {
+            let new_group = metadata_group::ActiveModel {
+                parts: ActiveValue::Set(0),
+                title: ActiveValue::Set(input.name),
+                lot: ActiveValue::Set(input.unique.lot),
+                is_partial: ActiveValue::Set(Some(true)),
+                source: ActiveValue::Set(input.unique.source),
+                identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                ..Default::default()
+            };
+            let new_group = new_group.insert(&ss.db).await?;
+            Ok(StringIdObject { id: new_group.id })
+        }
+    }
+}
 
-    change_metadata_associations(
-        &metadata.id,
-        metadata.lot,
-        metadata.source,
-        details.genres.clone(),
-        details.suggestions.clone(),
-        details.group_identifiers.clone(),
-        details.people.clone(),
-        ss,
-    )
-    .await?;
-    Ok(metadata)
+pub async fn commit_person(
+    input: CommitPersonInput,
+    db: &DatabaseConnection,
+) -> Result<StringIdObject> {
+    match Person::find()
+        .filter(person::Column::Source.eq(input.source))
+        .filter(person::Column::Identifier.eq(&input.identifier))
+        .apply_if(input.source_specifics.clone(), |query, v| {
+            query.filter(person::Column::SourceSpecifics.eq(v))
+        })
+        .one(db)
+        .await?
+        .map(|p| StringIdObject { id: p.id })
+    {
+        Some(p) => Ok(p),
+        None => {
+            let person = person::ActiveModel {
+                name: ActiveValue::Set(input.name),
+                source: ActiveValue::Set(input.source),
+                is_partial: ActiveValue::Set(Some(true)),
+                identifier: ActiveValue::Set(input.identifier),
+                source_specifics: ActiveValue::Set(input.source_specifics),
+                ..Default::default()
+            };
+            let person = person.insert(db).await?;
+            Ok(StringIdObject { id: person.id })
+        }
+    }
 }
 
 pub async fn commit_metadata(
     input: CommitMediaInput,
     ss: &Arc<SupportingService>,
-) -> Result<metadata::Model> {
-    let Some(m) = Metadata::find()
-        .filter(metadata::Column::Lot.eq(input.lot))
-        .filter(metadata::Column::Source.eq(input.source))
-        .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
+) -> Result<StringIdObject> {
+    match Metadata::find()
+        .filter(metadata::Column::Identifier.eq(&input.unique.identifier))
+        .filter(metadata::Column::Lot.eq(input.unique.lot))
+        .filter(metadata::Column::Source.eq(input.unique.source))
         .one(&ss.db)
         .await?
-    else {
-        let details = details_from_provider(input.lot, input.source, &input.identifier, ss).await?;
-        let media = commit_metadata_internal(details, None, ss).await?;
-        return Ok(media);
-    };
-    if input.force_update.unwrap_or_default() {
-        ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
-        update_metadata_and_notify_users(&m.id, true, ss).await?;
+        .map(|m| StringIdObject { id: m.id })
+    {
+        Some(m) => Ok(m),
+        None => {
+            let new_metadata = metadata::ActiveModel {
+                title: ActiveValue::Set(input.name),
+                lot: ActiveValue::Set(input.unique.lot),
+                is_partial: ActiveValue::Set(Some(true)),
+                source: ActiveValue::Set(input.unique.source),
+                identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                ..Default::default()
+            };
+            let new_metadata = new_metadata.insert(&ss.db).await?.id;
+            Ok(StringIdObject { id: new_metadata })
+        }
     }
-    Ok(m)
 }
 
 pub async fn deploy_update_metadata_job(
     metadata_id: &String,
-    force_update: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::UpdateMetadata(
-        metadata_id.to_owned(),
-        force_update,
-    ))
-    .await?;
+    ss.perform_application_job(ApplicationJob::UpdateMetadata(metadata_id.to_owned()))
+        .await?;
     Ok(true)
 }
 
@@ -894,7 +838,7 @@ pub async fn deploy_background_job(
                 .await
                 .unwrap();
             for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, true, ss).await?;
+                deploy_update_metadata_job(&metadata_id, ss).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {
@@ -1052,42 +996,6 @@ pub async fn post_review(
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
-}
-
-pub async fn commit_metadata_group_internal(
-    identifier: &String,
-    lot: MediaLot,
-    source: MediaSource,
-    ss: &Arc<SupportingService>,
-) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
-    let existing_group = MetadataGroup::find()
-        .filter(metadata_group::Column::Identifier.eq(identifier))
-        .filter(metadata_group::Column::Lot.eq(lot))
-        .filter(metadata_group::Column::Source.eq(source))
-        .one(&ss.db)
-        .await?;
-    let provider = get_metadata_provider(lot, source, ss).await?;
-    let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-    let group_id = match existing_group {
-        Some(eg) => {
-            let mut eg: metadata_group::ActiveModel = eg.into();
-            eg.parts = ActiveValue::Set(group_details.parts);
-            eg.source_url = ActiveValue::Set(group_details.source_url);
-            eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
-            let eg = eg.update(&ss.db).await?;
-            eg.id
-        }
-        None => {
-            let mut group_details = group_details.clone();
-            group_details.images = group_details.images.filter(|i| !i.is_empty());
-            let mut db_group: metadata_group::ActiveModel =
-                group_details.into_model("".to_string(), None).into();
-            db_group.id = ActiveValue::NotSet;
-            let new_group = db_group.insert(&ss.db).await?;
-            new_group.id
-        }
-    };
-    Ok((group_id, associated_items))
 }
 
 async fn seen_history(
@@ -2110,6 +2018,7 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
+    run_updates: bool,
     respect_cache: bool,
     import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2121,7 +2030,7 @@ where
     let preferences = user_by_id(user_id, ss).await?.preferences;
     let mut import = import;
     // DEV: We need to sort the exercises to make sure they are created before the workouts
-    // DEV: because the workouts depend on the exercises.
+    // because the workouts depend on the exercises.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
@@ -2130,6 +2039,10 @@ where
     let total = import.completed.len();
 
     let mut need_to_schedule_user_for_workout_revision = false;
+
+    let mut metadata_to_update = HashSet::new();
+    let mut metadata_groups_to_update = HashSet::new();
+    let mut people_to_update = HashSet::new();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
@@ -2148,6 +2061,12 @@ where
                 create_or_update_collection(&ss.db, user_id, col_details).await?;
             }
             ImportCompletedItem::Metadata(metadata) => {
+                if metadata.seen_history.is_empty()
+                    && metadata.reviews.is_empty()
+                    && metadata.collections.is_empty()
+                {
+                    continue;
+                }
                 let source_id = if metadata.source_id.is_empty() {
                     metadata.identifier.clone()
                 } else {
@@ -2157,10 +2076,12 @@ where
                 let identifier = metadata.identifier.clone();
                 let db_metadata = match commit_metadata(
                     CommitMediaInput {
-                        identifier,
-                        lot: metadata.lot,
-                        force_update: None,
-                        source: metadata.source,
+                        name: metadata.source_id.clone(),
+                        unique: UniqueMediaIdentifier {
+                            identifier,
+                            lot: metadata.lot,
+                            source: metadata.source,
+                        },
                     },
                     ss,
                 )
@@ -2168,7 +2089,6 @@ where
                 {
                     Ok(r) => r,
                     Err(e) => {
-                        ryot_log!(error, "{e:?}");
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
                             step: ImportFailStep::MediaDetailsFromProvider,
@@ -2178,6 +2098,7 @@ where
                         continue;
                     }
                 };
+                metadata_to_update.insert(db_metadata.id.clone());
                 for seen in metadata.seen_history.iter() {
                     let progress = if seen.progress.is_some() {
                         seen.progress
@@ -2242,17 +2163,21 @@ where
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let metadata_group_id = match commit_metadata_group_internal(
-                    &metadata_group.identifier,
-                    metadata_group.lot,
-                    metadata_group.source,
+                let metadata_group_id = match commit_metadata_group(
+                    CommitMediaInput {
+                        name: metadata_group.title.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata_group.lot,
+                            source: metadata_group.source,
+                            identifier: metadata_group.identifier,
+                        },
+                    },
                     ss,
                 )
                 .await
                 {
-                    Ok(r) => r.0,
+                    Ok(r) => r.id,
                     Err(e) => {
-                        ryot_log!(error, "{e:?}");
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata_group.lot),
                             step: ImportFailStep::MediaDetailsFromProvider,
@@ -2262,6 +2187,7 @@ where
                         continue;
                     }
                 };
+                metadata_groups_to_update.insert(metadata_group_id.clone());
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2291,7 +2217,7 @@ where
                 }
             }
             ImportCompletedItem::Person(person) => {
-                let db_person = commit_person(
+                let db_person = match commit_person(
                     CommitPersonInput {
                         identifier: person.identifier.clone(),
                         name: person.name.clone(),
@@ -2300,7 +2226,20 @@ where
                     },
                     &ss.db,
                 )
-                .await?;
+                .await
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            lot: None,
+                            error: Some(e.message),
+                            identifier: person.identifier.clone(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                        });
+                        continue;
+                    }
+                };
+                people_to_update.insert(db_person.id.clone());
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2384,6 +2323,20 @@ where
 
     if need_to_schedule_user_for_workout_revision {
         schedule_user_for_workout_revision(user_id, ss).await?;
+    }
+
+    if run_updates {
+        for metadata_id in metadata_to_update {
+            deploy_update_metadata_job(&metadata_id, ss).await?;
+        }
+        for metadata_group_id in metadata_groups_to_update {
+            ss.perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group_id))
+                .await?;
+        }
+        for person_id in people_to_update {
+            ss.perform_application_job(ApplicationJob::UpdatePerson(person_id))
+                .await?;
+        }
     }
 
     let details = ImportResultResponse {
@@ -2499,4 +2452,20 @@ pub async fn add_entity_to_collection(
     ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
         .await?;
     Ok(true)
+}
+
+pub async fn get_identifier_from_book_isbn(
+    isbn: &str,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> Option<(String, MediaSource)> {
+    let mut identifier = None;
+    let mut source = MediaSource::GoogleBooks;
+    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+        identifier = Some(id);
+    } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+        identifier = Some(id);
+        source = MediaSource::Openlibrary;
+    }
+    identifier.map(|id| (id, source))
 }

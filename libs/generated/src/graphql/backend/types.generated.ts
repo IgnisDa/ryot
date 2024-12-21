@@ -200,10 +200,8 @@ export type CollectionItem = {
 };
 
 export type CommitMediaInput = {
-  forceUpdate?: InputMaybe<Scalars['Boolean']['input']>;
-  identifier: Scalars['String']['input'];
-  lot: MediaLot;
-  source: MediaSource;
+  name: Scalars['String']['input'];
+  unique: UniqueMediaIdentifier;
 };
 
 export type CommitPersonInput = {
@@ -2244,6 +2242,12 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
+};
+
+export type UniqueMediaIdentifier = {
+  identifier: Scalars['String']['input'];
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type UpdateComplexJsonInput = {

@@ -833,7 +833,6 @@ dependencies = [
  "integration-service",
  "itertools 0.13.0",
  "logs-wheel",
- "media-models",
  "migrations",
  "miscellaneous-resolver",
  "miscellaneous-service",
@@ -848,7 +847,6 @@ dependencies = [
  "statistics-service",
  "supporting-service",
  "tokio",
- "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -861,12 +859,9 @@ dependencies = [
 name = "background"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "chrono",
  "chrono-tz",
  "database-models",
- "enums",
- "fitness-models",
  "media-models",
  "serde",
  "strum",
@@ -3343,6 +3338,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.11.0",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tracing",
  "traits",
@@ -3418,6 +3414,7 @@ dependencies = [
  "serde_json",
  "sonarr-api-rs",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tokio",
  "tracing",
@@ -5887,6 +5884,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "specific-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "database-models",
+ "dependent-utils",
+ "enums",
+ "sea-orm",
+ "supporting-service",
+ "tokio",
+]
+
+[[package]]
 name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6310,7 +6320,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
  "tracing",
  "unkey",
 ]

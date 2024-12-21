@@ -1,9 +1,9 @@
 use chrono::DateTime;
 use chrono_tz::Tz;
 use database_models::seen;
-use enums::{MediaLot, MediaSource};
-use fitness_models::GithubExercise;
-use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
+use media_models::{
+    CommitMediaInput, DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent,
+};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -23,17 +23,17 @@ pub enum ApplicationJob {
     SyncIntegrationsData,
     UpdateExerciseLibrary,
     PerformExport(String),
+    UpdateGithubExercises,
+    UpdateMetadata(String),
     PerformBackgroundTasks,
     RecalculateCalendarEvents,
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
-    UpdateMetadata(String, bool),
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),
-    UpdateGithubExerciseJob(GithubExercise),
     HandleEntityAddedToCollectionEvent(Uuid),
+    AssociateGroupWithMetadata(CommitMediaInput),
     RecalculateUserActivitiesAndSummary(String, bool),
-    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 

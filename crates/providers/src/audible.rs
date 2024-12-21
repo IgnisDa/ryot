@@ -10,9 +10,9 @@ use educe::Educe;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-    MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    AudioBookSpecifics, CommitMediaInput, MetadataDetails, MetadataFreeCreator,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
@@ -316,12 +316,19 @@ impl MediaProvider for AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
-        let mut groups = vec![];
-        for s in data.product.clone().series.unwrap_or_default() {
-            groups.push(s.asin);
-        }
-        let mut item = self.audible_response_to_search_response(data.product);
+        let mut item = self.audible_response_to_search_response(data.product.clone());
         let mut suggestions = vec![];
+        let mut groups = vec![];
+        for s in data.product.series.unwrap_or_default() {
+            groups.push(CommitMediaInput {
+                name: s.title,
+                unique: UniqueMediaIdentifier {
+                    lot: item.lot,
+                    identifier: s.asin,
+                    source: MediaSource::Audible,
+                },
+            });
+        }
         for sim_type in AudibleSimilarityType::iter() {
             let data: AudibleItemSimResponse = self
                 .client
@@ -348,7 +355,7 @@ impl MediaProvider for AudibleService {
             }
         }
         item.suggestions = suggestions.into_iter().unique().collect();
-        item.group_identifiers = groups;
+        item.groups = groups;
         Ok(item)
     }
 
