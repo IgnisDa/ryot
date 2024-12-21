@@ -1075,8 +1075,11 @@ pub async fn commit_metadata_group_internal(
     let group_id = match existing_group {
         Some(eg) => {
             let mut eg: metadata_group::ActiveModel = eg.into();
+            eg.is_partial = ActiveValue::Set(None);
+            eg.title = ActiveValue::Set(group_details.title);
             eg.parts = ActiveValue::Set(group_details.parts);
             eg.source_url = ActiveValue::Set(group_details.source_url);
+            eg.description = ActiveValue::Set(group_details.description);
             eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
             let eg = eg.update(&ss.db).await?;
             eg.id
@@ -1087,6 +1090,7 @@ pub async fn commit_metadata_group_internal(
             let mut db_group: metadata_group::ActiveModel =
                 group_details.into_model("".to_string(), None).into();
             db_group.id = ActiveValue::NotSet;
+            db_group.is_partial = ActiveValue::Set(None);
             let new_group = db_group.insert(&ss.db).await?;
             new_group.id
         }
