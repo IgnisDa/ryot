@@ -162,7 +162,7 @@ pub async fn import(
         }));
     }
     for favorite in data.favourites {
-        let lot = anilist_series_type_to_lot(favorite.favourite_type);
+        let lot = anilist_favorite_type_to_lot(favorite.favourite_type);
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Anilist,
@@ -185,6 +185,13 @@ fn anilist_series_type_to_lot(series_type: u8) -> MediaLot {
     match series_type {
         1 => MediaLot::Manga,
         _ => MediaLot::Anime,
+    }
+}
+
+fn anilist_favorite_type_to_lot(favourite_type: u8) -> MediaLot {
+    match favourite_type {
+        1 => MediaLot::Anime,
+        _ => MediaLot::Manga,
     }
 }
 
