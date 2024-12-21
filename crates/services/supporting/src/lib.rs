@@ -3,8 +3,8 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background_models::{
-    ApplicationJob, HighPriorityApplicationJob, LowPriorityApplicationJob,
-    MediumPriorityApplicationJob,
+    ApplicationJob, HpApplicationJob, LpApplicationJob,
+    MpApplicationJob,
 };
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
@@ -39,9 +39,9 @@ pub struct SupportingService {
     pub oidc_client: Option<CoreClient>,
     pub file_storage_service: Arc<FileStorageService>,
 
-    lp_application_job: MemoryStorage<LowPriorityApplicationJob>,
-    hp_application_job: MemoryStorage<HighPriorityApplicationJob>,
-    mp_application_job: MemoryStorage<MediumPriorityApplicationJob>,
+    lp_application_job: MemoryStorage<LpApplicationJob>,
+    hp_application_job: MemoryStorage<HpApplicationJob>,
+    mp_application_job: MemoryStorage<MpApplicationJob>,
 }
 
 impl SupportingService {
@@ -53,9 +53,9 @@ impl SupportingService {
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
         file_storage_service: Arc<FileStorageService>,
-        lp_application_job: &MemoryStorage<LowPriorityApplicationJob>,
-        mp_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
-        hp_application_job: &MemoryStorage<HighPriorityApplicationJob>,
+        lp_application_job: &MemoryStorage<LpApplicationJob>,
+        mp_application_job: &MemoryStorage<MpApplicationJob>,
+        hp_application_job: &MemoryStorage<HpApplicationJob>,
     ) -> Self {
         Self {
             config,

@@ -4,7 +4,7 @@ use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
 };
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, HighPriorityApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob};
 use chrono::Timelike;
 use common_models::{
     BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
@@ -721,7 +721,7 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     ss: &Arc<SupportingService>,
 ) {
     ss.perform_application_job(ApplicationJob::Hp(
-        HighPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
+        HpApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id.to_owned(),
             calculate_from_beginning,
         ),

@@ -8,10 +8,7 @@ use std::{
 
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
-use background_models::{
-    ApplicationJob, HighPriorityApplicationJob, LowPriorityApplicationJob,
-    MediumPriorityApplicationJob,
-};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -811,9 +808,9 @@ pub async fn deploy_update_metadata_job(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    ss.perform_application_job(ApplicationJob::Mp(
-        MediumPriorityApplicationJob::UpdateMetadata(metadata_id.to_owned()),
-    ))
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadata(
+        metadata_id.to_owned(),
+    )))
     .await?;
     Ok(true)
 }
@@ -847,42 +844,37 @@ pub async fn deploy_background_job(
             }
         }
         BackgroundJob::UpdateAllExercises => {
-            ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::UpdateExerciseLibrary,
-            ))
-            .await?;
+            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))
+                .await?;
         }
         BackgroundJob::RecalculateCalendarEvents => {
             ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::RecalculateCalendarEvents,
+                MpApplicationJob::RecalculateCalendarEvents,
             ))
             .await?;
         }
         BackgroundJob::PerformBackgroundTasks => {
             ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::PerformBackgroundTasks,
+                MpApplicationJob::PerformBackgroundTasks,
             ))
             .await?;
         }
         BackgroundJob::SyncIntegrationsData => {
             ss.perform_application_job(ApplicationJob::Hp(
-                HighPriorityApplicationJob::SyncUserIntegrationsData(user_id.to_owned()),
+                HpApplicationJob::SyncUserIntegrationsData(user_id.to_owned()),
             ))
             .await?;
         }
         BackgroundJob::CalculateUserActivitiesAndSummary => {
             ss.perform_application_job(ApplicationJob::Hp(
-                HighPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
-                    user_id.to_owned(),
-                    true,
-                ),
+                HpApplicationJob::RecalculateUserActivitiesAndSummary(user_id.to_owned(), true),
             ))
             .await?;
         }
         BackgroundJob::ReviseUserWorkouts => {
-            ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::ReviseUserWorkouts(user_id.to_owned()),
-            ))
+            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::ReviseUserWorkouts(
+                user_id.to_owned(),
+            )))
             .await?;
         }
     };
@@ -997,15 +989,15 @@ pub async fn post_review(
         let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
-            ss.perform_application_job(ApplicationJob::Hp(
-                HighPriorityApplicationJob::ReviewPosted(ReviewPostedEvent {
+            ss.perform_application_job(ApplicationJob::Hp(HpApplicationJob::ReviewPosted(
+                ReviewPostedEvent {
                     obj_title,
                     entity_lot,
                     obj_id: id,
                     username: user.name,
                     review_id: insert.id.clone().unwrap(),
-                }),
-            ))
+                },
+            )))
             .await?;
         }
     }
@@ -1118,7 +1110,7 @@ pub async fn deploy_after_handle_media_seen_tasks(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Lp(
-        LowPriorityApplicationJob::HandleAfterMediaSeenTasks(seen),
+        LpApplicationJob::HandleAfterMediaSeenTasks(seen),
     ))
     .await
 }
@@ -1497,9 +1489,9 @@ pub async fn progress_update(
             .await?;
     }
     if seen.state == SeenState::Completed {
-        ss.perform_application_job(ApplicationJob::Lp(
-            LowPriorityApplicationJob::HandleOnSeenComplete(seen.id.clone()),
-        ))
+        ss.perform_application_job(ApplicationJob::Lp(LpApplicationJob::HandleOnSeenComplete(
+            seen.id.clone(),
+        )))
         .await?;
     }
     expire_user_collections_list_cache(user_id, ss).await?;
@@ -2358,15 +2350,15 @@ where
             deploy_update_metadata_job(&metadata_id, ss).await?;
         }
         for metadata_group_id in metadata_groups_to_update {
-            ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::UpdateMetadataGroup(metadata_group_id),
-            ))
+            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+                metadata_group_id,
+            )))
             .await?;
         }
         for person_id in people_to_update {
-            ss.perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::UpdatePerson(person_id),
-            ))
+            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                person_id,
+            )))
             .await?;
         }
     }
@@ -2482,7 +2474,7 @@ pub async fn add_entity_to_collection(
     };
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     ss.perform_application_job(ApplicationJob::Lp(
-        LowPriorityApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
+        LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     ))
     .await?;
     expire_user_collections_list_cache(user_id, ss).await?;

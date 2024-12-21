@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
-use background_models::{ApplicationJob, MediumPriorityApplicationJob};
+use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::ryot_log;
@@ -49,7 +49,7 @@ impl ImporterService {
         user_id: String,
         input: DeployImportJobInput,
     ) -> Result<bool> {
-        let job = MediumPriorityApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
+        let job = MpApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
         self.0
             .perform_application_job(ApplicationJob::Mp(job))
             .await?;

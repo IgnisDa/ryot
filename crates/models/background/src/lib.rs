@@ -7,7 +7,7 @@ use strum::Display;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
-pub enum HighPriorityApplicationJob {
+pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
@@ -15,7 +15,7 @@ pub enum HighPriorityApplicationJob {
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MediumPriorityApplicationJob {
+pub enum MpApplicationJob {
     UpdatePerson(String),
     SyncIntegrationsData,
     UpdateExerciseLibrary,
@@ -30,7 +30,7 @@ pub enum MediumPriorityApplicationJob {
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
-pub enum LowPriorityApplicationJob {
+pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),
     HandleEntityAddedToCollectionEvent(Uuid),
@@ -38,9 +38,9 @@ pub enum LowPriorityApplicationJob {
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum ApplicationJob {
-    Lp(LowPriorityApplicationJob),
-    Hp(HighPriorityApplicationJob),
-    Mp(MediumPriorityApplicationJob),
+    Lp(LpApplicationJob),
+    Hp(HpApplicationJob),
+    Mp(MpApplicationJob),
 }
 
 pub struct ScheduledJob(pub DateTime<Tz>);

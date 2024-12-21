@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, MediumPriorityApplicationJob};
+use background_models::{ApplicationJob, MpApplicationJob};
 use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
@@ -421,7 +421,7 @@ impl FitnessService {
         );
         self.0
             .perform_application_job(ApplicationJob::Mp(
-                MediumPriorityApplicationJob::UpdateGithubExercises,
+                MpApplicationJob::UpdateGithubExercises,
             ))
             .await?;
         Ok(())
