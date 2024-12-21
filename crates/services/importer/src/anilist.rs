@@ -16,20 +16,6 @@ use supporting_service::SupportingService;
 
 use super::utils;
 
-fn anilist_series_type_to_lot(series_type: u8) -> MediaLot {
-    match series_type {
-        1 => MediaLot::Manga,
-        _ => MediaLot::Anime,
-    }
-}
-
-fn anilist_private_status_to_visibility(private: u8) -> Visibility {
-    match private {
-        1 => Visibility::Private,
-        _ => Visibility::Public,
-    }
-}
-
 #[nest_struct]
 #[derive(Debug, Deserialize)]
 struct AnilistExport {
@@ -177,4 +163,18 @@ pub async fn import(
 
 fn parse_date_string(input: &str) -> NaiveDateTime {
     NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S").unwrap()
+}
+
+fn anilist_series_type_to_lot(series_type: u8) -> MediaLot {
+    match series_type {
+        1 => MediaLot::Manga,
+        _ => MediaLot::Anime,
+    }
+}
+
+fn anilist_private_status_to_visibility(private: u8) -> Visibility {
+    match private {
+        1 => Visibility::Private,
+        _ => Visibility::Public,
+    }
 }
