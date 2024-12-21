@@ -50,6 +50,12 @@ struct AnilistExport {
             updated_at: String,
         },
     >,
+    favourites: Vec<
+        nest! {
+            favourite_id: i32,
+            favourite_type: u8,
+        },
+    >,
 }
 
 pub async fn import(
@@ -152,6 +158,16 @@ pub async fn import(
                 }),
                 ..Default::default()
             }],
+            ..Default::default()
+        }));
+    }
+    for favorite in data.favourites {
+        let lot = anilist_series_type_to_lot(favorite.favourite_type);
+        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            source: MediaSource::Anilist,
+            collections: vec!["Favorite".to_string()],
+            identifier: favorite.favourite_id.to_string(),
             ..Default::default()
         }));
     }
