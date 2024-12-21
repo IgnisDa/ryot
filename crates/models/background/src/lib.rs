@@ -6,14 +6,14 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize, Serialize, Display)]
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum HighPriorityApplicationJob {
     SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
-#[derive(Debug, Deserialize, Serialize, Display)]
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MediumPriorityApplicationJob {
     UpdatePerson(String),
     SyncIntegrationsData,
@@ -28,7 +28,7 @@ pub enum MediumPriorityApplicationJob {
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
-#[derive(Debug, Deserialize, Serialize, Display)]
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum LowPriorityApplicationJob {
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),

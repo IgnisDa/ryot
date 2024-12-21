@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use apalis::{
-    layers::WorkerBuilderExt,
+    layers::{retry::RetryPolicy, WorkerBuilderExt},
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
@@ -191,8 +191,8 @@ async fn main() -> Result<()> {
         // application jobs
         .register(
             WorkerBuilder::new("perform_hp_application_job")
-                .enable_tracing()
                 .catch_panic()
+                .enable_tracing()
                 .data(app_services.integration_service.clone())
                 .data(app_services.miscellaneous_service.clone())
                 .backend(hp_application_job_storage)
@@ -200,9 +200,10 @@ async fn main() -> Result<()> {
         )
         .register(
             WorkerBuilder::new("perform_mp_application_job")
+                .catch_panic()
                 .enable_tracing()
                 .rate_limit(5, Duration::new(5, 0))
-                .catch_panic()
+                .retry(RetryPolicy::retries(3))
                 .data(app_services.fitness_service.clone())
                 .data(app_services.exporter_service.clone())
                 .data(app_services.importer_service.clone())
@@ -213,9 +214,9 @@ async fn main() -> Result<()> {
         )
         .register(
             WorkerBuilder::new("perform_lp_application_job")
+                .catch_panic()
                 .enable_tracing()
                 .rate_limit(20, Duration::new(5, 0))
-                .catch_panic()
                 .data(app_services.statistics_service)
                 .data(app_services.integration_service)
                 .data(app_services.miscellaneous_service)
