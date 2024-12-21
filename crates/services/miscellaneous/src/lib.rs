@@ -9,7 +9,7 @@ use application_utils::{
     graphql_to_db_order,
 };
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, CoreApplicationJob};
+use background_models::{MediumPriorityApplicationJob, HighPriorityApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -1050,7 +1050,7 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_core_application_job(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .perform_core_application_job(HighPriorityApplicationJob::BulkProgressUpdate(user_id, input))
             .await?;
         Ok(true)
     }
@@ -1275,7 +1275,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::UpdatePerson(person.id))
+            .perform_application_job(MediumPriorityApplicationJob::UpdatePerson(person.id))
             .await?;
         Ok(true)
     }
@@ -1290,7 +1290,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
+            .perform_application_job(MediumPriorityApplicationJob::UpdateMetadataGroup(metadata_group.id))
             .await?;
         Ok(true)
     }
@@ -2912,7 +2912,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         self.0
-            .perform_application_job(ApplicationJob::SyncIntegrationsData)
+            .perform_application_job(MediumPriorityApplicationJob::SyncIntegrationsData)
             .await?;
         Ok(())
     }

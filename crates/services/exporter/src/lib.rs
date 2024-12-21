@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
 use async_graphql::{Error, Result};
-use background_models::ApplicationJob;
+use background_models::MediumPriorityApplicationJob;
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
 use common_utils::TEMP_DIR;
@@ -56,7 +56,7 @@ pub struct ExporterService(pub Arc<SupportingService>);
 impl ExporterService {
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.0
-            .perform_application_job(ApplicationJob::PerformExport(user_id))
+            .perform_application_job(MediumPriorityApplicationJob::PerformExport(user_id))
             .await?;
         Ok(true)
     }

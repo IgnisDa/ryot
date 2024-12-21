@@ -8,17 +8,15 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
 
-// The background jobs which cannot be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
-pub enum CoreApplicationJob {
+pub enum HighPriorityApplicationJob {
     SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
-// The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
-pub enum ApplicationJob {
+pub enum MediumPriorityApplicationJob {
     UpdatePerson(String),
     SyncIntegrationsData,
     UpdateExerciseLibrary,

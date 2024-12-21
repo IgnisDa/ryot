@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background_models::{ApplicationJob, CoreApplicationJob};
+use background_models::{MediumPriorityApplicationJob, HighPriorityApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
@@ -36,8 +36,8 @@ pub struct SupportingService {
     pub oidc_client: Option<CoreClient>,
     pub file_storage_service: Arc<FileStorageService>,
 
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+    perform_application_job: MemoryStorage<MediumPriorityApplicationJob>,
+    perform_core_application_job: MemoryStorage<HighPriorityApplicationJob>,
 }
 
 impl SupportingService {
@@ -49,8 +49,8 @@ impl SupportingService {
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+        perform_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
+        perform_core_application_job: &MemoryStorage<HighPriorityApplicationJob>,
     ) -> Self {
         Self {
             config,
@@ -64,7 +64,7 @@ impl SupportingService {
         }
     }
 
-    pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
+    pub async fn perform_application_job(&self, job: MediumPriorityApplicationJob) -> Result<()> {
         self.perform_application_job
             .clone()
             .enqueue(job)
@@ -73,7 +73,7 @@ impl SupportingService {
         Ok(())
     }
 
-    pub async fn perform_core_application_job(&self, job: CoreApplicationJob) -> Result<()> {
+    pub async fn perform_core_application_job(&self, job: HighPriorityApplicationJob) -> Result<()> {
         self.perform_core_application_job
             .clone()
             .enqueue(job)

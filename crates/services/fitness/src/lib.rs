@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background_models::ApplicationJob;
+use background_models::MediumPriorityApplicationJob;
 use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
@@ -421,7 +421,7 @@ impl FitnessService {
             "Instance does not have exercises data. Deploying job to download them..."
         );
         self.0
-            .perform_application_job(ApplicationJob::UpdateGithubExercises)
+            .perform_application_job(MediumPriorityApplicationJob::UpdateGithubExercises)
             .await?;
         Ok(true)
     }
