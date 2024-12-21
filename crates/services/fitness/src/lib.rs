@@ -517,12 +517,10 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+        let m = UserMeasurement::find_by_id((timestamp, user_id))
             .one(&self.0.db)
             .await?
-        else {
-            return Ok(false);
-        };
+            .ok_or_else(|| Error::new("Measurement does not exist"))?;
         m.delete(&self.0.db).await?;
         Ok(true)
     }
@@ -532,8 +530,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = create_or_update_user_workout(input, user_id, &self.0).await?;
-        Ok(identifier)
+        create_or_update_user_workout(input, user_id, &self.0).await
     }
 
     pub async fn update_user_workout_attributes(
