@@ -354,6 +354,7 @@ const GroupSearchItem = (props: {
 				if (loaderData.search) {
 					setIsLoading(true);
 					const id = await commitGroup(
+						props.item.name,
 						props.item.identifier,
 						loaderData.search.url.source,
 						loaderData.search.lot,
@@ -367,11 +368,13 @@ const GroupSearchItem = (props: {
 };
 
 const commitGroup = async (
+	name: string,
 	identifier: string,
 	source: MediaSource,
 	lot: MediaLot,
 ) => {
 	const data = new FormData();
+	data.append("name", name);
 	data.append("identifier", identifier);
 	data.append("source", source);
 	data.append("lot", lot);
