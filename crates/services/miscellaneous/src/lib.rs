@@ -2160,7 +2160,7 @@ ORDER BY RANDOM() LIMIT 10;
         let mut group = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .unwrap();
+            .ok_or_else(|| Error::new("Group not found"))?;
         let mut images = vec![];
         for image in group.images.clone().unwrap_or_default().iter() {
             images.push(
