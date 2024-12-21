@@ -2052,7 +2052,7 @@ where
     let preferences = user_by_id(user_id, ss).await?.preferences;
     let mut import = import;
     // DEV: We need to sort the exercises to make sure they are created before the workouts
-    // DEV: because the workouts depend on the exercises.
+    // because the workouts depend on the exercises.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
@@ -2083,6 +2083,12 @@ where
                 create_or_update_collection(&ss.db, user_id, col_details).await?;
             }
             ImportCompletedItem::Metadata(metadata) => {
+                if metadata.seen_history.is_empty()
+                    && metadata.reviews.is_empty()
+                    && metadata.collections.is_empty()
+                {
+                    continue;
+                }
                 let source_id = if metadata.source_id.is_empty() {
                     metadata.identifier.clone()
                 } else {

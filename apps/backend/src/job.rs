@@ -83,7 +83,7 @@ pub async fn perform_application_job(
     let start = Instant::now();
     let status = match information {
         ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
-            .start_importing(user_id, input)
+            .perform_import(user_id, input)
             .await
             .is_ok(),
         ApplicationJob::RecalculateUserActivitiesAndSummary(user_id, calculate_from_beginning) => {

@@ -116,9 +116,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             });
                         }
                     }
-                    if !item.seen_history.is_empty() {
-                        success_items.push(ImportCompletedItem::Metadata(item));
-                    }
+                    success_items.push(ImportCompletedItem::Metadata(item));
                 }
                 _ => unreachable!(),
             }

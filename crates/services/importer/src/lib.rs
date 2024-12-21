@@ -65,7 +65,7 @@ impl ImporterService {
         Ok(reports)
     }
 
-    pub async fn start_importing(
+    pub async fn perform_import(
         &self,
         user_id: String,
         input: Box<DeployImportJobInput>,
