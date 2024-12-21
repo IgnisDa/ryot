@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use apalis::prelude::*;
 use background_models::{
@@ -44,33 +44,21 @@ pub async fn perform_hp_application_job(
     integration_service: Data<Arc<IntegrationService>>,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
-    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
-    let start = Instant::now();
     let status = match information {
-        HighPriorityApplicationJob::SyncIntegrationsData(user_id) => integration_service
-            .yank_integrations_data_for_user(&user_id)
-            .await
-            .is_ok(),
-        HighPriorityApplicationJob::ReviewPosted(event) => {
-            misc_service.handle_review_posted_event(event).await.is_ok()
+        HighPriorityApplicationJob::SyncIntegrationsData(user_id) => {
+            integration_service
+                .yank_integrations_data_for_user(&user_id)
+                .await
         }
-        HighPriorityApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
-            .bulk_progress_update(user_id, input)
-            .await
-            .is_ok(),
+        HighPriorityApplicationJob::ReviewPosted(event) => {
+            misc_service.handle_review_posted_event(event).await
+        }
+        HighPriorityApplicationJob::BulkProgressUpdate(user_id, input) => {
+            misc_service.bulk_progress_update(user_id, input).await
+        }
     };
-    ryot_log!(
-        trace,
-        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
-        name,
-        (Instant::now() - start).as_millis(),
-        status
-    );
-    match status {
-        true => Ok(()),
-        false => Err(Error::Failed(Arc::new("Job failed".into()))),
-    }
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }
 
 pub async fn perform_mp_application_job(
@@ -81,45 +69,42 @@ pub async fn perform_mp_application_job(
     exporter_service: Data<Arc<ExporterService>>,
     fitness_service: Data<Arc<FitnessService>>,
 ) -> Result<(), Error> {
-    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
-    let start = Instant::now();
     let status = match information {
-        MediumPriorityApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
-            .perform_import(user_id, input)
-            .await
-            .is_ok(),
-        MediumPriorityApplicationJob::ReviseUserWorkouts(user_id) => {
-            fitness_service.revise_user_workouts(user_id).await.is_ok()
+        MediumPriorityApplicationJob::ImportFromExternalSource(user_id, input) => {
+            importer_service.perform_import(user_id, input).await
         }
-        MediumPriorityApplicationJob::UpdateMetadata(metadata_id) => misc_service
-            .update_metadata_and_notify_users(&metadata_id)
-            .await
-            .is_ok(),
-        MediumPriorityApplicationJob::UpdatePerson(person_id) => misc_service
-            .update_person_and_notify_users(&person_id)
-            .await
-            .is_ok(),
-        MediumPriorityApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
-            .update_metadata_group(&metadata_group_id)
-            .await
-            .is_ok(),
+        MediumPriorityApplicationJob::ReviseUserWorkouts(user_id) => {
+            fitness_service.revise_user_workouts(user_id).await
+        }
+        MediumPriorityApplicationJob::UpdateMetadata(metadata_id) => {
+            misc_service
+                .update_metadata_and_notify_users(&metadata_id)
+                .await
+        }
+        MediumPriorityApplicationJob::UpdatePerson(person_id) => {
+            misc_service
+                .update_person_and_notify_users(&person_id)
+                .await
+        }
+        MediumPriorityApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
+            misc_service.update_metadata_group(&metadata_group_id).await
+        }
         MediumPriorityApplicationJob::UpdateGithubExercises => {
-            fitness_service.update_github_exercises().await.is_ok()
+            fitness_service.update_github_exercises().await
         }
         MediumPriorityApplicationJob::RecalculateCalendarEvents => {
-            misc_service.recalculate_calendar_events().await.is_ok()
+            misc_service.recalculate_calendar_events().await
         }
         MediumPriorityApplicationJob::PerformBackgroundTasks => {
-            misc_service.perform_background_jobs().await.is_ok()
+            misc_service.perform_background_jobs().await
         }
         MediumPriorityApplicationJob::PerformExport(user_id) => {
-            exporter_service.perform_export(user_id).await.is_ok()
+            exporter_service.perform_export(user_id).await
         }
-        MediumPriorityApplicationJob::UpdateExerciseLibrary => fitness_service
-            .deploy_update_exercise_library_job()
-            .await
-            .is_ok(),
+        MediumPriorityApplicationJob::UpdateExerciseLibrary => {
+            fitness_service.deploy_update_exercise_library_job().await
+        }
         MediumPriorityApplicationJob::SyncIntegrationsData => {
             integration_service
                 .yank_integrations_data()
@@ -128,20 +113,9 @@ pub async fn perform_mp_application_job(
             integration_service
                 .sync_integrations_data_to_owned_collection()
                 .await
-                .is_ok()
         }
     };
-    ryot_log!(
-        trace,
-        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
-        name,
-        (Instant::now() - start).as_millis(),
-        status
-    );
-    match status {
-        true => Ok(()),
-        false => Err(Error::Failed(Arc::new("Job failed".into()))),
-    }
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }
 
 pub async fn perform_lp_application_job(
@@ -150,41 +124,27 @@ pub async fn perform_lp_application_job(
     integration_service: Data<Arc<IntegrationService>>,
     statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
-    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
-    let start = Instant::now();
     let status = match information {
         LowPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id,
             calculate_from_beginning,
-        ) => statistics_service
-            .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
-            .await
-            .is_ok(),
-        LowPriorityApplicationJob::HandleAfterMediaSeenTasks(seen) => misc_service
-            .handle_after_media_seen_tasks(seen)
-            .await
-            .is_ok(),
+        ) => {
+            statistics_service
+                .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
+                .await
+        }
+        LowPriorityApplicationJob::HandleAfterMediaSeenTasks(seen) => {
+            misc_service.handle_after_media_seen_tasks(seen).await
+        }
         LowPriorityApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             integration_service
                 .handle_entity_added_to_collection_event(collection_to_entity_id)
                 .await
-                .is_ok()
         }
-        LowPriorityApplicationJob::HandleOnSeenComplete(id) => integration_service
-            .handle_on_seen_complete(id)
-            .await
-            .is_ok(),
+        LowPriorityApplicationJob::HandleOnSeenComplete(id) => {
+            integration_service.handle_on_seen_complete(id).await
+        }
     };
-    ryot_log!(
-        trace,
-        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
-        name,
-        (Instant::now() - start).as_millis(),
-        status
-    );
-    match status {
-        true => Ok(()),
-        false => Err(Error::Failed(Arc::new("Job failed".into()))),
-    }
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }
