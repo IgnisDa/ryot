@@ -78,13 +78,11 @@ pub async fn import(
         .anime
         .into_iter()
         .enumerate()
-        .map(|(idx, list_name)| (idx, list_name))
         .collect::<HashMap<_, _>>();
     let manga_custom_lists = user_lists
         .manga
         .into_iter()
         .enumerate()
-        .map(|(idx, list_name)| (idx, list_name))
         .collect::<HashMap<_, _>>();
     for item in data.lists {
         let progress = [item.progress, item.progress_volume].into_iter().max();
@@ -104,10 +102,10 @@ pub async fn import(
             };
             match lot {
                 MediaLot::Anime => {
-                    history.anime_episode_number = Some(num.try_into().unwrap());
+                    history.anime_episode_number = Some(num.into());
                 }
                 MediaLot::Manga => {
-                    history.manga_chapter_number = Some(num.try_into().unwrap());
+                    history.manga_chapter_number = Some(num.into());
                 }
                 _ => unreachable!(),
             }

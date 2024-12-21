@@ -8,7 +8,9 @@ use common_utils::ryot_log;
 use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
-use media_models::{UniqueMediaIdentifier, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
+use media_models::{
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+};
 use providers::google_books::GoogleBooksService;
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -87,10 +89,9 @@ where
                         let lot = MediaLot::Podcast;
                         let source = MediaSource::Itunes;
                         let podcast = commit_metadata(UniqueMediaIdentifier {
-                            identifier: itunes_id.clone(),
                             lot,
                             source,
-                            ..Default::default()
+                            identifier: itunes_id.clone(),
                         })
                         .await
                         .unwrap();

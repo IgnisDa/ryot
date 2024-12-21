@@ -2535,7 +2535,6 @@ ORDER BY RANDOM() LIMIT 10;
                     identifier: pm.identifier.clone(),
                     lot: pm.lot,
                     source: pm.source,
-                    ..Default::default()
                 },
                 role: data.role.clone(),
             };

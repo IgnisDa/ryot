@@ -9,8 +9,8 @@ use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
-    UniqueMediaIdentifier, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    UniqueMediaIdentifier,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
@@ -120,10 +120,9 @@ where
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
                                 let podcast = commit_metadata(UniqueMediaIdentifier {
-                                    identifier: itunes_id.clone(),
                                     lot,
                                     source,
-                                    ..Default::default()
+                                    identifier: itunes_id.clone(),
                                 })
                                 .await?;
                                 if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
