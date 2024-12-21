@@ -1169,29 +1169,29 @@ pub struct CollectionContentsFilter {
 
 #[derive(Debug, InputObject)]
 pub struct CollectionContentsInput {
+    pub take: Option<u64>,
     pub collection_id: String,
     pub search: Option<SearchInput>,
     pub filter: Option<CollectionContentsFilter>,
-    pub take: Option<u64>,
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
 #[derive(Debug, SimpleObject, FromQueryResult)]
 pub struct CollectionItem {
     pub id: String,
-    pub name: String,
     pub count: i64,
+    pub name: String,
     pub is_default: bool,
-    pub description: Option<String>,
-    pub information_template: Option<Vec<CollectionExtraInformation>>,
     pub creator: IdAndNamedObject,
+    pub description: Option<String>,
     pub collaborators: Vec<IdAndNamedObject>,
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
-    pub id: Option<String>,
     pub name: String,
+    pub id: Option<String>,
     pub image: Option<String>,
     pub character: Option<String>,
 }
