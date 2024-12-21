@@ -246,10 +246,10 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
-            return Ok(false);
+            return Ok(());
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
@@ -304,7 +304,7 @@ impl IntegrationService {
                 .await
                 .trace_ok();
         }
-        Ok(true)
+        Ok(())
     }
 
     pub async fn yank_integrations_data(&self) -> GqlResult<()> {

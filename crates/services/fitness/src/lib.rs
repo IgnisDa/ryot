@@ -412,9 +412,9 @@ impl FitnessService {
         })
     }
 
-    pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {
         if Exercise::find().count(&self.0.db).await? > 0 {
-            return Ok(true);
+            return Ok(());
         }
         ryot_log!(
             info,
@@ -425,7 +425,7 @@ impl FitnessService {
                 MediumPriorityApplicationJob::UpdateGithubExercises,
             )
             .await?;
-        Ok(true)
+        Ok(())
     }
 
     pub async fn update_github_exercises(&self) -> Result<()> {

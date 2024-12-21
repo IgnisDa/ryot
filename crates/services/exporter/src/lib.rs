@@ -102,7 +102,7 @@ impl ExporterService {
         Ok(resp)
     }
 
-    pub async fn perform_export(&self, user_id: String) -> Result<bool> {
+    pub async fn perform_export(&self, user_id: String) -> Result<()> {
         if !self.0.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",
@@ -166,7 +166,7 @@ impl ExporterService {
             .send()
             .await
             .unwrap();
-        Ok(true)
+        Ok(())
     }
 
     async fn export_media(

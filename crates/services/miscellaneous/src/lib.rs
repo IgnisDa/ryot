@@ -1061,13 +1061,13 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: Vec<ProgressUpdateInput>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         for seen in input {
             progress_update(&user_id, false, seen, &self.0)
                 .await
                 .trace_ok();
         }
-        Ok(true)
+        Ok(())
     }
 
     pub async fn deploy_background_job(
