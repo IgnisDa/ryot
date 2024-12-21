@@ -1176,7 +1176,7 @@ pub struct CollectionContentsInput {
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
-#[derive(Debug, SimpleObject, FromQueryResult)]
+#[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionItem {
     pub id: String,
     pub count: i64,

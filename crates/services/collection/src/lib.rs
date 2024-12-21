@@ -3,7 +3,8 @@ use std::sync::Arc;
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{
-    ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
+    ApplicationCacheKey, ChangeCollectionToEntityInput, DefaultCollection, SearchDetails,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::PAGE_SIZE;
 use database_models::{
@@ -17,7 +18,9 @@ use database_models::{
 use database_utils::{
     create_or_update_collection, ilike_sql, item_reviews, remove_entity_from_collection,
 };
-use dependent_models::{CollectionContents, SearchResults};
+use dependent_models::{
+    ApplicationCacheValue, CollectionContents, SearchResults, UserCollectionsListResponse,
+};
 use dependent_utils::add_entity_to_collection;
 use enum_models::EntityLot;
 use media_models::{
@@ -44,7 +47,15 @@ impl CollectionService {
         &self,
         user_id: &String,
         name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
+    ) -> Result<UserCollectionsListResponse> {
+        let cc = &self.0.cache_service;
+        let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+            input: (),
+            user_id: user_id.to_owned(),
+        });
+        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+            return Ok(cached);
+        }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![
             (
                 Expr::val("id"),
@@ -90,7 +101,7 @@ impl CollectionService {
                 )),
             )
             .to_owned();
-        let collections = Collection::find()
+        let response = Collection::find()
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
@@ -128,7 +139,12 @@ impl CollectionService {
             .all(&self.0.db)
             .await
             .unwrap();
-        Ok(collections)
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::UserCollectionsList(response.clone()),
+        )
+        .await?;
+        Ok(response)
     }
 
     pub async fn collection_contents(

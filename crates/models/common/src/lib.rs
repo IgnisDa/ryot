@@ -324,6 +324,7 @@ pub enum ApplicationCacheKey {
     IgdbSettings,
     TmdbSettings,
     ListennotesSettings,
+    UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),

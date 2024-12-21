@@ -18,12 +18,12 @@ use enum_models::{
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
-    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataGroupSearchItem,
-    MetadataSearchItemResponse, PeopleSearchItem, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
+    GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
+    ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
+    MetadataGroupSearchItem, MetadataSearchItemResponse, PeopleSearchItem,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -415,6 +415,7 @@ pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
@@ -431,5 +432,6 @@ pub enum ApplicationCacheValue {
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
+    UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
 }
