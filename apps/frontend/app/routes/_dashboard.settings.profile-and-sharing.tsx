@@ -55,12 +55,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import {
-	applicationBaseUrl,
-	dayjsLib,
-	queryClient,
-	queryFactory,
-} from "~/lib/generals";
+import { applicationBaseUrl, dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -69,7 +64,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationCookie,
 	getDecodedJwt,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -91,13 +85,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("updateProfile", async () => {
-			const token = getAuthorizationCookie(request);
 			const submission = processSubmission(formData, updateProfileFormSchema);
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
 				input: submission,
-			});
-			queryClient.removeQueries({
-				queryKey: queryFactory.users.details(token ?? "").queryKey,
 			});
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

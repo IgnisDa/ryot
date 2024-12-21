@@ -56,8 +56,8 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	getCachedUserCollectionsList,
-	getCachedUserPreferences,
+	getUserCollectionsList,
+	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -70,7 +70,7 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const preferences = await getCachedUserPreferences(request);
+	const preferences = await getUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const getRecommendations = async () => {
@@ -87,7 +87,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		);
 		return userRecommendations;
 	};
-	const userCollectionsList = await getCachedUserCollectionsList(request);
+	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);

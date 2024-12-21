@@ -349,12 +349,6 @@ export const getSurroundingElements = <T>(
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
 };
 
-const usersQueryKeys = createQueryKeys("users", {
-	details: (token: string) => ({
-		queryKey: ["userDetails", token],
-	}),
-});
-
 const mediaQueryKeys = createQueryKeys("media", {
 	metadataPartialDetails: (metadataId: string) => ({
 		queryKey: ["metadataPartialDetails", metadataId],
@@ -383,12 +377,6 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	userList: (userId: string) => ({
-		queryKey: ["userCollectionsList", userId],
-	}),
-	details: (collectionId: string, take?: number) => ({
-		queryKey: ["collectionDetails", collectionId, take],
-	}),
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
@@ -409,12 +397,6 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
-const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
-	coreDetails: () => ({
-		queryKey: ["coreDetails"],
-	}),
-});
-
 const analyticsQueryKeys = createQueryKeys("analytics", {
 	user: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["user", input],
@@ -422,12 +404,10 @@ const analyticsQueryKeys = createQueryKeys("analytics", {
 });
 
 export const queryFactory = mergeQueryKeys(
-	usersQueryKeys,
 	mediaQueryKeys,
 	fitnessQueryKeys,
 	analyticsQueryKeys,
 	collectionQueryKeys,
-	miscellaneousQueryKeys,
 );
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>

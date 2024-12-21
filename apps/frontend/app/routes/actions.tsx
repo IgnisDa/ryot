@@ -45,7 +45,6 @@ import {
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
-	removeCachedUserCollectionsList,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -170,7 +169,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		})
 		.with("addEntityToCollection", async () => {
-			removeCachedUserCollectionsList(request);
 			const [submission] = getChangeCollectionToEntityVariables(formData);
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
@@ -197,7 +195,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		})
 		.with("removeEntityFromCollection", async () => {
-			removeCachedUserCollectionsList(request);
 			const [submission] = getChangeCollectionToEntityVariables(formData);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -403,7 +400,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: updates },
 				);
 			await sleepForHalfSecond(request);
-			await removeCachedUserCollectionsList(request);
 			extendResponseHeaders(
 				headers,
 				await createToastHeaders({
@@ -423,7 +419,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 			);
 			await sleepForHalfSecond(request);
-			await removeCachedUserCollectionsList(request);
 			extendResponseHeaders(
 				headers,
 				await createToastHeaders({
@@ -469,7 +464,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					},
 				);
 			}
-			await removeCachedUserCollectionsList(request);
 		})
 		.run();
 	if (redirectTo) {
