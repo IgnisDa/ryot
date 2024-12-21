@@ -41,14 +41,23 @@ pub async fn run_frequent_jobs(
 
 pub async fn perform_hp_application_job(
     information: HighPriorityApplicationJob,
-    integration_service: Data<Arc<IntegrationService>>,
     misc_service: Data<Arc<MiscellaneousService>>,
+    statistics_service: Data<Arc<StatisticsService>>,
+    integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
         HighPriorityApplicationJob::SyncUserIntegrationsData(user_id) => {
             integration_service
                 .yank_integrations_data_for_user(&user_id)
+                .await
+        }
+        HighPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id,
+            calculate_from_beginning,
+        ) => {
+            statistics_service
+                .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
                 .await
         }
         HighPriorityApplicationJob::ReviewPosted(event) => {
@@ -122,18 +131,9 @@ pub async fn perform_lp_application_job(
     information: LowPriorityApplicationJob,
     misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
-    statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        LowPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
-            user_id,
-            calculate_from_beginning,
-        ) => {
-            statistics_service
-                .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
-                .await
-        }
         LowPriorityApplicationJob::HandleAfterMediaSeenTasks(seen) => {
             misc_service.handle_after_media_seen_tasks(seen).await
         }

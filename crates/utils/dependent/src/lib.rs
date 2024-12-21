@@ -871,8 +871,8 @@ pub async fn deploy_background_job(
             .await?;
         }
         BackgroundJob::CalculateUserActivitiesAndSummary => {
-            ss.perform_application_job(ApplicationJob::Lp(
-                LowPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
+            ss.perform_application_job(ApplicationJob::Hp(
+                HighPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
                     user_id.to_owned(),
                     true,
                 ),

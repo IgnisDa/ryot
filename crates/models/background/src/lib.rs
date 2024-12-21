@@ -10,6 +10,7 @@ use uuid::Uuid;
 pub enum HighPriorityApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
+    RecalculateUserActivitiesAndSummary(String, bool),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
@@ -33,7 +34,6 @@ pub enum LowPriorityApplicationJob {
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),
     HandleEntityAddedToCollectionEvent(Uuid),
-    RecalculateUserActivitiesAndSummary(String, bool),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
