@@ -21,6 +21,7 @@ use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
 use file_storage_service::FileStorageService;
 use fitness_resolver::{FitnessMutation, FitnessQuery};
 use fitness_service::FitnessService;
+use futures::future::join_all;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
@@ -50,7 +51,6 @@ pub struct AppServices {
     pub fitness_service: Arc<FitnessService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
-    pub supporting_service: Arc<SupportingService>,
     pub statistics_service: Arc<StatisticsService>,
     pub integration_service: Arc<IntegrationService>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
@@ -125,6 +125,15 @@ pub async fn create_app_services(
     let webhook_routes =
         Router::new().route("/integrations/:integration_slug", post(integration_webhook));
 
+    join_all(
+        [
+            ApplicationJob::SyncIntegrationsData,
+            ApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|job| supporting_service.perform_application_job(job)),
+    )
+    .await;
+
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {
         gql = gql.get(graphql_playground);
@@ -144,12 +153,12 @@ pub async fn create_app_services(
             1024 * 1024 * config.server.max_file_size,
         ))
         .layer(cors);
+
     AppServices {
         app_router,
         fitness_service,
         importer_service,
         exporter_service,
-        supporting_service,
         statistics_service,
         integration_service,
         miscellaneous_service,

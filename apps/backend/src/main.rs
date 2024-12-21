@@ -14,11 +14,9 @@ use apalis::{
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
-use background_models::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
-use futures::future::join_all;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -124,15 +122,6 @@ async fn main() -> Result<()> {
         config,
         &perform_application_job_storage,
         &perform_core_application_job_storage,
-    )
-    .await;
-
-    join_all(
-        [
-            ApplicationJob::SyncIntegrationsData,
-            ApplicationJob::UpdateExerciseLibrary,
-        ]
-        .map(|job| app_services.supporting_service.perform_application_job(job)),
     )
     .await;
 
