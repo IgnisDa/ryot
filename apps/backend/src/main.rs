@@ -164,24 +164,12 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
-    let fitness_service_1 = app_services.fitness_service.clone();
-    let fitness_service_2 = app_services.fitness_service.clone();
-    let importer_service_1 = app_services.importer_service.clone();
-    let exporter_service_1 = app_services.exporter_service.clone();
-    let statistics_service_1 = app_services.statistics_service.clone();
-    let integration_service_1 = app_services.integration_service.clone();
-    let integration_service_2 = app_services.integration_service.clone();
-    let integration_service_3 = app_services.integration_service.clone();
-    let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
-
     let monitor = Monitor::new()
         .register(
             WorkerBuilder::new("daily_background_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(miscellaneous_service_1.clone())
+                .data(app_services.miscellaneous_service.clone())
                 .backend(
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
@@ -192,8 +180,8 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(integration_service_1.clone())
-                .data(fitness_service_2.clone())
+                .data(app_services.integration_service.clone())
+                .data(app_services.fitness_service.clone())
                 .backend(CronStream::new_with_timezone(
                     Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
                     tz,
@@ -205,8 +193,8 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_hp_application_job")
                 .enable_tracing()
                 .catch_panic()
-                .data(integration_service_2.clone())
-                .data(miscellaneous_service_3.clone())
+                .data(app_services.integration_service.clone())
+                .data(app_services.miscellaneous_service.clone())
                 .backend(hp_application_job_storage)
                 .build_fn(perform_hp_application_job),
         )
@@ -214,11 +202,11 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_mp_application_job")
                 .enable_tracing()
                 .catch_panic()
-                .data(fitness_service_1.clone())
-                .data(exporter_service_1.clone())
-                .data(importer_service_1.clone())
-                .data(integration_service_3.clone())
-                .data(miscellaneous_service_2.clone())
+                .data(app_services.fitness_service.clone())
+                .data(app_services.exporter_service.clone())
+                .data(app_services.importer_service.clone())
+                .data(app_services.integration_service.clone())
+                .data(app_services.miscellaneous_service.clone())
                 .layer(ApalisRateLimitLayer::new(5, Duration::new(5, 0)))
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),
@@ -227,9 +215,9 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_lp_application_job")
                 .enable_tracing()
                 .catch_panic()
-                .data(statistics_service_1.clone())
-                .data(integration_service_3.clone())
-                .data(miscellaneous_service_2.clone())
+                .data(app_services.statistics_service)
+                .data(app_services.integration_service)
+                .data(app_services.miscellaneous_service)
                 .layer(ApalisRateLimitLayer::new(20, Duration::new(5, 0)))
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
