@@ -68,10 +68,9 @@ use media_models::{
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataDetails, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
-    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
-    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
+    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
+    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+    PartialMetadata, PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
@@ -1744,8 +1743,10 @@ ORDER BY RANDOM() LIMIT 10;
             .images
             .unwrap_or_default()
             .into_iter()
-            .map(|i| MetadataImageForMediaDetails { image: i })
-            .collect();
+            .map(|i| MetadataImage {
+                url: StoredUrl::S3(i),
+            })
+            .collect_vec();
         let videos = input
             .videos
             .unwrap_or_default()
@@ -1754,8 +1755,8 @@ ORDER BY RANDOM() LIMIT 10;
                 identifier: StoredUrl::S3(i),
                 source: MetadataVideoSource::Custom,
             })
-            .collect();
-        let creators = input
+            .collect_vec();
+        let free_creators = input
             .creators
             .unwrap_or_default()
             .into_iter()
@@ -1764,7 +1765,7 @@ ORDER BY RANDOM() LIMIT 10;
                 role: "Creator".to_string(),
                 image: None,
             })
-            .collect();
+            .collect_vec();
         let is_partial = match input.lot {
             MediaLot::Show => input.show_specifics.is_none(),
             MediaLot::Book => input.book_specifics.is_none(),
@@ -1777,88 +1778,46 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let details = MetadataDetails {
-            videos,
-            creators,
-            identifier,
-            lot: input.lot,
-            title: input.title,
-            s3_images: images,
-            source: MediaSource::Custom,
-            description: input.description,
-            publish_year: input.publish_year,
-            show_specifics: input.show_specifics,
-            book_specifics: input.book_specifics,
-            manga_specifics: input.manga_specifics,
-            anime_specifics: input.anime_specifics,
-            movie_specifics: input.movie_specifics,
-            music_specifics: input.music_specifics,
-            genres: input.genres.unwrap_or_default(),
-            podcast_specifics: input.podcast_specifics,
-            audio_book_specifics: input.audio_book_specifics,
-            video_game_specifics: input.video_game_specifics,
-            visual_novel_specifics: input.visual_novel_specifics,
-            ..Default::default()
-        };
-        let mut images = vec![];
-        images.extend(details.url_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::Url(i.image),
-        }));
-        images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::S3(i.image),
-        }));
         let metadata = metadata::ActiveModel {
-            lot: ActiveValue::Set(details.lot),
-            title: ActiveValue::Set(details.title),
-            source: ActiveValue::Set(details.source),
-            is_nsfw: ActiveValue::Set(details.is_nsfw),
+            lot: ActiveValue::Set(input.lot),
+            title: ActiveValue::Set(input.title),
+            identifier: ActiveValue::Set(identifier),
+            is_nsfw: ActiveValue::Set(input.is_nsfw),
+            source: ActiveValue::Set(MediaSource::Custom),
             is_partial: ActiveValue::Set(Some(is_partial)),
-            source_url: ActiveValue::Set(details.source_url),
-            identifier: ActiveValue::Set(details.identifier),
-            description: ActiveValue::Set(details.description),
-            publish_year: ActiveValue::Set(details.publish_year),
-            publish_date: ActiveValue::Set(details.publish_date),
-            show_specifics: ActiveValue::Set(details.show_specifics),
-            book_specifics: ActiveValue::Set(details.book_specifics),
-            manga_specifics: ActiveValue::Set(details.manga_specifics),
-            anime_specifics: ActiveValue::Set(details.anime_specifics),
-            movie_specifics: ActiveValue::Set(details.movie_specifics),
-            music_specifics: ActiveValue::Set(details.music_specifics),
-            provider_rating: ActiveValue::Set(details.provider_rating),
-            podcast_specifics: ActiveValue::Set(details.podcast_specifics),
-            production_status: ActiveValue::Set(details.production_status),
-            original_language: ActiveValue::Set(details.original_language),
-            external_identifiers: ActiveValue::Set(details.external_identifiers),
-            audio_book_specifics: ActiveValue::Set(details.audio_book_specifics),
-            video_game_specifics: ActiveValue::Set(details.video_game_specifics),
-            visual_novel_specifics: ActiveValue::Set(details.visual_novel_specifics),
+            description: ActiveValue::Set(input.description),
+            publish_year: ActiveValue::Set(input.publish_year),
+            show_specifics: ActiveValue::Set(input.show_specifics),
+            book_specifics: ActiveValue::Set(input.book_specifics),
+            manga_specifics: ActiveValue::Set(input.manga_specifics),
+            anime_specifics: ActiveValue::Set(input.anime_specifics),
+            movie_specifics: ActiveValue::Set(input.movie_specifics),
+            music_specifics: ActiveValue::Set(input.music_specifics),
+            podcast_specifics: ActiveValue::Set(input.podcast_specifics),
+            audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
+            video_game_specifics: ActiveValue::Set(input.video_game_specifics),
+            visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
             images: ActiveValue::Set(match images.is_empty() {
                 true => None,
                 false => Some(images),
             }),
-            videos: ActiveValue::Set(match details.videos.is_empty() {
+            videos: ActiveValue::Set(match videos.is_empty() {
                 true => None,
-                false => Some(details.videos),
+                false => Some(videos),
             }),
-            free_creators: ActiveValue::Set(if details.creators.is_empty() {
-                None
-            } else {
-                Some(details.creators)
-            }),
-            watch_providers: ActiveValue::Set(if details.watch_providers.is_empty() {
-                None
-            } else {
-                Some(details.watch_providers)
+            free_creators: ActiveValue::Set(match free_creators.is_empty() {
+                true => None,
+                false => Some(free_creators),
             }),
             ..Default::default()
         };
         let metadata = metadata.insert(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
-            details.genres.clone(),
-            details.suggestions.clone(),
-            details.groups.clone(),
-            details.people.clone(),
+            input.genres.unwrap_or_default(),
+            vec![],
+            vec![],
+            vec![],
             &self.0,
         )
         .await?;
