@@ -481,7 +481,7 @@ pub struct MetadataDetails {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub suggestions: Vec<PartialMetadataWithoutId>,
-    pub group_identifiers: Vec<String>,
+    pub groups: Vec<CommitMediaInput>,
     pub provider_rating: Option<Decimal>,
     pub watch_providers: Vec<WatchProvider>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,

@@ -20,11 +20,11 @@ use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
+    MetadataImage, MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
-    WatchProvider,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -804,9 +804,16 @@ impl MediaProvider for TmdbMovieService {
                 .vote_average
                 .filter(|&av| av != dec!(0))
                 .map(|av| av * dec!(10)),
-            group_identifiers: Vec::from_iter(data.belongs_to_collection)
+            groups: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
-                .map(|c| c.id.to_string())
+                .map(|c| CommitMediaInput {
+                    name: "Loading...".to_string(),
+                    unique: UniqueMediaIdentifier {
+                        lot: MediaLot::Movie,
+                        source: MediaSource::Tmdb,
+                        identifier: c.id.to_string(),
+                    },
+                })
                 .collect(),
             ..Default::default()
         })

@@ -23,8 +23,7 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
-        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
-        Seen, UserToEntity, Workout,
+        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
     },
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
@@ -300,33 +299,26 @@ async fn associate_suggestion_with_metadata(
     Ok(())
 }
 
-async fn deploy_associate_group_with_metadata_job(
-    lot: MediaLot,
-    source: MediaSource,
-    identifier: String,
+async fn associate_metadata_group_with_metadata(
+    metadata_id: &String,
+    metadata_group: CommitMediaInput,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::AssociateGroupWithMetadata(
-        CommitMediaInput {
-            name: "Loading...".to_string(),
-            unique: UniqueMediaIdentifier {
-                lot,
-                source,
-                identifier,
-            },
-        },
-    ))
-    .await
+    let db_group = commit_metadata_group(metadata_group, ss).await?;
+    let intermediate = metadata_to_metadata_group::ActiveModel {
+        part: ActiveValue::Set(0),
+        metadata_group_id: ActiveValue::Set(db_group.id),
+        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+    };
+    intermediate.insert(&ss.db).await.ok();
+    Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn change_metadata_associations(
     metadata_id: &String,
-    lot: MediaLot,
-    source: MediaSource,
     genres: Vec<String>,
     suggestions: Vec<PartialMetadataWithoutId>,
-    groups: Vec<String>,
+    groups: Vec<CommitMediaInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -358,8 +350,8 @@ async fn change_metadata_associations(
             .await
             .ok();
     }
-    for group_identifier in groups {
-        deploy_associate_group_with_metadata_job(lot, source, group_identifier, ss)
+    for group in groups {
+        associate_metadata_group_with_metadata(metadata_id, group, ss)
             .await
             .ok();
     }
@@ -593,11 +585,9 @@ pub async fn update_metadata(
 
             change_metadata_associations(
                 &metadata.id,
-                metadata.lot,
-                metadata.source,
                 details.genres,
                 details.suggestions,
-                details.group_identifiers,
+                details.groups,
                 details.people,
                 ss,
             )
@@ -788,11 +778,9 @@ pub async fn commit_metadata_internal(
 
     change_metadata_associations(
         &metadata.id,
-        metadata.lot,
-        metadata.source,
         details.genres.clone(),
         details.suggestions.clone(),
-        details.group_identifiers.clone(),
+        details.groups.clone(),
         details.people.clone(),
         ss,
     )
@@ -800,13 +788,42 @@ pub async fn commit_metadata_internal(
     Ok(metadata)
 }
 
+pub async fn commit_metadata_group(
+    input: CommitMediaInput,
+    ss: &Arc<SupportingService>,
+) -> Result<StringIdObject> {
+    match MetadataGroup::find()
+        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
+        .filter(metadata_group::Column::Lot.eq(input.unique.lot))
+        .filter(metadata_group::Column::Source.eq(input.unique.source))
+        .one(&ss.db)
+        .await?
+        .map(|m| StringIdObject { id: m.id })
+    {
+        Some(m) => Ok(m),
+        None => {
+            let new_group = metadata_group::ActiveModel {
+                parts: ActiveValue::Set(0),
+                title: ActiveValue::Set(input.name),
+                lot: ActiveValue::Set(input.unique.lot),
+                is_partial: ActiveValue::Set(Some(true)),
+                source: ActiveValue::Set(input.unique.source),
+                identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                ..Default::default()
+            };
+            let new_group = new_group.insert(&ss.db).await?;
+            Ok(StringIdObject { id: new_group.id })
+        }
+    }
+}
+
 pub async fn commit_person(
     input: CommitPersonInput,
     db: &DatabaseConnection,
 ) -> Result<StringIdObject> {
-    if let Some(p) = Person::find()
+    match Person::find()
         .filter(person::Column::Source.eq(input.source))
-        .filter(person::Column::Identifier.eq(input.identifier.clone()))
+        .filter(person::Column::Identifier.eq(&input.identifier))
         .apply_if(input.source_specifics.clone(), |query, v| {
             query.filter(person::Column::SourceSpecifics.eq(v))
         })
@@ -814,18 +831,19 @@ pub async fn commit_person(
         .await?
         .map(|p| StringIdObject { id: p.id })
     {
-        Ok(p)
-    } else {
-        let person = person::ActiveModel {
-            name: ActiveValue::Set(input.name),
-            source: ActiveValue::Set(input.source),
-            is_partial: ActiveValue::Set(Some(true)),
-            identifier: ActiveValue::Set(input.identifier),
-            source_specifics: ActiveValue::Set(input.source_specifics),
-            ..Default::default()
-        };
-        let person = person.insert(db).await?;
-        Ok(StringIdObject { id: person.id })
+        Some(p) => Ok(p),
+        None => {
+            let person = person::ActiveModel {
+                name: ActiveValue::Set(input.name),
+                source: ActiveValue::Set(input.source),
+                is_partial: ActiveValue::Set(Some(true)),
+                identifier: ActiveValue::Set(input.identifier),
+                source_specifics: ActiveValue::Set(input.source_specifics),
+                ..Default::default()
+            };
+            let person = person.insert(db).await?;
+            Ok(StringIdObject { id: person.id })
+        }
     }
 }
 
@@ -1039,61 +1057,6 @@ pub async fn post_review(
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
-}
-
-pub async fn commit_metadata_group_internal(
-    identifier: &String,
-    lot: MediaLot,
-    source: MediaSource,
-    ss: &Arc<SupportingService>,
-) -> Result<String> {
-    let existing_group = MetadataGroup::find()
-        .filter(metadata_group::Column::Identifier.eq(identifier))
-        .filter(metadata_group::Column::Lot.eq(lot))
-        .filter(metadata_group::Column::Source.eq(source))
-        .one(&ss.db)
-        .await?;
-    let provider = get_metadata_provider(lot, source, ss).await?;
-    let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-    let group_id = match existing_group {
-        Some(eg) => {
-            let mut eg: metadata_group::ActiveModel = eg.into();
-            eg.is_partial = ActiveValue::Set(None);
-            eg.title = ActiveValue::Set(group_details.title);
-            eg.parts = ActiveValue::Set(group_details.parts);
-            eg.source_url = ActiveValue::Set(group_details.source_url);
-            eg.description = ActiveValue::Set(group_details.description);
-            eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
-            let eg = eg.update(&ss.db).await?;
-            eg.id
-        }
-        None => {
-            let mut group_details = group_details.clone();
-            group_details.images = group_details.images.filter(|i| !i.is_empty());
-            let mut db_group: metadata_group::ActiveModel =
-                group_details.into_model("".to_string(), None).into();
-            db_group.id = ActiveValue::NotSet;
-            db_group.is_partial = ActiveValue::Set(None);
-            let new_group = db_group.insert(&ss.db).await?;
-            new_group.id
-        }
-    };
-    for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = create_partial_metadata(media, &ss.db).await?;
-        MetadataToMetadataGroup::delete_many()
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
-            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
-            .exec(&ss.db)
-            .await
-            .ok();
-        let intermediate = metadata_to_metadata_group::ActiveModel {
-            metadata_group_id: ActiveValue::Set(group_id.clone()),
-            metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-        };
-        intermediate.insert(&ss.db).await.ok();
-    }
-    Ok(group_id)
 }
 
 async fn seen_history(
@@ -2274,15 +2237,20 @@ where
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let metadata_group_id = match commit_metadata_group_internal(
-                    &metadata_group.identifier,
-                    metadata_group.lot,
-                    metadata_group.source,
+                let metadata_group_id = match commit_metadata_group(
+                    CommitMediaInput {
+                        name: metadata_group.title.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata_group.lot,
+                            source: metadata_group.source,
+                            identifier: metadata_group.identifier,
+                        },
+                    },
                     ss,
                 )
                 .await
                 {
-                    Ok(r) => r,
+                    Ok(r) => r.id,
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata_group.lot),

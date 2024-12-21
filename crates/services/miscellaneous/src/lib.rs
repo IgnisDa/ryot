@@ -45,8 +45,8 @@ use dependent_models::{
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_partial_metadata, create_user_notification,
+    add_entity_to_collection, commit_metadata, commit_metadata_group, commit_metadata_internal,
+    commit_person, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
@@ -1638,14 +1638,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let id = commit_metadata_group_internal(
-            &input.unique.identifier,
-            input.unique.lot,
-            input.unique.source,
-            &self.0,
-        )
-        .await?;
-        Ok(StringIdObject { id })
+        commit_metadata_group(input, &self.0).await
     }
 
     pub async fn create_or_update_review(
@@ -2586,17 +2579,36 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
-        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+        let eg = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .ok_or_else(|| Error::new("Metadata group does not exist"))?;
-        commit_metadata_group_internal(
-            &metadata_group.identifier,
-            metadata_group.lot,
-            metadata_group.source,
-            &self.0,
-        )
-        .await?;
+            .ok_or(Error::new("Group not found"))?;
+        let provider = get_metadata_provider(eg.lot, eg.source, &self.0).await?;
+        let (group_details, associated_items) =
+            provider.metadata_group_details(&eg.identifier).await?;
+        let mut eg: metadata_group::ActiveModel = eg.into();
+        eg.is_partial = ActiveValue::Set(None);
+        eg.title = ActiveValue::Set(group_details.title);
+        eg.parts = ActiveValue::Set(group_details.parts);
+        eg.source_url = ActiveValue::Set(group_details.source_url);
+        eg.description = ActiveValue::Set(group_details.description);
+        eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
+        let eg = eg.update(&self.0.db).await?;
+        for (idx, media) in associated_items.into_iter().enumerate() {
+            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
+            MetadataToMetadataGroup::delete_many()
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
+                .exec(&self.0.db)
+                .await
+                .ok();
+            let intermediate = metadata_to_metadata_group::ActiveModel {
+                metadata_group_id: ActiveValue::Set(eg.id.clone()),
+                metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            };
+            intermediate.insert(&self.0.db).await.ok();
+        }
         Ok(())
     }
 
