@@ -7045,6 +7045,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enum-models",
  "enum_meta",
  "fitness-models",

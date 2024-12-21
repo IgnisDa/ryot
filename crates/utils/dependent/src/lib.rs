@@ -30,8 +30,7 @@ use database_models::{
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
-    admin_account_guard, create_or_update_collection, get_cte_column_from_lot,
-    remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
+    admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enum_models::{
@@ -81,8 +80,9 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{DateTimeUtc, Expr},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    sea_query::OnConflict,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
+    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -1141,7 +1141,6 @@ pub async fn handle_after_media_seen_tasks(
     };
     let remove_entity_from_collection = |collection_name: &str| {
         remove_entity_from_collection(
-            &ss.db,
             &seen.user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: seen.user_id.clone(),
@@ -1150,6 +1149,7 @@ pub async fn handle_after_media_seen_tasks(
                 entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
+            &ss,
         )
     };
     remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
@@ -1501,6 +1501,7 @@ pub async fn progress_update(
         ))
         .await?;
     }
+    expire_user_collections_list_cache(user_id, ss).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
@@ -1980,12 +1981,12 @@ async fn create_collection_and_add_entity_to_it(
     entity_lot: EntityLot,
 ) -> Result<()> {
     create_or_update_collection(
-        &ss.db,
         user_id,
         CreateOrUpdateCollectionInput {
             name: collection_name.clone(),
             ..Default::default()
         },
+        &ss,
     )
     .await?;
     add_entity_to_collection(
@@ -2096,7 +2097,7 @@ where
                 create_custom_exercise(user_id, exercise, ss).await?;
             }
             ImportCompletedItem::Collection(col_details) => {
-                create_or_update_collection(&ss.db, user_id, col_details).await?;
+                create_or_update_collection(user_id, col_details, ss).await?;
             }
             ImportCompletedItem::Metadata(metadata) => {
                 if metadata.seen_history.is_empty()
@@ -2501,6 +2502,7 @@ pub async fn add_entity_to_collection(
         LowPriorityApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     )
     .await?;
+    expire_user_collections_list_cache(user_id, ss).await?;
     Ok(true)
 }
 
@@ -2518,4 +2520,111 @@ pub async fn get_identifier_from_book_isbn(
         source = MediaSource::Openlibrary;
     }
     identifier.map(|id| (id, source))
+}
+
+pub async fn expire_user_collections_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+        input: (),
+        user_id: user_id.to_owned(),
+    });
+    ss.cache_service.expire_key(cache_key).await?;
+    Ok(())
+}
+
+pub async fn create_or_update_collection(
+    user_id: &String,
+    input: CreateOrUpdateCollectionInput,
+    ss: &Arc<SupportingService>,
+) -> Result<StringIdObject> {
+    let txn = ss.db.begin().await?;
+    let meta = Collection::find()
+        .filter(collection::Column::Name.eq(input.name.clone()))
+        .filter(collection::Column::UserId.eq(user_id))
+        .one(&txn)
+        .await
+        .unwrap();
+    let mut new_name = input.name.clone();
+    let created = match meta {
+        Some(m) if input.update_id.is_none() => m.id,
+        _ => {
+            let col = collection::ActiveModel {
+                id: match input.update_id {
+                    Some(i) => {
+                        let already = Collection::find_by_id(i.clone())
+                            .one(&txn)
+                            .await
+                            .unwrap()
+                            .unwrap();
+                        if DefaultCollection::iter()
+                            .map(|s| s.to_string())
+                            .contains(&already.name)
+                        {
+                            new_name = already.name;
+                        }
+                        ActiveValue::Unchanged(i.clone())
+                    }
+                    None => ActiveValue::NotSet,
+                },
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                name: ActiveValue::Set(new_name),
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                description: ActiveValue::Set(input.description),
+                information_template: ActiveValue::Set(input.information_template),
+                ..Default::default()
+            };
+            let inserted = col
+                .save(&txn)
+                .await
+                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
+            let id = inserted.id.unwrap();
+            let mut collaborators = vec![user_id.to_owned()];
+            if let Some(input_collaborators) = input.collaborators {
+                collaborators.extend(input_collaborators);
+            }
+            let inserts = collaborators
+                .into_iter()
+                .map(|c| user_to_entity::ActiveModel {
+                    user_id: ActiveValue::Set(c),
+                    collection_id: ActiveValue::Set(Some(id.clone())),
+                    ..Default::default()
+                });
+            UserToEntity::insert_many(inserts)
+                .on_conflict(OnConflict::new().do_nothing().to_owned())
+                .exec_without_returning(&txn)
+                .await?;
+            id
+        }
+    };
+    txn.commit().await?;
+    expire_user_collections_list_cache(&user_id, ss).await?;
+    Ok(StringIdObject { id: created })
+}
+
+pub async fn remove_entity_from_collection(
+    user_id: &String,
+    input: ChangeCollectionToEntityInput,
+    ss: &Arc<SupportingService>,
+) -> Result<StringIdObject> {
+    let collect = Collection::find()
+        .left_join(UserToEntity)
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
+        .one(&ss.db)
+        .await
+        .unwrap()
+        .unwrap();
+    let column = get_cte_column_from_lot(input.entity_lot);
+    CollectionToEntity::delete_many()
+        .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
+        .filter(column.eq(input.entity_id.clone()))
+        .exec(&ss.db)
+        .await?;
+    if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
+        associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot).await?;
+    }
+    expire_user_collections_list_cache(user_id, ss).await?;
+    Ok(StringIdObject { id: collect.id })
 }

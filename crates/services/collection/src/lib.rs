@@ -15,13 +15,14 @@ use database_models::{
     },
     user_to_entity,
 };
-use database_utils::{
-    create_or_update_collection, ilike_sql, item_reviews, remove_entity_from_collection,
-};
+use database_utils::{ilike_sql, item_reviews};
 use dependent_models::{
     ApplicationCacheValue, CollectionContents, SearchResults, UserCollectionsListResponse,
 };
-use dependent_utils::add_entity_to_collection;
+use dependent_utils::{
+    add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
+    remove_entity_from_collection,
+};
 use enum_models::EntityLot;
 use media_models::{
     CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
@@ -299,7 +300,7 @@ impl CollectionService {
         user_id: &String,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
-        create_or_update_collection(&self.0.db, user_id, input).await
+        create_or_update_collection(user_id, input, &self.0).await
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
@@ -315,6 +316,7 @@ impl CollectionService {
             return Ok(false);
         };
         let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
+        expire_user_collections_list_cache(&user_id, &self.0).await?;
         Ok(resp.is_ok())
     }
 
@@ -331,6 +333,6 @@ impl CollectionService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
-        remove_entity_from_collection(&self.0.db, user_id, input).await
+        remove_entity_from_collection(user_id, input, &self.0).await
     }
 }

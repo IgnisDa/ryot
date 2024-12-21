@@ -37,7 +37,7 @@ use database_models::{
 use database_utils::{
     apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, revoke_access_link, user_by_id,
+    revoke_access_link, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
@@ -53,7 +53,7 @@ use dependent_utils::{
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update,
     queue_media_state_changed_notification_for_user, refresh_collection_to_entity_association,
-    update_metadata_and_notify_users,
+    remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
@@ -2239,7 +2239,6 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                         .await?;
                         remove_entity_from_collection(
-                            &self.0.db,
                             &user.user_id,
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),
@@ -2248,6 +2247,7 @@ ORDER BY RANDOM() LIMIT 10;
                                 entity_lot: cte.entity_lot,
                                 ..Default::default()
                             },
+                            &self.0,
                         )
                         .await?;
                     }
