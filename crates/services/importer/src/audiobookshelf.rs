@@ -9,7 +9,7 @@ use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
+    UniqueMediaIdentifier, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
     ImportOrExportMetadataItemSeen,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
@@ -26,7 +26,7 @@ pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-    commit_metadata: impl Fn(CommitMediaInput) -> F,
+    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
     F: Future<Output = Result<metadata::Model>>,
@@ -119,7 +119,7 @@ where
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                let podcast = commit_metadata(CommitMediaInput {
+                                let podcast = commit_metadata(UniqueMediaIdentifier {
                                     identifier: itunes_id.clone(),
                                     lot,
                                     source,

@@ -826,7 +826,7 @@ pub struct MetadataGroupSearchItem {
     InputObject,
     Hash,
 )]
-pub struct CommitMediaInput {
+pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
@@ -836,8 +836,8 @@ pub struct CommitMediaInput {
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
 )]
 pub struct MediaAssociatedPersonStateChanges {
-    pub media: CommitMediaInput,
     pub role: String,
+    pub media: UniqueMediaIdentifier,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]

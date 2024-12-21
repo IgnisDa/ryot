@@ -11,7 +11,7 @@ use dependent_models::{
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    UniqueMediaIdentifier, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupsListInput, MetadataListInput,
     MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateSeenItemInput,
@@ -346,7 +346,7 @@ impl MiscellaneousMutation {
     async fn commit_metadata(
         &self,
         gql_ctx: &Context<'_>,
-        input: CommitMediaInput,
+        input: UniqueMediaIdentifier,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service
@@ -369,7 +369,7 @@ impl MiscellaneousMutation {
     async fn commit_metadata_group(
         &self,
         gql_ctx: &Context<'_>,
-        input: CommitMediaInput,
+        input: UniqueMediaIdentifier,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_metadata_group(input).await

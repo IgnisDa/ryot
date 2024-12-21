@@ -7,7 +7,7 @@ use exporter_service::ExporterService;
 use fitness_service::FitnessService;
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
-use media_models::CommitMediaInput;
+use media_models::UniqueMediaIdentifier;
 use miscellaneous_service::MiscellaneousService;
 use statistics_service::StatisticsService;
 use traits::TraceOk;
@@ -123,7 +123,7 @@ pub async fn perform_application_job(
             misc_service.perform_background_jobs().await.is_ok()
         }
         ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
-            .commit_metadata_group(CommitMediaInput {
+            .commit_metadata_group(UniqueMediaIdentifier {
                 lot,
                 source,
                 identifier,

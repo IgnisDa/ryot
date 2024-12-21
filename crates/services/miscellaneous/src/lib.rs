@@ -63,7 +63,7 @@ use futures::{future::join_all, TryStreamExt};
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
@@ -74,9 +74,9 @@ use media_models::{
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
@@ -1394,7 +1394,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
+    pub async fn commit_metadata(&self, input: UniqueMediaIdentifier) -> Result<metadata::Model> {
         commit_metadata(input, &self.0).await
     }
 
@@ -1641,7 +1641,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(service)
     }
 
-    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
+    pub async fn commit_metadata_group(
+        &self,
+        input: UniqueMediaIdentifier,
+    ) -> Result<StringIdObject> {
         let id =
             commit_metadata_group_internal(&input.identifier, input.lot, input.source, &self.0)
                 .await?;
@@ -2531,7 +2534,7 @@ ORDER BY RANDOM() LIMIT 10;
                 intermediate.insert(&self.0.db).await.unwrap();
             }
             let search_for = MediaAssociatedPersonStateChanges {
-                media: CommitMediaInput {
+                media: UniqueMediaIdentifier {
                     identifier: pm.identifier.clone(),
                     lot: pm.lot,
                     source: pm.source,

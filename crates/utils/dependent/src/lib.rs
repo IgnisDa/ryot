@@ -44,13 +44,13 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
     ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
 };
 use nanoid::nanoid;
 use providers::{
@@ -836,7 +836,7 @@ pub async fn commit_person(
 }
 
 pub async fn commit_metadata(
-    input: CommitMediaInput,
+    input: UniqueMediaIdentifier,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
     let Some(m) = Metadata::find()
@@ -2190,7 +2190,7 @@ where
                 ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
                 let identifier = metadata.identifier.clone();
                 let db_metadata = match commit_metadata(
-                    CommitMediaInput {
+                    UniqueMediaIdentifier {
                         identifier,
                         lot: metadata.lot,
                         source: metadata.source,

@@ -8,7 +8,7 @@ use common_utils::ryot_log;
 use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enums::{MediaLot, MediaSource};
-use media_models::{CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
+use media_models::{UniqueMediaIdentifier, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use providers::google_books::GoogleBooksService;
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -29,7 +29,7 @@ pub async fn yank_progress<F>(
     access_token: String,
     // TODO: Find a way to use `get_identifier_from_book_isbn` function
     isbn_service: GoogleBooksService,
-    commit_metadata: impl Fn(CommitMediaInput) -> F,
+    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
     F: Future<Output = GqlResult<metadata::Model>>,
@@ -86,7 +86,7 @@ where
                     Some(pe) => {
                         let lot = MediaLot::Podcast;
                         let source = MediaSource::Itunes;
-                        let podcast = commit_metadata(CommitMediaInput {
+                        let podcast = commit_metadata(UniqueMediaIdentifier {
                             identifier: itunes_id.clone(),
                             lot,
                             source,
