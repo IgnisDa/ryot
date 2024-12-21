@@ -13,6 +13,30 @@ import { user } from "./auth";
 
 export * from "./auth";
 
+export const sandboxScript = pgTable(
+	"sandbox_script",
+	{
+		slug: text().notNull(),
+		name: text().notNull(),
+		code: text().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		isBuiltin: boolean().notNull().default(false),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		id: text()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("sandbox_script_slug_idx").on(table.slug),
+		index("sandbox_script_user_id_idx").on(table.userId),
+		unique("sandbox_script_user_slug_unique").on(table.userId, table.slug),
+	],
+);
+
 export const entitySchema = pgTable(
 	"entity_schema",
 	{
@@ -23,6 +47,9 @@ export const entitySchema = pgTable(
 		eventSchemas: jsonb().notNull().default([]),
 		displayConfig: jsonb().notNull().default({}),
 		isBuiltin: boolean().notNull().default(false),
+		searchScriptId: text().references(() => sandboxScript.id, {
+			onDelete: "set null",
+		}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
@@ -31,6 +58,7 @@ export const entitySchema = pgTable(
 	(table) => [
 		index("entity_schema_slug_idx").on(table.slug),
 		index("entity_schema_user_id_idx").on(table.userId),
+		index("entity_schema_search_script_id_idx").on(table.searchScriptId),
 		unique("entity_schema_user_slug_unique").on(table.userId, table.slug),
 	],
 );
@@ -147,9 +175,24 @@ export const entitySchemaRelations = relations(
 	entitySchema,
 	({ one, many }) => ({
 		entities: many(entity),
+		searchScript: one(sandboxScript, {
+			references: [sandboxScript.id],
+			fields: [entitySchema.searchScriptId],
+		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
+		}),
+	}),
+);
+
+export const sandboxScriptRelations = relations(
+	sandboxScript,
+	({ one, many }) => ({
+		entitySchemas: many(entitySchema),
+		user: one(user, {
+			references: [user.id],
+			fields: [sandboxScript.userId],
 		}),
 	}),
 );
