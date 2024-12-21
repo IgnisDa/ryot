@@ -1698,7 +1698,7 @@ pub async fn create_or_update_user_workout(
     if input.exercises.is_empty() {
         return Err(Error::new("This workout has no associated exercises"));
     }
-    let mut first_set_of_exercise_confirmed_at = input
+    let mut first_set_confirmed_at = input
         .exercises
         .first()
         .unwrap()
@@ -1729,21 +1729,21 @@ pub async fn create_or_update_user_workout(
         let history_item = UserToExerciseHistoryExtraInformation {
             best_set: None,
             idx: exercise_idx,
-            workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
+            workout_id: new_workout_id.clone(),
         };
         let asc = match association {
             Some(e) => e,
             None => {
+                let timestamp = first_set_confirmed_at.unwrap_or(end_time);
                 let user_to_ex = user_to_entity::ActiveModel {
+                    created_on: ActiveValue::Set(timestamp),
                     user_id: ActiveValue::Set(user_id.clone()),
+                    last_updated_on: ActiveValue::Set(timestamp),
                     exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                     exercise_extra_information: ActiveValue::Set(Some(
                         UserToExerciseExtraInformation::default(),
                     )),
-                    created_on: ActiveValue::Set(
-                        first_set_of_exercise_confirmed_at.unwrap_or(end_time),
-                    ),
                     ..Default::default()
                 };
                 user_to_ex.insert(&ss.db).await.unwrap()
@@ -1757,7 +1757,7 @@ pub async fn create_or_update_user_workout(
             ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
         to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
         to_update.last_updated_on =
-            ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
+            ActiveValue::Set(first_set_confirmed_at.unwrap_or(last_updated_on));
         let association = to_update.update(&ss.db).await?;
         totals.rest_time = ex
             .sets
@@ -1768,16 +1768,12 @@ pub async fn create_or_update_user_workout(
             .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
         for set in ex.sets.iter_mut() {
             let mut actual_rest_time = None;
-            if exercise_idx != 0
-                && set.confirmed_at.is_some()
-                && first_set_of_exercise_confirmed_at.is_some()
-            {
+            if exercise_idx != 0 && set.confirmed_at.is_some() && first_set_confirmed_at.is_some() {
                 actual_rest_time = Some(
-                    (set.confirmed_at.unwrap() - first_set_of_exercise_confirmed_at.unwrap())
-                        .num_seconds(),
+                    (set.confirmed_at.unwrap() - first_set_confirmed_at.unwrap()).num_seconds(),
                 );
             }
-            first_set_of_exercise_confirmed_at = set.confirmed_at;
+            first_set_confirmed_at = set.confirmed_at;
             clean_values(set, &db_ex.lot);
             if let Some(r) = set.statistic.reps {
                 totals.reps += r;
