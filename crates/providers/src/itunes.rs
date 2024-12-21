@@ -5,7 +5,7 @@ use chrono::Datelike;
 use common_models::{NamedObject, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,

@@ -8,7 +8,7 @@ use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     UniqueMediaIdentifier,

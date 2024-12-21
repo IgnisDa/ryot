@@ -22,7 +22,7 @@ use database_models::{
     review, seen, user, user_measurement, user_to_entity, workout,
 };
 use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
-use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
+use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;

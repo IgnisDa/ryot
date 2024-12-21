@@ -16,7 +16,7 @@ convert_case = { workspace = true }
 database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
 educe = { workspace = true }
-enums = { path = "../enums" }
+enum-models = { path = "../models/enum" }
 graphql_client = { workspace = true }
 hashbag = { workspace = true }
 itertools = { workspace = true }

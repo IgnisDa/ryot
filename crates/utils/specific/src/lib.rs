@@ -1,7 +1,7 @@
 use anyhow::Result;
 use database_models::{metadata, prelude::Metadata};
 use dependent_utils::deploy_update_metadata_job;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::sync::Arc;
 use supporting_service::SupportingService;

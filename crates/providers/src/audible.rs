@@ -7,7 +7,7 @@ use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{PeopleSearchResponse, SearchResults};
 use educe::Educe;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     AudioBookSpecifics, CommitMediaInput, MetadataDetails, MetadataFreeCreator,

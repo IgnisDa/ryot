@@ -15,7 +15,7 @@ use dependent_models::{
     ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
 };
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaSource,
 };

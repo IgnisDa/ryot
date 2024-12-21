@@ -19,7 +19,7 @@ use database_utils::{
 };
 use dependent_models::{CollectionContents, SearchResults};
 use dependent_utils::add_entity_to_collection;
-use enums::EntityLot;
+use enum_models::EntityLot;
 use media_models::{
     CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
     CreateOrUpdateCollectionInput, EntityWithLot,

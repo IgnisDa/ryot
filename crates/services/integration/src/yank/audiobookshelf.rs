@@ -7,7 +7,7 @@ use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };

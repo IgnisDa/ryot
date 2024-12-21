@@ -55,7 +55,7 @@ use dependent_utils::{
     queue_media_state_changed_notification_for_user, refresh_collection_to_entity_association,
     update_metadata_and_notify_users,
 };
-use enums::{
+use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
     UserToMediaReason,
 };

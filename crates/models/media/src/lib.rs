@@ -8,7 +8,7 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::deserialize_date;
-use enums::{
+use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, Visibility,
 };

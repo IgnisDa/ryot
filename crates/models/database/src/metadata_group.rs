@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::MetadataImage;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};

@@ -2,12 +2,12 @@
 members = [
     "apps/backend",
     "crates/config",
-    "crates/enums",
     "crates/migrations",
     "crates/models/background",
     "crates/models/common",
     "crates/models/database",
     "crates/models/dependent",
+    "crates/models/enum",
     "crates/models/fitness",
     "crates/models/importer",
     "crates/models/media",

@@ -2,7 +2,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{meta, Meta};
-use enums::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};

@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, sync::Arc};
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource, Visibility};
+use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
     DeployJsonImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,

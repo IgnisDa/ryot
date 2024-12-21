@@ -32,7 +32,7 @@ use database_utils::{
     remove_entity_from_collection, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
-use enums::{
+use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
 };

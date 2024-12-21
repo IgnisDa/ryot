@@ -18,7 +18,7 @@ use database_utils::{
 };
 use dependent_models::UserDetailsResult;
 use enum_meta::Meta;
-use enums::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
+use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
 use fitness_models::UserUnitSystem;
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};

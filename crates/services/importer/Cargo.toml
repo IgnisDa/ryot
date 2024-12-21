@@ -21,7 +21,7 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
 flate2 = { workspace = true }
 importer-models = { path = "../../models/importer" }

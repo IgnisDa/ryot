@@ -9,7 +9,7 @@ common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 hashbag = { workspace = true }
 itertools = { workspace = true }
 sea-orm = { workspace = true }

@@ -5,7 +5,7 @@ use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
-use enums::{ImportSource, MediaLot};
+use enum_models::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,

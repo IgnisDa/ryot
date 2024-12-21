@@ -3,7 +3,7 @@
 use application_utils::GraphqlRepresentation;
 use async_graphql::{InputObject, Result, SimpleObject};
 use async_trait::async_trait;
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };

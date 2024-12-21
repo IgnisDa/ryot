@@ -2,7 +2,7 @@ use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,

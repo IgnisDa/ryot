@@ -3,7 +3,7 @@ use async_graphql::Result;
 use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{

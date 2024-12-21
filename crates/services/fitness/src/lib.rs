@@ -25,7 +25,7 @@ use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, get_focused_workout_summary,
 };
-use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
     GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,

@@ -16,7 +16,7 @@ use dependent_models::{
     ApplicationCacheValue, MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults,
     TmdbLanguage, TmdbSettings,
 };
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{

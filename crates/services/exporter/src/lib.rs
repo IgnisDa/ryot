@@ -17,7 +17,7 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use enums::EntityLot;
+use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use media_models::{

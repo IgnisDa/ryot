@@ -13,8 +13,8 @@ use dependent_utils::{
     commit_metadata, deploy_background_job, generate_exercise_id, get_google_books_service,
     get_openlibrary_service, get_tmdb_non_media_service, process_import,
 };
-use enums::ImportSource;
-use enums::{ExerciseLot, ExerciseSource};
+use enum_models::ImportSource;
+use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{CommitMediaInput, DeployImportJobInput, ImportOrExportMetadataItem};
 use rust_decimal_macros::dec;

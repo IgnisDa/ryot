@@ -11,7 +11,7 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };

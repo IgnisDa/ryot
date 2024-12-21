@@ -4,7 +4,7 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,

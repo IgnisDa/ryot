@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataExternalIdentifiers,
     MetadataFreeCreator, MetadataImage, MetadataVideo, MovieSpecifics, MusicSpecifics,

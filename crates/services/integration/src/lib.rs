@@ -11,7 +11,7 @@ use database_models::{
 use database_utils::user_by_id;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
-use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitMediaInput, SeenShowExtraInformation};
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
