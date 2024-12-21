@@ -63,7 +63,7 @@ use futures::{future::join_all, TryStreamExt};
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
@@ -1394,8 +1394,8 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: UniqueMediaIdentifier) -> Result<metadata::Model> {
-        commit_metadata(input, &self.0).await
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
+        commit_metadata(input.unique, &self.0).await
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
@@ -1641,13 +1641,14 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(service)
     }
 
-    pub async fn commit_metadata_group(
-        &self,
-        input: UniqueMediaIdentifier,
-    ) -> Result<StringIdObject> {
-        let id =
-            commit_metadata_group_internal(&input.identifier, input.lot, input.source, &self.0)
-                .await?;
+    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
+        let id = commit_metadata_group_internal(
+            &input.unique.identifier,
+            input.unique.lot,
+            input.unique.source,
+            &self.0,
+        )
+        .await?;
         Ok(StringIdObject { id })
     }
 

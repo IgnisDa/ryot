@@ -37,7 +37,6 @@ importer-service = { path = "../../crates/services/importer" }
 integration-service = { path = "../../crates/services/integration" }
 itertools = { workspace = true }
 logs-wheel = { workspace = true }
-media-models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }

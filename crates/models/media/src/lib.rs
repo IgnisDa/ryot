@@ -832,6 +832,24 @@ pub struct UniqueMediaIdentifier {
     pub source: MediaSource,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    FromJsonQueryResult,
+)]
+pub struct CommitMediaInput {
+    pub name: String,
+    pub unique: UniqueMediaIdentifier,
+}
+
 #[derive(
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
 )]

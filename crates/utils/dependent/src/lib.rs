@@ -44,7 +44,7 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
     ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
@@ -301,7 +301,14 @@ async fn deploy_associate_group_with_metadata_job(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.perform_application_job(ApplicationJob::AssociateGroupWithMetadata(
-        lot, source, identifier,
+        CommitMediaInput {
+            name: "Loading...".to_string(),
+            unique: UniqueMediaIdentifier {
+                lot,
+                source,
+                identifier,
+            },
+        },
     ))
     .await
 }
