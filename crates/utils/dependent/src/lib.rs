@@ -180,35 +180,6 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
-pub async fn commit_person(
-    input: CommitPersonInput,
-    db: &DatabaseConnection,
-) -> Result<StringIdObject> {
-    if let Some(p) = Person::find()
-        .filter(person::Column::Source.eq(input.source))
-        .filter(person::Column::Identifier.eq(input.identifier.clone()))
-        .apply_if(input.source_specifics.clone(), |query, v| {
-            query.filter(person::Column::SourceSpecifics.eq(v))
-        })
-        .one(db)
-        .await?
-        .map(|p| StringIdObject { id: p.id })
-    {
-        Ok(p)
-    } else {
-        let person = person::ActiveModel {
-            name: ActiveValue::Set(input.name),
-            source: ActiveValue::Set(input.source),
-            is_partial: ActiveValue::Set(Some(true)),
-            identifier: ActiveValue::Set(input.identifier),
-            source_specifics: ActiveValue::Set(input.source_specifics),
-            ..Default::default()
-        };
-        let person = person.insert(db).await?;
-        Ok(StringIdObject { id: person.id })
-    }
-}
-
 async fn associate_person_with_metadata(
     metadata_id: &str,
     person: PartialMetadataPerson,
@@ -833,6 +804,35 @@ pub async fn commit_metadata_internal(
     )
     .await?;
     Ok(metadata)
+}
+
+pub async fn commit_person(
+    input: CommitPersonInput,
+    db: &DatabaseConnection,
+) -> Result<StringIdObject> {
+    if let Some(p) = Person::find()
+        .filter(person::Column::Source.eq(input.source))
+        .filter(person::Column::Identifier.eq(input.identifier.clone()))
+        .apply_if(input.source_specifics.clone(), |query, v| {
+            query.filter(person::Column::SourceSpecifics.eq(v))
+        })
+        .one(db)
+        .await?
+        .map(|p| StringIdObject { id: p.id })
+    {
+        Ok(p)
+    } else {
+        let person = person::ActiveModel {
+            name: ActiveValue::Set(input.name),
+            source: ActiveValue::Set(input.source),
+            is_partial: ActiveValue::Set(Some(true)),
+            identifier: ActiveValue::Set(input.identifier),
+            source_specifics: ActiveValue::Set(input.source_specifics),
+            ..Default::default()
+        };
+        let person = person.insert(db).await?;
+        Ok(StringIdObject { id: person.id })
+    }
 }
 
 pub async fn commit_metadata(
