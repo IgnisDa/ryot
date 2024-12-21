@@ -1149,7 +1149,7 @@ pub async fn handle_after_media_seen_tasks(
                 entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
-            &ss,
+            ss,
         )
     };
     remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
@@ -1986,7 +1986,7 @@ async fn create_collection_and_add_entity_to_it(
             name: collection_name.clone(),
             ..Default::default()
         },
-        &ss,
+        ss,
     )
     .await?;
     add_entity_to_collection(
@@ -2599,7 +2599,7 @@ pub async fn create_or_update_collection(
         }
     };
     txn.commit().await?;
-    expire_user_collections_list_cache(&user_id, ss).await?;
+    expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: created })
 }
 
