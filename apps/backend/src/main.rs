@@ -17,6 +17,7 @@ use aws_sdk_s3::config::Region;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
+use job::perform_lp_application_job;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -32,7 +33,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use crate::{
     common::create_app_services,
     job::{
-        perform_application_job, perform_core_application_job, run_background_jobs,
+        perform_hp_application_job, perform_mp_application_job, run_background_jobs,
         run_frequent_jobs,
     },
 };
@@ -66,7 +67,6 @@ async fn main() -> Result<()> {
         sleep(duration).await;
     }
 
-    let rate_limit_count = config.scheduler.rate_limit_num;
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 
@@ -107,8 +107,9 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let perform_application_job_storage = MemoryStorage::new();
-    let perform_core_application_job_storage = MemoryStorage::new();
+    let lp_application_job_storage = MemoryStorage::new();
+    let mp_application_job_storage = MemoryStorage::new();
+    let hp_application_job_storage = MemoryStorage::new();
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
@@ -120,8 +121,9 @@ async fn main() -> Result<()> {
         tz,
         s3_client,
         config,
-        &perform_application_job_storage,
-        &perform_core_application_job_storage,
+        &lp_application_job_storage,
+        &mp_application_job_storage,
+        &hp_application_job_storage,
     )
     .await;
 
@@ -200,30 +202,37 @@ async fn main() -> Result<()> {
         )
         // application jobs
         .register(
-            WorkerBuilder::new("perform_core_application_job")
+            WorkerBuilder::new("perform_hp_application_job")
                 .enable_tracing()
                 .catch_panic()
                 .data(integration_service_2.clone())
                 .data(miscellaneous_service_3.clone())
-                .backend(perform_core_application_job_storage)
-                .build_fn(perform_core_application_job),
+                .backend(hp_application_job_storage)
+                .build_fn(perform_hp_application_job),
         )
         .register(
-            WorkerBuilder::new("perform_application_job")
+            WorkerBuilder::new("perform_mp_application_job")
                 .enable_tracing()
                 .catch_panic()
                 .data(fitness_service_1.clone())
                 .data(exporter_service_1.clone())
                 .data(importer_service_1.clone())
+                .data(integration_service_3.clone())
+                .data(miscellaneous_service_2.clone())
+                .layer(ApalisRateLimitLayer::new(5, Duration::new(5, 0)))
+                .backend(mp_application_job_storage)
+                .build_fn(perform_mp_application_job),
+        )
+        .register(
+            WorkerBuilder::new("perform_lp_application_job")
+                .enable_tracing()
+                .catch_panic()
                 .data(statistics_service_1.clone())
                 .data(integration_service_3.clone())
                 .data(miscellaneous_service_2.clone())
-                .layer(ApalisRateLimitLayer::new(
-                    rate_limit_count,
-                    Duration::new(5, 0),
-                ))
-                .backend(perform_application_job_storage)
-                .build_fn(perform_application_job),
+                .layer(ApalisRateLimitLayer::new(20, Duration::new(5, 0)))
+                .backend(lp_application_job_storage)
+                .build_fn(perform_lp_application_job),
         )
         .run();
 

@@ -50,7 +50,7 @@ impl ImporterService {
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let job = MediumPriorityApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        self.0.perform_application_job(job).await?;
+        self.0.perform_medium_priority_application_job(job).await?;
         ryot_log!(debug, "Deployed import job");
         Ok(true)
     }

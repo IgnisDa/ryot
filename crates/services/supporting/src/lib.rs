@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background_models::{MediumPriorityApplicationJob, HighPriorityApplicationJob};
+use background_models::{
+    HighPriorityApplicationJob, LowPriorityApplicationJob, MediumPriorityApplicationJob,
+};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
@@ -36,8 +38,9 @@ pub struct SupportingService {
     pub oidc_client: Option<CoreClient>,
     pub file_storage_service: Arc<FileStorageService>,
 
-    perform_application_job: MemoryStorage<MediumPriorityApplicationJob>,
-    perform_core_application_job: MemoryStorage<HighPriorityApplicationJob>,
+    lp_application_job: MemoryStorage<LowPriorityApplicationJob>,
+    hp_application_job: MemoryStorage<HighPriorityApplicationJob>,
+    mp_application_job: MemoryStorage<MediumPriorityApplicationJob>,
 }
 
 impl SupportingService {
@@ -49,8 +52,9 @@ impl SupportingService {
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
-        perform_core_application_job: &MemoryStorage<HighPriorityApplicationJob>,
+        lp_application_job: &MemoryStorage<LowPriorityApplicationJob>,
+        mp_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
+        hp_application_job: &MemoryStorage<HighPriorityApplicationJob>,
     ) -> Self {
         Self {
             config,
@@ -59,26 +63,33 @@ impl SupportingService {
             cache_service,
             db: db.clone(),
             file_storage_service,
-            perform_application_job: perform_application_job.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
+            lp_application_job: lp_application_job.clone(),
+            mp_application_job: mp_application_job.clone(),
+            hp_application_job: hp_application_job.clone(),
         }
     }
 
-    pub async fn perform_application_job(&self, job: MediumPriorityApplicationJob) -> Result<()> {
-        self.perform_application_job
-            .clone()
-            .enqueue(job)
-            .await
-            .unwrap();
+    pub async fn perform_medium_priority_application_job(
+        &self,
+        job: MediumPriorityApplicationJob,
+    ) -> Result<()> {
+        self.mp_application_job.clone().enqueue(job).await.unwrap();
         Ok(())
     }
 
-    pub async fn perform_core_application_job(&self, job: HighPriorityApplicationJob) -> Result<()> {
-        self.perform_core_application_job
-            .clone()
-            .enqueue(job)
-            .await
-            .unwrap();
+    pub async fn perform_high_priority_application_job(
+        &self,
+        job: HighPriorityApplicationJob,
+    ) -> Result<()> {
+        self.hp_application_job.clone().enqueue(job).await.unwrap();
+        Ok(())
+    }
+
+    pub async fn perform_low_priority_application_job(
+        &self,
+        job: LowPriorityApplicationJob,
+    ) -> Result<()> {
+        self.lp_application_job.clone().enqueue(job).await.unwrap();
         Ok(())
     }
 

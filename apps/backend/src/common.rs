@@ -10,7 +10,9 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
-use background_models::{MediumPriorityApplicationJob, HighPriorityApplicationJob};
+use background_models::{
+    HighPriorityApplicationJob, LowPriorityApplicationJob, MediumPriorityApplicationJob,
+};
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -62,8 +64,9 @@ pub async fn create_app_services(
     timezone: chrono_tz::Tz,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
-    perform_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
-    perform_core_application_job: &MemoryStorage<HighPriorityApplicationJob>,
+    lp_application_job: &MemoryStorage<LowPriorityApplicationJob>,
+    mp_application_job: &MemoryStorage<MediumPriorityApplicationJob>,
+    hp_application_job: &MemoryStorage<HighPriorityApplicationJob>,
 ) -> AppServices {
     let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
@@ -79,8 +82,9 @@ pub async fn create_app_services(
             config.clone(),
             oidc_client,
             file_storage_service.clone(),
-            perform_application_job,
-            perform_core_application_job,
+            lp_application_job,
+            mp_application_job,
+            hp_application_job,
         )
         .await,
     );
@@ -130,7 +134,7 @@ pub async fn create_app_services(
             MediumPriorityApplicationJob::SyncIntegrationsData,
             MediumPriorityApplicationJob::UpdateExerciseLibrary,
         ]
-        .map(|job| supporting_service.perform_application_job(job)),
+        .map(|job| supporting_service.perform_medium_priority_application_job(job)),
     )
     .await;
 

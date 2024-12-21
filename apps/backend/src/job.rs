@@ -1,7 +1,10 @@
 use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
-use background_models::{HighPriorityApplicationJob, MediumPriorityApplicationJob, ScheduledJob};
+use background_models::{
+    HighPriorityApplicationJob, LowPriorityApplicationJob, MediumPriorityApplicationJob,
+    ScheduledJob,
+};
 use common_utils::ryot_log;
 use exporter_service::ExporterService;
 use fitness_service::FitnessService;
@@ -36,7 +39,7 @@ pub async fn run_frequent_jobs(
     Ok(())
 }
 
-pub async fn perform_core_application_job(
+pub async fn perform_hp_application_job(
     information: HighPriorityApplicationJob,
     integration_service: Data<Arc<IntegrationService>>,
     misc_service: Data<Arc<MiscellaneousService>>,
@@ -67,14 +70,13 @@ pub async fn perform_core_application_job(
     Ok(())
 }
 
-pub async fn perform_application_job(
+pub async fn perform_mp_application_job(
     information: MediumPriorityApplicationJob,
     misc_service: Data<Arc<MiscellaneousService>>,
     integration_service: Data<Arc<IntegrationService>>,
     importer_service: Data<Arc<ImporterService>>,
     exporter_service: Data<Arc<ExporterService>>,
     fitness_service: Data<Arc<FitnessService>>,
-    statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
@@ -82,13 +84,6 @@ pub async fn perform_application_job(
     let status = match information {
         MediumPriorityApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
             .perform_import(user_id, input)
-            .await
-            .is_ok(),
-        MediumPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
-            user_id,
-            calculate_from_beginning,
-        ) => statistics_service
-            .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
             .await
             .is_ok(),
         MediumPriorityApplicationJob::ReviseUserWorkouts(user_id) => {
@@ -100,10 +95,6 @@ pub async fn perform_application_job(
             .is_ok(),
         MediumPriorityApplicationJob::UpdatePerson(person_id) => misc_service
             .update_person_and_notify_users(&person_id)
-            .await
-            .is_ok(),
-        MediumPriorityApplicationJob::HandleAfterMediaSeenTasks(seen) => misc_service
-            .handle_after_media_seen_tasks(seen)
             .await
             .is_ok(),
         MediumPriorityApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
@@ -118,9 +109,6 @@ pub async fn perform_application_job(
         }
         MediumPriorityApplicationJob::PerformBackgroundTasks => {
             misc_service.perform_background_jobs().await.is_ok()
-        }
-        MediumPriorityApplicationJob::AssociateGroupWithMetadata(input) => {
-            misc_service.commit_metadata_group(input).await.is_ok()
         }
         MediumPriorityApplicationJob::PerformExport(user_id) => {
             exporter_service.perform_export(user_id).await.is_ok()
@@ -139,13 +127,45 @@ pub async fn perform_application_job(
                 .await
                 .is_ok()
         }
-        MediumPriorityApplicationJob::HandleEntityAddedToCollectionEvent(
-            collection_to_entity_id,
-        ) => integration_service
-            .handle_entity_added_to_collection_event(collection_to_entity_id)
+    };
+    ryot_log!(
+        trace,
+        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
+        name,
+        (Instant::now() - start).as_millis(),
+        status
+    );
+    Ok(())
+}
+
+pub async fn perform_lp_application_job(
+    information: LowPriorityApplicationJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+    integration_service: Data<Arc<IntegrationService>>,
+    statistics_service: Data<Arc<StatisticsService>>,
+) -> Result<(), Error> {
+    let name = information.to_string();
+    ryot_log!(trace, "Started job {:?}", information);
+    let start = Instant::now();
+    let status = match information {
+        LowPriorityApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id,
+            calculate_from_beginning,
+        ) => statistics_service
+            .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
             .await
             .is_ok(),
-        MediumPriorityApplicationJob::HandleOnSeenComplete(id) => integration_service
+        LowPriorityApplicationJob::HandleAfterMediaSeenTasks(seen) => misc_service
+            .handle_after_media_seen_tasks(seen)
+            .await
+            .is_ok(),
+        LowPriorityApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
+            integration_service
+                .handle_entity_added_to_collection_event(collection_to_entity_id)
+                .await
+                .is_ok()
+        }
+        LowPriorityApplicationJob::HandleOnSeenComplete(id) => integration_service
             .handle_on_seen_complete(id)
             .await
             .is_ok(),

@@ -56,7 +56,9 @@ pub struct ExporterService(pub Arc<SupportingService>);
 impl ExporterService {
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.0
-            .perform_application_job(MediumPriorityApplicationJob::PerformExport(user_id))
+            .perform_medium_priority_application_job(MediumPriorityApplicationJob::PerformExport(
+                user_id,
+            ))
             .await?;
         Ok(true)
     }

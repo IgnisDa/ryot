@@ -1,9 +1,7 @@
 use chrono::DateTime;
 use chrono_tz::Tz;
 use database_models::seen;
-use media_models::{
-    CommitMediaInput, DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent,
-};
+use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -27,12 +25,15 @@ pub enum MediumPriorityApplicationJob {
     RecalculateCalendarEvents,
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
+    ImportFromExternalSource(String, Box<DeployImportJobInput>),
+}
+
+#[derive(Debug, Deserialize, Serialize, Display)]
+pub enum LowPriorityApplicationJob {
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),
     HandleEntityAddedToCollectionEvent(Uuid),
-    AssociateGroupWithMetadata(CommitMediaInput),
     RecalculateUserActivitiesAndSummary(String, bool),
-    ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
 // Cron Jobs
