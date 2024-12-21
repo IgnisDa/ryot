@@ -375,19 +375,6 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
-    // check whether the metadata needs to be updated
-    let provider = get_metadata_provider(metadata.lot, metadata.source, ss).await?;
-    if let Ok(false) = provider
-        .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
-        .await
-    {
-        ryot_log!(
-            debug,
-            "Metadata {:?} does not need to be updated",
-            metadata_id
-        );
-        return Ok(vec![]);
-    }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
