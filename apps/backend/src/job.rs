@@ -111,10 +111,9 @@ pub async fn perform_application_job(
             .update_metadata_group(&metadata_group_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateGithubExerciseJob(exercise) => fitness_service
-            .update_github_exercise(exercise)
-            .await
-            .is_ok(),
+        ApplicationJob::UpdateGithubExercises => {
+            fitness_service.update_github_exercises().await.is_ok()
+        }
         ApplicationJob::RecalculateCalendarEvents => {
             misc_service.recalculate_calendar_events().await.is_ok()
         }

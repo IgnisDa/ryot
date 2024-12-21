@@ -862,7 +862,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "database-models",
- "fitness-models",
  "media-models",
  "serde",
  "strum",

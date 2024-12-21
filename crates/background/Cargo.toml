@@ -7,7 +7,6 @@ edition = "2021"
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 database-models = { path = "../models/database" }
-fitness-models = { path = "../models/fitness" }
 media-models = { path = "../models/media" }
 serde = { workspace = true }
 strum = { workspace = true }

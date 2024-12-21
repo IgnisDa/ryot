@@ -1,7 +1,6 @@
 use chrono::DateTime;
 use chrono_tz::Tz;
 use database_models::seen;
-use fitness_models::GithubExercise;
 use media_models::{
     CommitMediaInput, DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent,
 };
@@ -24,6 +23,7 @@ pub enum ApplicationJob {
     SyncIntegrationsData,
     UpdateExerciseLibrary,
     PerformExport(String),
+    UpdateGithubExercises,
     UpdateMetadata(String),
     PerformBackgroundTasks,
     RecalculateCalendarEvents,
@@ -31,7 +31,6 @@ pub enum ApplicationJob {
     UpdateMetadataGroup(String),
     HandleOnSeenComplete(String),
     HandleAfterMediaSeenTasks(seen::Model),
-    UpdateGithubExerciseJob(GithubExercise),
     HandleEntityAddedToCollectionEvent(Uuid),
     AssociateGroupWithMetadata(CommitMediaInput),
     RecalculateUserActivitiesAndSummary(String, bool),

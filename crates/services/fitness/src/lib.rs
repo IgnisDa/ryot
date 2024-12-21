@@ -420,16 +420,21 @@ impl FitnessService {
             info,
             "Instance does not have exercises data. Deploying job to download them..."
         );
-        let exercises = self.get_all_exercises_from_dataset().await?;
-        for exercise in exercises {
-            self.0
-                .perform_application_job(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await?;
-        }
+        self.0
+            .perform_application_job(ApplicationJob::UpdateGithubExercises)
+            .await?;
         Ok(true)
     }
 
-    pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
+    pub async fn update_github_exercises(&self) -> Result<()> {
+        let exercises = self.get_all_exercises_from_dataset().await?;
+        for exercise in exercises {
+            self.update_github_exercise(exercise).await?;
+        }
+        Ok(())
+    }
+
+    async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
             internal_images: ex
