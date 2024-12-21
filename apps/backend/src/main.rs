@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use apalis::{
-    layers::{limit::RateLimitLayer as ApalisRateLimitLayer, WorkerBuilderExt},
+    layers::WorkerBuilderExt,
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
@@ -201,24 +201,24 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("perform_mp_application_job")
                 .enable_tracing()
+                .rate_limit(5, Duration::new(5, 0))
                 .catch_panic()
                 .data(app_services.fitness_service.clone())
                 .data(app_services.exporter_service.clone())
                 .data(app_services.importer_service.clone())
                 .data(app_services.integration_service.clone())
                 .data(app_services.miscellaneous_service.clone())
-                .layer(ApalisRateLimitLayer::new(5, Duration::new(5, 0)))
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),
         )
         .register(
             WorkerBuilder::new("perform_lp_application_job")
                 .enable_tracing()
+                .rate_limit(20, Duration::new(5, 0))
                 .catch_panic()
                 .data(app_services.statistics_service)
                 .data(app_services.integration_service)
                 .data(app_services.miscellaneous_service)
-                .layer(ApalisRateLimitLayer::new(20, Duration::new(5, 0)))
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
         )
