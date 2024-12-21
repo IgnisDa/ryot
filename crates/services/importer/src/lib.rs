@@ -13,11 +13,10 @@ use dependent_utils::{
     commit_metadata, deploy_background_job, generate_exercise_id, get_google_books_service,
     get_openlibrary_service, get_tmdb_non_media_service, process_import,
 };
+use enums::ImportSource;
 use enums::{ExerciseLot, ExerciseSource};
-use enums::{ImportSource, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{CommitMediaInput, DeployImportJobInput, ImportOrExportMetadataItem};
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
@@ -198,22 +197,6 @@ pub mod utils {
             .local_minus_utc();
         let offset = Duration::try_seconds(offset.into()).unwrap();
         DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
-    }
-
-    pub async fn get_identifier_from_book_isbn(
-        isbn: &str,
-        google_books_service: &GoogleBooksService,
-        open_library_service: &OpenlibraryService,
-    ) -> Option<(String, MediaSource)> {
-        let mut identifier = None;
-        let mut source = MediaSource::GoogleBooks;
-        if let Some(id) = google_books_service.id_from_isbn(isbn).await {
-            identifier = Some(id);
-        } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
-            identifier = Some(id);
-            source = MediaSource::Openlibrary;
-        }
-        identifier.map(|id| (id, source))
     }
 
     pub async fn associate_with_existing_or_new_exercise(

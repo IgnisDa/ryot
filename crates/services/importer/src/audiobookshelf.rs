@@ -7,6 +7,7 @@ use common_models::StringIdObject;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_utils::get_identifier_from_book_isbn;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
@@ -22,7 +23,7 @@ use specific_models::audiobookshelf as audiobookshelf_models;
 use specific_utils::audiobookshelf::get_updated_metadata;
 use supporting_service::SupportingService;
 
-use super::{utils, ImportFailStep, ImportFailedItem};
+use super::{ImportFailStep, ImportFailedItem};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
@@ -73,7 +74,7 @@ where
                 == item.media.as_ref().unwrap().ebook_format
             {
                 match &metadata.isbn {
-                    Some(isbn) => match utils::get_identifier_from_book_isbn(
+                    Some(isbn) => match get_identifier_from_book_isbn(
                         isbn,
                         google_books_service,
                         open_library_service,

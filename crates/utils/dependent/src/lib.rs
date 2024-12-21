@@ -2469,3 +2469,19 @@ pub async fn add_entity_to_collection(
         .await?;
     Ok(true)
 }
+
+pub async fn get_identifier_from_book_isbn(
+    isbn: &str,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> Option<(String, MediaSource)> {
+    let mut identifier = None;
+    let mut source = MediaSource::GoogleBooks;
+    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+        identifier = Some(id);
+    } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+        identifier = Some(id);
+        source = MediaSource::Openlibrary;
+    }
+    identifier.map(|id| (id, source))
+}

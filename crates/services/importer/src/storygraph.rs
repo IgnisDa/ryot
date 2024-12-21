@@ -4,6 +4,7 @@ use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_utils::get_identifier_from_book_isbn;
 use enums::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
@@ -15,7 +16,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{utils, ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -88,8 +89,7 @@ pub async fn import(
             continue;
         };
         let Some((identifier, source)) =
-            utils::get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service)
-                .await
+            get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service).await
         else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
