@@ -13,7 +13,7 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitMediaInput, SeenShowExtraInformation};
-use providers::google_books::GoogleBooksService;
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -269,7 +269,8 @@ impl IntegrationService {
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         &self.0,
-                        GoogleBooksService::new(&self.0.config.books.google_books).await,
+                        &GoogleBooksService::new(&self.0.config.books.google_books).await,
+                        &OpenlibraryService::new(&self.0.config.books.openlibrary).await,
                         |input| {
                             commit_metadata(
                                 CommitMediaInput {

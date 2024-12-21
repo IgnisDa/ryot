@@ -6,11 +6,12 @@ use async_graphql::Result as GqlResult;
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_utils::get_identifier_from_book_isbn;
 use enums::{MediaLot, MediaSource};
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
-use providers::google_books::GoogleBooksService;
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
@@ -31,8 +32,8 @@ pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
     ss: &Arc<SupportingService>,
-    // TODO: Find a way to use `get_identifier_from_book_isbn` function
-    isbn_service: GoogleBooksService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
@@ -59,10 +60,16 @@ where
         let (progress_id, identifier, lot, source, podcast_episode_number) =
             if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                 match &metadata.isbn {
-                    Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                    Some(isbn) => match get_identifier_from_book_isbn(
+                        isbn,
+                        google_books_service,
+                        open_library_service,
+                    )
+                    .await
+                    {
                         Some(id) => (
                             item.id.clone(),
-                            id,
+                            id.0,
                             MediaLot::Book,
                             MediaSource::GoogleBooks,
                             None,
