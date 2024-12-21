@@ -67,7 +67,10 @@ pub async fn perform_hp_application_job(
         (Instant::now() - start).as_millis(),
         status
     );
-    Ok(())
+    match status {
+        true => Ok(()),
+        false => Err(Error::Failed(Arc::new("Job failed".into()))),
+    }
 }
 
 pub async fn perform_mp_application_job(
@@ -135,7 +138,10 @@ pub async fn perform_mp_application_job(
         (Instant::now() - start).as_millis(),
         status
     );
-    Ok(())
+    match status {
+        true => Ok(()),
+        false => Err(Error::Failed(Arc::new("Job failed".into()))),
+    }
 }
 
 pub async fn perform_lp_application_job(
@@ -177,5 +183,8 @@ pub async fn perform_lp_application_job(
         (Instant::now() - start).as_millis(),
         status
     );
-    Ok(())
+    match status {
+        true => Ok(()),
+        false => Err(Error::Failed(Arc::new("Job failed".into()))),
+    }
 }

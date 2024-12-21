@@ -421,7 +421,9 @@ impl FitnessService {
             "Instance does not have exercises data. Deploying job to download them..."
         );
         self.0
-            .perform_medium_priority_application_job(MediumPriorityApplicationJob::UpdateGithubExercises)
+            .perform_medium_priority_application_job(
+                MediumPriorityApplicationJob::UpdateGithubExercises,
+            )
             .await?;
         Ok(true)
     }
