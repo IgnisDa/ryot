@@ -35,7 +35,7 @@ const sandboxSearchResponseSchema = z.object({
 });
 
 const parseSandboxFailure = (
-	result: { error?: string; logs?: string },
+	result: { error?: string | null; logs?: string | null },
 	label: string,
 ) => {
 	if (result.error?.toLowerCase().includes("timed out"))
