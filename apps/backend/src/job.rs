@@ -46,7 +46,7 @@ pub async fn perform_hp_application_job(
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        HighPriorityApplicationJob::SyncIntegrationsData(user_id) => {
+        HighPriorityApplicationJob::SyncUserIntegrationsData(user_id) => {
             integration_service
                 .yank_integrations_data_for_user(&user_id)
                 .await

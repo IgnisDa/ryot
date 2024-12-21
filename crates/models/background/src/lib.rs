@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum HighPriorityApplicationJob {
-    SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
+    SyncUserIntegrationsData(String),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 

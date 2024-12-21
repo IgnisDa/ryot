@@ -866,7 +866,7 @@ pub async fn deploy_background_job(
         }
         BackgroundJob::SyncIntegrationsData => {
             ss.perform_application_job(ApplicationJob::Hp(
-                HighPriorityApplicationJob::SyncIntegrationsData(user_id.to_owned()),
+                HighPriorityApplicationJob::SyncUserIntegrationsData(user_id.to_owned()),
             ))
             .await?;
         }
