@@ -38,7 +38,8 @@ import {
 	toastKey,
 } from "~/lib/generals";
 
-export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
+const API_PORT = process.env.PORT || 8000;
+export const API_URL = process.env.API_URL || `http://127.0.0.1:${API_PORT}/backend`;
 
 class AuthenticatedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
