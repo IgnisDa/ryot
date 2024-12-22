@@ -2,7 +2,7 @@ use std::fs;
 
 use async_graphql::Result;
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
-use enums::ImportSource;
+use enum_models::ImportSource;
 use itertools::Itertools;
 use media_models::DeployJsonImportInput;
 

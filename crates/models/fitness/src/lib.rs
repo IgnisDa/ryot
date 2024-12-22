@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     WorkoutSetPersonalBest,
 };

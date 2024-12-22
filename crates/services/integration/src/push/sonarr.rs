@@ -1,6 +1,6 @@
 use anyhow::Result;
 use common_utils::ryot_log;
-use enums::MediaLot;
+use enum_models::MediaLot;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},

@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,

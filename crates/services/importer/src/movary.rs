@@ -4,7 +4,7 @@ use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,

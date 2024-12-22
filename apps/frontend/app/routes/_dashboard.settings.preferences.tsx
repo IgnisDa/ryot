@@ -59,11 +59,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import {
-	PRO_REQUIRED_MESSAGE,
-	queryClient,
-	queryFactory,
-} from "~/lib/generals";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/generals";
 import {
 	useComplexJsonUpdate,
 	useConfirmSubmit,
@@ -72,11 +68,7 @@ import {
 	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/hooks";
-import {
-	createToastHeaders,
-	redirectIfNotAuthenticatedOrUpdated,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
@@ -100,7 +92,6 @@ const notificationContent = {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
 	for (let [property, value] of entries) {
@@ -120,9 +111,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			{ input },
 		);
 	}
-	queryClient.removeQueries({
-		queryKey: queryFactory.users.details(userDetails.id).queryKey,
-	});
 	const toastHeaders = await createToastHeaders({
 		message: "Preferences updated",
 		type: "success",

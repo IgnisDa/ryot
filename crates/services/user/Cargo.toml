@@ -13,8 +13,9 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
+dependent-utils = { path = "../../utils/dependent" }
 enum_meta = { workspace = true }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }

@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     DeployIgdbImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,

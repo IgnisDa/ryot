@@ -12,13 +12,13 @@ use database_models::{
     user,
 };
 use database_utils::{
-    admin_account_guard, create_or_update_collection,
-    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, revoke_access_link,
-    server_key_validation_guard, user_by_id,
+    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
+    revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::UserDetailsResult;
+use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
-use enums::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
+use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
 use fitness_models::UserUnitSystem;
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
@@ -290,7 +290,6 @@ impl UserService {
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             create_or_update_collection(
-                &self.0.db,
                 &user.id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
@@ -298,6 +297,7 @@ impl UserService {
                     information_template: meta.0,
                     ..Default::default()
                 },
+                &self.0,
             )
             .await
             .ok();

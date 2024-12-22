@@ -45,7 +45,6 @@ import {
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
-	removeCachedUserCollectionsList,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -69,7 +68,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			const { commitMetadata } = await serverGqlService.authenticatedRequest(
 				request,
 				CommitMetadataDocument,
-				{ input: submission },
+				{
+					input: {
+						name: submission.name,
+						unique: {
+							lot: submission.lot,
+							source: submission.source,
+							identifier: submission.identifier,
+						},
+					},
+				},
 			);
 			returnData = { commitMedia: commitMetadata };
 		})
@@ -113,7 +121,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					CommitMetadataGroupDocument,
-					{ input: submission },
+					{
+						input: {
+							name: submission.name,
+							unique: {
+								lot: submission.lot,
+								source: submission.source,
+								identifier: submission.identifier,
+							},
+						},
+					},
 				);
 			returnData = { commitMetadataGroup };
 		})
@@ -152,7 +169,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		})
 		.with("addEntityToCollection", async () => {
-			removeCachedUserCollectionsList(request);
 			const [submission] = getChangeCollectionToEntityVariables(formData);
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
@@ -179,7 +195,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		})
 		.with("removeEntityFromCollection", async () => {
-			removeCachedUserCollectionsList(request);
 			const [submission] = getChangeCollectionToEntityVariables(formData);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -385,7 +400,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: updates },
 				);
 			await sleepForHalfSecond(request);
-			await removeCachedUserCollectionsList(request);
 			extendResponseHeaders(
 				headers,
 				await createToastHeaders({
@@ -405,7 +419,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 			);
 			await sleepForHalfSecond(request);
-			await removeCachedUserCollectionsList(request);
 			extendResponseHeaders(
 				headers,
 				await createToastHeaders({
@@ -451,7 +464,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					},
 				);
 			}
-			await removeCachedUserCollectionsList(request);
 		})
 		.run();
 	if (redirectTo) {
@@ -462,6 +474,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const commitMediaSchema = z.object({
+	name: z.string(),
 	identifier: z.string(),
 	lot: z.nativeEnum(MediaLot),
 	source: z.nativeEnum(MediaSource),

@@ -8,7 +8,7 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::deserialize_date;
-use enums::{
+use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, Visibility,
 };
@@ -481,7 +481,7 @@ pub struct MetadataDetails {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub suggestions: Vec<PartialMetadataWithoutId>,
-    pub group_identifiers: Vec<String>,
+    pub groups: Vec<CommitMediaInput>,
     pub provider_rating: Option<Decimal>,
     pub watch_providers: Vec<WatchProvider>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
@@ -826,18 +826,36 @@ pub struct MetadataGroupSearchItem {
     InputObject,
     Hash,
 )]
-pub struct CommitMediaInput {
+pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    FromJsonQueryResult,
+)]
+pub struct CommitMediaInput {
+    pub name: String,
+    pub unique: UniqueMediaIdentifier,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
 )]
 pub struct MediaAssociatedPersonStateChanges {
-    pub media: CommitMediaInput,
     pub role: String,
+    pub media: UniqueMediaIdentifier,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
@@ -1151,29 +1169,29 @@ pub struct CollectionContentsFilter {
 
 #[derive(Debug, InputObject)]
 pub struct CollectionContentsInput {
+    pub take: Option<u64>,
     pub collection_id: String,
     pub search: Option<SearchInput>,
     pub filter: Option<CollectionContentsFilter>,
-    pub take: Option<u64>,
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
-#[derive(Debug, SimpleObject, FromQueryResult)]
+#[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionItem {
     pub id: String,
-    pub name: String,
     pub count: i64,
+    pub name: String,
     pub is_default: bool,
-    pub description: Option<String>,
-    pub information_template: Option<Vec<CollectionExtraInformation>>,
     pub creator: IdAndNamedObject,
+    pub description: Option<String>,
     pub collaborators: Vec<IdAndNamedObject>,
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
-    pub id: Option<String>,
     pub name: String,
+    pub id: Option<String>,
     pub image: Option<String>,
     pub character: Option<String>,
 }

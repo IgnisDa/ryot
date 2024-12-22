@@ -3,7 +3,7 @@ use async_graphql::Result;
 use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{
@@ -223,12 +223,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     completed.extend(lists.iter().map(|l| {
         ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
             name: l.name.to_case(Case::Title),
-            description: l.description.as_ref().and_then(|s| {
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s.to_owned())
-                }
+            description: l.description.as_ref().and_then(|s| match s.is_empty() {
+                true => None,
+                false => Some(s.to_owned()),
             }),
             ..Default::default()
         })

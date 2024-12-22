@@ -1,21 +1,25 @@
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result as GqlResult;
-use common_models::DefaultCollection;
+use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
-use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{MediaLot, MediaSource};
-use media_models::{CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
-use providers::google_books::GoogleBooksService;
+use dependent_utils::get_identifier_from_book_isbn;
+use enum_models::{MediaLot, MediaSource};
+use media_models::{
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+};
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
 };
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
+use specific_utils::audiobookshelf::get_updated_metadata;
+use supporting_service::SupportingService;
 
 fn get_http_client(access_token: &String) -> Client {
     get_base_http_client(Some(vec![(
@@ -27,12 +31,13 @@ fn get_http_client(access_token: &String) -> Client {
 pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
-    // TODO: Find a way to use `get_identifier_from_book_isbn` function
-    isbn_service: GoogleBooksService,
-    commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ss: &Arc<SupportingService>,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = GqlResult<metadata::Model>>,
+    F: Future<Output = GqlResult<StringIdObject>>,
 {
     let url = format!("{}/api", base_url);
     let client = get_http_client(&access_token);
@@ -55,14 +60,14 @@ where
         let (progress_id, identifier, lot, source, podcast_episode_number) =
             if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                 match &metadata.isbn {
-                    Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
-                        Some(id) => (
-                            item.id.clone(),
-                            id,
-                            MediaLot::Book,
-                            MediaSource::GoogleBooks,
-                            None,
-                        ),
+                    Some(isbn) => match get_identifier_from_book_isbn(
+                        isbn,
+                        google_books_service,
+                        open_library_service,
+                    )
+                    .await
+                    {
+                        Some(id) => (item.id.clone(), id.0, MediaLot::Book, id.1, None),
                         _ => {
                             ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
                             continue;
@@ -86,14 +91,14 @@ where
                     Some(pe) => {
                         let lot = MediaLot::Podcast;
                         let source = MediaSource::Itunes;
-                        let podcast = commit_metadata(CommitMediaInput {
-                            identifier: itunes_id.clone(),
+                        commit_metadata(UniqueMediaIdentifier {
                             lot,
                             source,
-                            ..Default::default()
+                            identifier: itunes_id.clone(),
                         })
                         .await
                         .unwrap();
+                        let podcast = get_updated_metadata(&itunes_id, ss).await?;
                         match podcast
                             .podcast_specifics
                             .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))

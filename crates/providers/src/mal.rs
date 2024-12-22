@@ -5,7 +5,7 @@ use common_models::{NamedObject, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails,
     MetadataSearchItem, PartialMetadataWithoutId,

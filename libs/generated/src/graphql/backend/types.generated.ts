@@ -200,9 +200,8 @@ export type CollectionItem = {
 };
 
 export type CommitMediaInput = {
-  identifier: Scalars['String']['input'];
-  lot: MediaLot;
-  source: MediaSource;
+  name: Scalars['String']['input'];
+  unique: UniqueMediaIdentifier;
 };
 
 export type CommitPersonInput = {
@@ -553,6 +552,7 @@ export type ExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
@@ -2245,6 +2245,12 @@ export type StringIdObject = {
   id: Scalars['String']['output'];
 };
 
+export type UniqueMediaIdentifier = {
+  identifier: Scalars['String']['input'];
+  lot: MediaLot;
+  source: MediaSource;
+};
+
 export type UpdateComplexJsonInput = {
   /** Dot delimited path to the property that needs to be changed. */
   property: Scalars['String']['input'];
@@ -2255,6 +2261,7 @@ export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;

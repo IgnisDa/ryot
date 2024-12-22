@@ -6,7 +6,7 @@ use common_utils::ryot_log;
 use csv::ReaderBuilder;
 use database_models::exercise;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::ExerciseLot;
+use enum_models::ExerciseLot;
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };

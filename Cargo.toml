@@ -1,13 +1,13 @@
 [workspace]
 members = [
     "apps/backend",
-    "crates/background",
     "crates/config",
-    "crates/enums",
     "crates/migrations",
+    "crates/models/background",
     "crates/models/common",
     "crates/models/database",
     "crates/models/dependent",
+    "crates/models/enum",
     "crates/models/fitness",
     "crates/models/importer",
     "crates/models/media",
@@ -43,13 +43,14 @@ members = [
     "crates/utils/dependent",
     "crates/utils/external",
     "crates/utils/env",
+    "crates/utils/specific",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 askama = "0.12.1"
 anyhow = "=1.0.93"
-apalis = { version = "=0.6.2", features = ["limit"] }
+apalis = { version = "=0.6.2", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.6.2"
 argon2 = "=0.6.0-pre.1"
 async-graphql = { version = "=7.0.11", features = [

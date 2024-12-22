@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,

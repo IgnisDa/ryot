@@ -1,7 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enums::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
+use enum_models::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
