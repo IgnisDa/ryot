@@ -110,7 +110,7 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 export const getDefaultWorkout = (
 	fitnessEntity: FitnessAction,
 ): InProgressWorkout => {
-	const date = dayjsLib().add(7, "second");
+	const date = dayjsLib().add(4, "second");
 	return {
 		images: [],
 		videos: [],
