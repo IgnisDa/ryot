@@ -45,11 +45,13 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "anime",
 		name: "Anime",
+		eventSchemas: [],
 		propertiesSchema: animePropertiesJsonSchema,
 	},
 	{
 		slug: "manga",
 		name: "Manga",
+		eventSchemas: [],
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 ];
