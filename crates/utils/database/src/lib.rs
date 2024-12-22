@@ -668,14 +668,14 @@ pub async fn calculate_user_activities_and_summary(
     }
 
     for (_, activity) in activities.iter_mut() {
-        let deleted = DailyUserActivity::delete_many()
-            .filter(daily_user_activity::Column::Date.eq(activity.date))
+        DailyUserActivity::delete_many()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .filter(match activity.date {
+                None => daily_user_activity::Column::Date.is_null(),
+                Some(date) => daily_user_activity::Column::Date.eq(date),
+            })
             .exec(db)
             .await?;
-        if deleted.rows_affected > 0 {
-            ryot_log!(debug, "Deleted existing activity = {:?}", activity.date);
-        }
         ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
