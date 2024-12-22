@@ -17,7 +17,6 @@ use aws_sdk_s3::config::Region;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
-use job::perform_lp_application_job;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -33,8 +32,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use crate::{
     common::create_app_services,
     job::{
-        perform_hp_application_job, perform_mp_application_job, run_background_jobs,
-        run_frequent_jobs,
+        perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
+        run_background_jobs, run_frequent_jobs,
     },
 };
 
