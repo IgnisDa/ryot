@@ -108,20 +108,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return data({ toast, defaultColorScheme }, { headers });
 };
 
-const DefaultHeadTags = () => {
-	return (
-		<>
-			<meta charSet="utf-8" />
-			<meta
-				name="viewport"
-				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-			/>
-			<link rel="manifest" href="/manifest.json" />
-			<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
-		</>
-	);
-};
-
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
@@ -129,7 +115,13 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
-				<DefaultHeadTags />
+				<meta charSet="utf-8" />
+				<meta
+					name="viewport"
+					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
+				/>
+				<link rel="manifest" href="/manifest.json" />
+				<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
