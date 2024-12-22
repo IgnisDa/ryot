@@ -1,5 +1,9 @@
 use sea_orm_migration::prelude::*;
 
+use crate::m20240827_create_daily_user_activity::{
+    DailyUserActivity, DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY,
+};
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -18,6 +22,25 @@ SET "preferences" = jsonb_set(
         "#,
         )
         .await?;
+        manager
+            .drop_index(
+                Index::drop()
+                    .name(DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY)
+                    .unique()
+                    .nulls_not_distinct()
+                    .table(DailyUserActivity::Table)
+                    .col(DailyUserActivity::UserId)
+                    .col(DailyUserActivity::Date)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
