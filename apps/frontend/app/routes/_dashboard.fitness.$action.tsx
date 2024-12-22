@@ -490,6 +490,7 @@ export default function Page() {
 												variant="subtle"
 												size="compact-sm"
 												loading={isSaveBtnLoading}
+												disabled={isWorkoutPaused}
 												onClick={async () => {
 													if (!currentWorkout.name) {
 														notifications.show({
