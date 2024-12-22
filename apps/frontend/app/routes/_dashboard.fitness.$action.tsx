@@ -1168,14 +1168,14 @@ const UploadAssetsModal = (props: {
 						<input
 							hidden
 							type="file"
-							capture="environment"
-							ref={captureImageRef}
+							ref={selectFromLibraryRef}
 							onChange={afterFileSelected}
 						/>
 						<input
 							hidden
 							type="file"
-							ref={selectFromLibraryRef}
+							capture="environment"
+							ref={captureImageRef}
 							onChange={afterFileSelected}
 						/>
 						<Button.Group w="100%">
@@ -1184,9 +1184,9 @@ const UploadAssetsModal = (props: {
 								color="cyan"
 								variant="outline"
 								leftSection={<IconLibraryPhoto />}
-								onClick={() => captureImageRef.current?.click()}
+								onClick={() => selectFromLibraryRef.current?.click()}
 							>
-								Select from library
+								Upload picture
 							</Button>
 							<Button
 								fullWidth
@@ -1195,7 +1195,7 @@ const UploadAssetsModal = (props: {
 								leftSection={<IconCamera />}
 								onClick={() => captureImageRef.current?.click()}
 							>
-								Take a picture
+								Take picture
 							</Button>
 						</Button.Group>
 					</>
