@@ -768,19 +768,27 @@ const WorkoutDurationTimer = () => {
 
 	if (!currentWorkout) return null;
 
+	const isWorkoutPaused = isString(currentWorkout.durations.at(-1)?.to);
+
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
 
 	return (
 		<StatDisplay
 			name="Duration"
-			highlightValue={currentWorkout?.isPaused}
+			highlightValue={isWorkoutPaused}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
 			value={dayjsLib.duration(seconds * 1000).format(format)}
 			onClick={() => {
 				setCurrentWorkout(
 					produce(currentWorkout, (draft) => {
-						draft.isPaused = !draft.isPaused;
+						const currentDurations = draft.durations;
+						if (Object.keys(currentDurations.at(-1) || {}).length === 2) {
+							currentDurations.push({ from: dayjsLib().toISOString() });
+						} else {
+							currentDurations[currentDurations.length - 1].to =
+								dayjsLib().toISOString();
+						}
 					}),
 				);
 			}}

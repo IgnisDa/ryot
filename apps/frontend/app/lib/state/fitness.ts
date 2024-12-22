@@ -11,6 +11,7 @@ import {
 	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
 	UserWorkoutTemplateDetailsDocument,
+	type WorkoutDuration,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
@@ -76,7 +77,6 @@ export type InProgressWorkout = {
 	comment?: string;
 	endTime?: string;
 	startTime: string;
-	isPaused?: boolean;
 	templateId?: string;
 	images: Array<Media>;
 	videos: Array<string>;
@@ -86,6 +86,7 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
+	durations: Array<WorkoutDuration>;
 	currentActionOrCompleted: FitnessAction;
 };
 
@@ -119,6 +120,7 @@ export const getDefaultWorkout = (
 		exercises: [],
 		startTime: date.toISOString(),
 		currentActionOrCompleted: fitnessEntity,
+		durations: [{ from: date.toISOString() }],
 		name: `${getTimeOfDay(date.hour())} Workout`,
 	};
 };
@@ -206,6 +208,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
+			durations: currentWorkout.durations,
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
