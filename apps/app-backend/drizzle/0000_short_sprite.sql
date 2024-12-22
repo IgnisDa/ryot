@@ -53,9 +53,9 @@ CREATE TABLE "entity" (
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
 	"search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', name)) STORED NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"details_sandbox_script_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_user_schema_script_external_id_unique" UNIQUE("user_id","external_id","entity_schema_id","details_sandbox_script_id")
 );
@@ -87,9 +87,9 @@ CREATE TABLE "event" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"occurred_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
-	"user_id" text NOT NULL,
 	"session_entity_id" text,
+	"user_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"event_schema_id" text NOT NULL,
 	"entity_id" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
@@ -100,8 +100,8 @@ CREATE TABLE "event_schema" (
 	"name" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
 	"entity_schema_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "event_schema_entity_schema_slug_unique" UNIQUE("entity_schema_id","slug")
 );
@@ -111,9 +111,9 @@ CREATE TABLE "relationship" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
-	"id" text PRIMARY KEY NOT NULL,
 	"source_entity_id" text NOT NULL,
-	"target_entity_id" text NOT NULL
+	"target_entity_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
@@ -180,8 +180,8 @@ ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_user_id_user_id_fk" FO
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_search_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("search_sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_details_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("details_sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIGN KEY ("session_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
