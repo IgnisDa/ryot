@@ -110,12 +110,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		const intent = getActionIntent(request);
 		return await match(intent)
 			.with(Action.Create, async () => {
-				input.id = "dummy";
 				const { createCustomExercise } =
 					await serverGqlService.authenticatedRequest(
 						request,
 						CreateCustomExerciseDocument,
-						{ input },
+						{ input: { ...input, id: "dummy" } },
 					);
 				return redirect(getExerciseDetailsPath(createCustomExercise));
 			})
@@ -125,7 +124,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					UpdateCustomExerciseDocument,
-					{ input },
+					{ input: { ...input, id } },
 				);
 				const redirectUrl = submission.shouldDelete
 					? $path("/fitness/exercises/list")
