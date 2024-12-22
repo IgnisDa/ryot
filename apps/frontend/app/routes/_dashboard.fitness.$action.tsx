@@ -170,6 +170,49 @@ const deleteUploadedAsset = (key: string) => {
 	});
 };
 
+const getNextSetInWorkout = (
+	currentSetIdx: number,
+	currentExerciseIdx: number,
+	currentWorkout: InProgressWorkout,
+) => {
+	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
+	const partOfSuperset = currentWorkout.supersets.find((superset) =>
+		superset.exercises.includes(currentExercise.identifier),
+	);
+	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
+	if (partOfSuperset) {
+		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
+			currentWorkout.exercises.findIndex((e) => e.identifier === s),
+		);
+		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
+			(e) =>
+				e.identifier !== currentExercise.identifier &&
+				sortedExercises.includes(e.identifier) &&
+				e.sets.some((s) => !s.confirmedAt),
+		);
+		if (nextExerciseWithIncompleteSets) {
+			const exerciseIdx = currentWorkout.exercises.findIndex(
+				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
+			);
+			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
+				(s) => !s.confirmedAt,
+			);
+			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
+		}
+	}
+	if (areAllSetsConfirmed)
+		return {
+			exerciseIdx: currentExerciseIdx + 1,
+			setIdx: 0,
+			wasLastSet: true,
+		};
+	return {
+		exerciseIdx: currentExerciseIdx,
+		setIdx: currentSetIdx + 1,
+		wasLastSet: false,
+	};
+};
+
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
@@ -189,7 +232,7 @@ const usePerformTasksAfterSetConfirmed = () => {
 		setCurrentWorkout(
 			produce(currentWorkout, (draft) => {
 				const currentExercise = draft.exercises[exerciseIdx];
-				const nextSet = getNextSetInWorkout(draft, exerciseIdx, setIdx);
+				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
 				focusOnExercise(nextSet.exerciseIdx);
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
@@ -718,8 +761,8 @@ const WorkoutDurationTimer = () => {
 	return (
 		<StatDisplay
 			name="Duration"
-			value={dayjsLib.duration(seconds * 1000).format(format)}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
+			value={dayjsLib.duration(seconds * 1000).format(format)}
 		/>
 	);
 };
@@ -756,25 +799,25 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
+				size="xs"
 				required
+				hideControls
+				step={props.inputStep}
+				onChange={(v) => setValue(v)}
+				onFocus={(e) => e.target.select()}
+				styles={{
+					input: { fontSize: 15, width: rem(72), textAlign: "center" },
+				}}
 				value={
 					isString(set.statistic[props.stat])
 						? Number(set.statistic[props.stat])
 						: undefined
 				}
-				onChange={(v) => setValue(v)}
-				onFocus={(e) => e.target.select()}
-				size="xs"
-				styles={{
-					input: { fontSize: 15, width: rem(72), textAlign: "center" },
-				}}
 				decimalScale={
 					isNumber(props.inputStep)
 						? Math.log10(1 / props.inputStep)
 						: undefined
 				}
-				step={props.inputStep}
-				hideControls
 			/>
 		</Flex>
 	) : null;
@@ -787,11 +830,11 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 		<Box pos="relative">
 			<Avatar src={props.imageSrc} size="lg" />
 			<ActionIcon
-				pos="absolute"
 				top={0}
+				size="xs"
 				left={-12}
 				color="red"
-				size="xs"
+				pos="absolute"
 				onClick={async () => {
 					const yes = await confirmWrapper({
 						confirmation: "Are you sure you want to remove this image?",
@@ -1102,11 +1145,11 @@ const UploadAssetsModal = (props: {
 						<Group justify="center" gap={4}>
 							<Paper radius="md" style={{ overflow: "hidden" }}>
 								<Webcam
-									ref={webcamRef}
-									height={180}
 									width={240}
-									videoConstraints={{ facingMode: cameraFacing }}
+									height={180}
+									ref={webcamRef}
 									screenshotFormat={fileType}
+									videoConstraints={{ facingMode: cameraFacing }}
 								/>
 							</Paper>
 							<Stack>
@@ -1259,17 +1302,17 @@ const ExerciseDisplay = (props: {
 	return (
 		<>
 			<Paper
+				pl="sm"
 				radius={0}
+				ml={{ base: "-md", md: 0 }}
+				id={props.exerciseIdx.toString()}
+				pr={{ base: 4, md: "xs", lg: "sm" }}
 				style={{
 					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
 					borderLeft: partOfSuperset
 						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
 						: undefined,
 				}}
-				pl="sm"
-				ml={{ base: "-md", md: 0 }}
-				id={props.exerciseIdx.toString()}
-				pr={{ base: 4, md: "xs", lg: "sm" }}
 			>
 				<Stack ref={parent}>
 					<Menu shadow="md" width={200} position="left-end">
@@ -1380,8 +1423,8 @@ const ExerciseDisplay = (props: {
 								</Menu.Item>
 							) : null}
 							<Menu.Item
-								leftSection={<IconReorder size={14} />}
 								onClick={props.reorderDrawerToggle}
+								leftSection={<IconReorder size={14} />}
 							>
 								Reorder
 							</Menu.Item>
@@ -1424,10 +1467,10 @@ const ExerciseDisplay = (props: {
 						<Stack ref={parent}>
 							{exercise.notes.map((note, idx) => (
 								<NoteInput
-									key={`${exercise.identifier}-${idx}`}
-									exerciseIdx={props.exerciseIdx}
-									noteIdx={idx}
 									note={note}
+									noteIdx={idx}
+									exerciseIdx={props.exerciseIdx}
+									key={`${exercise.identifier}-${idx}`}
 								/>
 							))}
 							{exercise.isShowDetailsOpen ? (
@@ -1439,10 +1482,10 @@ const ExerciseDisplay = (props: {
 													{exerciseDetails?.attributes.images.map((i) => (
 														<Image
 															key={i}
-															radius="md"
 															src={i}
 															h={200}
 															w={350}
+															radius="md"
 														/>
 													))}
 												</Group>
@@ -1512,13 +1555,13 @@ const ExerciseDisplay = (props: {
 										.exhaustive()}
 									{(userExerciseDetails?.history?.length || 0) > 0 ? (
 										<ActionIcon
+											p={2}
+											size="sm"
 											right={10}
 											bottom={10}
-											variant="filled"
 											color="red"
-											size="sm"
 											pos="absolute"
-											p={2}
+											variant="filled"
 											onClick={() => {
 												if (!coreDetails.isServerKeyValidated) {
 													notifications.show({
@@ -1553,8 +1596,8 @@ const ExerciseDisplay = (props: {
 								</Text>
 								<Text
 									size="xs"
-									w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
 									ta="center"
+									w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
 								>
 									PREVIOUS
 								</Text>
@@ -1682,49 +1725,6 @@ const DisplayExerciseSetRestTimer = (props: {
 			}
 		/>
 	);
-};
-
-const getNextSetInWorkout = (
-	currentWorkout: InProgressWorkout,
-	currentExerciseIdx: number,
-	currentSetIdx: number,
-) => {
-	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
-	const partOfSuperset = currentWorkout.supersets.find((superset) =>
-		superset.exercises.includes(currentExercise.identifier),
-	);
-	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
-	if (partOfSuperset) {
-		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
-			currentWorkout.exercises.findIndex((e) => e.identifier === s),
-		);
-		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
-			(e) =>
-				e.identifier !== currentExercise.identifier &&
-				sortedExercises.includes(e.identifier) &&
-				e.sets.some((s) => !s.confirmedAt),
-		);
-		if (nextExerciseWithIncompleteSets) {
-			const exerciseIdx = currentWorkout.exercises.findIndex(
-				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
-			);
-			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
-				(s) => !s.confirmedAt,
-			);
-			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
-		}
-	}
-	if (areAllSetsConfirmed)
-		return {
-			exerciseIdx: currentExerciseIdx + 1,
-			setIdx: 0,
-			wasLastSet: true,
-		};
-	return {
-		exerciseIdx: currentExerciseIdx,
-		setIdx: currentSetIdx + 1,
-		wasLastSet: false,
-	};
 };
 
 const SetDisplay = (props: {
@@ -2480,10 +2480,10 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 
 	return currentWorkout ? (
 		<Drawer
-			onClose={props.onClose}
-			opened={props.opened}
 			size="sm"
 			styles={styles}
+			opened={props.opened}
+			onClose={props.onClose}
 		>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
@@ -2545,9 +2545,9 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 };
 
 const NoteInput = (props: {
-	exerciseIdx: number;
-	noteIdx: number;
 	note: string;
+	noteIdx: number;
+	exerciseIdx: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(props.note, 500);
@@ -2564,12 +2564,12 @@ const NoteInput = (props: {
 	return (
 		<Flex align="center" gap="xs">
 			<Textarea
-				style={{ flexGrow: 1 }}
-				placeholder="Add a note"
+				autosize
 				size="xs"
 				minRows={1}
 				maxRows={4}
-				autosize
+				style={{ flexGrow: 1 }}
+				placeholder="Add a note"
 				defaultValue={props.note}
 				onChange={(e) => setValue(e.currentTarget.value)}
 			/>
