@@ -14,6 +14,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	Tooltip,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
@@ -617,18 +618,21 @@ const TimeOfDayChart = () => {
 const StatItem = (props: {
 	text: string;
 	label: string;
+	tooltipLabel: string | number;
 	icon: ComponentType<IconProps>;
 }) => {
 	return (
-		<Stack align="center" justify="center" gap={0}>
-			<props.icon size={20} />
-			<Text size="sm" c="dimmed" ta="center">
-				{props.label}
-			</Text>
-			<Text size="xl" fw="bold" ta="center">
-				{props.text}
-			</Text>
-		</Stack>
+		<Tooltip label={props.tooltipLabel}>
+			<Stack align="center" justify="center" gap={0}>
+				<props.icon size={20} />
+				<Text size="sm" c="dimmed" ta="center">
+					{props.label}
+				</Text>
+				<Text size="xl" fw="bold" ta="center">
+					{props.text}
+				</Text>
+			</Stack>
+		</Tooltip>
 	);
 };
 
@@ -658,15 +662,21 @@ const StatisticsCard = () => {
 							label="Workouts"
 							icon={IconStretching}
 							text={`${fitness.workoutCount}`}
+							tooltipLabel={fitness.workoutCount}
 						/>
 						<StatItem
 							label="Reps"
 							icon={IconRepeat}
+							tooltipLabel={fitness.workoutReps}
 							text={formatQuantityWithCompactNotation(fitness.workoutReps)}
 						/>
 						<StatItem
 							label="Weight"
 							icon={IconWeight}
+							tooltipLabel={displayWeightWithUnit(
+								unitSystem,
+								fitness.workoutWeight,
+							)}
 							text={displayWeightWithUnit(
 								unitSystem,
 								fitness.workoutWeight,
@@ -676,35 +686,45 @@ const StatisticsCard = () => {
 						<StatItem
 							icon={IconRoad}
 							label="Distance"
+							tooltipLabel={displayDistanceWithUnit(
+								unitSystem,
+								fitness.workoutDistance,
+							)}
 							text={displayDistanceWithUnit(
 								unitSystem,
 								fitness.workoutDistance,
+								true,
 							)}
 						/>
 						<StatItem
 							label="Duration"
 							icon={IconClock}
+							tooltipLabel={`${fitness.workoutDuration}s`}
 							text={displayDuration(fitness.workoutDuration)}
 						/>
 						<StatItem
 							label="Exercises"
 							icon={IconBarbell}
 							text={`${fitness.workoutExercises.length}`}
+							tooltipLabel={fitness.workoutExercises.length}
 						/>
 						<StatItem
 							icon={IconTrophy}
 							label="Personal Bests"
 							text={`${fitness.workoutPersonalBests}`}
+							tooltipLabel={fitness.workoutPersonalBests}
 						/>
 						<StatItem
 							icon={IconZzz}
 							label="Rest Time"
+							tooltipLabel={`${fitness.workoutRestTime}s`}
 							text={displayDuration(fitness.workoutRestTime)}
 						/>
 						<StatItem
 							label="Measurements"
 							icon={IconRulerMeasure}
 							text={`${fitness.measurementCount}`}
+							tooltipLabel={fitness.measurementCount}
 						/>
 					</SimpleGrid>
 				),
