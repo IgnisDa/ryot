@@ -76,11 +76,12 @@ export type InProgressWorkout = {
 	comment?: string;
 	endTime?: string;
 	startTime: string;
+	isPaused?: boolean;
 	templateId?: string;
+	images: Array<Media>;
 	videos: Array<string>;
 	repeatedFrom?: string;
 	supersets: Superset[];
-	images: Array<Media>;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;

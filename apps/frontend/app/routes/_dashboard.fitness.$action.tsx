@@ -715,10 +715,23 @@ const StatDisplay = (props: {
 	name: string;
 	value: string;
 	isHidden?: boolean;
+	onClick?: () => void;
+	highlightValue?: boolean;
 }) => {
 	return (
-		<Box mx="auto" style={props.isHidden ? { display: "none" } : undefined}>
-			<Text ta="center" fz={{ md: "xl" }}>
+		<Box
+			mx="auto"
+			onClick={props.onClick}
+			style={{
+				display: props.isHidden ? "none" : undefined,
+				cursor: props.onClick ? "pointer" : undefined,
+			}}
+		>
+			<Text
+				ta="center"
+				fz={{ md: "xl" }}
+				c={props.highlightValue ? "red" : undefined}
+			>
 				{props.value}
 			</Text>
 			<Text c="dimmed" size="sm" ta="center">
@@ -748,10 +761,12 @@ const RestTimer = () => {
 const WorkoutDurationTimer = () => {
 	const { isCreatingTemplate, isUpdatingWorkout } =
 		useLoaderData<typeof loader>();
-	const [currentWorkout] = useCurrentWorkout();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const seconds = offsetDate(currentWorkout?.startTime);
 
 	forceUpdateEverySecond();
+
+	if (!currentWorkout) return null;
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
@@ -759,8 +774,16 @@ const WorkoutDurationTimer = () => {
 	return (
 		<StatDisplay
 			name="Duration"
+			highlightValue={currentWorkout?.isPaused}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
 			value={dayjsLib.duration(seconds * 1000).format(format)}
+			onClick={() => {
+				setCurrentWorkout(
+					produce(currentWorkout, (draft) => {
+						draft.isPaused = !draft.isPaused;
+					}),
+				);
+			}}
 		/>
 	);
 };
