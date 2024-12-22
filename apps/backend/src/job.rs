@@ -46,6 +46,10 @@ pub async fn perform_hp_application_job(
     let status = match information {
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
             integration_service
+                .sync_integrations_data_to_owned_collection_for_user(&user_id)
+                .await
+                .trace_ok();
+            integration_service
                 .yank_integrations_data_for_user(&user_id)
                 .await
         }
