@@ -1,7 +1,7 @@
 [build.env]
 passthrough = [
     "APP_VERSION",
-    "COMMIT_SHA",
+    "APP_COMMIT_SHA",
     "UNKEY_API_ID",
     "TRAKT_CLIENT_ID",
     "DEFAULT_MAL_CLIENT_ID",

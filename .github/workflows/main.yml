@@ -178,7 +178,7 @@ jobs:
       - name: Build
         env:
           UNKEY_API_ID: ${{ secrets.UNKEY_API_ID }}
-          COMMIT_SHA: ${{ steps.build.outputs.sha }}
+          APP_COMMIT_SHA: ${{ steps.build.outputs.sha }}
           APP_VERSION: ${{ steps.build.outputs.version }}
           TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
