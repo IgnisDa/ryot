@@ -2367,7 +2367,7 @@ const TimerDrawer = (props: {
 							thickness={8}
 							sections={[
 								{
-									color: "orange",
+									color: currentTimer.wasPausedAt ? "gray" : "orange",
 									value:
 										(dayjsLib(currentTimer.willEndAt).diff(
 											dayjsLib(currentTimer.wasPausedAt),
