@@ -1692,7 +1692,17 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let durations = match input.durations.clone() {
-        Some(durations) => durations,
+        Some(durations) => {
+            if durations.is_empty() {
+                return Err(Error::new("Durations cannot be empty"));
+            }
+            if durations.last().and_then(|d| d.to).is_some() {
+                return Err(Error::new(
+                    "The workout was never resumed after being paused",
+                ));
+            }
+            durations
+        }
         None => vec![WorkoutDuration {
             to: None,
             from: input.start_time,
