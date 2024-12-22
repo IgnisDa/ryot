@@ -1692,6 +1692,9 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
+    let duration = end_time
+        .signed_duration_since(input.start_time)
+        .num_seconds();
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => (
@@ -1922,6 +1925,7 @@ pub async fn create_or_update_user_workout(
         id: new_workout_id.clone(),
         start_time: input.start_time,
         repeated_from: input.repeated_from,
+        duration: duration.try_into().unwrap(),
         summary: WorkoutSummary {
             focused,
             total: Some(summary_total),
@@ -1943,10 +1947,8 @@ pub async fn create_or_update_user_workout(
             exercises: processed_exercises,
         },
         template_id: input.template_id,
-        duration: 0,
     };
     let mut insert: workout::ActiveModel = model.into();
-    insert.duration = ActiveValue::NotSet;
     if let Some(old_workout) = to_update_workout.clone() {
         insert.end_time = ActiveValue::Set(old_workout.end_time);
         insert.start_time = ActiveValue::Set(old_workout.start_time);
