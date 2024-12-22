@@ -1675,8 +1675,8 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
-    pub async fn handle_after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        handle_after_media_seen_tasks(seen, &self.0).await
+    pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
+        handle_after_media_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(

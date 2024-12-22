@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background_models::{
-    ApplicationJob, HpApplicationJob, LpApplicationJob,
-    MpApplicationJob,
-};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
@@ -222,7 +219,7 @@ impl SupportingService {
         };
         cc.set_key(
             ApplicationCacheKey::CoreDetails,
-            ApplicationCacheValue::CoreDetails(core_details.clone()),
+            ApplicationCacheValue::CoreDetails(Box::new(core_details.clone())),
         )
         .await?;
         Ok(core_details)

@@ -1110,7 +1110,7 @@ pub async fn deploy_after_handle_media_seen_tasks(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleAfterMediaSeenTasks(seen),
+        LpApplicationJob::HandleAfterMediaSeenTasks(Box::new(seen)),
     ))
     .await
 }

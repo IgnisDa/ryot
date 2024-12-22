@@ -423,10 +423,10 @@ pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 #[serde(untagged)]
 pub enum ApplicationCacheValue {
     Empty(EmptyCacheValue),
-    CoreDetails(CoreDetails),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
+    CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
