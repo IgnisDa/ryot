@@ -778,7 +778,7 @@ const WorkoutDurationTimer = () => {
 			name="Duration"
 			highlightValue={isWorkoutPaused}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
-			value={dayjsLib.duration(seconds * 1000).format(format)}
+			value={dayjsLib.duration(seconds, "second").format(format)}
 			onClick={() => {
 				setCurrentWorkout(
 					produce(currentWorkout, (draft) => {
