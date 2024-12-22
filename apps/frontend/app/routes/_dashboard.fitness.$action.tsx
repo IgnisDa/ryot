@@ -1759,6 +1759,8 @@ const SetDisplay = (props: {
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
+	const closeRpeModal = () => setIsRpeModalOpen(false);
+
 	useDidUpdate(() => {
 		if (currentWorkout && isString(value))
 			setCurrentWorkout(
@@ -1781,7 +1783,7 @@ const SetDisplay = (props: {
 			<Modal
 				opened={isRpeModalOpen}
 				withCloseButton={false}
-				onClose={() => setIsRpeModalOpen(false)}
+				onClose={closeRpeModal}
 				title={
 					<Group justify="space-between" gap="xl">
 						<Text>Rate of Perceived Exertion</Text>
@@ -1814,11 +1816,7 @@ const SetDisplay = (props: {
 							}}
 						/>
 					</Group>
-					<Button
-						fullWidth
-						variant="outline"
-						onClick={() => setIsRpeModalOpen(false)}
-					>
+					<Button fullWidth variant="outline" onClick={closeRpeModal}>
 						Done
 					</Button>
 					<Collapse in={isRpeDetailsOpen}>
