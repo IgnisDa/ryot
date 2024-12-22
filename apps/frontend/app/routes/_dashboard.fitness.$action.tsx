@@ -1780,8 +1780,20 @@ const SetDisplay = (props: {
 		<>
 			<Modal
 				opened={isRpeModalOpen}
-				title="Rate of Perceived Exertion (RPE)"
 				onClose={() => setIsRpeModalOpen(false)}
+				styles={{ title: { width: "100%", marginRight: 20 } }}
+				title={
+					<Group justify="space-between">
+						<Text>Rate of Perceived Exertion</Text>
+						<Button
+							variant="outline"
+							size="compact-xs"
+							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
+						>
+							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
+						</Button>
+					</Group>
+				}
 			>
 				<Stack>
 					<Group>
@@ -1801,13 +1813,14 @@ const SetDisplay = (props: {
 								);
 							}}
 						/>
-						<Button
-							variant="transparent"
-							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
-						>
-							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
-						</Button>
 					</Group>
+					<Button
+						fullWidth
+						variant="outline"
+						onClick={() => setIsRpeModalOpen(false)}
+					>
+						Done
+					</Button>
 					<Collapse in={isRpeDetailsOpen}>
 						<Stack gap="xs">
 							<Text size="xs">
