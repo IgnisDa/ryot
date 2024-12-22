@@ -39,7 +39,7 @@ use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
+    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
     WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
@@ -1691,8 +1691,12 @@ pub async fn create_or_update_user_workout(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let Some(durations) = input.durations.clone() else {
-        return Err(Error::new("Durations are required for workouts"));
+    let durations = match input.durations.clone() {
+        Some(durations) => durations,
+        None => vec![WorkoutDuration {
+            to: None,
+            from: input.start_time,
+        }],
     };
     let end_time = input.end_time;
     let duration = end_time
@@ -1866,9 +1870,9 @@ pub async fn create_or_update_user_workout(
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: new_workout_id.clone(),
-                        exercise_idx,
                         set_idx,
+                        exercise_idx,
+                        workout_id: new_workout_id.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
                         let mut data = record.sets.clone();
@@ -1900,8 +1904,8 @@ pub async fn create_or_update_user_workout(
             db_ex.lot,
             ProcessedExercise {
                 sets,
-                lot: db_ex.lot,
                 id: db_ex.id,
+                lot: db_ex.lot,
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
@@ -1927,6 +1931,7 @@ pub async fn create_or_update_user_workout(
         user_id: user_id.clone(),
         id: new_workout_id.clone(),
         start_time: input.start_time,
+        template_id: input.template_id,
         repeated_from: input.repeated_from,
         duration: duration.try_into().unwrap(),
         summary: WorkoutSummary {
@@ -1947,10 +1952,9 @@ pub async fn create_or_update_user_workout(
             assets: input.assets,
             comment: input.comment,
             supersets: input.supersets,
-            durations: input.durations,
+            durations: Some(durations),
             exercises: processed_exercises,
         },
-        template_id: input.template_id,
     };
     let mut insert: workout::ActiveModel = model.into();
     if let Some(old_workout) = to_update_workout.clone() {
