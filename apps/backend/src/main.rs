@@ -4,7 +4,6 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 use anyhow::{bail, Result};
@@ -25,7 +24,7 @@ use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
     net::TcpListener,
-    time::{sleep, Duration as TokioDuration},
+    time::{sleep, Duration},
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
@@ -62,7 +61,7 @@ async fn main() -> Result<()> {
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
-        let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
+        let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
