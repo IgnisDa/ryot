@@ -11,6 +11,7 @@ import {
 	Container,
 	Divider,
 	Drawer,
+	FileButton,
 	Flex,
 	Group,
 	Image,
@@ -88,7 +89,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -1068,14 +1069,12 @@ const UploadAssetsModal = (props: {
 	modalOpenedBy: string | null | undefined;
 }) => {
 	const coreDetails = useCoreDetails();
-	const captureImageRef = useRef<HTMLInputElement>(null);
-	const selectFromLibraryRef = useRef<HTMLInputElement>(null);
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	if (!currentWorkout) return null;
 
-	const afterFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+	const afterFileSelected = async (file: File | null) => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",
@@ -1083,30 +1082,28 @@ const UploadAssetsModal = (props: {
 			});
 			return;
 		}
-		const file = e.target.files?.[0];
-		if (file) {
-			const imageSrc = URL.createObjectURL(file);
-			const toSubmitForm = new FormData();
-			toSubmitForm.append("file", file, "image.jpg");
-			try {
-				const resp = await fetch(
-					$path("/actions", { intent: "uploadWorkoutAsset" }),
-					{ method: "POST", body: toSubmitForm },
-				);
-				const data = await resp.json();
-				setCurrentWorkout(
-					produce(currentWorkout, (draft) => {
-						const media = { imageSrc, key: data.key };
-						if (exercise) draft.exercises[exerciseIdx].images.push(media);
-						else draft.images.push(media);
-					}),
-				);
-			} catch {
-				notifications.show({
-					color: "red",
-					message: "Error while uploading image",
-				});
-			}
+		if (!file) return;
+		const imageSrc = URL.createObjectURL(file);
+		const toSubmitForm = new FormData();
+		toSubmitForm.append("file", file, "image.jpg");
+		try {
+			const resp = await fetch(
+				$path("/actions", { intent: "uploadWorkoutAsset" }),
+				{ method: "POST", body: toSubmitForm },
+			);
+			const data = await resp.json();
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const media = { imageSrc, key: data.key };
+					if (exercise) draft.exercises[exerciseIdx].images.push(media);
+					else draft.images.push(media);
+				}),
+			);
+		} catch {
+			notifications.show({
+				color: "red",
+				message: "Error while uploading image",
+			});
 		}
 	};
 
@@ -1166,41 +1163,38 @@ const UploadAssetsModal = (props: {
 								))}
 							</Avatar.Group>
 						) : null}
-						<input
-							hidden
-							type="file"
-							accept="image/*"
-							ref={selectFromLibraryRef}
-							onChange={afterFileSelected}
-						/>
-						<input
-							hidden
-							type="file"
-							accept="image/*"
-							capture="environment"
-							ref={captureImageRef}
-							onChange={afterFileSelected}
-						/>
-						<Button.Group w="100%">
-							<Button
-								fullWidth
-								color="cyan"
-								variant="outline"
-								leftSection={<IconLibraryPhoto />}
-								onClick={() => selectFromLibraryRef.current?.click()}
+						<Group justify="space-between">
+							<FileButton accept="image/*" onChange={afterFileSelected}>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										leftSection={<IconLibraryPhoto />}
+									>
+										Select picture
+									</Button>
+								)}
+							</FileButton>
+							<FileButton
+								accept="image/*"
+								capture="environment"
+								onChange={afterFileSelected}
 							>
-								Upload picture
-							</Button>
-							<Button
-								fullWidth
-								color="cyan"
-								variant="outline"
-								leftSection={<IconCamera />}
-								onClick={() => captureImageRef.current?.click()}
-							>
-								Take picture
-							</Button>
-						</Button.Group>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										leftSection={<IconCamera />}
+									>
+										Take picture
+									</Button>
+								)}
+							</FileButton>
+						</Group>
 					</>
 				) : (
 					<Text c="red" size="sm">
