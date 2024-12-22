@@ -6,6 +6,7 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
+use env_utils::APP_VERSION;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -60,6 +61,7 @@ impl CacheService {
             key: ActiveValue::Set(key),
             created_at: ActiveValue::Set(now),
             value: ActiveValue::Set(serde_json::to_value(value)?),
+            version: ActiveValue::Set(APP_VERSION.to_owned()),
             expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
             ..Default::default()
         };
@@ -91,6 +93,7 @@ impl CacheService {
                 cache
                     .expires_at
                     .map_or(true, |expires_at| expires_at > Utc::now())
+                    && cache.version == APP_VERSION
             })
             .map(|m| m.value)?;
         serde_json::from_value::<T>(db_value).ok()
