@@ -225,8 +225,9 @@ const usePerformTasksAfterSetConfirmed = () => {
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
+		setCurrentWorkout((cw) =>
+			produce(cw, (draft) => {
+				if (!draft) return;
 				const currentExercise = draft.exercises[exerciseIdx];
 				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
 				focusOnExercise(nextSet.exerciseIdx);
