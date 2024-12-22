@@ -303,10 +303,7 @@ export default function Page() {
 			setCurrentTimer(
 				produce(currentTimer, (draft) => {
 					draft.willEndAt = dayjsLib(draft.willEndAt)
-						.add(
-							dayjsLib().diff(dayjsLib(draft.wasPausedAt), "second"),
-							"second",
-						)
+						.add(dayjsLib().diff(draft.wasPausedAt, "second"), "second")
 						.toISOString();
 					draft.wasPausedAt = draft.wasPausedAt
 						? undefined
@@ -693,10 +690,8 @@ const StatDisplay = (props: {
 const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
 
-const offsetDate = (startTime?: string) => {
-	const now = dayjsLib();
-	return now.diff(dayjsLib(startTime), "seconds");
-};
+const offsetDate = (startTime?: string) =>
+	dayjsLib().diff(startTime, "seconds");
 
 const RestTimer = () => {
 	forceUpdateEverySecond();
@@ -704,9 +699,7 @@ const RestTimer = () => {
 
 	return currentTimer
 		? formatTimerDuration(
-				dayjsLib(currentTimer.willEndAt).diff(
-					dayjsLib(currentTimer.wasPausedAt),
-				),
+				dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
 			)
 		: "Timer";
 };
@@ -1671,7 +1664,7 @@ const DisplayExerciseSetRestTimer = (props: {
 				{
 					value:
 						(dayjsLib(currentTimer.willEndAt).diff(
-							dayjsLib(currentTimer.wasPausedAt),
+							currentTimer.wasPausedAt,
 							"seconds",
 						) *
 							100) /
@@ -1682,9 +1675,8 @@ const DisplayExerciseSetRestTimer = (props: {
 			label={
 				<Text ta="center" size="xs">
 					{Math.floor(
-						dayjsLib(currentTimer.willEndAt).diff(
-							dayjsLib(currentTimer.wasPausedAt),
-						) / 1000,
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
+							1000,
 					)}
 				</Text>
 			}
@@ -2334,7 +2326,7 @@ const TimerDrawer = (props: {
 								variant="outline"
 								disabled={
 									dayjsLib(currentTimer.willEndAt).diff(
-										dayjsLib(currentTimer.wasPausedAt),
+										currentTimer.wasPausedAt,
 										"seconds",
 									) <= 30
 								}
@@ -2370,7 +2362,7 @@ const TimerDrawer = (props: {
 									color: currentTimer.wasPausedAt ? "gray" : "orange",
 									value:
 										(dayjsLib(currentTimer.willEndAt).diff(
-											dayjsLib(currentTimer.wasPausedAt),
+											currentTimer.wasPausedAt,
 											"seconds",
 										) *
 											100) /
@@ -2382,7 +2374,7 @@ const TimerDrawer = (props: {
 									<Text ta="center" fz={64}>
 										{formatTimerDuration(
 											dayjsLib(currentTimer.willEndAt).diff(
-												dayjsLib(currentTimer.wasPausedAt),
+												currentTimer.wasPausedAt,
 											),
 										)}
 									</Text>
