@@ -744,9 +744,6 @@ const StatDisplay = (props: {
 const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
 
-const offsetDate = (startTime?: string) =>
-	dayjsLib().diff(startTime, "seconds");
-
 const RestTimer = () => {
 	forceUpdateEverySecond();
 	const [currentTimer] = useTimerAtom();
@@ -761,14 +758,21 @@ const RestTimer = () => {
 const WorkoutDurationTimer = () => {
 	const { isCreatingTemplate, isUpdatingWorkout } =
 		useLoaderData<typeof loader>();
+	const [value, setValue] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const seconds = offsetDate(currentWorkout?.startTime);
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 
-	forceUpdateEverySecond();
+	useInterval(() => setValue((v) => v + 1), 1000);
+
+	const seconds = useMemo(() => {
+		let total = 0;
+		for (const duration of currentWorkout?.durations || []) {
+			total += dayjsLib(duration.to).diff(duration.from) / 1000;
+		}
+		return total;
+	}, [value, currentWorkout]);
 
 	if (!currentWorkout) return null;
-
-	const isWorkoutPaused = isString(currentWorkout.durations.at(-1)?.to);
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
