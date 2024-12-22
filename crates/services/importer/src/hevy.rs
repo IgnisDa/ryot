@@ -151,18 +151,12 @@ pub async fn import(
         let start_time = parse_date_string(&first_exercise.start_time);
         let end_time = parse_date_string(&first_exercise.end_time);
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
-            assets: None,
-            supersets: vec![],
-            template_id: None,
-            repeated_from: None,
-            create_workout_id: None,
-            update_workout_id: None,
             exercises: collected_exercises,
-            update_workout_template_id: None,
             name: first_exercise.title.clone(),
             comment: first_exercise.description.clone(),
             end_time: utils::get_date_time_with_offset(end_time, &ss.timezone),
             start_time: utils::get_date_time_with_offset(start_time, &ss.timezone),
+            ..Default::default()
         }));
     }
     completed.extend(

@@ -102,10 +102,9 @@ impl FitnessService {
         server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let mut summary = WorkoutSummary::default();
         let mut information = WorkoutInformation {
-            assets: None,
-            exercises: vec![],
             comment: input.comment,
             supersets: input.supersets,
+            ..Default::default()
         };
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
@@ -421,9 +420,7 @@ impl FitnessService {
             "Instance does not have exercises data. Deploying job to download them..."
         );
         self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::UpdateGithubExercises,
-            ))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateGithubExercises))
             .await?;
         Ok(())
     }

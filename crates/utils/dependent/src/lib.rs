@@ -1691,6 +1691,9 @@ pub async fn create_or_update_user_workout(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
+    let Some(durations) = input.durations.clone() else {
+        return Err(Error::new("Durations are required for workouts"));
+    };
     let end_time = input.end_time;
     let duration = end_time
         .signed_duration_since(input.start_time)
@@ -1944,6 +1947,7 @@ pub async fn create_or_update_user_workout(
             assets: input.assets,
             comment: input.comment,
             supersets: input.supersets,
+            durations: input.durations,
             exercises: processed_exercises,
         },
         template_id: input.template_id,
@@ -2387,6 +2391,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
         supersets: user_workout.information.supersets,
+        durations: user_workout.information.durations,
         exercises: user_workout
             .information
             .exercises

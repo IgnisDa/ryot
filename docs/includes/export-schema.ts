@@ -225,6 +225,12 @@ export interface EntityAssets {
 	videos: string[];
 }
 
+/** Information about a workout done. */
+export interface WorkoutDuration {
+	from: string;
+	to: string | null;
+}
+
 /** The different types of exercises that can be done. */
 export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
 
@@ -300,6 +306,7 @@ export interface WorkoutSupersetsInformation {
 export interface WorkoutInformation {
 	assets: EntityAssets | null;
 	comment: string | null;
+	durations: WorkoutDuration[] | null;
 	exercises: ProcessedExercise[];
 	supersets: WorkoutSupersetsInformation[];
 }

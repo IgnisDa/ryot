@@ -186,18 +186,12 @@ async fn import_exercises(
             });
         }
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
-            assets: None,
             start_time: ndt,
-            supersets: vec![],
-            template_id: None,
-            repeated_from: None,
-            create_workout_id: None,
-            update_workout_id: None,
             exercises: collected_exercises,
             end_time: ndt + workout_duration,
-            update_workout_template_id: None,
             name: first_exercise.workout_name.clone(),
             comment: first_exercise.workout_notes.clone(),
+            ..Default::default()
         }));
     }
     completed.extend(
