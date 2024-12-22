@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{ryot_log, USER_AGENT_STR};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,

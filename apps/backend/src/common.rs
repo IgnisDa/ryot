@@ -10,7 +10,10 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{
+    ApplicationJob, HpApplicationJob, LpApplicationJob,
+    MpApplicationJob,
+};
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -21,6 +24,7 @@ use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
 use file_storage_service::FileStorageService;
 use fitness_resolver::{FitnessMutation, FitnessQuery};
 use fitness_service::FitnessService;
+use futures::future::join_all;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
@@ -47,9 +51,9 @@ use user_service::UserService;
 /// All the services that are used by the app
 pub struct AppServices {
     pub app_router: Router,
+    pub fitness_service: Arc<FitnessService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
-    pub fitness_service: Arc<FitnessService>,
     pub statistics_service: Arc<StatisticsService>,
     pub integration_service: Arc<IntegrationService>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
@@ -61,8 +65,9 @@ pub async fn create_app_services(
     timezone: chrono_tz::Tz,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    lp_application_job: &MemoryStorage<LpApplicationJob>,
+    mp_application_job: &MemoryStorage<MpApplicationJob>,
+    hp_application_job: &MemoryStorage<HpApplicationJob>,
 ) -> AppServices {
     let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
@@ -78,8 +83,9 @@ pub async fn create_app_services(
             config.clone(),
             oidc_client,
             file_storage_service.clone(),
-            perform_application_job,
-            perform_core_application_job,
+            lp_application_job,
+            mp_application_job,
+            hp_application_job,
         )
         .await,
     );
@@ -124,6 +130,15 @@ pub async fn create_app_services(
     let webhook_routes =
         Router::new().route("/integrations/:integration_slug", post(integration_webhook));
 
+    join_all(
+        [
+            MpApplicationJob::SyncIntegrationsData,
+            MpApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|job| supporting_service.perform_application_job(ApplicationJob::Mp(job))),
+    )
+    .await;
+
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {
         gql = gql.get(graphql_playground);
@@ -143,11 +158,12 @@ pub async fn create_app_services(
             1024 * 1024 * config.server.max_file_size,
         ))
         .layer(cors);
+
     AppServices {
         app_router,
+        fitness_service,
         importer_service,
         exporter_service,
-        fitness_service,
         statistics_service,
         integration_service,
         miscellaneous_service,

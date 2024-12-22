@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use educe::Educe;
-use enums::{EntityLot, SeenState};
+use enum_models::{EntityLot, SeenState};
 use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,

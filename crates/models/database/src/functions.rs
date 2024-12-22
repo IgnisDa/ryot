@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use chrono::Utc;
-use enums::EntityLot;
+use enum_models::EntityLot;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
 };

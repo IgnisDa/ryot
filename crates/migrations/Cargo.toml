@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-enums = { path = "../enums" }
+enum-models = { path = "../models/enum" }
 indoc = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }

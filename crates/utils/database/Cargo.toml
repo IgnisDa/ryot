@@ -6,13 +6,13 @@ edition = "2021"
 [dependencies]
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-background = { path = "../../background" }
+background-models = { path = "../../models/background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
 itertools = { workspace = true }

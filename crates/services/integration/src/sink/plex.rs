@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use common_models::StringIdObject;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use regex::Regex;
 use rust_decimal::Decimal;

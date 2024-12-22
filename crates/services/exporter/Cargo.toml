@@ -5,14 +5,14 @@ edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
-background = { path = "../../background" }
+background-models = { path = "../../models/background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 itertools = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }

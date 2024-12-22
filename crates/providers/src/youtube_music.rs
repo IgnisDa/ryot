@@ -4,12 +4,13 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MusicSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
+    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -73,7 +74,19 @@ impl MediaProvider for YoutubeMusicService {
             title: details.track.name,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
-            group_identifiers: details.track.album.into_iter().map(|a| a.id).collect(),
+            groups: details
+                .track
+                .album
+                .into_iter()
+                .map(|a| CommitMediaInput {
+                    name: a.name,
+                    unique: UniqueMediaIdentifier {
+                        identifier: a.id,
+                        lot: MediaLot::Music,
+                        source: MediaSource::YoutubeMusic,
+                    },
+                })
+                .collect(),
             source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),

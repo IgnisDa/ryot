@@ -810,7 +810,7 @@ dependencies = [
  "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
- "background",
+ "background-models",
  "cache-service",
  "chrono-tz",
  "collection-resolver",
@@ -833,7 +833,6 @@ dependencies = [
  "integration-service",
  "itertools 0.13.0",
  "logs-wheel",
- "media-models",
  "migrations",
  "miscellaneous-resolver",
  "miscellaneous-service",
@@ -848,7 +847,6 @@ dependencies = [
  "statistics-service",
  "supporting-service",
  "tokio",
- "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -858,15 +856,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "background"
+name = "background-models"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "chrono",
  "chrono-tz",
  "database-models",
- "enums",
- "fitness-models",
  "media-models",
  "serde",
  "strum",
@@ -1293,7 +1288,7 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-utils",
- "enums",
+ "enum-models",
  "media-models",
  "migrations",
  "sea-orm",
@@ -1327,8 +1322,8 @@ dependencies = [
  "async-graphql",
  "chrono",
  "educe",
+ "enum-models",
  "enum_meta",
- "enums",
  "rust_decimal",
  "schematic",
  "sea-orm",
@@ -1345,7 +1340,7 @@ dependencies = [
  "chrono",
  "compile-time",
  "const-str",
- "enums",
+ "enum-models",
  "env-utils",
  "reqwest 0.12.9",
  "serde",
@@ -1680,7 +1675,7 @@ dependencies = [
  "chrono",
  "common-models",
  "educe",
- "enums",
+ "enum-models",
  "file-storage-service",
  "fitness-models",
  "importer-models",
@@ -1703,13 +1698,13 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
  "database-models",
  "dependent-models",
- "enums",
+ "enum-models",
  "fitness-models",
  "futures",
  "itertools 0.13.0",
@@ -1736,7 +1731,7 @@ dependencies = [
  "common-models",
  "config",
  "database-models",
- "enums",
+ "enum-models",
  "fitness-models",
  "importer-models",
  "media-models",
@@ -1755,7 +1750,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -1763,7 +1758,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "enums",
+ "enum-models",
  "file-storage-service",
  "fitness-models",
  "importer-models",
@@ -2120,6 +2115,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "strum",
+]
+
+[[package]]
 name = "enum-ordinalize"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2144,19 +2152,6 @@ name = "enum_meta"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea6bd8eac0d352f66b6ba30dbb38bb0f68410d5aa538eaff17fa791b97279ae"
-
-[[package]]
-name = "enums"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "schematic",
- "sea-orm",
- "sea-orm-migration",
- "serde",
- "serde_json",
- "strum",
-]
 
 [[package]]
 name = "env-utils"
@@ -2229,14 +2224,14 @@ name = "exporter-service"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
- "enums",
+ "enum-models",
  "fitness-models",
  "itertools 0.13.0",
  "media-models",
@@ -2342,7 +2337,7 @@ dependencies = [
  "common-models",
  "derive_more 1.0.0",
  "educe",
- "enums",
+ "enum-models",
  "rust_decimal",
  "schematic",
  "sea-orm",
@@ -2371,7 +2366,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "common-models",
  "common-utils",
  "const-str",
@@ -2379,7 +2374,7 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-utils",
- "enums",
+ "enum-models",
  "fitness-models",
  "migrations",
  "nanoid",
@@ -3287,7 +3282,7 @@ name = "importer-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "enums",
+ "enum-models",
  "sea-orm",
  "serde",
  "serde_json",
@@ -3311,7 +3306,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3322,8 +3317,8 @@ dependencies = [
  "database-models",
  "dependent-models",
  "dependent-utils",
+ "enum-models",
  "enum_meta",
- "enums",
  "env-utils",
  "external-utils",
  "fitness-models",
@@ -3343,6 +3338,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.11.0",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tracing",
  "traits",
@@ -3401,7 +3397,7 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-utils",
- "enums",
+ "enum-models",
  "eventsource-stream",
  "external-utils",
  "itertools 0.13.0",
@@ -3418,6 +3414,7 @@ dependencies = [
  "serde_json",
  "sonarr-api-rs",
  "specific-models",
+ "specific-utils",
  "supporting-service",
  "tokio",
  "tracing",
@@ -3717,7 +3714,7 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
- "enums",
+ "enum-models",
  "rust_decimal",
  "schematic",
  "sea-orm",
@@ -3759,7 +3756,7 @@ dependencies = [
 name = "migrations"
 version = "0.1.0"
 dependencies = [
- "enums",
+ "enum-models",
  "indoc",
  "sea-orm",
  "sea-orm-migration",
@@ -3826,7 +3823,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "background",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -3834,7 +3831,7 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-utils",
- "enums",
+ "enum-models",
  "futures",
  "itertools 0.13.0",
  "markdown",
@@ -4605,7 +4602,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "educe",
- "enums",
+ "enum-models",
  "graphql_client",
  "hashbag",
  "itertools 0.13.0",
@@ -5887,6 +5884,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "specific-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "database-models",
+ "dependent-utils",
+ "enum-models",
+ "sea-orm",
+ "supporting-service",
+ "tokio",
+]
+
+[[package]]
 name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6193,7 +6203,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "enums",
+ "enum-models",
  "hashbag",
  "itertools 0.13.0",
  "sea-orm",
@@ -6291,7 +6301,7 @@ version = "0.1.0"
 dependencies = [
  "apalis",
  "async-graphql",
- "background",
+ "background-models",
  "cache-service",
  "chrono",
  "chrono-tz",
@@ -6300,7 +6310,7 @@ dependencies = [
  "config",
  "database-models",
  "dependent-models",
- "enums",
+ "enum-models",
  "env-utils",
  "file-storage-service",
  "isolang",
@@ -6310,7 +6320,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
  "tracing",
  "unkey",
 ]
@@ -7000,7 +7009,7 @@ dependencies = [
  "async-graphql",
  "common-models",
  "educe",
- "enums",
+ "enum-models",
  "fitness-models",
  "sea-orm",
  "serde",
@@ -7036,8 +7045,9 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
+ "enum-models",
  "enum_meta",
- "enums",
  "fitness-models",
  "itertools 0.13.0",
  "jwt-service",

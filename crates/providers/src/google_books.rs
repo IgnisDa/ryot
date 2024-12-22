@@ -5,7 +5,7 @@ use common_models::SearchDetails;
 use common_utils::{convert_date_to_year, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,

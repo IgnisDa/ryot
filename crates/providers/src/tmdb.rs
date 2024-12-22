@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use application_utils::{get_base_http_client, get_current_date};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{
@@ -16,15 +16,15 @@ use dependent_models::{
     ApplicationCacheValue, MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults,
     TmdbLanguage, TmdbSettings,
 };
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
+    MetadataImage, MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
-    WatchProvider,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -32,7 +32,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
@@ -344,34 +343,6 @@ impl TmdbService {
                 }
             }
         }
-    }
-
-    async fn metadata_updated_since(
-        &self,
-        identifier: &str,
-        since: DateTimeUtc,
-        type_: &str,
-    ) -> Result<bool> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbChangesResponse {
-            changes: Vec<serde_json::Value>,
-        }
-        let end_date = get_current_date(&self.supporting_service.timezone);
-        let start_date = since.date_naive();
-        let changes = self
-            .client
-            .get(format!("{}/{}/{}/changes", URL, type_, identifier))
-            .query(&json!({
-                "start_date": start_date,
-                "end_date": end_date,
-            }))
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .json::<TmdbChangesResponse>()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        Ok(!changes.changes.is_empty())
     }
 
     async fn get_external_identifiers(
@@ -833,18 +804,19 @@ impl MediaProvider for TmdbMovieService {
                 .vote_average
                 .filter(|&av| av != dec!(0))
                 .map(|av| av * dec!(10)),
-            group_identifiers: Vec::from_iter(data.belongs_to_collection)
+            groups: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
-                .map(|c| c.id.to_string())
+                .map(|c| CommitMediaInput {
+                    name: "Loading...".to_string(),
+                    unique: UniqueMediaIdentifier {
+                        lot: MediaLot::Movie,
+                        source: MediaSource::Tmdb,
+                        identifier: c.id.to_string(),
+                    },
+                })
                 .collect(),
             ..Default::default()
         })
-    }
-
-    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        self.base
-            .metadata_updated_since(identifier, since, "movie")
-            .await
     }
 
     async fn metadata_group_search(
@@ -1243,12 +1215,6 @@ impl MediaProvider for TmdbShowService {
             }),
             ..Default::default()
         })
-    }
-
-    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        self.base
-            .metadata_updated_since(identifier, since, "tv")
-            .await
     }
 
     async fn metadata_search(

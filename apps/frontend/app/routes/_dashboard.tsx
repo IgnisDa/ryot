@@ -140,11 +140,11 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
-	getCachedUserCollectionsList,
-	getCachedUserPreferences,
+	getUserCollectionsList,
 	getCookieValue,
 	getCoreDetails,
 	getDecodedJwt,
+	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -162,8 +162,8 @@ const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, coreDetails] = await Promise.all([
-		getCachedUserPreferences(request),
-		getCachedUserCollectionsList(request),
+		getUserPreferences(request),
+		getUserCollectionsList(request),
 		getCoreDetails(),
 	]);
 	const desktopSidebarCollapsed = getCookieValue(

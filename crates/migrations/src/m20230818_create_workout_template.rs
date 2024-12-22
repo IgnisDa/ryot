@@ -1,5 +1,5 @@
 // FIXME: Rename this to m20230506_create_workout_template in the next major release
-use enums::Visibility;
+use enum_models::Visibility;
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;

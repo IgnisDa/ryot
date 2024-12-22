@@ -91,7 +91,6 @@ import {
 	createToastHeaders,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
-	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -110,7 +109,6 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	await removeCachedUserCollectionsList(request);
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("createOrUpdate", async () => {

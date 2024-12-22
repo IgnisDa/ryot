@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::{ApplicationJob, MpApplicationJob};
 use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
@@ -25,7 +25,7 @@ use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, get_focused_workout_summary,
 };
-use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
     GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
@@ -411,24 +411,31 @@ impl FitnessService {
         })
     }
 
-    pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {
         if Exercise::find().count(&self.0.db).await? > 0 {
-            return Ok(true);
+            return Ok(());
         }
         ryot_log!(
             info,
             "Instance does not have exercises data. Deploying job to download them..."
         );
-        let exercises = self.get_all_exercises_from_dataset().await?;
-        for exercise in exercises {
-            self.0
-                .perform_application_job(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await?;
-        }
-        Ok(true)
+        self.0
+            .perform_application_job(ApplicationJob::Mp(
+                MpApplicationJob::UpdateGithubExercises,
+            ))
+            .await?;
+        Ok(())
     }
 
-    pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
+    pub async fn update_github_exercises(&self) -> Result<()> {
+        let exercises = self.get_all_exercises_from_dataset().await?;
+        for exercise in exercises {
+            self.update_github_exercise(exercise).await?;
+        }
+        Ok(())
+    }
+
+    async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
             internal_images: ex
@@ -511,12 +518,10 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+        let m = UserMeasurement::find_by_id((timestamp, user_id))
             .one(&self.0.db)
             .await?
-        else {
-            return Ok(false);
-        };
+            .ok_or_else(|| Error::new("Measurement does not exist"))?;
         m.delete(&self.0.db).await?;
         Ok(true)
     }
@@ -526,8 +531,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = create_or_update_user_workout(input, user_id, &self.0).await?;
-        Ok(identifier)
+        create_or_update_user_workout(input, user_id, &self.0).await
     }
 
     pub async fn update_user_workout_attributes(

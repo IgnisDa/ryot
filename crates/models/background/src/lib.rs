@@ -1,43 +1,48 @@
 use chrono::DateTime;
 use chrono_tz::Tz;
 use database_models::seen;
-use enums::{MediaLot, MediaSource};
-use fitness_models::GithubExercise;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
 
-// The background jobs which cannot be throttled.
-#[derive(Debug, Deserialize, Serialize, Display)]
-pub enum CoreApplicationJob {
-    SyncIntegrationsData(String),
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
+    SyncUserIntegrationsData(String),
+    RecalculateUserActivitiesAndSummary(String, bool),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
-// The background jobs which can be deployed by the application.
-#[derive(Debug, Deserialize, Serialize, Display)]
-pub enum ApplicationJob {
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MpApplicationJob {
     UpdatePerson(String),
     SyncIntegrationsData,
     UpdateExerciseLibrary,
     PerformExport(String),
+    UpdateGithubExercises,
+    UpdateMetadata(String),
     PerformBackgroundTasks,
     RecalculateCalendarEvents,
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
-    UpdateMetadata(String, bool),
-    HandleOnSeenComplete(String),
-    HandleAfterMediaSeenTasks(seen::Model),
-    UpdateGithubExerciseJob(GithubExercise),
-    HandleEntityAddedToCollectionEvent(Uuid),
-    RecalculateUserActivitiesAndSummary(String, bool),
-    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
 }
 
-// Cron Jobs
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum LpApplicationJob {
+    HandleOnSeenComplete(String),
+    HandleAfterMediaSeenTasks(seen::Model),
+    HandleEntityAddedToCollectionEvent(Uuid),
+}
+
+#[derive(Debug, Deserialize, Serialize, Display, Clone)]
+pub enum ApplicationJob {
+    Lp(LpApplicationJob),
+    Hp(HpApplicationJob),
+    Mp(MpApplicationJob),
+}
+
 pub struct ScheduledJob(pub DateTime<Tz>);
 
 impl From<DateTime<Tz>> for ScheduledJob {

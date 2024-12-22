@@ -1,6 +1,6 @@
 use anyhow::Result;
 use common_utils::ryot_log;
-use enums::MediaLot;
+use enum_models::MediaLot;
 use external_utils::jellyfin::{get_authenticated_client, ItemsResponse};
 use media_models::SeenShowExtraInformation;
 use serde_json::json;

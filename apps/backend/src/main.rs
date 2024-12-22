@@ -9,17 +9,18 @@ use std::{
 
 use anyhow::{bail, Result};
 use apalis::{
-    layers::{limit::RateLimitLayer as ApalisRateLimitLayer, WorkerBuilderExt},
-    prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
+    layers::{retry::RetryPolicy, WorkerBuilderExt},
+    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
-use background::ApplicationJob;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
+use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
-use futures::future::join_all;
+use job::perform_lp_application_job;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
+use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
@@ -32,7 +33,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use crate::{
     common::create_app_services,
     job::{
-        perform_application_job, perform_core_application_job, run_background_jobs,
+        perform_hp_application_job, perform_mp_application_job, run_background_jobs,
         run_frequent_jobs,
     },
 };
@@ -66,7 +67,6 @@ async fn main() -> Result<()> {
         sleep(duration).await;
     }
 
-    let rate_limit_count = config.scheduler.rate_limit_num;
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 
@@ -107,38 +107,27 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let perform_application_job_storage = MemoryStorage::new();
-    let perform_core_application_job_storage = MemoryStorage::new();
+    let lp_application_job_storage = MemoryStorage::new();
+    let mp_application_job_storage = MemoryStorage::new();
+    let hp_application_job_storage = MemoryStorage::new();
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    join_all([
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::SyncIntegrationsData),
-        perform_application_job_storage
-            .clone()
-            .enqueue(ApplicationJob::UpdateExerciseLibrary),
-    ])
-    .await;
-
     let app_services = create_app_services(
         db,
         tz,
         s3_client,
         config,
-        &perform_application_job_storage,
-        &perform_core_application_job_storage,
+        &lp_application_job_storage,
+        &mp_application_job_storage,
+        &hp_application_job_storage,
     )
     .await;
 
     if cfg!(debug_assertions) {
-        use dependent_models::CompleteExport;
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
-
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
             .parent()
@@ -175,23 +164,12 @@ async fn main() -> Result<()> {
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
-    let fitness_service_1 = app_services.fitness_service.clone();
-    let fitness_service_2 = app_services.fitness_service.clone();
-    let importer_service_1 = app_services.importer_service.clone();
-    let exporter_service_1 = app_services.exporter_service.clone();
-    let statistics_service_1 = app_services.statistics_service.clone();
-    let integration_service_1 = app_services.integration_service.clone();
-    let integration_service_2 = app_services.integration_service.clone();
-    let integration_service_3 = app_services.integration_service.clone();
-    let miscellaneous_service_1 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
-    let miscellaneous_service_3 = app_services.miscellaneous_service.clone();
-
     let monitor = Monitor::new()
         .register(
             WorkerBuilder::new("daily_background_jobs")
                 .enable_tracing()
-                .data(miscellaneous_service_1.clone())
+                .catch_panic()
+                .data(app_services.miscellaneous_service.clone())
                 .backend(
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
@@ -201,8 +179,9 @@ async fn main() -> Result<()> {
         .register(
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
-                .data(integration_service_1.clone())
-                .data(fitness_service_2.clone())
+                .catch_panic()
+                .data(app_services.integration_service.clone())
+                .data(app_services.fitness_service.clone())
                 .backend(CronStream::new_with_timezone(
                     Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
                     tz,
@@ -211,28 +190,38 @@ async fn main() -> Result<()> {
         )
         // application jobs
         .register(
-            WorkerBuilder::new("perform_core_application_job")
+            WorkerBuilder::new("perform_hp_application_job")
+                .catch_panic()
                 .enable_tracing()
-                .data(integration_service_2.clone())
-                .data(miscellaneous_service_3.clone())
-                .backend(perform_core_application_job_storage)
-                .build_fn(perform_core_application_job),
+                .data(app_services.statistics_service.clone())
+                .data(app_services.integration_service.clone())
+                .data(app_services.miscellaneous_service.clone())
+                .backend(hp_application_job_storage)
+                .build_fn(perform_hp_application_job),
         )
         .register(
-            WorkerBuilder::new("perform_application_job")
+            WorkerBuilder::new("perform_mp_application_job")
+                .catch_panic()
                 .enable_tracing()
-                .data(fitness_service_1.clone())
-                .data(exporter_service_1.clone())
-                .data(importer_service_1.clone())
-                .data(statistics_service_1.clone())
-                .data(integration_service_3.clone())
-                .data(miscellaneous_service_2.clone())
-                .layer(ApalisRateLimitLayer::new(
-                    rate_limit_count,
-                    Duration::new(5, 0),
-                ))
-                .backend(perform_application_job_storage)
-                .build_fn(perform_application_job),
+                .rate_limit(5, Duration::new(5, 0))
+                .retry(RetryPolicy::retries(3))
+                .data(app_services.fitness_service.clone())
+                .data(app_services.exporter_service.clone())
+                .data(app_services.importer_service.clone())
+                .data(app_services.integration_service.clone())
+                .data(app_services.miscellaneous_service.clone())
+                .backend(mp_application_job_storage)
+                .build_fn(perform_mp_application_job),
+        )
+        .register(
+            WorkerBuilder::new("perform_lp_application_job")
+                .catch_panic()
+                .enable_tracing()
+                .rate_limit(20, Duration::new(5, 0))
+                .data(app_services.integration_service)
+                .data(app_services.miscellaneous_service)
+                .backend(lp_application_job_storage)
+                .build_fn(perform_lp_application_job),
         )
         .run();
 
@@ -251,9 +240,9 @@ fn init_tracing() -> Result<()> {
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
+        max_n_old_files: 2,
         directory: tmp_dir,
         filename: PROJECT_NAME,
-        max_n_old_files: 2,
         preferred_max_file_size_mib: 1,
     }
     .init()?;

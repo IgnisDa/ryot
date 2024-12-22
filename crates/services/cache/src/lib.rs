@@ -33,14 +33,15 @@ impl CacheService {
             | ApplicationCacheKey::TmdbSettings => None,
 
             ApplicationCacheKey::CoreDetails
-            | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-            | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::PeopleSearch { .. }
-            | ApplicationCacheKey::MetadataGroupSearch { .. } => Some(1),
+            | ApplicationCacheKey::MetadataSearch { .. }
+            | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::MetadataRecentlyConsumed { .. } => Some(1),
 
             ApplicationCacheKey::UserAnalytics { .. } => Some(2),
 
-            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
+            ApplicationCacheKey::UserCollectionsList { .. }
+            | ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
 
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
                 Some(self.config.server.progress_update_threshold)

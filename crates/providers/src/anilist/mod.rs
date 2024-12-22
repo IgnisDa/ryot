@@ -6,7 +6,7 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
@@ -718,7 +718,7 @@ async fn media_details(
         manga_specifics,
         suggestions,
         provider_rating: score,
-        group_identifiers: vec![],
+        groups: vec![],
         s3_images: vec![],
         production_status: media_status_string(media.status),
         original_language: None,

@@ -8,7 +8,7 @@ async-graphql = { workspace = true }
 common-models = { path = "../../models/common" }
 derive_more = { workspace = true }
 educe = { workspace = true }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 rust_decimal = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }

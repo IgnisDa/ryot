@@ -12,7 +12,7 @@ use dependent_models::{
     FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
     UserFitnessAnalytics,
 };
-use enums::{ExerciseEquipment, ExerciseMuscle};
+use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{

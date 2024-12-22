@@ -2,7 +2,7 @@ use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
@@ -63,8 +63,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             else {
                 failed_items.push(ImportFailedItem {
                     lot: Some(lot),
-                    identifier: item.key.clone(),
                     step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
                     error: Some("No TMDb ID associated with this media".to_string()),
                 });
                 continue;
@@ -116,9 +116,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             });
                         }
                     }
-                    if !item.seen_history.is_empty() {
-                        success_items.push(ImportCompletedItem::Metadata(item));
-                    }
+                    success_items.push(ImportCompletedItem::Metadata(item));
                 }
                 _ => unreachable!(),
             }

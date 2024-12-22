@@ -11,9 +11,9 @@ use database_models::{
 use database_utils::user_by_id;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
-use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::SeenShowExtraInformation;
-use providers::google_books::GoogleBooksService;
+use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use media_models::{CommitMediaInput, SeenShowExtraInformation};
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -65,9 +65,14 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0, |_| async {
-            Ok(())
-        })
+        match process_import(
+            &integration.user_id,
+            false,
+            true,
+            import,
+            &self.0,
+            |_| async { Ok(()) },
+        )
         .await
         {
             Ok(_) => {
@@ -241,10 +246,10 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
-            return Ok(false);
+            return Ok(());
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
@@ -263,8 +268,18 @@ impl IntegrationService {
                     yank::audiobookshelf::yank_progress(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
-                        GoogleBooksService::new(&self.0.config.books.google_books).await,
-                        |input| commit_metadata(input, &self.0),
+                        &self.0,
+                        &GoogleBooksService::new(&self.0.config.books.google_books).await,
+                        &OpenlibraryService::new(&self.0.config.books.openlibrary).await,
+                        |input| {
+                            commit_metadata(
+                                CommitMediaInput {
+                                    unique: input,
+                                    name: "Loading...".to_owned(),
+                                },
+                                &self.0,
+                            )
+                        },
                     )
                     .await
                 }
@@ -289,7 +304,7 @@ impl IntegrationService {
                 .await
                 .trace_ok();
         }
-        Ok(true)
+        Ok(())
     }
 
     pub async fn yank_integrations_data(&self) -> GqlResult<()> {

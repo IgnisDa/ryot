@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_meta::HashMap;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use external_utils::jellyfin::{get_authenticated_client, ItemResponse, ItemsResponse, MediaType};
 use media_models::{
     DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMetadataItem,

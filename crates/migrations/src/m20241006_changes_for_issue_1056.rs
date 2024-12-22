@@ -1,4 +1,4 @@
-use enums::MediaLot;
+use enum_models::MediaLot;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

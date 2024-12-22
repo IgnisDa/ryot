@@ -1,5 +1,5 @@
 use async_graphql::{Enum, SimpleObject};
-use enums::MediaLot;
+use enum_models::MediaLot;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
