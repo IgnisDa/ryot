@@ -19,6 +19,11 @@ SET "preferences" = jsonb_set(
     '{fitness,logging,prompt_for_rest_timer}',
     'false'
 );
+
+ALTER TABLE "workout" DROP COLUMN "duration";
+ALTER TABLE "workout" ADD COLUMN "duration" INTEGER;
+UPDATE "workout" SET "duration" = extract(epoch FROM "end_time" - "start_time");
+ALTER TABLE "workout" ALTER COLUMN "duration" SET NOT NULL;
         "#,
         )
         .await?;
