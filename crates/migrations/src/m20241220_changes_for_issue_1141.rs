@@ -20,6 +20,8 @@ SET "preferences" = jsonb_set(
     'false'
 );
 
+--
+
 ALTER TABLE "workout" DROP COLUMN "duration";
 ALTER TABLE "workout" ADD COLUMN "duration" INTEGER;
 UPDATE "workout" SET "duration" = extract(epoch FROM "end_time" - "start_time");
@@ -28,7 +30,14 @@ ALTER TABLE "workout" ALTER COLUMN "duration" SET NOT NULL;
 UPDATE "workout" SET "information" =
 jsonb_set("information", '{durations}', JSONB_BUILD_ARRAY(JSONB_BUILD_OBJECT('from', "start_time")));
 
+--
+
 DELETE FROM "daily_user_activity";
+
+--
+
+DELETE FROM "application_cache";
+ALTER TABLE "application_cache" ADD COLUMN "version" TEXT NOT NULL;
         "#,
         )
         .await?;
