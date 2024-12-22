@@ -1,5 +1,5 @@
 {
-	"id": "6c3ec34c-63cd-4ca4-a0fb-a03ee89a619b",
+	"id": "ef93109a-4ee4-45fd-8411-733cdc4ad229",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -652,21 +652,6 @@
 				}
 			},
 			"indexes": {
-				"entity_schema_slug_idx": {
-					"name": "entity_schema_slug_idx",
-					"columns": [
-						{
-							"expression": "slug",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"entity_schema_user_id_idx": {
 					"name": "entity_schema_user_id_idx",
 					"columns": [
@@ -1069,6 +1054,12 @@
 					"notNull": true,
 					"default": "now()"
 				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
 					"type": "text",
@@ -1090,21 +1081,6 @@
 				}
 			},
 			"indexes": {
-				"event_schema_slug_idx": {
-					"name": "event_schema_slug_idx",
-					"columns": [
-						{
-							"expression": "slug",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"event_schema_entity_schema_id_idx": {
 					"name": "event_schema_entity_schema_id_idx",
 					"columns": [
@@ -1122,6 +1098,15 @@
 				}
 			},
 			"foreignKeys": {
+				"event_schema_user_id_user_id_fk": {
+					"name": "event_schema_user_id_user_id_fk",
+					"tableFrom": "event_schema",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
 				"event_schema_entity_schema_id_entity_schema_id_fk": {
 					"name": "event_schema_entity_schema_id_entity_schema_id_fk",
 					"tableFrom": "event_schema",
@@ -1134,10 +1119,10 @@
 			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {
-				"event_schema_entity_schema_slug_unique": {
-					"name": "event_schema_entity_schema_slug_unique",
+				"event_schema_user_entity_schema_slug_unique": {
+					"name": "event_schema_user_entity_schema_slug_unique",
 					"nullsNotDistinct": false,
-					"columns": ["entity_schema_id", "slug"]
+					"columns": ["user_id", "entity_schema_id", "slug"]
 				}
 			},
 			"policies": {},
@@ -1347,21 +1332,6 @@
 				}
 			},
 			"indexes": {
-				"sandbox_script_slug_idx": {
-					"name": "sandbox_script_slug_idx",
-					"columns": [
-						{
-							"expression": "slug",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"sandbox_script_user_id_idx": {
 					"name": "sandbox_script_user_id_idx",
 					"columns": [
