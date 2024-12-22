@@ -42,19 +42,20 @@ mod common;
 mod job;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+static LOGGING_ENV_VAR: &str = "RUST_LOG";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    match env::var("RUST_LOG").ok() {
+    match env::var(LOGGING_ENV_VAR).ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                env::set_var("RUST_LOG", format!("{},sea_orm=info", v));
+                env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v));
             }
         }
-        None => env::set_var("RUST_LOG", "ryot=info,sea_orm=info"),
+        None => env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info"),
     }
     init_tracing()?;
 
