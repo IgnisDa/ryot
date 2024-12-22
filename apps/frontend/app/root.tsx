@@ -99,12 +99,11 @@ export const links: LinksFunction = () => {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("cookie") || "",
+		request.headers.get("cookie"),
 	);
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-
 	return data({ toast, defaultColorScheme }, { headers });
 };
 
