@@ -1168,12 +1168,14 @@ const UploadAssetsModal = (props: {
 						<input
 							hidden
 							type="file"
+							accept="image/*"
 							ref={selectFromLibraryRef}
 							onChange={afterFileSelected}
 						/>
 						<input
 							hidden
 							type="file"
+							accept="image/*"
 							capture="environment"
 							ref={captureImageRef}
 							onChange={afterFileSelected}
