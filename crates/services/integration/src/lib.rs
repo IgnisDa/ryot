@@ -246,7 +246,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
+    async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
             return Ok(());
@@ -324,7 +324,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn sync_integrations_data_to_owned_collection_for_user(
+    async fn sync_integrations_data_to_owned_collection_for_user(
         &self,
         user_id: &String,
     ) -> GqlResult<bool> {
@@ -383,7 +383,7 @@ impl IntegrationService {
         Ok(true)
     }
 
-    pub async fn sync_integrations_data_to_owned_collection(&self) -> GqlResult<()> {
+    async fn sync_integrations_data_to_owned_collection(&self) -> GqlResult<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::SyncToOwnedCollection.eq(true))
             .select_only()
@@ -402,6 +402,19 @@ impl IntegrationService {
             self.sync_integrations_data_to_owned_collection_for_user(&user_id)
                 .await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
+        self.sync_integrations_data_to_owned_collection_for_user(user_id)
+            .await?;
+        self.yank_integrations_data_for_user(user_id).await?;
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> GqlResult<()> {
+        self.yank_integrations_data().await?;
+        self.sync_integrations_data_to_owned_collection().await?;
         Ok(())
     }
 }
