@@ -1780,10 +1780,10 @@ const SetDisplay = (props: {
 		<>
 			<Modal
 				opened={isRpeModalOpen}
+				withCloseButton={false}
 				onClose={() => setIsRpeModalOpen(false)}
-				styles={{ title: { width: "100%", marginRight: 20 } }}
 				title={
-					<Group justify="space-between">
+					<Group justify="space-between" gap="xl">
 						<Text>Rate of Perceived Exertion</Text>
 						<Button
 							variant="outline"
