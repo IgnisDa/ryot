@@ -436,7 +436,7 @@ export default function Page() {
 								The notifications you want to receive in your configured
 								providers.
 							</Text>
-							<SimpleGrid cols={2}>
+							<SimpleGrid cols={{ md: 2 }}>
 								{Object.values(MediaStateChanged).map((name) => (
 									<Switch
 										key={name}
