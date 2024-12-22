@@ -1,5 +1,3 @@
-// biome-ignore lint/style/useNodejsImportProtocol: this is a dependency
-import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Carousel } from "@mantine/carousel";
@@ -41,7 +39,6 @@ import {
 	useDidUpdate,
 	useDisclosure,
 	useListState,
-	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
@@ -68,7 +65,6 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconCamera,
-	IconCameraRotate,
 	IconCheck,
 	IconChevronUp,
 	IconClipboard,
@@ -80,6 +76,7 @@ import {
 	IconHeartSpark,
 	IconInfoCircle,
 	IconLayersIntersect,
+	IconLibraryPhoto,
 	IconPhoto,
 	IconReorder,
 	IconReplace,
@@ -91,8 +88,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
-import Webcam from "react-webcam";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -823,8 +819,6 @@ const StatInput = (props: {
 	) : null;
 };
 
-const fileType = "image/jpeg";
-
 const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	return (
 		<Box pos="relative">
@@ -1073,15 +1067,47 @@ const UploadAssetsModal = (props: {
 	modalOpenedBy: string | null | undefined;
 }) => {
 	const coreDetails = useCoreDetails();
+	const captureImageRef = useRef<HTMLInputElement>(null);
+	const selectFromLibraryRef = useRef<HTMLInputElement>(null);
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [cameraFacing, toggleCameraFacing] = useToggle([
-		"environment",
-		"user",
-	] as const);
-	const webcamRef = useRef<Webcam>(null);
 
 	if (!currentWorkout) return null;
+
+	const afterFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
+			notifications.show({
+				color: "red",
+				message: PRO_REQUIRED_MESSAGE,
+			});
+			return;
+		}
+		const file = e.target.files?.[0];
+		if (file) {
+			const imageSrc = URL.createObjectURL(file);
+			const toSubmitForm = new FormData();
+			toSubmitForm.append("file", file, "image.jpg");
+			try {
+				const resp = await fetch(
+					$path("/actions", { intent: "uploadWorkoutAsset" }),
+					{ method: "POST", body: toSubmitForm },
+				);
+				const data = await resp.json();
+				setCurrentWorkout(
+					produce(currentWorkout, (draft) => {
+						const media = { imageSrc, key: data.key };
+						if (exercise) draft.exercises[exerciseIdx].images.push(media);
+						else draft.images.push(media);
+					}),
+				);
+			} catch {
+				notifications.show({
+					color: "red",
+					message: "Error while uploading image",
+				});
+			}
+		}
+	};
 
 	const exerciseIdx = currentWorkout.exercises.findIndex(
 		(e) => e.identifier === props.modalOpenedBy,
@@ -1091,14 +1117,11 @@ const UploadAssetsModal = (props: {
 
 	return (
 		<Modal
-			withCloseButton={false}
 			onClose={() => props.closeModal()}
 			opened={props.modalOpenedBy !== undefined}
+			title={`Images for ${exercise ? exercise.name : "the workout"}`}
 		>
 			<Stack>
-				<Text size="lg">
-					Images for {exercise ? exercise.name : "the workout"}
-				</Text>
 				{fileUploadAllowed ? (
 					<>
 						{isString(props.modalOpenedBy) ? (
@@ -1142,78 +1165,39 @@ const UploadAssetsModal = (props: {
 								))}
 							</Avatar.Group>
 						) : null}
-						<Group justify="center" gap={4}>
-							<Paper radius="md" style={{ overflow: "hidden" }}>
-								<Webcam
-									width={240}
-									height={180}
-									ref={webcamRef}
-									screenshotFormat={fileType}
-									videoConstraints={{ facingMode: cameraFacing }}
-								/>
-							</Paper>
-							<Stack>
-								<ActionIcon size="xl" onClick={() => toggleCameraFacing()}>
-									<IconCameraRotate size={32} />
-								</ActionIcon>
-								<ActionIcon
-									size="xl"
-									onClick={async () => {
-										if (
-											props.modalOpenedBy === null &&
-											!coreDetails.isServerKeyValidated
-										) {
-											notifications.show({
-												color: "red",
-												message: PRO_REQUIRED_MESSAGE,
-											});
-											return;
-										}
-										const imageSrc = webcamRef.current?.getScreenshot();
-										if (imageSrc) {
-											const buffer = Buffer.from(
-												imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-												"base64",
-											);
-											const fileObj = new File([buffer], "image.jpg", {
-												type: fileType,
-											});
-											const toSubmitForm = new FormData();
-											toSubmitForm.append("file", fileObj, "image.jpg");
-											try {
-												const resp = await fetch(
-													$path("/actions", { intent: "uploadWorkoutAsset" }),
-													{ method: "POST", body: toSubmitForm },
-												);
-												const data = await resp.json();
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														const media = { imageSrc, key: data.key };
-														if (exercise)
-															draft.exercises[exerciseIdx].images.push(media);
-														else draft.images.push(media);
-													}),
-												);
-											} catch {
-												notifications.show({
-													color: "red",
-													message: "Error while uploading image",
-												});
-											}
-										}
-									}}
-								>
-									<IconCamera size={32} />
-								</ActionIcon>
-							</Stack>
-						</Group>
-						<Button
-							fullWidth
-							variant="outline"
-							onClick={() => props.closeModal()}
-						>
-							Done
-						</Button>
+						<input
+							hidden
+							type="file"
+							capture="environment"
+							ref={captureImageRef}
+							onChange={afterFileSelected}
+						/>
+						<input
+							hidden
+							type="file"
+							ref={selectFromLibraryRef}
+							onChange={afterFileSelected}
+						/>
+						<Button.Group w="100%">
+							<Button
+								fullWidth
+								color="cyan"
+								variant="outline"
+								leftSection={<IconLibraryPhoto />}
+								onClick={() => captureImageRef.current?.click()}
+							>
+								Select from library
+							</Button>
+							<Button
+								fullWidth
+								color="cyan"
+								variant="outline"
+								leftSection={<IconCamera />}
+								onClick={() => captureImageRef.current?.click()}
+							>
+								Take a picture
+							</Button>
+						</Button.Group>
 					</>
 				) : (
 					<Text c="red" size="sm">
