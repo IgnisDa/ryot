@@ -1691,7 +1691,8 @@ pub async fn create_or_update_user_workout(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let durations = match input.durations.clone() {
+    let end_time = input.end_time;
+    let (duration, durations) = match input.durations.clone() {
         Some(durations) => {
             if durations.is_empty() {
                 return Err(Error::new("Durations cannot be empty"));
@@ -1701,17 +1702,26 @@ pub async fn create_or_update_user_workout(
                     "The workout was never resumed after being paused",
                 ));
             }
-            durations
+            let mut total = 0;
+            for duration in durations.iter() {
+                total += duration
+                    .to
+                    .unwrap_or(end_time)
+                    .signed_duration_since(duration.from)
+                    .num_seconds();
+            }
+            (total, durations)
         }
-        None => vec![WorkoutDuration {
-            to: None,
-            from: input.start_time,
-        }],
+        None => (
+            end_time
+                .signed_duration_since(input.start_time)
+                .num_seconds(),
+            vec![WorkoutDuration {
+                to: None,
+                from: input.start_time,
+            }],
+        ),
     };
-    let end_time = input.end_time;
-    let duration = end_time
-        .signed_duration_since(input.start_time)
-        .num_seconds();
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => (
