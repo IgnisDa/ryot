@@ -283,6 +283,7 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 
 	useInterval(() => {
 		if (
@@ -399,7 +400,7 @@ export default function Page() {
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
-									<WorkoutDurationTimer />
+									<WorkoutDurationTimer isWorkoutPaused={isWorkoutPaused} />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -609,6 +610,7 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
+										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={reorderDrawerToggle}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
@@ -755,12 +757,11 @@ const RestTimer = () => {
 		: "Timer";
 };
 
-const WorkoutDurationTimer = () => {
+const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
 	const { isCreatingTemplate, isUpdatingWorkout } =
 		useLoaderData<typeof loader>();
 	const [value, setValue] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 
 	useInterval(() => setValue((v) => v + 1), 1000);
 
@@ -780,7 +781,7 @@ const WorkoutDurationTimer = () => {
 	return (
 		<StatDisplay
 			name="Duration"
-			highlightValue={isWorkoutPaused}
+			highlightValue={props.isWorkoutPaused}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
 			value={dayjsLib.duration(seconds, "second").format(format)}
 			onClick={() => {
@@ -1253,6 +1254,7 @@ const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
+	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	reorderDrawerToggle: () => void;
@@ -1663,6 +1665,7 @@ const ExerciseDisplay = (props: {
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
 									key={`${exercise.identifier}-${idx}`}
+									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}
 									toBeDisplayedColumns={toBeDisplayedColumns}
 								/>
@@ -1751,6 +1754,7 @@ const SetDisplay = (props: {
 	durationCol: boolean;
 	distanceCol: boolean;
 	stopTimer: () => void;
+	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	toBeDisplayedColumns: number;
@@ -2111,8 +2115,9 @@ const SetDisplay = (props: {
 									</ActionIcon>
 								) : (
 									<ActionIcon
-										variant={set.confirmedAt ? "filled" : "outline"}
+										color="green"
 										style={style}
+										variant={set.confirmedAt ? "filled" : "outline"}
 										disabled={
 											!match(exercise.lot)
 												.with(
@@ -2135,7 +2140,6 @@ const SetDisplay = (props: {
 												)
 												.exhaustive()
 										}
-										color="green"
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
@@ -2153,6 +2157,10 @@ const SetDisplay = (props: {
 												});
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
+													if (props.isWorkoutPaused)
+														draft.durations.push({
+															from: dayjsLib().toISOString(),
+														});
 													const currentExercise =
 														draft.exercises[props.exerciseIdx];
 													const currentSet = currentExercise.sets[props.setIdx];
