@@ -27,6 +27,8 @@ ALTER TABLE "workout" ALTER COLUMN "duration" SET NOT NULL;
 
 UPDATE "workout" SET "information" =
 jsonb_set("information", '{durations}', JSONB_BUILD_ARRAY(JSONB_BUILD_OBJECT('from', "start_time")));
+
+DELETE FROM "daily_user_activity";
         "#,
         )
         .await?;
