@@ -43,13 +43,10 @@ import {
 const theme = createTheme({
 	fontFamily: "Poppins",
 	components: {
-		ActionIcon: ActionIcon.extend({
-			defaultProps: {
-				variant: "subtle",
-				color: "gray",
-			},
-		}),
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
+		ActionIcon: ActionIcon.extend({
+			defaultProps: { variant: "subtle", color: "gray" },
+		}),
 	},
 	breakpoints: {
 		xs: "30em",
