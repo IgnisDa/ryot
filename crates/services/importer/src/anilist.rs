@@ -28,14 +28,14 @@ struct AnilistExport {
     lists: Vec<
         nest! {
             id: u64,
-            progress: u8,
+            progress: u32,
             score: Decimal,
             series_id: i32,
             series_type: u8,
-            updated_at: String,
-            progress_volume: u8,
-            custom_lists: String,
+            progress_volume: u32,
             notes: Option<String>,
+            updated_at: Option<String>,
+            custom_lists: Option<String>,
         },
     >,
     reviews: Vec<
@@ -89,21 +89,27 @@ pub async fn import(
         for num in 1..progress.unwrap_or_default() + 1 {
             let mut history = ImportOrExportMetadataItemSeen {
                 provider_watched_on: Some(ImportSource::Anilist.to_string()),
-                ended_on: Some(parse_date_string(&item.updated_at).date()),
+                ended_on: item
+                    .updated_at
+                    .clone()
+                    .map(|d| parse_date_string(&d).date()),
                 ..Default::default()
             };
             match lot {
                 MediaLot::Anime => {
-                    history.anime_episode_number = Some(num.into());
+                    history.anime_episode_number = Some(num.try_into().unwrap());
                 }
                 MediaLot::Manga => {
-                    history.manga_chapter_number = Some(num.into());
+                    history.manga_chapter_number = Some(num.try_into().unwrap());
                 }
                 _ => unreachable!(),
             }
             to_push_item.seen_history.push(history);
         }
-        let in_lists = serde_json::from_str::<Vec<usize>>(&item.custom_lists)?;
+        let in_lists = match item.custom_lists {
+            None => vec![],
+            Some(l) => serde_json::from_str::<Vec<usize>>(&l)?,
+        };
         for in_list in in_lists.iter() {
             match lot {
                 MediaLot::Anime => {
