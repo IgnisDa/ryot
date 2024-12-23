@@ -438,6 +438,10 @@ const MediaSearchItem = (props: {
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+
+	const buttonSize =
+		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
+
 	const basicCommit = async () => {
 		setIsLoading(true);
 		const data = new FormData();
@@ -455,8 +459,6 @@ const MediaSearchItem = (props: {
 		return response;
 	};
 
-	const buttonSize =
-		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 	return (
 		<Box>
 			<BaseMediaDisplayItem
