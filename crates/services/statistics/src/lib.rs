@@ -123,15 +123,21 @@ impl StatisticsService {
         };
         let day_alias = Expr::col(Alias::new("day"));
         let date_type = Alias::new("DATE");
+        let default_date = Expr::val("2001-01-01");
         let items = precondition
             .column_as(
                 Expr::expr(Func::cast_as(
-                    Func::cust(DateTrunc)
-                        .arg(Expr::val(grouped_by.to_string()))
-                        .arg(Func::coalesce([
-                            Expr::col(daily_user_activity::Column::Date).into(),
-                            Func::cast_as(Expr::val("2001-01-01"), date_type.clone()).into(),
-                        ])),
+                    match grouped_by {
+                        DailyUserActivitiesResponseGroupedBy::Millennium => default_date,
+                        _ => Expr::expr(
+                            Func::cust(DateTrunc)
+                                .arg(Expr::val(grouped_by.to_string()))
+                                .arg(Func::coalesce([
+                                    Expr::col(daily_user_activity::Column::Date).into(),
+                                    Func::cast_as(default_date, date_type.clone()).into(),
+                                ])),
+                        ),
+                    },
                     date_type,
                 )),
                 "day",
