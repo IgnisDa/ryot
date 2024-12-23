@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX "{dua_idx}" ON "daily_user_activity"("user_id", "date") NULL
 --
 
 DELETE FROM "application_cache";
-ALTER TABLE "application_cache" ADD COLUMN "version" TEXT NOT NULL;
+ALTER TABLE "application_cache" ADD COLUMN IF NOT EXISTS "version" TEXT NOT NULL;
         "#,
             dua_idx = DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY
         ))
