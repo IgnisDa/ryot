@@ -1461,13 +1461,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let cloned_user_id = user_id.to_owned();
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
@@ -1550,13 +1544,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
@@ -1591,13 +1579,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;

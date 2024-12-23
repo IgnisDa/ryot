@@ -24,7 +24,7 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItemResponse {
     /// Whether the user has interacted with this media item.
     pub has_interacted: bool,
@@ -335,7 +335,7 @@ pub struct MangaSpecifics {
     pub url: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItem {
     pub title: String,
     pub identifier: String,
@@ -343,7 +343,7 @@ pub struct MetadataSearchItem {
     pub publish_year: Option<i32>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PeopleSearchItem {
     pub name: String,
     pub identifier: String,
@@ -805,7 +805,7 @@ pub struct CommitPersonInput {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupSearchItem {
     pub name: String,
     pub identifier: String,
