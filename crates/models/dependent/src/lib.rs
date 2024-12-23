@@ -21,9 +21,9 @@ use media_models::{
     CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
     GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
-    MetadataGroupSearchItem, MetadataSearchItemResponse, PeopleSearchItem,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataGroupSearchItem, MetadataSearchItem, PeopleSearchItem, PersonDetailsGroupedByRole,
+    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -40,7 +40,7 @@ use strum::Display;
 ))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
-    params(media_models::MetadataSearchItemResponse)
+    params(media_models::MetadataSearchItem)
 ))]
 #[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
 #[graphql(concrete(
@@ -416,7 +416,7 @@ pub struct EmptyCacheValue {
 
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
-pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
+pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]

@@ -69,8 +69,8 @@ use media_models::{
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-    PartialMetadata, PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
@@ -1463,64 +1463,11 @@ ORDER BY RANDOM() LIMIT 10;
         if query.is_empty() {
             return Ok(SearchResults::default());
         }
-        let cloned_user_id = user_id.to_owned();
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
-        let all_identifiers = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect_vec();
-        let interactions = Metadata::find()
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::UserToEntity
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, user_to_entity::Column::UserId))
-                                .eq(cloned_user_id.clone()),
-                        )
-                    }),
-            )
-            .select_only()
-            .column(metadata::Column::Identifier)
-            .column_as(
-                Expr::col((Alias::new("metadata"), metadata::Column::Id)),
-                "database_id",
-            )
-            .column_as(
-                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
-                "has_interacted",
-            )
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Source.eq(input.source))
-            .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, String, bool)>()
-            .all(&self.0.db)
-            .await?
-            .into_iter()
-            .map(|(key, value1, value2)| (key, (value1, value2)));
-        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-        let data = results
-            .items
-            .into_iter()
-            .map(|i| {
-                let interaction = interactions.get(&i.identifier).cloned();
-                MetadataSearchItemResponse {
-                    has_interacted: interaction.clone().unwrap_or_default().1,
-                    database_id: interaction.map(|i| i.0),
-                    item: i,
-                }
-            })
-            .collect();
-        let results = SearchResults {
-            details: results.details,
-            items: data,
-        };
         cc.set_key(
             cache_key,
             ApplicationCacheValue::MetadataSearch(results.clone()),

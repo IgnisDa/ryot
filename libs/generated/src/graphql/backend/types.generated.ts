@@ -1170,18 +1170,10 @@ export type MetadataSearchItem = {
   title: Scalars['String']['output'];
 };
 
-export type MetadataSearchItemResponse = {
-  __typename?: 'MetadataSearchItemResponse';
-  databaseId?: Maybe<Scalars['String']['output']>;
-  /** Whether the user has interacted with this media item. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: MetadataSearchItem;
-};
-
 export type MetadataSearchResults = {
   __typename?: 'MetadataSearchResults';
   details: SearchDetails;
-  items: Array<MetadataSearchItemResponse>;
+  items: Array<MetadataSearchItem>;
 };
 
 export enum MetadataVideoSource {

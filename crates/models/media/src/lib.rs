@@ -24,14 +24,6 @@ pub struct EntityWithLot {
     pub entity_lot: EntityLot,
 }
 
-#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MetadataSearchItemResponse {
-    /// Whether the user has interacted with this media item.
-    pub has_interacted: bool,
-    pub item: MetadataSearchItem,
-    pub database_id: Option<String>,
-}
-
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
