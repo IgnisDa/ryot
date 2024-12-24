@@ -254,7 +254,11 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
+	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
+	const canCurrentUserUpdate =
+		loaderData.metadataDetails.source === MediaSource.Custom &&
+		userDetails.id === loaderData.metadataDetails.createdByUserId;
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -985,6 +989,19 @@ export default function Page() {
 										</Form>
 									</Menu.Dropdown>
 								</Menu>
+								{canCurrentUserUpdate ? (
+									<Button
+										component={Link}
+										variant="outline"
+										to={$path(
+											"/media/:action",
+											{ action: "update" },
+											{ id: loaderData.metadataDetails.id },
+										)}
+									>
+										Edit metadata
+									</Button>
+								) : null}
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
