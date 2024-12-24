@@ -1027,6 +1027,12 @@ pub struct CreateCustomMetadataInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataInput {
+    pub existing_metadata_id: String,
+    pub update: CreateCustomMetadataInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserIntegrationInput {
     pub provider: IntegrationProvider,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,

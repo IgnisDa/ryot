@@ -73,9 +73,10 @@ use media_models::{
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
@@ -1665,12 +1666,11 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn create_custom_metadata(
+    fn get_data_for_custom_metadata(
         &self,
-        user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<metadata::Model> {
-        let identifier = nanoid!(10);
+        identifier: String,
+    ) -> metadata::ActiveModel {
         let images = input
             .images
             .unwrap_or_default()
@@ -1743,6 +1743,16 @@ ORDER BY RANDOM() LIMIT 10;
             }),
             ..Default::default()
         };
+        metadata
+    }
+
+    pub async fn create_custom_metadata(
+        &self,
+        user_id: String,
+        input: CreateCustomMetadataInput,
+    ) -> Result<metadata::Model> {
+        let identifier = nanoid!(10);
+        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier);
         let metadata = metadata.insert(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
@@ -1766,6 +1776,34 @@ ORDER BY RANDOM() LIMIT 10;
         )
         .await?;
         Ok(metadata)
+    }
+
+    pub async fn update_custom_metadata(
+        &self,
+        _user_id: &str,
+        input: UpdateCustomMetadataInput,
+    ) -> Result<bool> {
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+            .exec(&self.0.db)
+            .await?;
+        let metadata = Metadata::find_by_id(&input.existing_metadata_id)
+            .one(&self.0.db)
+            .await?
+            .unwrap();
+        let new_metadata =
+            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier);
+        let metadata = new_metadata.update(&self.0.db).await?;
+        change_metadata_associations(
+            &metadata.id,
+            input.update.genres.unwrap_or_default(),
+            vec![],
+            vec![],
+            vec![],
+            &self.0,
+        )
+        .await?;
+        Ok(true)
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {

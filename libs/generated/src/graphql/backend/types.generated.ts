@@ -1311,6 +1311,8 @@ export type MutationRoot = {
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
   updateCustomExercise: Scalars['Boolean']['output'];
+  /** Update custom metadata. */
+  updateCustomMetadata: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1532,6 +1534,11 @@ export type MutationRootRevokeAccessLinkArgs = {
 
 export type MutationRootUpdateCustomExerciseArgs = {
   input: UpdateCustomExerciseInput;
+};
+
+
+export type MutationRootUpdateCustomMetadataArgs = {
+  input: UpdateCustomMetadataInput;
 };
 
 
@@ -2260,6 +2267,11 @@ export type UpdateCustomExerciseInput = {
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type UpdateCustomMetadataInput = {
+  existingMetadataId: Scalars['String']['input'];
+  update: CreateCustomMetadataInput;
 };
 
 export type UpdateSeenItemInput = {

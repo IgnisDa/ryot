@@ -14,8 +14,8 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupsListInput, MetadataListInput,
-    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -269,6 +269,17 @@ impl MiscellaneousMutation {
             .create_custom_metadata(user_id, input)
             .await
             .map(|m| StringIdObject { id: m.id })
+    }
+
+    /// Update custom metadata.
+    async fn update_custom_metadata(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateCustomMetadataInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_custom_metadata(&user_id, input).await
     }
 
     /// Deploy job to update progress of media items in bulk. For seen items in progress,
