@@ -1785,14 +1785,17 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        MetadataToGenre::delete_many()
-            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
-            .exec(&self.0.db)
-            .await?;
         let metadata = Metadata::find_by_id(&input.existing_metadata_id)
             .one(&self.0.db)
             .await?
             .unwrap();
+        if metadata.created_by_user_id != Some(user_id.to_owned()) {
+            return Err(Error::new("You are not authorized to update this metadata"));
+        }
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+            .exec(&self.0.db)
+            .await?;
         let new_metadata =
             self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
         let metadata = new_metadata.update(&self.0.db).await?;
