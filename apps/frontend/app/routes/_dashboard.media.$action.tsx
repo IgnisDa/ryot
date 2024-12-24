@@ -34,15 +34,22 @@ import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
 import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
+enum Action {
+	Create = "create",
+	Update = "update",
+}
+
 const searchParamsSchema = z.object({
+	id: z.string().optional(),
 	lot: z.nativeEnum(MediaLot).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const query = zx.parseQuery(request, searchParamsSchema);
-	return { query };
+	return { query, action };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -95,6 +102,7 @@ export default function Page() {
 	return (
 		<Container>
 			<Form method="POST" encType="multipart/form-data">
+				<input hidden name="action" defaultValue={loaderData.action} />
 				<Stack>
 					<Title>Create Media</Title>
 					<TextInput label="Title" required autoFocus name="title" />

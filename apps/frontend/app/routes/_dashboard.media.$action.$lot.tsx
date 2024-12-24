@@ -271,7 +271,11 @@ export default function Page() {
 							component={Link}
 							variant="transparent"
 							leftSection={<IconPhotoPlus />}
-							to={$path("/media/create", { lot: loaderData.lot })}
+							to={$path(
+								"/media/:action",
+								{ action: "create" },
+								{ lot: loaderData.lot },
+							)}
 						>
 							Create
 						</Button>
