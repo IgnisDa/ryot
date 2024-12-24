@@ -254,11 +254,11 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         }
 
         let item = ImportOrExportMetadataItem {
-            source_id: d.id.to_string(),
-            source,
             lot,
-            collections,
+            source,
             identifier,
+            collections,
+            source_id: d.id.to_string(),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
@@ -300,6 +300,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     }
                 })
                 .collect(),
+            ..Default::default()
         };
         completed.push(ImportCompletedItem::Metadata(item));
     }

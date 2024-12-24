@@ -229,13 +229,14 @@ impl ExporterService {
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportMetadataItem {
-                source_id: m.title,
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier.clone(),
-                seen_history,
                 reviews,
+                lot: m.lot,
                 collections,
+                seen_history,
+                source: m.source,
+                source_id: m.title,
+                identifier: m.identifier.clone(),
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -272,12 +273,13 @@ impl ExporterService {
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportMetadataGroupItem {
-                title: m.title,
+                reviews,
                 lot: m.lot,
+                collections,
+                title: m.title,
                 source: m.source,
                 identifier: m.identifier.clone(),
-                reviews,
-                collections,
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -313,12 +315,13 @@ impl ExporterService {
                 .map(|c| c.name)
                 .collect();
             let exp = ImportOrExportPersonItem {
-                identifier: p.identifier,
-                source: p.source,
-                source_specifics: p.source_specifics,
-                name: p.name,
                 reviews,
                 collections,
+                name: p.name,
+                source: p.source,
+                identifier: p.identifier,
+                source_specifics: p.source_specifics,
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -439,22 +442,22 @@ impl ExporterService {
         let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
         let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
         ImportOrExportItemRating {
+            rating: rev.rating,
+            show_season_number,
+            show_episode_number,
+            anime_episode_number,
+            manga_chapter_number,
+            podcast_episode_number,
+            comments: match rev.comments.is_empty() {
+                true => None,
+                false => Some(rev.comments),
+            },
             review: Some(ImportOrExportItemReview {
                 visibility: Some(rev.visibility),
                 date: Some(rev.posted_on),
                 spoiler: Some(rev.is_spoiler),
                 text: rev.text_original,
             }),
-            rating: rev.rating,
-            show_season_number,
-            show_episode_number,
-            podcast_episode_number,
-            anime_episode_number,
-            manga_chapter_number,
-            comments: match rev.comments.is_empty() {
-                true => None,
-                false => Some(rev.comments),
-            },
         }
     }
 }

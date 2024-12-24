@@ -559,6 +559,8 @@ pub struct ImportOrExportItemRating {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataItem {
+    #[serde(skip)]
+    pub id: String,
     /// The type of media.
     pub lot: MediaLot,
     /// An string to help identify it in the original source.
@@ -577,9 +579,11 @@ pub struct ImportOrExportMetadataItem {
 
 /// Details about a specific media group item that needs to be imported or exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataGroupItem {
+    #[serde(skip)]
+    pub id: String,
     /// Name of the group.
     pub title: String,
     /// The type of media.
@@ -596,9 +600,11 @@ pub struct ImportOrExportMetadataGroupItem {
 
 /// Details about a specific creator item that needs to be exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportPersonItem {
+    #[serde(skip)]
+    pub id: String,
     /// The name of the creator.
     pub name: String,
     /// The provider identifier.

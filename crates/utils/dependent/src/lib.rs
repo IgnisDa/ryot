@@ -1,10 +1,4 @@
-use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet},
-    future::Future,
-    iter::zip,
-    sync::Arc,
-};
+use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
@@ -2065,7 +2059,7 @@ pub async fn process_import<F>(
     user_id: &String,
     run_updates: bool,
     respect_cache: bool,
-    import: ImportResult,
+    mut import: ImportResult,
     ss: &Arc<SupportingService>,
     on_item_processed: impl Fn(Decimal) -> F,
 ) -> Result<(ImportResult, ImportResultResponse)>
@@ -2073,21 +2067,127 @@ where
     F: Future<Output = Result<()>>,
 {
     let preferences = user_by_id(user_id, ss).await?.preferences;
-    let mut import = import;
+
+    import.completed.retain(|i| match i {
+        ImportCompletedItem::Metadata(m) => {
+            !m.seen_history.is_empty() || !m.reviews.is_empty() || !m.collections.is_empty()
+        }
+        ImportCompletedItem::Person(p) => !p.reviews.is_empty() || !p.collections.is_empty(),
+        ImportCompletedItem::MetadataGroup(m) => !m.reviews.is_empty() || !m.collections.is_empty(),
+        _ => true,
+    });
+
+    for i in import.completed.iter_mut() {
+        match i {
+            ImportCompletedItem::Metadata(metadata) => {
+                let db_metadata = match commit_metadata(
+                    CommitMediaInput {
+                        name: metadata.source_id.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata.lot,
+                            source: metadata.source,
+                            identifier: metadata.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata.lot),
+                            identifier: metadata.source_id.to_owned(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                        });
+                        continue;
+                    }
+                };
+                if run_updates {
+                    deploy_update_metadata_job(&db_metadata.id, ss).await?;
+                }
+                metadata.id = db_metadata.id;
+            }
+            ImportCompletedItem::Person(person) => {
+                let db_person = match commit_person(
+                    CommitPersonInput {
+                        identifier: person.identifier.clone(),
+                        name: person.name.clone(),
+                        source: person.source,
+                        source_specifics: person.source_specifics.clone(),
+                    },
+                    &ss.db,
+                )
+                .await
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            identifier: person.identifier.clone(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                            ..Default::default()
+                        });
+                        continue;
+                    }
+                };
+                if run_updates {
+                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                        db_person.id.clone(),
+                    )))
+                    .await?;
+                }
+                person.id = db_person.id;
+            }
+            ImportCompletedItem::MetadataGroup(metadata_group) => {
+                let metadata_group_id = match commit_metadata_group(
+                    CommitMediaInput {
+                        name: metadata_group.title.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata_group.lot,
+                            source: metadata_group.source,
+                            identifier: metadata_group.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                {
+                    Ok(r) => r.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata_group.lot),
+                            identifier: metadata_group.title.to_owned(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                        });
+                        continue;
+                    }
+                };
+                if run_updates {
+                    ss.perform_application_job(ApplicationJob::Mp(
+                        MpApplicationJob::UpdateMetadataGroup(metadata_group_id.clone()),
+                    ))
+                    .await?;
+                }
+                metadata_group.id = metadata_group_id;
+            }
+            _ => {}
+        }
+    }
+
     // DEV: We need to sort the exercises to make sure they are created before the workouts
     // because the workouts depend on the exercises.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
     });
+
     let source_result = import.clone();
     let total = import.completed.len();
 
     let mut need_to_schedule_user_for_workout_revision = false;
-
-    let mut metadata_to_update = HashSet::new();
-    let mut metadata_groups_to_update = HashSet::new();
-    let mut people_to_update = HashSet::new();
 
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
@@ -2106,44 +2206,7 @@ where
                 create_or_update_collection(user_id, col_details, ss).await?;
             }
             ImportCompletedItem::Metadata(metadata) => {
-                if metadata.seen_history.is_empty()
-                    && metadata.reviews.is_empty()
-                    && metadata.collections.is_empty()
-                {
-                    continue;
-                }
-                let source_id = if metadata.source_id.is_empty() {
-                    metadata.identifier.clone()
-                } else {
-                    metadata.source_id.clone()
-                };
-                ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
-                let identifier = metadata.identifier.clone();
-                let db_metadata = match commit_metadata(
-                    CommitMediaInput {
-                        name: metadata.source_id.clone(),
-                        unique: UniqueMediaIdentifier {
-                            identifier,
-                            lot: metadata.lot,
-                            source: metadata.source,
-                        },
-                    },
-                    ss,
-                )
-                .await
-                {
-                    Ok(r) => r,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            lot: Some(metadata.lot),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            identifier: metadata.source_id.to_owned(),
-                            error: Some(e.message),
-                        });
-                        continue;
-                    }
-                };
-                metadata_to_update.insert(db_metadata.id.clone());
+                let db_metadata_id = metadata.id;
                 for seen in metadata.seen_history.iter() {
                     let progress = if seen.progress.is_some() {
                         seen.progress
@@ -2157,7 +2220,7 @@ where
                             progress,
                             date: seen.ended_on,
                             start_date: seen.started_on,
-                            metadata_id: db_metadata.id.clone(),
+                            metadata_id: db_metadata_id.clone(),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
                             manga_volume_number: seen.manga_volume_number,
@@ -2183,7 +2246,7 @@ where
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        db_metadata.id.clone(),
+                        db_metadata_id.clone(),
                         EntityLot::Metadata,
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
@@ -2201,46 +2264,19 @@ where
                         ss,
                         user_id,
                         col,
-                        db_metadata.id.clone(),
+                        db_metadata_id.clone(),
                         EntityLot::Metadata,
                     )
                     .await?;
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                if metadata_group.reviews.is_empty() && metadata_group.collections.is_empty() {
-                    continue;
-                }
-                let metadata_group_id = match commit_metadata_group(
-                    CommitMediaInput {
-                        name: metadata_group.title.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata_group.lot,
-                            source: metadata_group.source,
-                            identifier: metadata_group.identifier,
-                        },
-                    },
-                    ss,
-                )
-                .await
-                {
-                    Ok(r) => r.id,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            lot: Some(metadata_group.lot),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            identifier: metadata_group.title.to_owned(),
-                            error: Some(e.message),
-                        });
-                        continue;
-                    }
-                };
-                metadata_groups_to_update.insert(metadata_group_id.clone());
+                let db_metadata_group_id = metadata_group.id;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        metadata_group_id.clone(),
+                        db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
@@ -2258,44 +2294,19 @@ where
                         ss,
                         user_id,
                         col,
-                        metadata_group_id.clone(),
+                        db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
                     )
                     .await?;
                 }
             }
             ImportCompletedItem::Person(person) => {
-                if person.reviews.is_empty() && person.collections.is_empty() {
-                    continue;
-                }
-                let db_person = match commit_person(
-                    CommitPersonInput {
-                        identifier: person.identifier.clone(),
-                        name: person.name.clone(),
-                        source: person.source,
-                        source_specifics: person.source_specifics.clone(),
-                    },
-                    &ss.db,
-                )
-                .await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            identifier: person.identifier.clone(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            ..Default::default()
-                        });
-                        continue;
-                    }
-                };
-                people_to_update.insert(db_person.id.clone());
+                let db_person_id = person.id;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
                         &preferences,
-                        db_person.id.clone(),
+                        db_person_id.clone(),
                         EntityLot::Person,
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
@@ -2313,7 +2324,7 @@ where
                         ss,
                         user_id,
                         col,
-                        db_person.id.clone(),
+                        db_person_id.clone(),
                         EntityLot::Person,
                     )
                     .await?;
@@ -2374,24 +2385,6 @@ where
 
     if need_to_schedule_user_for_workout_revision {
         schedule_user_for_workout_revision(user_id, ss).await?;
-    }
-
-    if run_updates {
-        for metadata_id in metadata_to_update {
-            deploy_update_metadata_job(&metadata_id, ss).await?;
-        }
-        for metadata_group_id in metadata_groups_to_update {
-            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
-                metadata_group_id,
-            )))
-            .await?;
-        }
-        for person_id in people_to_update {
-            ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                person_id,
-            )))
-            .await?;
-        }
     }
 
     let details = ImportResultResponse {
