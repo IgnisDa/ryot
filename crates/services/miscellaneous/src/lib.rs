@@ -1802,6 +1802,11 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
             .exec(&self.0.db)
             .await?;
+        for image in metadata.images.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = image.url {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
         let new_metadata =
             self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
         let metadata = new_metadata.update(&self.0.db).await?;
