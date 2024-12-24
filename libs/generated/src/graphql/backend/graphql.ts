@@ -340,8 +340,8 @@ export type DailyUserActivitiesResponse = {
 };
 
 export enum DailyUserActivitiesResponseGroupedBy {
+  AllTime = 'ALL_TIME',
   Day = 'DAY',
-  Millennium = 'MILLENNIUM',
   Month = 'MONTH',
   Year = 'YEAR'
 }

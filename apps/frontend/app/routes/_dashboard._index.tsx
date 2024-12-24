@@ -114,7 +114,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		serverGqlService.authenticatedRequest(request, UserAnalyticsDocument, {
 			input: {
 				dateRange: {},
-				groupBy: DailyUserActivitiesResponseGroupedBy.Millennium,
+				groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
 			},
 		}),
 	]);

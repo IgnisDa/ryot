@@ -242,7 +242,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
     Year,
     Month,
-    Millennium,
+    AllTime,
 }
 
 #[skip_serializing_none]

@@ -430,7 +430,7 @@ const ActivitySection = () => {
 											)
 											.with(
 												DailyUserActivitiesResponseGroupedBy.Year,
-												DailyUserActivitiesResponseGroupedBy.Millennium,
+												DailyUserActivitiesResponseGroupedBy.AllTime,
 												() => "YYYY",
 											)
 											.exhaustive(),

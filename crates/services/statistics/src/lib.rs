@@ -128,7 +128,7 @@ impl StatisticsService {
             .column_as(
                 Expr::expr(Func::cast_as(
                     match grouped_by {
-                        DailyUserActivitiesResponseGroupedBy::Millennium => default_date,
+                        DailyUserActivitiesResponseGroupedBy::AllTime => default_date,
                         _ => Expr::expr(
                             Func::cust(DateTrunc)
                                 .arg(Expr::val(grouped_by.to_string()))
