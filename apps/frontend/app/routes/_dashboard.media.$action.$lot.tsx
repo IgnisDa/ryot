@@ -272,7 +272,7 @@ export default function Page() {
 							variant="transparent"
 							leftSection={<IconPhotoPlus />}
 							to={$path(
-								"/media/:action",
+								"/media/update/:action",
 								{ action: "create" },
 								{ lot: loaderData.lot },
 							)}
