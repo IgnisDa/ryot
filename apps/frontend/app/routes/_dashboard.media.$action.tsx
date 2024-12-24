@@ -67,6 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			? JSON.parse(submission.specifics)
 			: undefined,
 	};
+	input.action = undefined;
 	input.specifics = undefined;
 	input.genres = input.genres?.split(",");
 	input.creators = input.creators?.split(",");
@@ -83,15 +84,16 @@ const optionalStringArray = z.array(z.string()).optional();
 
 const schema = z.object({
 	title: z.string(),
-	lot: z.nativeEnum(MediaLot),
-	images: optionalStringArray,
-	videos: optionalStringArray,
-	description: optionalString,
-	isNsfw: z.boolean().optional(),
-	publishYear: z.number().optional(),
 	genres: optionalString,
 	creators: optionalString,
 	specifics: optionalString,
+	images: optionalStringArray,
+	videos: optionalStringArray,
+	description: optionalString,
+	action: z.nativeEnum(Action),
+	isNsfw: z.boolean().optional(),
+	lot: z.nativeEnum(MediaLot),
+	publishYear: z.number().optional(),
 });
 
 export default function Page() {
