@@ -1807,6 +1807,11 @@ ORDER BY RANDOM() LIMIT 10;
                 self.0.file_storage_service.delete_object(key).await;
             }
         }
+        for video in metadata.videos.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = video.identifier {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
         let new_metadata =
             self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
         let metadata = new_metadata.update(&self.0.db).await?;
