@@ -1260,6 +1260,7 @@ pub struct GraphqlMetadataDetails {
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
     pub production_status: Option<String>,
+    pub created_by_user_id: Option<String>,
     pub group: Option<GraphqlMetadataGroup>,
     pub watch_providers: Vec<WatchProvider>,
     pub show_specifics: Option<ShowSpecifics>,

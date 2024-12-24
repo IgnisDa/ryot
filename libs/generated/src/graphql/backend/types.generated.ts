@@ -758,6 +758,7 @@ export type GraphqlMetadataDetails = {
   assets: GraphqlMediaAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   creators: Array<MetadataCreatorGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
   genres: Array<GenreListItem>;

@@ -13,6 +13,7 @@ query MetadataDetails($metadataId: String!) {
 		publishYear
 		publishDate
 		providerRating
+		createdByUserId
 		productionStatus
 		originalLanguage
 		genres {

@@ -445,6 +445,7 @@ ORDER BY RANDOM() LIMIT 10;
             production_status: model.production_status,
             original_language: model.original_language,
             podcast_specifics: model.podcast_specifics,
+            created_by_user_id: model.created_by_user_id,
             external_identifiers: model.external_identifiers,
             video_game_specifics: model.video_game_specifics,
             audio_book_specifics: model.audio_book_specifics,
