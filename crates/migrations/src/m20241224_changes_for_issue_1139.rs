@@ -18,6 +18,8 @@ ALTER TABLE "metadata" ADD CONSTRAINT "{fk}" FOREIGN KEY ("created_by_user_id") 
         fk = METADATA_TO_USER_FOREIGN_KEY
         ))
         .await?;
+            db.execute_unprepared(r#"
+UPDATE "metadata" SET "created_by_user_id" = (SELECT "id" FROM "user" WHERE lot = 'admin') WHERE source = 'custom'"#).await?;
         }
         Ok(())
     }
