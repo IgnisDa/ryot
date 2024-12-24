@@ -1670,6 +1670,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         input: CreateCustomMetadataInput,
         identifier: String,
+        user_id: &str,
     ) -> metadata::ActiveModel {
         let images = input
             .images
@@ -1726,6 +1727,7 @@ ORDER BY RANDOM() LIMIT 10;
             movie_specifics: ActiveValue::Set(input.movie_specifics),
             music_specifics: ActiveValue::Set(input.music_specifics),
             podcast_specifics: ActiveValue::Set(input.podcast_specifics),
+            created_by_user_id: ActiveValue::Set(Some(user_id.to_owned())),
             audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
             video_game_specifics: ActiveValue::Set(input.video_game_specifics),
             visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
@@ -1752,7 +1754,7 @@ ORDER BY RANDOM() LIMIT 10;
         input: CreateCustomMetadataInput,
     ) -> Result<metadata::Model> {
         let identifier = nanoid!(10);
-        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier);
+        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier, &user_id);
         let metadata = metadata.insert(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
@@ -1780,7 +1782,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn update_custom_metadata(
         &self,
-        _user_id: &str,
+        user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
         MetadataToGenre::delete_many()
@@ -1792,7 +1794,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await?
             .unwrap();
         let new_metadata =
-            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier);
+            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
         let metadata = new_metadata.update(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
