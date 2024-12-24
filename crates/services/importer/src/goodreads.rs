@@ -93,8 +93,6 @@ pub async fn import(
         };
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                started_on: None,
-                ended_on: None,
                 provider_watched_on: Some(ImportSource::Goodreads.to_string()),
                 ..Default::default()
             };
@@ -124,10 +122,9 @@ pub async fn import(
         let mut review = None;
         if !record.review.is_empty() {
             review = Some(ImportOrExportItemReview {
-                date: None,
                 spoiler: Some(false),
                 text: Some(record.review),
-                visibility: None,
+                ..Default::default()
             });
         }
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {

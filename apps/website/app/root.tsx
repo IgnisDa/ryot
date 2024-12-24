@@ -22,6 +22,16 @@ import { Toaster } from "./lib/components/ui/sonner";
 import { getCustomerFromCookie, honeypot } from "./lib/config.server";
 import { logoUrl, startUrl } from "./lib/utils";
 
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Ryot" },
+		{
+			name: "description",
+			content: "The only self hosted tracker you will ever need.",
+		},
+	];
+};
+
 export const links: LinksFunction = () => {
 	return [
 		{
@@ -49,10 +59,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		isLoggedIn: !!customer,
 		honeypotInputProps: honeypot.getInputProps(),
 	};
-};
-
-export const meta: MetaFunction = () => {
-	return [{ title: "Ryot" }];
 };
 
 export default function App() {

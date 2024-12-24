@@ -91,7 +91,6 @@ pub async fn import(
                 ExerciseLot::Reps
             } else {
                 failed.push(ImportFailedItem {
-                    lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: format!(
                         "Workout #{:#?}, Set #{}",
@@ -101,6 +100,7 @@ pub async fn import(
                         "Could not determine exercise lot: {}",
                         serde_json::to_string(&valid_ex).unwrap()
                     )),
+                    ..Default::default()
                 });
                 continue;
             };
@@ -122,11 +122,8 @@ pub async fn import(
                     _ => SetLot::Normal,
                 };
                 collected_sets.push(UserWorkoutSetRecord {
-                    note: None,
                     lot: set_lot,
                     rpe: set.rpe,
-                    rest_time: None,
-                    confirmed_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,
@@ -134,34 +131,29 @@ pub async fn import(
                         distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
+                    ..Default::default()
                 });
             }
             collected_exercises.push(UserExerciseInput {
                 exercise_id,
-                assets: None,
                 sets: collected_sets,
                 notes: first_exercise
                     .exercise_notes
                     .clone()
                     .map(|n| vec![n])
                     .unwrap_or_default(),
+                ..Default::default()
             });
         }
         let start_time = parse_date_string(&first_exercise.start_time);
         let end_time = parse_date_string(&first_exercise.end_time);
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
-            assets: None,
-            supersets: vec![],
-            template_id: None,
-            repeated_from: None,
-            create_workout_id: None,
-            update_workout_id: None,
             exercises: collected_exercises,
-            update_workout_template_id: None,
             name: first_exercise.title.clone(),
             comment: first_exercise.description.clone(),
             end_time: utils::get_date_time_with_offset(end_time, &ss.timezone),
             start_time: utils::get_date_time_with_offset(start_time, &ss.timezone),
+            ..Default::default()
         }));
     }
     completed.extend(

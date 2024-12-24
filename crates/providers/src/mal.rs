@@ -18,7 +18,7 @@ use reqwest::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://api.myanimelist.net/v2";
 
@@ -205,43 +205,43 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             .num_volumes
             .zip(details.num_chapters)
             .map(|(v, c)| MangaSpecifics {
-                chapters: Some(Decimal::from(c)),
                 volumes: Some(v),
-                url: None,
+                chapters: Some(Decimal::from(c)),
+                ..Default::default()
             });
     let anime_specifics = details.num_episodes.map(|e| AnimeSpecifics {
         episodes: Some(e),
-        airing_schedule: None,
+        ..Default::default()
     });
     let mut suggestions = vec![];
     for rel in details.related_anime.unwrap_or_default().into_iter() {
         suggestions.push(PartialMetadataWithoutId {
-            identifier: rel.node.id.to_string(),
-            title: rel.node.title,
-            image: Some(rel.node.main_picture.large),
-            source: MediaSource::Mal,
             lot: MediaLot::Anime,
-            is_recommendation: None,
+            title: rel.node.title,
+            source: MediaSource::Mal,
+            identifier: rel.node.id.to_string(),
+            image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
         suggestions.push(PartialMetadataWithoutId {
-            identifier: rel.node.id.to_string(),
-            title: rel.node.title,
-            image: Some(rel.node.main_picture.large),
-            source: MediaSource::Mal,
             lot: MediaLot::Manga,
-            is_recommendation: None,
+            title: rel.node.title,
+            source: MediaSource::Mal,
+            identifier: rel.node.id.to_string(),
+            image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {
         suggestions.push(PartialMetadataWithoutId {
-            identifier: rel.node.id.to_string(),
-            title: rel.node.title,
-            image: Some(rel.node.main_picture.large),
-            source: MediaSource::Mal,
             lot,
-            is_recommendation: None,
+            title: rel.node.title,
+            source: MediaSource::Mal,
+            identifier: rel.node.id.to_string(),
+            image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     suggestions.shuffle(&mut rng());

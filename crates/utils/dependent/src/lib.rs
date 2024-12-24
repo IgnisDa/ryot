@@ -39,7 +39,7 @@ use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
+    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
     WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
@@ -823,7 +823,7 @@ pub async fn deploy_background_job(
     match job_name {
         BackgroundJob::UpdateAllMetadata
         | BackgroundJob::UpdateAllExercises
-        | BackgroundJob::RecalculateCalendarEvents
+        | BackgroundJob::DeleteAllApplicationCache
         | BackgroundJob::PerformBackgroundTasks => {
             admin_account_guard(user_id, ss).await?;
         }
@@ -843,15 +843,15 @@ pub async fn deploy_background_job(
                 deploy_update_metadata_job(&metadata_id, ss).await?;
             }
         }
+        BackgroundJob::DeleteAllApplicationCache => {
+            ss.perform_application_job(ApplicationJob::Lp(
+                LpApplicationJob::DeleteAllApplicationCache,
+            ))
+            .await?;
+        }
         BackgroundJob::UpdateAllExercises => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary))
                 .await?;
-        }
-        BackgroundJob::RecalculateCalendarEvents => {
-            ss.perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::RecalculateCalendarEvents,
-            ))
-            .await?;
         }
         BackgroundJob::PerformBackgroundTasks => {
             ss.perform_application_job(ApplicationJob::Mp(
@@ -1110,7 +1110,7 @@ pub async fn deploy_after_handle_media_seen_tasks(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleAfterMediaSeenTasks(seen),
+        LpApplicationJob::HandleAfterMediaSeenTasks(Box::new(seen)),
     ))
     .await
 }
@@ -1692,6 +1692,36 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
+    let (duration, durations) = match input.durations.clone() {
+        Some(durations) => {
+            if durations.is_empty() {
+                return Err(Error::new("Durations cannot be empty"));
+            }
+            if durations.last().and_then(|d| d.to).is_some() {
+                return Err(Error::new(
+                    "The workout was never resumed after being paused",
+                ));
+            }
+            let mut total = 0;
+            for duration in durations.iter() {
+                total += duration
+                    .to
+                    .unwrap_or(end_time)
+                    .signed_duration_since(duration.from)
+                    .num_seconds();
+            }
+            (total, durations)
+        }
+        None => (
+            end_time
+                .signed_duration_since(input.start_time)
+                .num_seconds(),
+            vec![WorkoutDuration {
+                from: input.start_time,
+                ..Default::default()
+            }],
+        ),
+    };
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => (
@@ -1741,10 +1771,10 @@ pub async fn create_or_update_user_workout(
             .ok()
             .flatten();
         let history_item = UserToExerciseHistoryExtraInformation {
-            best_set: None,
             idx: exercise_idx,
             workout_end_on: end_time,
             workout_id: new_workout_id.clone(),
+            ..Default::default()
         };
         let asc = match association {
             Some(e) => e,
@@ -1808,6 +1838,7 @@ pub async fn create_or_update_user_workout(
                 personal_bests: Some(vec![]),
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
+                rest_timer_started_at: set.rest_timer_started_at,
             };
             value.statistic.one_rm = calculate_one_rm(&value);
             value.statistic.pace = calculate_pace(&value);
@@ -1859,9 +1890,9 @@ pub async fn create_or_update_user_workout(
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: new_workout_id.clone(),
-                        exercise_idx,
                         set_idx,
+                        exercise_idx,
+                        workout_id: new_workout_id.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
                         let mut data = record.sets.clone();
@@ -1893,8 +1924,8 @@ pub async fn create_or_update_user_workout(
             db_ex.lot,
             ProcessedExercise {
                 sets,
-                lot: db_ex.lot,
                 id: db_ex.id,
+                lot: db_ex.lot,
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
@@ -1920,7 +1951,9 @@ pub async fn create_or_update_user_workout(
         user_id: user_id.clone(),
         id: new_workout_id.clone(),
         start_time: input.start_time,
+        template_id: input.template_id,
         repeated_from: input.repeated_from,
+        duration: duration.try_into().unwrap(),
         summary: WorkoutSummary {
             focused,
             total: Some(summary_total),
@@ -1939,13 +1972,11 @@ pub async fn create_or_update_user_workout(
             assets: input.assets,
             comment: input.comment,
             supersets: input.supersets,
+            durations: Some(durations),
             exercises: processed_exercises,
         },
-        template_id: input.template_id,
-        duration: 0,
     };
     let mut insert: workout::ActiveModel = model.into();
-    insert.duration = ActiveValue::NotSet;
     if let Some(old_workout) = to_update_workout.clone() {
         insert.end_time = ActiveValue::Set(old_workout.end_time);
         insert.start_time = ActiveValue::Set(old_workout.start_time);
@@ -2124,7 +2155,6 @@ where
                         respect_cache,
                         ProgressUpdateInput {
                             progress,
-                            change_state: None,
                             date: seen.ended_on,
                             start_date: seen.started_on,
                             metadata_id: db_metadata.id.clone(),
@@ -2135,6 +2165,7 @@ where
                             manga_chapter_number: seen.manga_chapter_number,
                             podcast_episode_number: seen.podcast_episode_number,
                             provider_watched_on: seen.provider_watched_on.clone(),
+                            ..Default::default()
                         },
                         ss,
                     )
@@ -2251,10 +2282,10 @@ where
                     Ok(p) => p,
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
-                            lot: None,
                             error: Some(e.message),
                             identifier: person.identifier.clone(),
                             step: ImportFailStep::MediaDetailsFromProvider,
+                            ..Default::default()
                         });
                         continue;
                     }
@@ -2269,10 +2300,10 @@ where
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
-                                lot: None,
-                                step: ImportFailStep::ReviewConversion,
-                                identifier: person.name.to_owned(),
                                 error: Some(e.message),
+                                identifier: person.name.to_owned(),
+                                step: ImportFailStep::ReviewConversion,
+                                ..Default::default()
                             });
                         };
                     }
@@ -2292,10 +2323,10 @@ where
                 need_to_schedule_user_for_workout_revision = true;
                 if let Err(err) = create_or_update_user_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
-                        lot: None,
                         error: Some(err.message),
                         identifier: "Exercise".to_string(),
                         step: ImportFailStep::InputTransformation,
+                        ..Default::default()
                     });
                 }
             }
@@ -2304,10 +2335,10 @@ where
                 match create_or_update_user_workout(workout_input, user_id, ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
-                            lot: None,
                             error: Some(err.message),
                             identifier: "Exercise".to_string(),
                             step: ImportFailStep::InputTransformation,
+                            ..Default::default()
                         });
                     }
                     Ok(workout_id) => {
@@ -2327,10 +2358,10 @@ where
             ImportCompletedItem::Measurement(measurement) => {
                 if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
                     import.failed.push(ImportFailedItem {
-                        lot: None,
                         error: Some(err.message),
                         identifier: "Measurement".to_string(),
                         step: ImportFailStep::InputTransformation,
+                        ..Default::default()
                     });
                 }
             }
@@ -2374,9 +2405,7 @@ where
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
-        update_workout_id: None,
         end_time: user_workout.end_time,
-        update_workout_template_id: None,
         start_time: user_workout.start_time,
         template_id: user_workout.template_id,
         assets: user_workout.information.assets,
@@ -2384,6 +2413,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
         supersets: user_workout.information.supersets,
+        durations: user_workout.information.durations,
         exercises: user_workout
             .information
             .exercises
@@ -2400,12 +2430,14 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                         confirmed_at: s.confirmed_at,
+                        rest_timer_started_at: s.rest_timer_started_at,
                     })
                     .collect(),
                 notes: e.notes,
                 assets: e.assets,
             })
             .collect(),
+        ..Default::default()
     }
 }
 

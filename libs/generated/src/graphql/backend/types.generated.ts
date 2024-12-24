@@ -94,8 +94,8 @@ export enum BackendError {
 
 export enum BackgroundJob {
   CalculateUserActivitiesAndSummary = 'CALCULATE_USER_ACTIVITIES_AND_SUMMARY',
+  DeleteAllApplicationCache = 'DELETE_ALL_APPLICATION_CACHE',
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
-  RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
   ReviseUserWorkouts = 'REVISE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
@@ -552,6 +552,7 @@ export type ExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
@@ -1169,18 +1170,10 @@ export type MetadataSearchItem = {
   title: Scalars['String']['output'];
 };
 
-export type MetadataSearchItemResponse = {
-  __typename?: 'MetadataSearchItemResponse';
-  databaseId?: Maybe<Scalars['String']['output']>;
-  /** Whether the user has interacted with this media item. */
-  hasInteracted: Scalars['Boolean']['output'];
-  item: MetadataSearchItem;
-};
-
 export type MetadataSearchResults = {
   __typename?: 'MetadataSearchResults';
   details: SearchDetails;
-  items: Array<MetadataSearchItemResponse>;
+  items: Array<MetadataSearchItem>;
 };
 
 export enum MetadataVideoSource {
@@ -2260,6 +2253,7 @@ export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
@@ -2419,6 +2413,7 @@ export type UserFitnessFeaturesEnabledPreferences = {
 export type UserFitnessLoggingPreferences = {
   __typename?: 'UserFitnessLoggingPreferences';
   muteSounds: Scalars['Boolean']['output'];
+  promptForRestTimer: Scalars['Boolean']['output'];
   showDetailsWhileEditing: Scalars['Boolean']['output'];
 };
 
@@ -2766,6 +2761,7 @@ export type UserWorkoutDetails = {
 export type UserWorkoutInput = {
   assets?: InputMaybe<EntityAssetsInput>;
   comment?: InputMaybe<Scalars['String']['input']>;
+  durations?: InputMaybe<Array<WorkoutDurationInput>>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
   name: Scalars['String']['input'];
@@ -2782,6 +2778,7 @@ export type UserWorkoutSetRecord = {
   lot: SetLot;
   note?: InputMaybe<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
+  restTimerStartedAt?: InputMaybe<Scalars['DateTime']['input']>;
   rpe?: InputMaybe<Scalars['Int']['input']>;
   statistic: SetStatisticInput;
 };
@@ -2836,6 +2833,19 @@ export type Workout = {
   templateId?: Maybe<Scalars['String']['output']>;
 };
 
+/** Information about a workout done. */
+export type WorkoutDuration = {
+  __typename?: 'WorkoutDuration';
+  from: Scalars['DateTime']['output'];
+  to?: Maybe<Scalars['DateTime']['output']>;
+};
+
+/** Information about a workout done. */
+export type WorkoutDurationInput = {
+  from: Scalars['DateTime']['input'];
+  to?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
 export type WorkoutEquipmentFocusedSummary = {
   __typename?: 'WorkoutEquipmentFocusedSummary';
   equipment: ExerciseEquipment;
@@ -2862,6 +2872,7 @@ export type WorkoutInformation = {
   __typename?: 'WorkoutInformation';
   assets?: Maybe<EntityAssets>;
   comment?: Maybe<Scalars['String']['output']>;
+  durations?: Maybe<Array<WorkoutDuration>>;
   exercises: Array<ProcessedExercise>;
   supersets: Array<WorkoutSupersetsInformation>;
 };
@@ -2910,12 +2921,12 @@ export enum WorkoutSetPersonalBest {
 /** Details about the set performed. */
 export type WorkoutSetRecord = {
   __typename?: 'WorkoutSetRecord';
-  actualRestTime?: Maybe<Scalars['Int']['output']>;
   confirmedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: SetLot;
   note?: Maybe<Scalars['String']['output']>;
   personalBests?: Maybe<Array<WorkoutSetPersonalBest>>;
   restTime?: Maybe<Scalars['Int']['output']>;
+  restTimerStartedAt?: Maybe<Scalars['DateTime']['output']>;
   rpe?: Maybe<Scalars['Int']['output']>;
   statistic: WorkoutSetStatistic;
   totals?: Maybe<WorkoutSetTotals>;

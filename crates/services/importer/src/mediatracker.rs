@@ -186,10 +186,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     for (idx, d) in data.into_iter().enumerate() {
         let Some(media_type) = d.media_type else {
             failed.push(ImportFailedItem {
-                lot: None,
-                step: ImportFailStep::ItemDetailsFromSource,
                 identifier: d.id.to_string(),
                 error: Some("No media type".to_string()),
+                step: ImportFailStep::ItemDetailsFromSource,
+                ..Default::default()
             });
             continue;
         };
@@ -263,9 +263,9 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
                         date: r.date,
-                        spoiler: Some(false),
                         text: r.review,
-                        visibility: None,
+                        spoiler: Some(false),
+                        ..Default::default()
                     })
                 } else {
                     None

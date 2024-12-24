@@ -188,8 +188,7 @@ impl MediaProvider for AudibleService {
             .map(|a| PeopleSearchItem {
                 identifier: a.asin.unwrap_or_default(),
                 name: a.name,
-                image: None,
-                birth_year: None,
+                ..Default::default()
             })
             .collect_vec();
         let total_items = data.len();
@@ -227,15 +226,8 @@ impl MediaProvider for AudibleService {
             .map_err(|e| anyhow!(e))?;
         let name = data.name;
         Ok(MetadataPerson {
-            place: None,
-            gender: None,
-            website: None,
-            related: vec![],
-            death_date: None,
-            birth_date: None,
             name: name.clone(),
             identifier: data.asin,
-            source_specifics: None,
             source: MediaSource::Audible,
             description: data.description,
             images: Some(Vec::from_iter(data.image)),
@@ -243,6 +235,7 @@ impl MediaProvider for AudibleService {
                 "https://www.audible.com/author/{}/{}",
                 name, identity
             )),
+            ..Default::default()
         })
     }
 
@@ -279,21 +272,18 @@ impl MediaProvider for AudibleService {
                 .map_err(|e| anyhow!(e))?;
             let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
             collection_contents.push(PartialMetadataWithoutId {
-                title: data.product.title,
-                image: data.product.product_images.and_then(|i| i.image_2400),
                 identifier: i,
-                source: MediaSource::Audible,
                 lot: MediaLot::AudioBook,
-                is_recommendation: None,
+                title: data.product.title,
+                source: MediaSource::Audible,
+                image: data.product.product_images.and_then(|i| i.image_2400),
+                ..Default::default()
             })
         }
         let title = data.product.title;
         Ok((
             MetadataGroupWithoutId {
-                images: None,
-                description: None,
                 title: title.clone(),
-                display_images: vec![],
                 lot: MediaLot::AudioBook,
                 source: MediaSource::Audible,
                 identifier: identifier.to_owned(),
@@ -302,6 +292,7 @@ impl MediaProvider for AudibleService {
                     "https://www.audible.com/series/{}/{}",
                     identifier, title
                 )),
+                ..Default::default()
             },
             collection_contents,
         ))
@@ -346,11 +337,11 @@ impl MediaProvider for AudibleService {
             for sim in data.similar_products.into_iter() {
                 suggestions.push(PartialMetadataWithoutId {
                     title: sim.title,
-                    image: sim.product_images.and_then(|i| i.image_500),
                     identifier: sim.asin,
-                    source: MediaSource::Audible,
                     lot: MediaLot::AudioBook,
-                    is_recommendation: None,
+                    source: MediaSource::Audible,
+                    image: sim.product_images.and_then(|i| i.image_500),
+                    ..Default::default()
                 });
             }
         }
@@ -428,12 +419,11 @@ impl AudibleService {
             .into_iter()
             .filter_map(|a| {
                 a.asin.map(|au| PartialMetadataPerson {
-                    identifier: au,
-                    source: MediaSource::Audible,
-                    role: "Author".to_owned(),
                     name: a.name,
-                    character: None,
-                    source_specifics: None,
+                    identifier: au,
+                    role: "Author".to_owned(),
+                    source: MediaSource::Audible,
+                    ..Default::default()
                 })
             })
             .collect_vec();
@@ -444,18 +434,13 @@ impl AudibleService {
             .map(|a| MetadataFreeCreator {
                 name: a.name,
                 role: "Narrator".to_owned(),
-                image: None,
+                ..Default::default()
             })
             .collect_vec();
         let description = item.publisher_summary.or(item.merchandising_summary);
-        let rating = if let Some(r) = item.rating {
-            if r.num_reviews > 0 {
-                r.overall_distribution.display_average_rating
-            } else {
-                None
-            }
-        } else {
-            None
+        let rating = match item.rating {
+            Some(r) if r.num_reviews > 0 => r.overall_distribution.display_average_rating,
+            _ => None,
         };
         MetadataDetails {
             people,

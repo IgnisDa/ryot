@@ -10,10 +10,7 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
-use background_models::{
-    ApplicationJob, HpApplicationJob, LpApplicationJob,
-    MpApplicationJob,
-};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -50,7 +47,6 @@ use user_service::UserService;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub app_router: Router,
     pub fitness_service: Arc<FitnessService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
@@ -68,7 +64,7 @@ pub async fn create_app_services(
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,
-) -> AppServices {
+) -> (Router, Arc<AppServices>) {
     let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -159,15 +155,17 @@ pub async fn create_app_services(
         ))
         .layer(cors);
 
-    AppServices {
+    (
         app_router,
-        fitness_service,
-        importer_service,
-        exporter_service,
-        statistics_service,
-        integration_service,
-        miscellaneous_service,
-    }
+        Arc::new(AppServices {
+            fitness_service,
+            importer_service,
+            exporter_service,
+            statistics_service,
+            integration_service,
+            miscellaneous_service,
+        }),
+    )
 }
 
 async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {

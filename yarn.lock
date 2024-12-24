@@ -3788,6 +3788,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/code-highlight@npm:7.14.3":
+  version: 7.14.3
+  resolution: "@mantine/code-highlight@npm:7.14.3"
+  dependencies:
+    clsx: "npm:^2.1.1"
+    highlight.js: "npm:^11.10.0"
+  peerDependencies:
+    "@mantine/core": 7.14.3
+    "@mantine/hooks": 7.14.3
+    react: ^18.x || ^19.x
+    react-dom: ^18.x || ^19.x
+  checksum: 10/b8da438b6e026723d9b1f79409d91166d475c57707c62ccc4c35bac791eab917f42a794c45256095ea83fa8fb0f44f1f51957d1c6a5c8b8c64b4db4e36bf4e95
+  languageName: node
+  linkType: hard
+
 "@mantine/core@npm:7.14.3":
   version: 7.14.3
   resolution: "@mantine/core@npm:7.14.3"
@@ -5724,6 +5739,7 @@ __metadata:
     "@lukemorales/query-key-factory": "npm:1.3.4"
     "@mantine/carousel": "npm:7.14.3"
     "@mantine/charts": "npm:7.14.3"
+    "@mantine/code-highlight": "npm:7.14.3"
     "@mantine/core": "npm:7.14.3"
     "@mantine/dates": "npm:7.14.3"
     "@mantine/form": "npm:7.14.3"
@@ -5749,7 +5765,6 @@ __metadata:
     "@types/react": "npm:18.3.12"
     "@types/react-dom": "npm:18.3.1"
     "@types/uuid": "npm:10.0.0"
-    buffer: "npm:6.0.3"
     clsx: "npm:2.1.1"
     cookie: "npm:1.0.2"
     crypto-js: "npm:4.2.0"
@@ -5776,7 +5791,6 @@ __metadata:
     react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.3.1"
     react-virtuoso: "npm:4.12.3"
-    react-webcam: "npm:7.2.0"
     recharts: "npm:2.14.1"
     remix-development-tools: "npm:4.7.7"
     remix-routes: "npm:1.7.7"
@@ -7116,16 +7130,6 @@ __metadata:
   version: 1.1.2
   resolution: "buffer-from@npm:1.1.2"
   checksum: 10/0448524a562b37d4d7ed9efd91685a5b77a50672c556ea254ac9a6d30e3403a517d8981f10e565db24e8339413b43c97ca2951f10e399c6125a0d8911f5679bb
-  languageName: node
-  linkType: hard
-
-"buffer@npm:6.0.3":
-  version: 6.0.3
-  resolution: "buffer@npm:6.0.3"
-  dependencies:
-    base64-js: "npm:^1.3.1"
-    ieee754: "npm:^1.2.1"
-  checksum: 10/b6bc68237ebf29bdacae48ce60e5e28fc53ae886301f2ad9496618efac49427ed79096750033e7eab1897a4f26ae374ace49106a5758f38fb70c78c9fda2c3b1
   languageName: node
   linkType: hard
 
@@ -10435,6 +10439,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"highlight.js@npm:^11.10.0":
+  version: 11.11.0
+  resolution: "highlight.js@npm:11.11.0"
+  checksum: 10/6da3028d9649da2c011ef6ae42a1330173c1d1aeb1c6dbac4cedcd83baf49ac1ba0cbe076b4ea2970fd5d143e0b1bda516ab4e9d972ec17021e25620551c775c
+  languageName: node
+  linkType: hard
+
 "hosted-git-info@npm:^2.1.4":
   version: 2.8.9
   resolution: "hosted-git-info@npm:2.8.9"
@@ -10631,7 +10642,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ieee754@npm:^1.1.13, ieee754@npm:^1.2.1":
+"ieee754@npm:^1.1.13":
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 10/d9f2557a59036f16c282aaeb107832dc957a93d73397d89bbad4eb1130560560eb695060145e8e6b3b498b15ab95510226649a0b8f52ae06583575419fe10fc4
@@ -14339,16 +14350,6 @@ __metadata:
     react: ">=16 || >=17 || >= 18"
     react-dom: ">=16 || >=17 || >= 18"
   checksum: 10/6e43800c23b8f12dba9e304462410dc2bfe82eecfa0bea97c89929a7d14d469709f69b0ba7da4e37de6bc98dacecd656fea208a1ef05cae579bb5a41181607cd
-  languageName: node
-  linkType: hard
-
-"react-webcam@npm:7.2.0":
-  version: 7.2.0
-  resolution: "react-webcam@npm:7.2.0"
-  peerDependencies:
-    react: ">=16.2.0"
-    react-dom: ">=16.2.0"
-  checksum: 10/fe16756b9b71d4d2dcc40f337bd47fce977197a9ce37a453d9e691db870d0738fa4fe81db45fd8d3d81a06fd3b2f2fbafeacf9d5865c97568fa351969e4be70c
   languageName: node
   linkType: hard
 

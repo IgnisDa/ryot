@@ -69,8 +69,8 @@ use media_models::{
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-    PartialMetadata, PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
@@ -307,10 +307,9 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(free_creators) = &meta.free_creators {
             for cr in free_creators.clone() {
                 let creator = MetadataCreator {
-                    id: None,
                     name: cr.name,
                     image: cr.image,
-                    character: None,
+                    ..Default::default()
                 };
                 creators
                     .entry(cr.role)
@@ -1050,9 +1049,9 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_application_job(ApplicationJob::Hp(
-                HpApplicationJob::BulkProgressUpdate(user_id, input),
-            ))
+            .perform_application_job(ApplicationJob::Hp(HpApplicationJob::BulkProgressUpdate(
+                user_id, input,
+            )))
             .await?;
         Ok(true)
     }
@@ -1277,9 +1276,9 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::UpdatePerson(person.id),
-            ))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                person.id,
+            )))
             .await?;
         Ok(true)
     }
@@ -1294,9 +1293,9 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::UpdateMetadataGroup(metadata_group.id),
-            ))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+                metadata_group.id,
+            )))
             .await?;
         Ok(true)
     }
@@ -1461,72 +1460,13 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
-        let cloned_user_id = user_id.to_owned();
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
-        let all_identifiers = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect_vec();
-        let interactions = Metadata::find()
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::UserToEntity
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, user_to_entity::Column::UserId))
-                                .eq(cloned_user_id.clone()),
-                        )
-                    }),
-            )
-            .select_only()
-            .column(metadata::Column::Identifier)
-            .column_as(
-                Expr::col((Alias::new("metadata"), metadata::Column::Id)),
-                "database_id",
-            )
-            .column_as(
-                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
-                "has_interacted",
-            )
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Source.eq(input.source))
-            .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, String, bool)>()
-            .all(&self.0.db)
-            .await?
-            .into_iter()
-            .map(|(key, value1, value2)| (key, (value1, value2)));
-        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-        let data = results
-            .items
-            .into_iter()
-            .map(|i| {
-                let interaction = interactions.get(&i.identifier).cloned();
-                MetadataSearchItemResponse {
-                    has_interacted: interaction.clone().unwrap_or_default().1,
-                    database_id: interaction.map(|i| i.0),
-                    item: i,
-                }
-            })
-            .collect();
-        let results = SearchResults {
-            details: results.details,
-            items: data,
-        };
         cc.set_key(
             cache_key,
             ApplicationCacheValue::MetadataSearch(results.clone()),
@@ -1550,13 +1490,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
@@ -1591,13 +1525,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
@@ -1675,8 +1603,8 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
-    pub async fn handle_after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        handle_after_media_seen_tasks(seen, &self.0).await
+    pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
+        handle_after_media_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(
@@ -1767,7 +1695,7 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|c| MetadataFreeCreator {
                 name: c,
                 role: "Creator".to_string(),
-                image: None,
+                ..Default::default()
             })
             .collect_vec();
         let is_partial = match input.lot {
@@ -2573,6 +2501,11 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
+    pub async fn delete_all_application_cache(&self) -> Result<()> {
+        ApplicationCache::delete_many().exec(&self.0.db).await?;
+        Ok(())
+    }
+
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await
     }
@@ -2918,9 +2851,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::SyncIntegrationsData,
-            ))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
             .await?;
         Ok(())
     }

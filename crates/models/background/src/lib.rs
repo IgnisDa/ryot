@@ -31,9 +31,10 @@ pub enum MpApplicationJob {
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
 pub enum LpApplicationJob {
+    DeleteAllApplicationCache,
     HandleOnSeenComplete(String),
-    HandleAfterMediaSeenTasks(seen::Model),
     HandleEntityAddedToCollectionEvent(Uuid),
+    HandleAfterMediaSeenTasks(Box<seen::Model>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

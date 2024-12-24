@@ -56,9 +56,7 @@ pub struct ExporterService(pub Arc<SupportingService>);
 impl ExporterService {
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.0
-            .perform_application_job(ApplicationJob::Mp(
-                MpApplicationJob::PerformExport(user_id),
-            ))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::PerformExport(user_id)))
             .await?;
         Ok(true)
     }
@@ -356,15 +354,9 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let measurements = user_measurements_list(
-            &self.0.db,
-            user_id,
-            UserMeasurementsListInput {
-                start_time: None,
-                end_time: None,
-            },
-        )
-        .await?;
+        let measurements =
+            user_measurements_list(&self.0.db, user_id, UserMeasurementsListInput::default())
+                .await?;
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
         }

@@ -9,6 +9,7 @@ pub enum ApplicationCache {
     Id,
     Key,
     Value,
+    Version,
     ExpiresAt,
     CreatedAt,
 }
@@ -45,6 +46,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(ApplicationCache::Version).text().not_null())
                     .to_owned(),
             )
             .await?;

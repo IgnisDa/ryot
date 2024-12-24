@@ -1,9 +1,9 @@
+import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	Accordion,
 	Anchor,
 	Box,
 	Button,
-	Code,
 	Container,
 	Divider,
 	FileInput,
@@ -453,25 +453,34 @@ export default function Page() {
 															/>
 														) : null}
 													</Accordion.Control>
-													<Accordion.Panel>
+													<Accordion.Panel
+														styles={{ content: { paddingTop: 0 } }}
+													>
 														{report.details ? (
-															<>
+															<Stack>
 																<Text>
-																	Total imported: {report.details.import.total}
-																</Text>
-																<Text>
-																	Failed: {report.details.failedItems.length}
+																	<Text span fw="bold" mr={4}>
+																		Total imported:
+																	</Text>
+																	{report.details.import.total},
+																	<Text span fw="bold" ml="md" mr={4}>
+																		Failed:
+																	</Text>
+																	{report.details.failedItems.length}
 																</Text>
 																{report.details.failedItems.length > 0 ? (
-																	<Code mah={400} block>
-																		{JSON.stringify(
+																	<CodeHighlight
+																		mah={400}
+																		language="json"
+																		style={{ overflow: "scroll" }}
+																		code={JSON.stringify(
 																			report.details.failedItems,
 																			null,
-																			4,
+																			2,
 																		)}
-																	</Code>
+																	/>
 																) : null}
-															</>
+															</Stack>
 														) : (
 															<Text>This import never finished</Text>
 														)}

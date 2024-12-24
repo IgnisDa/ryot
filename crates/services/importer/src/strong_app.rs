@@ -129,7 +129,6 @@ async fn import_exercises(
                 ExerciseLot::Reps
             } else {
                 failed.push(ImportFailedItem {
-                    lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: format!(
                         "Workout #{}, Set #{}",
@@ -139,6 +138,7 @@ async fn import_exercises(
                         "Could not determine exercise lot: {}",
                         serde_json::to_string(&valid_ex).unwrap()
                     )),
+                    ..Default::default()
                 });
                 continue;
             };
@@ -163,11 +163,7 @@ async fn import_exercises(
                     _ => SetLot::Normal,
                 };
                 collected_sets.push(UserWorkoutSetRecord {
-                    rpe: None,
-                    note: None,
                     lot: set_lot,
-                    rest_time: None,
-                    confirmed_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,
@@ -175,28 +171,23 @@ async fn import_exercises(
                         distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
+                    ..Default::default()
                 });
             }
             collected_exercises.push(UserExerciseInput {
                 notes,
                 exercise_id,
-                assets: None,
                 sets: collected_sets,
+                ..Default::default()
             });
         }
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
-            assets: None,
             start_time: ndt,
-            supersets: vec![],
-            template_id: None,
-            repeated_from: None,
-            create_workout_id: None,
-            update_workout_id: None,
             exercises: collected_exercises,
             end_time: ndt + workout_duration,
-            update_workout_template_id: None,
             name: first_exercise.workout_name.clone(),
             comment: first_exercise.workout_notes.clone(),
+            ..Default::default()
         }));
     }
     completed.extend(

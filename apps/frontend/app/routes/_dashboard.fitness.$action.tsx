@@ -1,6 +1,3 @@
-// biome-ignore lint/style/useNodejsImportProtocol: this is a dependency
-import { Buffer } from "buffer";
-import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Carousel } from "@mantine/carousel";
@@ -14,6 +11,7 @@ import {
 	Container,
 	Divider,
 	Drawer,
+	FileButton,
 	Flex,
 	Group,
 	Image,
@@ -42,7 +40,6 @@ import {
 	useDidUpdate,
 	useDisclosure,
 	useListState,
-	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
@@ -69,7 +66,6 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconCamera,
-	IconCameraRotate,
 	IconCheck,
 	IconChevronUp,
 	IconClipboard,
@@ -81,9 +77,11 @@ import {
 	IconHeartSpark,
 	IconInfoCircle,
 	IconLayersIntersect,
+	IconLibraryPhoto,
 	IconPhoto,
 	IconReorder,
 	IconReplace,
+	IconStopwatch,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -92,7 +90,6 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Webcam from "react-webcam";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -170,6 +167,91 @@ const deleteUploadedAsset = (key: string) => {
 	});
 };
 
+const getNextSetInWorkout = (
+	currentSetIdx: number,
+	currentExerciseIdx: number,
+	currentWorkout: InProgressWorkout,
+) => {
+	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
+	const partOfSuperset = currentWorkout.supersets.find((superset) =>
+		superset.exercises.includes(currentExercise.identifier),
+	);
+	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
+	if (partOfSuperset) {
+		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
+			currentWorkout.exercises.findIndex((e) => e.identifier === s),
+		);
+		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
+			(e) =>
+				e.identifier !== currentExercise.identifier &&
+				sortedExercises.includes(e.identifier) &&
+				e.sets.some((s) => !s.confirmedAt),
+		);
+		if (nextExerciseWithIncompleteSets) {
+			const exerciseIdx = currentWorkout.exercises.findIndex(
+				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
+			);
+			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
+				(s) => !s.confirmedAt,
+			);
+			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
+		}
+	}
+	if (areAllSetsConfirmed)
+		return {
+			exerciseIdx: currentExerciseIdx + 1,
+			setIdx: 0,
+			wasLastSet: true,
+		};
+	return {
+		exerciseIdx: currentExerciseIdx,
+		setIdx: currentSetIdx + 1,
+		wasLastSet: false,
+	};
+};
+
+type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
+type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
+
+const usePerformTasksAfterSetConfirmed = () => {
+	const userPreferences = useUserPreferences();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+
+	const performTask = async (setIdx: number, exerciseIdx: number) => {
+		const exerciseId = currentWorkout?.exercises[exerciseIdx].exerciseId;
+		if (!exerciseId) return;
+		const exerciseDetails = await queryClient.ensureQueryData(
+			getExerciseDetailsQuery(exerciseId),
+		);
+		const userExerciseDetails = await queryClient.ensureQueryData(
+			getUserExerciseDetailsQuery(exerciseId),
+		);
+		setCurrentWorkout((cw) =>
+			produce(cw, (draft) => {
+				if (!draft) return;
+				const currentExercise = draft.exercises[exerciseIdx];
+				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
+				focusOnExercise(nextSet.exerciseIdx);
+				if (nextSet.wasLastSet) {
+					currentExercise.isCollapsed = true;
+					currentExercise.isShowDetailsOpen = false;
+					const nextExercise = draft.exercises[nextSet.exerciseIdx];
+					const nextExerciseHasDetailsToShow =
+						nextExercise &&
+						exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+					if (nextExerciseHasDetailsToShow) {
+						nextExercise.isCollapsed = false;
+						if (userPreferences.fitness.logging.showDetailsWhileEditing)
+							nextExercise.isShowDetailsOpen = true;
+					}
+				}
+			}),
+		);
+	};
+
+	return performTask;
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -179,33 +261,12 @@ export default function Page() {
 	const navigate = useNavigate();
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const playCompleteTimerSound = () => {
-		const sound = new Howl({ src: ["/timer-completed.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
-		if (document.visibilityState === "visible") return;
-		sendNotificationToServiceWorker(
-			"Timer completed",
-			"Let's get this done!",
-			"timer-completed",
-			{ event: "open-link", link: window.location.href },
-		);
-	};
-	useInterval(() => {
-		if (
-			loaderData.action === FitnessAction.LogWorkout &&
-			navigator.serviceWorker.controller &&
-			document.visibilityState === "visible"
-		)
-			postMessageToServiceWorker({
-				event: "remove-timer-completed-notification",
-			});
-	}, 5000);
 	const [
 		timerDrawerOpened,
 		{
-			close: timerDrawerClose,
-			toggle: timerDrawerToggle,
-			open: timerDrawerOpen,
+			open: openTimerDrawer,
+			close: closeTimerDrawer,
+			toggle: toggleTimerDrawer,
 		},
 	] = useDisclosure(false);
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
@@ -220,22 +281,55 @@ export default function Page() {
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 
 	useInterval(() => {
-		const timeRemaining = dayjsLib(currentTimer?.endAt).diff(
+		if (
+			loaderData.action === FitnessAction.LogWorkout &&
+			navigator.serviceWorker.controller &&
+			document.visibilityState === "visible"
+		)
+			postMessageToServiceWorker({
+				event: "remove-timer-completed-notification",
+			});
+	}, 5000);
+	useInterval(() => {
+		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
 			dayjsLib(),
 			"second",
 		);
-		if (timeRemaining && timeRemaining <= 3) {
+		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
+				const triggeredBy = currentTimer?.triggeredBy;
+				if (promptForRestTimer && triggeredBy && currentWorkout) {
+					const exerciseIdx = currentWorkout?.exercises.findIndex(
+						(c) => c.identifier === triggeredBy.exerciseIdentifier,
+					);
+					if (exerciseIdx !== undefined && exerciseIdx !== -1) {
+						performTasksAfterSetConfirmed(triggeredBy.setIdx, exerciseIdx);
+					}
+				}
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => timerDrawerClose(), 500);
+				setTimeout(() => closeTimerDrawer(), 500);
 			}
 		}
 	}, 1000);
 
+	const playCompleteTimerSound = () => {
+		const sound = new Howl({ src: ["/timer-completed.mp3"] });
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (document.visibilityState === "visible") return;
+		sendNotificationToServiceWorker(
+			"Timer completed",
+			"Let's get this done!",
+			"timer-completed",
+			{ event: "open-link", link: window.location.href },
+		);
+	};
 	const startTimer = (
 		duration: number,
 		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
@@ -243,10 +337,22 @@ export default function Page() {
 		setCurrentTimer({
 			triggeredBy,
 			totalTime: duration,
-			endAt: dayjsLib().add(duration, "second").toISOString(),
+			willEndAt: dayjsLib().add(duration, "second").toISOString(),
 		});
 	};
-
+	const pauseOrResumeTimer = () => {
+		if (currentTimer)
+			setCurrentTimer(
+				produce(currentTimer, (draft) => {
+					draft.willEndAt = dayjsLib(draft.willEndAt)
+						.add(dayjsLib().diff(draft.wasPausedAt, "second"), "second")
+						.toISOString();
+					draft.wasPausedAt = draft.wasPausedAt
+						? undefined
+						: dayjsLib().toISOString();
+				}),
+			);
+	};
 	const stopTimer = () => {
 		const triggeredBy = currentTimer?.triggeredBy;
 		if (currentWorkout && triggeredBy) {
@@ -274,10 +380,11 @@ export default function Page() {
 								closeModal={() => setAssetsModalOpened(undefined)}
 							/>
 							<TimerDrawer
-								opened={timerDrawerOpened}
-								onClose={timerDrawerClose}
-								startTimer={startTimer}
 								stopTimer={stopTimer}
+								startTimer={startTimer}
+								opened={timerDrawerOpened}
+								onClose={closeTimerDrawer}
+								pauseOrResumeTimer={pauseOrResumeTimer}
 							/>
 							<ReorderDrawer
 								opened={reorderDrawerOpened}
@@ -293,7 +400,7 @@ export default function Page() {
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
-									<WorkoutDurationTimer />
+									<WorkoutDurationTimer isWorkoutPaused={isWorkoutPaused} />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -352,7 +459,7 @@ export default function Page() {
 										color="orange"
 										variant="subtle"
 										size="compact-sm"
-										onClick={timerDrawerToggle}
+										onClick={toggleTimerDrawer}
 										style={
 											loaderData.isCreatingTemplate ||
 											loaderData.isUpdatingWorkout
@@ -383,6 +490,7 @@ export default function Page() {
 												variant="subtle"
 												size="compact-sm"
 												loading={isSaveBtnLoading}
+												disabled={isWorkoutPaused}
 												onClick={async () => {
 													if (!currentWorkout.name) {
 														notifications.show({
@@ -503,7 +611,8 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
-										openTimerDrawer={timerDrawerOpen}
+										isWorkoutPaused={isWorkoutPaused}
+										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={reorderDrawerToggle}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
@@ -609,10 +718,23 @@ const StatDisplay = (props: {
 	name: string;
 	value: string;
 	isHidden?: boolean;
+	onClick?: () => void;
+	highlightValue?: boolean;
 }) => {
 	return (
-		<Box mx="auto" style={props.isHidden ? { display: "none" } : undefined}>
-			<Text ta="center" fz={{ md: "xl" }}>
+		<Box
+			mx="auto"
+			onClick={props.onClick}
+			style={{
+				display: props.isHidden ? "none" : undefined,
+				cursor: props.onClick ? "pointer" : undefined,
+			}}
+		>
+			<Text
+				ta="center"
+				fz={{ md: "xl" }}
+				c={props.highlightValue ? "red" : undefined}
+			>
 				{props.value}
 			</Text>
 			<Text c="dimmed" size="sm" ta="center">
@@ -625,27 +747,34 @@ const StatDisplay = (props: {
 const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
 
-const offsetDate = (startTime?: string) => {
-	const now = dayjsLib();
-	return now.diff(dayjsLib(startTime), "seconds");
-};
-
 const RestTimer = () => {
 	forceUpdateEverySecond();
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? formatTimerDuration(dayjsLib(currentTimer.endAt).diff(dayjsLib()))
+		? formatTimerDuration(
+				dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
+			)
 		: "Timer";
 };
 
-const WorkoutDurationTimer = () => {
+const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
 	const { isCreatingTemplate, isUpdatingWorkout } =
 		useLoaderData<typeof loader>();
-	const [currentWorkout] = useCurrentWorkout();
-	const seconds = offsetDate(currentWorkout?.startTime);
+	const [value, setValue] = useState(0);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	forceUpdateEverySecond();
+	useInterval(() => setValue((v) => v + 1), 1000);
+
+	const seconds = useMemo(() => {
+		let total = 0;
+		for (const duration of currentWorkout?.durations || []) {
+			total += dayjsLib(duration.to).diff(duration.from) / 1000;
+		}
+		return total;
+	}, [value, currentWorkout]);
+
+	if (!currentWorkout) return null;
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
@@ -653,8 +782,22 @@ const WorkoutDurationTimer = () => {
 	return (
 		<StatDisplay
 			name="Duration"
-			value={dayjsLib.duration(seconds * 1000).format(format)}
+			highlightValue={props.isWorkoutPaused}
 			isHidden={isCreatingTemplate || isUpdatingWorkout}
+			value={dayjsLib.duration(seconds, "second").format(format)}
+			onClick={() => {
+				setCurrentWorkout(
+					produce(currentWorkout, (draft) => {
+						const currentDurations = draft.durations;
+						if (Object.keys(currentDurations.at(-1) || {}).length === 2) {
+							currentDurations.push({ from: dayjsLib().toISOString() });
+						} else {
+							currentDurations[currentDurations.length - 1].to =
+								dayjsLib().toISOString();
+						}
+					}),
+				);
+			}}
 		/>
 	);
 };
@@ -691,42 +834,40 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
+				size="xs"
 				required
+				hideControls
+				step={props.inputStep}
+				onChange={(v) => setValue(v)}
+				onFocus={(e) => e.target.select()}
+				styles={{
+					input: { fontSize: 15, width: rem(72), textAlign: "center" },
+				}}
 				value={
 					isString(set.statistic[props.stat])
 						? Number(set.statistic[props.stat])
 						: undefined
 				}
-				onChange={(v) => setValue(v)}
-				onFocus={(e) => e.target.select()}
-				size="xs"
-				styles={{
-					input: { fontSize: 15, width: rem(72), textAlign: "center" },
-				}}
 				decimalScale={
 					isNumber(props.inputStep)
 						? Math.log10(1 / props.inputStep)
 						: undefined
 				}
-				step={props.inputStep}
-				hideControls
 			/>
 		</Flex>
 	) : null;
 };
-
-const fileType = "image/jpeg";
 
 const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	return (
 		<Box pos="relative">
 			<Avatar src={props.imageSrc} size="lg" />
 			<ActionIcon
-				pos="absolute"
 				top={0}
+				size="xs"
 				left={-12}
 				color="red"
-				size="xs"
+				pos="absolute"
 				onClick={async () => {
 					const yes = await confirmWrapper({
 						confirmation: "Are you sure you want to remove this image?",
@@ -954,8 +1095,8 @@ const focusOnExercise = (idx: number) => {
 };
 
 const exerciseHasDetailsToShow = (
-	details?: ExerciseDetailsQuery["exerciseDetails"],
-	userDetails?: UserExerciseDetailsQuery["userExerciseDetails"],
+	details?: ExerciseDetails,
+	userDetails?: UserExerciseDetails,
 ) =>
 	(details?.attributes.images.length || 0) > 0 ||
 	(userDetails?.history?.length || 0) > 0;
@@ -967,13 +1108,41 @@ const UploadAssetsModal = (props: {
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [cameraFacing, toggleCameraFacing] = useToggle([
-		"environment",
-		"user",
-	] as const);
-	const webcamRef = useRef<Webcam>(null);
 
 	if (!currentWorkout) return null;
+
+	const afterFileSelected = async (file: File | null) => {
+		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
+			notifications.show({
+				color: "red",
+				message: PRO_REQUIRED_MESSAGE,
+			});
+			return;
+		}
+		if (!file) return;
+		const imageSrc = URL.createObjectURL(file);
+		const toSubmitForm = new FormData();
+		toSubmitForm.append("file", file, "image.jpg");
+		try {
+			const resp = await fetch(
+				$path("/actions", { intent: "uploadWorkoutAsset" }),
+				{ method: "POST", body: toSubmitForm },
+			);
+			const data = await resp.json();
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const media = { imageSrc, key: data.key };
+					if (exercise) draft.exercises[exerciseIdx].images.push(media);
+					else draft.images.push(media);
+				}),
+			);
+		} catch {
+			notifications.show({
+				color: "red",
+				message: "Error while uploading image",
+			});
+		}
+	};
 
 	const exerciseIdx = currentWorkout.exercises.findIndex(
 		(e) => e.identifier === props.modalOpenedBy,
@@ -983,14 +1152,11 @@ const UploadAssetsModal = (props: {
 
 	return (
 		<Modal
-			withCloseButton={false}
 			onClose={() => props.closeModal()}
 			opened={props.modalOpenedBy !== undefined}
+			title={`Images for ${exercise ? exercise.name : "the workout"}`}
 		>
 			<Stack>
-				<Text size="lg">
-					Images for {exercise ? exercise.name : "the workout"}
-				</Text>
 				{fileUploadAllowed ? (
 					<>
 						{isString(props.modalOpenedBy) ? (
@@ -1034,78 +1200,38 @@ const UploadAssetsModal = (props: {
 								))}
 							</Avatar.Group>
 						) : null}
-						<Group justify="center" gap={4}>
-							<Paper radius="md" style={{ overflow: "hidden" }}>
-								<Webcam
-									ref={webcamRef}
-									height={180}
-									width={240}
-									videoConstraints={{ facingMode: cameraFacing }}
-									screenshotFormat={fileType}
-								/>
-							</Paper>
-							<Stack>
-								<ActionIcon size="xl" onClick={() => toggleCameraFacing()}>
-									<IconCameraRotate size={32} />
-								</ActionIcon>
-								<ActionIcon
-									size="xl"
-									onClick={async () => {
-										if (
-											props.modalOpenedBy === null &&
-											!coreDetails.isServerKeyValidated
-										) {
-											notifications.show({
-												color: "red",
-												message: PRO_REQUIRED_MESSAGE,
-											});
-											return;
-										}
-										const imageSrc = webcamRef.current?.getScreenshot();
-										if (imageSrc) {
-											const buffer = Buffer.from(
-												imageSrc.replace(/^data:image\/\w+;base64,/, ""),
-												"base64",
-											);
-											const fileObj = new File([buffer], "image.jpg", {
-												type: fileType,
-											});
-											const toSubmitForm = new FormData();
-											toSubmitForm.append("file", fileObj, "image.jpg");
-											try {
-												const resp = await fetch(
-													$path("/actions", { intent: "uploadWorkoutAsset" }),
-													{ method: "POST", body: toSubmitForm },
-												);
-												const data = await resp.json();
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														const media = { imageSrc, key: data.key };
-														if (exercise)
-															draft.exercises[exerciseIdx].images.push(media);
-														else draft.images.push(media);
-													}),
-												);
-											} catch {
-												notifications.show({
-													color: "red",
-													message: "Error while uploading image",
-												});
-											}
-										}
-									}}
-								>
-									<IconCamera size={32} />
-								</ActionIcon>
-							</Stack>
+						<Group justify="space-between">
+							<FileButton accept="image/*" onChange={afterFileSelected}>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										leftSection={<IconLibraryPhoto />}
+									>
+										Select picture
+									</Button>
+								)}
+							</FileButton>
+							<FileButton
+								accept="image/*"
+								capture="environment"
+								onChange={afterFileSelected}
+							>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										leftSection={<IconCamera />}
+									>
+										Take picture
+									</Button>
+								)}
+							</FileButton>
 						</Group>
-						<Button
-							fullWidth
-							variant="outline"
-							onClick={() => props.closeModal()}
-						>
-							Done
-						</Button>
 					</>
 				) : (
 					<Text c="red" size="sm">
@@ -1117,9 +1243,19 @@ const UploadAssetsModal = (props: {
 	);
 };
 
+const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
+	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
+	return isCompleted
+		? ("complete" as const)
+		: cw.exercises[index].sets.some((s) => s.confirmedAt)
+			? ("in-progress" as const)
+			: ("not-started" as const);
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
+	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	reorderDrawerToggle: () => void;
@@ -1185,17 +1321,17 @@ const ExerciseDisplay = (props: {
 	return (
 		<>
 			<Paper
+				pl="sm"
 				radius={0}
+				ml={{ base: "-md", md: 0 }}
+				id={props.exerciseIdx.toString()}
+				pr={{ base: 4, md: "xs", lg: "sm" }}
 				style={{
 					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
 					borderLeft: partOfSuperset
 						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
 						: undefined,
 				}}
-				pl="sm"
-				ml={{ base: "-md", md: 0 }}
-				id={props.exerciseIdx.toString()}
-				pr={{ base: 4, md: "xs", lg: "sm" }}
 			>
 				<Stack ref={parent}>
 					<Menu shadow="md" width={200} position="left-end">
@@ -1210,7 +1346,9 @@ const ExerciseDisplay = (props: {
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
-									<DisplayLastExerciseSetRestTimer />
+									<DisplayExerciseSetRestTimer
+										openTimerDrawer={props.openTimerDrawer}
+									/>
 								) : null}
 								<ActionIcon
 									variant="transparent"
@@ -1304,8 +1442,8 @@ const ExerciseDisplay = (props: {
 								</Menu.Item>
 							) : null}
 							<Menu.Item
-								leftSection={<IconReorder size={14} />}
 								onClick={props.reorderDrawerToggle}
+								leftSection={<IconReorder size={14} />}
 							>
 								Reorder
 							</Menu.Item>
@@ -1348,10 +1486,10 @@ const ExerciseDisplay = (props: {
 						<Stack ref={parent}>
 							{exercise.notes.map((note, idx) => (
 								<NoteInput
-									key={`${exercise.identifier}-${idx}`}
-									exerciseIdx={props.exerciseIdx}
-									noteIdx={idx}
 									note={note}
+									noteIdx={idx}
+									exerciseIdx={props.exerciseIdx}
+									key={`${exercise.identifier}-${idx}`}
 								/>
 							))}
 							{exercise.isShowDetailsOpen ? (
@@ -1363,10 +1501,10 @@ const ExerciseDisplay = (props: {
 													{exerciseDetails?.attributes.images.map((i) => (
 														<Image
 															key={i}
-															radius="md"
 															src={i}
 															h={200}
 															w={350}
+															radius="md"
 														/>
 													))}
 												</Group>
@@ -1436,13 +1574,13 @@ const ExerciseDisplay = (props: {
 										.exhaustive()}
 									{(userExerciseDetails?.history?.length || 0) > 0 ? (
 										<ActionIcon
+											p={2}
+											size="sm"
 											right={10}
 											bottom={10}
-											variant="filled"
 											color="red"
-											size="sm"
 											pos="absolute"
-											p={2}
+											variant="filled"
 											onClick={() => {
 												if (!coreDetails.isServerKeyValidated) {
 													notifications.show({
@@ -1477,8 +1615,8 @@ const ExerciseDisplay = (props: {
 								</Text>
 								<Text
 									size="xs"
-									w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
 									ta="center"
+									w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
 								>
 									PREVIOUS
 								</Text>
@@ -1528,6 +1666,7 @@ const ExerciseDisplay = (props: {
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
 									key={`${exercise.identifier}-${idx}`}
+									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}
 									toBeDisplayedColumns={toBeDisplayedColumns}
 								/>
@@ -1569,7 +1708,9 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const DisplayLastExerciseSetRestTimer = () => {
+const DisplayExerciseSetRestTimer = (props: {
+	openTimerDrawer: () => void;
+}) => {
 	const [currentTimer] = useTimerAtom();
 	forceUpdateEverySecond();
 
@@ -1577,68 +1718,33 @@ const DisplayLastExerciseSetRestTimer = () => {
 
 	return (
 		<RingProgress
-			roundCaps
 			size={30}
+			roundCaps
 			thickness={2}
 			style={{ cursor: "pointer" }}
+			onClick={props.openTimerDrawer}
 			sections={[
 				{
 					value:
-						(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+						(dayjsLib(currentTimer.willEndAt).diff(
+							currentTimer.wasPausedAt,
+							"seconds",
+						) *
+							100) /
 						currentTimer.totalTime,
 					color: "blue",
 				},
 			]}
 			label={
 				<Text ta="center" size="xs">
-					{Math.ceil(dayjsLib(currentTimer.endAt).diff(dayjsLib()) / 1000)}
+					{Math.floor(
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
+							1000,
+					)}
 				</Text>
 			}
 		/>
 	);
-};
-
-const getNextSetInWorkout = (
-	currentWorkout: InProgressWorkout,
-	currentExerciseIdx: number,
-	currentSetIdx: number,
-) => {
-	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
-	const partOfSuperset = currentWorkout.supersets.find((superset) =>
-		superset.exercises.includes(currentExercise.identifier),
-	);
-	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
-	if (partOfSuperset) {
-		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
-			currentWorkout.exercises.findIndex((e) => e.identifier === s),
-		);
-		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
-			(e) =>
-				e.identifier !== currentExercise.identifier &&
-				sortedExercises.includes(e.identifier) &&
-				e.sets.some((s) => !s.confirmedAt),
-		);
-		if (nextExerciseWithIncompleteSets) {
-			const exerciseIdx = currentWorkout.exercises.findIndex(
-				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
-			);
-			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
-				(s) => !s.confirmedAt,
-			);
-			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
-		}
-	}
-	if (areAllSetsConfirmed)
-		return {
-			exerciseIdx: currentExerciseIdx + 1,
-			setIdx: 0,
-			wasLastSet: true,
-		};
-	return {
-		exerciseIdx: currentExerciseIdx,
-		setIdx: currentSetIdx + 1,
-		wasLastSet: false,
-	};
 };
 
 const SetDisplay = (props: {
@@ -1649,6 +1755,7 @@ const SetDisplay = (props: {
 	durationCol: boolean;
 	distanceCol: boolean;
 	stopTimer: () => void;
+	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	toBeDisplayedColumns: number;
@@ -1666,17 +1773,14 @@ const SetDisplay = (props: {
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
-	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
+
+	const closeRpeModal = () => setIsRpeModalOpen(false);
 
 	useDidUpdate(() => {
 		if (currentWorkout && isString(value))
@@ -1692,15 +1796,27 @@ const SetDisplay = (props: {
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdx === props.setIdx;
-
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 
 	return (
 		<>
 			<Modal
 				opened={isRpeModalOpen}
-				title="Rate of Perceived Exertion (RPE)"
-				onClose={() => setIsRpeModalOpen(false)}
+				withCloseButton={false}
+				onClose={closeRpeModal}
+				title={
+					<Group justify="space-between" gap="xl">
+						<Text>Rate of Perceived Exertion</Text>
+						<Button
+							variant="outline"
+							size="compact-xs"
+							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
+						>
+							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
+						</Button>
+					</Group>
+				}
 			>
 				<Stack>
 					<Group>
@@ -1720,13 +1836,10 @@ const SetDisplay = (props: {
 								);
 							}}
 						/>
-						<Button
-							variant="transparent"
-							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
-						>
-							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
-						</Button>
 					</Group>
+					<Button fullWidth variant="outline" onClick={closeRpeModal}>
+						Done
+					</Button>
 					<Collapse in={isRpeDetailsOpen}>
 						<Stack gap="xs">
 							<Text size="xs">
@@ -1975,90 +2088,107 @@ const SetDisplay = (props: {
 							duration={200}
 							timingFunction="ease-in-out"
 						>
-							{(style) => (
-								<ActionIcon
-									variant={set.confirmedAt ? "filled" : "outline"}
-									style={style}
-									disabled={
-										!match(exercise.lot)
-											.with(
-												ExerciseLot.DistanceAndDuration,
-												() =>
-													isString(set.statistic.distance) &&
-													isString(set.statistic.duration),
-											)
-											.with(ExerciseLot.Duration, () =>
-												isString(set.statistic.duration),
-											)
-											.with(ExerciseLot.Reps, () =>
-												isString(set.statistic.reps),
-											)
-											.with(
-												ExerciseLot.RepsAndWeight,
-												() =>
-													isString(set.statistic.reps) &&
-													isString(set.statistic.weight),
-											)
-											.exhaustive()
-									}
-									color="green"
-									onClick={() => {
-										playCheckSound();
-										const newConfirmed = !set.confirmedAt;
-										if (
-											!newConfirmed &&
-											currentTimer?.triggeredBy?.exerciseIdentifier ===
-												exercise.identifier &&
-											currentTimer?.triggeredBy?.setIdx === props.setIdx
-										)
-											props.stopTimer();
-										if (set.restTimer && newConfirmed)
+							{(style) =>
+								set.displayRestTimeTrigger ? (
+									<ActionIcon
+										color="blue"
+										style={style}
+										variant="outline"
+										onClick={() => {
+											invariant(set.restTimer);
 											props.startTimer(set.restTimer.duration, {
-												exerciseIdentifier: exercise.identifier,
 												setIdx: props.setIdx,
+												exerciseIdentifier: exercise.identifier,
 											});
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												const currentExercise =
-													draft.exercises[props.exerciseIdx];
-												currentExercise.sets[props.setIdx].confirmedAt =
-													newConfirmed ? dayjsLib().toISOString() : null;
-												currentExercise.scrollMarginRemoved = true;
-												if (newConfirmed) {
-													const nextSet = getNextSetInWorkout(
-														draft,
-														props.exerciseIdx,
-														props.setIdx,
-													);
-													focusOnExercise(nextSet.exerciseIdx);
-													if (nextSet.wasLastSet) {
-														currentExercise.isCollapsed = true;
-														currentExercise.isShowDetailsOpen = false;
-														const nextExercise =
-															draft.exercises[nextSet.exerciseIdx];
-														const nextExerciseHasDetailsToShow =
-															nextExercise &&
-															exerciseHasDetailsToShow(
-																exerciseDetails,
-																userExerciseDetails,
-															);
-														if (nextExerciseHasDetailsToShow) {
-															nextExercise.isCollapsed = false;
-															if (
-																userPreferences.fitness.logging
-																	.showDetailsWhileEditing
-															)
-																nextExercise.isShowDetailsOpen = true;
-														}
-													}
-												}
-											}),
-										);
-									}}
-								>
-									<IconCheck />
-								</ActionIcon>
-							)}
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													const currentExercise =
+														draft.exercises[props.exerciseIdx];
+													const currentSet = currentExercise.sets[props.setIdx];
+													currentSet.displayRestTimeTrigger = false;
+													currentSet.restTimerStartedAt =
+														dayjsLib().toISOString();
+												}),
+											);
+										}}
+									>
+										<IconStopwatch />
+									</ActionIcon>
+								) : (
+									<ActionIcon
+										color="green"
+										style={style}
+										variant={set.confirmedAt ? "filled" : "outline"}
+										disabled={
+											!match(exercise.lot)
+												.with(
+													ExerciseLot.DistanceAndDuration,
+													() =>
+														isString(set.statistic.distance) &&
+														isString(set.statistic.duration),
+												)
+												.with(ExerciseLot.Duration, () =>
+													isString(set.statistic.duration),
+												)
+												.with(ExerciseLot.Reps, () =>
+													isString(set.statistic.reps),
+												)
+												.with(
+													ExerciseLot.RepsAndWeight,
+													() =>
+														isString(set.statistic.reps) &&
+														isString(set.statistic.weight),
+												)
+												.exhaustive()
+										}
+										onClick={async () => {
+											playCheckSound();
+											const newConfirmed = !set.confirmedAt;
+											if (
+												!newConfirmed &&
+												currentTimer?.triggeredBy?.exerciseIdentifier ===
+													exercise.identifier &&
+												currentTimer?.triggeredBy?.setIdx === props.setIdx
+											)
+												props.stopTimer();
+											if (set.restTimer && newConfirmed && !promptForRestTimer)
+												props.startTimer(set.restTimer.duration, {
+													setIdx: props.setIdx,
+													exerciseIdentifier: exercise.identifier,
+												});
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													if (props.isWorkoutPaused)
+														draft.durations.push({
+															from: dayjsLib().toISOString(),
+														});
+													const currentExercise =
+														draft.exercises[props.exerciseIdx];
+													const currentSet = currentExercise.sets[props.setIdx];
+													currentSet.confirmedAt = newConfirmed
+														? dayjsLib().toISOString()
+														: null;
+													currentExercise.scrollMarginRemoved = true;
+													if (
+														newConfirmed &&
+														promptForRestTimer &&
+														set.restTimer
+													)
+														currentSet.displayRestTimeTrigger = true;
+												}),
+											);
+											if (newConfirmed && !promptForRestTimer) {
+												await performTasksAfterSetConfirmed(
+													props.setIdx,
+													props.exerciseIdx,
+												);
+											}
+										}}
+									>
+										<IconCheck />
+									</ActionIcon>
+								)
+							}
 						</Transition>
 					</Group>
 				</Flex>
@@ -2173,7 +2303,8 @@ const DisplaySetRestTimer = (props: {
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}
 			value={
-				(dayjsLib(props.currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
+					100) /
 				props.currentTimer.totalTime
 			}
 		/>
@@ -2193,10 +2324,12 @@ const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
+	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	forceUpdateEverySecond();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
+
+	forceUpdateEverySecond();
 
 	return (
 		<Drawer
@@ -2210,40 +2343,14 @@ const TimerDrawer = (props: {
 			<Stack align="center">
 				{currentTimer ? (
 					<>
-						<RingProgress
-							roundCaps
-							size={300}
-							thickness={8}
-							sections={[
-								{
-									value:
-										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
-											100) /
-										currentTimer.totalTime,
-									color: "orange",
-								},
-							]}
-							label={
-								<>
-									<Text ta="center" fz={64}>
-										{formatTimerDuration(
-											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
-										)}
-									</Text>
-									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{formatTimerDuration(currentTimer.totalTime * 1000)}
-									</Text>
-								</>
-							}
-						/>
-						<Button.Group>
+						<Group gap="xl">
 							<Button
 								color="orange"
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.subtract(30, "seconds")
 													.toISOString();
 												draft.totalTime -= 30;
@@ -2254,18 +2361,23 @@ const TimerDrawer = (props: {
 								size="compact-lg"
 								variant="outline"
 								disabled={
-									dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") <= 30
+									dayjsLib(currentTimer.willEndAt).diff(
+										currentTimer.wasPausedAt,
+										"seconds",
+									) <= 30
 								}
 							>
 								-30 sec
 							</Button>
 							<Button
 								color="orange"
+								size="compact-lg"
+								variant="outline"
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = dayjsLib(draft.endAt)
+												draft.willEndAt = dayjsLib(draft.willEndAt)
 													.add(30, "seconds")
 													.toISOString();
 												draft.totalTime += 30;
@@ -2273,52 +2385,94 @@ const TimerDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-lg"
-								variant="outline"
 							>
 								+30 sec
 							</Button>
+						</Group>
+						<RingProgress
+							roundCaps
+							size={300}
+							thickness={8}
+							sections={[
+								{
+									color: currentTimer.wasPausedAt ? "gray" : "orange",
+									value:
+										(dayjsLib(currentTimer.willEndAt).diff(
+											currentTimer.wasPausedAt,
+											"seconds",
+										) *
+											100) /
+										currentTimer.totalTime,
+								},
+							]}
+							label={
+								<>
+									<Text ta="center" fz={64}>
+										{formatTimerDuration(
+											dayjsLib(currentTimer.willEndAt).diff(
+												currentTimer.wasPausedAt,
+											),
+										)}
+									</Text>
+									<Text ta="center" c="dimmed" fz="lg" mt="-md">
+										{formatTimerDuration(currentTimer.totalTime * 1000)}
+									</Text>
+								</>
+							}
+						/>
+						<Group gap="xl">
 							<Button
 								color="orange"
+								variant="outline"
+								size="compact-lg"
+								onClick={() => {
+									props.pauseOrResumeTimer();
+								}}
+							>
+								{currentTimer.wasPausedAt ? "Resume" : "Pause"}
+							</Button>
+							<Button
+								color="orange"
+								variant="outline"
+								size="compact-lg"
 								onClick={() => {
 									props.onClose();
 									props.stopTimer();
 								}}
-								size="compact-lg"
 							>
 								Skip
 							</Button>
-						</Button.Group>
+						</Group>
 					</>
 				) : (
 					<>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(180)}
 						>
 							3 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(300)}
 						>
 							5 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => props.startTimer(480)}
 						>
 							8 minutes
 						</Button>
 						<Button
-							size="compact-xl"
 							w={160}
+							size="compact-xl"
 							variant="outline"
 							onClick={() => {
 								const input = prompt("Enter duration in seconds");
@@ -2335,15 +2489,6 @@ const TimerDrawer = (props: {
 			</Stack>
 		</Drawer>
 	);
-};
-
-const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
-	return isCompleted
-		? ("complete" as const)
-		: cw.exercises[index].sets.some((s) => s.confirmedAt)
-			? ("in-progress" as const)
-			: ("not-started" as const);
 };
 
 const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
@@ -2371,10 +2516,10 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 
 	return currentWorkout ? (
 		<Drawer
-			onClose={props.onClose}
-			opened={props.opened}
 			size="sm"
 			styles={styles}
+			opened={props.opened}
+			onClose={props.onClose}
 		>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
@@ -2436,9 +2581,9 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 };
 
 const NoteInput = (props: {
-	exerciseIdx: number;
-	noteIdx: number;
 	note: string;
+	noteIdx: number;
+	exerciseIdx: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(props.note, 500);
@@ -2455,12 +2600,12 @@ const NoteInput = (props: {
 	return (
 		<Flex align="center" gap="xs">
 			<Textarea
-				style={{ flexGrow: 1 }}
-				placeholder="Add a note"
+				autosize
 				size="xs"
 				minRows={1}
 				maxRows={4}
-				autosize
+				style={{ flexGrow: 1 }}
+				placeholder="Add a note"
 				defaultValue={props.note}
 				onChange={(e) => setValue(e.currentTarget.value)}
 			/>

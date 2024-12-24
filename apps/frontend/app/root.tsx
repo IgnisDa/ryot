@@ -7,8 +7,11 @@ import {
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
-import "@mantine/charts/styles.css";
 import "@mantine/core/styles.css";
+import "@mantine/code-highlight/styles.css";
+import "@mantine/charts/styles.css";
+import "@mantine/carousel/styles.css";
+import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import {
 	type LinksFunction,
@@ -40,13 +43,10 @@ import {
 const theme = createTheme({
 	fontFamily: "Poppins",
 	components: {
-		ActionIcon: ActionIcon.extend({
-			defaultProps: {
-				variant: "subtle",
-				color: "gray",
-			},
-		}),
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
+		ActionIcon: ActionIcon.extend({
+			defaultProps: { variant: "subtle", color: "gray" },
+		}),
 	},
 	breakpoints: {
 		xs: "30em",
@@ -96,27 +96,12 @@ export const links: LinksFunction = () => {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("cookie") || "",
+		request.headers.get("cookie"),
 	);
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-
 	return data({ toast, defaultColorScheme }, { headers });
-};
-
-const DefaultHeadTags = () => {
-	return (
-		<>
-			<meta charSet="utf-8" />
-			<meta
-				name="viewport"
-				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-			/>
-			<link rel="manifest" href="/manifest.json" />
-			<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
-		</>
-	);
 };
 
 export default function App() {
@@ -126,7 +111,13 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
-				<DefaultHeadTags />
+				<meta charSet="utf-8" />
+				<meta
+					name="viewport"
+					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
+				/>
+				<link rel="manifest" href="/manifest.json" />
+				<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />

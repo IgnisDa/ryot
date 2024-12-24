@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::{Error, Result as GqlResult};
+use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{
@@ -32,7 +32,7 @@ impl IntegrationService {
         &self,
         integration: integration::Model,
         updates: ImportResult,
-    ) -> GqlResult<()> {
+    ) -> Result<()> {
         let mut import = updates;
         import.completed.iter_mut().for_each(|item| {
             if let ImportCompletedItem::Metadata(metadata) = item {
@@ -89,7 +89,7 @@ impl IntegrationService {
         &self,
         integration_slug: String,
         payload: String,
-    ) -> GqlResult<String> {
+    ) -> Result<String> {
         ryot_log!(
             debug,
             "Processing integration webhook for slug: {}",
@@ -128,7 +128,7 @@ impl IntegrationService {
     pub async fn handle_entity_added_to_collection_event(
         &self,
         collection_to_entity_id: Uuid,
-    ) -> GqlResult<()> {
+    ) -> Result<()> {
         let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
             .one(&self.0.db)
             .await?
@@ -210,7 +210,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
+    pub async fn handle_on_seen_complete(&self, id: String) -> Result<()> {
         let (seen, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
@@ -246,7 +246,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<()> {
+    async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
             return Ok(());
@@ -307,7 +307,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data(&self) -> GqlResult<()> {
+    pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
@@ -324,10 +324,10 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn sync_integrations_data_to_owned_collection_for_user(
+    async fn sync_integrations_data_to_owned_collection_for_user(
         &self,
         user_id: &String,
-    ) -> GqlResult<bool> {
+    ) -> Result<bool> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
             return Ok(false);
@@ -383,7 +383,7 @@ impl IntegrationService {
         Ok(true)
     }
 
-    pub async fn sync_integrations_data_to_owned_collection(&self) -> GqlResult<()> {
+    async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::SyncToOwnedCollection.eq(true))
             .select_only()
@@ -402,6 +402,19 @@ impl IntegrationService {
             self.sync_integrations_data_to_owned_collection_for_user(&user_id)
                 .await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
+        self.sync_integrations_data_to_owned_collection_for_user(user_id)
+            .await?;
+        self.yank_integrations_data_for_user(user_id).await?;
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> Result<()> {
+        self.yank_integrations_data().await?;
+        self.sync_integrations_data_to_owned_collection().await?;
         Ok(())
     }
 }

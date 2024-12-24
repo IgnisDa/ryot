@@ -1,10 +1,11 @@
 [build.env]
 passthrough = [
     "APP_VERSION",
-    "DEFAULT_TMDB_ACCESS_TOKEN",
-    "DEFAULT_MAL_CLIENT_ID",
-    "TRAKT_CLIENT_ID",
+    "APP_COMMIT_SHA",
     "UNKEY_API_ID",
+    "TRAKT_CLIENT_ID",
+    "DEFAULT_MAL_CLIENT_ID",
+    "DEFAULT_TMDB_ACCESS_TOKEN",
 ]
 
 [build]

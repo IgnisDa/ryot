@@ -14,7 +14,7 @@ use media_models::{
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://itunes.apple.com";
 
@@ -89,7 +89,7 @@ impl MediaProvider for ITunesService {
             .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Artist".to_owned(),
-                image: None,
+                ..Default::default()
             })
             .collect();
         let genres = ht

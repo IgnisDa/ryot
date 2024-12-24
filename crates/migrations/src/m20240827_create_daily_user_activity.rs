@@ -158,6 +158,7 @@ pub async fn create_daily_user_activity_table(manager: &SchemaManager<'_>) -> Re
             Index::create()
                 .name(DAILY_USER_ACTIVITY_COMPOSITE_UNIQUE_KEY)
                 .unique()
+                .nulls_not_distinct()
                 .table(DailyUserActivity::Table)
                 .col(DailyUserActivity::UserId)
                 .col(DailyUserActivity::Date)

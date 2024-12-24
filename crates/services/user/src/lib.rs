@@ -589,12 +589,16 @@ impl UserService {
                                 },
                             },
                             "logging" => match right {
+                                "mute_sounds" => {
+                                    preferences.fitness.logging.mute_sounds = value_bool.unwrap();
+                                }
+                                "prompt_for_rest_timer" => {
+                                    preferences.fitness.logging.prompt_for_rest_timer =
+                                        value_bool.unwrap();
+                                }
                                 "show_details_while_editing" => {
                                     preferences.fitness.logging.show_details_while_editing =
                                         value_bool.unwrap();
-                                }
-                                "mute_sounds" => {
-                                    preferences.fitness.logging.mute_sounds = value_bool.unwrap();
                                 }
                                 _ => return Err(err()),
                             },

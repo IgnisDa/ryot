@@ -4,7 +4,6 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 use anyhow::{bail, Result};
@@ -17,7 +16,6 @@ use aws_sdk_s3::config::Region;
 use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
-use job::perform_lp_application_job;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
@@ -26,15 +24,15 @@ use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
     net::TcpListener,
-    time::{sleep, Duration as TokioDuration},
+    time::{sleep, Duration},
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 use crate::{
     common::create_app_services,
     job::{
-        perform_hp_application_job, perform_mp_application_job, run_background_jobs,
-        run_frequent_jobs,
+        perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
+        run_background_jobs, run_frequent_jobs,
     },
 };
 
@@ -42,19 +40,20 @@ mod common;
 mod job;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+static LOGGING_ENV_VAR: &str = "RUST_LOG";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    match env::var("RUST_LOG").ok() {
+    match env::var(LOGGING_ENV_VAR).ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                env::set_var("RUST_LOG", format!("{},sea_orm=info", v));
+                env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v));
             }
         }
-        None => env::set_var("RUST_LOG", "ryot=info,sea_orm=info"),
+        None => env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info"),
     }
     init_tracing()?;
 
@@ -62,7 +61,7 @@ async fn main() -> Result<()> {
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
-        let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
+        let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
@@ -116,7 +115,7 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    let app_services = create_app_services(
+    let (app_router, app_services) = create_app_services(
         db,
         tz,
         s3_client,
@@ -169,7 +168,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("daily_background_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(app_services.miscellaneous_service.clone())
+                .data(app_services.clone())
                 .backend(
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
@@ -180,8 +179,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("frequent_jobs")
                 .enable_tracing()
                 .catch_panic()
-                .data(app_services.integration_service.clone())
-                .data(app_services.fitness_service.clone())
+                .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
                     Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
                     tz,
@@ -193,9 +191,7 @@ async fn main() -> Result<()> {
             WorkerBuilder::new("perform_hp_application_job")
                 .catch_panic()
                 .enable_tracing()
-                .data(app_services.statistics_service.clone())
-                .data(app_services.integration_service.clone())
-                .data(app_services.miscellaneous_service.clone())
+                .data(app_services.clone())
                 .backend(hp_application_job_storage)
                 .build_fn(perform_hp_application_job),
         )
@@ -205,11 +201,7 @@ async fn main() -> Result<()> {
                 .enable_tracing()
                 .rate_limit(5, Duration::new(5, 0))
                 .retry(RetryPolicy::retries(3))
-                .data(app_services.fitness_service.clone())
-                .data(app_services.exporter_service.clone())
-                .data(app_services.importer_service.clone())
-                .data(app_services.integration_service.clone())
-                .data(app_services.miscellaneous_service.clone())
+                .data(app_services.clone())
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),
         )
@@ -218,14 +210,13 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(20, Duration::new(5, 0))
-                .data(app_services.integration_service)
-                .data(app_services.miscellaneous_service)
+                .data(app_services)
                 .backend(lp_application_job_storage)
                 .build_fn(perform_lp_application_job),
         )
         .run();
 
-    let http = axum::serve(listener, app_services.app_router.into_make_service());
+    let http = axum::serve(listener, app_router.into_make_service());
 
     if disable_background_jobs {
         let _ = join!(http);

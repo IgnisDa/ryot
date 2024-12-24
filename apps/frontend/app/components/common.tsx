@@ -1,6 +1,5 @@
-import { Carousel } from "@mantine/carousel";
-import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Alert,

@@ -108,8 +108,6 @@ pub async fn import(
         );
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                started_on: None,
-                ended_on: None,
                 provider_watched_on: Some(ImportSource::Storygraph.to_string()),
                 ..Default::default()
             };
@@ -129,25 +127,24 @@ pub async fn import(
             collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
         }
         media.push(ImportOrExportMetadataItem {
-            source_id: record.title.clone(),
             lot,
             source,
             identifier,
+            collections,
             seen_history,
+            source_id: record.title.clone(),
             reviews: vec![ImportOrExportItemRating {
                 rating: record
                     .rating
                     // DEV: Rates items out of 10
                     .map(|d| d.saturating_mul(dec!(10))),
                 review: record.review.map(|r| ImportOrExportItemReview {
-                    date: None,
-                    spoiler: Some(false),
                     text: Some(r),
-                    visibility: None,
+                    spoiler: Some(false),
+                    ..Default::default()
                 }),
                 ..Default::default()
             }],
-            collections,
         })
     }
     Ok(ImportResult {

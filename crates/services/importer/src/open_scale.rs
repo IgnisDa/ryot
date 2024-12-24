@@ -52,10 +52,10 @@ pub async fn import(
             Ok(r) => r,
             Err(e) => {
                 failed.push(ImportFailedItem {
-                    lot: None,
-                    step: ImportFailStep::InputTransformation,
-                    identifier: idx.to_string(),
                     error: Some(e.to_string()),
+                    identifier: idx.to_string(),
+                    step: ImportFailStep::InputTransformation,
+                    ..Default::default()
                 });
                 continue;
             }
@@ -65,8 +65,6 @@ pub async fn import(
         let timestamp = utils::get_date_time_with_offset(ndt, timezone);
         completed.push(ImportCompletedItem::Measurement(user_measurement::Model {
             timestamp,
-            user_id: "".to_string(),
-            name: None,
             comment: record.comment,
             stats: UserMeasurementStats {
                 weight: record.weight,
@@ -88,6 +86,7 @@ pub async fn import(
                 total_body_water: record.water,
                 ..Default::default()
             },
+            ..Default::default()
         }));
     }
     Ok(ImportResult { failed, completed })

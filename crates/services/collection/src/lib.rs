@@ -269,10 +269,7 @@ impl CollectionService {
                 items,
             }
         } else {
-            SearchResults {
-                details: SearchDetails::default(),
-                items: vec![],
-            }
+            SearchResults::default()
         };
         let user = collection
             .find_related(User)

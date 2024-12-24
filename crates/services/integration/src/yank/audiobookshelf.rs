@@ -2,7 +2,6 @@ use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
-use async_graphql::Result as GqlResult;
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
@@ -37,7 +36,7 @@ pub async fn yank_progress<F>(
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = GqlResult<StringIdObject>>,
+    F: Future<Output = async_graphql::Result<StringIdObject>>,
 {
     let url = format!("{}/api", base_url);
     let client = get_http_client(&access_token);
