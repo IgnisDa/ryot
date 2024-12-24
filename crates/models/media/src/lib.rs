@@ -18,7 +18,7 @@ use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResu
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
     pub entity_id: String,
     pub entity_lot: EntityLot,
@@ -362,7 +362,7 @@ pub struct CreateOrUpdateReviewInput {
     pub manga_volume_number: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
     pub date: Option<NaiveDate>,
@@ -397,7 +397,7 @@ pub enum ProgressUpdateResultUnion {
     Error(ProgressUpdateError),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
 pub struct PartialMetadataPerson {
     pub name: String,
     pub role: String,
@@ -408,14 +408,14 @@ pub struct PartialMetadataPerson {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPersonRelated {
     pub role: String,
     pub character: Option<String>,
     pub metadata: PartialMetadataWithoutId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPerson {
     pub name: String,
     pub identifier: String,
@@ -689,16 +689,16 @@ pub struct ImportOrExportItemReviewComment {
 }
 
 #[derive(
+    Eq,
+    Hash,
     Clone,
     Debug,
+    Default,
     PartialEq,
-    FromJsonQueryResult,
-    Eq,
     Serialize,
     Deserialize,
     SimpleObject,
-    Default,
-    Hash,
+    FromJsonQueryResult,
 )]
 pub struct MetadataFreeCreator {
     pub name: String,
@@ -763,17 +763,17 @@ pub struct ReviewPostedEvent {
 #[boilermates("PartialMetadataWithoutId")]
 #[boilermates(attr_for(
     "PartialMetadataWithoutId",
-    "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
+    "#[derive(Clone, Default, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
 ))]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
 pub struct PartialMetadata {
     #[boilermates(not_in("PartialMetadataWithoutId"))]
     pub id: String,
-    pub identifier: String,
-    pub title: String,
-    pub image: Option<String>,
     pub lot: MediaLot,
+    pub title: String,
+    pub identifier: String,
     pub source: MediaSource,
+    pub image: Option<String>,
     pub is_recommendation: Option<bool>,
 }
 
@@ -1180,7 +1180,7 @@ pub struct CollectionItem {
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
     pub name: String,
     pub id: Option<String>,

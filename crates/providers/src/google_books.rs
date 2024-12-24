@@ -17,7 +17,7 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 
@@ -191,14 +191,14 @@ impl GoogleBooksService {
             .map(|a| MetadataFreeCreator {
                 name: a,
                 role: "Author".to_owned(),
-                image: None,
+                ..Default::default()
             })
             .collect_vec();
         if let Some(p) = item.publisher {
             creators.push(MetadataFreeCreator {
                 name: p,
                 role: "Publisher".to_owned(),
-                image: None,
+                ..Default::default()
             });
         }
         let mut genres = item
@@ -216,15 +216,14 @@ impl GoogleBooksService {
             title: item.title.clone(),
             description: item.description,
             source: MediaSource::GoogleBooks,
-            creators: creators.into_iter().unique().collect(),
+            provider_rating: item.average_rating,
+            url_images: images.unique().collect(),
             genres: genres.into_iter().unique().collect(),
+            creators: creators.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
-            publish_date: None,
             book_specifics: Some(BookSpecifics {
                 pages: item.page_count,
             }),
-            url_images: images.unique().collect(),
-            provider_rating: item.average_rating,
             source_url: Some(format!(
                 "https://www.google.co.in/books/edition/{}/{}",
                 item.title, id

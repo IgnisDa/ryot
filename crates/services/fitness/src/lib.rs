@@ -109,15 +109,14 @@ impl FitnessService {
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
             summary.exercises.push(WorkoutSummaryExercise {
-                id: exercise.exercise_id.clone(),
-                best_set: None,
-                lot: None,
                 num_sets: exercise.sets.len(),
+                id: exercise.exercise_id.clone(),
+                ..Default::default()
             });
             information.exercises.push(ProcessedExercise {
-                total: None,
-                assets: None,
                 lot: db_ex.lot,
+                notes: exercise.notes,
+                id: exercise.exercise_id,
                 sets: exercise
                     .sets
                     .into_iter()
@@ -125,16 +124,13 @@ impl FitnessService {
                         lot: s.lot,
                         rpe: s.rpe,
                         note: s.note,
-                        totals: None,
-                        confirmed_at: None,
-                        personal_bests: None,
                         rest_time: s.rest_time,
                         statistic: s.statistic,
                         rest_timer_started_at: s.rest_timer_started_at,
+                        ..Default::default()
                     })
                     .collect(),
-                notes: exercise.notes,
-                id: exercise.exercise_id,
+                ..Default::default()
             });
         }
         let processed_exercises = information.exercises.clone();
@@ -236,10 +232,9 @@ impl FitnessService {
         let reviews =
             item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, &self.0).await?;
         let mut resp = UserExerciseDetails {
-            details: None,
-            history: None,
             collections,
             reviews,
+            ..Default::default()
         };
         if let Some(association) = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -442,7 +437,7 @@ impl FitnessService {
                 .into_iter()
                 .map(StoredUrl::Url)
                 .collect(),
-            images: vec![],
+            ..Default::default()
         };
         let mut muscles = ex.attributes.primary_muscles;
         muscles.extend(ex.attributes.secondary_muscles);

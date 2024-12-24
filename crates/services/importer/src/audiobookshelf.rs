@@ -84,20 +84,20 @@ where
                         Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
                         _ => {
                             failed.push(ImportFailedItem {
-                                error: Some("No Google Books ID found".to_string()),
                                 identifier: title,
-                                lot: None,
                                 step: ImportFailStep::InputTransformation,
+                                error: Some("No Google Books ID found".to_string()),
+                                ..Default::default()
                             });
                             continue;
                         }
                     },
                     _ => {
                         failed.push(ImportFailedItem {
-                            error: Some("No ISBN found".to_string()),
                             identifier: title,
-                            lot: None,
+                            error: Some("No ISBN found".to_string()),
                             step: ImportFailStep::InputTransformation,
+                            ..Default::default()
                         });
                         continue;
                     }

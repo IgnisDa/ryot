@@ -73,9 +73,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 MediaLot::Movie => {
                     success_items.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
                         lot,
-                        reviews: vec![],
                         source_id: item.key,
-                        collections: vec![],
                         source: MediaSource::Tmdb,
                         identifier: tmdb_id.to_string(),
                         seen_history: vec![ImportOrExportMetadataItemSeen {
@@ -83,6 +81,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             provider_watched_on: Some(ImportSource::Plex.to_string()),
                             ..Default::default()
                         }],
+                        ..Default::default()
                     }));
                 }
                 MediaLot::Show => {
@@ -98,12 +97,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         .await?;
                     let mut item = ImportOrExportMetadataItem {
                         lot,
-                        reviews: vec![],
-                        collections: vec![],
-                        seen_history: vec![],
                         source: MediaSource::Tmdb,
                         source_id: item.key.clone(),
                         identifier: tmdb_id.to_string(),
+                        ..Default::default()
                     };
                     for leaf in leaves.media_container.metadata {
                         if leaf.last_viewed_at.is_some() {

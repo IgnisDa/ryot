@@ -110,16 +110,15 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         };
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
         let seen_item = ImportOrExportMetadataItemSeen {
-            started_on: None,
             ended_on: watched_at.map(|d| d.date_naive()),
             provider_watched_on: Some(ImportSource::Movary.to_string()),
             ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {
-            spoiler: Some(false),
             text: Some(c),
             date: watched_at,
-            visibility: None,
+            spoiler: Some(false),
+            ..Default::default()
         });
         if let Some(media) = media
             .iter_mut()

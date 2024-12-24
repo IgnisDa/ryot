@@ -82,7 +82,6 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
         })
         .collect_vec();
     let review_item = ImportOrExportItemRating {
-        review: None,
         rating: if item.my_score == 0 {
             None
         } else {

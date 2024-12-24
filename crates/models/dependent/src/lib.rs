@@ -100,12 +100,12 @@ pub struct UserWorkoutDetails {
     pub collections: Vec<collection::Model>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserExerciseDetails {
+    pub reviews: Vec<ReviewItem>,
+    pub collections: Vec<collection::Model>,
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
-    pub collections: Vec<collection::Model>,
-    pub reviews: Vec<ReviewItem>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

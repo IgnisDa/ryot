@@ -258,7 +258,10 @@ export interface WorkoutSetTotals {
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
 	confirmed_at: string | null;
-	/** @type {'normal' | 'warm_up' | 'drop' | 'failure'} */
+	/**
+	 * @default 'normal'
+	 * @type {'normal' | 'warm_up' | 'drop' | 'failure'}
+	 */
 	lot: SetLot;
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;

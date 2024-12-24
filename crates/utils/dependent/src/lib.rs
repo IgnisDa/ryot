@@ -1717,8 +1717,8 @@ pub async fn create_or_update_user_workout(
                 .signed_duration_since(input.start_time)
                 .num_seconds(),
             vec![WorkoutDuration {
-                to: None,
                 from: input.start_time,
+                ..Default::default()
             }],
         ),
     };
@@ -1771,10 +1771,10 @@ pub async fn create_or_update_user_workout(
             .ok()
             .flatten();
         let history_item = UserToExerciseHistoryExtraInformation {
-            best_set: None,
             idx: exercise_idx,
             workout_end_on: end_time,
             workout_id: new_workout_id.clone(),
+            ..Default::default()
         };
         let asc = match association {
             Some(e) => e,
@@ -2155,7 +2155,6 @@ where
                         respect_cache,
                         ProgressUpdateInput {
                             progress,
-                            change_state: None,
                             date: seen.ended_on,
                             start_date: seen.started_on,
                             metadata_id: db_metadata.id.clone(),
@@ -2166,6 +2165,7 @@ where
                             manga_chapter_number: seen.manga_chapter_number,
                             podcast_episode_number: seen.podcast_episode_number,
                             provider_watched_on: seen.provider_watched_on.clone(),
+                            ..Default::default()
                         },
                         ss,
                     )
@@ -2282,10 +2282,10 @@ where
                     Ok(p) => p,
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
-                            lot: None,
                             error: Some(e.message),
                             identifier: person.identifier.clone(),
                             step: ImportFailStep::MediaDetailsFromProvider,
+                            ..Default::default()
                         });
                         continue;
                     }
@@ -2300,10 +2300,10 @@ where
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
-                                lot: None,
-                                step: ImportFailStep::ReviewConversion,
-                                identifier: person.name.to_owned(),
                                 error: Some(e.message),
+                                identifier: person.name.to_owned(),
+                                step: ImportFailStep::ReviewConversion,
+                                ..Default::default()
                             });
                         };
                     }
@@ -2323,10 +2323,10 @@ where
                 need_to_schedule_user_for_workout_revision = true;
                 if let Err(err) = create_or_update_user_workout(workout, user_id, ss).await {
                     import.failed.push(ImportFailedItem {
-                        lot: None,
                         error: Some(err.message),
                         identifier: "Exercise".to_string(),
                         step: ImportFailStep::InputTransformation,
+                        ..Default::default()
                     });
                 }
             }
@@ -2335,10 +2335,10 @@ where
                 match create_or_update_user_workout(workout_input, user_id, ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
-                            lot: None,
                             error: Some(err.message),
                             identifier: "Exercise".to_string(),
                             step: ImportFailStep::InputTransformation,
+                            ..Default::default()
                         });
                     }
                     Ok(workout_id) => {
@@ -2358,10 +2358,10 @@ where
             ImportCompletedItem::Measurement(measurement) => {
                 if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
                     import.failed.push(ImportFailedItem {
-                        lot: None,
                         error: Some(err.message),
                         identifier: "Measurement".to_string(),
                         step: ImportFailStep::InputTransformation,
+                        ..Default::default()
                     });
                 }
             }
@@ -2405,9 +2405,7 @@ where
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
-        update_workout_id: None,
         end_time: user_workout.end_time,
-        update_workout_template_id: None,
         start_time: user_workout.start_time,
         template_id: user_workout.template_id,
         assets: user_workout.information.assets,
@@ -2439,6 +2437,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                 assets: e.assets,
             })
             .collect(),
+        ..Default::default()
     }
 }
 

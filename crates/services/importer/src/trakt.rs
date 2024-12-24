@@ -21,7 +21,7 @@ use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct Id {
     trakt: u64,
     tmdb: Option<u64>,
@@ -45,11 +45,11 @@ struct ListItemResponse {
     rating: Option<Decimal>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 struct ListResponse {
+    ids: Id,
     name: String,
     description: Option<String>,
-    ids: Id,
     #[serde(default)]
     items: Vec<ListItemResponse>,
 }
@@ -90,13 +90,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             .unwrap();
         let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
         lists.push(ListResponse {
-            name: list.to_owned(),
-            description: None,
-            ids: Id {
-                trakt: 0,
-                tmdb: None,
-            },
             items,
+            name: list.to_owned(),
+            ..Default::default()
         });
     }
 
@@ -128,10 +124,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                             // DEV: Rates items out of 10
                             .map(|e| e * dec!(10)),
                         review: Some(ImportOrExportItemReview {
-                            spoiler: Some(false),
-                            text: None,
                             date: item.rated_at,
-                            visibility: None,
+                            spoiler: Some(false),
+                            ..Default::default()
                         }),
                         ..Default::default()
                     });
@@ -240,10 +235,9 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
         (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
         return Err(ImportFailedItem {
-            lot: None,
             step: ImportFailStep::ItemDetailsFromSource,
-            identifier: "".to_owned(),
             error: Some("Item is neither a movie or a show".to_owned()),
+            ..Default::default()
         });
     };
     match identifier {
@@ -255,10 +249,9 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
             ..Default::default()
         }),
         None => Err(ImportFailedItem {
-            lot: None,
-            identifier: "".to_owned(),
             step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item does not have an associated TMDB id".to_owned()),
+            ..Default::default()
         }),
     }
 }

@@ -91,7 +91,6 @@ pub async fn import(
                 ExerciseLot::Reps
             } else {
                 failed.push(ImportFailedItem {
-                    lot: None,
                     step: ImportFailStep::InputTransformation,
                     identifier: format!(
                         "Workout #{:#?}, Set #{}",
@@ -101,6 +100,7 @@ pub async fn import(
                         "Could not determine exercise lot: {}",
                         serde_json::to_string(&valid_ex).unwrap()
                     )),
+                    ..Default::default()
                 });
                 continue;
             };
@@ -122,12 +122,8 @@ pub async fn import(
                     _ => SetLot::Normal,
                 };
                 collected_sets.push(UserWorkoutSetRecord {
-                    note: None,
                     lot: set_lot,
                     rpe: set.rpe,
-                    rest_time: None,
-                    confirmed_at: None,
-                    rest_timer_started_at: None,
                     statistic: WorkoutSetStatistic {
                         weight,
                         reps: set.reps,
@@ -135,17 +131,18 @@ pub async fn import(
                         distance: set.distance.and_then(|d| d.checked_div(dec!(1000))),
                         ..Default::default()
                     },
+                    ..Default::default()
                 });
             }
             collected_exercises.push(UserExerciseInput {
                 exercise_id,
-                assets: None,
                 sets: collected_sets,
                 notes: first_exercise
                     .exercise_notes
                     .clone()
                     .map(|n| vec![n])
                     .unwrap_or_default(),
+                ..Default::default()
             });
         }
         let start_time = parse_date_string(&first_exercise.start_time);

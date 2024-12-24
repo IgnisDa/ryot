@@ -47,39 +47,41 @@ pub enum StoredUrl {
 
 #[derive(Debug, InputObject)]
 pub struct UpdateComplexJsonInput {
+    pub value: String,
     /// Dot delimited path to the property that needs to be changed.
     pub property: String,
-    pub value: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
-    String,
-    Number,
     Date,
+    Number,
+    #[default]
+    String,
     DateTime,
     StringArray,
 }
 
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
     Clone,
+    Debug,
+    Default,
+    PartialEq,
     Serialize,
+    Schematic,
     Deserialize,
     SimpleObject,
-    FromJsonQueryResult,
     InputObject,
-    Schematic,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,
     pub description: String,
-    pub lot: CollectionExtraInformationLot,
-    pub default_value: Option<String>,
     pub required: Option<bool>,
+    pub default_value: Option<String>,
+    pub lot: CollectionExtraInformationLot,
 }
 
 #[derive(Display, EnumIter)]
@@ -105,10 +107,9 @@ meta! {
         vec![
             CollectionExtraInformation {
                 name: "Owned on".to_string(),
-                description: "When did you get this media?".to_string(),
                 lot: CollectionExtraInformationLot::Date,
-                default_value: None,
-                required: None,
+                description: "When did you get this media?".to_string(),
+                ..Default::default()
             }
         ]
     ), "Items that I have in my inventory.");
@@ -116,17 +117,17 @@ meta! {
         vec![
             CollectionExtraInformation {
                 name: "Reminder".to_string(),
-                description: "When do you want to be reminded?".to_string(),
-                lot: CollectionExtraInformationLot::Date,
-                default_value: None,
                 required: Some(true),
+                lot: CollectionExtraInformationLot::Date,
+                description: "When do you want to be reminded?".to_string(),
+                ..Default::default()
             },
             CollectionExtraInformation {
                 name: "Text".to_string(),
-                description: "What do you want to be reminded about?".to_string(),
-                lot: CollectionExtraInformationLot::String,
-                default_value: None,
                 required: Some(true),
+                lot: CollectionExtraInformationLot::String,
+                description: "What do you want to be reminded about?".to_string(),
+                ..Default::default()
             }
         ]
     ), "Items that I want to be reminded about.");
@@ -184,16 +185,16 @@ pub struct ChangeCollectionToEntityInput {
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
 pub enum MediaStateChanged {
-    MetadataPublished,
-    MetadataStatusChanged,
-    MetadataReleaseDateChanged,
-    MetadataNumberOfSeasonsChanged,
-    MetadataEpisodeReleased,
-    MetadataEpisodeNameChanged,
-    MetadataChaptersOrEpisodesChanged,
-    MetadataEpisodeImagesChanged,
-    PersonMediaAssociated,
     ReviewPosted,
+    MetadataPublished,
+    PersonMediaAssociated,
+    MetadataStatusChanged,
+    MetadataEpisodeReleased,
+    MetadataReleaseDateChanged,
+    MetadataEpisodeNameChanged,
+    MetadataEpisodeImagesChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataChaptersOrEpisodesChanged,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -239,8 +240,8 @@ pub struct ApplicationDateRange {
 #[strum(serialize_all = "snake_case")]
 pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
-    Month,
     Year,
+    Month,
     Millennium,
 }
 
@@ -260,18 +261,18 @@ pub struct MetadataGroupSearchInput {
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
+    Hash,
+    Clone,
     Debug,
+    Default,
+    Schematic,
+    PartialEq,
     Serialize,
     Deserialize,
     InputObject,
-    Clone,
     SimpleObject,
     FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    Hash,
-    Default,
-    Schematic,
 )]
 #[graphql(input_name = "PersonSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
@@ -289,8 +290,8 @@ pub struct PeopleSearchInput {
 
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataSearchInput {
-    pub search: SearchInput,
     pub lot: MediaLot,
+    pub search: SearchInput,
     pub source: MediaSource,
 }
 

@@ -307,10 +307,9 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(free_creators) = &meta.free_creators {
             for cr in free_creators.clone() {
                 let creator = MetadataCreator {
-                    id: None,
                     name: cr.name,
                     image: cr.image,
-                    character: None,
+                    ..Default::default()
                 };
                 creators
                     .entry(cr.role)
@@ -1696,7 +1695,7 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|c| MetadataFreeCreator {
                 name: c,
                 role: "Creator".to_string(),
-                image: None,
+                ..Default::default()
             })
             .collect_vec();
         let is_partial = match input.lot {
