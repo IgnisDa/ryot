@@ -1812,8 +1812,9 @@ ORDER BY RANDOM() LIMIT 10;
                 self.0.file_storage_service.delete_object(key).await;
             }
         }
-        let new_metadata =
+        let mut new_metadata =
             self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
+        new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
         let metadata = new_metadata.update(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
