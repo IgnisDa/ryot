@@ -1789,6 +1789,11 @@ ORDER BY RANDOM() LIMIT 10;
             .one(&self.0.db)
             .await?
             .unwrap();
+        if metadata.source != MediaSource::Custom {
+            return Err(Error::new(
+                "This metadata is not custom and cannot be updated",
+            ));
+        }
         if metadata.created_by_user_id != Some(user_id.to_owned()) {
             return Err(Error::new("You are not authorized to update this metadata"));
         }
