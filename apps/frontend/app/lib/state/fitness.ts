@@ -285,8 +285,8 @@ export const duplicateOldWorkout = async (
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	userFitnessPreferences: UserFitnessPreferences,
 	params: {
-		repeatedFromId?: string;
 		templateId?: string;
+		repeatedFromId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
 	},
