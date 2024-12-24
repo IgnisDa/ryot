@@ -62,6 +62,10 @@ mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
 	}
 }
 
+mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
+	updateCustomMetadata(input: $input)
+}
+
 mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
 	createOrUpdateCollection(input: $input) {
 		id

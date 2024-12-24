@@ -1,3 +1,4 @@
+// FIXME: Rename this to m20230404_create_user in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
