@@ -1,9 +1,11 @@
 import {
+	ActionIcon,
 	Alert,
 	Box,
 	Center,
 	Container,
 	Flex,
+	Group,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -11,8 +13,12 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -20,6 +26,7 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
+	RefreshUserRecommendationsKeyDocument,
 	UserAnalyticsDocument,
 	type UserPreferences,
 	UserRecommendationsDocument,
@@ -27,6 +34,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	formatQuantityWithCompactNotation,
+	getActionIntent,
 	humanizeDuration,
 	isNumber,
 } from "@ryot/ts-utils";
@@ -34,6 +42,7 @@ import {
 	IconBarbell,
 	IconFriends,
 	IconInfoCircle,
+	IconRotateClockwise,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
@@ -43,13 +52,21 @@ import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import { MetadataDisplayItem } from "~/components/media";
-import { MediaColors, dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import {
+	MediaColors,
+	dayjsLib,
+	getLot,
+	getMetadataIcon,
+	openConfirmationModal,
+} from "~/lib/generals";
+import {
+	useConfirmSubmit,
 	useCoreDetails,
 	useGetMantineColors,
 	useUserPreferences,
@@ -130,15 +147,30 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("refreshUserRecommendationsKey", async () => {
+			await serverGqlService.authenticatedRequest(
+				request,
+				RefreshUserRecommendationsKeyDocument,
+				{},
+			);
+			return {};
+		})
+		.run();
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
-	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
+	const submit = useConfirmSubmit();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
+	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${CryptoJS.SHA256(dashboardMessage)}`,
@@ -197,7 +229,30 @@ export default function Page() {
 						)
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<Title>Recommendations</Title>
+								<Group justify="space-between">
+									<Title order={2}>Recommendations</Title>
+									<Form
+										method="POST"
+										action={withQuery(".?index", {
+											intent: "refreshUserRecommendationsKey",
+										})}
+									>
+										<ActionIcon
+											type="submit"
+											variant="subtle"
+											onClick={(e) => {
+												const form = e.currentTarget.form;
+												e.preventDefault();
+												openConfirmationModal(
+													"Are you sure you want to refresh the recommendations?",
+													() => submit(form),
+												);
+											}}
+										>
+											<IconRotateClockwise />
+										</ActionIcon>
+									</Form>
+								</Group>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
 										{loaderData.userRecommendations.map((lm) => (
