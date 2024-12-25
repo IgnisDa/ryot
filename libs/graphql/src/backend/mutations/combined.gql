@@ -262,3 +262,7 @@ mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
 mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
+
+mutation RefreshUserRecommendationsKey {
+	refreshUserRecommendationsKey
+}

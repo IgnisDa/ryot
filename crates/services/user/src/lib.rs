@@ -4,7 +4,7 @@ use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::{Timelike, Utc};
-use common_models::{DefaultCollection, StringIdObject};
+use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
@@ -15,7 +15,7 @@ use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
-use dependent_models::UserDetailsResult;
+use dependent_models::{ApplicationCacheValue, UserDetailsResult, UserRecommendationsKey};
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
@@ -81,6 +81,23 @@ impl UserService {
             .map(|r| r.id)
             .collect_vec();
         Ok(recs)
+    }
+
+    pub async fn refresh_user_recommendations_key(&self, user_id: &String) -> Result<bool> {
+        let key = nanoid!(12);
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::UserRecommendationsKey(UserLevelCacheKey {
+                    input: (),
+                    user_id: user_id.to_owned(),
+                }),
+                ApplicationCacheValue::UserRecommendationsKey(UserRecommendationsKey {
+                    recommendations_key: key,
+                }),
+            )
+            .await?;
+        Ok(true)
     }
 
     pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
