@@ -1529,7 +1529,7 @@ export type MutationRootUpdateUserNotificationPlatformArgs = {
 
 
 export type MutationRootUpdateUserPreferenceArgs = {
-  input: UpdateComplexJsonInput;
+  input: UserPreferencesInput;
 };
 
 
@@ -2187,12 +2187,6 @@ export type UniqueMediaIdentifier = {
   source: MediaSource;
 };
 
-export type UpdateComplexJsonInput = {
-  /** Dot delimited path to the property that needs to be changed. */
-  property: Scalars['String']['input'];
-  value: Scalars['String']['input'];
-};
-
 export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
@@ -2273,6 +2267,10 @@ export type UserAnalyticsFeaturesEnabledPreferences = {
   enabled: Scalars['Boolean']['output'];
 };
 
+export type UserAnalyticsFeaturesEnabledPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+};
+
 export type UserAnalyticsInput = {
   dateRange: ApplicationDateRangeInput;
   groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
@@ -2291,6 +2289,11 @@ export type UserCustomMeasurement = {
 export enum UserCustomMeasurementDataType {
   Decimal = 'DECIMAL'
 }
+
+export type UserCustomMeasurementInput = {
+  dataType: UserCustomMeasurementDataType;
+  name: Scalars['String']['input'];
+};
 
 export type UserDetailsError = {
   error: UserDetailsErrorVariant;
@@ -2323,6 +2326,13 @@ export type UserFeaturesEnabledPreferences = {
   others: UserOthersFeaturesEnabledPreferences;
 };
 
+export type UserFeaturesEnabledPreferencesInput = {
+  analytics: UserAnalyticsFeaturesEnabledPreferencesInput;
+  fitness: UserFitnessFeaturesEnabledPreferencesInput;
+  media: UserMediaFeaturesEnabledPreferencesInput;
+  others: UserOthersFeaturesEnabledPreferencesInput;
+};
+
 export type UserFitnessAnalytics = {
   measurementCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
@@ -2342,11 +2352,23 @@ export type UserFitnessExercisesPreferences = {
   unitSystem: UserUnitSystem;
 };
 
+export type UserFitnessExercisesPreferencesInput = {
+  setRestTimers: SetRestTimersSettingsInput;
+  unitSystem: UserUnitSystem;
+};
+
 export type UserFitnessFeaturesEnabledPreferences = {
   enabled: Scalars['Boolean']['output'];
   measurements: Scalars['Boolean']['output'];
   templates: Scalars['Boolean']['output'];
   workouts: Scalars['Boolean']['output'];
+};
+
+export type UserFitnessFeaturesEnabledPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+  measurements: Scalars['Boolean']['input'];
+  templates: Scalars['Boolean']['input'];
+  workouts: Scalars['Boolean']['input'];
 };
 
 export type UserFitnessLoggingPreferences = {
@@ -2355,9 +2377,20 @@ export type UserFitnessLoggingPreferences = {
   showDetailsWhileEditing: Scalars['Boolean']['output'];
 };
 
+export type UserFitnessLoggingPreferencesInput = {
+  muteSounds: Scalars['Boolean']['input'];
+  promptForRestTimer: Scalars['Boolean']['input'];
+  showDetailsWhileEditing: Scalars['Boolean']['input'];
+};
+
 export type UserFitnessMeasurementsPreferences = {
   custom: Array<UserCustomMeasurement>;
   inbuilt: UserMeasurementsInBuiltPreferences;
+};
+
+export type UserFitnessMeasurementsPreferencesInput = {
+  custom: Array<UserCustomMeasurementInput>;
+  inbuilt: UserMeasurementsInBuiltPreferencesInput;
 };
 
 export type UserFitnessPreferences = {
@@ -2366,10 +2399,23 @@ export type UserFitnessPreferences = {
   measurements: UserFitnessMeasurementsPreferences;
 };
 
+export type UserFitnessPreferencesInput = {
+  exercises: UserFitnessExercisesPreferencesInput;
+  logging: UserFitnessLoggingPreferencesInput;
+  measurements: UserFitnessMeasurementsPreferencesInput;
+};
+
 export type UserGeneralDashboardElement = {
   deduplicateMedia?: Maybe<Scalars['Boolean']['output']>;
   hidden: Scalars['Boolean']['output'];
   numElements?: Maybe<Scalars['Int']['output']>;
+  section: DashboardElementLot;
+};
+
+export type UserGeneralDashboardElementInput = {
+  deduplicateMedia?: InputMaybe<Scalars['Boolean']['input']>;
+  hidden: Scalars['Boolean']['input'];
+  numElements?: InputMaybe<Scalars['Int']['input']>;
   section: DashboardElementLot;
 };
 
@@ -2387,9 +2433,28 @@ export type UserGeneralPreferences = {
   watchProviders: Array<UserGeneralWatchProvider>;
 };
 
+export type UserGeneralPreferencesInput = {
+  dashboard: Array<UserGeneralDashboardElementInput>;
+  disableIntegrations: Scalars['Boolean']['input'];
+  disableNavigationAnimation: Scalars['Boolean']['input'];
+  disableReviews: Scalars['Boolean']['input'];
+  disableVideos: Scalars['Boolean']['input'];
+  disableWatchProviders: Scalars['Boolean']['input'];
+  displayNsfw: Scalars['Boolean']['input'];
+  gridPacking: GridPacking;
+  persistQueries: Scalars['Boolean']['input'];
+  reviewScale: UserReviewScale;
+  watchProviders: Array<UserGeneralWatchProviderInput>;
+};
+
 export type UserGeneralWatchProvider = {
   lot: MediaLot;
   values: Array<Scalars['String']['output']>;
+};
+
+export type UserGeneralWatchProviderInput = {
+  lot: MediaLot;
+  values: Array<Scalars['String']['input']>;
 };
 
 export enum UserLot {
@@ -2503,6 +2568,32 @@ export type UserMeasurementsInBuiltPreferences = {
   weight: Scalars['Boolean']['output'];
 };
 
+export type UserMeasurementsInBuiltPreferencesInput = {
+  abdominalSkinfold: Scalars['Boolean']['input'];
+  basalMetabolicRate: Scalars['Boolean']['input'];
+  bicepsCircumference: Scalars['Boolean']['input'];
+  bodyFat: Scalars['Boolean']['input'];
+  bodyFatCaliper: Scalars['Boolean']['input'];
+  bodyMassIndex: Scalars['Boolean']['input'];
+  boneMass: Scalars['Boolean']['input'];
+  calories: Scalars['Boolean']['input'];
+  chestCircumference: Scalars['Boolean']['input'];
+  chestSkinfold: Scalars['Boolean']['input'];
+  hipCircumference: Scalars['Boolean']['input'];
+  leanBodyMass: Scalars['Boolean']['input'];
+  muscle: Scalars['Boolean']['input'];
+  neckCircumference: Scalars['Boolean']['input'];
+  thighCircumference: Scalars['Boolean']['input'];
+  thighSkinfold: Scalars['Boolean']['input'];
+  totalBodyWater: Scalars['Boolean']['input'];
+  totalDailyEnergyExpenditure: Scalars['Boolean']['input'];
+  visceralFat: Scalars['Boolean']['input'];
+  waistCircumference: Scalars['Boolean']['input'];
+  waistToHeightRatio: Scalars['Boolean']['input'];
+  waistToHipRatio: Scalars['Boolean']['input'];
+  weight: Scalars['Boolean']['input'];
+};
+
 export type UserMeasurementsListInput = {
   endTime?: InputMaybe<Scalars['DateTime']['input']>;
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
@@ -2523,6 +2614,23 @@ export type UserMediaFeaturesEnabledPreferences = {
   show: Scalars['Boolean']['output'];
   videoGame: Scalars['Boolean']['output'];
   visualNovel: Scalars['Boolean']['output'];
+};
+
+export type UserMediaFeaturesEnabledPreferencesInput = {
+  anime: Scalars['Boolean']['input'];
+  audioBook: Scalars['Boolean']['input'];
+  book: Scalars['Boolean']['input'];
+  enabled: Scalars['Boolean']['input'];
+  genres: Scalars['Boolean']['input'];
+  groups: Scalars['Boolean']['input'];
+  manga: Scalars['Boolean']['input'];
+  movie: Scalars['Boolean']['input'];
+  music: Scalars['Boolean']['input'];
+  people: Scalars['Boolean']['input'];
+  podcast: Scalars['Boolean']['input'];
+  show: Scalars['Boolean']['input'];
+  videoGame: Scalars['Boolean']['input'];
+  visualNovel: Scalars['Boolean']['input'];
 };
 
 export type UserMediaNextEntry = {
@@ -2583,9 +2691,19 @@ export type UserNotificationsPreferences = {
   toSend: Array<MediaStateChanged>;
 };
 
+export type UserNotificationsPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+  toSend: Array<MediaStateChanged>;
+};
+
 export type UserOthersFeaturesEnabledPreferences = {
   calendar: Scalars['Boolean']['output'];
   collections: Scalars['Boolean']['output'];
+};
+
+export type UserOthersFeaturesEnabledPreferencesInput = {
+  calendar: Scalars['Boolean']['input'];
+  collections: Scalars['Boolean']['input'];
 };
 
 export type UserPersonDetails = {
@@ -2599,6 +2717,13 @@ export type UserPreferences = {
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
   notifications: UserNotificationsPreferences;
+};
+
+export type UserPreferencesInput = {
+  featuresEnabled: UserFeaturesEnabledPreferencesInput;
+  fitness: UserFitnessPreferencesInput;
+  general: UserGeneralPreferencesInput;
+  notifications: UserNotificationsPreferencesInput;
 };
 
 export enum UserReviewScale {
@@ -3206,7 +3331,7 @@ export type UpdateUserMutationVariables = Exact<{
 export type UpdateUserMutation = { updateUser: { id: string } };
 
 export type UpdateUserPreferenceMutationVariables = Exact<{
-  input: UpdateComplexJsonInput;
+  input: UserPreferencesInput;
 }>;
 
 
@@ -3616,7 +3741,7 @@ export const PresignedPutS3UrlDocument = {"kind":"Document","definitions":[{"kin
 export const RemoveEntityFromCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveEntityFromCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ChangeCollectionToEntityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeEntityFromCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RemoveEntityFromCollectionMutation, RemoveEntityFromCollectionMutationVariables>;
 export const TestUserNotificationPlatformsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TestUserNotificationPlatforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"testUserNotificationPlatforms"}}]}}]} as unknown as DocumentNode<TestUserNotificationPlatformsMutation, TestUserNotificationPlatformsMutationVariables>;
 export const UpdateUserDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUser"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUser"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<UpdateUserMutation, UpdateUserMutationVariables>;
-export const UpdateUserPreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserPreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateComplexJsonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserPreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserPreferenceMutation, UpdateUserPreferenceMutationVariables>;
+export const UpdateUserPreferenceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserPreference"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserPreferencesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserPreference"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserPreferenceMutation, UpdateUserPreferenceMutationVariables>;
 export const CreateAccessLinkDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateAccessLink"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateAccessLinkInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createAccessLink"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateAccessLinkMutation, CreateAccessLinkMutationVariables>;
 export const ProcessAccessLinkDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ProcessAccessLink"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ProcessAccessLinkInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"processAccessLink"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ProcessAccessLinkError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ProcessAccessLinkResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}},{"kind":"Field","name":{"kind":"Name","value":"redirectTo"}},{"kind":"Field","name":{"kind":"Name","value":"tokenValidForDays"}}]}}]}}]}}]} as unknown as DocumentNode<ProcessAccessLinkMutation, ProcessAccessLinkMutationVariables>;
 export const RevokeAccessLinkDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeAccessLink"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"accessLinkId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeAccessLink"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"accessLinkId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"accessLinkId"}}}]}]}}]} as unknown as DocumentNode<RevokeAccessLinkMutation, RevokeAccessLinkMutationVariables>;

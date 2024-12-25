@@ -227,7 +227,7 @@ mutation UpdateUser($input: UpdateUserInput!) {
 	}
 }
 
-mutation UpdateUserPreference($input: UpdateComplexJsonInput!) {
+mutation UpdateUserPreference($input: UserPreferencesInput!) {
 	updateUserPreference(input: $input)
 }
 

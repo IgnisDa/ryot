@@ -45,13 +45,6 @@ pub enum StoredUrl {
     Url(String),
 }
 
-#[derive(Debug, InputObject)]
-pub struct UpdateComplexJsonInput {
-    pub value: String,
-    /// Dot delimited path to the property that needs to be changed.
-    pub property: String,
-}
-
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
     Date,

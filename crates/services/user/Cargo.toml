@@ -16,14 +16,12 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum_meta = { workspace = true }
 enum-models = { path = "../../models/enum" }
-fitness-models = { path = "../../models/fitness" }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 notification-service = { path = "../../services/notification" }
 openidconnect = { workspace = true }
-serde_json = { workspace = true }
 sea-orm = { workspace = true }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
