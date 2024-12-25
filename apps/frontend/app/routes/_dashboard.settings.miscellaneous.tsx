@@ -17,7 +17,12 @@ import {
 import { processSubmission } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { useDashboardLayoutData, useUserDetails } from "~/lib/hooks";
+import { openConfirmationModal } from "~/lib/generals";
+import {
+	useConfirmSubmit,
+	useDashboardLayoutData,
+	useUserDetails,
+} from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs) => {
@@ -62,12 +67,8 @@ export default function Page() {
 	);
 }
 
-const DisplayJobBtn = (props: { job: BackgroundJob }) => {
-	const userDetails = useUserDetails();
-	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemo;
-
-	const [title, description, isAdminOnly] = match(props.job)
+const getJobDetails = (job: BackgroundJob) =>
+	match(job)
 		.with(
 			BackgroundJob.UpdateAllMetadata,
 			() =>
@@ -130,10 +131,19 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 		)
 		.exhaustive();
 
+const DisplayJobBtn = (props: { job: BackgroundJob }) => {
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
+	const submit = useConfirmSubmit();
+
+	const [title, description, isAdminOnly] = getJobDetails(props.job);
+
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
 	return (
 		<Form replace method="POST">
+			<input hidden name="jobName" defaultValue={props.job} />
 			<Stack>
 				<Box>
 					<Title order={4}>{title}</Title>
@@ -142,10 +152,18 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 				<Button
 					mt="auto"
 					type="submit"
-					name="jobName"
 					variant="light"
-					value={props.job}
 					disabled={isEditDisabled}
+					onClick={(e) => {
+						const form = e.currentTarget.form;
+						e.preventDefault();
+						openConfirmationModal(
+							"Are you sure you want to perform this task?",
+							() => {
+								if (form) submit(form);
+							},
+						);
+					}}
 				>
 					{title}
 				</Button>
