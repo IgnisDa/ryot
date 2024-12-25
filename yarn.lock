@@ -5801,7 +5801,6 @@ __metadata:
     postcss-preset-mantine: "npm:1.17.0"
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.3.1"
-    react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.3.1"
     react-virtuoso: "npm:4.12.3"
     recharts: "npm:2.14.1"
@@ -14058,16 +14057,6 @@ __metadata:
     iconv-lite: "npm:0.4.24"
     unpipe: "npm:1.0.0"
   checksum: 10/863b5171e140546a4d99f349b720abac4410338e23df5e409cfcc3752538c9caf947ce382c89129ba976f71894bd38b5806c774edac35ebf168d02aa1ac11a95
-  languageName: node
-  linkType: hard
-
-"react-confirm@npm:0.3.0-7":
-  version: 0.3.0-7
-  resolution: "react-confirm@npm:0.3.0-7"
-  peerDependencies:
-    react: 18.x
-    react-dom: 18.x
-  checksum: 10/3da55aaf282758263fd02b619a7b62a3718d17c2ff8b773d054a764d936c568793c0ca5862c48ccc27948119264220f5b2c314e5537653f85a8b6440eec4822d
   languageName: node
   linkType: hard
 

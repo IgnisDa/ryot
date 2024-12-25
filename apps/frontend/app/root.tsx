@@ -32,7 +32,6 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "mantine-datatable/styles.layer.css";
-import { ConfirmationMountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
@@ -131,7 +130,6 @@ export default function App() {
 						forceColorScheme={loaderData.defaultColorScheme}
 					>
 						<ModalsProvider>
-							<ConfirmationMountPoint />
 							{["loading", "submitting"].includes(navigation.state) ? (
 								<Loader
 									top={10}
