@@ -153,7 +153,7 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
-	const [exerciseSettings, setExerciseSettings] = useState({
+	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
 		isChanged: false,
 		value: loaderData.userExerciseDetails.details?.exerciseExtraInformation
 			?.settings || { excludeFromAnalytics: false, setRestTimers: {} },
@@ -164,7 +164,7 @@ export default function Page() {
 			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
 				input: {
 					exerciseId: loaderData.exerciseId,
-					change: exerciseSettings.value,
+					change: changingExerciseSettings.value,
 				},
 			});
 		},
@@ -201,8 +201,8 @@ export default function Page() {
 								?.settings.excludeFromAnalytics
 						}
 						onChange={(ev) => {
-							setExerciseSettings(
-								produce(exerciseSettings, (draft) => {
+							setChangingExerciseSettings(
+								produce(changingExerciseSettings, (draft) => {
 									draft.isChanged = true;
 									draft.value.excludeFromAnalytics = ev.currentTarget.checked;
 								}),
@@ -231,8 +231,8 @@ export default function Page() {
 									defaultValue={isNumber(value) ? value : undefined}
 									onChange={(val) => {
 										if (isNumber(val))
-											setExerciseSettings(
-												produce(exerciseSettings, (draft) => {
+											setChangingExerciseSettings(
+												produce(changingExerciseSettings, (draft) => {
 													draft.isChanged = true;
 													draft.value.setRestTimers[name] = val;
 												}),
@@ -244,7 +244,7 @@ export default function Page() {
 					</SimpleGrid>
 					<Button
 						type="submit"
-						disabled={!exerciseSettings.isChanged}
+						disabled={!changingExerciseSettings.isChanged}
 						loading={updateUserExerciseSettingsMutation.isPending}
 						onClick={async () => {
 							await updateUserExerciseSettingsMutation.mutateAsync();
