@@ -2103,6 +2103,13 @@ export type SetRestTimersSettings = {
   warmup?: Maybe<Scalars['Int']['output']>;
 };
 
+export type SetRestTimersSettingsInput = {
+  drop?: InputMaybe<Scalars['Int']['input']>;
+  failure?: InputMaybe<Scalars['Int']['input']>;
+  normal?: InputMaybe<Scalars['Int']['input']>;
+  warmup?: InputMaybe<Scalars['Int']['input']>;
+};
+
 /** Details about the statistics of the set performed. */
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
@@ -2214,7 +2221,7 @@ export type UpdateSeenItemInput = {
 };
 
 export type UpdateUserExerciseSettings = {
-  change: UpdateComplexJsonInput;
+  change: UserToExerciseSettingsExtraInformationInput;
   exerciseId: Scalars['String']['input'];
 };
 
@@ -2635,6 +2642,11 @@ export type UserToExerciseHistoryExtraInformation = {
 export type UserToExerciseSettingsExtraInformation = {
   excludeFromAnalytics: Scalars['Boolean']['output'];
   setRestTimers: SetRestTimersSettings;
+};
+
+export type UserToExerciseSettingsExtraInformationInput = {
+  excludeFromAnalytics: Scalars['Boolean']['input'];
+  setRestTimers: SetRestTimersSettingsInput;
 };
 
 export enum UserToMediaReason {

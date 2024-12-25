@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
+use common_models::{SearchInput, StoredUrl};
 use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
 use enum_models::{
@@ -290,8 +290,18 @@ pub struct UserToExerciseBestSetExtraInformation {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "SetRestTimersSettingsInput")]
 #[educe(Default)]
 pub struct SetRestTimersSettings {
     pub drop: Option<u16>,
@@ -302,8 +312,18 @@ pub struct SetRestTimersSettings {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserToExerciseSettingsExtraInformationInput")]
 pub struct UserToExerciseSettingsExtraInformation {
     pub exclude_from_analytics: bool,
     pub set_rest_timers: SetRestTimersSettings,
@@ -674,7 +694,7 @@ pub struct ExercisesListInput {
 #[derive(Debug, InputObject)]
 pub struct UpdateUserExerciseSettings {
     pub exercise_id: String,
-    pub change: UpdateComplexJsonInput,
+    pub change: UserToExerciseSettingsExtraInformation,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
