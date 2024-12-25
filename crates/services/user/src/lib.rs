@@ -63,14 +63,27 @@ impl UserService {
             .find(|d| d.section == DashboardElementLot::Recommendations)
             .unwrap()
             .num_elements;
-        let current_hour = Utc::now().hour();
+        let recommendation_key = match self
+            .0
+            .cache_service
+            .get_value::<UserRecommendationsKey>(ApplicationCacheKey::UserRecommendationsKey(
+                UserLevelCacheKey {
+                    input: (),
+                    user_id: user_id.to_owned(),
+                },
+            ))
+            .await
+        {
+            Some(k) => k.recommendations_key,
+            None => Utc::now().hour().to_string(),
+        };
         let recs = Metadata::find()
             .filter(metadata::Column::IsRecommendation.eq(true))
             .order_by(
                 Expr::expr(Func::md5(
                     Expr::col(metadata::Column::Title)
                         .concat(Expr::val(user_id))
-                        .concat(Expr::val(current_hour)),
+                        .concat(Expr::val(recommendation_key)),
                 )),
                 Order::Desc,
             )
