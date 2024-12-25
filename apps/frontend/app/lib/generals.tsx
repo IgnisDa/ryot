@@ -306,10 +306,10 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
-export const selectRandomElement = <T>(array: T[], input: string): T => {
+export function selectRandomElement<T>(array: T[], input: string): T {
 	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
 	return array[(getStringAsciiValue(input) + array.length) % array.length];
-};
+}
 
 export const getMetadataIcon = (lot: MediaLot) =>
 	match(lot)
@@ -338,16 +338,16 @@ export const clientGqlService = new GraphQLClient(
 	},
 );
 
-export const getSurroundingElements = <T>(
+export function getSurroundingElements<T>(
 	array: Array<T>,
 	elementIndex: number,
-): Array<number> => {
+): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (elementIndex === 0) return [lastIndex, elementIndex, elementIndex + 1];
 	if (elementIndex === lastIndex) return [elementIndex - 1, elementIndex, 0];
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
-};
+}
 
 const mediaQueryKeys = createQueryKeys("media", {
 	metadataPartialDetails: (metadataId: string) => ({
