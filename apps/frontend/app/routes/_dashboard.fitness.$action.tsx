@@ -98,7 +98,6 @@ import { useInterval, useOnClickOutside } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
 	ExerciseHistory,
@@ -113,6 +112,7 @@ import {
 	getExerciseDetailsPath,
 	getSetColor,
 	getSurroundingElements,
+	openConfirmationModal,
 	postMessageToServiceWorker,
 	queryClient,
 	queryFactory,
@@ -491,7 +491,7 @@ export default function Page() {
 												size="compact-sm"
 												loading={isSaveBtnLoading}
 												disabled={isWorkoutPaused}
-												onClick={async () => {
+												onClick={() => {
 													if (!currentWorkout.name) {
 														notifications.show({
 															color: "red",
@@ -503,70 +503,73 @@ export default function Page() {
 														});
 														return;
 													}
-													const yes = await confirmWrapper({
-														confirmation: loaderData.isCreatingTemplate
+													openConfirmationModal(
+														loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-													});
-													if (!yes) return;
-													setIsSaveBtnLoading(true);
-													await new Promise((r) => setTimeout(r, 1000));
-													const input = currentWorkoutToCreateWorkoutInput(
-														currentWorkout,
-														loaderData.isCreatingTemplate,
+														async () => {
+															setIsSaveBtnLoading(true);
+															await new Promise((r) => setTimeout(r, 1000));
+															const input = currentWorkoutToCreateWorkoutInput(
+																currentWorkout,
+																loaderData.isCreatingTemplate,
+															);
+															for (const exercise of currentWorkout.exercises) {
+																queryClient.removeQueries({
+																	queryKey:
+																		queryFactory.fitness.userExerciseDetails(
+																			exercise.exerciseId,
+																		).queryKey,
+																});
+															}
+															stopTimer();
+															try {
+																const [entityId, fitnessEntity] = await match(
+																	loaderData.isCreatingTemplate,
+																)
+																	.with(true, () =>
+																		clientGqlService
+																			.request(
+																				CreateOrUpdateUserWorkoutTemplateDocument,
+																				input,
+																			)
+																			.then((c) => [
+																				c.createOrUpdateUserWorkoutTemplate,
+																				FitnessEntity.Templates,
+																			]),
+																	)
+																	.with(false, () =>
+																		clientGqlService
+																			.request(
+																				CreateOrUpdateUserWorkoutDocument,
+																				input,
+																			)
+																			.then((c) => [
+																				c.createOrUpdateUserWorkout,
+																				FitnessEntity.Workouts,
+																			]),
+																	)
+																	.exhaustive();
+																if (
+																	loaderData.action === FitnessAction.LogWorkout
+																)
+																	events.createWorkout();
+																setCurrentWorkout(RESET);
+																navigate(
+																	$path("/fitness/:entity/:id", {
+																		id: entityId,
+																		entity: fitnessEntity,
+																	}),
+																);
+															} catch (e) {
+																notifications.show({
+																	color: "red",
+																	message: `Error while saving workout: ${JSON.stringify(e)}`,
+																});
+																setIsSaveBtnLoading(false);
+															}
+														},
 													);
-													for (const exercise of currentWorkout.exercises) {
-														queryClient.removeQueries({
-															queryKey:
-																queryFactory.fitness.userExerciseDetails(
-																	exercise.exerciseId,
-																).queryKey,
-														});
-													}
-													stopTimer();
-													try {
-														const [entityId, fitnessEntity] = await match(
-															loaderData.isCreatingTemplate,
-														)
-															.with(true, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutTemplateDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkoutTemplate,
-																		FitnessEntity.Templates,
-																	]),
-															)
-															.with(false, () =>
-																clientGqlService
-																	.request(
-																		CreateOrUpdateUserWorkoutDocument,
-																		input,
-																	)
-																	.then((c) => [
-																		c.createOrUpdateUserWorkout,
-																		FitnessEntity.Workouts,
-																	]),
-															)
-															.exhaustive();
-														if (loaderData.action === FitnessAction.LogWorkout)
-															events.createWorkout();
-														setCurrentWorkout(RESET);
-														navigate(
-															$path("/fitness/:entity/:id", {
-																id: entityId,
-																entity: fitnessEntity,
-															}),
-														);
-													} catch (e) {
-														notifications.show({
-															color: "red",
-															message: `Error while saving workout: ${JSON.stringify(e)}`,
-														});
-														setIsSaveBtnLoading(false);
-													}
 												}}
 											>
 												{loaderData.isCreatingTemplate ||
@@ -581,21 +584,21 @@ export default function Page() {
 										variant="subtle"
 										radius="md"
 										size="compact-sm"
-										onClick={async () => {
-											const yes = await confirmWrapper({
-												confirmation: `Are you sure you want to cancel this ${
+										onClick={() => {
+											openConfirmationModal(
+												`Are you sure you want to cancel this ${
 													loaderData.isCreatingTemplate ? "template" : "workout"
 												}?`,
-											});
-											if (yes) {
-												for (const e of currentWorkout.exercises) {
-													const assets = [...e.images, ...e.videos];
-													for (const asset of assets)
-														deleteUploadedAsset(asset.key);
-												}
-												navigate($path("/"), { replace: true });
-												setCurrentWorkout(RESET);
-											}
+												() => {
+													for (const e of currentWorkout.exercises) {
+														const assets = [...e.images, ...e.videos];
+														for (const asset of assets)
+															deleteUploadedAsset(asset.key);
+													}
+													navigate($path("/"), { replace: true });
+													setCurrentWorkout(RESET);
+												},
+											);
 										}}
 									>
 										Cancel
@@ -865,11 +868,11 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 				left={-12}
 				color="red"
 				pos="absolute"
-				onClick={async () => {
-					const yes = await confirmWrapper({
-						confirmation: "Are you sure you want to remove this image?",
-					});
-					if (yes) props.removeImage();
+				onClick={() => {
+					openConfirmationModal(
+						"Are you sure you want to remove this image?",
+						() => props.removeImage(),
+					);
 				}}
 			>
 				<IconTrash />
@@ -1041,18 +1044,18 @@ const EditSupersetModal = (props: {
 				<Button
 					color="red"
 					flex="none"
-					onClick={async () => {
-						const yes = await confirmWrapper({
-							confirmation: "Are you sure you want to delete this superset?",
-						});
-						if (yes) {
-							setCurrentWorkout(
-								produce(cw, (draft) => {
-									draft.supersets.splice(props.superset[0], 1);
-								}),
-							);
-							props.onClose();
-						}
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to delete this superset?",
+							() => {
+								setCurrentWorkout(
+									produce(cw, (draft) => {
+										draft.supersets.splice(props.superset[0], 1);
+									}),
+								);
+								props.onClose();
+							},
+						);
 					}}
 				>
 					Delete superset
@@ -1453,32 +1456,33 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
-								onClick={async () => {
-									const yes = await confirmWrapper({
-										confirmation: `This removes '${exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-									});
-									if (yes) {
-										const assets = [...exercise.images, ...exercise.videos];
-										for (const asset of assets) deleteUploadedAsset(asset.key);
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												const idx = draft.supersets.findIndex((s) =>
-													s.exercises.includes(exercise.identifier),
-												);
-												if (idx !== -1) {
-													if (draft.supersets[idx].exercises.length === 2)
-														draft.supersets.splice(idx, 1);
-													else
-														draft.supersets[idx].exercises = draft.supersets[
-															idx
-														].exercises.filter(
-															(e) => e !== exercise.identifier,
-														);
-												}
-												draft.exercises.splice(props.exerciseIdx, 1);
-											}),
-										);
-									}
+								onClick={() => {
+									openConfirmationModal(
+										`This removes '${exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										() => {
+											const assets = [...exercise.images, ...exercise.videos];
+											for (const asset of assets)
+												deleteUploadedAsset(asset.key);
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													const idx = draft.supersets.findIndex((s) =>
+														s.exercises.includes(exercise.identifier),
+													);
+													if (idx !== -1) {
+														if (draft.supersets[idx].exercises.length === 2)
+															draft.supersets.splice(idx, 1);
+														else
+															draft.supersets[idx].exercises = draft.supersets[
+																idx
+															].exercises.filter(
+																(e) => e !== exercise.identifier,
+															);
+													}
+													draft.exercises.splice(props.exerciseIdx, 1);
+												}),
+											);
+										},
+									);
 								}}
 							>
 								Remove
@@ -1548,25 +1552,25 @@ const ExerciseDisplay = (props: {
 																	const workout = await getWorkoutDetails(
 																		history.workoutId,
 																	);
-																	const yes = await confirmWrapper({
-																		confirmation: `Are you sure you want to copy all sets from "${workout.details.name}"?`,
-																	});
-																	if (yes) {
-																		const sets =
-																			workout.details.information.exercises[
-																				history.idx
-																			].sets;
-																		const converted = sets.map((set) =>
-																			convertHistorySetToCurrentSet(set),
-																		);
-																		setCurrentWorkout(
-																			produce(currentWorkout, (draft) => {
-																				draft.exercises[
-																					props.exerciseIdx
-																				].sets.push(...converted);
-																			}),
-																		);
-																	}
+																	openConfirmationModal(
+																		`Are you sure you want to copy all sets from "${workout.details.name}"?`,
+																		() => {
+																			const sets =
+																				workout.details.information.exercises[
+																					history.idx
+																				].sets;
+																			const converted = sets.map((set) =>
+																				convertHistorySetToCurrentSet(set),
+																			);
+																			setCurrentWorkout(
+																				produce(currentWorkout, (draft) => {
+																					draft.exercises[
+																						props.exerciseIdx
+																					].sets.push(...converted);
+																				}),
+																			);
+																		},
+																	);
 																}}
 															/>
 														) : null}
@@ -1988,25 +1992,20 @@ const SetDisplay = (props: {
 								color="red"
 								fz="xs"
 								leftSection={<IconTrash size={14} />}
-								onClick={async () => {
-									const yes = await match(!!set.confirmedAt)
-										.with(true, async () => {
-											return confirmWrapper({
-												confirmation:
-													"Are you sure you want to delete this set?",
-											});
-										})
-										.with(false, () => true)
-										.exhaustive();
-									if (yes)
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].sets.splice(
-													props.setIdx,
-													1,
-												);
-											}),
-										);
+								onClick={() => {
+									openConfirmationModal(
+										"Are you sure you want to delete this set?",
+										() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[props.exerciseIdx].sets.splice(
+														props.setIdx,
+														1,
+													);
+												}),
+											);
+										},
+									);
 								}}
 							>
 								Delete set
@@ -2614,20 +2613,21 @@ const NoteInput = (props: {
 			/>
 			<ActionIcon
 				color="red"
-				onClick={async () => {
-					const yes = await confirmWrapper({
-						confirmation:
-							"This note will be deleted. Are you sure you want to continue?",
-					});
-					if (yes && currentWorkout)
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								draft.exercises[props.exerciseIdx].notes.splice(
-									props.noteIdx,
-									1,
+				onClick={() => {
+					openConfirmationModal(
+						"This note will be deleted. Are you sure you want to continue?",
+						() => {
+							if (currentWorkout)
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.exercises[props.exerciseIdx].notes.splice(
+											props.noteIdx,
+											1,
+										);
+									}),
 								);
-							}),
-						);
+						},
+					);
 				}}
 			>
 				<IconTrash size={20} />

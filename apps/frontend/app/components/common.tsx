@@ -73,6 +73,7 @@ import {
 	convertDecimalToThreePointSmiley,
 	dayjsLib,
 	getSurroundingElements,
+	openConfirmationModal,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -88,7 +89,6 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
-import { confirmWrapper } from "./confirmation";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -541,24 +541,24 @@ export const ReviewItemDisplay = (props: {
 									<IconEdit size={16} />
 								</ActionIcon>
 								<ActionIcon
-									onClick={async () => {
-										const conf = await confirmWrapper({
-											confirmation:
-												"Are you sure you want to delete this review? This action cannot be undone.",
-										});
-										if (conf)
-											deleteReviewFetcher.submit(
-												{
-													shouldDelete: "true",
-													reviewId: props.review.id || null,
-												},
-												{
-													method: "post",
-													action: $path("/actions", {
-														intent: "performReviewAction",
-													}),
-												},
-											);
+									onClick={() => {
+										openConfirmationModal(
+											"Are you sure you want to delete this review? This action cannot be undone.",
+											() => {
+												deleteReviewFetcher.submit(
+													{
+														shouldDelete: "true",
+														reviewId: props.review.id || null,
+													},
+													{
+														method: "post",
+														action: $path("/actions", {
+															intent: "performReviewAction",
+														}),
+													},
+												);
+											},
+										);
 									}}
 									color="red"
 								>
@@ -732,14 +732,15 @@ export const ReviewItemDisplay = (props: {
 															<ActionIcon
 																color="red"
 																type="submit"
-																onClick={async (e) => {
+																onClick={(e) => {
 																	const form = e.currentTarget.form;
 																	e.preventDefault();
-																	const conf = await confirmWrapper({
-																		confirmation:
-																			"Are you sure you want to delete this comment?",
-																	});
-																	if (conf && form) submit(form);
+																	openConfirmationModal(
+																		"Are you sure you want to delete this comment?",
+																		() => {
+																			if (form) submit(form);
+																		},
+																	);
 																}}
 															>
 																<IconTrash size={16} />
@@ -886,14 +887,15 @@ export const DisplayCollection = (props: {
 					/>
 					<ActionIcon
 						size={16}
-						onClick={async (e) => {
+						onClick={(e) => {
 							const form = e.currentTarget.form;
 							e.preventDefault();
-							const conf = await confirmWrapper({
-								confirmation:
-									"Are you sure you want to remove this media from this collection?",
-							});
-							if (conf && form) submit(form);
+							openConfirmationModal(
+								"Are you sure you want to remove this media from this collection?",
+								() => {
+									if (form) submit(form);
+								},
+							);
 						}}
 					>
 						<IconX />

@@ -103,7 +103,6 @@ import {
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -114,6 +113,7 @@ import {
 	Verb,
 	dayjsLib,
 	getVerb,
+	openConfirmationModal,
 	refreshUserMetadataDetails,
 	reviewYellow,
 } from "~/lib/generals";
@@ -971,16 +971,15 @@ export default function Page() {
 											/>
 											<Menu.Item
 												color="red"
-												onClick={async (e) => {
+												onClick={(e) => {
 													const form = e.currentTarget.form;
-													if (form) {
-														e.preventDefault();
-														const conf = await confirmWrapper({
-															confirmation:
-																"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
-														});
-														if (conf && form) submit(form);
-													}
+													e.preventDefault();
+													openConfirmationModal(
+														"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
+														() => {
+															if (form) submit(form);
+														},
+													);
 												}}
 											>
 												Remove item
@@ -1585,14 +1584,15 @@ const HistoryItem = (props: {
 						<ActionIcon
 							color="red"
 							type="submit"
-							onClick={async (e) => {
+							onClick={(e) => {
 								const form = e.currentTarget.form;
 								e.preventDefault();
-								const conf = await confirmWrapper({
-									confirmation:
-										"Are you sure you want to delete this record from history?",
-								});
-								if (conf && form) submit(form);
+								openConfirmationModal(
+									"Are you sure you want to delete this record from history?",
+									() => {
+										if (form) submit(form);
+									},
+								);
 							}}
 						>
 							<IconX size={20} />

@@ -40,10 +40,10 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
 	getPartialMetadataDetailsQuery,
+	openConfirmationModal,
 	queryFactory,
 	reviewYellow,
 } from "~/lib/generals";
@@ -397,14 +397,14 @@ export const ToggleMediaMonitorMenuItem = (props: {
 					const form = e.currentTarget.form;
 					if (form) {
 						e.preventDefault();
-						if (isMonitored) {
-							const conf = await confirmWrapper({
-								confirmation: "Are you sure you want to stop monitoring?",
-							});
-							if (conf) submit(form);
-						} else {
-							submit(form);
-						}
+						if (isMonitored)
+							openConfirmationModal(
+								"Are you sure you want to stop monitoring?",
+								() => {
+									if (form) submit(form);
+								},
+							);
+						else submit(form);
 					}
 				}}
 			>

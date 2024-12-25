@@ -51,12 +51,12 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
 	commaDelimitedString,
 	dayjsLib,
+	openConfirmationModal,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -372,14 +372,15 @@ const DisplayIntegration = (props: {
 								color="red"
 								variant="subtle"
 								mt={4}
-								onClick={async (e) => {
+								onClick={(e) => {
 									const form = e.currentTarget.form;
 									e.preventDefault();
-									const conf = await confirmWrapper({
-										confirmation:
-											"Are you sure you want to delete this integration?",
-									});
-									if (conf && form) submit(form);
+									openConfirmationModal(
+										"Are you sure you want to delete this integration?",
+										() => {
+											if (form) submit(form);
+										},
+									);
 								}}
 							>
 								<IconTrash />

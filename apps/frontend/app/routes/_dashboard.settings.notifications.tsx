@@ -44,8 +44,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
@@ -379,14 +378,15 @@ const DisplayNotification = (props: {
 								type="submit"
 								color="red"
 								variant="subtle"
-								onClick={async (e) => {
+								onClick={(e) => {
 									const form = e.currentTarget.form;
 									e.preventDefault();
-									const conf = await confirmWrapper({
-										confirmation:
-											"Are you sure you want to delete this notification platform?",
-									});
-									if (conf && form) submit(form);
+									openConfirmationModal(
+										"Are you sure you want to delete this notification platform?",
+										() => {
+											if (form) submit(form);
+										},
+									);
 								}}
 							>
 								<IconTrash />

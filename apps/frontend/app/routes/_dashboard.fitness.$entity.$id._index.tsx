@@ -59,7 +59,6 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DisplayCollection } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
@@ -70,6 +69,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
+	openConfirmationModal,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -418,13 +418,15 @@ export default function Page() {
 										value={loaderData.entity}
 									/>
 									<Menu.Item
-										onClick={async (e) => {
+										onClick={(e) => {
 											const form = e.currentTarget.form;
 											e.preventDefault();
-											const conf = await confirmWrapper({
-												confirmation: `Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
-											});
-											if (conf && form) submit(form);
+											openConfirmationModal(
+												`Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
+												() => {
+													if (form) submit(form);
+												},
+											);
 										}}
 										color="red"
 										leftSection={<IconTrash size={14} />}

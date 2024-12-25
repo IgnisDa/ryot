@@ -3,7 +3,8 @@ import {
 	createQueryKeys,
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
-import type { MantineColor } from "@mantine/core";
+import { type MantineColor, Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import {
 	MediaLot,
 	MediaSource,
@@ -488,3 +489,11 @@ export const MediaColors: EntityColor = {
 	REVIEW: "green.5",
 	USER_MEASUREMENT: "indigo",
 };
+
+export const openConfirmationModal = (title: string, onConfirm: () => void) =>
+	modals.openConfirmModal({
+		title: "Confirmation",
+		onConfirm: onConfirm,
+		children: <Text size="sm">{title}</Text>,
+		labels: { confirm: "Confirm", cancel: "Cancel" },
+	});
