@@ -1,6 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-	Accordion,
 	ActionIcon,
 	Alert,
 	Anchor,
@@ -1046,7 +1045,7 @@ export default function Page() {
 						<MediaScrollArea>
 							{loaderData.metadataDetails.showSpecifics &&
 							loaderData.userMetadataDetails.showProgress ? (
-								<Accordion chevron={<Box />}>
+								<Stack>
 									{loaderData.metadataDetails.showSpecifics.seasons.map(
 										(season, seasonIdx) => {
 											const seasonProgress =
@@ -1054,39 +1053,16 @@ export default function Page() {
 													seasonIdx
 												];
 											return (
-												<Accordion.Item
+												<DisplayShowSeason
+													season={season}
+													seasonIdx={seasonIdx}
 													key={season.seasonNumber}
-													value={season.seasonNumber.toString()}
-												>
-													<Accordion.Control component={Box} py={0} px="xs">
-														<DisplayShowSeason
-															season={season}
-															seasonProgress={seasonProgress}
-														/>
-													</Accordion.Control>
-													<Accordion.Panel>
-														<Stack h={300} gap="xs">
-															<Virtuoso
-																data={season.episodes}
-																itemContent={(episodeIdx, episode) => (
-																	<DisplayShowEpisode
-																		episode={episode}
-																		seasonIdx={seasonIdx}
-																		episodeIdx={episodeIdx}
-																		episodeProgress={
-																			seasonProgress?.episodes[episodeIdx]
-																		}
-																		seasonNumber={season.seasonNumber}
-																	/>
-																)}
-															/>
-														</Stack>
-													</Accordion.Panel>
-												</Accordion.Item>
+													seasonProgress={seasonProgress}
+												/>
 											);
 										},
 									)}
-								</Accordion>
+								</Stack>
 							) : null}
 						</MediaScrollArea>
 					</Tabs.Panel>
@@ -1718,6 +1694,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	runtime?: number | null;
 	overview?: string | null;
 	displayIndicator: number;
+	onNameClick?: () => void;
 	id?: number | string | null;
 	numEpisodes?: number | null;
 	posterImages: Array<string>;
@@ -1752,7 +1729,13 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 
 	const DisplayDetails = () => (
 		<>
-			<Text lineClamp={2}>{props.name}</Text>
+			{props.onNameClick ? (
+				<Anchor onClick={props.onNameClick} lineClamp={2}>
+					{props.name}
+				</Anchor>
+			) : (
+				<Text lineClamp={2}>{props.name}</Text>
+			)}
 			{display ? (
 				<Flex align="center" gap={4}>
 					{display}
@@ -1819,48 +1802,81 @@ type SeasonProgress = NonNullable<
 
 const DisplayShowSeason = (props: {
 	season: Season;
+	seasonIdx: number;
 	seasonProgress?: SeasonProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [isSeasonDetailsModalOpen, setIsSeasonDetailsModalOpen] =
+		useState(false);
+
 	const numTimesSeen = props.seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
+	const seasonDisplayName = `${props.season.seasonNumber}. ${props.season.name}`;
 
 	return (
-		<DisplaySeasonOrEpisodeDetails
-			{...props.season}
-			name={`${props.season.seasonNumber}. ${props.season.name}`}
-			numEpisodes={props.season.episodes.length}
-			displayIndicator={numTimesSeen}
-			runtime={props.season.episodes
-				.map((e) => e.runtime || 0)
-				.reduce((i, a) => i + a, 0)}
-		>
-			{props.season.episodes.length > 0 ? (
-				<Button
-					variant={isSeen ? "default" : "outline"}
-					size="xs"
-					color="blue"
-					onClick={() => {
-						setMetadataToUpdate({
-							metadataId: loaderData.metadataId,
-							showSeasonNumber: props.season.seasonNumber,
-							showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
-							showAllEpisodesBefore: true,
-						});
-					}}
-				>
-					{isSeen ? "Watch again" : "Mark as seen"}
-				</Button>
-			) : null}
-		</DisplaySeasonOrEpisodeDetails>
+		<>
+			<Modal
+				withCloseButton={false}
+				opened={isSeasonDetailsModalOpen}
+				onClose={() => setIsSeasonDetailsModalOpen(false)}
+			>
+				<Stack h={600} gap="xs">
+					<Title order={3}>{seasonDisplayName}</Title>
+					<Virtuoso
+						data={props.season.episodes}
+						itemContent={(episodeIdx, episode) => (
+							<DisplayShowEpisode
+								episode={episode}
+								episodeIdx={episodeIdx}
+								seasonIdx={props.seasonIdx}
+								seasonNumber={props.season.seasonNumber}
+								episodeProgress={props.seasonProgress?.episodes[episodeIdx]}
+								beforeOpenModal={() => setIsSeasonDetailsModalOpen(false)}
+							/>
+						)}
+					/>
+				</Stack>
+			</Modal>
+			<DisplaySeasonOrEpisodeDetails
+				{...props.season}
+				name={seasonDisplayName}
+				displayIndicator={numTimesSeen}
+				numEpisodes={props.season.episodes.length}
+				runtime={props.season.episodes
+					.map((e) => e.runtime || 0)
+					.reduce((i, a) => i + a, 0)}
+				onNameClick={() => {
+					setIsSeasonDetailsModalOpen(true);
+				}}
+			>
+				{props.season.episodes.length > 0 ? (
+					<Button
+						variant={isSeen ? "default" : "outline"}
+						size="xs"
+						color="blue"
+						onClick={() => {
+							setMetadataToUpdate({
+								metadataId: loaderData.metadataId,
+								showSeasonNumber: props.season.seasonNumber,
+								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
+								showAllEpisodesBefore: true,
+							});
+						}}
+					>
+						{isSeen ? "Watch again" : "Mark as seen"}
+					</Button>
+				) : null}
+			</DisplaySeasonOrEpisodeDetails>
+		</>
 	);
 };
 
 const DisplayShowEpisode = (props: {
 	seasonIdx: number;
-	seasonNumber: number;
 	episodeIdx: number;
+	seasonNumber: number;
+	beforeOpenModal?: () => void;
 	episode: Season["episodes"][number];
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
@@ -1878,10 +1894,11 @@ const DisplayShowEpisode = (props: {
 				displayIndicator={numTimesEpisodeSeen}
 			>
 				<Button
-					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					size="xs"
 					color="blue"
+					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
+						if (props.beforeOpenModal) props.beforeOpenModal();
 						setMetadataToUpdate({
 							metadataId: loaderData.metadataId,
 							showSeasonNumber: props.seasonNumber,
