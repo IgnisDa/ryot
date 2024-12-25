@@ -1108,6 +1108,7 @@ const UploadAssetsModal = (props: {
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [isFileUploading, setIsFileUploading] = useState(false);
 
 	if (!currentWorkout) return null;
 
@@ -1120,6 +1121,7 @@ const UploadAssetsModal = (props: {
 			return;
 		}
 		if (!file) return;
+		setIsFileUploading(true);
 		const imageSrc = URL.createObjectURL(file);
 		const toSubmitForm = new FormData();
 		toSubmitForm.append("file", file, "image.jpg");
@@ -1141,6 +1143,8 @@ const UploadAssetsModal = (props: {
 				color: "red",
 				message: "Error while uploading image",
 			});
+		} finally {
+			setIsFileUploading(false);
 		}
 	};
 
@@ -1208,6 +1212,7 @@ const UploadAssetsModal = (props: {
 										flex={1}
 										color="cyan"
 										variant="outline"
+										loading={isFileUploading}
 										leftSection={<IconLibraryPhoto />}
 									>
 										Select picture
@@ -1225,6 +1230,7 @@ const UploadAssetsModal = (props: {
 										flex={1}
 										color="cyan"
 										variant="outline"
+										loading={isFileUploading}
 										leftSection={<IconCamera />}
 									>
 										Take picture
