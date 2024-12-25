@@ -508,67 +508,64 @@ export default function Page() {
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
-													if (yes) {
-														setIsSaveBtnLoading(true);
-														await new Promise((r) => setTimeout(r, 1000));
-														const input = currentWorkoutToCreateWorkoutInput(
-															currentWorkout,
+													if (!yes) return;
+													setIsSaveBtnLoading(true);
+													await new Promise((r) => setTimeout(r, 1000));
+													const input = currentWorkoutToCreateWorkoutInput(
+														currentWorkout,
+														loaderData.isCreatingTemplate,
+													);
+													for (const exercise of currentWorkout.exercises) {
+														queryClient.removeQueries({
+															queryKey:
+																queryFactory.fitness.userExerciseDetails(
+																	exercise.exerciseId,
+																).queryKey,
+														});
+													}
+													stopTimer();
+													try {
+														const [entityId, fitnessEntity] = await match(
 															loaderData.isCreatingTemplate,
+														)
+															.with(true, () =>
+																clientGqlService
+																	.request(
+																		CreateOrUpdateUserWorkoutTemplateDocument,
+																		input,
+																	)
+																	.then((c) => [
+																		c.createOrUpdateUserWorkoutTemplate,
+																		FitnessEntity.Templates,
+																	]),
+															)
+															.with(false, () =>
+																clientGqlService
+																	.request(
+																		CreateOrUpdateUserWorkoutDocument,
+																		input,
+																	)
+																	.then((c) => [
+																		c.createOrUpdateUserWorkout,
+																		FitnessEntity.Workouts,
+																	]),
+															)
+															.exhaustive();
+														if (loaderData.action === FitnessAction.LogWorkout)
+															events.createWorkout();
+														setCurrentWorkout(RESET);
+														navigate(
+															$path("/fitness/:entity/:id", {
+																id: entityId,
+																entity: fitnessEntity,
+															}),
 														);
-														for (const exercise of currentWorkout.exercises) {
-															queryClient.removeQueries({
-																queryKey:
-																	queryFactory.fitness.userExerciseDetails(
-																		exercise.exerciseId,
-																	).queryKey,
-															});
-														}
-														stopTimer();
-														try {
-															const [entityId, fitnessEntity] = await match(
-																loaderData.isCreatingTemplate,
-															)
-																.with(true, () =>
-																	clientGqlService
-																		.request(
-																			CreateOrUpdateUserWorkoutTemplateDocument,
-																			input,
-																		)
-																		.then((c) => [
-																			c.createOrUpdateUserWorkoutTemplate,
-																			FitnessEntity.Templates,
-																		]),
-																)
-																.with(false, () =>
-																	clientGqlService
-																		.request(
-																			CreateOrUpdateUserWorkoutDocument,
-																			input,
-																		)
-																		.then((c) => [
-																			c.createOrUpdateUserWorkout,
-																			FitnessEntity.Workouts,
-																		]),
-																)
-																.exhaustive();
-															if (
-																loaderData.action === FitnessAction.LogWorkout
-															)
-																events.createWorkout();
-															setCurrentWorkout(RESET);
-															navigate(
-																$path("/fitness/:entity/:id", {
-																	id: entityId,
-																	entity: fitnessEntity,
-																}),
-															);
-														} catch (e) {
-															notifications.show({
-																color: "red",
-																message: `Error while saving workout: ${JSON.stringify(e)}`,
-															});
-															setIsSaveBtnLoading(false);
-														}
+													} catch (e) {
+														notifications.show({
+															color: "red",
+															message: `Error while saving workout: ${JSON.stringify(e)}`,
+														});
+														setIsSaveBtnLoading(false);
 													}
 												}}
 											>
