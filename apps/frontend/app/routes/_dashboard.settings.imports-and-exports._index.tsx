@@ -402,9 +402,7 @@ export default function Page() {
 												e.preventDefault();
 												openConfirmationModal(
 													"Are you sure you want to deploy an import job? This action is irreversible.",
-													() => {
-														if (form) submit(form);
-													},
+													() => submit(form),
 												);
 											}}
 										>

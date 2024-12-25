@@ -400,9 +400,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 						if (isMonitored)
 							openConfirmationModal(
 								"Are you sure you want to stop monitoring?",
-								() => {
-									if (form) submit(form);
-								},
+								() => submit(form),
 							);
 						else submit(form);
 					}

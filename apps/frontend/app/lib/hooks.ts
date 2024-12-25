@@ -87,7 +87,8 @@ export const useAppSearchParam = (cookieKey: string) => {
 
 export const useConfirmSubmit = () => {
 	const submit = useSubmit();
-	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement) => {
+	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement | null) => {
+		if (!e) return;
 		if (e.preventDefault) e.preventDefault();
 		submit(e.currentTarget || e, { navigate: false });
 	};

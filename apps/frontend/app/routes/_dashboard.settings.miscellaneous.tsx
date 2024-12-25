@@ -159,9 +159,7 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 						e.preventDefault();
 						openConfirmationModal(
 							"Are you sure you want to perform this task?",
-							() => {
-								if (form) submit(form);
-							},
+							() => submit(form),
 						);
 					}}
 				>

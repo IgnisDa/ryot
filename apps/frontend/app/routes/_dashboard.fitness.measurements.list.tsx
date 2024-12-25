@@ -270,9 +270,7 @@ export default function Page() {
 													e.preventDefault();
 													openConfirmationModal(
 														"This action can not be undone. Are you sure you want to delete this measurement?",
-														() => {
-															if (form) submit(form);
-														},
+														() => submit(form),
 													);
 												}}
 											>

@@ -309,9 +309,7 @@ const UserDisplay = (props: { index: number }) => {
 								e.preventDefault();
 								openConfirmationModal(
 									"Are you sure you want to delete this user?",
-									() => {
-										if (form) submit(form);
-									},
+									() => submit(form),
 								);
 							}}
 						>

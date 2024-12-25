@@ -737,9 +737,7 @@ export const ReviewItemDisplay = (props: {
 																	e.preventDefault();
 																	openConfirmationModal(
 																		"Are you sure you want to delete this comment?",
-																		() => {
-																			if (form) submit(form);
-																		},
+																		() => submit(form),
 																	);
 																}}
 															>
@@ -892,9 +890,7 @@ export const DisplayCollection = (props: {
 							e.preventDefault();
 							openConfirmationModal(
 								"Are you sure you want to remove this media from this collection?",
-								() => {
-									if (form) submit(form);
-								},
+								() => submit(form),
 							);
 						}}
 					>

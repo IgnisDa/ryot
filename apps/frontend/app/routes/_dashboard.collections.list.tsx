@@ -430,9 +430,7 @@ const DisplayCollection = (props: {
 											e.preventDefault();
 											openConfirmationModal(
 												"Are you sure you want to delete this collection?",
-												() => {
-													if (form) submit(form);
-												},
+												() => submit(form),
 											);
 										}}
 									>

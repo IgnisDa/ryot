@@ -423,9 +423,7 @@ export default function Page() {
 											e.preventDefault();
 											openConfirmationModal(
 												`Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
-												() => {
-													if (form) submit(form);
-												},
+												() => submit(form),
 											);
 										}}
 										color="red"

@@ -383,9 +383,7 @@ const DisplayNotification = (props: {
 									e.preventDefault();
 									openConfirmationModal(
 										"Are you sure you want to delete this notification platform?",
-										() => {
-											if (form) submit(form);
-										},
+										() => submit(form),
 									);
 								}}
 							>

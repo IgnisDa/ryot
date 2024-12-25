@@ -976,9 +976,7 @@ export default function Page() {
 													e.preventDefault();
 													openConfirmationModal(
 														"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
-														() => {
-															if (form) submit(form);
-														},
+														() => submit(form),
 													);
 												}}
 											>
@@ -1589,9 +1587,7 @@ const HistoryItem = (props: {
 								e.preventDefault();
 								openConfirmationModal(
 									"Are you sure you want to delete this record from history?",
-									() => {
-										if (form) submit(form);
-									},
+									() => submit(form),
 								);
 							}}
 						>

@@ -244,9 +244,7 @@ export default function Page() {
 											e.preventDefault();
 											openConfirmationModal(
 												"Are you sure you want to update your profile?",
-												() => {
-													if (form) submit(form);
-												},
+												() => submit(form),
 											);
 										}}
 										fullWidth
@@ -420,9 +418,7 @@ const DisplayAccessLink = (props: {
 												e.preventDefault();
 												openConfirmationModal(
 													"Are you sure you want to revoke this access link?",
-													() => {
-														if (form) submit(form);
-													},
+													() => submit(form),
 												);
 											}}
 										>

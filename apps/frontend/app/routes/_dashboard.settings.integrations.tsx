@@ -377,9 +377,7 @@ const DisplayIntegration = (props: {
 									e.preventDefault();
 									openConfirmationModal(
 										"Are you sure you want to delete this integration?",
-										() => {
-											if (form) submit(form);
-										},
+										() => submit(form),
 									);
 								}}
 							>
