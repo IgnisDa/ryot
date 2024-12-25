@@ -13,6 +13,7 @@ import "@mantine/charts/styles.css";
 import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
+import { ModalsProvider } from "@mantine/modals";
 import {
 	type LinksFunction,
 	type LoaderFunctionArgs,
@@ -129,23 +130,25 @@ export default function App() {
 						classNamesPrefix="mnt"
 						forceColorScheme={loaderData.defaultColorScheme}
 					>
-						<ConfirmationMountPoint />
-						{["loading", "submitting"].includes(navigation.state) ? (
-							<Loader
-								top={10}
-								size="sm"
-								right={10}
-								pos="fixed"
-								color="yellow"
-								style={{ zIndex: 10 }}
-							/>
-						) : null}
-						<Toaster toast={loaderData.toast} />
-						<Flex style={{ flexGrow: 1 }} mih="100vh">
-							<Outlet />
-						</Flex>
-						<ScrollRestoration />
-						<Scripts />
+						<ModalsProvider>
+							<ConfirmationMountPoint />
+							{["loading", "submitting"].includes(navigation.state) ? (
+								<Loader
+									top={10}
+									size="sm"
+									right={10}
+									pos="fixed"
+									color="yellow"
+									style={{ zIndex: 10 }}
+								/>
+							) : null}
+							<Toaster toast={loaderData.toast} />
+							<Flex style={{ flexGrow: 1 }} mih="100vh">
+								<Outlet />
+							</Flex>
+							<ScrollRestoration />
+							<Scripts />
+						</ModalsProvider>
 					</MantineProvider>
 					<ReactQueryDevtools buttonPosition="top-right" />
 				</QueryClientProvider>
