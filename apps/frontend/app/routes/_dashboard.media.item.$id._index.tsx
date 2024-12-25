@@ -995,7 +995,7 @@ export default function Page() {
 										variant="outline"
 										to={$path(
 											"/media/update/:action",
-											{ action: "update" },
+											{ action: "edit" },
 											{ id: loaderData.metadataDetails.id },
 										)}
 									>

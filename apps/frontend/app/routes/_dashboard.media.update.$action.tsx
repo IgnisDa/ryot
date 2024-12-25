@@ -40,7 +40,7 @@ import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
 enum Action {
 	Create = "create",
-	Update = "update",
+	Edit = "edit",
 }
 
 const searchParamsSchema = z.object({
@@ -55,7 +55,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
-		.with(Action.Update, async () => {
+		.with(Action.Edit, async () => {
 			invariant(query.id);
 			const { metadataDetails } = await serverGqlService.authenticatedRequest(
 				request,
@@ -98,7 +98,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				);
 			return createCustomMetadata.id;
 		})
-		.with(Action.Update, async () => {
+		.with(Action.Edit, async () => {
 			invariant(submission.id);
 			await serverGqlService.authenticatedRequest(
 				request,
