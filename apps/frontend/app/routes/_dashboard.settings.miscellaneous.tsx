@@ -47,19 +47,17 @@ const jobSchema = z.object({
 export default function Page() {
 	return (
 		<Container size="lg">
-			<Form replace method="POST">
-				<Stack>
-					<Title>Miscellaneous settings</Title>
-					<SimpleGrid
-						cols={{ base: 1, lg: 2 }}
-						spacing={{ base: "xl", md: "md" }}
-					>
-						{Object.values(BackgroundJob).map((job) => (
-							<DisplayJobBtn key={job} job={job} />
-						))}
-					</SimpleGrid>
-				</Stack>
-			</Form>
+			<Stack>
+				<Title>Miscellaneous settings</Title>
+				<SimpleGrid
+					cols={{ base: 1, lg: 2 }}
+					spacing={{ base: "xl", md: "md" }}
+				>
+					{Object.values(BackgroundJob).map((job) => (
+						<DisplayJobBtn key={job} job={job} />
+					))}
+				</SimpleGrid>
+			</Stack>
 		</Container>
 	);
 }
@@ -135,21 +133,23 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
 	return (
-		<Stack>
-			<Box>
-				<Title order={4}>{title}</Title>
-				<Text>{description}</Text>
-			</Box>
-			<Button
-				mt="auto"
-				type="submit"
-				name="jobName"
-				variant="light"
-				value={props.job}
-				disabled={isEditDisabled}
-			>
-				{title}
-			</Button>
-		</Stack>
+		<Form replace method="POST">
+			<Stack>
+				<Box>
+					<Title order={4}>{title}</Title>
+					<Text>{description}</Text>
+				</Box>
+				<Button
+					mt="auto"
+					type="submit"
+					name="jobName"
+					variant="light"
+					value={props.job}
+					disabled={isEditDisabled}
+				>
+					{title}
+				</Button>
+			</Stack>
+		</Form>
 	);
 };
