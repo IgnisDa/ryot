@@ -1,5 +1,5 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
-import { useForceUpdate, useListState } from "@mantine/hooks";
+import { useForceUpdate } from "@mantine/hooks";
 import {
 	useRevalidator,
 	useRouteLoaderData,
@@ -185,22 +185,6 @@ export const useGetWatchProviders = (mediaLot: MediaLot) => {
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
 			?.values || [];
 	return watchProviders;
-};
-
-export const useComplexJsonUpdate = () => {
-	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
-		[string, string]
-	>([]);
-
-	const reset = () => updateUserPreferencesHandler.setState([]);
-
-	const appendPref = (property: string, value: string) => {
-		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
-		if (index !== -1) updateUserPreferencesHandler.remove(index);
-		updateUserPreferencesHandler.append([property, value]);
-	};
-
-	return { reset, appendPref, toUpdatePreferences };
 };
 
 export const useIsFitnessActionActive = () => {
