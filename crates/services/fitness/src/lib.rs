@@ -32,6 +32,7 @@ use fitness_models::{
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
+use futures::TryStreamExt;
 use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
@@ -602,11 +603,20 @@ impl FitnessService {
     }
 
     pub async fn revise_user_workouts(&self, user_id: String) -> Result<()> {
-        UserToEntity::delete_many()
+        let mut all_stream = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .exec(&self.0.db)
+            .stream(&self.0.db)
             .await?;
+        while let Some(ute) = all_stream.try_next().await? {
+            let mut new = UserToExerciseExtraInformation::default();
+            let eei = ute.exercise_extra_information.clone().unwrap_or_default();
+            new.settings = eei.settings;
+            let mut ute: user_to_entity::ActiveModel = ute.into();
+            ute.exercise_num_times_interacted = ActiveValue::Set(None);
+            ute.exercise_extra_information = ActiveValue::Set(Some(new));
+            ute.update(&self.0.db).await?;
+        }
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(&user_id))
             .order_by_asc(workout::Column::EndTime)

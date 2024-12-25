@@ -2377,6 +2377,7 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "fitness-models",
+ "futures",
  "migrations",
  "nanoid",
  "reqwest 0.12.9",
