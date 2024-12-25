@@ -10,7 +10,6 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	Title,
 	useMantineTheme,
 } from "@mantine/core";
 import type {
@@ -199,7 +198,7 @@ export default function Page() {
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
 								<Section key={v} lot={v}>
-									<Title>Upcoming</Title>
+									<SectionTitle text="Upcoming" />
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
 											<UpComingMedia um={um} key={um.calendarEventId} />
@@ -212,7 +211,7 @@ export default function Page() {
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
 								<Section key={v} lot={v}>
-									<Title>In Progress</Title>
+									<SectionTitle text="In Progress" />
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
@@ -230,7 +229,7 @@ export default function Page() {
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Group justify="space-between">
-									<Title order={2}>Recommendations</Title>
+									<SectionTitle text="Recommendations" />
 									<Form
 										method="POST"
 										action={withQuery(".?index", {
@@ -267,7 +266,7 @@ export default function Page() {
 						.with([DashboardElementLot.Summary, false], ([v, _]) =>
 							latestUserSummary ? (
 								<Section key={v} lot={v}>
-									<Title>Summary</Title>
+									<SectionTitle text="Summary" />
 									<SimpleGrid
 										cols={{ base: 1, sm: 2, md: 3 }}
 										style={{ alignItems: "center" }}
@@ -502,6 +501,12 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const SectionTitle = (props: { text: string }) => (
+	<Text fz={{ base: "h2", md: "h1" }} fw="bold">
+		{props.text}
+	</Text>
+);
 
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
