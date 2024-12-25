@@ -19,6 +19,7 @@
 		"@mantine/dates": "7.14.3",
 		"@mantine/form": "7.14.3",
 		"@mantine/hooks": "7.14.3",
+		"@mantine/modals": "7.14.3",
 		"@mantine/notifications": "7.14.3",
 		"@remix-pwa/sw": "3.0.10",
 		"@remix-pwa/worker-runtime": "2.1.4",
