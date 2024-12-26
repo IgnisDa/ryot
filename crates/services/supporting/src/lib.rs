@@ -22,6 +22,7 @@ use enum_models::{
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
 use itertools::Itertools;
+use lock_service::LockService;
 use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
@@ -31,6 +32,7 @@ use unkey::{models::VerifyKeyRequest, Client};
 pub struct SupportingService {
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
+    pub lock_service: LockService,
     pub cache_service: CacheService,
     pub config: Arc<config::AppConfig>,
     pub oidc_client: Option<CoreClient>,
@@ -46,6 +48,7 @@ impl SupportingService {
     pub async fn new(
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
+        lock_service: LockService,
         cache_service: CacheService,
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
@@ -58,6 +61,7 @@ impl SupportingService {
             config,
             timezone,
             oidc_client,
+            lock_service,
             cache_service,
             db: db.clone(),
             file_storage_service,

@@ -1,33 +1,24 @@
 [package]
-name = "supporting-service"
+name = "lock-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
-apalis = { workspace = true }
-background-models = { path = "../../models/background" }
-cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 env-utils = { path = "../../utils/env" }
-file-storage-service = { path = "../../services/file-storage" }
-isolang = { workspace = true }
-itertools = { workspace = true }
-lock-service = { path = "../../services/lock" }
-openidconnect = { workspace = true }
-rustypipe = { workspace = true }
 sea-orm = { workspace = true }
+sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sqlx = { workspace = true }
 tracing = { workspace = true }
-unkey = { workspace = true }
+uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["tracing"]
+ignored = ["serde", "tracing"]

@@ -832,6 +832,7 @@ dependencies = [
  "importer-service",
  "integration-service",
  "itertools 0.13.0",
+ "lock-service",
  "logs-wheel",
  "migrations",
  "miscellaneous-resolver",
@@ -3619,6 +3620,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
+name = "lock-service"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "database-models",
+ "dependent-models",
+ "env-utils",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6317,6 +6339,7 @@ dependencies = [
  "file-storage-service",
  "isolang",
  "itertools 0.13.0",
+ "lock-service",
  "openidconnect",
  "rustypipe",
  "sea-orm",
