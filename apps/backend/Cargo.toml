@@ -36,7 +36,6 @@ importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }
 integration-service = { path = "../../crates/services/integration" }
 itertools = { workspace = true }
-lock-service = { path = "../../crates/services/lock" }
 logs-wheel = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }

@@ -31,7 +31,6 @@ members = [
     "crates/services/importer",
     "crates/services/integration",
     "crates/services/jwt",
-    "crates/services/lock",
     "crates/services/miscellaneous",
     "crates/services/notification",
     "crates/services/statistics",

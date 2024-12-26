@@ -26,7 +26,6 @@ use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
 use itertools::Itertools;
-use lock_service::LockService;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
 use openidconnect::{
@@ -72,12 +71,10 @@ pub async fn create_app_services(
         config.file_storage.s3_bucket_name.clone(),
     ));
     let cache_service = CacheService::new(&db, config.clone());
-    let lock_service = LockService::new(&db);
     let supporting_service = Arc::new(
         SupportingService::new(
             &db,
             timezone,
-            lock_service,
             cache_service,
             config.clone(),
             oidc_client,

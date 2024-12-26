@@ -22,7 +22,8 @@ use database_models::{
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
-    admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision, user_by_id,
+    acquire_lock, admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision,
+    user_by_id,
 };
 use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enum_models::{
@@ -1239,7 +1240,7 @@ pub async fn progress_update(
     input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
-    let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
+    let cache_and_lock_key = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
         user_id: user_id.to_owned(),
         input: ProgressUpdateCacheInput {
             metadata_id: input.metadata_id.clone(),
@@ -1251,10 +1252,11 @@ pub async fn progress_update(
             podcast_episode_number: input.podcast_episode_number,
         },
     });
+    let _ = acquire_lock(&ss.db, &cache_and_lock_key).await?;
     if respect_cache {
         let in_cache = ss
             .cache_service
-            .get_value::<EmptyCacheValue>(cache.clone())
+            .get_value::<EmptyCacheValue>(cache_and_lock_key.clone())
             .await;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
@@ -1477,7 +1479,7 @@ pub async fn progress_update(
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
             .set_key(
-                cache,
+                cache_and_lock_key,
                 ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )
             .await?;
