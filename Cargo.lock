@@ -3624,20 +3624,13 @@ name = "lock-service"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "chrono",
  "common-models",
  "common-utils",
- "config",
- "database-models",
- "dependent-models",
- "env-utils",
  "sea-orm",
- "sea-query",
  "serde",
  "serde_json",
  "sqlx",
  "tracing",
- "uuid",
 ]
 
 [[package]]

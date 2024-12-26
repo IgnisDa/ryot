@@ -145,7 +145,7 @@ serde_with = { version = "=3.11.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.6.0"
 slug = "=0.1.6"
 sonarr-api-rs = "=3.0.0"
-sqlx = "=0.8.2"
+sqlx = { version = "=0.8.2", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
 reqwest = { version = "=0.12.9", features = ["json", "stream"] }
