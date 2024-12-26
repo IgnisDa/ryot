@@ -1252,7 +1252,6 @@ pub async fn progress_update(
         },
     });
     acquire_lock!(&ss.db, &cache_and_lock_key);
-    std::thread::sleep(std::time::Duration::from_millis(15000));
     if respect_cache {
         let in_cache = ss
             .cache_service
