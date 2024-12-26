@@ -245,6 +245,7 @@ pub struct UserAnalyticsInput {
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataGroupSearchInput {
     pub lot: MediaLot,
@@ -274,6 +275,7 @@ pub struct PersonSourceSpecifics {
     pub is_anilist_studio: Option<bool>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct PeopleSearchInput {
     pub search: SearchInput,
@@ -281,6 +283,7 @@ pub struct PeopleSearchInput {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataSearchInput {
     pub lot: MediaLot,
@@ -288,18 +291,21 @@ pub struct MetadataSearchInput {
     pub source: MediaSource,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserLevelCacheKey<T> {
     pub input: T,
     pub user_id: String,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataRecentlyConsumedCacheInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProgressUpdateCacheInput {
     pub metadata_id: String,
@@ -307,6 +313,7 @@ pub struct ProgressUpdateCacheInput {
     pub manga_volume_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
     pub podcast_episode_number: Option<i32>,
     pub manga_chapter_number: Option<Decimal>,
 }

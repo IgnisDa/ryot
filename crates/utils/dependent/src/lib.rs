@@ -1249,6 +1249,7 @@ pub async fn progress_update(
             manga_chapter_number: input.manga_chapter_number,
             anime_episode_number: input.anime_episode_number,
             podcast_episode_number: input.podcast_episode_number,
+            provider_watched_on: input.provider_watched_on.clone(),
         },
     });
     acquire_lock!(&ss.db, &cache_and_lock_key);

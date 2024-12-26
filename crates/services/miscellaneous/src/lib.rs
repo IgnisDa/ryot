@@ -1636,6 +1636,7 @@ ORDER BY RANDOM() LIMIT 10;
                 manga_chapter_number: mcn,
                 podcast_episode_number: pen,
                 metadata_id: si.metadata_id.clone(),
+                provider_watched_on: si.provider_watched_on.clone(),
             },
         });
         self.0.cache_service.expire_key(cache).await?;
