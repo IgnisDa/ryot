@@ -7,8 +7,7 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob};
 use chrono::Timelike;
 use common_models::{
-    ApplicationCacheKey, BackendError, DailyUserActivityHourRecord,
-    DailyUserActivityHourRecordEntity, IdAndNamedObject,
+    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -42,11 +41,6 @@ use sea_orm::{
     Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    pool::PoolConnection,
-    postgres::{PgAdvisoryLock, PgAdvisoryLockGuard},
-    Postgres,
-};
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
 use uuid::Uuid;
@@ -751,16 +745,4 @@ pub async fn schedule_user_for_workout_revision(
     user.update(&ss.db).await?;
     ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
     Ok(())
-}
-
-pub async fn acquire_lock<'a>(
-    db: &'a DatabaseConnection,
-    key: &'a ApplicationCacheKey,
-) -> Result<PgAdvisoryLockGuard<'a, PoolConnection<Postgres>>> {
-    let key_string = serde_json::to_string(key)?;
-    let lock = PgAdvisoryLock::new(key_string);
-    ryot_log!(debug, "Acquiring advisory lock: {:?}", lock);
-    let conn = db.get_postgres_connection_pool().acquire().await?;
-    let advisory_lock = lock.acquire(conn).await?;
-    todo!()
 }

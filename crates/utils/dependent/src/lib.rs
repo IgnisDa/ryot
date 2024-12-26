@@ -9,7 +9,7 @@ use common_models::{
     MediaStateChanged, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl,
     StringIdObject, UserLevelCacheKey,
 };
-use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
@@ -22,8 +22,7 @@ use database_models::{
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
-    acquire_lock, admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision,
-    user_by_id,
+    admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enum_models::{
@@ -1252,7 +1251,7 @@ pub async fn progress_update(
             podcast_episode_number: input.podcast_episode_number,
         },
     });
-    let _ = acquire_lock(&ss.db, &cache_and_lock_key).await?;
+    acquire_lock!(&ss.db, &cache_and_lock_key);
     if respect_cache {
         let in_cache = ss
             .cache_service

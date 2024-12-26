@@ -73,25 +73,6 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
 
-#[macro_export]
-macro_rules! ryot_log {
-    (info, $($arg:tt)*) => {
-        tracing::info!(target: "ryot", $($arg)*);
-    };
-    (warn, $($arg:tt)*) => {
-        tracing::warn!(target: "ryot", $($arg)*);
-    };
-    (error, $($arg:tt)*) => {
-        tracing::error!(target: "ryot", $($arg)*);
-    };
-    (debug, $($arg:tt)*) => {
-        tracing::debug!(target: "ryot", $($arg)*);
-    };
-    (trace, $($arg:tt)*) => {
-        tracing::trace!(target: "ryot", $($arg)*);
-    };
-}
-
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
@@ -149,4 +130,40 @@ where
     }
 
     deserializer.deserialize_any(JsonStringVisitor)
+}
+
+#[macro_export]
+macro_rules! ryot_log {
+    (info, $($arg:tt)*) => {
+        tracing::info!(target: "ryot", $($arg)*);
+    };
+    (warn, $($arg:tt)*) => {
+        tracing::warn!(target: "ryot", $($arg)*);
+    };
+    (error, $($arg:tt)*) => {
+        tracing::error!(target: "ryot", $($arg)*);
+    };
+    (debug, $($arg:tt)*) => {
+        tracing::debug!(target: "ryot", $($arg)*);
+    };
+    (trace, $($arg:tt)*) => {
+        tracing::trace!(target: "ryot", $($arg)*);
+    };
+}
+
+#[macro_export]
+macro_rules! acquire_lock {
+    ($db:expr, $key:expr) => {
+        use sqlx::{
+            pool::PoolConnection,
+            postgres::{PgAdvisoryLock, PgAdvisoryLockGuard},
+            Postgres,
+        };
+
+        let key_string = serde_json::to_string($key).unwrap();
+        let lock = PgAdvisoryLock::new(key_string);
+        ryot_log!(debug, "Acquiring advisory lock: {:?}", lock);
+        let conn = $db.get_postgres_connection_pool().acquire().await?;
+        let _ = lock.acquire(conn).await?;
+    };
 }

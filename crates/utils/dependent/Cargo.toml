@@ -26,6 +26,8 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
 supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
@@ -33,4 +35,4 @@ user-models = { path = "../../models/user" }
 uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["tracing"]
+ignored = ["serde_json", "sqlx", "tracing"]
