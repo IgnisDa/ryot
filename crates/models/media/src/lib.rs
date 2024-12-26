@@ -1027,6 +1027,12 @@ pub struct CreateCustomMetadataInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataInput {
+    pub existing_metadata_id: String,
+    pub update: CreateCustomMetadataInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserIntegrationInput {
     pub provider: IntegrationProvider,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
@@ -1254,6 +1260,7 @@ pub struct GraphqlMetadataDetails {
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
     pub production_status: Option<String>,
+    pub created_by_user_id: Option<String>,
     pub group: Option<GraphqlMetadataGroup>,
     pub watch_providers: Vec<WatchProvider>,
     pub show_specifics: Option<ShowSpecifics>,

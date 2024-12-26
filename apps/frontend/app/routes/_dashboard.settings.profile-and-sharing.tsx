@@ -54,8 +54,11 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
-import { applicationBaseUrl, dayjsLib } from "~/lib/generals";
+import {
+	applicationBaseUrl,
+	dayjsLib,
+	openConfirmationModal,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -236,14 +239,13 @@ export default function Page() {
 
 									<Button
 										type="submit"
-										onClick={async (e) => {
+										onClick={(e) => {
 											const form = e.currentTarget.form;
 											e.preventDefault();
-											const conf = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to update your profile?",
-											});
-											if (conf && form) submit(form);
+											openConfirmationModal(
+												"Are you sure you want to update your profile?",
+												() => submit(form),
+											);
 										}}
 										fullWidth
 									>
@@ -411,14 +413,13 @@ const DisplayAccessLink = (props: {
 											type="submit"
 											variant="subtle"
 											disabled={props.isEditDisabled || undefined}
-											onClick={async (e) => {
+											onClick={(e) => {
 												const form = e.currentTarget.form;
 												e.preventDefault();
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to revoke this access link?",
-												});
-												if (conf && form) submit(form);
+												openConfirmationModal(
+													"Are you sure you want to revoke this access link?",
+													() => submit(form),
+												);
 											}}
 										>
 											<IconLock />

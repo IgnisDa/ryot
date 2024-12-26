@@ -11,3 +11,4 @@ enum-models = { path = "../../models/enum" }
 env-utils = { path = "../env" }
 reqwest = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true }

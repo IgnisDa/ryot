@@ -17,7 +17,12 @@ import {
 import { processSubmission } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { useDashboardLayoutData, useUserDetails } from "~/lib/hooks";
+import { openConfirmationModal } from "~/lib/generals";
+import {
+	useConfirmSubmit,
+	useDashboardLayoutData,
+	useUserDetails,
+} from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs) => {
@@ -47,29 +52,23 @@ const jobSchema = z.object({
 export default function Page() {
 	return (
 		<Container size="lg">
-			<Form replace method="POST">
-				<Stack>
-					<Title>Miscellaneous settings</Title>
-					<SimpleGrid
-						cols={{ base: 1, lg: 2 }}
-						spacing={{ base: "xl", md: "md" }}
-					>
-						{Object.values(BackgroundJob).map((job) => (
-							<DisplayJobBtn key={job} job={job} />
-						))}
-					</SimpleGrid>
-				</Stack>
-			</Form>
+			<Stack>
+				<Title>Miscellaneous settings</Title>
+				<SimpleGrid
+					cols={{ base: 1, lg: 2 }}
+					spacing={{ base: "xl", md: "md" }}
+				>
+					{Object.values(BackgroundJob).map((job) => (
+						<DisplayJobBtn key={job} job={job} />
+					))}
+				</SimpleGrid>
+			</Stack>
 		</Container>
 	);
 }
 
-const DisplayJobBtn = (props: { job: BackgroundJob }) => {
-	const userDetails = useUserDetails();
-	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemo;
-
-	const [title, description, isAdminOnly] = match(props.job)
+const getJobDetails = (job: BackgroundJob) =>
+	match(job)
 		.with(
 			BackgroundJob.UpdateAllMetadata,
 			() =>
@@ -132,24 +131,41 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 		)
 		.exhaustive();
 
+const DisplayJobBtn = (props: { job: BackgroundJob }) => {
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
+	const submit = useConfirmSubmit();
+
+	const [title, description, isAdminOnly] = getJobDetails(props.job);
+
 	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
 
 	return (
-		<Stack>
-			<Box>
-				<Title order={4}>{title}</Title>
-				<Text>{description}</Text>
-			</Box>
-			<Button
-				mt="auto"
-				type="submit"
-				name="jobName"
-				variant="light"
-				value={props.job}
-				disabled={isEditDisabled}
-			>
-				{title}
-			</Button>
-		</Stack>
+		<Form replace method="POST">
+			<input hidden name="jobName" defaultValue={props.job} />
+			<Stack>
+				<Box>
+					<Title order={4}>{title}</Title>
+					<Text>{description}</Text>
+				</Box>
+				<Button
+					mt="auto"
+					type="submit"
+					variant="light"
+					disabled={isEditDisabled}
+					onClick={(e) => {
+						const form = e.currentTarget.form;
+						e.preventDefault();
+						openConfirmationModal(
+							"Are you sure you want to perform this task?",
+							() => submit(form),
+						);
+					}}
+				>
+					{title}
+				</Button>
+			</Stack>
+		</Form>
 	);
 };

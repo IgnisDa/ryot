@@ -46,8 +46,7 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -398,14 +397,13 @@ export default function Page() {
 											color="blue"
 											type="submit"
 											variant="light"
-											onClick={async (e) => {
+											onClick={(e) => {
 												const form = e.currentTarget.form;
 												e.preventDefault();
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to deploy an import job? This action is irreversible.",
-												});
-												if (conf && form) submit(form);
+												openConfirmationModal(
+													"Are you sure you want to deploy an import job? This action is irreversible.",
+													() => submit(form),
+												);
 											}}
 										>
 											Import

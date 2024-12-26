@@ -1,6 +1,7 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
-import { useForceUpdate, useListState } from "@mantine/hooks";
+import { useForceUpdate } from "@mantine/hooks";
 import {
+	useNavigate,
 	useRevalidator,
 	useRouteLoaderData,
 	useSearchParams,
@@ -86,7 +87,8 @@ export const useAppSearchParam = (cookieKey: string) => {
 
 export const useConfirmSubmit = () => {
 	const submit = useSubmit();
-	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement) => {
+	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement | null) => {
+		if (!e) return;
 		if (e.preventDefault) e.preventDefault();
 		submit(e.currentTarget || e, { navigate: false });
 	};
@@ -94,12 +96,13 @@ export const useConfirmSubmit = () => {
 };
 
 export const useGetWorkoutStarter = () => {
+	const navigate = useNavigate();
 	const revalidator = useRevalidator();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
 	const fn = (wkt: InProgressWorkout, action: FitnessAction) => {
 		setCurrentWorkout(wkt);
-		window.location.href = $path("/fitness/:action", { action });
+		navigate($path("/fitness/:action", { action }), { flushSync: true });
 		revalidator.revalidate();
 	};
 	return fn;
@@ -185,22 +188,6 @@ export const useGetWatchProviders = (mediaLot: MediaLot) => {
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
 			?.values || [];
 	return watchProviders;
-};
-
-export const useComplexJsonUpdate = () => {
-	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
-		[string, string]
-	>([]);
-
-	const reset = () => updateUserPreferencesHandler.setState([]);
-
-	const appendPref = (property: string, value: string) => {
-		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
-		if (index !== -1) updateUserPreferencesHandler.remove(index);
-		updateUserPreferencesHandler.append([property, value]);
-	};
-
-	return { reset, appendPref, toUpdatePreferences };
 };
 
 export const useIsFitnessActionActive = () => {

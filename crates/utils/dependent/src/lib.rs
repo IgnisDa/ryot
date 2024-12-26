@@ -9,7 +9,7 @@ use common_models::{
     MediaStateChanged, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl,
     StringIdObject, UserLevelCacheKey,
 };
-use common_utils::{ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
@@ -1239,7 +1239,7 @@ pub async fn progress_update(
     input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
-    let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
+    let cache_and_lock_key = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
         user_id: user_id.to_owned(),
         input: ProgressUpdateCacheInput {
             metadata_id: input.metadata_id.clone(),
@@ -1251,10 +1251,11 @@ pub async fn progress_update(
             podcast_episode_number: input.podcast_episode_number,
         },
     });
+    acquire_lock!(&ss.db, &cache_and_lock_key);
     if respect_cache {
         let in_cache = ss
             .cache_service
-            .get_value::<EmptyCacheValue>(cache.clone())
+            .get_value::<EmptyCacheValue>(cache_and_lock_key.clone())
             .await;
         if in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
@@ -1477,7 +1478,7 @@ pub async fn progress_update(
     if seen.state == SeenState::Completed && respect_cache {
         ss.cache_service
             .set_key(
-                cache,
+                cache_and_lock_key,
                 ApplicationCacheValue::Empty(EmptyCacheValue::default()),
             )
             .await?;

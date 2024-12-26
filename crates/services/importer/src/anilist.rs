@@ -100,7 +100,7 @@ pub async fn import(
                     history.anime_episode_number = Some(num.try_into().unwrap());
                 }
                 MediaLot::Manga => {
-                    history.manga_chapter_number = Some(num.try_into().unwrap());
+                    history.manga_chapter_number = Some(num.into());
                 }
                 _ => unreachable!(),
             }

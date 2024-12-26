@@ -73,9 +73,10 @@ use media_models::{
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
@@ -103,7 +104,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
@@ -444,6 +444,7 @@ ORDER BY RANDOM() LIMIT 10;
             production_status: model.production_status,
             original_language: model.original_language,
             podcast_specifics: model.podcast_specifics,
+            created_by_user_id: model.created_by_user_id,
             external_identifiers: model.external_identifiers,
             video_game_specifics: model.video_game_specifics,
             audio_book_specifics: model.audio_book_specifics,
@@ -1665,12 +1666,12 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn create_custom_metadata(
+    fn get_data_for_custom_metadata(
         &self,
-        user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<metadata::Model> {
-        let identifier = nanoid!(10);
+        identifier: String,
+        user_id: &str,
+    ) -> metadata::ActiveModel {
         let images = input
             .images
             .unwrap_or_default()
@@ -1710,7 +1711,7 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let metadata = metadata::ActiveModel {
+        metadata::ActiveModel {
             lot: ActiveValue::Set(input.lot),
             title: ActiveValue::Set(input.title),
             identifier: ActiveValue::Set(identifier),
@@ -1726,6 +1727,7 @@ ORDER BY RANDOM() LIMIT 10;
             movie_specifics: ActiveValue::Set(input.movie_specifics),
             music_specifics: ActiveValue::Set(input.music_specifics),
             podcast_specifics: ActiveValue::Set(input.podcast_specifics),
+            created_by_user_id: ActiveValue::Set(Some(user_id.to_owned())),
             audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
             video_game_specifics: ActiveValue::Set(input.video_game_specifics),
             visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
@@ -1742,7 +1744,16 @@ ORDER BY RANDOM() LIMIT 10;
                 false => Some(free_creators),
             }),
             ..Default::default()
-        };
+        }
+    }
+
+    pub async fn create_custom_metadata(
+        &self,
+        user_id: String,
+        input: CreateCustomMetadataInput,
+    ) -> Result<metadata::Model> {
+        let identifier = nanoid!(10);
+        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier, &user_id);
         let metadata = metadata.insert(&self.0.db).await?;
         change_metadata_associations(
             &metadata.id,
@@ -1766,6 +1777,53 @@ ORDER BY RANDOM() LIMIT 10;
         )
         .await?;
         Ok(metadata)
+    }
+
+    pub async fn update_custom_metadata(
+        &self,
+        user_id: &str,
+        input: UpdateCustomMetadataInput,
+    ) -> Result<bool> {
+        let metadata = Metadata::find_by_id(&input.existing_metadata_id)
+            .one(&self.0.db)
+            .await?
+            .unwrap();
+        if metadata.source != MediaSource::Custom {
+            return Err(Error::new(
+                "This metadata is not custom and cannot be updated",
+            ));
+        }
+        if metadata.created_by_user_id != Some(user_id.to_owned()) {
+            return Err(Error::new("You are not authorized to update this metadata"));
+        }
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+            .exec(&self.0.db)
+            .await?;
+        for image in metadata.images.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = image.url {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
+        for video in metadata.videos.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = video.identifier {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
+        let mut new_metadata =
+            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
+        new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
+        let metadata = new_metadata.update(&self.0.db).await?;
+        change_metadata_associations(
+            &metadata.id,
+            input.update.genres.unwrap_or_default(),
+            vec![],
+            vec![],
+            vec![],
+            &self.0,
+        )
+        .await?;
+        Ok(true)
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
@@ -2914,7 +2972,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        sleep(TokioDuration::from_secs(3)).await;
         Ok(true)
     }
 }

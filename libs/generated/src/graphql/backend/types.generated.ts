@@ -758,6 +758,7 @@ export type GraphqlMetadataDetails = {
   assets: GraphqlMediaAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
+  createdByUserId?: Maybe<Scalars['String']['output']>;
   creators: Array<MetadataCreatorGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
   genres: Array<GenreListItem>;
@@ -1298,6 +1299,8 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
+  /** Refresh the user recommendations key. */
+  refreshUserRecommendationsKey: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -1311,6 +1314,8 @@ export type MutationRoot = {
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
   updateCustomExercise: Scalars['Boolean']['output'];
+  /** Update custom metadata. */
+  updateCustomMetadata: Scalars['Boolean']['output'];
   /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
@@ -1535,6 +1540,11 @@ export type MutationRootUpdateCustomExerciseArgs = {
 };
 
 
+export type MutationRootUpdateCustomMetadataArgs = {
+  input: UpdateCustomMetadataInput;
+};
+
+
 export type MutationRootUpdateSeenItemArgs = {
   input: UpdateSeenItemInput;
 };
@@ -1561,7 +1571,7 @@ export type MutationRootUpdateUserNotificationPlatformArgs = {
 
 
 export type MutationRootUpdateUserPreferenceArgs = {
-  input: UpdateComplexJsonInput;
+  input: UserPreferencesInput;
 };
 
 
@@ -2162,6 +2172,13 @@ export type SetRestTimersSettings = {
   warmup?: Maybe<Scalars['Int']['output']>;
 };
 
+export type SetRestTimersSettingsInput = {
+  drop?: InputMaybe<Scalars['Int']['input']>;
+  failure?: InputMaybe<Scalars['Int']['input']>;
+  normal?: InputMaybe<Scalars['Int']['input']>;
+  warmup?: InputMaybe<Scalars['Int']['input']>;
+};
+
 /** Details about the statistics of the set performed. */
 export type SetStatisticInput = {
   distance?: InputMaybe<Scalars['Decimal']['input']>;
@@ -2243,12 +2260,6 @@ export type UniqueMediaIdentifier = {
   source: MediaSource;
 };
 
-export type UpdateComplexJsonInput = {
-  /** Dot delimited path to the property that needs to be changed. */
-  property: Scalars['String']['input'];
-  value: Scalars['String']['input'];
-};
-
 export type UpdateCustomExerciseInput = {
   attributes: ExerciseAttributesInput;
   equipment?: InputMaybe<ExerciseEquipment>;
@@ -2262,6 +2273,11 @@ export type UpdateCustomExerciseInput = {
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+export type UpdateCustomMetadataInput = {
+  existingMetadataId: Scalars['String']['input'];
+  update: CreateCustomMetadataInput;
+};
+
 export type UpdateSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
@@ -2272,7 +2288,7 @@ export type UpdateSeenItemInput = {
 };
 
 export type UpdateUserExerciseSettings = {
-  change: UpdateComplexJsonInput;
+  change: UserToExerciseSettingsExtraInformationInput;
   exerciseId: Scalars['String']['input'];
 };
 
@@ -2327,6 +2343,10 @@ export type UserAnalyticsFeaturesEnabledPreferences = {
   enabled: Scalars['Boolean']['output'];
 };
 
+export type UserAnalyticsFeaturesEnabledPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+};
+
 export type UserAnalyticsInput = {
   dateRange: ApplicationDateRangeInput;
   groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
@@ -2346,6 +2366,11 @@ export type UserCustomMeasurement = {
 export enum UserCustomMeasurementDataType {
   Decimal = 'DECIMAL'
 }
+
+export type UserCustomMeasurementInput = {
+  dataType: UserCustomMeasurementDataType;
+  name: Scalars['String']['input'];
+};
 
 export type UserDetailsError = {
   __typename?: 'UserDetailsError';
@@ -2381,6 +2406,13 @@ export type UserFeaturesEnabledPreferences = {
   others: UserOthersFeaturesEnabledPreferences;
 };
 
+export type UserFeaturesEnabledPreferencesInput = {
+  analytics: UserAnalyticsFeaturesEnabledPreferencesInput;
+  fitness: UserFitnessFeaturesEnabledPreferencesInput;
+  media: UserMediaFeaturesEnabledPreferencesInput;
+  others: UserOthersFeaturesEnabledPreferencesInput;
+};
+
 export type UserFitnessAnalytics = {
   __typename?: 'UserFitnessAnalytics';
   measurementCount: Scalars['Int']['output'];
@@ -2402,12 +2434,24 @@ export type UserFitnessExercisesPreferences = {
   unitSystem: UserUnitSystem;
 };
 
+export type UserFitnessExercisesPreferencesInput = {
+  setRestTimers: SetRestTimersSettingsInput;
+  unitSystem: UserUnitSystem;
+};
+
 export type UserFitnessFeaturesEnabledPreferences = {
   __typename?: 'UserFitnessFeaturesEnabledPreferences';
   enabled: Scalars['Boolean']['output'];
   measurements: Scalars['Boolean']['output'];
   templates: Scalars['Boolean']['output'];
   workouts: Scalars['Boolean']['output'];
+};
+
+export type UserFitnessFeaturesEnabledPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+  measurements: Scalars['Boolean']['input'];
+  templates: Scalars['Boolean']['input'];
+  workouts: Scalars['Boolean']['input'];
 };
 
 export type UserFitnessLoggingPreferences = {
@@ -2417,10 +2461,21 @@ export type UserFitnessLoggingPreferences = {
   showDetailsWhileEditing: Scalars['Boolean']['output'];
 };
 
+export type UserFitnessLoggingPreferencesInput = {
+  muteSounds: Scalars['Boolean']['input'];
+  promptForRestTimer: Scalars['Boolean']['input'];
+  showDetailsWhileEditing: Scalars['Boolean']['input'];
+};
+
 export type UserFitnessMeasurementsPreferences = {
   __typename?: 'UserFitnessMeasurementsPreferences';
   custom: Array<UserCustomMeasurement>;
   inbuilt: UserMeasurementsInBuiltPreferences;
+};
+
+export type UserFitnessMeasurementsPreferencesInput = {
+  custom: Array<UserCustomMeasurementInput>;
+  inbuilt: UserMeasurementsInBuiltPreferencesInput;
 };
 
 export type UserFitnessPreferences = {
@@ -2430,11 +2485,24 @@ export type UserFitnessPreferences = {
   measurements: UserFitnessMeasurementsPreferences;
 };
 
+export type UserFitnessPreferencesInput = {
+  exercises: UserFitnessExercisesPreferencesInput;
+  logging: UserFitnessLoggingPreferencesInput;
+  measurements: UserFitnessMeasurementsPreferencesInput;
+};
+
 export type UserGeneralDashboardElement = {
   __typename?: 'UserGeneralDashboardElement';
   deduplicateMedia?: Maybe<Scalars['Boolean']['output']>;
   hidden: Scalars['Boolean']['output'];
   numElements?: Maybe<Scalars['Int']['output']>;
+  section: DashboardElementLot;
+};
+
+export type UserGeneralDashboardElementInput = {
+  deduplicateMedia?: InputMaybe<Scalars['Boolean']['input']>;
+  hidden: Scalars['Boolean']['input'];
+  numElements?: InputMaybe<Scalars['Int']['input']>;
   section: DashboardElementLot;
 };
 
@@ -2453,10 +2521,29 @@ export type UserGeneralPreferences = {
   watchProviders: Array<UserGeneralWatchProvider>;
 };
 
+export type UserGeneralPreferencesInput = {
+  dashboard: Array<UserGeneralDashboardElementInput>;
+  disableIntegrations: Scalars['Boolean']['input'];
+  disableNavigationAnimation: Scalars['Boolean']['input'];
+  disableReviews: Scalars['Boolean']['input'];
+  disableVideos: Scalars['Boolean']['input'];
+  disableWatchProviders: Scalars['Boolean']['input'];
+  displayNsfw: Scalars['Boolean']['input'];
+  gridPacking: GridPacking;
+  persistQueries: Scalars['Boolean']['input'];
+  reviewScale: UserReviewScale;
+  watchProviders: Array<UserGeneralWatchProviderInput>;
+};
+
 export type UserGeneralWatchProvider = {
   __typename?: 'UserGeneralWatchProvider';
   lot: MediaLot;
   values: Array<Scalars['String']['output']>;
+};
+
+export type UserGeneralWatchProviderInput = {
+  lot: MediaLot;
+  values: Array<Scalars['String']['input']>;
 };
 
 export enum UserLot {
@@ -2573,6 +2660,32 @@ export type UserMeasurementsInBuiltPreferences = {
   weight: Scalars['Boolean']['output'];
 };
 
+export type UserMeasurementsInBuiltPreferencesInput = {
+  abdominalSkinfold: Scalars['Boolean']['input'];
+  basalMetabolicRate: Scalars['Boolean']['input'];
+  bicepsCircumference: Scalars['Boolean']['input'];
+  bodyFat: Scalars['Boolean']['input'];
+  bodyFatCaliper: Scalars['Boolean']['input'];
+  bodyMassIndex: Scalars['Boolean']['input'];
+  boneMass: Scalars['Boolean']['input'];
+  calories: Scalars['Boolean']['input'];
+  chestCircumference: Scalars['Boolean']['input'];
+  chestSkinfold: Scalars['Boolean']['input'];
+  hipCircumference: Scalars['Boolean']['input'];
+  leanBodyMass: Scalars['Boolean']['input'];
+  muscle: Scalars['Boolean']['input'];
+  neckCircumference: Scalars['Boolean']['input'];
+  thighCircumference: Scalars['Boolean']['input'];
+  thighSkinfold: Scalars['Boolean']['input'];
+  totalBodyWater: Scalars['Boolean']['input'];
+  totalDailyEnergyExpenditure: Scalars['Boolean']['input'];
+  visceralFat: Scalars['Boolean']['input'];
+  waistCircumference: Scalars['Boolean']['input'];
+  waistToHeightRatio: Scalars['Boolean']['input'];
+  waistToHipRatio: Scalars['Boolean']['input'];
+  weight: Scalars['Boolean']['input'];
+};
+
 export type UserMeasurementsListInput = {
   endTime?: InputMaybe<Scalars['DateTime']['input']>;
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
@@ -2594,6 +2707,23 @@ export type UserMediaFeaturesEnabledPreferences = {
   show: Scalars['Boolean']['output'];
   videoGame: Scalars['Boolean']['output'];
   visualNovel: Scalars['Boolean']['output'];
+};
+
+export type UserMediaFeaturesEnabledPreferencesInput = {
+  anime: Scalars['Boolean']['input'];
+  audioBook: Scalars['Boolean']['input'];
+  book: Scalars['Boolean']['input'];
+  enabled: Scalars['Boolean']['input'];
+  genres: Scalars['Boolean']['input'];
+  groups: Scalars['Boolean']['input'];
+  manga: Scalars['Boolean']['input'];
+  movie: Scalars['Boolean']['input'];
+  music: Scalars['Boolean']['input'];
+  people: Scalars['Boolean']['input'];
+  podcast: Scalars['Boolean']['input'];
+  show: Scalars['Boolean']['input'];
+  videoGame: Scalars['Boolean']['input'];
+  visualNovel: Scalars['Boolean']['input'];
 };
 
 export type UserMediaNextEntry = {
@@ -2660,10 +2790,20 @@ export type UserNotificationsPreferences = {
   toSend: Array<MediaStateChanged>;
 };
 
+export type UserNotificationsPreferencesInput = {
+  enabled: Scalars['Boolean']['input'];
+  toSend: Array<MediaStateChanged>;
+};
+
 export type UserOthersFeaturesEnabledPreferences = {
   __typename?: 'UserOthersFeaturesEnabledPreferences';
   calendar: Scalars['Boolean']['output'];
   collections: Scalars['Boolean']['output'];
+};
+
+export type UserOthersFeaturesEnabledPreferencesInput = {
+  calendar: Scalars['Boolean']['input'];
+  collections: Scalars['Boolean']['input'];
 };
 
 export type UserPersonDetails = {
@@ -2679,6 +2819,13 @@ export type UserPreferences = {
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
   notifications: UserNotificationsPreferences;
+};
+
+export type UserPreferencesInput = {
+  featuresEnabled: UserFeaturesEnabledPreferencesInput;
+  fitness: UserFitnessPreferencesInput;
+  general: UserGeneralPreferencesInput;
+  notifications: UserNotificationsPreferencesInput;
 };
 
 export enum UserReviewScale {
@@ -2727,6 +2874,11 @@ export type UserToExerciseSettingsExtraInformation = {
   __typename?: 'UserToExerciseSettingsExtraInformation';
   excludeFromAnalytics: Scalars['Boolean']['output'];
   setRestTimers: SetRestTimersSettings;
+};
+
+export type UserToExerciseSettingsExtraInformationInput = {
+  excludeFromAnalytics: Scalars['Boolean']['input'];
+  setRestTimers: SetRestTimersSettingsInput;
 };
 
 export enum UserToMediaReason {

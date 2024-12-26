@@ -1345,6 +1345,7 @@ dependencies = [
  "env-utils",
  "reqwest 0.12.9",
  "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -1771,6 +1772,8 @@ dependencies = [
  "rust_decimal_macros",
  "sea-orm",
  "serde",
+ "serde_json",
+ "sqlx",
  "supporting-service",
  "tracing",
  "traits",
@@ -2377,6 +2380,7 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "fitness-models",
+ "futures",
  "migrations",
  "nanoid",
  "reqwest 0.12.9",
@@ -3848,7 +3852,6 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
- "tokio",
  "tracing",
  "traits",
  "user-models",
@@ -5889,12 +5892,12 @@ name = "specific-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common-utils",
  "database-models",
  "dependent-utils",
  "enum-models",
  "sea-orm",
  "supporting-service",
- "tokio",
 ]
 
 [[package]]
@@ -7049,7 +7052,6 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "enum_meta",
- "fitness-models",
  "itertools 0.13.0",
  "jwt-service",
  "media-models",
@@ -7057,7 +7059,6 @@ dependencies = [
  "notification-service",
  "openidconnect",
  "sea-orm",
- "serde_json",
  "supporting-service",
  "tracing",
  "user-models",

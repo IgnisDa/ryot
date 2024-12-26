@@ -410,6 +410,12 @@ pub struct IgdbSettings {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct UserRecommendationsKey {
+    pub recommendations_key: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
@@ -431,6 +437,7 @@ pub enum ApplicationCacheValue {
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
+    UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
 }

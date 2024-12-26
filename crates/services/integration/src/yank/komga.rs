@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use application_utils::get_base_http_client;
 use async_graphql::futures_util::{stream, StreamExt};
 use common_models::DefaultCollection;
-use common_utils::ryot_log;
+use common_utils::{ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
@@ -240,7 +240,7 @@ async fn sse_listener(
         }
 
         ryot_log!(trace, "SSE listener finished");
-        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+        sleep_for_n_seconds(30).await;
     }
 }
 

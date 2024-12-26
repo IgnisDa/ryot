@@ -25,12 +25,14 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { notifications } from "@mantine/notifications";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import {
+	Link,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
@@ -58,8 +60,9 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { Fragment } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
+import { Fragment, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -78,11 +81,11 @@ import { MediaScrollArea } from "~/components/media";
 import {
 	FitnessEntity,
 	TimeSpan,
+	clientGqlService,
 	dayjsLib,
 	getDateFromTimeSpan,
 } from "~/lib/generals";
 import {
-	useComplexJsonUpdate,
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
@@ -96,7 +99,7 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -124,37 +127,13 @@ export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
 };
 
-export const action = async ({ params, request }: ActionFunctionArgs) => {
-	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
-	const entries = Object.entries(Object.fromEntries(await request.formData()));
-	const submission = [];
-	for (const [property, value] of entries) {
-		submission.push({
-			property,
-			value: value.toString(),
-		});
-	}
-	for (const change of submission) {
-		await serverGqlService.authenticatedRequest(
-			request,
-			UpdateUserExerciseSettingsDocument,
-			{ input: { change, exerciseId } },
-		);
-	}
-	return Response.json({ status: "success" } as const, {
-		headers: await createToastHeaders({
-			type: "success",
-			message: "Preferences updated",
-		}),
-	});
-};
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
+	const revalidator = useRevalidator();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
@@ -174,7 +153,23 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
-	const { toUpdatePreferences, appendPref } = useComplexJsonUpdate();
+	const [changingExerciseSettings, setChangingExerciseSettings] = useState({
+		isChanged: false,
+		value: loaderData.userExerciseDetails.details?.exerciseExtraInformation
+			?.settings || { excludeFromAnalytics: false, setRestTimers: {} },
+	});
+
+	const updateUserExerciseSettingsMutation = useMutation({
+		mutationFn: async () => {
+			await clientGqlService.request(UpdateUserExerciseSettingsDocument, {
+				input: {
+					exerciseId: loaderData.exerciseId,
+					change: changingExerciseSettings.value,
+				},
+			});
+		},
+	});
+
 	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
 	const filteredHistoryForCharts = sortBy(
 		loaderData.userExerciseDetails.history || [],
@@ -193,71 +188,78 @@ export default function Page() {
 	return (
 		<>
 			<Modal
+				centered
+				withCloseButton={false}
 				opened={updatePreferencesModalOpened}
 				onClose={() => closeUpdatePreferencesModal()}
-				withCloseButton={false}
-				centered
 			>
-				<Form method="POST" onSubmit={() => closeUpdatePreferencesModal()}>
-					<Stack>
-						{toUpdatePreferences.map((pref) => (
-							<input
-								hidden
-								readOnly
-								key={pref[0]}
-								name={pref[0]}
-								value={pref[1]}
-							/>
-						))}
-						<Switch
-							label="Exclude from analytics"
-							defaultChecked={
-								loaderData.userExerciseDetails.details?.exerciseExtraInformation
-									?.settings.excludeFromAnalytics
-							}
-							onChange={(ev) => {
-								appendPref(
-									"exclude_from_analytics",
-									String(ev.currentTarget.checked),
-								);
-							}}
-						/>
-						<Text size="sm">
-							When a new set is added, rest timers will be added automatically
-							according to the settings below.
-							<Text size="xs" c="dimmed" span>
-								{" "}
-								Default rest timer durations for all exercises can be changed in
-								the fitness preferences.
-							</Text>
+				<Stack>
+					<Switch
+						label="Exclude from analytics"
+						defaultChecked={
+							loaderData.userExerciseDetails.details?.exerciseExtraInformation
+								?.settings.excludeFromAnalytics
+						}
+						onChange={(ev) => {
+							setChangingExerciseSettings(
+								produce(changingExerciseSettings, (draft) => {
+									draft.isChanged = true;
+									draft.value.excludeFromAnalytics = ev.currentTarget.checked;
+								}),
+							);
+						}}
+					/>
+					<Text size="sm">
+						When a new set is added, rest timers will be added automatically
+						according to the settings below.
+						<Text size="xs" c="dimmed" span>
+							{" "}
+							Default rest timer durations for all exercises can be changed in
+							the fitness preferences.
 						</Text>
-						<SimpleGrid cols={2}>
-							{(["normal", "warmup", "drop", "failure"] as const).map(
-								(name) => {
-									const value =
-										loaderData.userExerciseDetails.details
-											?.exerciseExtraInformation?.settings.setRestTimers[name];
-									return (
-										<NumberInput
-											suffix="s"
-											key={name}
-											label={changeCase(snakeCase(name))}
-											defaultValue={isNumber(value) ? value : undefined}
-											onChange={(val) => {
-												if (isNumber(val))
-													appendPref(
-														`set_rest_timers.${snakeCase(name)}`,
-														String(val),
-													);
-											}}
-										/>
-									);
-								},
-							)}
-						</SimpleGrid>
-						<Button type="submit">Save settings for exercise</Button>
-					</Stack>
-				</Form>
+					</Text>
+					<SimpleGrid cols={2}>
+						{(["normal", "warmup", "drop", "failure"] as const).map((name) => {
+							const value =
+								loaderData.userExerciseDetails.details?.exerciseExtraInformation
+									?.settings.setRestTimers[name];
+							return (
+								<NumberInput
+									suffix="s"
+									key={name}
+									label={changeCase(snakeCase(name))}
+									defaultValue={isNumber(value) ? value : undefined}
+									onChange={(val) => {
+										if (isNumber(val))
+											setChangingExerciseSettings(
+												produce(changingExerciseSettings, (draft) => {
+													draft.isChanged = true;
+													draft.value.setRestTimers[name] = val;
+												}),
+											);
+									}}
+								/>
+							);
+						})}
+					</SimpleGrid>
+					<Button
+						type="submit"
+						disabled={!changingExerciseSettings.isChanged}
+						loading={updateUserExerciseSettingsMutation.isPending}
+						onClick={async () => {
+							await updateUserExerciseSettingsMutation.mutateAsync();
+							revalidator.revalidate();
+							notifications.show({
+								color: "green",
+								title: "Settings updated",
+								message: "Settings for the exercise have been updated.",
+							});
+							closeUpdatePreferencesModal();
+						}}
+					>
+						Save settings
+					</Button>
+				</Stack>
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>

@@ -20,55 +20,41 @@ import {
 	TagsInput,
 	Text,
 	Title,
-	Tooltip,
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, data, useLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
 	DashboardElementLot,
 	GridPacking,
 	MediaLot,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
+	type UserPreferences,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	camelCase,
-	changeCase,
-	cn,
-	isNumber,
-	snakeCase,
-	startCase,
-} from "@ryot/ts-utils";
+import { changeCase, cn, isNumber, snakeCase, startCase } from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
 	IconGripVertical,
-	IconRotate360,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
+import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/generals";
+import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";
 import {
-	useComplexJsonUpdate,
-	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
 	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
@@ -91,123 +77,76 @@ const notificationContent = {
 		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-	const entries = Object.entries(Object.fromEntries(await request.formData()));
-	const submission = [];
-	for (let [property, value] of entries) {
-		if (property === "reset") {
-			property = "";
-			value = "";
-		}
-		submission.push({
-			property,
-			value: value.toString(),
-		});
-	}
-	for (const input of submission) {
-		await serverGqlService.authenticatedRequest(
-			request,
-			UpdateUserPreferenceDocument,
-			{ input },
-		);
-	}
-	const toastHeaders = await createToastHeaders({
-		message: "Preferences updated",
-		type: "success",
-	});
-	return data({}, { headers: toastHeaders });
-};
+type UpdatePreferenceFunc = (draft: Draft<UserPreferences>) => void;
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const submit = useConfirmSubmit();
+	const revalidator = useRevalidator();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [watchProviders, setWatchProviders] = useState(
-		userPreferences.general.watchProviders.map((wp) => ({
-			...wp,
-			lot: snakeCase(wp.lot),
-		})),
-	);
-	const [dashboardElements, setDashboardElements] = useState(
-		userPreferences.general.dashboard,
-	);
-	const { toUpdatePreferences, appendPref, reset } = useComplexJsonUpdate();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
 	const dashboardData = useDashboardLayoutData();
+	const [changingUserPreferences, setChangingUserPreferences] = useState({
+		isChanged: false,
+		value: userPreferences,
+	});
 	const isEditDisabled = dashboardData.isDemo;
+
+	const updateUserPreferencesMutation = useMutation({
+		mutationFn: async () => {
+			await clientGqlService.request(UpdateUserPreferenceDocument, {
+				input: changingUserPreferences.value,
+			});
+			await new Promise((r) => setTimeout(r, 1000));
+			revalidator.revalidate();
+		},
+	});
+
+	const updatePreference = (makeChange: UpdatePreferenceFunc) => {
+		setChangingUserPreferences(
+			produce(changingUserPreferences, (draft) => {
+				draft.isChanged = true;
+				makeChange(draft.value);
+			}),
+		);
+	};
 
 	return (
 		<Container size="xs">
-			{toUpdatePreferences.length > 0 ? (
+			{changingUserPreferences.isChanged ? (
 				<Affix
 					position={{
 						bottom: rem(45),
 						right: rem(isFitnessActionActive ? 100 : 40),
 					}}
 				>
-					<Form
-						replace
-						method="POST"
-						action={`?defaultTab=${defaultTab}`}
-						onSubmit={() => reset()}
+					<Button
+						color="green"
+						variant="outline"
+						leftSection={<IconCheckbox size={20} />}
+						loading={updateUserPreferencesMutation.isPending}
+						onClick={async () => {
+							await updateUserPreferencesMutation.mutateAsync();
+							notifications.show({
+								color: "green",
+								title: "Preferences updated",
+								message: "Preferences have been updated.",
+							});
+							setChangingUserPreferences({
+								isChanged: false,
+								value: userPreferences,
+							});
+						}}
 					>
-						{toUpdatePreferences.map((pref) => (
-							<input
-								key={pref[0]}
-								hidden
-								name={pref[0]}
-								value={pref[1]}
-								readOnly
-							/>
-						))}
-						<Button
-							color="green"
-							variant="outline"
-							leftSection={<IconCheckbox size={20} />}
-							type="submit"
-						>
-							Save changes ({toUpdatePreferences.length})
-						</Button>
-					</Form>
+						Save changes
+					</Button>
 				</Affix>
 			) : null}
 			<Stack>
-				<Group justify="space-between">
-					<Title>Preferences</Title>
-					<Form method="POST" reloadDocument>
-						<input type="hidden" name="reset" defaultValue="reset" />
-						<Tooltip label="Reset preferences">
-							<ActionIcon
-								color="red"
-								type="submit"
-								variant="outline"
-								onClick={async (e) => {
-									if (!isEditDisabled) {
-										const form = e.currentTarget.form;
-										e.preventDefault();
-										const conf = await confirmWrapper({
-											confirmation:
-												"This will reset all your preferences to default. Are you sure you want to continue?",
-										});
-										if (conf && form) submit(form);
-										else
-											notifications.show({
-												message:
-													"Preferences have been reset. Please reload the page.",
-												color: "green",
-											});
-									} else notifications.show(notificationContent);
-								}}
-							>
-								<IconRotate360 size={20} />
-							</ActionIcon>
-						</Tooltip>
-					</Form>
-				</Group>
+				<Title>Preferences</Title>
 				{isEditDisabled ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
@@ -234,27 +173,32 @@ export default function Page() {
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
 								if (!isEditDisabled) {
-									const newOrder = reorder(dashboardElements, {
+									const newOrder = reorder(userPreferences.general.dashboard, {
 										from: source.index,
 										to: destination?.index || 0,
 									});
-									setDashboardElements(newOrder);
-									appendPref("general.dashboard", JSON.stringify(newOrder));
-								} else notifications.show(notificationContent);
+									updatePreference((draft) => {
+										draft.general.dashboard = newOrder;
+									});
+								} else {
+									notifications.show(notificationContent);
+								}
 							}}
 						>
 							<Droppable droppableId="dnd-list">
 								{(provided) => (
 									<Stack {...provided.droppableProps} ref={provided.innerRef}>
-										{dashboardElements.map((de, index) => (
-											<EditDashboardElement
-												index={index}
-												key={de.section}
-												lot={de.section}
-												appendPref={appendPref}
-												isEditDisabled={isEditDisabled}
-											/>
-										))}
+										{changingUserPreferences.value.general.dashboard.map(
+											(de, index) => (
+												<EditDashboardElement
+													index={index}
+													key={de.section}
+													lot={de.section}
+													isEditDisabled={isEditDisabled}
+													updatePreference={updatePreference}
+												/>
+											),
+										)}
 										{provided.placeholder}
 									</Stack>
 								)}
@@ -279,11 +223,11 @@ export default function Page() {
 													defaultChecked={isEnabled}
 													disabled={!!isEditDisabled}
 													onChange={(ev) => {
-														const lot = snakeCase(name);
-														appendPref(
-															`features_enabled.${facet}.${lot}`,
-															String(ev.currentTarget.checked),
-														);
+														updatePreference((draft) => {
+															// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
+															(draft as any).featuresEnabled[facet][name] =
+																ev.currentTarget.checked;
+														});
 													}}
 												/>
 											))}
@@ -308,8 +252,15 @@ export default function Page() {
 									] as const
 								).map((name) => (
 									<Switch
-										key={name}
 										size="xs"
+										key={name}
+										disabled={!!isEditDisabled}
+										defaultChecked={userPreferences.general[name]}
+										onChange={(ev) => {
+											updatePreference((draft) => {
+												draft.general[name] = ev.currentTarget.checked;
+											});
+										}}
 										label={match(name)
 											.with(
 												"displayNsfw",
@@ -334,27 +285,23 @@ export default function Page() {
 												() => "Persist queries in the URL",
 											)
 											.exhaustive()}
-										defaultChecked={userPreferences.general[name]}
-										disabled={!!isEditDisabled}
-										onChange={(ev) => {
-											appendPref(
-												`general.${snakeCase(name)}`,
-												String(ev.currentTarget.checked),
-											);
-										}}
 									/>
 								))}
 								<Select
 									size="xs"
-									label="Scale used for rating in reviews"
-									data={Object.values(UserReviewScale).map((c) => ({
-										label: startCase(snakeCase(c)),
-										value: c,
-									}))}
-									defaultValue={userPreferences.general.reviewScale}
 									disabled={!!isEditDisabled}
+									label="Scale used for rating in reviews"
+									defaultValue={userPreferences.general.reviewScale}
+									data={Object.values(UserReviewScale).map((c) => ({
+										value: c,
+										label: startCase(snakeCase(c)),
+									}))}
 									onChange={(val) => {
-										if (val) appendPref("general.review_scale", val);
+										if (val) {
+											updatePreference((draft) => {
+												draft.general.reviewScale = val as UserReviewScale;
+											});
+										}
 									}}
 								/>
 							</SimpleGrid>
@@ -365,55 +312,60 @@ export default function Page() {
 								<SegmentedControl
 									mt="xs"
 									fullWidth
-									data={Object.values(GridPacking).map((c) => ({
-										label: startCase(snakeCase(c)),
-										value: c,
-									}))}
-									defaultValue={userPreferences.general.gridPacking}
 									disabled={!!isEditDisabled}
+									defaultValue={userPreferences.general.gridPacking}
+									data={Object.values(GridPacking).map((c) => ({
+										value: c,
+										label: startCase(snakeCase(c)),
+									}))}
 									onChange={(val) => {
-										if (val) appendPref("general.grid_packing", val);
+										if (val) {
+											updatePreference((draft) => {
+												draft.general.gridPacking = val as GridPacking;
+											});
+										}
 									}}
 								/>
 							</Input.Wrapper>
 							<Stack>
 								<Title order={3}>Watch providers</Title>
-								{Object.values(MediaLot)
-									.map(snakeCase)
-									.map((lot) => {
-										const existingValues =
-											watchProviders.find((wp) => wp.lot === lot)?.values || [];
-										return (
-											<Stack key={lot} gap={4}>
-												<Text>{changeCase(lot)}</Text>
-												<TagsInput
-													placeholder="Enter more providers"
-													value={existingValues}
-													disabled={!!isEditDisabled}
-													onChange={(val) => {
-														if (val) {
-															const newWatchProviders =
-																Array.from(watchProviders);
-															let existingMediaLot = newWatchProviders.find(
-																(wp) => wp.lot === lot,
-															);
-															if (!existingMediaLot) {
-																existingMediaLot = { lot, values: val };
-																newWatchProviders.push(existingMediaLot);
-															} else {
-																existingMediaLot.values = val;
-															}
-															setWatchProviders(newWatchProviders);
-															appendPref(
-																"general.watch_providers",
-																JSON.stringify(newWatchProviders),
-															);
+								{Object.values(MediaLot).map((lot) => {
+									const watchProviders =
+										changingUserPreferences.value.general.watchProviders;
+									const existingValues =
+										watchProviders.find((wp) => wp.lot === lot)?.values || [];
+									return (
+										<Stack key={lot} gap={4}>
+											<Text>{changeCase(lot)}</Text>
+											<TagsInput
+												disabled={!!isEditDisabled}
+												defaultValue={existingValues}
+												placeholder="Enter more providers"
+												onChange={(val) => {
+													if (val) {
+														const newWatchProviders =
+															Array.from(watchProviders);
+														let existingMediaLot = newWatchProviders.find(
+															(wp) => wp.lot === lot,
+														);
+														if (!existingMediaLot) {
+															existingMediaLot = {
+																values: val,
+																lot: lot as MediaLot,
+															};
+															newWatchProviders.push(existingMediaLot);
+														} else {
+															existingMediaLot.values = val;
 														}
-													}}
-												/>
-											</Stack>
-										);
-									})}
+														updatePreference((draft) => {
+															draft.general.watchProviders = newWatchProviders;
+														});
+													}
+												}}
+											/>
+										</Stack>
+									);
+								})}
 							</Stack>
 						</Stack>
 					</Tabs.Panel>
@@ -425,10 +377,9 @@ export default function Page() {
 								defaultChecked={userPreferences.notifications.enabled}
 								disabled={!!isEditDisabled}
 								onChange={(ev) => {
-									appendPref(
-										"notifications.enabled",
-										String(ev.currentTarget.checked),
-									);
+									updatePreference((draft) => {
+										draft.notifications.enabled = ev.currentTarget.checked;
+									});
 								}}
 							/>
 							<Divider />
@@ -439,8 +390,26 @@ export default function Page() {
 							<SimpleGrid cols={{ md: 2 }}>
 								{Object.values(MediaStateChanged).map((name) => (
 									<Switch
-										key={name}
 										size="xs"
+										key={name}
+										styles={{ track: { flex: "none" } }}
+										defaultChecked={userPreferences.notifications.toSend.includes(
+											name,
+										)}
+										disabled={
+											!!isEditDisabled || !userPreferences.notifications.enabled
+										}
+										onChange={() => {
+											const alreadyToSend = new Set(
+												changingUserPreferences.value.notifications.toSend,
+											);
+											const alreadyHas = alreadyToSend.has(name);
+											if (!alreadyHas) alreadyToSend.add(name);
+											else alreadyToSend.delete(name);
+											updatePreference((draft) => {
+												draft.notifications.toSend = Array.from(alreadyToSend);
+											});
+										}}
 										label={match(name)
 											.with(
 												MediaStateChanged.MetadataEpisodeNameChanged,
@@ -486,26 +455,6 @@ export default function Page() {
 												() => "New media is associated with a person",
 											)
 											.exhaustive()}
-										defaultChecked={userPreferences.notifications.toSend.includes(
-											name,
-										)}
-										disabled={
-											!!isEditDisabled || !userPreferences.notifications.enabled
-										}
-										onChange={() => {
-											const alreadyToSend = new Set(
-												userPreferences.notifications.toSend,
-											);
-											const alreadyHas = alreadyToSend.has(name);
-											if (!alreadyHas) alreadyToSend.add(name);
-											else alreadyToSend.delete(name);
-											const val = Array.from(alreadyToSend).map((v) => {
-												const n = camelCase(v.toLowerCase());
-												return n[0].toUpperCase() + n.slice(1);
-											});
-											appendPref("notifications.to_send", JSON.stringify(val));
-										}}
-										styles={{ track: { flex: "none" } }}
 									/>
 								))}
 							</SimpleGrid>
@@ -538,15 +487,20 @@ export default function Page() {
 								</Group>
 								<Select
 									size="xs"
+									disabled={!!isEditDisabled}
 									label="Unit system to use for measurements"
+									defaultValue={userPreferences.fitness.exercises.unitSystem}
 									data={Object.values(UserUnitSystem).map((c) => ({
-										value: c.toLowerCase(),
+										value: c,
 										label: startCase(c.toLowerCase()),
 									}))}
-									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!isEditDisabled}
 									onChange={(val) => {
-										if (val) appendPref("fitness.exercises.unit_system", val);
+										if (val) {
+											updatePreference((draft) => {
+												draft.fitness.exercises.unitSystem =
+													val as UserUnitSystem;
+											});
+										}
 									}}
 								/>
 							</SimpleGrid>
@@ -569,10 +523,10 @@ export default function Page() {
 													defaultValue={isNumber(value) ? value : undefined}
 													onChange={(val) => {
 														if (isNumber(val)) {
-															appendPref(
-																`fitness.exercises.set_rest_timers.${snakeCase(name)}`,
-																String(val),
-															);
+															updatePreference((draft) => {
+																draft.fitness.exercises.setRestTimers[name] =
+																	val;
+															});
 														}
 													}}
 												/>
@@ -629,10 +583,10 @@ export default function Page() {
 												});
 												return;
 											}
-											appendPref(
-												`fitness.logging.${snakeCase(option)}`,
-												String(ev.currentTarget.checked),
-											);
+											updatePreference((draft) => {
+												draft.fitness.logging[option] =
+													ev.currentTarget.checked;
+											});
 										}}
 									/>
 								);
@@ -650,16 +604,20 @@ export default function Page() {
 											defaultChecked={isEnabled}
 											disabled={!!isEditDisabled}
 											onChange={(ev) => {
-												appendPref(
-													`fitness.measurements.inbuilt.${snakeCase(name)}`,
-													String(ev.currentTarget.checked),
-												);
+												updatePreference((draft) => {
+													// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
+													(draft as any).fitness.measurements.inbuilt[name] =
+														ev.currentTarget.checked;
+												});
 											}}
 										/>
 									))}
 								</SimpleGrid>
 							</Input.Wrapper>
 							<JsonInput
+								autosize
+								formatOnBlur
+								disabled={!!isEditDisabled}
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."
 								defaultValue={JSON.stringify(
@@ -667,11 +625,10 @@ export default function Page() {
 									null,
 									4,
 								)}
-								disabled={!!isEditDisabled}
-								autosize
-								formatOnBlur
 								onChange={(v) => {
-									appendPref("fitness.measurements.custom.dummy", v);
+									updatePreference((draft) => {
+										draft.fitness.measurements.custom = JSON.parse(v);
+									});
 								}}
 							/>
 						</Stack>
@@ -690,10 +647,10 @@ const EDITABLE_NUM_ELEMENTS = [
 const EDITABLE_DEDUPLICATE_MEDIA = [DashboardElementLot.Upcoming];
 
 const EditDashboardElement = (props: {
+	index: number;
 	isEditDisabled: boolean;
 	lot: DashboardElementLot;
-	index: number;
-	appendPref: (property: string, value: string) => void;
+	updatePreference: (makeChange: UpdatePreferenceFunc) => void;
 }) => {
 	const userPreferences = useUserPreferences();
 	const focusedElementIndex = userPreferences.general.dashboard.findIndex(
@@ -742,10 +699,9 @@ const EditDashboardElement = (props: {
 									userPreferences.general.dashboard,
 								);
 								newDashboardData[focusedElementIndex].hidden = newValue;
-								props.appendPref(
-									"general.dashboard",
-									JSON.stringify(newDashboardData),
-								);
+								props.updatePreference((draft) => {
+									draft.general.dashboard = newDashboardData;
+								});
 							}}
 						/>
 					</Group>
@@ -762,10 +718,9 @@ const EditDashboardElement = (props: {
 											userPreferences.general.dashboard,
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
-										props.appendPref(
-											"general.dashboard",
-											JSON.stringify(newDashboardData),
-										);
+										props.updatePreference((draft) => {
+											draft.general.dashboard = newDashboardData;
+										});
 									}
 								}}
 							/>
@@ -785,10 +740,9 @@ const EditDashboardElement = (props: {
 									);
 									newDashboardData[focusedElementIndex].deduplicateMedia =
 										newValue;
-									props.appendPref(
-										"general.dashboard",
-										JSON.stringify(newDashboardData),
-									);
+									props.updatePreference((draft) => {
+										draft.general.dashboard = newDashboardData;
+									});
 								}}
 							/>
 						) : null}

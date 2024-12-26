@@ -1,11 +1,11 @@
 use anyhow::Result;
+use common_utils::sleep_for_n_seconds;
 use database_models::{metadata, prelude::Metadata};
 use dependent_utils::deploy_update_metadata_job;
 use enum_models::{MediaLot, MediaSource};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::sync::Arc;
 use supporting_service::SupportingService;
-use tokio::time::{sleep, Duration};
 
 pub mod audiobookshelf {
     use super::*;
@@ -31,7 +31,7 @@ pub mod audiobookshelf {
         let already = get_metadata(identifier, ss).await?;
         if already.podcast_specifics.is_none() {
             deploy_update_metadata_job(&already.id, ss).await.unwrap();
-            sleep(Duration::from_secs(3)).await;
+            sleep_for_n_seconds(3).await;
         }
         get_metadata(identifier, ss).await
     }

@@ -32,6 +32,7 @@ use fitness_models::{
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
+use futures::TryStreamExt;
 use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
@@ -602,11 +603,20 @@ impl FitnessService {
     }
 
     pub async fn revise_user_workouts(&self, user_id: String) -> Result<()> {
-        UserToEntity::delete_many()
+        let mut all_stream = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .exec(&self.0.db)
+            .stream(&self.0.db)
             .await?;
+        while let Some(ute) = all_stream.try_next().await? {
+            let mut new = UserToExerciseExtraInformation::default();
+            let eei = ute.exercise_extra_information.clone().unwrap_or_default();
+            new.settings = eei.settings;
+            let mut ute: user_to_entity::ActiveModel = ute.into();
+            ute.exercise_num_times_interacted = ActiveValue::Set(None);
+            ute.exercise_extra_information = ActiveValue::Set(Some(new));
+            ute.update(&self.0.db).await?;
+        }
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(&user_id))
             .order_by_asc(workout::Column::EndTime)
@@ -700,7 +710,6 @@ impl FitnessService {
         user_id: String,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        let err = || Error::new("Incorrect property value encountered");
         let ute = match UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(&input.exercise_id))
@@ -721,31 +730,7 @@ impl FitnessService {
             }
         };
         let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
-        if input.change.property.contains('.') {
-            let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
-            match left {
-                "set_rest_timers" => {
-                    let value = input.change.value.parse().unwrap();
-                    let set_rest_timers = &mut exercise_extra_information.settings.set_rest_timers;
-                    match right {
-                        "drop" => set_rest_timers.drop = Some(value),
-                        "normal" => set_rest_timers.normal = Some(value),
-                        "warmup" => set_rest_timers.warmup = Some(value),
-                        "failure" => set_rest_timers.failure = Some(value),
-                        _ => return Err(err()),
-                    }
-                }
-                _ => return Err(err()),
-            };
-        } else {
-            match input.change.property.as_str() {
-                "exclude_from_analytics" => {
-                    exercise_extra_information.settings.exclude_from_analytics =
-                        input.change.value.parse().unwrap();
-                }
-                _ => return Err(err()),
-            }
-        }
+        exercise_extra_information.settings = input.change;
         let mut ute: user_to_entity::ActiveModel = ute.into();
         ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
         ute.update(&self.0.db).await?;

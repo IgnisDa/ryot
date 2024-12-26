@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{StringIdObject, UpdateComplexJsonInput};
+use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform, user};
 use dependent_models::UserDetailsResult;
 use media_models::{
@@ -11,7 +11,7 @@ use media_models::{
     UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
-use user_models::UpdateUserInput;
+use user_models::{UpdateUserInput, UserPreferences};
 use user_service::UserService;
 
 #[derive(Default)]
@@ -174,7 +174,7 @@ impl UserMutation {
     async fn update_user_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateComplexJsonInput,
+        input: UserPreferences,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
@@ -267,5 +267,12 @@ impl UserMutation {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
+    }
+
+    /// Refresh the user recommendations key.
+    async fn refresh_user_recommendations_key(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.refresh_user_recommendations_key(&user_id).await
     }
 }
