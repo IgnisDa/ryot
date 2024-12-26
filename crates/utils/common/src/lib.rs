@@ -5,6 +5,7 @@ use enum_models::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
+use tokio::time::{sleep, Duration};
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
@@ -130,6 +131,10 @@ where
     }
 
     deserializer.deserialize_any(JsonStringVisitor)
+}
+
+pub async fn sleep_for_n_seconds(sec: u64) {
+    sleep(Duration::from_secs(sec)).await;
 }
 
 #[macro_export]

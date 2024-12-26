@@ -30,7 +30,6 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 supporting-service = { path = "../supporting" }
-tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }

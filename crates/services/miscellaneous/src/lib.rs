@@ -104,7 +104,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
@@ -2973,7 +2972,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        sleep(TokioDuration::from_secs(3)).await;
         Ok(true)
     }
 }
