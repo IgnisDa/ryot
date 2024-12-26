@@ -1712,7 +1712,7 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let metadata = metadata::ActiveModel {
+        metadata::ActiveModel {
             lot: ActiveValue::Set(input.lot),
             title: ActiveValue::Set(input.title),
             identifier: ActiveValue::Set(identifier),
@@ -1745,8 +1745,7 @@ ORDER BY RANDOM() LIMIT 10;
                 false => Some(free_creators),
             }),
             ..Default::default()
-        };
-        metadata
+        }
     }
 
     pub async fn create_custom_metadata(
