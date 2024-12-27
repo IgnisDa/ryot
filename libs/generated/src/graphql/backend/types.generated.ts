@@ -797,6 +797,7 @@ export type GraphqlMetadataGroup = {
 export type GraphqlPersonDetails = {
   __typename?: 'GraphqlPersonDetails';
   associatedMetadata: Array<PersonDetailsGroupedByRole>;
+  associatedMetadataGroups: Array<PersonDetailsGroupedByRole>;
   details: Person;
 };
 

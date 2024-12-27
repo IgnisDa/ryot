@@ -1183,7 +1183,7 @@ pub struct MetadataCreatorGroupedByRole {
     pub items: Vec<MetadataCreator>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Default, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
     pub entity_id: String,
     pub character: Option<String>,

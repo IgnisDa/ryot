@@ -165,6 +165,7 @@ pub struct CollectionContents {
 pub struct GraphqlPersonDetails {
     pub details: person::Model,
     pub associated_metadata: Vec<PersonDetailsGroupedByRole>,
+    pub associated_metadata_groups: Vec<PersonDetailsGroupedByRole>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

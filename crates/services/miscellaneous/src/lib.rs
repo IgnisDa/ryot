@@ -2100,25 +2100,48 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap();
         details.display_images =
             metadata_images_as_urls(&details.images, &self.0.file_storage_service).await;
-        let associations = MetadataToPerson::find()
-            .filter(metadata_to_person::Column::PersonId.eq(person_id))
+        let metadata_associations = MetadataToPerson::find()
+            .filter(metadata_to_person::Column::PersonId.eq(&person_id))
             .order_by_asc(metadata_to_person::Column::Index)
             .all(&self.0.db)
             .await?;
-        let mut contents: HashMap<_, Vec<_>> = HashMap::new();
-        for assoc in associations {
+        let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
+        for assoc in metadata_associations {
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
                 entity_id: assoc.metadata_id,
             };
-            contents
+            metadata_contents
                 .entry(assoc.role)
-                .and_modify(|e| {
-                    e.push(to_push.clone());
-                })
+                .and_modify(|e| e.push(to_push.clone()))
                 .or_insert(vec![to_push]);
         }
-        let contents = contents
+        let associated_metadata = metadata_contents
+            .into_iter()
+            .map(|(name, items)| PersonDetailsGroupedByRole {
+                count: items.len(),
+                name,
+                items,
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        let associated_metadata_groups = MetadataGroupToPerson::find()
+            .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
+            .order_by_asc(metadata_group_to_person::Column::Index)
+            .all(&self.0.db)
+            .await?;
+        let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
+        for assoc in associated_metadata_groups {
+            let to_push = PersonDetailsItemWithCharacter {
+                entity_id: assoc.metadata_group_id,
+                ..Default::default()
+            };
+            metadata_group_contents
+                .entry(assoc.role)
+                .and_modify(|e| e.push(to_push.clone()))
+                .or_insert(vec![to_push]);
+        }
+        let associated_metadata_groups = metadata_group_contents
             .into_iter()
             .map(|(name, items)| PersonDetailsGroupedByRole {
                 count: items.len(),
@@ -2129,7 +2152,8 @@ ORDER BY RANDOM() LIMIT 10;
             .collect_vec();
         Ok(GraphqlPersonDetails {
             details,
-            associated_metadata: contents,
+            associated_metadata,
+            associated_metadata_groups,
         })
     }
 
@@ -2508,7 +2532,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .collect()
             })
             .filter(|i: &Vec<MetadataImage>| !i.is_empty());
-        let mut default_state_changes = person.clone().state_changes.unwrap_or_default();
+        let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
         to_update_person.description = ActiveValue::Set(provider_person.description);
@@ -2548,7 +2572,7 @@ ORDER BY RANDOM() LIMIT 10;
                     identifier: pm.identifier.clone(),
                 },
             };
-            if !default_state_changes
+            if !current_state_changes
                 .metadata_associated
                 .contains(&search_for)
             {
@@ -2559,10 +2583,10 @@ ORDER BY RANDOM() LIMIT 10;
                     ),
                     MediaStateChanged::PersonMetadataAssociated,
                 ));
-                default_state_changes.metadata_associated.insert(search_for);
+                current_state_changes.metadata_associated.insert(search_for);
             }
         }
-        for data in provider_person.related_metadata_groups.iter() {
+        for (idx, data) in provider_person.related_metadata_groups.iter().enumerate() {
             let dg = commit_metadata_group(
                 CommitMediaInput {
                     name: data.metadata_group.title.clone(),
@@ -2585,6 +2609,7 @@ ORDER BY RANDOM() LIMIT 10;
                 let intermediate = metadata_group_to_person::ActiveModel {
                     role: ActiveValue::Set(data.role.clone()),
                     metadata_group_id: ActiveValue::Set(dg.id),
+                    index: ActiveValue::Set(idx.try_into().unwrap()),
                     person_id: ActiveValue::Set(person_id.to_owned()),
                 };
                 intermediate.insert(&self.0.db).await.unwrap();
@@ -2597,7 +2622,7 @@ ORDER BY RANDOM() LIMIT 10;
                     identifier: data.metadata_group.identifier.clone(),
                 },
             };
-            if !default_state_changes
+            if !current_state_changes
                 .metadata_groups_associated
                 .contains(&search_for)
             {
@@ -2608,10 +2633,10 @@ ORDER BY RANDOM() LIMIT 10;
                     ),
                     MediaStateChanged::PersonMetadataGroupAssociated,
                 ));
-                default_state_changes.metadata_associated.insert(search_for);
+                current_state_changes.metadata_associated.insert(search_for);
             }
         }
-        to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));
+        to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
         to_update_person.update(&self.0.db).await.unwrap();
         Ok(notifications)
     }

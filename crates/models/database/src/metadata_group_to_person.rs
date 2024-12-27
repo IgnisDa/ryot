@@ -5,6 +5,7 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "metadata_group_to_person")]
 pub struct Model {
+    pub index: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub role: String,
     #[sea_orm(primary_key, auto_increment = false)]

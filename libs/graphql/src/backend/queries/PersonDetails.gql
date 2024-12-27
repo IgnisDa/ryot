@@ -1,12 +1,10 @@
 query PersonDetails($personId: String!) {
 	personDetails(personId: $personId) {
 		associatedMetadata {
-			name
-			count
-			items {
-				entityId
-				character
-			}
+			...PersonDetailsGroupedByRolePart
+		}
+		associatedMetadataGroups {
+			...PersonDetailsGroupedByRolePart
 		}
 		details {
 			id
