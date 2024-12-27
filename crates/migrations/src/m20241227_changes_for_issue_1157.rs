@@ -33,11 +33,13 @@ UPDATE
   "person"
 SET
   "state_changes" = JSONB_SET(
-    "state_changes", '{metadata_associated}', "state_changes"->'media_associated'
-  ) - 'media_associated'
-where
+    JSONB_SET("state_changes", '{metadata_associated}', "state_changes"->'media_associated') - 'media_associated',
+    '{metadata_groups_associated}',
+    '[]'
+  )
+WHERE
   "state_changes"->'media_associated' is not null;
-            "#,
+"#,
         )
         .await?;
         Ok(())
