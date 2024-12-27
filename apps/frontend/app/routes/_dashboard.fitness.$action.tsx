@@ -283,9 +283,21 @@ export default function Page() {
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
-	const isAnySetConfirmed = currentWorkout?.exercises.some(
-		(_e, idx) => getProgressOfExercise(currentWorkout, idx) !== "not-started",
+
+	const numberOfExercises = currentWorkout?.exercises.length || 0;
+	const shouldDisplayWorkoutTimer = Boolean(
+		loaderData.action === FitnessAction.LogWorkout,
 	);
+	const shouldDisplayReorderButton = Boolean(numberOfExercises > 1);
+	const shouldDisplayFinishButton = Boolean(
+		loaderData.isCreatingTemplate
+			? numberOfExercises > 0
+			: currentWorkout?.exercises.some(
+					(_e, idx) =>
+						getProgressOfExercise(currentWorkout, idx) !== "not-started",
+				),
+	);
+	const shouldDisplayCancelButton = true;
 
 	useInterval(() => {
 		if (
@@ -415,12 +427,12 @@ export default function Page() {
 										name="Exercises"
 										value={
 											loaderData.isCreatingTemplate
-												? currentWorkout.exercises.length.toString()
+												? numberOfExercises.toString()
 												: `${
 														currentWorkout.exercises
 															.map((e) => e.sets.every((s) => s.confirmedAt))
 															.filter(Boolean).length
-													}/${currentWorkout.exercises.length}`
+													}/${numberOfExercises}`
 										}
 									/>
 									<StatDisplay
@@ -455,164 +467,157 @@ export default function Page() {
 								<Divider />
 								<SimpleGrid
 									cols={
-										2 +
-										(loaderData.isCreatingTemplate ||
-										loaderData.isUpdatingWorkout
-											? -1
-											: 0) +
-										Number(currentWorkout.exercises.length > 0) +
-										Number(isAnySetConfirmed)
+										Number(shouldDisplayWorkoutTimer) +
+										Number(shouldDisplayReorderButton) +
+										Number(shouldDisplayFinishButton) +
+										Number(shouldDisplayCancelButton)
 									}
 								>
-									<Button
-										radius="md"
-										color="orange"
-										variant="subtle"
-										size="compact-sm"
-										onClick={toggleTimerDrawer}
-										style={
-											loaderData.isCreatingTemplate ||
-											loaderData.isUpdatingWorkout
-												? { display: "none" }
-												: undefined
-										}
-									>
-										<RestTimer />
-									</Button>
-									{currentWorkout.exercises.length > 1 ? (
-										<>
-											<Button
-												radius="md"
-												color="blue"
-												variant="subtle"
-												size="compact-sm"
-												onClick={() => openReorderDrawer(null)}
-											>
-												Reorder
-											</Button>
-										</>
+									{shouldDisplayWorkoutTimer ? (
+										<Button
+											radius="md"
+											color="orange"
+											variant="subtle"
+											size="compact-sm"
+											onClick={toggleTimerDrawer}
+										>
+											<RestTimer />
+										</Button>
 									) : null}
-									{isAnySetConfirmed ? (
-										<>
-											<Button
-												radius="md"
-												color="green"
-												variant="subtle"
-												size="compact-sm"
-												loading={isSaveBtnLoading}
-												disabled={isWorkoutPaused}
-												onClick={() => {
-													if (!currentWorkout.name) {
-														notifications.show({
-															color: "red",
-															message: `Please give a name to the ${
-																loaderData.isCreatingTemplate
-																	? "template"
-																	: "workout"
-															}`,
-														});
-														return;
-													}
-													openConfirmationModal(
-														loaderData.isCreatingTemplate
-															? "Only sets that have data will added. Are you sure you want to save this template?"
-															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-														async () => {
-															setIsSaveBtnLoading(true);
-															await new Promise((r) => setTimeout(r, 1000));
-															const input = currentWorkoutToCreateWorkoutInput(
-																currentWorkout,
+									{shouldDisplayReorderButton ? (
+										<Button
+											radius="md"
+											color="blue"
+											variant="subtle"
+											size="compact-sm"
+											onClick={() => openReorderDrawer(null)}
+										>
+											Reorder
+										</Button>
+									) : null}
+									{shouldDisplayFinishButton ? (
+										<Button
+											radius="md"
+											color="green"
+											variant="subtle"
+											size="compact-sm"
+											loading={isSaveBtnLoading}
+											disabled={isWorkoutPaused}
+											onClick={() => {
+												if (!currentWorkout.name) {
+													notifications.show({
+														color: "red",
+														message: `Please give a name to the ${
+															loaderData.isCreatingTemplate
+																? "template"
+																: "workout"
+														}`,
+													});
+													return;
+												}
+												openConfirmationModal(
+													loaderData.isCreatingTemplate
+														? "Only sets that have data will added. Are you sure you want to save this template?"
+														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+													async () => {
+														setIsSaveBtnLoading(true);
+														await new Promise((r) => setTimeout(r, 1000));
+														const input = currentWorkoutToCreateWorkoutInput(
+															currentWorkout,
+															loaderData.isCreatingTemplate,
+														);
+														for (const exercise of currentWorkout.exercises) {
+															queryClient.removeQueries({
+																queryKey:
+																	queryFactory.fitness.userExerciseDetails(
+																		exercise.exerciseId,
+																	).queryKey,
+															});
+														}
+														stopTimer();
+														try {
+															const [entityId, fitnessEntity] = await match(
 																loaderData.isCreatingTemplate,
+															)
+																.with(true, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutTemplateDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkoutTemplate,
+																			FitnessEntity.Templates,
+																		]),
+																)
+																.with(false, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkout,
+																			FitnessEntity.Workouts,
+																		]),
+																)
+																.exhaustive();
+															if (
+																loaderData.action === FitnessAction.LogWorkout
+															)
+																events.createWorkout();
+															setCurrentWorkout(RESET);
+															navigate(
+																$path("/fitness/:entity/:id", {
+																	id: entityId,
+																	entity: fitnessEntity,
+																}),
 															);
-															for (const exercise of currentWorkout.exercises) {
-																queryClient.removeQueries({
-																	queryKey:
-																		queryFactory.fitness.userExerciseDetails(
-																			exercise.exerciseId,
-																		).queryKey,
-																});
-															}
-															stopTimer();
-															try {
-																const [entityId, fitnessEntity] = await match(
-																	loaderData.isCreatingTemplate,
-																)
-																	.with(true, () =>
-																		clientGqlService
-																			.request(
-																				CreateOrUpdateUserWorkoutTemplateDocument,
-																				input,
-																			)
-																			.then((c) => [
-																				c.createOrUpdateUserWorkoutTemplate,
-																				FitnessEntity.Templates,
-																			]),
-																	)
-																	.with(false, () =>
-																		clientGqlService
-																			.request(
-																				CreateOrUpdateUserWorkoutDocument,
-																				input,
-																			)
-																			.then((c) => [
-																				c.createOrUpdateUserWorkout,
-																				FitnessEntity.Workouts,
-																			]),
-																	)
-																	.exhaustive();
-																if (
-																	loaderData.action === FitnessAction.LogWorkout
-																)
-																	events.createWorkout();
-																setCurrentWorkout(RESET);
-																navigate(
-																	$path("/fitness/:entity/:id", {
-																		id: entityId,
-																		entity: fitnessEntity,
-																	}),
-																);
-															} catch (e) {
-																notifications.show({
-																	color: "red",
-																	message: `Error while saving workout: ${JSON.stringify(e)}`,
-																});
-																setIsSaveBtnLoading(false);
-															}
-														},
-													);
-												}}
-											>
-												{loaderData.isCreatingTemplate ||
-												loaderData.isUpdatingWorkout
-													? "Save"
-													: "Finish"}
-											</Button>
-										</>
+														} catch (e) {
+															notifications.show({
+																color: "red",
+																message: `Error while saving workout: ${JSON.stringify(e)}`,
+															});
+															setIsSaveBtnLoading(false);
+														}
+													},
+												);
+											}}
+										>
+											{loaderData.isCreatingTemplate ||
+											loaderData.isUpdatingWorkout
+												? "Save"
+												: "Finish"}
+										</Button>
 									) : null}
-									<Button
-										color="red"
-										variant="subtle"
-										radius="md"
-										size="compact-sm"
-										onClick={() => {
-											openConfirmationModal(
-												`Are you sure you want to cancel this ${
-													loaderData.isCreatingTemplate ? "template" : "workout"
-												}?`,
-												() => {
-													for (const e of currentWorkout.exercises) {
-														const assets = [...e.images, ...e.videos];
-														for (const asset of assets)
-															deleteUploadedAsset(asset.key);
-													}
-													navigate($path("/"), { replace: true });
-													setCurrentWorkout(RESET);
-												},
-											);
-										}}
-									>
-										Cancel
-									</Button>
+									{shouldDisplayCancelButton ? (
+										<Button
+											radius="md"
+											color="red"
+											variant="subtle"
+											size="compact-sm"
+											onClick={() => {
+												openConfirmationModal(
+													`Are you sure you want to cancel this ${
+														loaderData.isCreatingTemplate
+															? "template"
+															: "workout"
+													}?`,
+													() => {
+														for (const e of currentWorkout.exercises) {
+															const assets = [...e.images, ...e.videos];
+															for (const asset of assets)
+																deleteUploadedAsset(asset.key);
+														}
+														navigate($path("/"), { replace: true });
+														setCurrentWorkout(RESET);
+													},
+												);
+											}}
+										>
+											Cancel
+										</Button>
+									) : null}
 								</SimpleGrid>
 								<Divider />
 								{currentWorkout.exercises.map((ex, idx) => (
