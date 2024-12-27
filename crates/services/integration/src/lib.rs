@@ -1,7 +1,8 @@
 use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::{Error, Result};
-use chrono::Utc;
+use chrono::{Days, Utc};
+use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSyncedForUser};
 use common_utils::ryot_log;
 use database_models::{
     integration, metadata,
@@ -9,7 +10,7 @@ use database_models::{
     seen, user_to_entity,
 };
 use database_utils::user_by_id;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitMediaInput, SeenShowExtraInformation};
@@ -294,8 +295,41 @@ impl IntegrationService {
                     .await
                 }
                 IntegrationProvider::YoutubeMusic => {
-                    yank::youtube_music::yank_progress(specifics.youtube_music_auth_cookie.unwrap())
+                    let date_to_sync_for = Utc::now()
+                        .checked_sub_days(Days::new(1))
+                        .unwrap()
+                        .date_naive();
+                    let cache_key =
+                        ApplicationCacheKey::YoutubeMusicSyncedForUser(UserLevelCacheKey {
+                            user_id: user_id.to_owned(),
+                            input: YoutubeMusicSyncedForUser {
+                                date: date_to_sync_for,
+                            },
+                        });
+                    match self
+                        .0
+                        .cache_service
+                        .get_value::<EmptyCacheValue>(cache_key.clone())
                         .await
+                    {
+                        Some(_) => Ok(ImportResult::default()),
+                        None => {
+                            let response = yank::youtube_music::yank_progress(
+                                specifics.youtube_music_auth_cookie.unwrap(),
+                            )
+                            .await;
+                            if let Ok(_) = response {
+                                self.0
+                                    .cache_service
+                                    .set_key(
+                                        cache_key,
+                                        ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+                                    )
+                                    .await?;
+                            }
+                            response
+                        }
+                    }
                 }
                 _ => continue,
             };
