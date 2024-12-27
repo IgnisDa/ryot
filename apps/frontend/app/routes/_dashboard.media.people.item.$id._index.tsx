@@ -76,11 +76,12 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [roleFilter, setRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
-		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
+		loaderData.personDetails.associatedMetadata.map((c) => c.name).at(0) ||
+			null,
 	);
 
 	const totalMetadata = sum(
-		loaderData.personDetails.contents.map((c) => c.count),
+		loaderData.personDetails.associatedMetadata.map((c) => c.count),
 	);
 
 	return (
@@ -181,14 +182,16 @@ export default function Page() {
 											size="xs"
 											value={roleFilter}
 											onChange={(value) => setRoleFilter(value)}
-											data={loaderData.personDetails.contents.map((c) => ({
-												value: c.name,
-												label: `${c.name} (${c.count})`,
-											}))}
+											data={loaderData.personDetails.associatedMetadata.map(
+												(c) => ({
+													value: c.name,
+													label: `${c.name} (${c.count})`,
+												}),
+											)}
 										/>
 									</Group>
 									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-										{loaderData.personDetails.contents
+										{loaderData.personDetails.associatedMetadata
 											.find((c) => c.name === roleFilter)
 											?.items.map((item) => (
 												<MetadataDisplay

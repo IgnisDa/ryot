@@ -361,7 +361,7 @@ export const PersonDisplayItem = (props: {
 			})}
 			labels={{
 				left: personDetails
-					? `${personDetails.contents.reduce((sum, content) => sum + content.items.length, 0)} items`
+					? `${personDetails.associatedMetadata.reduce((sum, content) => sum + content.items.length, 0)} items`
 					: undefined,
 				right: props.rightLabel,
 			}}
