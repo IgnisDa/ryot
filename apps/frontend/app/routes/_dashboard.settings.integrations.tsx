@@ -83,7 +83,10 @@ const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 ];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
-const NO_PROGRESS_ADJUSTMENT = [IntegrationProvider.YoutubeMusic];
+const NO_PROGRESS_ADJUSTMENT = [
+	...PUSH_INTEGRATIONS,
+	IntegrationProvider.YoutubeMusic,
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -442,9 +445,7 @@ const CreateIntegrationModal = (props: {
 							value: is,
 						}))}
 					/>
-					{provider &&
-					!PUSH_INTEGRATIONS.includes(provider) &&
-					!NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
+					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								size="xs"
@@ -658,7 +659,7 @@ const UpdateIntegrationModal = (props: {
 						defaultValue={props.updateIntegrationData.id}
 					/>
 					<Stack>
-						{!PUSH_INTEGRATIONS.includes(
+						{!NO_PROGRESS_ADJUSTMENT.includes(
 							props.updateIntegrationData.provider,
 						) ? (
 							<Group wrap="nowrap">
