@@ -288,7 +288,7 @@ impl MediaProvider for NonMediaAnilistService {
                 })
                 .collect();
             MetadataPerson {
-                related,
+                related_metadata,
                 name: details.name,
                 website: details.site_url,
                 source: MediaSource::Anilist,
@@ -414,7 +414,7 @@ impl MediaProvider for NonMediaAnilistService {
                     }),
             );
             MetadataPerson {
-                related,
+                related_metadata,
                 death_date,
                 birth_date,
                 images: Some(images),

@@ -428,7 +428,7 @@ pub struct MetadataPerson {
     pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,
     pub birth_date: Option<NaiveDate>,
-    pub related: Vec<MetadataPersonRelated>,
+    pub related_metadata: Vec<MetadataPersonRelated>,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 

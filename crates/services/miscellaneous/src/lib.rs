@@ -2517,7 +2517,7 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
-        for data in provider_person.related.clone() {
+        for data in provider_person.related_metadata.clone() {
             let title = data.metadata.title.clone();
             let pm = create_partial_metadata(data.metadata, &self.0.db).await?;
             let already_intermediate = MetadataToPerson::find()

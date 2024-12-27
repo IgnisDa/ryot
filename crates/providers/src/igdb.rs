@@ -390,7 +390,7 @@ where id = {id};
         }));
         let name = detail.name;
         Ok(MetadataPerson {
-            related,
+            related_metadata,
             name: name.clone(),
             source: MediaSource::Igdb,
             description: detail.description,

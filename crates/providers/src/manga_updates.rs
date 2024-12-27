@@ -239,7 +239,7 @@ impl MediaProvider for MangaUpdatesService {
             })
             .collect_vec();
         let resp = MetadataPerson {
-            related,
+            related_metadata,
             gender: data.gender,
             place: data.birthplace,
             name: data.name.unwrap(),

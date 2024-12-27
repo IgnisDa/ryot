@@ -539,7 +539,7 @@ impl MediaProvider for NonMediaTmdbService {
         }
         let name = details.name;
         let resp = MetadataPerson {
-            related,
+            related_metadata,
             name: name.clone(),
             images: Some(images),
             source: MediaSource::Tmdb,

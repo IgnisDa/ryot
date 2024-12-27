@@ -267,7 +267,7 @@ impl MediaProvider for OpenlibraryService {
         ryot_log!(debug, "Found {} related works.", related.len());
         let name = data.name;
         Ok(MetadataPerson {
-            related,
+            related_metadata,
             description,
             name: name.clone(),
             images: Some(images),

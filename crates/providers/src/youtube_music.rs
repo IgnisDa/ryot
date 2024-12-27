@@ -241,7 +241,7 @@ impl MediaProvider for YoutubeMusicService {
         };
         let identifier = data.id;
         Ok(MetadataPerson {
-            related,
+            related_metadata,
             name: data.name,
             description: data.description,
             identifier: identifier.clone(),
