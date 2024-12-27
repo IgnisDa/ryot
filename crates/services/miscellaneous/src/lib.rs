@@ -9,7 +9,7 @@ use application_utils::{
     graphql_to_db_order,
 };
 use async_graphql::{Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -37,7 +37,7 @@ use database_models::{
 use database_utils::{
     apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, revoke_access_link, user_by_id,
+    revoke_access_link, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
@@ -45,17 +45,17 @@ use dependent_models::{
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_notification_for_user, create_partial_metadata,
-    create_user_notification, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_job, first_metadata_image_as_url, get_entity_recently_consumed,
-    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
-    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, refresh_collection_to_entity_association,
+    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
+    commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
+    first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
     update_metadata_and_notify_users,
 };
-use enums::{
+use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
     UserToMediaReason,
 };
@@ -68,14 +68,14 @@ use media_models::{
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataDetails, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
-    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails,
-    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -104,7 +104,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, TraceOk};
 use user_models::{DashboardElementLot, UserReviewScale};
 use uuid::Uuid;
@@ -308,10 +307,9 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(free_creators) = &meta.free_creators {
             for cr in free_creators.clone() {
                 let creator = MetadataCreator {
-                    id: None,
                     name: cr.name,
                     image: cr.image,
-                    character: None,
+                    ..Default::default()
                 };
                 creators
                     .entry(cr.role)
@@ -383,12 +381,8 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(metadata)
     }
 
-    pub async fn deploy_update_metadata_job(
-        &self,
-        metadata_id: &String,
-        force_update: bool,
-    ) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, force_update, &self.0).await
+    pub async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
+        deploy_update_metadata_job(metadata_id, &self.0).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -450,6 +444,7 @@ ORDER BY RANDOM() LIMIT 10;
             production_status: model.production_status,
             original_language: model.original_language,
             podcast_specifics: model.podcast_specifics,
+            created_by_user_id: model.created_by_user_id,
             external_identifiers: model.external_identifiers,
             video_game_specifics: model.video_game_specifics,
             audio_book_specifics: model.audio_book_specifics,
@@ -1055,7 +1050,9 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_core_application_job(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .perform_application_job(ApplicationJob::Hp(HpApplicationJob::BulkProgressUpdate(
+                user_id, input,
+            )))
             .await?;
         Ok(true)
     }
@@ -1064,13 +1061,13 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: Vec<ProgressUpdateInput>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         for seen in input {
             progress_update(&user_id, false, seen, &self.0)
                 .await
                 .trace_ok();
         }
-        Ok(true)
+        Ok(())
     }
 
     pub async fn deploy_background_job(
@@ -1213,38 +1210,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn commit_metadata_group_internal(
-        &self,
-        identifier: &String,
-        lot: MediaLot,
-        source: MediaSource,
-    ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.0.db)
-            .await?;
-        let provider = get_metadata_provider(lot, source, &self.0).await?;
-        let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-        let group_id = match existing_group {
-            Some(eg) => {
-                let mut eg: metadata_group::ActiveModel = eg.into();
-                eg.is_partial = ActiveValue::Set(Some(false));
-                let eg = eg.update(&self.0.db).await?;
-                eg.id
-            }
-            None => {
-                let mut db_group: metadata_group::ActiveModel =
-                    group_details.into_model("".to_string(), None).into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.0.db).await?;
-                new_group.id
-            }
-        };
-        Ok((group_id, associated_items))
-    }
-
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
@@ -1312,7 +1277,9 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::UpdatePerson(person.id))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                person.id,
+            )))
             .await?;
         Ok(true)
     }
@@ -1327,7 +1294,9 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+                metadata_group.id,
+            )))
             .await?;
         Ok(true)
     }
@@ -1426,7 +1395,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
         commit_metadata(input, &self.0).await
     }
 
@@ -1492,72 +1461,13 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
-        let cloned_user_id = user_id.to_owned();
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
-        let all_identifiers = results
-            .items
-            .iter()
-            .map(|i| i.identifier.to_owned())
-            .collect_vec();
-        let interactions = Metadata::find()
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::UserToEntity
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, user_to_entity::Column::UserId))
-                                .eq(cloned_user_id.clone()),
-                        )
-                    }),
-            )
-            .select_only()
-            .column(metadata::Column::Identifier)
-            .column_as(
-                Expr::col((Alias::new("metadata"), metadata::Column::Id)),
-                "database_id",
-            )
-            .column_as(
-                Expr::col((Alias::new("user_to_entity"), user_to_entity::Column::Id)).is_not_null(),
-                "has_interacted",
-            )
-            .filter(metadata::Column::Lot.eq(input.lot))
-            .filter(metadata::Column::Source.eq(input.source))
-            .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, String, bool)>()
-            .all(&self.0.db)
-            .await?
-            .into_iter()
-            .map(|(key, value1, value2)| (key, (value1, value2)));
-        let interactions = HashMap::<_, _>::from_iter(interactions.into_iter());
-        let data = results
-            .items
-            .into_iter()
-            .map(|i| {
-                let interaction = interactions.get(&i.identifier).cloned();
-                MetadataSearchItemResponse {
-                    has_interacted: interaction.clone().unwrap_or_default().1,
-                    database_id: interaction.map(|i| i.0),
-                    item: i,
-                }
-            })
-            .collect();
-        let results = SearchResults {
-            details: results.details,
-            items: data,
-        };
         cc.set_key(
             cache_key,
             ApplicationCacheValue::MetadataSearch(results.clone()),
@@ -1581,13 +1491,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
@@ -1622,13 +1526,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
-            return Ok(SearchResults {
-                details: SearchDetails {
-                    total: 0,
-                    next_page: None,
-                },
-                items: vec![],
-            });
+            return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
@@ -1674,25 +1572,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let (group_id, associated_items) =
-            commit_metadata_group_internal(&input.identifier, input.lot, input.source, &self.0)
-                .await?;
-        for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
-            MetadataToMetadataGroup::delete_many()
-                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
-                .exec(&self.0.db)
-                .await
-                .ok();
-            let intermediate = metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(group_id.clone()),
-                metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            intermediate.insert(&self.0.db).await.ok();
-        }
-        Ok(StringIdObject { id: group_id })
+        commit_metadata_group(input, &self.0).await
     }
 
     pub async fn create_or_update_review(
@@ -1724,8 +1604,8 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
-    pub async fn handle_after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
-        handle_after_media_seen_tasks(seen, &self.0).await
+    pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
+        handle_after_media_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(
@@ -1756,6 +1636,7 @@ ORDER BY RANDOM() LIMIT 10;
                 manga_chapter_number: mcn,
                 podcast_episode_number: pen,
                 metadata_id: si.metadata_id.clone(),
+                provider_watched_on: si.provider_watched_on.clone(),
             },
         });
         self.0.cache_service.expire_key(cache).await?;
@@ -1786,18 +1667,20 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn create_custom_metadata(
+    fn get_data_for_custom_metadata(
         &self,
-        user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<metadata::Model> {
-        let identifier = nanoid!(10);
+        identifier: String,
+        user_id: &str,
+    ) -> metadata::ActiveModel {
         let images = input
             .images
             .unwrap_or_default()
             .into_iter()
-            .map(|i| MetadataImageForMediaDetails { image: i })
-            .collect();
+            .map(|i| MetadataImage {
+                url: StoredUrl::S3(i),
+            })
+            .collect_vec();
         let videos = input
             .videos
             .unwrap_or_default()
@@ -1806,17 +1689,17 @@ ORDER BY RANDOM() LIMIT 10;
                 identifier: StoredUrl::S3(i),
                 source: MetadataVideoSource::Custom,
             })
-            .collect();
-        let creators = input
+            .collect_vec();
+        let free_creators = input
             .creators
             .unwrap_or_default()
             .into_iter()
             .map(|c| MetadataFreeCreator {
                 name: c,
                 role: "Creator".to_string(),
-                image: None,
+                ..Default::default()
             })
-            .collect();
+            .collect_vec();
         let is_partial = match input.lot {
             MediaLot::Show => input.show_specifics.is_none(),
             MediaLot::Book => input.book_specifics.is_none(),
@@ -1829,43 +1712,119 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let details = MetadataDetails {
-            videos,
-            creators,
-            identifier,
-            lot: input.lot,
-            title: input.title,
-            s3_images: images,
-            source: MediaSource::Custom,
-            description: input.description,
-            publish_year: input.publish_year,
-            show_specifics: input.show_specifics,
-            book_specifics: input.book_specifics,
-            manga_specifics: input.manga_specifics,
-            anime_specifics: input.anime_specifics,
-            movie_specifics: input.movie_specifics,
-            music_specifics: input.music_specifics,
-            genres: input.genres.unwrap_or_default(),
-            podcast_specifics: input.podcast_specifics,
-            audio_book_specifics: input.audio_book_specifics,
-            video_game_specifics: input.video_game_specifics,
-            visual_novel_specifics: input.visual_novel_specifics,
+        metadata::ActiveModel {
+            lot: ActiveValue::Set(input.lot),
+            title: ActiveValue::Set(input.title),
+            identifier: ActiveValue::Set(identifier),
+            is_nsfw: ActiveValue::Set(input.is_nsfw),
+            source: ActiveValue::Set(MediaSource::Custom),
+            is_partial: ActiveValue::Set(Some(is_partial)),
+            description: ActiveValue::Set(input.description),
+            publish_year: ActiveValue::Set(input.publish_year),
+            show_specifics: ActiveValue::Set(input.show_specifics),
+            book_specifics: ActiveValue::Set(input.book_specifics),
+            manga_specifics: ActiveValue::Set(input.manga_specifics),
+            anime_specifics: ActiveValue::Set(input.anime_specifics),
+            movie_specifics: ActiveValue::Set(input.movie_specifics),
+            music_specifics: ActiveValue::Set(input.music_specifics),
+            podcast_specifics: ActiveValue::Set(input.podcast_specifics),
+            created_by_user_id: ActiveValue::Set(Some(user_id.to_owned())),
+            audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
+            video_game_specifics: ActiveValue::Set(input.video_game_specifics),
+            visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
+            images: ActiveValue::Set(match images.is_empty() {
+                true => None,
+                false => Some(images),
+            }),
+            videos: ActiveValue::Set(match videos.is_empty() {
+                true => None,
+                false => Some(videos),
+            }),
+            free_creators: ActiveValue::Set(match free_creators.is_empty() {
+                true => None,
+                false => Some(free_creators),
+            }),
             ..Default::default()
-        };
-        let media = commit_metadata_internal(details, Some(is_partial), &self.0).await?;
+        }
+    }
+
+    pub async fn create_custom_metadata(
+        &self,
+        user_id: String,
+        input: CreateCustomMetadataInput,
+    ) -> Result<metadata::Model> {
+        let identifier = nanoid!(10);
+        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier, &user_id);
+        let metadata = metadata.insert(&self.0.db).await?;
+        change_metadata_associations(
+            &metadata.id,
+            input.genres.unwrap_or_default(),
+            vec![],
+            vec![],
+            vec![],
+            &self.0,
+        )
+        .await?;
         add_entity_to_collection(
             &user_id,
             ChangeCollectionToEntityInput {
+                entity_id: metadata.id.clone(),
+                entity_lot: EntityLot::Metadata,
                 creator_user_id: user_id.to_owned(),
                 collection_name: DefaultCollection::Custom.to_string(),
-                entity_id: media.id.clone(),
-                entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
             &self.0,
         )
         .await?;
-        Ok(media)
+        Ok(metadata)
+    }
+
+    pub async fn update_custom_metadata(
+        &self,
+        user_id: &str,
+        input: UpdateCustomMetadataInput,
+    ) -> Result<bool> {
+        let metadata = Metadata::find_by_id(&input.existing_metadata_id)
+            .one(&self.0.db)
+            .await?
+            .unwrap();
+        if metadata.source != MediaSource::Custom {
+            return Err(Error::new(
+                "This metadata is not custom and cannot be updated",
+            ));
+        }
+        if metadata.created_by_user_id != Some(user_id.to_owned()) {
+            return Err(Error::new("You are not authorized to update this metadata"));
+        }
+        MetadataToGenre::delete_many()
+            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+            .exec(&self.0.db)
+            .await?;
+        for image in metadata.images.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = image.url {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
+        for video in metadata.videos.clone().unwrap_or_default() {
+            if let StoredUrl::S3(key) = video.identifier {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
+        let mut new_metadata =
+            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
+        new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
+        let metadata = new_metadata.update(&self.0.db).await?;
+        change_metadata_associations(
+            &metadata.id,
+            input.update.genres.unwrap_or_default(),
+            vec![],
+            vec![],
+            vec![],
+            &self.0,
+        )
+        .await?;
+        Ok(true)
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
@@ -1906,7 +1865,7 @@ ORDER BY RANDOM() LIMIT 10;
         for chunk in items {
             let promises = chunk
                 .into_iter()
-                .map(|m| self.update_metadata_and_notify_users(m, true));
+                .map(|m| self.update_metadata_and_notify_users(m));
             join_all(promises).await;
         }
         Ok(())
@@ -2214,7 +2173,7 @@ ORDER BY RANDOM() LIMIT 10;
         let mut group = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .unwrap();
+            .ok_or_else(|| Error::new("Group not found"))?;
         let mut images = vec![];
         for image in group.images.clone().unwrap_or_default().iter() {
             images.push(
@@ -2267,7 +2226,6 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                         .await?;
                         remove_entity_from_collection(
-                            &self.0.db,
                             &user.user_id,
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),
@@ -2276,6 +2234,7 @@ ORDER BY RANDOM() LIMIT 10;
                                 entity_lot: cte.entity_lot,
                                 ..Default::default()
                             },
+                            &self.0,
                         )
                         .await?;
                     }
@@ -2586,13 +2545,12 @@ ORDER BY RANDOM() LIMIT 10;
                 intermediate.insert(&self.0.db).await.unwrap();
             }
             let search_for = MediaAssociatedPersonStateChanges {
-                media: CommitMediaInput {
-                    identifier: pm.identifier.clone(),
+                role: data.role.clone(),
+                media: UniqueMediaIdentifier {
                     lot: pm.lot,
                     source: pm.source,
-                    ..Default::default()
+                    identifier: pm.identifier.clone(),
                 },
-                role: data.role.clone(),
             };
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
@@ -2610,12 +2568,13 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
-    pub async fn update_metadata_and_notify_users(
-        &self,
-        metadata_id: &String,
-        force_update: bool,
-    ) -> Result<()> {
-        update_metadata_and_notify_users(metadata_id, force_update, &self.0).await
+    pub async fn delete_all_application_cache(&self) -> Result<()> {
+        ApplicationCache::delete_many().exec(&self.0.db).await?;
+        Ok(())
+    }
+
+    pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
+        update_metadata_and_notify_users(metadata_id, &self.0).await
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
@@ -2647,17 +2606,36 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
-        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+        let eg = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.0.db)
             .await?
-            .unwrap();
-        self.commit_metadata_group(CommitMediaInput {
-            lot: metadata_group.lot,
-            source: metadata_group.source,
-            identifier: metadata_group.identifier,
-            force_update: None,
-        })
-        .await?;
+            .ok_or(Error::new("Group not found"))?;
+        let provider = get_metadata_provider(eg.lot, eg.source, &self.0).await?;
+        let (group_details, associated_items) =
+            provider.metadata_group_details(&eg.identifier).await?;
+        let mut eg: metadata_group::ActiveModel = eg.into();
+        eg.is_partial = ActiveValue::Set(None);
+        eg.title = ActiveValue::Set(group_details.title);
+        eg.parts = ActiveValue::Set(group_details.parts);
+        eg.source_url = ActiveValue::Set(group_details.source_url);
+        eg.description = ActiveValue::Set(group_details.description);
+        eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
+        let eg = eg.update(&self.0.db).await?;
+        for (idx, media) in associated_items.into_iter().enumerate() {
+            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
+            MetadataToMetadataGroup::delete_many()
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
+                .exec(&self.0.db)
+                .await
+                .ok();
+            let intermediate = metadata_to_metadata_group::ActiveModel {
+                metadata_group_id: ActiveValue::Set(eg.id.clone()),
+                metadata_id: ActiveValue::Set(db_partial_metadata.id),
+                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+            };
+            intermediate.insert(&self.0.db).await.ok();
+        }
         Ok(())
     }
 
@@ -3002,7 +2980,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         self.0
-            .perform_application_job(ApplicationJob::SyncIntegrationsData)
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
             .await?;
         Ok(())
     }
@@ -3065,7 +3043,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        sleep(TokioDuration::from_secs(3)).await;
         Ok(true)
     }
 }

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
 use common_utils::TEMP_DIR;
@@ -17,7 +17,7 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use enums::EntityLot;
+use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use media_models::{
@@ -56,7 +56,7 @@ pub struct ExporterService(pub Arc<SupportingService>);
 impl ExporterService {
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.0
-            .perform_application_job(ApplicationJob::PerformExport(user_id))
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::PerformExport(user_id)))
             .await?;
         Ok(true)
     }
@@ -100,7 +100,7 @@ impl ExporterService {
         Ok(resp)
     }
 
-    pub async fn perform_export(&self, user_id: String) -> Result<bool> {
+    pub async fn perform_export(&self, user_id: String) -> Result<()> {
         if !self.0.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",
@@ -164,7 +164,7 @@ impl ExporterService {
             .send()
             .await
             .unwrap();
-        Ok(true)
+        Ok(())
     }
 
     async fn export_media(
@@ -229,13 +229,14 @@ impl ExporterService {
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportMetadataItem {
-                source_id: m.title,
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier.clone(),
-                seen_history,
                 reviews,
+                lot: m.lot,
                 collections,
+                seen_history,
+                source: m.source,
+                source_id: m.title,
+                identifier: m.identifier.clone(),
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -272,12 +273,13 @@ impl ExporterService {
                     .map(|c| c.name)
                     .collect();
             let exp = ImportOrExportMetadataGroupItem {
-                title: m.title,
+                reviews,
                 lot: m.lot,
+                collections,
+                title: m.title,
                 source: m.source,
                 identifier: m.identifier.clone(),
-                reviews,
-                collections,
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -313,12 +315,13 @@ impl ExporterService {
                 .map(|c| c.name)
                 .collect();
             let exp = ImportOrExportPersonItem {
-                identifier: p.identifier,
-                source: p.source,
-                source_specifics: p.source_specifics,
-                name: p.name,
                 reviews,
                 collections,
+                name: p.name,
+                source: p.source,
+                identifier: p.identifier,
+                source_specifics: p.source_specifics,
+                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -354,15 +357,9 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let measurements = user_measurements_list(
-            &self.0.db,
-            user_id,
-            UserMeasurementsListInput {
-                start_time: None,
-                end_time: None,
-            },
-        )
-        .await?;
+        let measurements =
+            user_measurements_list(&self.0.db, user_id, UserMeasurementsListInput::default())
+                .await?;
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
         }
@@ -445,22 +442,22 @@ impl ExporterService {
         let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
         let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
         ImportOrExportItemRating {
+            rating: rev.rating,
+            show_season_number,
+            show_episode_number,
+            anime_episode_number,
+            manga_chapter_number,
+            podcast_episode_number,
+            comments: match rev.comments.is_empty() {
+                true => None,
+                false => Some(rev.comments),
+            },
             review: Some(ImportOrExportItemReview {
                 visibility: Some(rev.visibility),
                 date: Some(rev.posted_on),
                 spoiler: Some(rev.is_spoiler),
                 text: rev.text_original,
             }),
-            rating: rev.rating,
-            show_season_number,
-            show_episode_number,
-            podcast_episode_number,
-            anime_episode_number,
-            manga_chapter_number,
-            comments: match rev.comments.is_empty() {
-                true => None,
-                false => Some(rev.comments),
-            },
         }
     }
 }

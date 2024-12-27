@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::PersonSourceSpecifics;
-use enums::MediaSource;
+use enum_models::MediaSource;
 use media_models::{MetadataImage, PersonStateChanges};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};

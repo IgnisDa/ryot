@@ -3,8 +3,8 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use collection_service::CollectionService;
 use common_models::{ChangeCollectionToEntityInput, StringIdObject};
-use dependent_models::CollectionContents;
-use media_models::{CollectionContentsInput, CollectionItem, CreateOrUpdateCollectionInput};
+use dependent_models::{CollectionContents, UserCollectionsListResponse};
+use media_models::{CollectionContentsInput, CreateOrUpdateCollectionInput};
 use traits::AuthProvider;
 
 #[derive(Default)]
@@ -19,7 +19,7 @@ impl CollectionQuery {
         &self,
         gql_ctx: &Context<'_>,
         name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
+    ) -> Result<UserCollectionsListResponse> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_collections_list(&user_id, name).await

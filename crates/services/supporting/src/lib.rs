@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background::{ApplicationJob, CoreApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
@@ -15,7 +15,7 @@ use dependent_models::{
     ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
 };
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaSource,
 };
@@ -26,7 +26,6 @@ use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use unkey::{models::VerifyKeyRequest, Client};
 
 pub struct SupportingService {
@@ -37,8 +36,9 @@ pub struct SupportingService {
     pub oidc_client: Option<CoreClient>,
     pub file_storage_service: Arc<FileStorageService>,
 
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+    lp_application_job: MemoryStorage<LpApplicationJob>,
+    hp_application_job: MemoryStorage<HpApplicationJob>,
+    mp_application_job: MemoryStorage<MpApplicationJob>,
 }
 
 impl SupportingService {
@@ -50,8 +50,9 @@ impl SupportingService {
         config: Arc<config::AppConfig>,
         oidc_client: Option<CoreClient>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+        lp_application_job: &MemoryStorage<LpApplicationJob>,
+        mp_application_job: &MemoryStorage<MpApplicationJob>,
+        hp_application_job: &MemoryStorage<HpApplicationJob>,
     ) -> Self {
         Self {
             config,
@@ -60,26 +61,24 @@ impl SupportingService {
             cache_service,
             db: db.clone(),
             file_storage_service,
-            perform_application_job: perform_application_job.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
+            lp_application_job: lp_application_job.clone(),
+            mp_application_job: mp_application_job.clone(),
+            hp_application_job: hp_application_job.clone(),
         }
     }
 
     pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
-        self.perform_application_job
-            .clone()
-            .enqueue(job)
-            .await
-            .unwrap();
-        Ok(())
-    }
-
-    pub async fn perform_core_application_job(&self, job: CoreApplicationJob) -> Result<()> {
-        self.perform_core_application_job
-            .clone()
-            .enqueue(job)
-            .await
-            .unwrap();
+        match job {
+            ApplicationJob::Lp(job) => {
+                self.lp_application_job.clone().enqueue(job).await.ok();
+            }
+            ApplicationJob::Hp(job) => {
+                self.hp_application_job.clone().enqueue(job).await.ok();
+            }
+            ApplicationJob::Mp(job) => {
+                self.mp_application_job.clone().enqueue(job).await.ok();
+            }
+        }
         Ok(())
     }
 
@@ -90,7 +89,6 @@ impl SupportingService {
         }
         ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
         let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-        #[skip_serializing_none]
         #[derive(Debug, Serialize, Clone, Deserialize)]
         struct Meta {
             expiry: Option<NaiveDate>,
@@ -195,45 +193,21 @@ impl SupportingService {
                                 .collect(),
                             "us".to_owned(),
                         ),
-                        MediaSource::Openlibrary => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
                         MediaSource::Tmdb => (
                             isolang::languages()
                                 .filter_map(|l| l.to_639_1().map(String::from))
                                 .collect(),
                             "en".to_owned(),
                         ),
-                        MediaSource::Listennotes => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::GoogleBooks => (vec!["us".to_owned()], "us".to_owned()),
-                        MediaSource::Igdb => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::MangaUpdates => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Anilist => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Mal => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Custom => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
-                        MediaSource::Vndb => (
-                            ["us"].into_iter().map(String::from).collect(),
-                            "us".to_owned(),
-                        ),
+                        MediaSource::GoogleBooks
+                        | MediaSource::Listennotes
+                        | MediaSource::Openlibrary
+                        | MediaSource::Igdb
+                        | MediaSource::MangaUpdates
+                        | MediaSource::Anilist
+                        | MediaSource::Mal
+                        | MediaSource::Custom
+                        | MediaSource::Vndb => (vec!["us".to_owned()], "us".to_owned()),
                     };
                     ProviderLanguageInformation {
                         source,
@@ -245,7 +219,7 @@ impl SupportingService {
         };
         cc.set_key(
             ApplicationCacheKey::CoreDetails,
-            ApplicationCacheValue::CoreDetails(core_details.clone()),
+            ApplicationCacheValue::CoreDetails(Box::new(core_details.clone())),
         )
         .await?;
         Ok(core_details)

@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataExternalIdentifiers,
     MetadataFreeCreator, MetadataImage, MetadataVideo, MovieSpecifics, MusicSpecifics,
@@ -18,42 +18,43 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub created_on: DateTimeUtc,
     pub lot: MediaLot,
-    pub last_updated_on: DateTimeUtc,
     pub title: String,
     pub identifier: String,
     pub source: MediaSource,
     pub is_nsfw: Option<bool>,
+    pub created_on: DateTimeUtc,
     pub is_partial: Option<bool>,
-    pub source_url: Option<String>,
-    pub is_recommendation: Option<bool>,
-    pub description: Option<String>,
-    pub original_language: Option<String>,
     pub publish_year: Option<i32>,
+    pub source_url: Option<String>,
+    pub description: Option<String>,
+    pub last_updated_on: DateTimeUtc,
+    pub is_recommendation: Option<bool>,
     pub publish_date: Option<NaiveDate>,
-    pub production_status: Option<String>,
     pub provider_rating: Option<Decimal>,
+    pub original_language: Option<String>,
+    pub production_status: Option<String>,
     #[sea_orm(column_type = "Json")]
     pub images: Option<Vec<MetadataImage>>,
+    pub created_by_user_id: Option<String>,
     #[sea_orm(column_type = "Json")]
     pub videos: Option<Vec<MetadataVideo>>,
-    #[sea_orm(column_type = "Json")]
-    pub free_creators: Option<Vec<MetadataFreeCreator>>,
-    #[sea_orm(column_type = "Json")]
-    pub watch_providers: Option<Vec<WatchProvider>>,
-    #[sea_orm(column_type = "Json")]
-    pub external_identifiers: Option<MetadataExternalIdentifiers>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    #[sea_orm(column_type = "Json")]
+    pub watch_providers: Option<Vec<WatchProvider>>,
+    #[sea_orm(column_type = "Json")]
+    pub free_creators: Option<Vec<MetadataFreeCreator>>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    #[sea_orm(column_type = "Json")]
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -72,6 +73,14 @@ pub enum Relation {
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
     Seen,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::CreatedByUserId",
+        to = "super::user::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    User,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
     UserToEntity,
 }
@@ -115,6 +124,12 @@ impl Related<super::review::Entity> for Entity {
 impl Related<super::seen::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Seen.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_meta::HashMap;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use external_utils::jellyfin::{get_authenticated_client, ItemResponse, ItemsResponse, MediaType};
 use media_models::{
     DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMetadataItem,
@@ -66,10 +66,10 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             }
             _ => {
                 failed.push(ImportFailedItem {
-                    step: ImportFailStep::ItemDetailsFromSource,
                     identifier: item.name,
+                    step: ImportFailStep::ItemDetailsFromSource,
                     error: Some(format!("Unknown media type: {:?}", type_)),
-                    lot: None,
+                    ..Default::default()
                 });
                 continue;
             }
@@ -97,10 +97,10 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             });
         } else {
             failed.push(ImportFailedItem {
-                step: ImportFailStep::ItemDetailsFromSource,
                 identifier: item.name,
                 error: Some("No tmdb id found".to_string()),
-                lot: None,
+                step: ImportFailStep::ItemDetailsFromSource,
+                ..Default::default()
             });
         }
     }

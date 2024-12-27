@@ -3,7 +3,8 @@ import {
 	createQueryKeys,
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
-import type { MantineColor } from "@mantine/core";
+import { type MantineColor, Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import {
 	MediaLot,
 	MediaSource,
@@ -306,10 +307,10 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
-export const selectRandomElement = <T>(array: T[], input: string): T => {
+export function selectRandomElement<T>(array: T[], input: string): T {
 	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
 	return array[(getStringAsciiValue(input) + array.length) % array.length];
-};
+}
 
 export const getMetadataIcon = (lot: MediaLot) =>
 	match(lot)
@@ -338,22 +339,16 @@ export const clientGqlService = new GraphQLClient(
 	},
 );
 
-export const getSurroundingElements = <T>(
+export function getSurroundingElements<T>(
 	array: Array<T>,
 	elementIndex: number,
-): Array<number> => {
+): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (elementIndex === 0) return [lastIndex, elementIndex, elementIndex + 1];
 	if (elementIndex === lastIndex) return [elementIndex - 1, elementIndex, 0];
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
-};
-
-const usersQueryKeys = createQueryKeys("users", {
-	details: (token: string) => ({
-		queryKey: ["userDetails", token],
-	}),
-});
+}
 
 const mediaQueryKeys = createQueryKeys("media", {
 	metadataPartialDetails: (metadataId: string) => ({
@@ -383,12 +378,6 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	userList: (userId: string) => ({
-		queryKey: ["userCollectionsList", userId],
-	}),
-	details: (collectionId: string, take?: number) => ({
-		queryKey: ["collectionDetails", collectionId, take],
-	}),
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
@@ -409,12 +398,6 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
-const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
-	coreDetails: () => ({
-		queryKey: ["coreDetails"],
-	}),
-});
-
 const analyticsQueryKeys = createQueryKeys("analytics", {
 	user: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["user", input],
@@ -422,12 +405,10 @@ const analyticsQueryKeys = createQueryKeys("analytics", {
 });
 
 export const queryFactory = mergeQueryKeys(
-	usersQueryKeys,
 	mediaQueryKeys,
 	fitnessQueryKeys,
 	analyticsQueryKeys,
 	collectionQueryKeys,
-	miscellaneousQueryKeys,
 );
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>
@@ -508,3 +489,11 @@ export const MediaColors: EntityColor = {
 	REVIEW: "green.5",
 	USER_MEASUREMENT: "indigo",
 };
+
+export const openConfirmationModal = (title: string, onConfirm: () => void) =>
+	modals.openConfirmModal({
+		title: "Confirmation",
+		onConfirm: onConfirm,
+		children: <Text size="sm">{title}</Text>,
+		labels: { confirm: "Confirm", cancel: "Cancel" },
+	});

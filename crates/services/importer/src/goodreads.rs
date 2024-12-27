@@ -4,7 +4,8 @@ use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot};
+use dependent_utils::get_identifier_from_book_isbn;
+use enum_models::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -15,7 +16,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use super::{utils, ImportFailStep, ImportFailedItem};
+use super::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Book {
@@ -77,8 +78,7 @@ pub async fn import(
             continue;
         }
         let Some((identifier, source)) =
-            utils::get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service)
-                .await
+            get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service).await
         else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
@@ -93,8 +93,6 @@ pub async fn import(
         };
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                started_on: None,
-                ended_on: None,
                 provider_watched_on: Some(ImportSource::Goodreads.to_string()),
                 ..Default::default()
             };
@@ -124,10 +122,9 @@ pub async fn import(
         let mut review = None;
         if !record.review.is_empty() {
             review = Some(ImportOrExportItemReview {
-                date: None,
                 spoiler: Some(false),
                 text: Some(record.review),
-                visibility: None,
+                ..Default::default()
             });
         }
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
@@ -142,6 +139,7 @@ pub async fn import(
                 rating,
                 ..Default::default()
             }],
+            ..Default::default()
         }));
     }
     Ok(ImportResult { completed, failed })

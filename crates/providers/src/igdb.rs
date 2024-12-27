@@ -13,12 +13,13 @@ use dependent_models::{
     ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PeopleSearchResponse,
     SearchResults,
 };
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, VideoGameSpecifics,
+    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
+    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -254,12 +255,12 @@ where id = {id};
                     None
                 } else {
                     Some(PartialMetadataWithoutId {
-                        identifier: g.id.to_string(),
                         title: g.name.unwrap(),
-                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        source: MediaSource::Igdb,
                         lot: MediaLot::VideoGame,
-                        is_recommendation: None,
+                        source: MediaSource::Igdb,
+                        identifier: g.id.to_string(),
+                        image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                        ..Default::default()
                     })
                 }
             })
@@ -267,15 +268,13 @@ where id = {id};
         let title = details.name.unwrap_or_default();
         Ok((
             MetadataGroupWithoutId {
-                images: None,
-                description: None,
                 title: title.clone(),
-                display_images: vec![],
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
                 identifier: details.id.to_string(),
                 parts: items.len().try_into().unwrap(),
                 source_url: Some(format!("https://www.igdb.com/collection/{}", title)),
+                ..Default::default()
             },
             items,
         ))
@@ -313,10 +312,10 @@ offset: {offset};
             .map(|ic| {
                 let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
                 PeopleSearchItem {
-                    identifier: ic.id.to_string(),
-                    name: ic.name,
                     image,
-                    birth_year: None,
+                    name: ic.name,
+                    identifier: ic.id.to_string(),
+                    ..Default::default()
                 }
             })
             .collect_vec();
@@ -361,42 +360,38 @@ where id = {id};
             .map(|r| {
                 let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
                 MetadataPersonRelated {
-                    character: None,
                     role: "Publishing".to_owned(),
                     metadata: PartialMetadataWithoutId {
                         image,
                         title: r.name.unwrap(),
-                        is_recommendation: None,
                         lot: MediaLot::VideoGame,
                         source: MediaSource::Igdb,
                         identifier: r.id.to_string(),
+                        ..Default::default()
                     },
+                    ..Default::default()
                 }
             })
             .collect_vec();
         related.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
             let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
             MetadataPersonRelated {
-                character: None,
                 role: "Development".to_owned(),
                 metadata: PartialMetadataWithoutId {
                     image,
                     title: r.name.unwrap(),
-                    is_recommendation: None,
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                     identifier: r.id.to_string(),
+                    ..Default::default()
                 },
+                ..Default::default()
             }
         }));
         let name = detail.name;
         Ok(MetadataPerson {
             related,
-            gender: None,
-            birth_date: None,
-            death_date: None,
             name: name.clone(),
-            source_specifics: None,
             source: MediaSource::Igdb,
             description: detail.description,
             identifier: detail.id.to_string(),
@@ -413,6 +408,7 @@ where id = {id};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
+            ..Default::default()
         })
     }
 
@@ -434,11 +430,18 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![c.id.to_string()],
+            Some(c) => vec![CommitMediaInput {
+                name: "Loading...".to_string(),
+                unique: UniqueMediaIdentifier {
+                    lot: MediaLot::VideoGame,
+                    source: MediaSource::Igdb,
+                    identifier: c.id.to_string(),
+                },
+            }],
             None => vec![],
         };
         let mut game_details = self.igdb_response_to_search_response(detail);
-        game_details.group_identifiers = groups;
+        game_details.groups = groups;
         Ok(game_details)
     }
 
@@ -590,12 +593,11 @@ impl IgdbService {
                     "Unknown"
                 };
                 PartialMetadataPerson {
-                    identifier: ic.id.to_string(),
                     name: ic.company.name,
-                    source: MediaSource::Igdb,
                     role: role.to_owned(),
-                    character: None,
-                    source_specifics: None,
+                    source: MediaSource::Igdb,
+                    identifier: ic.id.to_string(),
+                    ..Default::default()
                 }
             })
             .unique()
@@ -643,11 +645,11 @@ impl IgdbService {
                 .into_iter()
                 .map(|g| PartialMetadataWithoutId {
                     title: g.name.unwrap(),
-                    image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                    identifier: g.id.to_string(),
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
-                    is_recommendation: None,
+                    identifier: g.id.to_string(),
+                    image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                    ..Default::default()
                 })
                 .collect(),
             provider_rating: item.rating,

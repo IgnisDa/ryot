@@ -3,7 +3,8 @@ use std::sync::Arc;
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{
-    ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
+    ApplicationCacheKey, ChangeCollectionToEntityInput, DefaultCollection, SearchDetails,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::PAGE_SIZE;
 use database_models::{
@@ -14,12 +15,15 @@ use database_models::{
     },
     user_to_entity,
 };
-use database_utils::{
-    create_or_update_collection, ilike_sql, item_reviews, remove_entity_from_collection,
+use database_utils::{ilike_sql, item_reviews};
+use dependent_models::{
+    ApplicationCacheValue, CollectionContents, SearchResults, UserCollectionsListResponse,
 };
-use dependent_models::{CollectionContents, SearchResults};
-use dependent_utils::add_entity_to_collection;
-use enums::EntityLot;
+use dependent_utils::{
+    add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
+    remove_entity_from_collection,
+};
+use enum_models::EntityLot;
 use media_models::{
     CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
     CreateOrUpdateCollectionInput, EntityWithLot,
@@ -44,7 +48,15 @@ impl CollectionService {
         &self,
         user_id: &String,
         name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
+    ) -> Result<UserCollectionsListResponse> {
+        let cc = &self.0.cache_service;
+        let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+            input: (),
+            user_id: user_id.to_owned(),
+        });
+        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+            return Ok(cached);
+        }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![
             (
                 Expr::val("id"),
@@ -90,7 +102,7 @@ impl CollectionService {
                 )),
             )
             .to_owned();
-        let collections = Collection::find()
+        let response = Collection::find()
             .apply_if(name, |query, v| {
                 query.filter(collection::Column::Name.eq(v))
             })
@@ -128,7 +140,12 @@ impl CollectionService {
             .all(&self.0.db)
             .await
             .unwrap();
-        Ok(collections)
+        cc.set_key(
+            cache_key,
+            ApplicationCacheValue::UserCollectionsList(response.clone()),
+        )
+        .await?;
+        Ok(response)
     }
 
     pub async fn collection_contents(
@@ -252,10 +269,7 @@ impl CollectionService {
                 items,
             }
         } else {
-            SearchResults {
-                details: SearchDetails::default(),
-                items: vec![],
-            }
+            SearchResults::default()
         };
         let user = collection
             .find_related(User)
@@ -283,7 +297,7 @@ impl CollectionService {
         user_id: &String,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
-        create_or_update_collection(&self.0.db, user_id, input).await
+        create_or_update_collection(user_id, input, &self.0).await
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
@@ -299,6 +313,7 @@ impl CollectionService {
             return Ok(false);
         };
         let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
+        expire_user_collections_list_cache(&user_id, &self.0).await?;
         Ok(resp.is_ok())
     }
 
@@ -315,6 +330,6 @@ impl CollectionService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
-        remove_entity_from_collection(&self.0.db, user_id, input).await
+        remove_entity_from_collection(user_id, input, &self.0).await
     }
 }

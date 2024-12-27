@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use application_utils::{get_base_http_client, get_current_date};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{
@@ -16,15 +16,15 @@ use dependent_models::{
     ApplicationCacheValue, MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults,
     TmdbLanguage, TmdbSettings,
 };
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
+    MetadataImage, MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
-    WatchProvider,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -32,7 +32,6 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
@@ -273,10 +272,10 @@ impl TmdbService {
                 suggestions.push(PartialMetadataWithoutId {
                     lot,
                     title: name,
-                    is_recommendation: None,
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    ..Default::default()
                 });
             }
             if new_recs.page >= new_recs.total_pages {
@@ -344,34 +343,6 @@ impl TmdbService {
                 }
             }
         }
-    }
-
-    async fn metadata_updated_since(
-        &self,
-        identifier: &str,
-        since: DateTimeUtc,
-        type_: &str,
-    ) -> Result<bool> {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbChangesResponse {
-            changes: Vec<serde_json::Value>,
-        }
-        let end_date = get_current_date(&self.supporting_service.timezone);
-        let start_date = since.date_naive();
-        let changes = self
-            .client
-            .get(format!("{}/{}/{}/changes", URL, type_, identifier))
-            .query(&json!({
-                "start_date": start_date,
-                "end_date": end_date,
-            }))
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .json::<TmdbChangesResponse>()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        Ok(!changes.changes.is_empty())
     }
 
     async fn get_external_identifiers(
@@ -443,10 +414,10 @@ impl MediaProvider for NonMediaTmdbService {
             .results
             .into_iter()
             .map(|d| PeopleSearchItem {
-                identifier: d.id.to_string(),
                 name: d.title.unwrap(),
+                identifier: d.id.to_string(),
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
-                birth_year: None,
+                ..Default::default()
             })
             .collect_vec();
         let next_page = if page < search.total_pages {
@@ -512,7 +483,6 @@ impl MediaProvider for NonMediaTmdbService {
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
                 let role = media.job.unwrap_or_else(|| "Actor".to_owned());
                 let metadata = PartialMetadataWithoutId {
-                    is_recommendation: None,
                     source: MediaSource::Tmdb,
                     identifier: media.id.unwrap().to_string(),
                     title: media.title.or(media.name).unwrap_or_default(),
@@ -522,6 +492,7 @@ impl MediaProvider for NonMediaTmdbService {
                         "tv" => MediaLot::Show,
                         _ => continue,
                     },
+                    ..Default::default()
                 };
                 related.push(MetadataPersonRelated {
                     role,
@@ -545,10 +516,8 @@ impl MediaProvider for NonMediaTmdbService {
                         .await
                         .map_err(|e| anyhow!(e))?;
                     related.extend(cred_det.results.into_iter().map(|m| MetadataPersonRelated {
-                        character: None,
                         role: "Production Company".to_owned(),
                         metadata: PartialMetadataWithoutId {
-                            is_recommendation: None,
                             source: MediaSource::Tmdb,
                             identifier: m.id.to_string(),
                             title: m.title.unwrap_or_default(),
@@ -558,7 +527,9 @@ impl MediaProvider for NonMediaTmdbService {
                                 "tv" => MediaLot::Show,
                                 _ => unreachable!(),
                             },
+                            ..Default::default()
                         },
+                        ..Default::default()
                     }));
                     if cred_det.page == cred_det.total_pages {
                         break;
@@ -721,12 +692,12 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     g.id.and_then(|id| {
                         g.known_for_department.map(|r| PartialMetadataPerson {
+                            role: r,
+                            character: g.character,
+                            source: MediaSource::Tmdb,
                             identifier: id.to_string(),
                             name: g.name.unwrap_or_default(),
-                            role: r,
-                            source: MediaSource::Tmdb,
-                            character: g.character,
-                            source_specifics: None,
+                            ..Default::default()
                         })
                     })
                 })
@@ -741,12 +712,12 @@ impl MediaProvider for TmdbMovieService {
                 .flat_map(|g| {
                     g.id.and_then(|id| {
                         g.known_for_department.map(|r| PartialMetadataPerson {
+                            role: r,
+                            character: g.character,
+                            source: MediaSource::Tmdb,
                             identifier: id.to_string(),
                             name: g.name.unwrap_or_default(),
-                            role: r,
-                            source: MediaSource::Tmdb,
-                            character: g.character,
-                            source_specifics: None,
+                            ..Default::default()
                         })
                     })
                 })
@@ -758,15 +729,15 @@ impl MediaProvider for TmdbMovieService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
-                    identifier: p.id.to_string(),
                     name: p.name,
-                    role: "Production Company".to_owned(),
                     source: MediaSource::Tmdb,
-                    character: None,
+                    identifier: p.id.to_string(),
+                    role: "Production Company".to_owned(),
                     source_specifics: Some(PersonSourceSpecifics {
                         is_tmdb_company: Some(true),
                         ..Default::default()
                     }),
+                    ..Default::default()
                 })
                 .collect_vec(),
         );
@@ -833,18 +804,19 @@ impl MediaProvider for TmdbMovieService {
                 .vote_average
                 .filter(|&av| av != dec!(0))
                 .map(|av| av * dec!(10)),
-            group_identifiers: Vec::from_iter(data.belongs_to_collection)
+            groups: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
-                .map(|c| c.id.to_string())
+                .map(|c| CommitMediaInput {
+                    name: "Loading...".to_string(),
+                    unique: UniqueMediaIdentifier {
+                        lot: MediaLot::Movie,
+                        source: MediaSource::Tmdb,
+                        identifier: c.id.to_string(),
+                    },
+                })
                 .collect(),
             ..Default::default()
         })
-    }
-
-    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        self.base
-            .metadata_updated_since(identifier, since, "movie")
-            .await
     }
 
     async fn metadata_group_search(
@@ -872,10 +844,10 @@ impl MediaProvider for TmdbMovieService {
             .results
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
-                identifier: d.id.to_string(),
                 name: d.title.unwrap(),
+                identifier: d.id.to_string(),
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
-                parts: None,
+                ..Default::default()
             })
             .collect_vec();
         let next_page = if page < search.total_pages {
@@ -930,12 +902,12 @@ impl MediaProvider for TmdbMovieService {
             .parts
             .into_iter()
             .map(|p| PartialMetadataWithoutId {
-                title: p.title.unwrap(),
-                identifier: p.id.to_string(),
-                source: MediaSource::Tmdb,
                 lot: MediaLot::Movie,
+                title: p.title.unwrap(),
+                source: MediaSource::Tmdb,
+                identifier: p.id.to_string(),
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
-                is_recommendation: None,
+                ..Default::default()
             })
             .collect_vec();
         let title = replace_from_end(data.name, " Collection", "");
@@ -943,7 +915,6 @@ impl MediaProvider for TmdbMovieService {
             MetadataGroupWithoutId {
                 lot: MediaLot::Movie,
                 title: title.clone(),
-                display_images: vec![],
                 source: MediaSource::Tmdb,
                 description: data.overview,
                 identifier: identifier.to_owned(),
@@ -961,6 +932,7 @@ impl MediaProvider for TmdbMovieService {
                         })
                         .collect(),
                 ),
+                ..Default::default()
             },
             parts,
         ))
@@ -1087,12 +1059,12 @@ impl MediaProvider for TmdbShowService {
                             .flat_map(|g| {
                                 g.id.and_then(|id| {
                                     g.known_for_department.map(|r| PartialMetadataPerson {
+                                        role: r,
+                                        character: g.character,
+                                        source: MediaSource::Tmdb,
                                         identifier: id.to_string(),
                                         name: g.name.unwrap_or_default(),
-                                        role: r,
-                                        source: MediaSource::Tmdb,
-                                        character: g.character,
-                                        source_specifics: None,
+                                        ..Default::default()
                                     })
                                 })
                             })
@@ -1107,15 +1079,15 @@ impl MediaProvider for TmdbShowService {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|p| PartialMetadataPerson {
-                    identifier: p.id.to_string(),
                     name: p.name,
-                    role: "Production Company".to_owned(),
                     source: MediaSource::Tmdb,
-                    character: None,
+                    identifier: p.id.to_string(),
+                    role: "Production Company".to_owned(),
                     source_specifics: Some(PersonSourceSpecifics {
                         is_tmdb_company: Some(true),
                         ..Default::default()
                     }),
+                    ..Default::default()
                 })
                 .collect_vec(),
         );
@@ -1243,12 +1215,6 @@ impl MediaProvider for TmdbShowService {
             }),
             ..Default::default()
         })
-    }
-
-    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        self.base
-            .metadata_updated_since(identifier, since, "tv")
-            .await
     }
 
     async fn metadata_search(

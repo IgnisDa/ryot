@@ -1,0 +1,13 @@
+[package]
+name = "specific-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+common-utils = { path = "../common" }
+database-models = { path = "../../models/database" }
+dependent-utils = { path = "../dependent" }
+enum-models = { path = "../../models/enum" }
+sea-orm = { workspace = true }
+supporting-service = { path = "../../services/supporting" }

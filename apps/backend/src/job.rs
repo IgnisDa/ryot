@@ -1,175 +1,184 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use apalis::prelude::*;
-use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
+use background_models::{HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
-use exporter_service::ExporterService;
-use fitness_service::FitnessService;
-use importer_service::ImporterService;
-use integration_service::IntegrationService;
-use media_models::CommitMediaInput;
-use miscellaneous_service::MiscellaneousService;
-use statistics_service::StatisticsService;
 use traits::TraceOk;
+
+use crate::common::AppServices;
 
 pub async fn run_background_jobs(
     information: ScheduledJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
+    app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
     ryot_log!(debug, "Running job at {:#?}", information.0);
-    misc_service.perform_background_jobs().await.trace_ok();
+    app_services
+        .miscellaneous_service
+        .perform_background_jobs()
+        .await
+        .trace_ok();
     Ok(())
 }
 
 pub async fn run_frequent_jobs(
     _information: ScheduledJob,
-    fitness_service: Data<Arc<FitnessService>>,
-    misc_service: Data<Arc<MiscellaneousService>>,
-    integration_service: Data<Arc<IntegrationService>>,
+    app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
-    integration_service
+    app_services
+        .integration_service
         .yank_integrations_data()
         .await
         .trace_ok();
-    fitness_service
+    app_services
+        .fitness_service
         .process_users_scheduled_for_workout_revision()
         .await
         .trace_ok();
-    misc_service
+    app_services
+        .miscellaneous_service
         .send_pending_immediate_notifications()
         .await
         .trace_ok();
     Ok(())
 }
 
-// Application Jobs
-
-pub async fn perform_core_application_job(
-    information: CoreApplicationJob,
-    integration_service: Data<Arc<IntegrationService>>,
-    misc_service: Data<Arc<MiscellaneousService>>,
+pub async fn perform_hp_application_job(
+    information: HpApplicationJob,
+    app_services: Data<Arc<AppServices>>,
 ) -> Result<(), Error> {
-    let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
-    let start = Instant::now();
     let status = match information {
-        CoreApplicationJob::SyncIntegrationsData(user_id) => integration_service
-            .yank_integrations_data_for_user(&user_id)
-            .await
-            .is_ok(),
-        CoreApplicationJob::ReviewPosted(event) => {
-            misc_service.handle_review_posted_event(event).await.is_ok()
+        HpApplicationJob::SyncUserIntegrationsData(user_id) => {
+            app_services
+                .integration_service
+                .sync_integrations_data_for_user(&user_id)
+                .await
         }
-        CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
-            .bulk_progress_update(user_id, input)
-            .await
-            .is_ok(),
-    };
-    ryot_log!(
-        trace,
-        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
-        name,
-        (Instant::now() - start).as_millis(),
-        status
-    );
-    Ok(())
-}
-
-pub async fn perform_application_job(
-    information: ApplicationJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
-    integration_service: Data<Arc<IntegrationService>>,
-    importer_service: Data<Arc<ImporterService>>,
-    exporter_service: Data<Arc<ExporterService>>,
-    fitness_service: Data<Arc<FitnessService>>,
-    statistics_service: Data<Arc<StatisticsService>>,
-) -> Result<(), Error> {
-    let name = information.to_string();
-    ryot_log!(trace, "Started job {:?}", information);
-    let start = Instant::now();
-    let status = match information {
-        ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
-            .start_importing(user_id, input)
-            .await
-            .is_ok(),
-        ApplicationJob::RecalculateUserActivitiesAndSummary(user_id, calculate_from_beginning) => {
-            statistics_service
+        HpApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id,
+            calculate_from_beginning,
+        ) => {
+            app_services
+                .statistics_service
                 .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
                 .await
-                .is_ok()
         }
-        ApplicationJob::ReviseUserWorkouts(user_id) => {
-            fitness_service.revise_user_workouts(user_id).await.is_ok()
-        }
-        ApplicationJob::UpdateMetadata(metadata_id, force_update) => misc_service
-            .update_metadata_and_notify_users(&metadata_id, force_update)
-            .await
-            .is_ok(),
-        ApplicationJob::UpdatePerson(person_id) => misc_service
-            .update_person_and_notify_users(&person_id)
-            .await
-            .is_ok(),
-        ApplicationJob::HandleAfterMediaSeenTasks(seen) => misc_service
-            .handle_after_media_seen_tasks(seen)
-            .await
-            .is_ok(),
-        ApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
-            .update_metadata_group(&metadata_group_id)
-            .await
-            .is_ok(),
-        ApplicationJob::UpdateGithubExerciseJob(exercise) => fitness_service
-            .update_github_exercise(exercise)
-            .await
-            .is_ok(),
-        ApplicationJob::RecalculateCalendarEvents => {
-            misc_service.recalculate_calendar_events().await.is_ok()
-        }
-        ApplicationJob::PerformBackgroundTasks => {
-            misc_service.perform_background_jobs().await.is_ok()
-        }
-        ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
-            .commit_metadata_group(CommitMediaInput {
-                lot,
-                source,
-                identifier,
-                force_update: None,
-            })
-            .await
-            .is_ok(),
-        ApplicationJob::PerformExport(user_id) => {
-            exporter_service.perform_export(user_id).await.is_ok()
-        }
-        ApplicationJob::UpdateExerciseLibrary => fitness_service
-            .deploy_update_exercise_library_job()
-            .await
-            .is_ok(),
-        ApplicationJob::SyncIntegrationsData => {
-            integration_service
-                .yank_integrations_data()
+        HpApplicationJob::ReviewPosted(event) => {
+            app_services
+                .miscellaneous_service
+                .handle_review_posted_event(event)
                 .await
-                .trace_ok();
-            integration_service
-                .sync_integrations_data_to_owned_collection()
-                .await
-                .is_ok()
         }
-        ApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
-            integration_service
+        HpApplicationJob::BulkProgressUpdate(user_id, input) => {
+            app_services
+                .miscellaneous_service
+                .bulk_progress_update(user_id, input)
+                .await
+        }
+    };
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+}
+
+pub async fn perform_mp_application_job(
+    information: MpApplicationJob,
+    app_services: Data<Arc<AppServices>>,
+) -> Result<(), Error> {
+    ryot_log!(trace, "Started job {:?}", information);
+    let status = match information {
+        MpApplicationJob::ImportFromExternalSource(user_id, input) => {
+            app_services
+                .importer_service
+                .perform_import(user_id, input)
+                .await
+        }
+        MpApplicationJob::ReviseUserWorkouts(user_id) => {
+            app_services
+                .fitness_service
+                .revise_user_workouts(user_id)
+                .await
+        }
+        MpApplicationJob::UpdateMetadata(metadata_id) => {
+            app_services
+                .miscellaneous_service
+                .update_metadata_and_notify_users(&metadata_id)
+                .await
+        }
+        MpApplicationJob::UpdatePerson(person_id) => {
+            app_services
+                .miscellaneous_service
+                .update_person_and_notify_users(&person_id)
+                .await
+        }
+        MpApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
+            app_services
+                .miscellaneous_service
+                .update_metadata_group(&metadata_group_id)
+                .await
+        }
+        MpApplicationJob::UpdateGithubExercises => {
+            app_services.fitness_service.update_github_exercises().await
+        }
+        MpApplicationJob::RecalculateCalendarEvents => {
+            app_services
+                .miscellaneous_service
+                .recalculate_calendar_events()
+                .await
+        }
+        MpApplicationJob::PerformBackgroundTasks => {
+            app_services
+                .miscellaneous_service
+                .perform_background_jobs()
+                .await
+        }
+        MpApplicationJob::PerformExport(user_id) => {
+            app_services.exporter_service.perform_export(user_id).await
+        }
+        MpApplicationJob::UpdateExerciseLibrary => {
+            app_services
+                .fitness_service
+                .deploy_update_exercise_library_job()
+                .await
+        }
+        MpApplicationJob::SyncIntegrationsData => {
+            app_services
+                .integration_service
+                .sync_integrations_data()
+                .await
+        }
+    };
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+}
+
+pub async fn perform_lp_application_job(
+    information: LpApplicationJob,
+    app_services: Data<Arc<AppServices>>,
+) -> Result<(), Error> {
+    ryot_log!(trace, "Started job {:?}", information);
+    let status = match information {
+        LpApplicationJob::HandleAfterMediaSeenTasks(seen) => {
+            app_services
+                .miscellaneous_service
+                .handle_after_media_seen_tasks(seen)
+                .await
+        }
+        LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
+            app_services
+                .integration_service
                 .handle_entity_added_to_collection_event(collection_to_entity_id)
                 .await
-                .is_ok()
         }
-        ApplicationJob::HandleOnSeenComplete(id) => integration_service
-            .handle_on_seen_complete(id)
-            .await
-            .is_ok(),
+        LpApplicationJob::HandleOnSeenComplete(id) => {
+            app_services
+                .integration_service
+                .handle_on_seen_complete(id)
+                .await
+        }
+        LpApplicationJob::DeleteAllApplicationCache => {
+            app_services
+                .miscellaneous_service
+                .delete_all_application_cache()
+                .await
+        }
     };
-    ryot_log!(
-        trace,
-        "Job: {:#?}, Time Taken: {}ms, Successful = {}",
-        name,
-        (Instant::now() - start).as_millis(),
-        status
-    );
-    Ok(())
+    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }

@@ -1,5 +1,5 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
-import "@mantine/carousel/styles.css";
 import {
 	ActionIcon,
 	Alert,
@@ -73,6 +73,7 @@ import {
 	convertDecimalToThreePointSmiley,
 	dayjsLib,
 	getSurroundingElements,
+	openConfirmationModal,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -88,7 +89,6 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
-import { confirmWrapper } from "./confirmation";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -104,14 +104,16 @@ export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
 }) => {
 	const userPreferences = useUserPreferences();
+	const [parent] = useAutoAnimate();
 
 	return (
 		<SimpleGrid
+			spacing="lg"
+			ref={parent}
 			cols={match(userPreferences.general.gridPacking)
 				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
 				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
 				.exhaustive()}
-			spacing="lg"
 		>
 			{props.children}
 		</SimpleGrid>
@@ -267,6 +269,7 @@ export const BaseMediaDisplayItem = (props: {
 		bottomLeft?: ReactNode;
 	};
 }) => {
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
@@ -292,7 +295,8 @@ export const BaseMediaDisplayItem = (props: {
 							pos="relative"
 							style={{ overflow: "hidden" }}
 							className={clsx({
-								[classes.highlightImage]: props.highlightImage,
+								[classes.highlightImage]:
+									coreDetails.isServerKeyValidated && props.highlightImage,
 							})}
 						>
 							<Image
@@ -537,24 +541,24 @@ export const ReviewItemDisplay = (props: {
 									<IconEdit size={16} />
 								</ActionIcon>
 								<ActionIcon
-									onClick={async () => {
-										const conf = await confirmWrapper({
-											confirmation:
-												"Are you sure you want to delete this review? This action cannot be undone.",
-										});
-										if (conf)
-											deleteReviewFetcher.submit(
-												{
-													shouldDelete: "true",
-													reviewId: props.review.id || null,
-												},
-												{
-													method: "post",
-													action: $path("/actions", {
-														intent: "performReviewAction",
-													}),
-												},
-											);
+									onClick={() => {
+										openConfirmationModal(
+											"Are you sure you want to delete this review? This action cannot be undone.",
+											() => {
+												deleteReviewFetcher.submit(
+													{
+														shouldDelete: "true",
+														reviewId: props.review.id || null,
+													},
+													{
+														method: "post",
+														action: $path("/actions", {
+															intent: "performReviewAction",
+														}),
+													},
+												);
+											},
+										);
 									}}
 									color="red"
 								>
@@ -728,14 +732,13 @@ export const ReviewItemDisplay = (props: {
 															<ActionIcon
 																color="red"
 																type="submit"
-																onClick={async (e) => {
+																onClick={(e) => {
 																	const form = e.currentTarget.form;
 																	e.preventDefault();
-																	const conf = await confirmWrapper({
-																		confirmation:
-																			"Are you sure you want to delete this comment?",
-																	});
-																	if (conf && form) submit(form);
+																	openConfirmationModal(
+																		"Are you sure you want to delete this comment?",
+																		() => submit(form),
+																	);
 																}}
 															>
 																<IconTrash size={16} />
@@ -882,14 +885,13 @@ export const DisplayCollection = (props: {
 					/>
 					<ActionIcon
 						size={16}
-						onClick={async (e) => {
+						onClick={(e) => {
 							const form = e.currentTarget.form;
 							e.preventDefault();
-							const conf = await confirmWrapper({
-								confirmation:
-									"Are you sure you want to remove this media from this collection?",
-							});
-							if (conf && form) submit(form);
+							openConfirmationModal(
+								"Are you sure you want to remove this media from this collection?",
+								() => submit(form),
+							);
 						}}
 					>
 						<IconX />

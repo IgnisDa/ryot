@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

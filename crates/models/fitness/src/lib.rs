@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
+use common_models::{SearchInput, StoredUrl};
 use derive_more::{Add, AddAssign, Sum};
 use educe::Educe;
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     WorkoutSetPersonalBest,
 };
@@ -138,19 +138,19 @@ pub struct ExerciseListItem {
 
 /// The totals of a workout and the different bests achieved.
 #[derive(
-    Debug,
-    FromJsonQueryResult,
-    Clone,
-    Serialize,
-    Deserialize,
     Eq,
-    PartialEq,
-    SimpleObject,
-    Default,
     Sum,
     Add,
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    PartialEq,
     AddAssign,
     Schematic,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutOrExerciseTotals {
@@ -179,17 +179,17 @@ pub struct UserToExerciseHistoryExtraInformation {
 /// Details about the statistics of the set performed.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    InputObject,
-    Schematic,
     Default,
+    Serialize,
+    Schematic,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "SetStatisticInput")]
 #[serde(rename_all = "snake_case")]
@@ -205,10 +205,21 @@ pub struct WorkoutSetStatistic {
 
 /// The types of set (mostly characterized by exertion level).
 #[derive(
-    Clone, Debug, Deserialize, Serialize, FromJsonQueryResult, Eq, PartialEq, Enum, Copy, ConfigEnum,
+    Eq,
+    Enum,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    PartialEq,
+    ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum SetLot {
+    #[default]
     Normal,
     WarmUp,
     Drop,
@@ -236,15 +247,16 @@ pub struct WorkoutSetTotals {
 /// Details about the set performed.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
+    Default,
     Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
     Schematic,
+    PartialEq,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetRecord {
@@ -252,10 +264,10 @@ pub struct WorkoutSetRecord {
     pub rpe: Option<u8>,
     pub note: Option<String>,
     pub rest_time: Option<u16>,
-    pub actual_rest_time: Option<i64>,
     pub statistic: WorkoutSetStatistic,
     pub totals: Option<WorkoutSetTotals>,
     pub confirmed_at: Option<DateTimeUtc>,
+    pub rest_timer_started_at: Option<DateTimeUtc>,
     pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
 }
 
@@ -278,8 +290,18 @@ pub struct UserToExerciseBestSetExtraInformation {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "SetRestTimersSettingsInput")]
 #[educe(Default)]
 pub struct SetRestTimersSettings {
     pub drop: Option<u16>,
@@ -290,8 +312,18 @@ pub struct SetRestTimersSettings {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserToExerciseSettingsExtraInformationInput")]
 pub struct UserToExerciseSettingsExtraInformation {
     pub exclude_from_analytics: bool,
     pub set_rest_timers: SetRestTimersSettings,
@@ -309,17 +341,17 @@ pub struct UserToExerciseExtraInformation {
 
 /// The assets that were uploaded for an entity.
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    InputObject,
     Default,
     Schematic,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "EntityAssetsInput")]
 #[serde(rename_all = "snake_case")]
@@ -333,15 +365,16 @@ pub struct EntityAssets {
 /// An exercise that has been processed and committed to the database.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
+    Default,
     Schematic,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ProcessedExercise {
@@ -398,36 +431,60 @@ pub struct WorkoutSupersetsInformation {
 /// Information about a workout done.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
-    Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    Schematic,
     Default,
+    PartialEq,
+    Schematic,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[serde(rename_all = "snake_case")]
+#[graphql(input_name = "WorkoutDurationInput")]
+pub struct WorkoutDuration {
+    pub from: DateTimeUtc,
+    pub to: Option<DateTimeUtc>,
+}
+
+/// Information about a workout done.
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Schematic,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutInformation {
     pub comment: Option<String>,
     pub assets: Option<EntityAssets>,
     pub exercises: Vec<ProcessedExercise>,
+    pub durations: Option<Vec<WorkoutDuration>>,
     pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
 /// The summary about an exercise done in a workout.
 #[derive(
+    Eq,
     Clone,
     Debug,
-    Deserialize,
+    Default,
     Serialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
     Schematic,
+    PartialEq,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummaryExercise {
@@ -563,13 +620,13 @@ pub struct WorkoutSummary {
     pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct UserMeasurementsListInput {
     pub start_time: Option<DateTimeUtc>,
     pub end_time: Option<DateTimeUtc>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject, Default)]
 pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
     pub rpe: Option<u8>,
@@ -577,9 +634,10 @@ pub struct UserWorkoutSetRecord {
     pub rest_time: Option<u16>,
     pub statistic: WorkoutSetStatistic,
     pub confirmed_at: Option<DateTimeUtc>,
+    pub rest_timer_started_at: Option<DateTimeUtc>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject, Default)]
 pub struct UserExerciseInput {
     pub notes: Vec<String>,
     pub exercise_id: String,
@@ -587,7 +645,7 @@ pub struct UserExerciseInput {
     pub sets: Vec<UserWorkoutSetRecord>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutInput {
     pub name: String,
     pub end_time: DateTimeUtc,
@@ -601,6 +659,7 @@ pub struct UserWorkoutInput {
     pub create_workout_id: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_id: Option<String>,
+    pub durations: Option<Vec<WorkoutDuration>>,
     pub update_workout_template_id: Option<String>,
     pub supersets: Vec<WorkoutSupersetsInformation>,
 }
@@ -635,7 +694,7 @@ pub struct ExercisesListInput {
 #[derive(Debug, InputObject)]
 pub struct UpdateUserExerciseSettings {
     pub exercise_id: String,
-    pub change: UpdateComplexJsonInput,
+    pub change: UserToExerciseSettingsExtraInformation,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

@@ -9,7 +9,7 @@ chrono = { workspace = true }
 common-models = { path = "../common" }
 config = { path = "../../config" }
 database-models = { path = "../database" }
-enums = { path = "../../enums" }
+enum-models = { path = "../../models/enum" }
 importer-models = { path = "../importer" }
 media-models = { path = "../media" }
 fitness-models = { path = "../fitness" }

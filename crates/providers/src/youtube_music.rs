@@ -4,12 +4,13 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MusicSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
+    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -58,9 +59,9 @@ impl MediaProvider for YoutubeMusicService {
                     title: t.name,
                     identifier: t.id,
                     lot: MediaLot::Music,
-                    is_recommendation: None,
                     source: MediaSource::YoutubeMusic,
                     image: self.largest_image(&t.cover).map(|c| c.url.to_owned()),
+                    ..Default::default()
                 })
                 .collect()
         } else {
@@ -73,7 +74,19 @@ impl MediaProvider for YoutubeMusicService {
             title: details.track.name,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
-            group_identifiers: details.track.album.into_iter().map(|a| a.id).collect(),
+            groups: details
+                .track
+                .album
+                .into_iter()
+                .map(|a| CommitMediaInput {
+                    name: a.name,
+                    unique: UniqueMediaIdentifier {
+                        identifier: a.id,
+                        lot: MediaLot::Music,
+                        source: MediaSource::YoutubeMusic,
+                    },
+                })
+                .collect(),
             source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),
@@ -93,10 +106,9 @@ impl MediaProvider for YoutubeMusicService {
                     a.id.map(|id| PartialMetadataPerson {
                         name: a.name,
                         identifier: id,
-                        character: None,
-                        source_specifics: None,
                         role: "Artist".to_string(),
                         source: MediaSource::YoutubeMusic,
+                        ..Default::default()
                     })
                 })
                 .collect(),
@@ -114,7 +126,7 @@ impl MediaProvider for YoutubeMusicService {
         let data = SearchResults {
             details: SearchDetails {
                 total: 1,
-                next_page: None,
+                ..Default::default()
             },
             items: results
                 .items
@@ -123,8 +135,8 @@ impl MediaProvider for YoutubeMusicService {
                 .map(|i| MetadataSearchItem {
                     title: i.name,
                     identifier: i.id,
-                    publish_year: None,
                     image: self.largest_image(&i.cover).map(|t| t.url.to_owned()),
+                    ..Default::default()
                 })
                 .collect(),
         };
@@ -142,7 +154,6 @@ impl MediaProvider for YoutubeMusicService {
                 title: title.clone(),
                 lot: MediaLot::Music,
                 identifier: album.id,
-                display_images: vec![],
                 source: MediaSource::YoutubeMusic,
                 parts: album.tracks.len().try_into().unwrap(),
                 description: album.description.map(|d| d.to_html()),
@@ -157,6 +168,7 @@ impl MediaProvider for YoutubeMusicService {
                         })
                         .collect(),
                 ),
+                ..Default::default()
             },
             album
                 .tracks
@@ -165,9 +177,9 @@ impl MediaProvider for YoutubeMusicService {
                     title: t.name,
                     identifier: t.id,
                     lot: MediaLot::Music,
-                    is_recommendation: None,
                     source: MediaSource::YoutubeMusic,
                     image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                    ..Default::default()
                 })
                 .collect(),
         ))
@@ -183,17 +195,17 @@ impl MediaProvider for YoutubeMusicService {
         Ok(SearchResults {
             details: SearchDetails {
                 total: 1,
-                next_page: None,
+                ..Default::default()
             },
             items: data
                 .items
                 .items
                 .into_iter()
                 .map(|t| MetadataGroupSearchItem {
-                    parts: None,
                     name: t.name,
                     identifier: t.id,
                     image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                    ..Default::default()
                 })
                 .collect(),
         })
@@ -212,16 +224,16 @@ impl MediaProvider for YoutubeMusicService {
                 .items
                 .into_iter()
                 .map(|t| MetadataPersonRelated {
-                    character: None,
                     role: "Artist".to_string(),
                     metadata: PartialMetadataWithoutId {
                         title: t.name,
                         identifier: t.id,
                         lot: MediaLot::Music,
-                        is_recommendation: None,
                         source: MediaSource::YoutubeMusic,
                         image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                        ..Default::default()
                     },
+                    ..Default::default()
                 })
                 .collect()
         } else {
@@ -230,13 +242,7 @@ impl MediaProvider for YoutubeMusicService {
         let identifier = data.id;
         Ok(MetadataPerson {
             related,
-            place: None,
-            gender: None,
-            website: None,
             name: data.name,
-            birth_date: None,
-            death_date: None,
-            source_specifics: None,
             description: data.description,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
@@ -247,6 +253,7 @@ impl MediaProvider for YoutubeMusicService {
                     .map(|t| t.url.to_owned())
                     .collect(),
             ),
+            ..Default::default()
         })
     }
 
@@ -261,7 +268,7 @@ impl MediaProvider for YoutubeMusicService {
         Ok(SearchResults {
             details: SearchDetails {
                 total: 1,
-                next_page: None,
+                ..Default::default()
             },
             items: data
                 .items
@@ -270,8 +277,8 @@ impl MediaProvider for YoutubeMusicService {
                 .map(|t| PeopleSearchItem {
                     name: t.name,
                     identifier: t.id,
-                    birth_year: None,
                     image: self.largest_image(&t.avatar).map(|t| t.url.to_owned()),
+                    ..Default::default()
                 })
                 .collect(),
         })

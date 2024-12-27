@@ -1,8 +1,11 @@
 use sea_orm_migration::prelude::*;
 
+use super::m20230417_create_user::User;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static METADATA_TO_USER_FOREIGN_KEY: &str = "metadata_to_user_foreign_key";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
 
 // This is responsible for storing common metadata about all media items
@@ -52,6 +55,7 @@ pub enum Metadata {
     MangaSpecifics,
     MovieSpecifics,
     ShowSpecifics,
+    CreatedByUserId,
     VideoGameSpecifics,
     VisualNovelSpecifics,
     MusicSpecifics,
@@ -108,6 +112,15 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsRecommendation).boolean())
                     .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
                     .col(ColumnDef::new(Metadata::MusicSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::CreatedByUserId).text())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(METADATA_TO_USER_FOREIGN_KEY)
+                            .from(Metadata::Table, Metadata::CreatedByUserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;

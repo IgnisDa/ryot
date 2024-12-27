@@ -6,6 +6,7 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
+use env_utils::APP_COMMIT_SHA;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -26,24 +27,26 @@ impl CacheService {
 }
 
 impl CacheService {
-    fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Option<i64> {
+    fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> i64 {
         match key {
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::ListennotesSettings
-            | ApplicationCacheKey::TmdbSettings => None,
+            | ApplicationCacheKey::TmdbSettings => 120,
 
             ApplicationCacheKey::CoreDetails
-            | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-            | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::PeopleSearch { .. }
-            | ApplicationCacheKey::MetadataGroupSearch { .. } => Some(1),
+            | ApplicationCacheKey::MetadataSearch { .. }
+            | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::UserRecommendationsKey { .. }
+            | ApplicationCacheKey::MetadataRecentlyConsumed { .. } => 1,
 
-            ApplicationCacheKey::UserAnalytics { .. } => Some(2),
+            ApplicationCacheKey::UserAnalytics { .. } => 2,
 
-            ApplicationCacheKey::UserAnalyticsParameters { .. } => Some(8),
+            ApplicationCacheKey::UserCollectionsList { .. }
+            | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
-                Some(self.config.server.progress_update_threshold)
+                self.config.server.progress_update_threshold
             }
         }
     }
@@ -58,8 +61,9 @@ impl CacheService {
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
             created_at: ActiveValue::Set(now),
+            version: ActiveValue::Set(APP_COMMIT_SHA.to_owned()),
             value: ActiveValue::Set(serde_json::to_value(value)?),
-            expires_at: ActiveValue::Set(expiry_hours.map(|hours| now + Duration::hours(hours))),
+            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
@@ -67,6 +71,7 @@ impl CacheService {
                 OnConflict::column(application_cache::Column::Key)
                     .update_columns([
                         application_cache::Column::Value,
+                        application_cache::Column::Version,
                         application_cache::Column::ExpiresAt,
                         application_cache::Column::CreatedAt,
                     ])
@@ -90,6 +95,7 @@ impl CacheService {
                 cache
                     .expires_at
                     .map_or(true, |expires_at| expires_at > Utc::now())
+                    && cache.version == APP_COMMIT_SHA
             })
             .map(|m| m.value)?;
         serde_json::from_value::<T>(db_value).ok()

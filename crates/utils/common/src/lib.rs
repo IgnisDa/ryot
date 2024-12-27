@@ -1,10 +1,11 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enums::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
+use enum_models::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
+use tokio::time::{sleep, Duration};
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
@@ -73,25 +74,6 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
 
-#[macro_export]
-macro_rules! ryot_log {
-    (info, $($arg:tt)*) => {
-        tracing::info!(target: "ryot", $($arg)*);
-    };
-    (warn, $($arg:tt)*) => {
-        tracing::warn!(target: "ryot", $($arg)*);
-    };
-    (error, $($arg:tt)*) => {
-        tracing::error!(target: "ryot", $($arg)*);
-    };
-    (debug, $($arg:tt)*) => {
-        tracing::debug!(target: "ryot", $($arg)*);
-    };
-    (trace, $($arg:tt)*) => {
-        tracing::trace!(target: "ryot", $($arg)*);
-    };
-}
-
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)
@@ -149,4 +131,40 @@ where
     }
 
     deserializer.deserialize_any(JsonStringVisitor)
+}
+
+pub async fn sleep_for_n_seconds(sec: u64) {
+    sleep(Duration::from_secs(sec)).await;
+}
+
+#[macro_export]
+macro_rules! ryot_log {
+    (info, $($arg:tt)*) => {
+        tracing::info!(target: "ryot", $($arg)*);
+    };
+    (warn, $($arg:tt)*) => {
+        tracing::warn!(target: "ryot", $($arg)*);
+    };
+    (error, $($arg:tt)*) => {
+        tracing::error!(target: "ryot", $($arg)*);
+    };
+    (debug, $($arg:tt)*) => {
+        tracing::debug!(target: "ryot", $($arg)*);
+    };
+    (trace, $($arg:tt)*) => {
+        tracing::trace!(target: "ryot", $($arg)*);
+    };
+}
+
+#[macro_export]
+macro_rules! acquire_lock {
+    ($db:expr, $key:expr) => {
+        use sqlx::postgres::PgAdvisoryLock;
+
+        let key_string = serde_json::to_string($key).unwrap();
+        let lock = PgAdvisoryLock::new(key_string);
+        ryot_log!(debug, "Acquiring advisory lock: {:?}", lock);
+        let conn = $db.get_postgres_connection_pool().acquire().await?;
+        let acquired = lock.acquire(conn).await?;
+    };
 }

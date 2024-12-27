@@ -6,7 +6,7 @@ use argon2::{
 };
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use enums::UserLot;
+use enum_models::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 use user_models::{UserExtraInformation, UserPreferences};
@@ -45,6 +45,8 @@ pub enum Relation {
     ImportReport,
     #[sea_orm(has_many = "super::integration::Entity")]
     Integration,
+    #[sea_orm(has_many = "super::metadata::Entity")]
+    Metadata,
     #[sea_orm(has_many = "super::notification_platform::Entity")]
     NotificationPlatform,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -96,6 +98,12 @@ impl Related<super::import_report::Entity> for Entity {
 impl Related<super::integration::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Integration.def()
+    }
+}
+
+impl Related<super::metadata::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Metadata.def()
     }
 }
 

@@ -1,4 +1,3 @@
-
 query UserAnalytics($input: UserAnalyticsInput!) {
 	userAnalytics(input: $input) {
 		hours {

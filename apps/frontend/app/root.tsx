@@ -7,9 +7,13 @@ import {
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
-import "@mantine/charts/styles.css";
 import "@mantine/core/styles.css";
+import "@mantine/code-highlight/styles.css";
+import "@mantine/charts/styles.css";
+import "@mantine/carousel/styles.css";
+import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
+import { ModalsProvider } from "@mantine/modals";
 import {
 	type LinksFunction,
 	type LoaderFunctionArgs,
@@ -28,7 +32,6 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "mantine-datatable/styles.layer.css";
-import { ConfirmationMountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
@@ -40,13 +43,10 @@ import {
 const theme = createTheme({
 	fontFamily: "Poppins",
 	components: {
-		ActionIcon: ActionIcon.extend({
-			defaultProps: {
-				variant: "subtle",
-				color: "gray",
-			},
-		}),
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
+		ActionIcon: ActionIcon.extend({
+			defaultProps: { variant: "subtle", color: "gray" },
+		}),
 	},
 	breakpoints: {
 		xs: "30em",
@@ -96,46 +96,12 @@ export const links: LinksFunction = () => {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("cookie") || "",
+		request.headers.get("cookie"),
 	);
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-
-	const userAgent = request.headers.get("user-agent") || "";
-	const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-	let isIOS18 = false;
-
-	if (isIOS) {
-		const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
-		if (match) {
-			const version = Number.parseInt(match[1], 10);
-			isIOS18 = version >= 18;
-		}
-	}
-
-	return data({ toast, defaultColorScheme, isIOS18 }, { headers });
-};
-
-const DefaultHeadTags = () => {
-	const loaderData = useLoaderData<typeof loader>();
-
-	return (
-		<>
-			<meta charSet="utf-8" />
-			<meta
-				name="viewport"
-				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
-			/>
-			<link rel="manifest" href="/manifest.json" />
-			<link
-				rel="apple-touch-icon"
-				href={
-					loaderData.isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"
-				}
-			/>
-		</>
-	);
+	return data({ toast, defaultColorScheme }, { headers });
 };
 
 export default function App() {
@@ -145,7 +111,13 @@ export default function App() {
 	return (
 		<html lang="en">
 			<head>
-				<DefaultHeadTags />
+				<meta charSet="utf-8" />
+				<meta
+					name="viewport"
+					content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
+				/>
+				<link rel="manifest" href="/manifest.json" />
+				<link rel="apple-touch-icon" href={"/icon-192x192.png"} />
 				<Meta />
 				<Links />
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
@@ -153,28 +125,28 @@ export default function App() {
 			<body>
 				<QueryClientProvider client={queryClient}>
 					<MantineProvider
-						classNamesPrefix="mnt"
 						theme={theme}
+						classNamesPrefix="mnt"
 						forceColorScheme={loaderData.defaultColorScheme}
 					>
-						<ConfirmationMountPoint />
-						{navigation.state === "loading" ||
-						navigation.state === "submitting" ? (
-							<Loader
-								pos="fixed"
-								right={10}
-								top={10}
-								size="sm"
-								color="yellow"
-								style={{ zIndex: 10 }}
-							/>
-						) : null}
-						<Toaster toast={loaderData.toast} />
-						<Flex style={{ flexGrow: 1 }} mih="100vh">
-							<Outlet />
-						</Flex>
-						<ScrollRestoration />
-						<Scripts />
+						<ModalsProvider>
+							{["loading", "submitting"].includes(navigation.state) ? (
+								<Loader
+									top={10}
+									size="sm"
+									right={10}
+									pos="fixed"
+									color="yellow"
+									style={{ zIndex: 10 }}
+								/>
+							) : null}
+							<Toaster toast={loaderData.toast} />
+							<Flex style={{ flexGrow: 1 }} mih="100vh">
+								<Outlet />
+							</Flex>
+							<ScrollRestoration />
+							<Scripts />
+						</ModalsProvider>
 					</MantineProvider>
 					<ReactQueryDevtools buttonPosition="top-right" />
 				</QueryClientProvider>

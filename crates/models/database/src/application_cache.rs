@@ -8,6 +8,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
+    pub version: String,
     pub created_at: DateTimeUtc,
     #[sea_orm(column_type = "Json")]
     pub key: ApplicationCacheKey,

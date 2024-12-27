@@ -31,12 +31,9 @@ import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
 	FRONTEND_AUTH_COOKIE_NAME,
-	dayjsLib,
 	emptyDecimalString,
 	emptyNumberString,
 	pageQueryParam,
-	queryClient,
-	queryFactory,
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/generals";
@@ -105,7 +102,7 @@ export const getAuthorizationCookie = (request: Request) =>
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	try {
-		const userDetails = await getCachedUserDetails(request);
+		const userDetails = await getUserDetails(request);
 		const getResponseInit = async (toastMessage: string) => ({
 			status: 302,
 			headers: combineHeaders(
@@ -180,39 +177,27 @@ export const getCoreDetails = async () => {
 		.then((d) => d.coreDetails);
 };
 
-const getCachedUserDetails = async (request: Request) => {
-	const decodedJwt = getDecodedJwt(request);
-	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.users.details(decodedJwt.sub).queryKey,
-		queryFn: () =>
-			serverGqlService
-				.authenticatedRequest(request, UserDetailsDocument, undefined)
-				.then((d) => d.userDetails),
-	});
+const getUserDetails = async (request: Request) => {
+	const { userDetails } = await serverGqlService.authenticatedRequest(
+		request,
+		UserDetailsDocument,
+		undefined,
+	);
+	return userDetails;
 };
 
-export const getCachedUserPreferences = async (request: Request) => {
+export const getUserPreferences = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return userDetails.preferences;
 };
 
-export const getCachedUserCollectionsList = async (request: Request) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return queryClient.ensureQueryData({
-		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
-		queryFn: () =>
-			serverGqlService
-				.authenticatedRequest(request, UserCollectionsListDocument, {})
-				.then((data) => data.userCollectionsList),
-		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
-	});
-};
-
-export const removeCachedUserCollectionsList = async (request: Request) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	queryClient.removeQueries({
-		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
-	});
+export const getUserCollectionsList = async (request: Request) => {
+	const { userCollectionsList } = await serverGqlService.authenticatedRequest(
+		request,
+		UserCollectionsListDocument,
+		{},
+	);
+	return userCollectionsList;
 };
 
 export const uploadFileAndGetKey = async (
@@ -384,7 +369,7 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 	request: Request,
 	cookieName: string,
 ) => {
-	const preferences = await getCachedUserPreferences(request);
+	const preferences = await getUserPreferences(request);
 	const { searchParams } = new URL(request.url);
 	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
 	const cookies = parse(request.headers.get("cookie") || "");

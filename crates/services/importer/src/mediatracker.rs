@@ -2,7 +2,7 @@ use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{ryot_log, USER_AGENT_STR};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
@@ -186,10 +186,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     for (idx, d) in data.into_iter().enumerate() {
         let Some(media_type) = d.media_type else {
             failed.push(ImportFailedItem {
-                lot: None,
-                step: ImportFailStep::ItemDetailsFromSource,
                 identifier: d.id.to_string(),
                 error: Some("No media type".to_string()),
+                step: ImportFailStep::ItemDetailsFromSource,
+                ..Default::default()
             });
             continue;
         };
@@ -254,18 +254,18 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         }
 
         let item = ImportOrExportMetadataItem {
-            source_id: d.id.to_string(),
-            source,
             lot,
-            collections,
+            source,
             identifier,
+            collections,
+            source_id: d.id.to_string(),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
                         date: r.date,
-                        spoiler: Some(false),
                         text: r.review,
-                        visibility: None,
+                        spoiler: Some(false),
+                        ..Default::default()
                     })
                 } else {
                     None
@@ -300,6 +300,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     }
                 })
                 .collect(),
+            ..Default::default()
         };
         completed.push(ImportCompletedItem::Metadata(item));
     }

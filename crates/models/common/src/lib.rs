@@ -2,7 +2,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{meta, Meta};
-use enums::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
@@ -45,41 +45,36 @@ pub enum StoredUrl {
     Url(String),
 }
 
-#[derive(Debug, InputObject)]
-pub struct UpdateComplexJsonInput {
-    /// Dot delimited path to the property that needs to be changed.
-    pub property: String,
-    pub value: String,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
-    String,
-    Number,
     Date,
+    Number,
+    #[default]
+    String,
     DateTime,
     StringArray,
 }
 
 #[derive(
-    Debug,
-    PartialEq,
     Eq,
     Clone,
+    Debug,
+    Default,
+    PartialEq,
     Serialize,
+    Schematic,
     Deserialize,
     SimpleObject,
-    FromJsonQueryResult,
     InputObject,
-    Schematic,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {
     pub name: String,
     pub description: String,
-    pub lot: CollectionExtraInformationLot,
-    pub default_value: Option<String>,
     pub required: Option<bool>,
+    pub default_value: Option<String>,
+    pub lot: CollectionExtraInformationLot,
 }
 
 #[derive(Display, EnumIter)]
@@ -105,10 +100,9 @@ meta! {
         vec![
             CollectionExtraInformation {
                 name: "Owned on".to_string(),
-                description: "When did you get this media?".to_string(),
                 lot: CollectionExtraInformationLot::Date,
-                default_value: None,
-                required: None,
+                description: "When did you get this media?".to_string(),
+                ..Default::default()
             }
         ]
     ), "Items that I have in my inventory.");
@@ -116,17 +110,17 @@ meta! {
         vec![
             CollectionExtraInformation {
                 name: "Reminder".to_string(),
-                description: "When do you want to be reminded?".to_string(),
-                lot: CollectionExtraInformationLot::Date,
-                default_value: None,
                 required: Some(true),
+                lot: CollectionExtraInformationLot::Date,
+                description: "When do you want to be reminded?".to_string(),
+                ..Default::default()
             },
             CollectionExtraInformation {
                 name: "Text".to_string(),
-                description: "What do you want to be reminded about?".to_string(),
-                lot: CollectionExtraInformationLot::String,
-                default_value: None,
                 required: Some(true),
+                lot: CollectionExtraInformationLot::String,
+                description: "What do you want to be reminded about?".to_string(),
+                ..Default::default()
             }
         ]
     ), "Items that I want to be reminded about.");
@@ -139,7 +133,7 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     SyncIntegrationsData,
     PerformBackgroundTasks,
-    RecalculateCalendarEvents,
+    DeleteAllApplicationCache,
     CalculateUserActivitiesAndSummary,
 }
 
@@ -187,8 +181,8 @@ pub enum UserNotificationContent {
     ReviewPosted,
     MetadataPublished,
     NewWorkoutCreated,
-    MetadataStatusChanged,
     PersonMediaAssociated,
+    MetadataStatusChanged,
     MetadataEpisodeReleased,
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,
@@ -240,9 +234,9 @@ pub struct ApplicationDateRange {
 #[strum(serialize_all = "snake_case")]
 pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
-    Month,
     Year,
-    Millennium,
+    Month,
+    AllTime,
 }
 
 #[skip_serializing_none]
@@ -252,6 +246,7 @@ pub struct UserAnalyticsInput {
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataGroupSearchInput {
     pub lot: MediaLot,
@@ -261,18 +256,18 @@ pub struct MetadataGroupSearchInput {
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
+    Hash,
+    Clone,
     Debug,
+    Default,
+    Schematic,
+    PartialEq,
     Serialize,
     Deserialize,
     InputObject,
-    Clone,
     SimpleObject,
     FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    Hash,
-    Default,
-    Schematic,
 )]
 #[graphql(input_name = "PersonSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
@@ -281,6 +276,7 @@ pub struct PersonSourceSpecifics {
     pub is_anilist_studio: Option<bool>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct PeopleSearchInput {
     pub search: SearchInput,
@@ -288,25 +284,29 @@ pub struct PeopleSearchInput {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub struct MetadataSearchInput {
-    pub search: SearchInput,
     pub lot: MediaLot,
+    pub search: SearchInput,
     pub source: MediaSource,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserLevelCacheKey<T> {
     pub input: T,
     pub user_id: String,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataRecentlyConsumedCacheInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProgressUpdateCacheInput {
     pub metadata_id: String,
@@ -314,6 +314,7 @@ pub struct ProgressUpdateCacheInput {
     pub manga_volume_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
     pub podcast_episode_number: Option<i32>,
     pub manga_chapter_number: Option<Decimal>,
 }
@@ -325,6 +326,8 @@ pub enum ApplicationCacheKey {
     IgdbSettings,
     TmdbSettings,
     ListennotesSettings,
+    UserCollectionsList(UserLevelCacheKey<()>),
+    UserRecommendationsKey(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),

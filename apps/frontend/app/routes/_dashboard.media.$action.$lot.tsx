@@ -33,7 +33,6 @@ import {
 	MetadataListDocument,
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
-	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -222,7 +221,6 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -238,6 +236,7 @@ export default function Page() {
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection;
+	const mediaSearch = loaderData.mediaSearch;
 
 	return (
 		<Container>
@@ -272,7 +271,11 @@ export default function Page() {
 							component={Link}
 							variant="transparent"
 							leftSection={<IconPhotoPlus />}
-							to={$path("/media/create", { lot: loaderData.lot })}
+							to={$path(
+								"/media/update/:action",
+								{ action: "create" },
+								{ lot: loaderData.lot },
+							)}
 						>
 							Create
 						</Button>
@@ -360,56 +363,47 @@ export default function Page() {
 						) : null}
 					</>
 				) : null}
-				{loaderData.mediaSearch ? (
+				{mediaSearch ? (
 					<>
 						<Flex gap="xs">
 							<DebouncedSearchInput
+								initialValue={loaderData.query.query}
+								enhancedQueryParams={loaderData.cookieName}
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								initialValue={loaderData.query.query}
-								enhancedQueryParams={loaderData.cookieName}
 							/>
-							{loaderData.mediaSearch.mediaSources.length > 1 ? (
+							{mediaSearch.mediaSources.length > 1 ? (
 								<Select
-									value={loaderData.mediaSearch.url.source}
-									data={loaderData.mediaSearch.mediaSources.map((o) => ({
-										value: o.toString(),
-										label: startCase(o.toLowerCase()),
-									}))}
+									value={mediaSearch.url.source}
 									onChange={(v) => {
 										if (v) setP("source", v);
 									}}
+									data={mediaSearch.mediaSources.map((o) => ({
+										value: o.toString(),
+										label: startCase(o.toLowerCase()),
+									}))}
 								/>
 							) : null}
 						</Flex>
-						{loaderData.mediaSearch.search === false ? (
+						{mediaSearch.search === false ? (
 							<Text>
 								Something is wrong. Please try with an alternate provider.
 							</Text>
-						) : loaderData.mediaSearch.search.details.total > 0 ? (
+						) : mediaSearch.search.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{loaderData.mediaSearch.search.details.total}
+										{mediaSearch.search.details.total}
 									</Text>{" "}
 									items found
 								</Box>
 								<ApplicationGrid>
-									{loaderData.mediaSearch.search.items.map((b, idx) => (
+									{mediaSearch.search.items.map((b) => (
 										<MediaSearchItem
-											idx={idx}
-											action={Action.Search}
-											key={b.item.identifier}
 											item={b}
-											maybeItemId={b.databaseId ?? undefined}
-											hasInteracted={b.hasInteracted}
-											lot={loaderData.lot}
-											source={
-												loaderData.mediaSearch?.url.source ||
-												MediaSource.Anilist
-											}
-											reviewScale={userPreferences.general.reviewScale}
+											key={b.identifier}
+											source={mediaSearch.url.source}
 										/>
 									))}
 								</ApplicationGrid>
@@ -417,7 +411,7 @@ export default function Page() {
 						) : (
 							<Text>No media found matching your query</Text>
 						)}
-						{loaderData.mediaSearch.search ? (
+						{mediaSearch.search ? (
 							<Center>
 								<Pagination
 									size="sm"
@@ -435,16 +429,11 @@ export default function Page() {
 }
 
 const MediaSearchItem = (props: {
-	item: MetadataSearchQuery["metadataSearch"]["items"][number];
-	idx: number;
-	lot: MediaLot;
 	source: MediaSource;
-	action: "search" | "list";
-	hasInteracted: boolean;
-	reviewScale: UserReviewScale;
-	maybeItemId?: string;
+	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
+	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
@@ -453,12 +442,16 @@ const MediaSearchItem = (props: {
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+
+	const buttonSize =
+		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
+
 	const basicCommit = async () => {
-		if (props.maybeItemId) return props.maybeItemId;
 		setIsLoading(true);
 		const data = new FormData();
-		data.append("identifier", props.item.item.identifier);
-		data.append("lot", props.lot);
+		data.append("name", props.item.title);
+		data.append("identifier", props.item.identifier);
+		data.append("lot", loaderData.lot);
 		data.append("source", props.source);
 		const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
 			method: "POST",
@@ -470,32 +463,26 @@ const MediaSearchItem = (props: {
 		return response;
 	};
 
-	const buttonSize =
-		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 	return (
 		<Box>
 			<BaseMediaDisplayItem
 				isLoading={false}
-				name={props.item.item.title}
+				name={props.item.title}
+				imageUrl={props.item.image}
+				labels={{
+					left: props.item.publishYear,
+					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
+				}}
+				imageOverlay={{
+					topLeft: isLoading ? (
+						<Loader color="red" variant="bars" size="sm" m={2} />
+					) : null,
+				}}
 				onImageClickBehavior={async () => {
 					setIsLoading(true);
 					const id = await basicCommit();
 					setIsLoading(false);
 					navigate($path("/media/item/:id", { id }));
-				}}
-				labels={{
-					left: props.item.item.publishYear,
-					right: (
-						<Text c={props.hasInteracted ? "yellow" : undefined}>
-							{changeCase(snakeCase(props.lot))}
-						</Text>
-					),
-				}}
-				imageUrl={props.item.item.image}
-				imageOverlay={{
-					topLeft: isLoading ? (
-						<Loader color="red" variant="bars" size="sm" m={2} />
-					) : null,
 				}}
 				nameRight={
 					<Menu shadow="md">
@@ -531,7 +518,7 @@ const MediaSearchItem = (props: {
 						setMetadataToUpdate({ metadataId });
 					}}
 				>
-					Mark as {getVerb(Verb.Read, props.lot)}
+					Mark as {getVerb(Verb.Read, loaderData.lot)}
 				</Button>
 				<Button
 					w="100%"

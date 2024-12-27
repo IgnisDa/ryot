@@ -11,6 +11,7 @@ import {
 	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
 	UserWorkoutTemplateDetailsDocument,
+	type WorkoutDuration,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
@@ -39,8 +40,10 @@ export type ExerciseSet = {
 	lot: SetLot;
 	rpe?: number | null;
 	confirmedAt: string | null;
+	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
+	displayRestTimeTrigger?: boolean;
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 
@@ -75,14 +78,15 @@ export type InProgressWorkout = {
 	endTime?: string;
 	startTime: string;
 	templateId?: string;
+	images: Array<Media>;
 	videos: Array<string>;
 	repeatedFrom?: string;
 	supersets: Superset[];
-	images: Array<Media>;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
+	durations: Array<WorkoutDuration>;
 	currentActionOrCompleted: FitnessAction;
 };
 
@@ -108,7 +112,7 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 export const getDefaultWorkout = (
 	fitnessEntity: FitnessAction,
 ): InProgressWorkout => {
-	const date = dayjsLib().add(7, "second");
+	const date = dayjsLib().add(3, "second");
 	return {
 		images: [],
 		videos: [],
@@ -116,6 +120,7 @@ export const getDefaultWorkout = (
 		exercises: [],
 		startTime: date.toISOString(),
 		currentActionOrCompleted: fitnessEntity,
+		durations: [{ from: date.toISOString() }],
 		name: `${getTimeOfDay(date.hour())} Workout`,
 	};
 };
@@ -203,6 +208,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
+			durations: currentWorkout.durations,
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
@@ -226,6 +232,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 					lot: set.lot,
 					statistic: set.statistic,
 					restTime: set.restTimer?.duration,
+					restTimerStartedAt: set.restTimerStartedAt,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()
 						: null,
@@ -249,8 +256,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 };
 
 export type CurrentWorkoutTimer = {
-	endAt: string;
+	willEndAt: string;
 	totalTime: number;
+	wasPausedAt?: string;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
@@ -277,8 +285,8 @@ export const duplicateOldWorkout = async (
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	userFitnessPreferences: UserFitnessPreferences,
 	params: {
-		repeatedFromId?: string;
 		templateId?: string;
+		repeatedFromId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
 	},

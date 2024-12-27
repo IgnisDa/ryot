@@ -32,3 +32,23 @@ username set to their email address. This can be changed later in the profile se
 
 You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
 users to authenticate using OIDC.
+
+### Converting a local user to an OIDC user
+
+- Setup OpenID on your instance using the the above guide.
+- Make a backup of your database using this
+  [guide](./exporting.md#exporting-the-entire-database).
+- Delete all cache using this [guide](../configuration.md#delete-all-cache).
+- Logout of your original account and then click on "Continue with OpenID Connect".
+  Continue with user you want to select, after which a new account will be created.
+- Let's say that I want `IgnisDa` below to be able to login using OIDC (of
+  `ignisda2001@gmail.com`): ![image](../images/authentication_original-state.png)
+- Drop into your database (`docker exec -u postgres -it ryot-db psql`) and copy the
+  `oidc_issuer_id` (`104798859970005336426` here) of the new user and then delete it using
+  `DELETE FROM "user" WHERE id = 'usr_v5aGOC9UzrId';`
+- Update details of the old user using
+  `UPDATE "user" SET oidc_issuer_id = '104798859970005336426', password = NULL WHERE id = 'usr_ujrD0pCeKc1Y';`.
+  After this, it should look like this:
+  ![image](../images/authentication_new-state.png)
+
+You should now be able login using OIDC. The same procedure needs to be followed for all users that want their provider changed to OIDC.

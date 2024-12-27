@@ -3,7 +3,7 @@ use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{DeployGenericCsvImportInput, ImportOrExportMetadataItem};
 pub use providers::tmdb::NonMediaTmdbService;
@@ -37,10 +37,10 @@ pub async fn import(
             Ok(r) => r,
             Err(e) => {
                 failed.push(ImportFailedItem {
-                    lot: None,
-                    step: ImportFailStep::InputTransformation,
-                    identifier: idx.to_string(),
                     error: Some(e.to_string()),
+                    identifier: idx.to_string(),
+                    step: ImportFailStep::InputTransformation,
+                    ..Default::default()
                 });
                 continue;
             }
@@ -50,10 +50,10 @@ pub async fn import(
             "TV Series" | "TV Mini Series" | "tvSeries" | "tvMiniSeries" => MediaLot::Show,
             tt => {
                 failed.push(ImportFailedItem {
-                    lot: None,
-                    step: ImportFailStep::InputTransformation,
                     identifier: record.id.clone(),
+                    step: ImportFailStep::InputTransformation,
                     error: Some(format!("Unknown title type: {tt}")),
+                    ..Default::default()
                 });
                 continue;
             }

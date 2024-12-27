@@ -305,15 +305,6 @@ pub struct IntegrationConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
-pub struct SchedulerConfig {
-    /// The number of jobs to process every 5 seconds when updating metadata in
-    /// the background.
-    #[setting(default = 5)]
-    pub rate_limit_num: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
 pub struct SmtpConfig {
     pub server: String,
@@ -436,9 +427,6 @@ pub struct AppConfig {
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
-    /// Settings related to scheduler.
-    #[setting(nested)]
-    pub scheduler: SchedulerConfig,
     /// Settings related to server.
     #[setting(nested)]
     pub server: ServerConfig,

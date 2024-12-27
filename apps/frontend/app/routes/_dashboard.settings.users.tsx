@@ -54,7 +54,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
+import { openConfirmationModal } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -304,13 +304,13 @@ const UserDisplay = (props: { index: number }) => {
 							color="red"
 							type="submit"
 							variant="subtle"
-							onClick={async (e) => {
+							onClick={(e) => {
 								const form = e.currentTarget.form;
 								e.preventDefault();
-								const conf = await confirmWrapper({
-									confirmation: "Are you sure you want to delete this user?",
-								});
-								if (conf && form) submit(form);
+								openConfirmationModal(
+									"Are you sure you want to delete this user?",
+									() => submit(form),
+								);
 							}}
 						>
 							<IconTrash />

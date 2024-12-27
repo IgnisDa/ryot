@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::{Error, Result as GqlResult};
+use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{
@@ -11,9 +11,9 @@ use database_models::{
 use database_utils::user_by_id;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
-use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::SeenShowExtraInformation;
-use providers::google_books::GoogleBooksService;
+use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use media_models::{CommitMediaInput, SeenShowExtraInformation};
+use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -32,7 +32,7 @@ impl IntegrationService {
         &self,
         integration: integration::Model,
         updates: ImportResult,
-    ) -> GqlResult<()> {
+    ) -> Result<()> {
         let mut import = updates;
         import.completed.iter_mut().for_each(|item| {
             if let ImportCompletedItem::Metadata(metadata) = item {
@@ -65,9 +65,14 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0, |_| async {
-            Ok(())
-        })
+        match process_import(
+            &integration.user_id,
+            false,
+            true,
+            import,
+            &self.0,
+            |_| async { Ok(()) },
+        )
         .await
         {
             Ok(_) => {
@@ -84,7 +89,7 @@ impl IntegrationService {
         &self,
         integration_slug: String,
         payload: String,
-    ) -> GqlResult<String> {
+    ) -> Result<String> {
         ryot_log!(
             debug,
             "Processing integration webhook for slug: {}",
@@ -123,7 +128,7 @@ impl IntegrationService {
     pub async fn handle_entity_added_to_collection_event(
         &self,
         collection_to_entity_id: Uuid,
-    ) -> GqlResult<()> {
+    ) -> Result<()> {
         let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
             .one(&self.0.db)
             .await?
@@ -205,7 +210,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
+    pub async fn handle_on_seen_complete(&self, id: String) -> Result<()> {
         let (seen, show_extra_information, metadata_title, metadata_lot) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
@@ -241,10 +246,10 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
+    async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
-            return Ok(false);
+            return Ok(());
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
@@ -263,8 +268,18 @@ impl IntegrationService {
                     yank::audiobookshelf::yank_progress(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
-                        GoogleBooksService::new(&self.0.config.books.google_books).await,
-                        |input| commit_metadata(input, &self.0),
+                        &self.0,
+                        &GoogleBooksService::new(&self.0.config.books.google_books).await,
+                        &OpenlibraryService::new(&self.0.config.books.openlibrary).await,
+                        |input| {
+                            commit_metadata(
+                                CommitMediaInput {
+                                    unique: input,
+                                    name: "Loading...".to_owned(),
+                                },
+                                &self.0,
+                            )
+                        },
                     )
                     .await
                 }
@@ -289,10 +304,10 @@ impl IntegrationService {
                 .await
                 .trace_ok();
         }
-        Ok(true)
+        Ok(())
     }
 
-    pub async fn yank_integrations_data(&self) -> GqlResult<()> {
+    pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
@@ -309,10 +324,10 @@ impl IntegrationService {
         Ok(())
     }
 
-    pub async fn sync_integrations_data_to_owned_collection_for_user(
+    async fn sync_integrations_data_to_owned_collection_for_user(
         &self,
         user_id: &String,
-    ) -> GqlResult<bool> {
+    ) -> Result<bool> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         if preferences.general.disable_integrations {
             return Ok(false);
@@ -368,7 +383,7 @@ impl IntegrationService {
         Ok(true)
     }
 
-    pub async fn sync_integrations_data_to_owned_collection(&self) -> GqlResult<()> {
+    async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::SyncToOwnedCollection.eq(true))
             .select_only()
@@ -387,6 +402,19 @@ impl IntegrationService {
             self.sync_integrations_data_to_owned_collection_for_user(&user_id)
                 .await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
+        self.sync_integrations_data_to_owned_collection_for_user(user_id)
+            .await?;
+        self.yank_integrations_data_for_user(user_id).await?;
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> Result<()> {
+        self.yank_integrations_data().await?;
+        self.sync_integrations_data_to_owned_collection().await?;
         Ok(())
     }
 }

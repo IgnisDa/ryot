@@ -367,14 +367,10 @@ query MetadataSearch($input: MetadataSearchInput!) {
 			nextPage
 		}
 		items {
-			databaseId
-			hasInteracted
-			item {
-				identifier
-				title
-				image
-				publishYear
-			}
+			identifier
+			title
+			image
+			publishYear
 		}
 	}
 }

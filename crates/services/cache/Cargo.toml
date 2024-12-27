@@ -11,6 +11,7 @@ common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
+env-utils = { path = "../../utils/env" }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }

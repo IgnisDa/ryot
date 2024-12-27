@@ -1,12 +1,13 @@
 use async_graphql::{Enum, SimpleObject};
-use enums::MediaLot;
+use enum_models::MediaLot;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
 /// The various steps in which media importing can fail
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
     /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
+    #[default]
     ItemDetailsFromSource,
     /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
     MediaDetailsFromProvider,
@@ -19,12 +20,12 @@ pub enum ImportFailStep {
 }
 
 #[derive(
-    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
+    Debug, Default, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
 )]
 pub struct ImportFailedItem {
-    pub lot: Option<MediaLot>,
-    pub step: ImportFailStep,
     pub identifier: String,
+    pub step: ImportFailStep,
+    pub lot: Option<MediaLot>,
     pub error: Option<String>,
 }
 

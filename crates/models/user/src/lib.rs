@@ -1,7 +1,7 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::UserNotificationContent;
 use educe::Educe;
-use enums::{MediaLot, UserLot};
+use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
@@ -20,9 +20,19 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
 ];
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserNotificationsPreferencesInput")]
 pub struct UserNotificationsPreferences {
     #[educe(Default(expression = UserNotificationContent::iter().collect()))]
     pub to_send: Vec<UserNotificationContent>,
@@ -31,9 +41,19 @@ pub struct UserNotificationsPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserMediaFeaturesEnabledPreferencesInput")]
 pub struct UserMediaFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub enabled: bool,
@@ -66,9 +86,19 @@ pub struct UserMediaFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserOthersFeaturesEnabledPreferencesInput")]
 pub struct UserOthersFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub collections: bool,
@@ -77,9 +107,19 @@ pub struct UserOthersFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Clone,
+    Educe,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserFitnessFeaturesEnabledPreferencesInput")]
 pub struct UserFitnessFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub enabled: bool,
@@ -92,19 +132,40 @@ pub struct UserFitnessFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserFitnessLoggingPreferencesInput")]
 #[educe(Default)]
 pub struct UserFitnessLoggingPreferences {
+    pub mute_sounds: bool,
+    pub prompt_for_rest_timer: bool,
     #[educe(Default = true)]
     pub show_details_while_editing: bool,
-    pub mute_sounds: bool,
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserFitnessExercisesPreferencesInput")]
 pub struct UserFitnessExercisesPreferences {
     #[educe(Default = UserUnitSystem::Metric)]
     pub unit_system: UserUnitSystem,
@@ -112,8 +173,18 @@ pub struct UserFitnessExercisesPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserMeasurementsInBuiltPreferencesInput")]
 #[educe(Default)]
 pub struct UserMeasurementsInBuiltPreferences {
     #[educe(Default = true)]
@@ -160,8 +231,18 @@ pub enum UserCustomMeasurementDataType {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserCustomMeasurementInput")]
 #[serde(rename_all = "camelCase")]
 pub struct UserCustomMeasurement {
     pub name: String,
@@ -169,8 +250,18 @@ pub struct UserCustomMeasurement {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserFitnessMeasurementsPreferencesInput")]
 #[educe(Default)]
 pub struct UserFitnessMeasurementsPreferences {
     #[educe(Default(expression = vec![UserCustomMeasurement {
@@ -183,8 +274,18 @@ pub struct UserFitnessMeasurementsPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserAnalyticsFeaturesEnabledPreferencesInput")]
 #[educe(Default)]
 pub struct UserAnalyticsFeaturesEnabledPreferences {
     #[educe(Default = true)]
@@ -192,8 +293,18 @@ pub struct UserAnalyticsFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserFeaturesEnabledPreferencesInput")]
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
     pub others: UserOthersFeaturesEnabledPreferences,
@@ -202,8 +313,18 @@ pub struct UserFeaturesEnabledPreferences {
 }
 
 #[derive(
-    Eq, Clone, Debug, Educe, Serialize, PartialEq, Deserialize, SimpleObject, FromJsonQueryResult,
+    Eq,
+    Clone,
+    Debug,
+    Educe,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserFitnessPreferencesInput")]
 #[educe(Default)]
 pub struct UserFitnessPreferences {
     pub logging: UserFitnessLoggingPreferences,
@@ -266,9 +387,19 @@ pub enum DashboardElementLot {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "camelCase")]
+#[graphql(input_name = "UserGeneralDashboardElementInput")]
 pub struct UserGeneralDashboardElement {
     pub hidden: bool,
     pub num_elements: Option<u64>,
@@ -278,18 +409,37 @@ pub struct UserGeneralDashboardElement {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Eq,
+    Clone,
+    Debug,
+    Serialize,
+    PartialEq,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[serde(rename_all = "camelCase")]
+#[graphql(input_name = "UserGeneralWatchProviderInput")]
 pub struct UserGeneralWatchProvider {
     pub lot: MediaLot,
     pub values: Vec<String>,
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
+    Eq,
+    Educe,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[educe(Default)]
+#[graphql(input_name = "UserGeneralPreferencesInput")]
 pub struct UserGeneralPreferences {
     #[educe(Default = true)]
     pub display_nsfw: bool,
@@ -343,8 +493,18 @@ pub struct UserGeneralPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserPreferencesInput")]
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,

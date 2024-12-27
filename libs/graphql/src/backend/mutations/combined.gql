@@ -62,6 +62,10 @@ mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
 	}
 }
 
+mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
+	updateCustomMetadata(input: $input)
+}
+
 mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
 	createOrUpdateCollection(input: $input) {
 		id
@@ -223,7 +227,7 @@ mutation UpdateUser($input: UpdateUserInput!) {
 	}
 }
 
-mutation UpdateUserPreference($input: UpdateComplexJsonInput!) {
+mutation UpdateUserPreference($input: UserPreferencesInput!) {
 	updateUserPreference(input: $input)
 }
 
@@ -257,4 +261,8 @@ mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
 
 mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+}
+
+mutation RefreshUserRecommendationsKey {
+	refreshUserRecommendationsKey
 }

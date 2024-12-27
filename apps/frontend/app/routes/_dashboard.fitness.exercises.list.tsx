@@ -58,10 +58,10 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	dayjsLib,
 	getExerciseDetailsPath,
+	openConfirmationModal,
 	pageQueryParam,
 } from "~/lib/generals";
 import {
@@ -325,26 +325,25 @@ export default function Page() {
 											<Link
 												style={{ all: "unset", cursor: "pointer" }}
 												to={getExerciseDetailsPath(exercise.id)}
-												onClick={async (e) => {
+												onClick={(e) => {
 													if (allowAddingExerciseToWorkout) return;
 													if (mergingExercise) {
 														e.preventDefault();
-														const conf = await confirmWrapper({
-															confirmation:
-																"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
-														});
-														if (conf) {
-															const formData = new FormData();
-															formData.append("mergeFrom", mergingExercise);
-															formData.append("mergeInto", exercise.id);
-															setMergingExercise(null);
-															submit(formData, {
-																method: "POST",
-																action: withQuery(".", {
-																	intent: "mergeExercise",
-																}),
-															});
-														}
+														openConfirmationModal(
+															"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+															() => {
+																const formData = new FormData();
+																formData.append("mergeFrom", mergingExercise);
+																formData.append("mergeInto", exercise.id);
+																setMergingExercise(null);
+																submit(formData, {
+																	method: "POST",
+																	action: withQuery(".", {
+																		intent: "mergeExercise",
+																	}),
+																});
+															},
+														);
 														return;
 													}
 													if (currentWorkout) {

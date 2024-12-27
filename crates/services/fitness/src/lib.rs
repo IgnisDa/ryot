@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background_models::{ApplicationJob, MpApplicationJob};
 use common_models::{SearchDetails, SearchInput, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::{
@@ -25,13 +25,14 @@ use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, get_focused_workout_summary,
 };
-use enums::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
     GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
+use futures::TryStreamExt;
 use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
@@ -102,23 +103,21 @@ impl FitnessService {
         server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
         let mut summary = WorkoutSummary::default();
         let mut information = WorkoutInformation {
-            assets: None,
-            exercises: vec![],
             comment: input.comment,
             supersets: input.supersets,
+            ..Default::default()
         };
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
             summary.exercises.push(WorkoutSummaryExercise {
-                id: exercise.exercise_id.clone(),
-                best_set: None,
-                lot: None,
                 num_sets: exercise.sets.len(),
+                id: exercise.exercise_id.clone(),
+                ..Default::default()
             });
             information.exercises.push(ProcessedExercise {
-                total: None,
-                assets: None,
                 lot: db_ex.lot,
+                notes: exercise.notes,
+                id: exercise.exercise_id,
                 sets: exercise
                     .sets
                     .into_iter()
@@ -126,16 +125,13 @@ impl FitnessService {
                         lot: s.lot,
                         rpe: s.rpe,
                         note: s.note,
-                        totals: None,
-                        confirmed_at: None,
-                        personal_bests: None,
-                        actual_rest_time: None,
                         rest_time: s.rest_time,
                         statistic: s.statistic,
+                        rest_timer_started_at: s.rest_timer_started_at,
+                        ..Default::default()
                     })
                     .collect(),
-                notes: exercise.notes,
-                id: exercise.exercise_id,
+                ..Default::default()
             });
         }
         let processed_exercises = information.exercises.clone();
@@ -237,10 +233,9 @@ impl FitnessService {
         let reviews =
             item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, &self.0).await?;
         let mut resp = UserExerciseDetails {
-            details: None,
-            history: None,
             collections,
             reviews,
+            ..Default::default()
         };
         if let Some(association) = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -412,24 +407,29 @@ impl FitnessService {
         })
     }
 
-    pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {
         if Exercise::find().count(&self.0.db).await? > 0 {
-            return Ok(true);
+            return Ok(());
         }
         ryot_log!(
             info,
             "Instance does not have exercises data. Deploying job to download them..."
         );
-        let exercises = self.get_all_exercises_from_dataset().await?;
-        for exercise in exercises {
-            self.0
-                .perform_application_job(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await?;
-        }
-        Ok(true)
+        self.0
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateGithubExercises))
+            .await?;
+        Ok(())
     }
 
-    pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
+    pub async fn update_github_exercises(&self) -> Result<()> {
+        let exercises = self.get_all_exercises_from_dataset().await?;
+        for exercise in exercises {
+            self.update_github_exercise(exercise).await?;
+        }
+        Ok(())
+    }
+
+    async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
             internal_images: ex
@@ -438,7 +438,7 @@ impl FitnessService {
                 .into_iter()
                 .map(StoredUrl::Url)
                 .collect(),
-            images: vec![],
+            ..Default::default()
         };
         let mut muscles = ex.attributes.primary_muscles;
         muscles.extend(ex.attributes.secondary_muscles);
@@ -512,12 +512,10 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
+        let m = UserMeasurement::find_by_id((timestamp, user_id))
             .one(&self.0.db)
             .await?
-        else {
-            return Ok(false);
-        };
+            .ok_or_else(|| Error::new("Measurement does not exist"))?;
         m.delete(&self.0.db).await?;
         Ok(true)
     }
@@ -527,8 +525,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = create_or_update_user_workout(input, user_id, &self.0).await?;
-        Ok(identifier)
+        create_or_update_user_workout(input, user_id, &self.0).await
     }
 
     pub async fn update_user_workout_attributes(
@@ -606,11 +603,20 @@ impl FitnessService {
     }
 
     pub async fn revise_user_workouts(&self, user_id: String) -> Result<()> {
-        UserToEntity::delete_many()
+        let mut all_stream = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .exec(&self.0.db)
+            .stream(&self.0.db)
             .await?;
+        while let Some(ute) = all_stream.try_next().await? {
+            let mut new = UserToExerciseExtraInformation::default();
+            let eei = ute.exercise_extra_information.clone().unwrap_or_default();
+            new.settings = eei.settings;
+            let mut ute: user_to_entity::ActiveModel = ute.into();
+            ute.exercise_num_times_interacted = ActiveValue::Set(None);
+            ute.exercise_extra_information = ActiveValue::Set(Some(new));
+            ute.update(&self.0.db).await?;
+        }
         let workouts = Workout::find()
             .filter(workout::Column::UserId.eq(&user_id))
             .order_by_asc(workout::Column::EndTime)
@@ -627,12 +633,15 @@ impl FitnessService {
         Ok(())
     }
 
-    async fn change_exercise_name_in_history(
+    async fn change_exercise_id_in_history(
         &self,
         new_name: String,
         old_entity: user_to_entity::Model,
     ) -> Result<()> {
-        for workout in old_entity.exercise_extra_information.unwrap().history {
+        let Some(exercise_extra_information) = old_entity.exercise_extra_information else {
+            return Ok(());
+        };
+        for workout in exercise_extra_information.history {
             let db_workout = Workout::find_by_id(workout.workout_id)
                 .one(&self.0.db)
                 .await?
@@ -654,45 +663,45 @@ impl FitnessService {
         user_id: String,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let entity = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(input.old_id.clone()))
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        let old_exercise = Exercise::find_by_id(input.old_id.clone())
-            .one(&self.0.db)
-            .await?
-            .unwrap();
+        let id = input.update.id.clone();
+        let mut update = input.update.clone();
+        let old_exercise = Exercise::find_by_id(&id).one(&self.0.db).await?.unwrap();
+        for image in old_exercise.attributes.internal_images.iter() {
+            if let StoredUrl::S3(key) = image.to_owned() {
+                self.0.file_storage_service.delete_object(key).await;
+            }
+        }
         if input.should_delete.unwrap_or_default() {
-            if !entity
-                .exercise_extra_information
-                .unwrap_or_default()
-                .history
-                .is_empty()
-            {
-                return Err(Error::new(
-                    "Exercise is associated with one or more workouts.",
-                ));
+            let ute = UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(&id))
+                .one(&self.0.db)
+                .await?
+                .ok_or_else(|| Error::new("Exercise does not exist"))?;
+            if let Some(exercise_extra_information) = ute.exercise_extra_information {
+                if !exercise_extra_information.history.is_empty() {
+                    return Err(Error::new(
+                        "Exercise is associated with one or more workouts.",
+                    ));
+                }
             }
             old_exercise.delete(&self.0.db).await?;
             return Ok(true);
         }
-        if input.old_id != input.update.id
-            && Exercise::find_by_id(input.update.id.clone())
-                .one(&self.0.db)
-                .await?
-                .is_some()
-        {
-            return Err(Error::new("Exercise with the new name already exists."));
-        }
-        for image in old_exercise.attributes.internal_images {
-            if let StoredUrl::S3(key) = image {
-                self.0.file_storage_service.delete_object(key).await;
-            }
-        }
-        self.create_custom_exercise(&user_id, input.update.clone())
-            .await?;
+        update.source = ExerciseSource::Custom;
+        update.created_by_user_id = Some(user_id.clone());
+        update.attributes.internal_images = update
+            .attributes
+            .images
+            .clone()
+            .into_iter()
+            .map(StoredUrl::S3)
+            .collect();
+        update.attributes.images = vec![];
+        let input: exercise::ActiveModel = update.into();
+        let mut input = input.reset_all();
+        input.id = ActiveValue::Unchanged(id);
+        input.update(&self.0.db).await?;
         Ok(true)
     }
 
@@ -701,7 +710,6 @@ impl FitnessService {
         user_id: String,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        let err = || Error::new("Incorrect property value encountered");
         let ute = match UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(&input.exercise_id))
@@ -722,31 +730,7 @@ impl FitnessService {
             }
         };
         let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
-        if input.change.property.contains('.') {
-            let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
-            match left {
-                "set_rest_timers" => {
-                    let value = input.change.value.parse().unwrap();
-                    let set_rest_timers = &mut exercise_extra_information.settings.set_rest_timers;
-                    match right {
-                        "drop" => set_rest_timers.drop = Some(value),
-                        "normal" => set_rest_timers.normal = Some(value),
-                        "warmup" => set_rest_timers.warmup = Some(value),
-                        "failure" => set_rest_timers.failure = Some(value),
-                        _ => return Err(err()),
-                    }
-                }
-                _ => return Err(err()),
-            };
-        } else {
-            match input.change.property.as_str() {
-                "exclude_from_analytics" => {
-                    exercise_extra_information.settings.exclude_from_analytics =
-                        input.change.value.parse().unwrap();
-                }
-                _ => return Err(err()),
-            }
-        }
+        exercise_extra_information.settings = input.change;
         let mut ute: user_to_entity::ActiveModel = ute.into();
         ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
         ute.update(&self.0.db).await?;
@@ -782,7 +766,7 @@ impl FitnessService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
-        self.change_exercise_name_in_history(merge_into, old_entity)
+        self.change_exercise_id_in_history(merge_into, old_entity)
             .await?;
         schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)

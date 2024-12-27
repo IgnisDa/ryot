@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use enums::SeenState;
+use enum_models::SeenState;
 
 use super::{m20230410_create_metadata::Metadata, m20230417_create_user::User};
 

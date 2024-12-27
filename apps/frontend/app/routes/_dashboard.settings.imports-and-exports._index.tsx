@@ -1,9 +1,9 @@
+import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	Accordion,
 	Anchor,
 	Box,
 	Button,
-	Code,
 	Container,
 	Divider,
 	FileInput,
@@ -46,8 +46,7 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -398,14 +397,13 @@ export default function Page() {
 											color="blue"
 											type="submit"
 											variant="light"
-											onClick={async (e) => {
+											onClick={(e) => {
 												const form = e.currentTarget.form;
 												e.preventDefault();
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to deploy an import job? This action is irreversible.",
-												});
-												if (conf && form) submit(form);
+												openConfirmationModal(
+													"Are you sure you want to deploy an import job? This action is irreversible.",
+													() => submit(form),
+												);
 											}}
 										>
 											Import
@@ -453,25 +451,34 @@ export default function Page() {
 															/>
 														) : null}
 													</Accordion.Control>
-													<Accordion.Panel>
+													<Accordion.Panel
+														styles={{ content: { paddingTop: 0 } }}
+													>
 														{report.details ? (
-															<>
+															<Stack>
 																<Text>
-																	Total imported: {report.details.import.total}
-																</Text>
-																<Text>
-																	Failed: {report.details.failedItems.length}
+																	<Text span fw="bold" mr={4}>
+																		Total imported:
+																	</Text>
+																	{report.details.import.total},
+																	<Text span fw="bold" ml="md" mr={4}>
+																		Failed:
+																	</Text>
+																	{report.details.failedItems.length}
 																</Text>
 																{report.details.failedItems.length > 0 ? (
-																	<Code mah={400} block>
-																		{JSON.stringify(
+																	<CodeHighlight
+																		mah={400}
+																		language="json"
+																		style={{ overflow: "scroll" }}
+																		code={JSON.stringify(
 																			report.details.failedItems,
 																			null,
-																			4,
+																			2,
 																		)}
-																	</Code>
+																	/>
 																) : null}
-															</>
+															</Stack>
 														) : (
 															<Text>This import never finished</Text>
 														)}

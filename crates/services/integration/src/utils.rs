@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use database_models::metadata;
 use database_utils::ilike_sql;
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 

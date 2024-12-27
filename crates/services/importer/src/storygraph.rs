@@ -4,7 +4,8 @@ use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot};
+use dependent_utils::get_identifier_from_book_isbn;
+use enum_models::{ImportSource, MediaLot};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -15,7 +16,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{utils, ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -88,8 +89,7 @@ pub async fn import(
             continue;
         };
         let Some((identifier, source)) =
-            utils::get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service)
-                .await
+            get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service).await
         else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
@@ -108,8 +108,6 @@ pub async fn import(
         );
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                started_on: None,
-                ended_on: None,
                 provider_watched_on: Some(ImportSource::Storygraph.to_string()),
                 ..Default::default()
             };
@@ -129,25 +127,25 @@ pub async fn import(
             collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
         }
         media.push(ImportOrExportMetadataItem {
-            source_id: record.title.clone(),
             lot,
             source,
             identifier,
+            collections,
             seen_history,
+            source_id: record.title.clone(),
             reviews: vec![ImportOrExportItemRating {
                 rating: record
                     .rating
                     // DEV: Rates items out of 10
                     .map(|d| d.saturating_mul(dec!(10))),
                 review: record.review.map(|r| ImportOrExportItemReview {
-                    date: None,
-                    spoiler: Some(false),
                     text: Some(r),
-                    visibility: None,
+                    spoiler: Some(false),
+                    ..Default::default()
                 }),
                 ..Default::default()
             }],
-            collections,
+            ..Default::default()
         })
     }
     Ok(ImportResult {

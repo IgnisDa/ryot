@@ -95,8 +95,8 @@ export const displayWeightWithUnit = (
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
-		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
 		notation: compactNotation ? "compact" : undefined,
+		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
 	}).format(Number((data || 0).toString()));
 };
 
@@ -106,9 +106,11 @@ export const displayWeightWithUnit = (
 export const displayDistanceWithUnit = (
 	unit: UserUnitSystem,
 	data: string | number | null | undefined,
+	compactNotation?: boolean,
 ) => {
 	return new Intl.NumberFormat("en-us", {
 		style: "unit",
+		notation: compactNotation ? "compact" : undefined,
 		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
 	}).format(Number((data || 0).toString()));
 };

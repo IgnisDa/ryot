@@ -15,7 +15,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -198,10 +198,12 @@ export default function Page() {
 const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
+	const { ref, inViewport } = useInViewport();
 	const [parent] = useAutoAnimate();
 	const [showDetails, setShowDetails] = useDisclosure(false);
 
 	const { data: entityInformation } = useQuery({
+		enabled: inViewport,
 		queryKey: ["fitnessEntityDetails", props.entityId],
 		queryFn: () =>
 			match(loaderData.entity)
@@ -239,7 +241,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 
 	if (!entityInformation)
 		return (
-			<Stack gap={4}>
+			<Stack gap={4} ref={ref}>
 				<Skeleton height={76} />
 				<Group wrap="nowrap" justify="space-between" gap={4}>
 					<Skeleton height={40} />

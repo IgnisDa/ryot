@@ -6,7 +6,7 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
@@ -170,10 +170,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .map(|s| {
                     let data = s.unwrap();
                     PeopleSearchItem {
-                        identifier: data.id.to_string(),
                         name: data.name,
-                        image: None,
-                        birth_year: None,
+                        identifier: data.id.to_string(),
+                        ..Default::default()
                     }
                 })
                 .collect();
@@ -271,37 +270,31 @@ impl MediaProvider for NonMediaAnilistService {
                 .map(|r| {
                     let data = r.unwrap().node.unwrap();
                     MetadataPersonRelated {
-                        character: None,
                         role: STUDIO_ROLE.to_owned(),
                         metadata: PartialMetadataWithoutId {
-                            title: data.title.unwrap().native.unwrap(),
-                            identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
+                            identifier: data.id.to_string(),
+                            title: data.title.unwrap().native.unwrap(),
+                            image: data.cover_image.unwrap().extra_large,
                             lot: match data.type_.unwrap() {
                                 studio_query::MediaType::ANIME => MediaLot::Anime,
                                 studio_query::MediaType::MANGA => MediaLot::Manga,
                                 studio_query::MediaType::Other(_) => unreachable!(),
                             },
-                            image: data.cover_image.unwrap().extra_large,
-                            is_recommendation: None,
+                            ..Default::default()
                         },
+                        ..Default::default()
                     }
                 })
                 .collect();
             MetadataPerson {
-                identifier: details.id.to_string(),
-                source: MediaSource::Anilist,
-                name: details.name,
                 related,
-                source_specifics: source_specifics.to_owned(),
+                name: details.name,
                 website: details.site_url,
-                description: None,
-                gender: None,
-                source_url: None,
-                place: None,
-                images: None,
-                death_date: None,
-                birth_date: None,
+                source: MediaSource::Anilist,
+                identifier: details.id.to_string(),
+                source_specifics: source_specifics.to_owned(),
+                ..Default::default()
             }
         } else {
             let variables = staff_query::Variables {
@@ -371,15 +364,15 @@ impl MediaProvider for NonMediaAnilistService {
                                 role: "Voicing".to_owned(),
                                 metadata: PartialMetadataWithoutId {
                                     title: title.clone(),
-                                    is_recommendation: None,
-                                    identifier: data.id.to_string(),
                                     source: MediaSource::Anilist,
+                                    identifier: data.id.to_string(),
+                                    image: data.cover_image.clone().unwrap().extra_large,
                                     lot: match data.type_.clone().unwrap() {
                                         staff_query::MediaType::ANIME => MediaLot::Anime,
                                         staff_query::MediaType::MANGA => MediaLot::Manga,
                                         staff_query::MediaType::Other(_) => unreachable!(),
                                     },
-                                    image: data.cover_image.clone().unwrap().extra_large,
+                                    ..Default::default()
                                 },
                             })
                         }
@@ -403,37 +396,36 @@ impl MediaProvider for NonMediaAnilistService {
                             &self.base.preferred_language,
                         );
                         MetadataPersonRelated {
-                            character: None,
                             role: edge.staff_role.unwrap_or_else(|| "Production".to_owned()),
                             metadata: PartialMetadataWithoutId {
                                 title,
-                                identifier: data.id.to_string(),
                                 source: MediaSource::Anilist,
+                                identifier: data.id.to_string(),
+                                image: data.cover_image.unwrap().extra_large,
                                 lot: match data.type_.unwrap() {
                                     staff_query::MediaType::ANIME => MediaLot::Anime,
                                     staff_query::MediaType::MANGA => MediaLot::Manga,
                                     staff_query::MediaType::Other(_) => unreachable!(),
                                 },
-                                image: data.cover_image.unwrap().extra_large,
-                                is_recommendation: None,
+                                ..Default::default()
                             },
+                            ..Default::default()
                         }
                     }),
             );
             MetadataPerson {
-                identifier: details.id.to_string(),
-                source: MediaSource::Anilist,
-                name: details.name.unwrap().full.unwrap(),
-                description: details.description,
-                gender: details.gender,
-                place: details.home_town,
-                images: Some(images),
+                related,
                 death_date,
                 birth_date,
-                related,
+                images: Some(images),
+                gender: details.gender,
+                place: details.home_town,
+                source: MediaSource::Anilist,
+                description: details.description,
+                identifier: details.id.to_string(),
+                name: details.name.unwrap().full.unwrap(),
                 source_specifics: source_specifics.to_owned(),
-                website: None,
-                source_url: None,
+                ..Default::default()
             }
         };
         Ok(data)
@@ -580,12 +572,11 @@ async fn media_details(
         .map(|s| {
             let node = s.node.unwrap();
             PartialMetadataPerson {
-                name: node.name.unwrap().full.unwrap(),
-                identifier: node.id.to_string(),
-                source: MediaSource::Anilist,
                 role: s.role.unwrap(),
-                character: None,
-                source_specifics: None,
+                source: MediaSource::Anilist,
+                identifier: node.id.to_string(),
+                name: node.name.unwrap().full.unwrap(),
+                ..Default::default()
             }
         })
         .collect_vec();
@@ -598,14 +589,14 @@ async fn media_details(
                 let node = s.node.unwrap();
                 PartialMetadataPerson {
                     name: node.name,
-                    identifier: node.id.to_string(),
                     source: MediaSource::Anilist,
                     role: STUDIO_ROLE.to_owned(),
-                    character: None,
+                    identifier: node.id.to_string(),
                     source_specifics: Some(PersonSourceSpecifics {
                         is_anilist_studio: Some(true),
                         ..Default::default()
                     }),
+                    ..Default::default()
                 }
             }),
     );
@@ -639,7 +630,7 @@ async fn media_details(
             Some(MangaSpecifics {
                 chapters: media.chapters.map(Decimal::from),
                 volumes: media.volumes.and_then(|v| v.try_into().ok()),
-                url: None,
+                ..Default::default()
             }),
         ),
         media_details_query::MediaType::Other(_) => unreachable!(),
@@ -666,15 +657,15 @@ async fn media_details(
                 );
                 PartialMetadataWithoutId {
                     title,
-                    identifier: data.id.to_string(),
                     source: MediaSource::Anilist,
+                    identifier: data.id.to_string(),
+                    image: data.cover_image.unwrap().extra_large,
                     lot: match data.type_.unwrap() {
                         media_details_query::MediaType::ANIME => MediaLot::Anime,
                         media_details_query::MediaType::MANGA => MediaLot::Manga,
                         media_details_query::MediaType::Other(_) => unreachable!(),
                     },
-                    image: data.cover_image.unwrap().extra_large,
-                    is_recommendation: None,
+                    ..Default::default()
                 }
             })
         })
@@ -697,31 +688,26 @@ async fn media_details(
     );
     let identifier = media.id.to_string();
     Ok(MetadataDetails {
-        title: title.clone(),
-        identifier: identifier.clone(),
-        is_nsfw: media.is_adult,
-        source: MediaSource::Anilist,
-        description: media.description,
         lot,
         people,
-        creators: vec![],
+        videos,
+        suggestions,
+        anime_specifics,
+        manga_specifics,
         url_images: images,
+        publish_year: year,
+        title: title.clone(),
+        provider_rating: score,
+        is_nsfw: media.is_adult,
+        source: MediaSource::Anilist,
+        identifier: identifier.clone(),
+        description: media.description,
+        genres: genres.into_iter().unique().collect(),
+        production_status: media_status_string(media.status),
         source_url: Some(format!(
             "https://anilist.co/{}/{}/{}",
             lot, identifier, title
         )),
-        videos,
-        genres: genres.into_iter().unique().collect(),
-        publish_year: year,
-        publish_date: None,
-        anime_specifics,
-        manga_specifics,
-        suggestions,
-        provider_rating: score,
-        group_identifiers: vec![],
-        s3_images: vec![],
-        production_status: media_status_string(media.status),
-        original_language: None,
         ..Default::default()
     })
 }

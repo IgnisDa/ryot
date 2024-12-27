@@ -10,8 +10,6 @@ import {
 	ThemeIcon,
 	Tooltip,
 } from "@mantine/core";
-import { $path } from "remix-routes";
-import "@mantine/dates/styles.css";
 import { useInViewport } from "@mantine/hooks";
 import { Form, Link } from "@remix-run/react";
 import {
@@ -34,6 +32,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
@@ -41,10 +40,10 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
 	getPartialMetadataDetailsQuery,
+	openConfirmationModal,
 	queryFactory,
 	reviewYellow,
 } from "~/lib/generals";
@@ -398,14 +397,12 @@ export const ToggleMediaMonitorMenuItem = (props: {
 					const form = e.currentTarget.form;
 					if (form) {
 						e.preventDefault();
-						if (isMonitored) {
-							const conf = await confirmWrapper({
-								confirmation: "Are you sure you want to stop monitoring?",
-							});
-							if (conf) submit(form);
-						} else {
-							submit(form);
-						}
+						if (isMonitored)
+							openConfirmationModal(
+								"Are you sure you want to stop monitoring?",
+								() => submit(form),
+							);
+						else submit(form);
 					}
 				}}
 			>

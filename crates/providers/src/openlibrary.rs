@@ -6,7 +6,7 @@ use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::{ryot_log, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     BookSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
@@ -17,7 +17,7 @@ use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://openlibrary.org";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
@@ -53,17 +53,17 @@ struct BookSearchResults {
     items: Vec<BookSearchItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct BookSearchItem {
-    identifier: String,
     title: String,
-    description: Option<String>,
-    author_names: Vec<String>,
+    identifier: String,
     genres: Vec<String>,
     images: Vec<String>,
     publish_year: Option<i32>,
-    publish_date: Option<NaiveDate>,
+    author_names: Vec<String>,
+    description: Option<String>,
     book_specifics: BookSpecifics,
+    publish_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -183,10 +183,10 @@ impl MediaProvider for OpenlibraryService {
             .docs
             .into_iter()
             .map(|d| PeopleSearchItem {
-                identifier: get_key(&d.key),
                 name: d.name,
-                image: None,
+                identifier: get_key(&d.key),
                 birth_year: d.birth_date.and_then(|b| parse_date(&b)).map(|d| d.year()),
+                ..Default::default()
             })
             .collect_vec();
         let data = SearchResults {
@@ -251,16 +251,16 @@ impl MediaProvider for OpenlibraryService {
                     .first()
                     .cloned();
                 related.push(MetadataPersonRelated {
-                    character: None,
                     role: "Author".to_owned(),
                     metadata: PartialMetadataWithoutId {
                         title,
                         image,
                         lot: MediaLot::Book,
-                        is_recommendation: None,
                         identifier: get_key(&entry.key),
                         source: MediaSource::Openlibrary,
+                        ..Default::default()
                     },
+                    ..Default::default()
                 })
             }
         }
@@ -268,12 +268,9 @@ impl MediaProvider for OpenlibraryService {
         let name = data.name;
         Ok(MetadataPerson {
             related,
-            place: None,
             description,
-            gender: None,
             name: name.clone(),
             images: Some(images),
-            source_specifics: None,
             identifier: identifier.clone(),
             source: MediaSource::Openlibrary,
             birth_date: data.birth_date.and_then(|b| parse_date(&b)),
@@ -285,6 +282,7 @@ impl MediaProvider for OpenlibraryService {
             website: data
                 .links
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
+            ..Default::default()
         })
     }
 
@@ -339,12 +337,10 @@ impl MediaProvider for OpenlibraryService {
                 ),
             };
             people.push(PartialMetadataPerson {
-                identifier: get_key(&key),
-                name: "".to_owned(),
                 role,
+                identifier: get_key(&key),
                 source: MediaSource::Openlibrary,
-                character: None,
-                source_specifics: None,
+                ..Default::default()
             });
         }
         let description = data.description.map(|d| match d {
@@ -433,12 +429,12 @@ impl MediaProvider for OpenlibraryService {
                     .and_then(|img| img.value().attr("src"))
                     .map(|src| src.to_string());
                 suggestions.push(PartialMetadataWithoutId {
-                    title: name,
                     image,
                     identifier,
+                    title: name,
                     lot: MediaLot::Book,
                     source: MediaSource::Openlibrary,
-                    is_recommendation: None,
+                    ..Default::default()
                 });
             }
         }
@@ -500,17 +496,15 @@ impl MediaProvider for OpenlibraryService {
             .map(|d| {
                 let images = Vec::from_iter(d.cover_i.map(|f| self.get_book_cover_image_url(f)));
                 BookSearchItem {
-                    identifier: get_key(&d.key),
+                    images,
                     title: d.title,
-                    description: None,
-                    author_names: d.author_name.unwrap_or_default(),
-                    genres: vec![],
+                    identifier: get_key(&d.key),
                     publish_year: d.first_publish_year,
-                    publish_date: None,
+                    author_names: d.author_name.unwrap_or_default(),
                     book_specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
                     },
-                    images,
+                    ..Default::default()
                 }
             })
             .collect_vec();

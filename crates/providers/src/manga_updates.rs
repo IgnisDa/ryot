@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
@@ -15,7 +15,7 @@ use media_models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use traits::{MediaProvider, };
+use traits::MediaProvider;
 
 static URL: &str = "https://api.mangaupdates.com/v1";
 
@@ -181,10 +181,9 @@ impl MediaProvider for MangaUpdatesService {
             .results
             .into_iter()
             .map(|s| PeopleSearchItem {
-                identifier: s.record.id.to_string(),
                 name: s.hit_name,
-                image: None,
-                birth_year: None,
+                identifier: s.record.id.to_string(),
+                ..Default::default()
             })
             .collect();
         Ok(SearchResults {
@@ -228,27 +227,21 @@ impl MediaProvider for MangaUpdatesService {
             .series_list
             .into_iter()
             .map(|r| MetadataPersonRelated {
-                character: None,
                 role: "Author".to_owned(),
                 metadata: PartialMetadataWithoutId {
-                    image: None,
                     title: r.title,
                     lot: MediaLot::Manga,
-                    is_recommendation: None,
                     source: MediaSource::MangaUpdates,
                     identifier: r.series_id.to_string(),
+                    ..Default::default()
                 },
+                ..Default::default()
             })
             .collect_vec();
         let resp = MetadataPerson {
             related,
-            website: None,
-            death_date: None,
-            source_url: None,
-            description: None,
             gender: data.gender,
             place: data.birthplace,
-            source_specifics: None,
             name: data.name.unwrap(),
             identifier: identity.to_owned(),
             source: MediaSource::MangaUpdates,
@@ -260,6 +253,7 @@ impl MediaProvider for MangaUpdatesService {
                     None
                 }
             }),
+            ..Default::default()
         };
         Ok(resp)
     }
@@ -280,12 +274,11 @@ impl MediaProvider for MangaUpdatesService {
             .into_iter()
             .flat_map(|a| {
                 a.author_id.map(|ai| PartialMetadataPerson {
+                    role: a.lot.unwrap(),
                     identifier: ai.to_string(),
                     name: a.name.unwrap_or_default(),
-                    role: a.lot.unwrap(),
                     source: MediaSource::MangaUpdates,
-                    character: None,
-                    source_specifics: None,
+                    ..Default::default()
                 })
             })
             .collect_vec();
@@ -312,12 +305,12 @@ impl MediaProvider for MangaUpdatesService {
                 .await
             {
                 suggestions.push(PartialMetadataWithoutId {
+                    lot: MediaLot::Manga,
                     title: data.title.unwrap(),
+                    source: MediaSource::MangaUpdates,
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),
-                    source: MediaSource::MangaUpdates,
-                    lot: MediaLot::Manga,
-                    is_recommendation: None,
+                    ..Default::default()
                 });
             }
         }

@@ -1,5 +1,5 @@
 // FIXME: Rename this to m20230508_create_review in the next major release
-use enums::Visibility;
+use enum_models::Visibility;
 use indoc::indoc;
 use sea_orm_migration::prelude::*;
 

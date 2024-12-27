@@ -10,16 +10,17 @@ use serde_with::skip_serializing_none;
 /// An export of a measurement taken at a point in time.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
+    Default,
     PartialEq,
-    DeriveEntityModel,
-    Eq,
+    Schematic,
     Serialize,
     Deserialize,
-    SimpleObject,
     InputObject,
-    Schematic,
+    SimpleObject,
+    DeriveEntityModel,
 )]
 #[graphql(name = "UserMeasurement", input_name = "UserMeasurementInput")]
 #[schematic(rename = "UserMeasurement", rename_all = "snake_case")]

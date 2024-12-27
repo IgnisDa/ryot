@@ -4,17 +4,14 @@ use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
 };
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
-use chrono::{Timelike, Utc};
+use background_models::{ApplicationJob, HpApplicationJob};
+use chrono::Timelike;
 use common_models::{
-    BackendError, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
-    DailyUserActivityHourRecordEntity, DefaultCollection, IdAndNamedObject, StringIdObject,
+    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
 };
 use common_utils::ryot_log;
 use database_models::{
-    access_link, collection, collection_to_entity, daily_user_activity,
-    functions::associate_user_with_entity,
-    metadata,
+    access_link, collection, collection_to_entity, daily_user_activity, metadata,
     prelude::{
         AccessLink, Collection, CollectionToEntity, DailyUserActivity, Exercise, Metadata, Review,
         Seen, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
@@ -22,26 +19,26 @@ use database_models::{
     review, seen, user, user_measurement, user_to_entity, workout,
 };
 use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
-use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
+use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use jwt_service::{verify, Claims};
 use markdown::to_html as markdown_to_html;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
-    MangaSpecifics, MovieSpecifics, MusicSpecifics, PodcastSpecifics, ReviewItem,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
+    MusicSpecifics, PodcastSpecifics, ReviewItem, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{NullOrdering, OnConflict, PgFunc},
+    sea_query::{NullOrdering, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    Iterable, Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
+    Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -289,31 +286,6 @@ pub async fn check_token(
     Ok(true)
 }
 
-pub async fn remove_entity_from_collection(
-    db: &DatabaseConnection,
-    user_id: &String,
-    input: ChangeCollectionToEntityInput,
-) -> Result<StringIdObject> {
-    let collect = Collection::find()
-        .left_join(UserToEntity)
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
-        .one(db)
-        .await
-        .unwrap()
-        .unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
-    CollectionToEntity::delete_many()
-        .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
-        .exec(db)
-        .await?;
-    if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(db, user_id, &input.entity_id, input.entity_lot).await?;
-    }
-    Ok(StringIdObject { id: collect.id })
-}
-
 pub async fn item_reviews(
     user_id: &String,
     entity_id: &String,
@@ -401,74 +373,6 @@ pub async fn item_reviews(
         })
         .collect();
     Ok(all_reviews)
-}
-
-pub async fn create_or_update_collection(
-    db: &DatabaseConnection,
-    user_id: &String,
-    input: CreateOrUpdateCollectionInput,
-) -> Result<StringIdObject> {
-    let txn = db.begin().await?;
-    let meta = Collection::find()
-        .filter(collection::Column::Name.eq(input.name.clone()))
-        .filter(collection::Column::UserId.eq(user_id))
-        .one(&txn)
-        .await
-        .unwrap();
-    let mut new_name = input.name.clone();
-    let created = match meta {
-        Some(m) if input.update_id.is_none() => m.id,
-        _ => {
-            let col = collection::ActiveModel {
-                id: match input.update_id {
-                    Some(i) => {
-                        let already = Collection::find_by_id(i.clone())
-                            .one(&txn)
-                            .await
-                            .unwrap()
-                            .unwrap();
-                        if DefaultCollection::iter()
-                            .map(|s| s.to_string())
-                            .contains(&already.name)
-                        {
-                            new_name = already.name;
-                        }
-                        ActiveValue::Unchanged(i.clone())
-                    }
-                    None => ActiveValue::NotSet,
-                },
-                last_updated_on: ActiveValue::Set(Utc::now()),
-                name: ActiveValue::Set(new_name),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                description: ActiveValue::Set(input.description),
-                information_template: ActiveValue::Set(input.information_template),
-                ..Default::default()
-            };
-            let inserted = col
-                .save(&txn)
-                .await
-                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-            let id = inserted.id.unwrap();
-            let mut collaborators = vec![user_id.to_owned()];
-            if let Some(input_collaborators) = input.collaborators {
-                collaborators.extend(input_collaborators);
-            }
-            let inserts = collaborators
-                .into_iter()
-                .map(|c| user_to_entity::ActiveModel {
-                    user_id: ActiveValue::Set(c),
-                    collection_id: ActiveValue::Set(Some(id.clone())),
-                    ..Default::default()
-                });
-            UserToEntity::insert_many(inserts)
-                .on_conflict(OnConflict::new().do_nothing().to_owned())
-                .exec_without_returning(&txn)
-                .await?;
-            id
-        }
-    };
-    txn.commit().await?;
-    Ok(StringIdObject { id: created })
 }
 
 pub async fn calculate_user_activities_and_summary(
@@ -764,14 +668,14 @@ pub async fn calculate_user_activities_and_summary(
     }
 
     for (_, activity) in activities.iter_mut() {
-        let deleted = DailyUserActivity::delete_many()
-            .filter(daily_user_activity::Column::Date.eq(activity.date))
+        DailyUserActivity::delete_many()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .filter(match activity.date {
+                None => daily_user_activity::Column::Date.is_null(),
+                Some(date) => daily_user_activity::Column::Date.eq(date),
+            })
             .exec(db)
             .await?;
-        if deleted.rows_affected > 0 {
-            ryot_log!(debug, "Deleted existing activity = {:?}", activity.date);
-        }
         ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
@@ -816,9 +720,11 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     calculate_from_beginning: bool,
     ss: &Arc<SupportingService>,
 ) {
-    ss.perform_application_job(ApplicationJob::RecalculateUserActivitiesAndSummary(
-        user_id.to_owned(),
-        calculate_from_beginning,
+    ss.perform_application_job(ApplicationJob::Hp(
+        HpApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id.to_owned(),
+            calculate_from_beginning,
+        ),
     ))
     .await
     .unwrap();

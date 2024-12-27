@@ -225,6 +225,12 @@ export interface EntityAssets {
 	videos: string[];
 }
 
+/** Information about a workout done. */
+export interface WorkoutDuration {
+	from: string;
+	to: string | null;
+}
+
 /** The different types of exercises that can be done. */
 export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
 
@@ -251,13 +257,16 @@ export interface WorkoutSetTotals {
 
 /** Details about the set performed. */
 export interface WorkoutSetRecord {
-	actual_rest_time: number | null;
 	confirmed_at: string | null;
-	/** @type {'normal' | 'warm_up' | 'drop' | 'failure'} */
+	/**
+	 * @default 'normal'
+	 * @type {'normal' | 'warm_up' | 'drop' | 'failure'}
+	 */
 	lot: SetLot;
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;
 	rest_time: number | null;
+	rest_timer_started_at: string | null;
 	rpe: number | null;
 	statistic: WorkoutSetStatistic;
 	totals: WorkoutSetTotals | null;
@@ -300,6 +309,7 @@ export interface WorkoutSupersetsInformation {
 export interface WorkoutInformation {
 	assets: EntityAssets | null;
 	comment: string | null;
+	durations: WorkoutDuration[] | null;
 	exercises: ProcessedExercise[];
 	supersets: WorkoutSupersetsInformation[];
 }

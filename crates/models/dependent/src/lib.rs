@@ -11,18 +11,18 @@ use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
     user_to_entity, workout, workout_template,
 };
-use enums::{
+use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
-    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, MetadataGroupSearchItem,
-    MetadataSearchItemResponse, PeopleSearchItem, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
+    GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
+    ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
+    MetadataGroupSearchItem, MetadataSearchItem, PeopleSearchItem, PersonDetailsGroupedByRole,
+    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
     UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
@@ -40,7 +40,7 @@ use strum::Display;
 ))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
-    params(media_models::MetadataSearchItemResponse)
+    params(media_models::MetadataSearchItem)
 ))]
 #[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
 #[graphql(concrete(
@@ -100,20 +100,19 @@ pub struct UserWorkoutDetails {
     pub collections: Vec<collection::Model>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserExerciseDetails {
+    pub reviews: Vec<ReviewItem>,
+    pub collections: Vec<collection::Model>,
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
-    pub collections: Vec<collection::Model>,
-    pub reviews: Vec<ReviewItem>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UpdateCustomExerciseInput {
-    pub old_id: String,
-    pub should_delete: Option<bool>,
     #[graphql(flatten)]
     pub update: exercise::Model,
+    pub should_delete: Option<bool>,
 }
 
 #[derive(Union)]
@@ -411,25 +410,34 @@ pub struct IgdbSettings {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct UserRecommendationsKey {
+    pub recommendations_key: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
-pub type MetadataSearchResponse = SearchResults<MetadataSearchItemResponse>;
+pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 #[serde(untagged)]
 pub enum ApplicationCacheValue {
     Empty(EmptyCacheValue),
-    CoreDetails(CoreDetails),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
+    CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     UserAnalyticsParameters(ApplicationDateRange),
+    UserRecommendationsKey(UserRecommendationsKey),
+    UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
 }

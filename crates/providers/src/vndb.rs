@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use dependent_models::{PeopleSearchResponse, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
@@ -101,8 +101,7 @@ impl MediaProvider for VndbService {
             .map(|b| PeopleSearchItem {
                 identifier: b.id,
                 name: b.title.unwrap(),
-                image: None,
-                birth_year: None,
+                ..Default::default()
             })
             .collect();
         let next_page = if data.more {
@@ -138,19 +137,11 @@ impl MediaProvider for VndbService {
         let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
-            place: None,
-            gender: None,
-            images: None,
-            website: None,
-            related: vec![],
-            death_date: None,
-            birth_date: None,
-            source_url: None,
             identifier: item.id,
-            source_specifics: None,
             name: item.title.unwrap(),
             source: MediaSource::Vndb,
             description: item.description,
+            ..Default::default()
         })
     }
 
@@ -242,12 +233,11 @@ impl VndbService {
             .unwrap_or_default()
             .into_iter()
             .map(|a| PartialMetadataPerson {
-                identifier: a.id,
                 name: a.name,
-                role: "Developer".to_owned(),
+                identifier: a.id,
                 source: MediaSource::Vndb,
-                character: None,
-                source_specifics: None,
+                role: "Developer".to_owned(),
+                ..Default::default()
             })
             .collect_vec();
         let genres = item

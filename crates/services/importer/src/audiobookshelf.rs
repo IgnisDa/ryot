@@ -1,16 +1,17 @@
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use anyhow::anyhow;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result;
+use common_models::StringIdObject;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
-use database_models::metadata;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use dependent_utils::get_identifier_from_book_isbn;
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    UniqueMediaIdentifier,
 };
 use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use reqwest::{
@@ -19,17 +20,20 @@ use reqwest::{
 };
 use serde_json::json;
 use specific_models::audiobookshelf as audiobookshelf_models;
+use specific_utils::audiobookshelf::get_updated_metadata;
+use supporting_service::SupportingService;
 
-use super::{utils, ImportFailStep, ImportFailedItem};
+use super::{ImportFailStep, ImportFailedItem};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
+    ss: &Arc<SupportingService>,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-    commit_metadata: impl Fn(CommitMediaInput) -> F,
+    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = Result<metadata::Model>>,
+    F: Future<Output = Result<StringIdObject>>,
 {
     let mut completed = vec![];
     let mut failed = vec![];
@@ -70,7 +74,7 @@ where
                 == item.media.as_ref().unwrap().ebook_format
             {
                 match &metadata.isbn {
-                    Some(isbn) => match utils::get_identifier_from_book_isbn(
+                    Some(isbn) => match get_identifier_from_book_isbn(
                         isbn,
                         google_books_service,
                         open_library_service,
@@ -80,20 +84,20 @@ where
                         Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
                         _ => {
                             failed.push(ImportFailedItem {
-                                error: Some("No Google Books ID found".to_string()),
                                 identifier: title,
-                                lot: None,
                                 step: ImportFailStep::InputTransformation,
+                                error: Some("No Google Books ID found".to_string()),
+                                ..Default::default()
                             });
                             continue;
                         }
                     },
                     _ => {
                         failed.push(ImportFailedItem {
-                            error: Some("No ISBN found".to_string()),
                             identifier: title,
-                            lot: None,
+                            error: Some("No ISBN found".to_string()),
                             step: ImportFailStep::InputTransformation,
+                            ..Default::default()
                         });
                         continue;
                     }
@@ -119,13 +123,13 @@ where
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                let podcast = commit_metadata(CommitMediaInput {
-                                    identifier: itunes_id.clone(),
+                                commit_metadata(UniqueMediaIdentifier {
                                     lot,
                                     source,
-                                    ..Default::default()
+                                    identifier: itunes_id.clone(),
                                 })
                                 .await?;
+                                let podcast = get_updated_metadata(&itunes_id, ss).await?;
                                 if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                     get_podcast_episode_number_by_name(&p, &episode.title)
                                 }) {

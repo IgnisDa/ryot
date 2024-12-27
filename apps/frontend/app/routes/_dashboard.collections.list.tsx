@@ -70,13 +70,13 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	commaDelimitedString,
 	dayjsLib,
 	getPartialMetadataDetailsQuery,
+	openConfirmationModal,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -91,7 +91,6 @@ import {
 	createToastHeaders,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
-	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -110,7 +109,6 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	await removeCachedUserCollectionsList(request);
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("createOrUpdate", async () => {
@@ -427,14 +425,13 @@ const DisplayCollection = (props: {
 										type="submit"
 										color="red"
 										variant="outline"
-										onClick={async (e) => {
+										onClick={(e) => {
 											const form = e.currentTarget.form;
 											e.preventDefault();
-											const conf = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to delete this collection?",
-											});
-											if (conf && form) submit(form);
+											openConfirmationModal(
+												"Are you sure you want to delete this collection?",
+												() => submit(form),
+											);
 										}}
 									>
 										<IconTrashFilled size={18} />

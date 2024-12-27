@@ -35,13 +35,13 @@ import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	TimeSpan,
 	dayjsLib,
 	generateColor,
 	getDateFromTimeSpan,
 	getStringAsciiValue,
+	openConfirmationModal,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -265,14 +265,13 @@ export default function Page() {
 											<ActionIcon
 												color="red"
 												type="submit"
-												onClick={async (e) => {
+												onClick={(e) => {
 													const form = e.currentTarget.form;
 													e.preventDefault();
-													const conf = await confirmWrapper({
-														confirmation:
-															"This action can not be undone. Are you sure you want to delete this measurement?",
-													});
-													if (conf && form) submit(form);
+													openConfirmationModal(
+														"This action can not be undone. Are you sure you want to delete this measurement?",
+														() => submit(form),
+													);
 												}}
 											>
 												<IconTrash />

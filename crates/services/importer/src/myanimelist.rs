@@ -7,7 +7,7 @@ use async_graphql::Result;
 use chrono::NaiveDate;
 use common_utils::convert_string_to_date;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enums::{ImportSource, MediaLot, MediaSource};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 use media_models::{
@@ -82,7 +82,6 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
         })
         .collect_vec();
     let review_item = ImportOrExportItemRating {
-        review: None,
         rating: if item.my_score == 0 {
             None
         } else {

@@ -8,7 +8,7 @@ use common_models::{
     StringIdObject,
 };
 use common_utils::deserialize_date;
-use enums::{
+use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, Visibility,
 };
@@ -18,18 +18,10 @@ use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResu
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
     pub entity_id: String,
     pub entity_lot: EntityLot,
-}
-
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct MetadataSearchItemResponse {
-    /// Whether the user has interacted with this media item.
-    pub has_interacted: bool,
-    pub item: MetadataSearchItem,
-    pub database_id: Option<String>,
 }
 
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
@@ -335,7 +327,7 @@ pub struct MangaSpecifics {
     pub url: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataSearchItem {
     pub title: String,
     pub identifier: String,
@@ -343,7 +335,7 @@ pub struct MetadataSearchItem {
     pub publish_year: Option<i32>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PeopleSearchItem {
     pub name: String,
     pub identifier: String,
@@ -370,7 +362,7 @@ pub struct CreateOrUpdateReviewInput {
     pub manga_volume_number: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
     pub date: Option<NaiveDate>,
@@ -405,7 +397,7 @@ pub enum ProgressUpdateResultUnion {
     Error(ProgressUpdateError),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
 pub struct PartialMetadataPerson {
     pub name: String,
     pub role: String,
@@ -416,14 +408,14 @@ pub struct PartialMetadataPerson {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPersonRelated {
     pub role: String,
     pub character: Option<String>,
     pub metadata: PartialMetadataWithoutId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPerson {
     pub name: String,
     pub identifier: String,
@@ -481,7 +473,7 @@ pub struct MetadataDetails {
     pub publish_year: Option<i32>,
     pub publish_date: Option<NaiveDate>,
     pub suggestions: Vec<PartialMetadataWithoutId>,
-    pub group_identifiers: Vec<String>,
+    pub groups: Vec<CommitMediaInput>,
     pub provider_rating: Option<Decimal>,
     pub watch_providers: Vec<WatchProvider>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
@@ -567,6 +559,8 @@ pub struct ImportOrExportItemRating {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataItem {
+    #[serde(skip)]
+    pub id: String,
     /// The type of media.
     pub lot: MediaLot,
     /// An string to help identify it in the original source.
@@ -585,9 +579,11 @@ pub struct ImportOrExportMetadataItem {
 
 /// Details about a specific media group item that needs to be imported or exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMetadataGroupItem {
+    #[serde(skip)]
+    pub id: String,
     /// Name of the group.
     pub title: String,
     /// The type of media.
@@ -604,9 +600,11 @@ pub struct ImportOrExportMetadataGroupItem {
 
 /// Details about a specific creator item that needs to be exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportPersonItem {
+    #[serde(skip)]
+    pub id: String,
     /// The name of the creator.
     pub name: String,
     /// The provider identifier.
@@ -697,16 +695,16 @@ pub struct ImportOrExportItemReviewComment {
 }
 
 #[derive(
+    Eq,
+    Hash,
     Clone,
     Debug,
+    Default,
     PartialEq,
-    FromJsonQueryResult,
-    Eq,
     Serialize,
     Deserialize,
     SimpleObject,
-    Default,
-    Hash,
+    FromJsonQueryResult,
 )]
 pub struct MetadataFreeCreator {
     pub name: String,
@@ -771,17 +769,17 @@ pub struct ReviewPostedEvent {
 #[boilermates("PartialMetadataWithoutId")]
 #[boilermates(attr_for(
     "PartialMetadataWithoutId",
-    "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
+    "#[derive(Clone, Default, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
 ))]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
 pub struct PartialMetadata {
     #[boilermates(not_in("PartialMetadataWithoutId"))]
     pub id: String,
-    pub identifier: String,
-    pub title: String,
-    pub image: Option<String>,
     pub lot: MediaLot,
+    pub title: String,
+    pub identifier: String,
     pub source: MediaSource,
+    pub image: Option<String>,
     pub is_recommendation: Option<bool>,
 }
 
@@ -800,12 +798,12 @@ pub struct MetadataPartialDetails {
 #[derive(Debug, InputObject)]
 pub struct CommitPersonInput {
     pub name: String,
-    pub source: MediaSource,
     pub identifier: String,
+    pub source: MediaSource,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupSearchItem {
     pub name: String,
     pub identifier: String,
@@ -826,19 +824,36 @@ pub struct MetadataGroupSearchItem {
     InputObject,
     Hash,
 )]
-pub struct CommitMediaInput {
+pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
-    pub force_update: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    FromJsonQueryResult,
+)]
+pub struct CommitMediaInput {
+    pub name: String,
+    pub unique: UniqueMediaIdentifier,
 }
 
 #[derive(
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, Hash,
 )]
 pub struct MediaAssociatedPersonStateChanges {
-    pub media: CommitMediaInput,
     pub role: String,
+    pub media: UniqueMediaIdentifier,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
@@ -1012,6 +1027,12 @@ pub struct CreateCustomMetadataInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateCustomMetadataInput {
+    pub existing_metadata_id: String,
+    pub update: CreateCustomMetadataInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserIntegrationInput {
     pub provider: IntegrationProvider,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
@@ -1152,29 +1173,29 @@ pub struct CollectionContentsFilter {
 
 #[derive(Debug, InputObject)]
 pub struct CollectionContentsInput {
+    pub take: Option<u64>,
     pub collection_id: String,
     pub search: Option<SearchInput>,
     pub filter: Option<CollectionContentsFilter>,
-    pub take: Option<u64>,
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
-#[derive(Debug, SimpleObject, FromQueryResult)]
+#[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionItem {
     pub id: String,
-    pub name: String,
     pub count: i64,
+    pub name: String,
     pub is_default: bool,
-    pub description: Option<String>,
-    pub information_template: Option<Vec<CollectionExtraInformation>>,
     pub creator: IdAndNamedObject,
+    pub description: Option<String>,
     pub collaborators: Vec<IdAndNamedObject>,
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataCreator {
-    pub id: Option<String>,
     pub name: String,
+    pub id: Option<String>,
     pub image: Option<String>,
     pub character: Option<String>,
 }
@@ -1239,6 +1260,7 @@ pub struct GraphqlMetadataDetails {
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
     pub production_status: Option<String>,
+    pub created_by_user_id: Option<String>,
     pub group: Option<GraphqlMetadataGroup>,
     pub watch_providers: Vec<WatchProvider>,
     pub show_specifics: Option<ShowSpecifics>,

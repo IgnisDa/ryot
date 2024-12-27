@@ -7,7 +7,7 @@ use chrono::Datelike;
 use common_models::{ApplicationCacheKey, SearchDetails};
 use common_utils::{convert_naive_to_utc, PAGE_SIZE};
 use dependent_models::{ApplicationCacheValue, ListennotesSettings, SearchResults};
-use enums::{MediaLot, MediaSource};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
@@ -88,7 +88,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MediaLot::Podcast,
                 source: MediaSource::Listennotes,
-                is_recommendation: None,
+                ..Default::default()
             })
             .collect();
 
@@ -268,7 +268,7 @@ impl ListennotesService {
             creators: Vec::from_iter(podcast_data.publisher.map(|p| MetadataFreeCreator {
                 name: p,
                 role: "Publishing".to_owned(),
-                image: None,
+                ..Default::default()
             })),
             genres: podcast_data
                 .genre_ids

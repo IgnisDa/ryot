@@ -147,7 +147,7 @@ ratings, history and progress.
 ## Anilist
 
 Manga and anime can be imported from [Anilist](https://anilist.co) along with ratings,
-history and progress.
+history, favorites and custom lists.
 
 ### Steps
 
