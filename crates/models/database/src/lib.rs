@@ -15,6 +15,7 @@ pub mod import_report;
 pub mod integration;
 pub mod metadata;
 pub mod metadata_group;
+pub mod metadata_group_to_person;
 pub mod metadata_to_genre;
 pub mod metadata_to_metadata;
 pub mod metadata_to_metadata_group;
