@@ -454,6 +454,10 @@ export default function Page() {
 												MediaStateChanged.PersonMetadataAssociated,
 												() => "New media is associated with a person",
 											)
+											.with(
+												MediaStateChanged.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
 											.exhaustive()}
 									/>
 								))}
