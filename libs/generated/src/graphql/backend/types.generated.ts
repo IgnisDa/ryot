@@ -1067,7 +1067,7 @@ export enum MediaStateChanged {
   MetadataPublished = 'METADATA_PUBLISHED',
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
   MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
-  PersonMediaAssociated = 'PERSON_MEDIA_ASSOCIATED',
+  PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
   ReviewPosted = 'REVIEW_POSTED'
 }
 
