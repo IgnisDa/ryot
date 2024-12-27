@@ -8,8 +8,9 @@ use common_models::{
 };
 use config::FrontendConfig;
 use database_models::{
-    collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
-    user_to_entity, workout, workout_template,
+    collection, exercise, metadata,
+    metadata_group::{self, MetadataGroupWithoutId},
+    person, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -116,12 +117,18 @@ pub struct MetadataPersonRelated {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
+pub struct MetadataGroupPersonRelated {
+    pub role: String,
+    pub metadata_group: MetadataGroupWithoutId,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct PersonDetails {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
-    pub gender: Option<String>,
     pub place: Option<String>,
+    pub gender: Option<String>,
     pub website: Option<String>,
     pub source_url: Option<String>,
     pub description: Option<String>,
@@ -130,6 +137,7 @@ pub struct PersonDetails {
     pub birth_date: Option<NaiveDate>,
     pub related_metadata: Vec<MetadataPersonRelated>,
     pub source_specifics: Option<PersonSourceSpecifics>,
+    pub related_metadata_groups: Vec<MetadataGroupPersonRelated>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

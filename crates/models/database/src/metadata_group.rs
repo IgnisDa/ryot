@@ -13,7 +13,10 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "metadata_group")]
 #[graphql(name = "MetadataGroup")]
 #[boilermates("MetadataGroupWithoutId")]
-#[boilermates(attr_for("MetadataGroupWithoutId", "#[derive(Clone, Default, Debug)]"))]
+#[boilermates(attr_for(
+    "MetadataGroupWithoutId",
+    "#[derive(Clone, Default, Debug, Serialize, Deserialize, Hash)]"
+))]
 pub struct Model {
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     #[sea_orm(primary_key, auto_increment = false)]

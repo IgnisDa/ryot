@@ -550,17 +550,18 @@ impl MediaProvider for NonMediaTmdbService {
             identifier: details.id.to_string(),
             source_specifics: source_specifics.to_owned(),
             place: details.origin_country.or(details.place_of_birth),
+            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source_url: Some(format!(
                 "https://www.themoviedb.org/person/{}-{}",
                 identifier, name
             )),
-            description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
                 2 => Some("Male".to_owned()),
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
+            ..Default::default()
         };
         Ok(resp)
     }
