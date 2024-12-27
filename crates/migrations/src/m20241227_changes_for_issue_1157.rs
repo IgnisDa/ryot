@@ -27,6 +27,19 @@ where
             "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+UPDATE
+  "person"
+SET
+  "state_changes" = JSONB_SET(
+    "state_changes", '{metadata_associated}', "state_changes"->'media_associated'
+  ) - 'media_associated'
+where
+  "state_changes"->'media_associated' is not null;
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
