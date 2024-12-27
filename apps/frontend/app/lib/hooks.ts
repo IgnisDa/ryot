@@ -1,7 +1,6 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import {
-	useNavigate,
 	useRevalidator,
 	useRouteLoaderData,
 	useSearchParams,
@@ -96,13 +95,12 @@ export const useConfirmSubmit = () => {
 };
 
 export const useGetWorkoutStarter = () => {
-	const navigate = useNavigate();
 	const revalidator = useRevalidator();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
 	const fn = (wkt: InProgressWorkout, action: FitnessAction) => {
 		setCurrentWorkout(wkt);
-		navigate($path("/fitness/:action", { action }), { flushSync: true });
+		window.location.href = $path("/fitness/:action", { action });
 		revalidator.revalidate();
 	};
 	return fn;
