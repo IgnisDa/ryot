@@ -25,7 +25,7 @@ SET
         || '"PersonMetadataAssociated"' || '"PersonMetadataGroupAssociated"'
     ) - 'PersonMediaAssociated'
   )
-where
+WHERE
   preferences -> 'notifications' -> 'to_send' ? 'PersonMediaAssociated'
             "#,
         )
