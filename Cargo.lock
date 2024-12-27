@@ -5195,11 +5195,10 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 
 [[package]]
 name = "rustypipe"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97dba9b1e6f02758c5dff06157082cdd55e8c6c96ef9bac3bea0b191cc864da7"
+version = "0.8.0"
+source = "git+https://codeberg.org/ThetaDev/rustypipe.git?branch=feat/user-history#5044cb0ed55204b916868b8798d399de974b2c0d"
 dependencies = [
- "base64 0.22.1",
+ "data-encoding",
  "fancy-regex",
  "once_cell",
  "phf",
@@ -5212,6 +5211,7 @@ dependencies = [
  "serde_json",
  "serde_plain",
  "serde_with 3.11.0",
+ "sha1",
  "thiserror 2.0.9",
  "time",
  "tokio",
