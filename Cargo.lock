@@ -3403,6 +3403,7 @@ dependencies = [
  "reqwest 0.12.9",
  "rust_decimal",
  "rust_decimal_macros",
+ "rustypipe",
  "sea-orm",
  "sea-query",
  "serde",
