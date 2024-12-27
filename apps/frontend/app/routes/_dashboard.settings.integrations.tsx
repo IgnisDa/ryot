@@ -67,16 +67,23 @@ import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
-	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
 	IntegrationProvider.PlexYank,
+	IntegrationProvider.YoutubeMusic,
+	IntegrationProvider.Audiobookshelf,
 ];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
 	IntegrationProvider.JellyfinPush,
 ];
+const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
+	IntegrationProvider.Komga,
+	IntegrationProvider.PlexYank,
+	IntegrationProvider.Audiobookshelf,
+];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
+const NO_PROGRESS_ADJUSTMENT = [IntegrationProvider.YoutubeMusic];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -193,6 +200,7 @@ const createSchema = z.object({
 			jellyfinPushBaseUrl: z.string().optional(),
 			jellyfinPushUsername: z.string().optional(),
 			jellyfinPushPassword: z.string().optional(),
+			youtubeMusicAuthCookie: z.string().optional(),
 		})
 		.optional(),
 });
@@ -424,16 +432,19 @@ const CreateIntegrationModal = (props: {
 			>
 				<Stack>
 					<Select
-						label="Select a provider"
-						name="provider"
 						required
+						searchable
+						name="provider"
+						label="Select a provider"
+						onChange={(e) => setProvider(e as IntegrationProvider)}
 						data={Object.values(IntegrationProvider).map((is) => ({
 							label: changeCase(is),
 							value: is,
 						}))}
-						onChange={(e) => setProvider(e as IntegrationProvider)}
 					/>
-					{provider && !PUSH_INTEGRATIONS.includes(provider) ? (
+					{provider &&
+					!PUSH_INTEGRATIONS.includes(provider) &&
+					!NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								size="xs"
@@ -514,6 +525,15 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
+						.with(IntegrationProvider.YoutubeMusic, () => (
+							<>
+								<TextInput
+									required
+									label="Auth Cookie"
+									name="providerSpecifics.youtubeMusicAuthCookie"
+								/>
+							</>
+						))
 						.with(IntegrationProvider.PlexSink, () => (
 							<>
 								<TextInput
@@ -544,7 +564,8 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
 						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
-					{provider && YANK_INTEGRATIONS.includes(provider) ? (
+					{provider &&
+					SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
 						<Tooltip
 							label="Only available for Pro users"
 							disabled={coreDetails.isServerKeyValidated}
@@ -668,7 +689,7 @@ const UpdateIntegrationModal = (props: {
 								props.updateIntegrationData.isDisabled || undefined
 							}
 						/>
-						{YANK_INTEGRATIONS.includes(
+						{SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
 							props.updateIntegrationData.provider,
 						) ? (
 							<Checkbox
