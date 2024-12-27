@@ -20,7 +20,10 @@ SET
   preferences = JSONB_SET(
     preferences,
     '{notifications,to_send}',
-    ((preferences -> 'notifications' -> 'to_send') || '"PersonMetadataAssociated"') - 'PersonMediaAssociated'
+    (
+      (preferences -> 'notifications' -> 'to_send')
+        || '"PersonMetadataAssociated"' || '"PersonMetadataGroupAssociated"'
+    ) - 'PersonMediaAssociated'
   )
 where
   preferences -> 'notifications' -> 'to_send' ? 'PersonMediaAssociated'
