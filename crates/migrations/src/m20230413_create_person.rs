@@ -46,6 +46,7 @@ pub enum MetadataToPerson {
 pub enum MetadataGroupToPerson {
     Role,
     Table,
+    Index,
     PersonId,
     MetadataGroupId,
 }
@@ -73,6 +74,7 @@ pub async fn create_metadata_group_to_person_table(
                         .text()
                         .not_null(),
                 )
+                .col(ColumnDef::new(MetadataGroupToPerson::Index).integer())
                 .primary_key(
                     Index::create()
                         .name("metadata_group_to_person-primary-key")
