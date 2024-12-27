@@ -272,10 +272,9 @@ export default function Page() {
 	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
 		string | null
 	>(null);
-	const [
-		reorderDrawerOpened,
-		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
-	] = useDisclosure(false);
+	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
+		string | null
+	>();
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
@@ -284,6 +283,21 @@ export default function Page() {
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
+
+	const numberOfExercises = currentWorkout?.exercises.length || 0;
+	const shouldDisplayWorkoutTimer = Boolean(
+		loaderData.action === FitnessAction.LogWorkout,
+	);
+	const shouldDisplayReorderButton = Boolean(numberOfExercises > 1);
+	const shouldDisplayFinishButton = Boolean(
+		loaderData.isCreatingTemplate
+			? numberOfExercises > 0
+			: currentWorkout?.exercises.some(
+					(_e, idx) =>
+						getProgressOfExercise(currentWorkout, idx) !== "not-started",
+				),
+	);
+	const shouldDisplayCancelButton = true;
 
 	useInterval(() => {
 		if (
@@ -368,6 +382,13 @@ export default function Page() {
 		}
 		setCurrentTimer(RESET);
 	};
+	const openReorderDrawer = (exerciseIdentifier: string | null) => {
+		setIsReorderDrawerOpened(exerciseIdentifier);
+		if (!exerciseIdentifier) return;
+		setTimeout(() => {
+			setIsReorderDrawerOpened(null);
+		}, 4000);
+	};
 
 	return (
 		<Container size="sm">
@@ -387,9 +408,10 @@ export default function Page() {
 								pauseOrResumeTimer={pauseOrResumeTimer}
 							/>
 							<ReorderDrawer
-								opened={reorderDrawerOpened}
-								onClose={reorderDrawerClose}
 								key={currentWorkout.exercises.toString()}
+								exerciseToReorder={isReorderDrawerOpened}
+								opened={isReorderDrawerOpened !== undefined}
+								onClose={() => setIsReorderDrawerOpened(undefined)}
 							/>
 							<DisplaySupersetModal
 								supersetWith={supersetWithExerciseIdentifier}
@@ -405,12 +427,12 @@ export default function Page() {
 										name="Exercises"
 										value={
 											loaderData.isCreatingTemplate
-												? currentWorkout.exercises.length.toString()
+												? numberOfExercises.toString()
 												: `${
 														currentWorkout.exercises
 															.map((e) => e.sets.every((s) => s.confirmedAt))
 															.filter(Boolean).length
-													}/${currentWorkout.exercises.length}`
+													}/${numberOfExercises}`
 										}
 									/>
 									<StatDisplay
@@ -445,164 +467,157 @@ export default function Page() {
 								<Divider />
 								<SimpleGrid
 									cols={
-										2 +
-										(loaderData.isCreatingTemplate ||
-										loaderData.isUpdatingWorkout
-											? -1
-											: 0) +
-										Number(currentWorkout.exercises.length > 0) +
-										Number(currentWorkout.exercises.length > 1)
+										Number(shouldDisplayWorkoutTimer) +
+										Number(shouldDisplayReorderButton) +
+										Number(shouldDisplayFinishButton) +
+										Number(shouldDisplayCancelButton)
 									}
 								>
-									<Button
-										radius="md"
-										color="orange"
-										variant="subtle"
-										size="compact-sm"
-										onClick={toggleTimerDrawer}
-										style={
-											loaderData.isCreatingTemplate ||
-											loaderData.isUpdatingWorkout
-												? { display: "none" }
-												: undefined
-										}
-									>
-										<RestTimer />
-									</Button>
-									{currentWorkout.exercises.length > 1 ? (
-										<>
-											<Button
-												color="blue"
-												variant="subtle"
-												onClick={reorderDrawerToggle}
-												radius="md"
-												size="compact-sm"
-											>
-												Reorder
-											</Button>
-										</>
+									{shouldDisplayWorkoutTimer ? (
+										<Button
+											radius="md"
+											color="orange"
+											variant="subtle"
+											size="compact-sm"
+											onClick={toggleTimerDrawer}
+										>
+											<RestTimer />
+										</Button>
 									) : null}
-									{currentWorkout.exercises.length > 0 ? (
-										<>
-											<Button
-												radius="md"
-												color="green"
-												variant="subtle"
-												size="compact-sm"
-												loading={isSaveBtnLoading}
-												disabled={isWorkoutPaused}
-												onClick={() => {
-													if (!currentWorkout.name) {
-														notifications.show({
-															color: "red",
-															message: `Please give a name to the ${
-																loaderData.isCreatingTemplate
-																	? "template"
-																	: "workout"
-															}`,
-														});
-														return;
-													}
-													openConfirmationModal(
-														loaderData.isCreatingTemplate
-															? "Only sets that have data will added. Are you sure you want to save this template?"
-															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-														async () => {
-															setIsSaveBtnLoading(true);
-															await new Promise((r) => setTimeout(r, 1000));
-															const input = currentWorkoutToCreateWorkoutInput(
-																currentWorkout,
+									{shouldDisplayReorderButton ? (
+										<Button
+											radius="md"
+											color="blue"
+											variant="subtle"
+											size="compact-sm"
+											onClick={() => openReorderDrawer(null)}
+										>
+											Reorder
+										</Button>
+									) : null}
+									{shouldDisplayFinishButton ? (
+										<Button
+											radius="md"
+											color="green"
+											variant="subtle"
+											size="compact-sm"
+											loading={isSaveBtnLoading}
+											disabled={isWorkoutPaused}
+											onClick={() => {
+												if (!currentWorkout.name) {
+													notifications.show({
+														color: "red",
+														message: `Please give a name to the ${
+															loaderData.isCreatingTemplate
+																? "template"
+																: "workout"
+														}`,
+													});
+													return;
+												}
+												openConfirmationModal(
+													loaderData.isCreatingTemplate
+														? "Only sets that have data will added. Are you sure you want to save this template?"
+														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+													async () => {
+														setIsSaveBtnLoading(true);
+														await new Promise((r) => setTimeout(r, 1000));
+														const input = currentWorkoutToCreateWorkoutInput(
+															currentWorkout,
+															loaderData.isCreatingTemplate,
+														);
+														for (const exercise of currentWorkout.exercises) {
+															queryClient.removeQueries({
+																queryKey:
+																	queryFactory.fitness.userExerciseDetails(
+																		exercise.exerciseId,
+																	).queryKey,
+															});
+														}
+														stopTimer();
+														try {
+															const [entityId, fitnessEntity] = await match(
 																loaderData.isCreatingTemplate,
+															)
+																.with(true, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutTemplateDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkoutTemplate,
+																			FitnessEntity.Templates,
+																		]),
+																)
+																.with(false, () =>
+																	clientGqlService
+																		.request(
+																			CreateOrUpdateUserWorkoutDocument,
+																			input,
+																		)
+																		.then((c) => [
+																			c.createOrUpdateUserWorkout,
+																			FitnessEntity.Workouts,
+																		]),
+																)
+																.exhaustive();
+															if (
+																loaderData.action === FitnessAction.LogWorkout
+															)
+																events.createWorkout();
+															setCurrentWorkout(RESET);
+															navigate(
+																$path("/fitness/:entity/:id", {
+																	id: entityId,
+																	entity: fitnessEntity,
+																}),
 															);
-															for (const exercise of currentWorkout.exercises) {
-																queryClient.removeQueries({
-																	queryKey:
-																		queryFactory.fitness.userExerciseDetails(
-																			exercise.exerciseId,
-																		).queryKey,
-																});
-															}
-															stopTimer();
-															try {
-																const [entityId, fitnessEntity] = await match(
-																	loaderData.isCreatingTemplate,
-																)
-																	.with(true, () =>
-																		clientGqlService
-																			.request(
-																				CreateOrUpdateUserWorkoutTemplateDocument,
-																				input,
-																			)
-																			.then((c) => [
-																				c.createOrUpdateUserWorkoutTemplate,
-																				FitnessEntity.Templates,
-																			]),
-																	)
-																	.with(false, () =>
-																		clientGqlService
-																			.request(
-																				CreateOrUpdateUserWorkoutDocument,
-																				input,
-																			)
-																			.then((c) => [
-																				c.createOrUpdateUserWorkout,
-																				FitnessEntity.Workouts,
-																			]),
-																	)
-																	.exhaustive();
-																if (
-																	loaderData.action === FitnessAction.LogWorkout
-																)
-																	events.createWorkout();
-																setCurrentWorkout(RESET);
-																navigate(
-																	$path("/fitness/:entity/:id", {
-																		id: entityId,
-																		entity: fitnessEntity,
-																	}),
-																);
-															} catch (e) {
-																notifications.show({
-																	color: "red",
-																	message: `Error while saving workout: ${JSON.stringify(e)}`,
-																});
-																setIsSaveBtnLoading(false);
-															}
-														},
-													);
-												}}
-											>
-												{loaderData.isCreatingTemplate ||
-												loaderData.isUpdatingWorkout
-													? "Save"
-													: "Finish"}
-											</Button>
-										</>
+														} catch (e) {
+															notifications.show({
+																color: "red",
+																message: `Error while saving workout: ${JSON.stringify(e)}`,
+															});
+															setIsSaveBtnLoading(false);
+														}
+													},
+												);
+											}}
+										>
+											{loaderData.isCreatingTemplate ||
+											loaderData.isUpdatingWorkout
+												? "Save"
+												: "Finish"}
+										</Button>
 									) : null}
-									<Button
-										color="red"
-										variant="subtle"
-										radius="md"
-										size="compact-sm"
-										onClick={() => {
-											openConfirmationModal(
-												`Are you sure you want to cancel this ${
-													loaderData.isCreatingTemplate ? "template" : "workout"
-												}?`,
-												() => {
-													for (const e of currentWorkout.exercises) {
-														const assets = [...e.images, ...e.videos];
-														for (const asset of assets)
-															deleteUploadedAsset(asset.key);
-													}
-													navigate($path("/"), { replace: true });
-													setCurrentWorkout(RESET);
-												},
-											);
-										}}
-									>
-										Cancel
-									</Button>
+									{shouldDisplayCancelButton ? (
+										<Button
+											radius="md"
+											color="red"
+											variant="subtle"
+											size="compact-sm"
+											onClick={() => {
+												openConfirmationModal(
+													`Are you sure you want to cancel this ${
+														loaderData.isCreatingTemplate
+															? "template"
+															: "workout"
+													}?`,
+													() => {
+														for (const e of currentWorkout.exercises) {
+															const assets = [...e.images, ...e.videos];
+															for (const asset of assets)
+																deleteUploadedAsset(asset.key);
+														}
+														navigate($path("/"), { replace: true });
+														setCurrentWorkout(RESET);
+													},
+												);
+											}}
+										>
+											Cancel
+										</Button>
+									) : null}
 								</SimpleGrid>
 								<Divider />
 								{currentWorkout.exercises.map((ex, idx) => (
@@ -613,7 +628,7 @@ export default function Page() {
 										startTimer={startTimer}
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
-										reorderDrawerToggle={reorderDrawerToggle}
+										reorderDrawerToggle={openReorderDrawer}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
 											setAssetsModalOpened(ex.identifier)
@@ -1264,9 +1279,9 @@ const ExerciseDisplay = (props: {
 	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
-	reorderDrawerToggle: () => void;
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
+	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
@@ -1448,8 +1463,8 @@ const ExerciseDisplay = (props: {
 								</Menu.Item>
 							) : null}
 							<Menu.Item
-								onClick={props.reorderDrawerToggle}
 								leftSection={<IconReorder size={14} />}
+								onClick={() => props.reorderDrawerToggle(exercise.identifier)}
 							>
 								Reorder
 							</Menu.Item>
@@ -2493,7 +2508,11 @@ const TimerDrawer = (props: {
 	);
 };
 
-const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
+const ReorderDrawer = (props: {
+	opened: boolean;
+	onClose: () => void;
+	exerciseToReorder: string | null | undefined;
+}) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [exerciseElements, exerciseElementsHandlers] = useListState(
 		currentWorkout?.exercises || [],
@@ -2541,38 +2560,51 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 							gap="xs"
 						>
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
-							{exerciseElements.map((de, index) => (
-								<Draggable
-									index={index}
-									draggableId={index.toString()}
-									key={`${index}-${de.exerciseId}`}
-								>
-									{(provided) => (
-										<Paper
-											py={6}
-											px="sm"
-											radius="md"
-											withBorder
-											ref={provided.innerRef}
-											{...provided.draggableProps}
-											{...provided.dragHandleProps}
-										>
-											<Group justify="space-between" wrap="nowrap">
-												<Text size="sm">{de.name}</Text>
-												<ThemeIcon size="xs" variant="transparent" color="gray">
-													{match(getProgressOfExercise(currentWorkout, index))
-														.with("complete", () => <IconDropletFilled />)
-														.with("in-progress", () => (
-															<IconDropletHalf2Filled />
-														))
-														.with("not-started", () => <IconDroplet />)
-														.exhaustive()}
-												</ThemeIcon>
-											</Group>
-										</Paper>
-									)}
-								</Draggable>
-							))}
+							{exerciseElements.map((de, index) => {
+								const isForThisExercise =
+									props.exerciseToReorder === de.identifier;
+								return (
+									<Draggable
+										index={index}
+										draggableId={index.toString()}
+										key={`${index}-${de.exerciseId}`}
+									>
+										{(provided) => (
+											<Paper
+												py={6}
+												px="sm"
+												withBorder
+												radius="md"
+												ref={provided.innerRef}
+												{...provided.draggableProps}
+												{...provided.dragHandleProps}
+											>
+												<Group justify="space-between" wrap="nowrap">
+													<Text
+														size="sm"
+														c={isForThisExercise ? "teal" : undefined}
+													>
+														{de.name}
+													</Text>
+													<ThemeIcon
+														size="xs"
+														variant="transparent"
+														color={isForThisExercise ? "teal" : "gray"}
+													>
+														{match(getProgressOfExercise(currentWorkout, index))
+															.with("complete", () => <IconDropletFilled />)
+															.with("in-progress", () => (
+																<IconDropletHalf2Filled />
+															))
+															.with("not-started", () => <IconDroplet />)
+															.exhaustive()}
+													</ThemeIcon>
+												</Group>
+											</Paper>
+										)}
+									</Draggable>
+								);
+							})}
 							{provided.placeholder}
 						</Stack>
 					)}

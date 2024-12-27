@@ -238,7 +238,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 						: null,
 				});
 			}
-		if (sets.length === 0) continue;
+		if (!isCreatingTemplate && sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
 		const toAdd = {
