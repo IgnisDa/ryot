@@ -2,6 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
+	Anchor,
 	Box,
 	Button,
 	Checkbox,
@@ -532,6 +533,19 @@ const CreateIntegrationModal = (props: {
 									required
 									label="Auth Cookie"
 									name="providerSpecifics.youtubeMusicAuthCookie"
+									description={
+										<Text size="xs" c="dimmed">
+											Please follow the instructions on the{" "}
+											<Anchor
+												target="_blank"
+												rel="noreferrer noopener"
+												href="https://docs.ryot.io/integrations#youtube-music"
+											>
+												docs
+											</Anchor>{" "}
+											to get the correct cookie
+										</Text>
+									}
 								/>
 							</>
 						))
