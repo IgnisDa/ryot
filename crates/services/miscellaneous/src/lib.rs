@@ -2560,7 +2560,7 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         for data in provider_person.related_metadata_groups.iter() {
-            let db_group = commit_metadata_group(
+            let dg = commit_metadata_group(
                 CommitMediaInput {
                     name: data.metadata_group.title.clone(),
                     unique: UniqueMediaIdentifier {
@@ -2575,16 +2575,37 @@ ORDER BY RANDOM() LIMIT 10;
             let already_intermediate = MetadataGroupToPerson::find()
                 .filter(metadata_group_to_person::Column::Role.eq(&data.role))
                 .filter(metadata_group_to_person::Column::PersonId.eq(&person_id))
-                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&db_group.id))
+                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&dg.id))
                 .one(&self.0.db)
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_group_to_person::ActiveModel {
                     role: ActiveValue::Set(data.role.clone()),
-                    metadata_group_id: ActiveValue::Set(db_group.id),
+                    metadata_group_id: ActiveValue::Set(dg.id),
                     person_id: ActiveValue::Set(person_id.to_owned()),
                 };
                 intermediate.insert(&self.0.db).await.unwrap();
+            }
+            let search_for = MediaAssociatedPersonStateChanges {
+                role: data.role.clone(),
+                media: UniqueMediaIdentifier {
+                    lot: data.metadata_group.lot,
+                    source: data.metadata_group.source,
+                    identifier: data.metadata_group.identifier.clone(),
+                },
+            };
+            if !default_state_changes
+                .metadata_groups_associated
+                .contains(&search_for)
+            {
+                notifications.push((
+                    format!(
+                        "{} has been associated with {} as {}",
+                        person.name, data.metadata_group.title, data.role
+                    ),
+                    MediaStateChanged::PersonMetadataGroupAssociated,
+                ));
+                default_state_changes.metadata_associated.insert(search_for);
             }
         }
         to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));

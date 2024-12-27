@@ -186,6 +186,7 @@ pub enum MediaStateChanged {
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,
     MetadataEpisodeImagesChanged,
+    PersonMetadataGroupAssociated,
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
 }
