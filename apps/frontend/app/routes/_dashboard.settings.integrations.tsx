@@ -535,7 +535,7 @@ const CreateIntegrationModal = (props: {
 									name="providerSpecifics.youtubeMusicAuthCookie"
 									description={
 										<Text size="xs" c="dimmed">
-											Please follow the instructions on the{" "}
+											Please follow the{" "}
 											<Anchor
 												target="_blank"
 												rel="noreferrer noopener"
