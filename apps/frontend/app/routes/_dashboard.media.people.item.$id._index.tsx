@@ -192,9 +192,9 @@ export default function Page() {
 											.find((c) => c.name === roleFilter)
 											?.items.map((item) => (
 												<MetadataDisplay
-													key={item.metadataId}
+													key={item.entityId}
 													character={item.character}
-													metadataId={item.metadataId}
+													metadataId={item.entityId}
 												/>
 											))}
 									</SimpleGrid>
