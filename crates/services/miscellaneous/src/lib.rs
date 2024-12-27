@@ -2550,7 +2550,7 @@ ORDER BY RANDOM() LIMIT 10;
                         "{} has been associated with {} as {}",
                         person.name, title, data.role
                     ),
-                    MediaStateChanged::PersonMediaAssociated,
+                    MediaStateChanged::PersonMetadataAssociated,
                 ));
                 default_state_changes.media_associated.insert(search_for);
             }
