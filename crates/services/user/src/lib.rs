@@ -475,9 +475,10 @@ impl UserService {
             ));
         }
         let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf
-            | IntegrationProvider::Komga
-            | IntegrationProvider::PlexYank => IntegrationLot::Yank,
+            IntegrationProvider::Komga
+            | IntegrationProvider::PlexYank
+            | IntegrationProvider::YoutubeMusic
+            | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
             IntegrationProvider::Radarr
             | IntegrationProvider::Sonarr
             | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
