@@ -1,27 +1,27 @@
 query PersonDetails($personId: String!) {
 	personDetails(personId: $personId) {
-		details {
-			id
-			name
-			source
-			identifier
-			isPartial
-			description
-			birthDate
-			deathDate
-			place
-			website
-			gender
-			displayImages
-			sourceUrl
-		}
-		contents {
+		associatedMetadata {
 			name
 			count
 			items {
 				entityId
 				character
 			}
+		}
+		details {
+			id
+			name
+			place
+			source
+			gender
+			website
+			deathDate
+			birthDate
+			isPartial
+			sourceUrl
+			identifier
+			description
+			displayImages
 		}
 	}
 }

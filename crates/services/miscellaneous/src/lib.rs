@@ -2127,7 +2127,10 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        Ok(GraphqlPersonDetails { details, contents })
+        Ok(GraphqlPersonDetails {
+            details,
+            associated_metadata: contents,
+        })
     }
 
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {

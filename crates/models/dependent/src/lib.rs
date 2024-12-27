@@ -164,7 +164,7 @@ pub struct CollectionContents {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct GraphqlPersonDetails {
     pub details: person::Model,
-    pub contents: Vec<PersonDetailsGroupedByRole>,
+    pub associated_metadata: Vec<PersonDetailsGroupedByRole>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
