@@ -218,28 +218,29 @@ impl MediaProvider for YoutubeMusicService {
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let data = self.client.music_artist(identifier, false).await?;
-        let related_metadata = if let Some(playlist_id) = data.tracks_playlist_id {
-            let items = self.client.music_playlist(playlist_id).await?;
-            items
-                .tracks
-                .items
-                .into_iter()
-                .map(|t| MetadataPersonRelated {
-                    role: "Artist".to_string(),
-                    metadata: PartialMetadataWithoutId {
-                        title: t.name,
-                        identifier: t.id,
-                        lot: MediaLot::Music,
-                        source: MediaSource::YoutubeMusic,
-                        image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+        let data = self.client.music_artist(identifier, true).await?;
+        let related_metadata = match data.tracks_playlist_id {
+            None => vec![],
+            Some(playlist_id) => {
+                let items = self.client.music_playlist(playlist_id).await?;
+                items
+                    .tracks
+                    .items
+                    .into_iter()
+                    .map(|t| MetadataPersonRelated {
+                        role: "Artist".to_string(),
+                        metadata: PartialMetadataWithoutId {
+                            title: t.name,
+                            identifier: t.id,
+                            lot: MediaLot::Music,
+                            source: MediaSource::YoutubeMusic,
+                            image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                            ..Default::default()
+                        },
                         ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .collect()
-        } else {
-            vec![]
+                    })
+                    .collect()
+            }
         };
         let identifier = data.id;
         Ok(PersonDetails {
