@@ -13,15 +13,13 @@ pub async fn yank_progress(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    let date_to_sync_for = Utc::now()
+    let date = Utc::now()
         .checked_sub_days(Days::new(1))
         .unwrap()
         .date_naive();
     let cache_key = ApplicationCacheKey::YoutubeMusicSyncedForUser(UserLevelCacheKey {
         user_id: user_id.to_owned(),
-        input: YoutubeMusicSyncedForUser {
-            date: date_to_sync_for,
-        },
+        input: YoutubeMusicSyncedForUser { date },
     });
     if let Some(_) = ss
         .cache_service
