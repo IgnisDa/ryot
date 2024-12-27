@@ -29,10 +29,6 @@ impl CacheService {
 impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> i64 {
         match key {
-            ApplicationCacheKey::IgdbSettings
-            | ApplicationCacheKey::ListennotesSettings
-            | ApplicationCacheKey::TmdbSettings => 120,
-
             ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
@@ -48,6 +44,12 @@ impl CacheService {
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
                 self.config.server.progress_update_threshold
             }
+
+            ApplicationCacheKey::YoutubeMusicSyncedForUser { .. } => 48,
+
+            ApplicationCacheKey::IgdbSettings
+            | ApplicationCacheKey::ListennotesSettings
+            | ApplicationCacheKey::TmdbSettings => 120,
         }
     }
 
