@@ -2888,7 +2888,7 @@ ORDER BY RANDOM() LIMIT 10;
             if notifications.is_empty() {
                 continue;
             }
-            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
+            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
             let msg = notifications
                 .into_iter()
                 .map(|n| n.message)
@@ -2942,7 +2942,7 @@ ORDER BY RANDOM() LIMIT 10;
                 )
                 .all(&self.0.db)
                 .await?;
-            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
+            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
                 .all(&self.0.db)
