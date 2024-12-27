@@ -197,50 +197,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_table(
-                Table::create()
-                    .table(MetadataGroupToPerson::Table)
-                    .col(
-                        ColumnDef::new(MetadataGroupToPerson::Role)
-                            .text()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataGroupToPerson::PersonId)
-                            .text()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(MetadataGroupToPerson::MetadataGroupId)
-                            .text()
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-metadata_group-item_person-person_id")
-                            .from(
-                                MetadataGroupToPerson::Table,
-                                MetadataGroupToPerson::PersonId,
-                            )
-                            .to(Person::Table, Person::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-metadata_group-item_person-metadata_group_id")
-                            .from(
-                                MetadataGroupToPerson::Table,
-                                MetadataGroupToPerson::MetadataGroupId,
-                            )
-                            .to(MetadataGroup::Table, MetadataGroup::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .to_owned(),
-            )
-            .await?;
         create_metadata_group_to_person_table(manager).await?;
         Ok(())
     }
