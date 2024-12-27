@@ -1,3 +1,4 @@
+// FIXME: Rename this to m20230411_create_metadata_group in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
