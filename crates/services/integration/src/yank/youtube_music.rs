@@ -21,10 +21,11 @@ pub async fn yank_progress(
         user_id: user_id.to_owned(),
         input: YoutubeMusicSyncedForUser { date },
     });
-    if let Some(_) = ss
+    if ss
         .cache_service
         .get_value::<EmptyCacheValue>(cache_key.clone())
         .await
+        .is_some()
     {
         return Ok(ImportResult::default());
     }
