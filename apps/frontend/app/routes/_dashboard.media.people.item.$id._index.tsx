@@ -169,37 +169,39 @@ export default function Page() {
 							Actions
 						</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="media">
-						<MediaScrollArea>
-							<Stack gap="xl">
-								<Group justify="center">
-									<Text size="sm" c="dimmed">
-										Role:
-									</Text>
-									<Select
-										size="xs"
-										value={roleFilter}
-										onChange={(value) => setRoleFilter(value)}
-										data={loaderData.personDetails.contents.map((c) => ({
-											value: c.name,
-											label: `${c.name} (${c.count})`,
-										}))}
-									/>
-								</Group>
-								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-									{loaderData.personDetails.contents
-										.find((c) => c.name === roleFilter)
-										?.items.map((item) => (
-											<MetadataDisplay
-												key={item.metadataId}
-												character={item.character}
-												metadataId={item.metadataId}
-											/>
-										))}
-								</SimpleGrid>
-							</Stack>
-						</MediaScrollArea>
-					</Tabs.Panel>
+					{totalMetadata > 0 ? (
+						<Tabs.Panel value="media">
+							<MediaScrollArea>
+								<Stack gap="xl">
+									<Group justify="center">
+										<Text size="sm" c="dimmed">
+											Role:
+										</Text>
+										<Select
+											size="xs"
+											value={roleFilter}
+											onChange={(value) => setRoleFilter(value)}
+											data={loaderData.personDetails.contents.map((c) => ({
+												value: c.name,
+												label: `${c.name} (${c.count})`,
+											}))}
+										/>
+									</Group>
+									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+										{loaderData.personDetails.contents
+											.find((c) => c.name === roleFilter)
+											?.items.map((item) => (
+												<MetadataDisplay
+													key={item.metadataId}
+													character={item.character}
+													metadataId={item.metadataId}
+												/>
+											))}
+									</SimpleGrid>
+								</Stack>
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
 					{loaderData.personDetails.details.description ? (
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
