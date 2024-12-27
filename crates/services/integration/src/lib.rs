@@ -293,6 +293,10 @@ impl IntegrationService {
                     )
                     .await
                 }
+                IntegrationProvider::YoutubeMusic => {
+                    yank::youtube_music::yank_progress(specifics.youtube_music_auth_cookie.unwrap())
+                        .await
+                }
                 _ => continue,
             };
             if let Ok(update) = response {
