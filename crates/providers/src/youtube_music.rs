@@ -4,8 +4,8 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    MetadataGroupSearchResponse, MetadataPersonRelated, PeopleSearchResponse, PersonDetails,
-    SearchResults,
+    MetadataGroupPersonRelated, MetadataGroupSearchResponse, MetadataPersonRelated,
+    PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -242,10 +242,33 @@ impl MediaProvider for YoutubeMusicService {
                     .collect()
             }
         };
+        let related_metadata_groups = data
+            .albums
+            .into_iter()
+            .map(|a| MetadataGroupPersonRelated {
+                role: "Artist".to_string(),
+                metadata_group: MetadataGroupWithoutId {
+                    title: a.name,
+                    lot: MediaLot::Music,
+                    identifier: a.id.clone(),
+                    source: MediaSource::YoutubeMusic,
+                    images: Some(
+                        self.order_images_by_size(&a.cover)
+                            .into_iter()
+                            .map(|c| MetadataImage {
+                                url: StoredUrl::Url(c.url),
+                            })
+                            .collect(),
+                    ),
+                    ..Default::default()
+                },
+            })
+            .collect();
         let identifier = data.id;
         Ok(PersonDetails {
-            related_metadata,
             name: data.name,
+            related_metadata,
+            related_metadata_groups,
             description: data.description,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
