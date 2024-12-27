@@ -910,7 +910,8 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
-  Sonarr = 'SONARR'
+  Sonarr = 'SONARR',
+  YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
 export type IntegrationSourceSpecificsInput = {
@@ -936,6 +937,7 @@ export type IntegrationSourceSpecificsInput = {
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LoginError = {

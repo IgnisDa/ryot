@@ -907,6 +907,8 @@ pub struct IntegrationProviderSpecifics {
     pub jellyfin_push_base_url: Option<String>,
     pub jellyfin_push_username: Option<String>,
     pub jellyfin_push_password: Option<String>,
+
+    pub youtube_music_auth_cookie: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
