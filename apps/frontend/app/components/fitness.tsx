@@ -264,11 +264,18 @@ export const ExerciseHistory = (props: {
 		>
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
-					<Stack mb="xs" gap="xs" ref={parent}>
+					<Stack
+						gap="xs"
+						ref={parent}
+						mb={exercise.sets.length > 0 ? "xs" : undefined}
+					>
 						<Box>
 							<Group justify="space-between" wrap="nowrap">
 								<Anchor
+									fw="bold"
+									lineClamp={1}
 									component={Link}
+									style={{ scrollMargin: 20 }}
 									to={
 										props.hideExerciseDetails
 											? withFragment(
@@ -280,9 +287,6 @@ export const ExerciseHistory = (props: {
 												)
 											: getExerciseDetailsPath(exercise.id)
 									}
-									fw="bold"
-									lineClamp={1}
-									style={{ scrollMargin: 20 }}
 								>
 									{props.hideExerciseDetails
 										? workoutDetails.details.name
