@@ -2544,7 +2544,10 @@ ORDER BY RANDOM() LIMIT 10;
                     identifier: pm.identifier.clone(),
                 },
             };
-            if !default_state_changes.media_associated.contains(&search_for) {
+            if !default_state_changes
+                .metadata_associated
+                .contains(&search_for)
+            {
                 notifications.push((
                     format!(
                         "{} has been associated with {} as {}",
@@ -2552,7 +2555,7 @@ ORDER BY RANDOM() LIMIT 10;
                     ),
                     MediaStateChanged::PersonMetadataAssociated,
                 ));
-                default_state_changes.media_associated.insert(search_for);
+                default_state_changes.metadata_associated.insert(search_for);
             }
         }
         to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));

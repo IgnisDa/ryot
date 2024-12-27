@@ -858,7 +858,7 @@ pub struct MediaAssociatedPersonStateChanges {
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
 pub struct PersonStateChanges {
-    pub media_associated: HashSet<MediaAssociatedPersonStateChanges>,
+    pub metadata_associated: HashSet<MediaAssociatedPersonStateChanges>,
 }
 
 #[skip_serializing_none]
