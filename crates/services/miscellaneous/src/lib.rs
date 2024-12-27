@@ -23,14 +23,14 @@ use common_utils::{
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-    metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
-    person,
+    genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
+    notification_platform, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        Review, Seen, User, UserNotification, UserToEntity,
+        ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
+        NotificationPlatform, Person, Review, Seen, User, UserNotification, UserToEntity,
     },
     review, seen, user, user_notification, user_to_entity,
 };
@@ -2557,6 +2557,34 @@ ORDER BY RANDOM() LIMIT 10;
                     MediaStateChanged::PersonMetadataAssociated,
                 ));
                 default_state_changes.metadata_associated.insert(search_for);
+            }
+        }
+        for data in provider_person.related_metadata_groups.iter() {
+            let db_group = commit_metadata_group(
+                CommitMediaInput {
+                    name: data.metadata_group.title.clone(),
+                    unique: UniqueMediaIdentifier {
+                        lot: data.metadata_group.lot,
+                        source: data.metadata_group.source,
+                        identifier: data.metadata_group.identifier.clone(),
+                    },
+                },
+                &self.0,
+            )
+            .await?;
+            let already_intermediate = MetadataGroupToPerson::find()
+                .filter(metadata_group_to_person::Column::Role.eq(&data.role))
+                .filter(metadata_group_to_person::Column::PersonId.eq(&person_id))
+                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&db_group.id))
+                .one(&self.0.db)
+                .await?;
+            if already_intermediate.is_none() {
+                let intermediate = metadata_group_to_person::ActiveModel {
+                    role: ActiveValue::Set(data.role.clone()),
+                    metadata_group_id: ActiveValue::Set(db_group.id),
+                    person_id: ActiveValue::Set(person_id.to_owned()),
+                };
+                intermediate.insert(&self.0.db).await.unwrap();
             }
         }
         to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));
