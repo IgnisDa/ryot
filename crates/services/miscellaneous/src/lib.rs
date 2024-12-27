@@ -2109,7 +2109,7 @@ ORDER BY RANDOM() LIMIT 10;
         for assoc in associations {
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                metadata_id: assoc.metadata_id,
+                entity_id: assoc.metadata_id,
             };
             contents
                 .entry(assoc.role)

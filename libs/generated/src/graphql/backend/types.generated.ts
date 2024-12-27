@@ -1688,7 +1688,7 @@ export type PersonDetailsGroupedByRole = {
 export type PersonDetailsItemWithCharacter = {
   __typename?: 'PersonDetailsItemWithCharacter';
   character?: Maybe<Scalars['String']['output']>;
-  metadataId: Scalars['String']['output'];
+  entityId: Scalars['String']['output'];
 };
 
 export type PersonSortInput = {
