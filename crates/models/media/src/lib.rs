@@ -408,30 +408,6 @@ pub struct PartialMetadataPerson {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
-pub struct MetadataPersonRelated {
-    pub role: String,
-    pub character: Option<String>,
-    pub metadata: PartialMetadataWithoutId,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
-pub struct MetadataPerson {
-    pub name: String,
-    pub identifier: String,
-    pub source: MediaSource,
-    pub gender: Option<String>,
-    pub place: Option<String>,
-    pub website: Option<String>,
-    pub source_url: Option<String>,
-    pub description: Option<String>,
-    pub images: Option<Vec<String>>,
-    pub death_date: Option<NaiveDate>,
-    pub birth_date: Option<NaiveDate>,
-    pub related_metadata: Vec<MetadataPersonRelated>,
-    pub source_specifics: Option<PersonSourceSpecifics>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
 pub struct MetadataImageForMediaDetails {
     pub image: String,

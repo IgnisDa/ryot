@@ -4,7 +4,7 @@ use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, SearchDetails,
+    DailyUserActivityHourRecord, PersonSourceSpecifics, SearchDetails,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -21,9 +21,9 @@ use media_models::{
     CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
     GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
-    MetadataGroupSearchItem, MetadataSearchItem, PeopleSearchItem, PersonDetailsGroupedByRole,
-    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -108,6 +108,30 @@ pub struct UserExerciseDetails {
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
+pub struct MetadataPersonRelated {
+    pub role: String,
+    pub character: Option<String>,
+    pub metadata: PartialMetadataWithoutId,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
+pub struct PersonDetails {
+    pub name: String,
+    pub identifier: String,
+    pub source: MediaSource,
+    pub gender: Option<String>,
+    pub place: Option<String>,
+    pub website: Option<String>,
+    pub source_url: Option<String>,
+    pub description: Option<String>,
+    pub images: Option<Vec<String>>,
+    pub death_date: Option<NaiveDate>,
+    pub birth_date: Option<NaiveDate>,
+    pub related_metadata: Vec<MetadataPersonRelated>,
+    pub source_specifics: Option<PersonSourceSpecifics>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UpdateCustomExerciseInput {
     #[graphql(flatten)]
@@ -130,7 +154,7 @@ pub struct CollectionContents {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct PersonDetails {
+pub struct GraphqlPersonDetails {
     pub details: person::Model,
     pub contents: Vec<PersonDetailsGroupedByRole>,
 }

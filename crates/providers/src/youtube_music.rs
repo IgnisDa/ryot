@@ -3,14 +3,16 @@ use async_trait::async_trait;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
+use dependent_models::{
+    MetadataGroupSearchResponse, PersonDetails, MetadataPersonRelated, PeopleSearchResponse,
+    SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -215,9 +217,9 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let data = self.client.music_artist(identifier, false).await?;
-        let related = if let Some(playlist_id) = data.tracks_playlist_id {
+        let related_metadata = if let Some(playlist_id) = data.tracks_playlist_id {
             let items = self.client.music_playlist(playlist_id).await?;
             items
                 .tracks
@@ -240,7 +242,7 @@ impl MediaProvider for YoutubeMusicService {
             vec![]
         };
         let identifier = data.id;
-        Ok(MetadataPerson {
+        Ok(PersonDetails {
             related_metadata,
             name: data.name,
             description: data.description,

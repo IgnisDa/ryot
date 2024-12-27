@@ -13,18 +13,17 @@ use common_models::{
 use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults,
-    TmdbLanguage, TmdbSettings,
+    ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
+    PeopleSearchResponse, PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
 };
 use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
-    MetadataImage, MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
-    UniqueMediaIdentifier, WatchProvider,
+    MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo,
+    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics, UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -438,7 +437,7 @@ impl MediaProvider for NonMediaTmdbService {
         &self,
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let type_ = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -467,7 +466,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map(|p| self.base.get_image_url(p))
             .collect();
         let description = details.description.or(details.biography);
-        let mut related = vec![];
+        let mut related_metadata = vec![];
         if type_ == "person" {
             let cred_det: TmdbCreditsResponse = self
                 .base
@@ -494,7 +493,7 @@ impl MediaProvider for NonMediaTmdbService {
                     },
                     ..Default::default()
                 };
-                related.push(MetadataPersonRelated {
+                related_metadata.push(MetadataPersonRelated {
                     role,
                     metadata,
                     character: media.character,
@@ -515,21 +514,23 @@ impl MediaProvider for NonMediaTmdbService {
                         .json()
                         .await
                         .map_err(|e| anyhow!(e))?;
-                    related.extend(cred_det.results.into_iter().map(|m| MetadataPersonRelated {
-                        role: "Production Company".to_owned(),
-                        metadata: PartialMetadataWithoutId {
-                            source: MediaSource::Tmdb,
-                            identifier: m.id.to_string(),
-                            title: m.title.unwrap_or_default(),
-                            image: m.poster_path.map(|p| self.base.get_image_url(p)),
-                            lot: match m_typ {
-                                "movie" => MediaLot::Movie,
-                                "tv" => MediaLot::Show,
-                                _ => unreachable!(),
+                    related_metadata.extend(cred_det.results.into_iter().map(|m| {
+                        MetadataPersonRelated {
+                            role: "Production Company".to_owned(),
+                            metadata: PartialMetadataWithoutId {
+                                source: MediaSource::Tmdb,
+                                identifier: m.id.to_string(),
+                                title: m.title.unwrap_or_default(),
+                                image: m.poster_path.map(|p| self.base.get_image_url(p)),
+                                lot: match m_typ {
+                                    "movie" => MediaLot::Movie,
+                                    "tv" => MediaLot::Show,
+                                    _ => unreachable!(),
+                                },
+                                ..Default::default()
                             },
                             ..Default::default()
-                        },
-                        ..Default::default()
+                        }
                     }));
                     if cred_det.page == cred_det.total_pages {
                         break;
@@ -538,7 +539,7 @@ impl MediaProvider for NonMediaTmdbService {
             }
         }
         let name = details.name;
-        let resp = MetadataPerson {
+        let resp = PersonDetails {
             related_metadata,
             name: name.clone(),
             images: Some(images),

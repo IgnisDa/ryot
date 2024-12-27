@@ -10,16 +10,15 @@ use common_models::{
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PeopleSearchResponse,
-    SearchResults,
+    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PersonDetails,
+    MetadataPersonRelated, PeopleSearchResponse, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
-    MetadataPerson, MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -332,7 +331,7 @@ offset: {offset};
         &self,
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -353,7 +352,7 @@ where id = {id};
             .pop()
             .map(|ic| ic.company)
             .ok_or_else(|| anyhow!("No data"))?;
-        let mut related = detail
+        let mut related_metadata = detail
             .published
             .unwrap_or_default()
             .into_iter()
@@ -373,7 +372,7 @@ where id = {id};
                 }
             })
             .collect_vec();
-        related.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
+        related_metadata.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
             let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
             MetadataPersonRelated {
                 role: "Development".to_owned(),
@@ -389,7 +388,7 @@ where id = {id};
             }
         }));
         let name = detail.name;
-        Ok(MetadataPerson {
+        Ok(PersonDetails {
             related_metadata,
             name: name.clone(),
             source: MediaSource::Igdb,

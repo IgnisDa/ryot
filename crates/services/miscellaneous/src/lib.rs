@@ -40,9 +40,10 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
+    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
+    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -2092,7 +2093,7 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
-    pub async fn person_details(&self, person_id: String) -> Result<PersonDetails> {
+    pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
         let mut details = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
@@ -2126,7 +2127,7 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        Ok(PersonDetails { details, contents })
+        Ok(GraphqlPersonDetails { details, contents })
     }
 
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
