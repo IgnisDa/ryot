@@ -327,7 +327,11 @@ export const BaseMediaDisplayItem = (props: {
 		<Flex justify="space-between" direction="column" ref={props.innerRef}>
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
-					<Tooltip label={props.name} position="top">
+					<Tooltip
+						position="top"
+						label={props.name}
+						disabled={(props.name?.length || 0) === 0}
+					>
 						<Paper
 							radius="md"
 							pos="relative"
