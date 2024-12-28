@@ -322,8 +322,9 @@ pub struct ProgressUpdateCacheInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct YoutubeMusicSyncedForUser {
-    pub date: NaiveDate,
+pub struct YoutubeMusicSongListened {
+    pub id: String,
+    pub listened_on: NaiveDate,
 }
 
 #[skip_serializing_none]
@@ -341,6 +342,6 @@ pub enum ApplicationCacheKey {
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
-    YoutubeMusicSyncedForUser(UserLevelCacheKey<YoutubeMusicSyncedForUser>),
+    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
