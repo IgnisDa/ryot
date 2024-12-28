@@ -451,7 +451,7 @@ export default function Page() {
 													"A new public review is posted for media/people you monitor",
 											)
 											.with(
-												UserNotificationContent.PersonMediaAssociated,
+												UserNotificationContent.PersonMetadataAssociated,
 												() => "New media is associated with a person",
 											)
 											.with(
