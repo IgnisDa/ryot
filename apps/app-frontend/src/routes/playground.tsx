@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button, Card, Container, Grid, Text, TextArea, View } from "reshaped";
 import { useApiClient } from "@/hooks/api";
-import { useAuthClient } from "@/hooks/auth";
 
 export const Route = createFileRoute("/playground")({ component: App });
 
@@ -85,7 +84,6 @@ const parseSandboxResponse = (payload: unknown): SandboxRunResponse => {
 
 function App() {
 	const apiClient = useApiClient();
-	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [code, setCode] = useState(defaultCode);
 
