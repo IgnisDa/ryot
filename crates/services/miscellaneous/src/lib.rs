@@ -2597,7 +2597,6 @@ ORDER BY RANDOM() LIMIT 10;
                 Some(m) => m.id,
                 None => {
                     let m = metadata_group::ActiveModel {
-                        parts: ActiveValue::Set(0),
                         lot: ActiveValue::Set(data.metadata_group.lot),
                         source: ActiveValue::Set(data.metadata_group.source),
                         title: ActiveValue::Set(data.metadata_group.title.clone()),
