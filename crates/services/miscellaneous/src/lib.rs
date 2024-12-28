@@ -48,13 +48,13 @@ use dependent_models::{
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
-    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
-    first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
-    update_metadata_and_notify_users,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
+    deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
+    get_entity_recently_consumed, get_metadata_provider, get_openlibrary_service,
+    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, refresh_collection_to_entity_association,
+    remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
@@ -1272,11 +1272,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap()
             .unwrap();
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                person.id,
-            )))
-            .await?;
+        deploy_update_person_job(&person.id, &self.0).await?;
         Ok(true)
     }
 
@@ -1289,11 +1285,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap()
             .unwrap();
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
-                metadata_group.id,
-            )))
-            .await?;
+        deploy_update_metadata_group_job(&metadata_group.id, &self.0).await?;
         Ok(true)
     }
 

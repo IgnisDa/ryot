@@ -818,6 +818,28 @@ pub async fn deploy_update_metadata_job(
     Ok(true)
 }
 
+pub async fn deploy_update_metadata_group_job(
+    metadata_group_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+        metadata_group_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
+pub async fn deploy_update_person_job(
+    person_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+        person_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
 pub async fn deploy_background_job(
     user_id: &String,
     job_name: BackgroundJob,
@@ -2156,10 +2178,7 @@ where
                     }
                 };
                 if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        db_person.id.clone(),
-                    )))
-                    .await?;
+                    deploy_update_person_job(&db_person.id, ss).await?;
                 }
                 person.id = db_person.id;
             }
@@ -2189,10 +2208,7 @@ where
                     }
                 };
                 if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(metadata_group_id.clone()),
-                    ))
-                    .await?;
+                    deploy_update_metadata_group_job(&metadata_group_id, ss).await?;
                 }
                 metadata_group.id = metadata_group_id;
             }
