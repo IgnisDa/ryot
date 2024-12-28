@@ -31,7 +31,7 @@ import {
 	IconStarFilled,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -366,22 +366,16 @@ export const PersonDisplayItem = (props: {
 		enabled: inViewport,
 	});
 
-	const metadataCount = useMemo(
-		() =>
-			personDetails?.associatedMetadata.reduce(
-				(sum, content) => sum + content.items.length,
-				0,
-			) || 0,
-		[personDetails?.associatedMetadata],
-	);
-	const metadataGroupCount = useMemo(
-		() =>
-			personDetails?.associatedMetadataGroups.reduce(
-				(sum, content) => sum + content.items.length,
-				0,
-			) || 0,
-		[personDetails?.associatedMetadataGroups],
-	);
+	const metadataCount =
+		personDetails?.associatedMetadata.reduce(
+			(sum, content) => sum + content.items.length,
+			0,
+		) || 0;
+	const metadataGroupCount =
+		personDetails?.associatedMetadataGroups.reduce(
+			(sum, content) => sum + content.items.length,
+			0,
+		) || 0;
 
 	return (
 		<BaseMediaDisplayItem
