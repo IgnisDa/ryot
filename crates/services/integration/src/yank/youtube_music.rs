@@ -4,7 +4,9 @@ use anyhow::Result;
 use chrono::{Days, Utc};
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSyncedForUser};
 use common_utils::TEMP_DIR;
-use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportResult};
+use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
+use enum_models::{MediaLot, MediaSource};
+use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rustypipe::client::RustyPipe;
 use supporting_service::SupportingService;
 
@@ -31,13 +33,29 @@ pub async fn yank_progress(
     }
     let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
     client.set_auth_cookie(auth_cookie).await;
-    let a = client
+    let music_history = client
         .query()
         .authenticated()
         .music_history()
         .await
         .unwrap();
-    dbg!(a);
+    let mut result = ImportResult::default();
+    for item in music_history.items {
+        result
+            .completed
+            .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+                identifier: item.id,
+                lot: MediaLot::Music,
+                source: MediaSource::YoutubeMusic,
+                seen_history: vec![ImportOrExportMetadataItemSeen {
+                    ended_on: Some(date),
+                    started_on: Some(date),
+                    provider_watched_on: Some("Youtube Music".to_owned()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }));
+    }
     ss.cache_service
         .set_key(
             cache_key,
@@ -45,5 +63,5 @@ pub async fn yank_progress(
         )
         .await
         .unwrap();
-    Ok(ImportResult::default())
+    Ok(result)
 }

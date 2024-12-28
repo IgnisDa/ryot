@@ -48,7 +48,7 @@ impl IntegrationService {
                             false
                         }
                         Some(_) => true,
-                        None => false,
+                        None => true,
                     });
                 metadata.seen_history.iter_mut().for_each(|update| {
                     update.ended_on = Some(Utc::now().date_naive());
