@@ -1995,7 +1995,7 @@ pub async fn create_or_update_user_workout(
             create_notification_for_user(
                 user_id,
                 &(
-                    "New workout created".to_owned(),
+                    format!("New workout created - {}", data.name),
                     UserNotificationContent::NewWorkoutCreated,
                 ),
                 UserNotificationLot::Immediate,
