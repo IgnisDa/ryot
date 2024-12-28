@@ -53,7 +53,7 @@ pub async fn yank_progress(
                 lot: MediaLot::Music,
                 source: MediaSource::YoutubeMusic,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
-                    provider_watched_on: Some("Youtube Music".to_owned()),
+                    provider_watched_on: Some(MediaSource::YoutubeMusic.to_string()),
                     ..Default::default()
                 }],
                 ..Default::default()
