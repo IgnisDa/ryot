@@ -104,6 +104,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
+	BaseEntityDisplay,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -274,6 +275,7 @@ export default function Page() {
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
+	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
 
 	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
 		submit(e);
@@ -332,23 +334,22 @@ export default function Page() {
 				<MediaDetailsLayout
 					images={loaderData.metadataDetails.assets.images}
 					externalLink={{
-						source: loaderData.metadataDetails.source,
 						lot: loaderData.metadataDetails.lot,
+						source: loaderData.metadataDetails.source,
 						href: loaderData.metadataDetails.sourceUrl,
 					}}
 				>
 					<Box>
 						{userPreferences.featuresEnabled.media.groups &&
-						loaderData.metadataDetails.group ? (
+						firstGroupAssociated ? (
 							<Link
-								to={$path("/media/groups/item/:id", {
-									id: loaderData.metadataDetails.group.id,
-								})}
 								style={{ color: "unset" }}
+								to={$path("/media/groups/item/:id", {
+									id: firstGroupAssociated.id,
+								})}
 							>
 								<Text c="dimmed" fs="italic">
-									{loaderData.metadataDetails.group.name} #
-									{loaderData.metadataDetails.group.part}
+									{firstGroupAssociated.name} #{firstGroupAssociated.part}
 								</Text>
 							</Link>
 						) : null}
@@ -675,29 +676,13 @@ export default function Page() {
 													>
 														<Flex gap="md">
 															{c.items.map((creator) => (
-																<Box key={`${creator.id}-${creator.name}`}>
-																	{creator.id ? (
-																		<Anchor
-																			component={Link}
-																			data-creator-id={creator.id}
-																			to={$path("/media/people/item/:id", {
-																				id: creator.id,
-																			})}
-																		>
-																			<MetadataCreator
-																				name={creator.name}
-																				image={creator.image}
-																				character={creator.character}
-																			/>
-																		</Anchor>
-																	) : (
-																		<MetadataCreator
-																			name={creator.name}
-																			image={creator.image}
-																			character={creator.character}
-																		/>
-																	)}
-																</Box>
+																<MetadataCreator
+																	id={creator.id}
+																	name={creator.name}
+																	image={creator.image}
+																	character={creator.character}
+																	key={`${creator.id}-${creator.name}`}
+																/>
 															))}
 														</Flex>
 													</ScrollArea>
@@ -1287,28 +1272,18 @@ const DisplayShowSeasonEpisodes = (props: {
 
 const MetadataCreator = (props: {
 	name: string;
+	id?: string | null;
 	image?: string | null;
 	character?: string | null;
-}) => {
-	return (
-		<>
-			<Avatar
-				imageProps={{ loading: "lazy" }}
-				src={props.image}
-				h={100}
-				w={85}
-				radius="sm"
-				mx="auto"
-				alt={`${props.name} profile picture`}
-				styles={{ image: { objectPosition: "top" } }}
-			/>
-			<Text size="xs" c="dimmed" ta="center" lineClamp={3} mt={4}>
-				{props.name}
-				{props.character ? ` as ${props.character}` : null}
-			</Text>
-		</>
-	);
-};
+}) => (
+	<BaseEntityDisplay
+		image={props.image || undefined}
+		title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
+		link={
+			props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
+		}
+	/>
+);
 
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];

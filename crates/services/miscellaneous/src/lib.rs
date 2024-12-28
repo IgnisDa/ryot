@@ -23,14 +23,14 @@ use common_utils::{
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-    metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
-    person,
+    genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
+    notification_platform, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        Review, Seen, User, UserNotification, UserToEntity,
+        ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
+        NotificationPlatform, Person, Review, Seen, User, UserNotification, UserToEntity,
     },
     review, seen, user, user_notification, user_to_entity,
 };
@@ -40,9 +40,10 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, PersonDetails,
-    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
+    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
+    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -393,27 +394,22 @@ ORDER BY RANDOM() LIMIT 10;
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        let group = {
-            let association = MetadataToMetadataGroup::find()
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-                .one(&self.0.db)
-                .await?;
-            match association {
-                None => None,
-                Some(a) => {
-                    let grp = a
-                        .find_related(MetadataGroup)
-                        .one(&self.0.db)
-                        .await?
-                        .unwrap();
-                    Some(GraphqlMetadataGroup {
-                        id: grp.id,
-                        name: grp.title,
-                        part: a.part,
-                    })
-                }
-            }
-        };
+
+        let mut group = vec![];
+        let associations = MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&self.0.db)
+            .await?;
+        for association in associations {
+            let grp = association.1.unwrap();
+            group.push(GraphqlMetadataGroup {
+                id: grp.id,
+                name: grp.title,
+                part: association.0.part,
+            });
+        }
+
         let watch_providers = model.watch_providers.unwrap_or_default();
 
         let resp = GraphqlMetadataDetails {
@@ -2092,32 +2088,30 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
-    pub async fn person_details(&self, person_id: String) -> Result<PersonDetails> {
+    pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
         let mut details = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
         details.display_images =
             metadata_images_as_urls(&details.images, &self.0.file_storage_service).await;
-        let associations = MetadataToPerson::find()
-            .filter(metadata_to_person::Column::PersonId.eq(person_id))
+        let metadata_associations = MetadataToPerson::find()
+            .filter(metadata_to_person::Column::PersonId.eq(&person_id))
             .order_by_asc(metadata_to_person::Column::Index)
             .all(&self.0.db)
             .await?;
-        let mut contents: HashMap<_, Vec<_>> = HashMap::new();
-        for assoc in associations {
+        let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
+        for assoc in metadata_associations {
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                metadata_id: assoc.metadata_id,
+                entity_id: assoc.metadata_id,
             };
-            contents
+            metadata_contents
                 .entry(assoc.role)
-                .and_modify(|e| {
-                    e.push(to_push.clone());
-                })
+                .and_modify(|e| e.push(to_push.clone()))
                 .or_insert(vec![to_push]);
         }
-        let contents = contents
+        let associated_metadata = metadata_contents
             .into_iter()
             .map(|(name, items)| PersonDetailsGroupedByRole {
                 count: items.len(),
@@ -2126,7 +2120,36 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
-        Ok(PersonDetails { details, contents })
+        let associated_metadata_groups = MetadataGroupToPerson::find()
+            .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
+            .order_by_asc(metadata_group_to_person::Column::Index)
+            .all(&self.0.db)
+            .await?;
+        let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
+        for assoc in associated_metadata_groups {
+            let to_push = PersonDetailsItemWithCharacter {
+                entity_id: assoc.metadata_group_id,
+                ..Default::default()
+            };
+            metadata_group_contents
+                .entry(assoc.role)
+                .and_modify(|e| e.push(to_push.clone()))
+                .or_insert(vec![to_push]);
+        }
+        let associated_metadata_groups = metadata_group_contents
+            .into_iter()
+            .map(|(name, items)| PersonDetailsGroupedByRole {
+                count: items.len(),
+                name,
+                items,
+            })
+            .sorted_by_key(|f| Reverse(f.count))
+            .collect_vec();
+        Ok(GraphqlPersonDetails {
+            details,
+            associated_metadata,
+            associated_metadata_groups,
+        })
     }
 
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
@@ -2504,7 +2527,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .collect()
             })
             .filter(|i: &Vec<MetadataImage>| !i.is_empty());
-        let mut default_state_changes = person.clone().state_changes.unwrap_or_default();
+        let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
         to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
         to_update_person.description = ActiveValue::Set(provider_person.description);
@@ -2517,7 +2540,7 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
-        for data in provider_person.related.clone() {
+        for data in provider_person.related_metadata.clone() {
             let title = data.metadata.title.clone();
             let pm = create_partial_metadata(data.metadata, &self.0.db).await?;
             let already_intermediate = MetadataToPerson::find()
@@ -2544,18 +2567,84 @@ ORDER BY RANDOM() LIMIT 10;
                     identifier: pm.identifier.clone(),
                 },
             };
-            if !default_state_changes.media_associated.contains(&search_for) {
+            if !current_state_changes
+                .metadata_associated
+                .contains(&search_for)
+            {
                 notifications.push((
                     format!(
                         "{} has been associated with {} as {}",
                         person.name, title, data.role
                     ),
-                    MediaStateChanged::PersonMediaAssociated,
+                    MediaStateChanged::PersonMetadataAssociated,
                 ));
-                default_state_changes.media_associated.insert(search_for);
+                current_state_changes.metadata_associated.insert(search_for);
             }
         }
-        to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));
+        for (idx, data) in provider_person.related_metadata_groups.iter().enumerate() {
+            let db_dg = match MetadataGroup::find()
+                .filter(metadata_group::Column::Lot.eq(data.metadata_group.lot))
+                .filter(metadata_group::Column::Source.eq(data.metadata_group.source))
+                .filter(metadata_group::Column::Identifier.eq(&data.metadata_group.identifier))
+                .one(&self.0.db)
+                .await?
+            {
+                Some(m) => m.id,
+                None => {
+                    let m = metadata_group::ActiveModel {
+                        is_partial: ActiveValue::Set(Some(true)),
+                        lot: ActiveValue::Set(data.metadata_group.lot),
+                        source: ActiveValue::Set(data.metadata_group.source),
+                        title: ActiveValue::Set(data.metadata_group.title.clone()),
+                        identifier: ActiveValue::Set(data.metadata_group.identifier.clone()),
+                        images: ActiveValue::Set(
+                            data.metadata_group.images.clone().filter(|i| !i.is_empty()),
+                        ),
+                        ..Default::default()
+                    };
+                    m.insert(&self.0.db).await?.id
+                }
+            };
+            let already_intermediate = MetadataGroupToPerson::find()
+                .filter(metadata_group_to_person::Column::Role.eq(&data.role))
+                .filter(metadata_group_to_person::Column::PersonId.eq(&person_id))
+                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&db_dg))
+                .one(&self.0.db)
+                .await?;
+            if already_intermediate.is_none() {
+                let intermediate = metadata_group_to_person::ActiveModel {
+                    role: ActiveValue::Set(data.role.clone()),
+                    metadata_group_id: ActiveValue::Set(db_dg),
+                    index: ActiveValue::Set(idx.try_into().unwrap()),
+                    person_id: ActiveValue::Set(person_id.to_owned()),
+                };
+                intermediate.insert(&self.0.db).await?;
+            }
+            let search_for = MediaAssociatedPersonStateChanges {
+                role: data.role.clone(),
+                media: UniqueMediaIdentifier {
+                    lot: data.metadata_group.lot,
+                    source: data.metadata_group.source,
+                    identifier: data.metadata_group.identifier.clone(),
+                },
+            };
+            if !current_state_changes
+                .metadata_groups_associated
+                .contains(&search_for)
+            {
+                notifications.push((
+                    format!(
+                        "{} has been associated with {} as {}",
+                        person.name, data.metadata_group.title, data.role
+                    ),
+                    MediaStateChanged::PersonMetadataGroupAssociated,
+                ));
+                current_state_changes
+                    .metadata_groups_associated
+                    .insert(search_for);
+            }
+        }
+        to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
         to_update_person.update(&self.0.db).await.unwrap();
         Ok(notifications)
     }

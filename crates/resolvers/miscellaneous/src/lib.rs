@@ -6,8 +6,8 @@ use common_models::{
     StringIdObject,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
+    CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
@@ -58,7 +58,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         person_id: String,
-    ) -> Result<PersonDetails> {
+    ) -> Result<GraphqlPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.person_details(person_id).await
     }

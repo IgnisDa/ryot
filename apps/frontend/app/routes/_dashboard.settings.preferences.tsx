@@ -451,8 +451,12 @@ export default function Page() {
 													"A new public review is posted for media/people you monitor",
 											)
 											.with(
-												MediaStateChanged.PersonMediaAssociated,
+												MediaStateChanged.PersonMetadataAssociated,
 												() => "New media is associated with a person",
+											)
+											.with(
+												MediaStateChanged.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
 											)
 											.exhaustive()}
 									/>

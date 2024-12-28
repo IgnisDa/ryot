@@ -180,12 +180,13 @@ pub struct ChangeCollectionToEntityInput {
 pub enum MediaStateChanged {
     ReviewPosted,
     MetadataPublished,
-    PersonMediaAssociated,
     MetadataStatusChanged,
     MetadataEpisodeReleased,
+    PersonMetadataAssociated,
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,
     MetadataEpisodeImagesChanged,
+    PersonMetadataGroupAssociated,
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
 }

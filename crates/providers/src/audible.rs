@@ -5,13 +5,13 @@ use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{PeopleSearchResponse, SearchResults};
+use dependent_models::{PersonDetails, PeopleSearchResponse, SearchResults};
 use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     AudioBookSpecifics, CommitMediaInput, MetadataDetails, MetadataFreeCreator,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
+    MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
 use paginate::Pages;
@@ -213,7 +213,7 @@ impl MediaProvider for AudibleService {
         &self,
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let client = Client::new();
         let data: AudnexResponse = client
             .get(format!("{}/authors/{}", AUDNEX_URL, identity))
@@ -225,7 +225,7 @@ impl MediaProvider for AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         let name = data.name;
-        Ok(MetadataPerson {
+        Ok(PersonDetails {
             name: name.clone(),
             identifier: data.asin,
             source: MediaSource::Audible,

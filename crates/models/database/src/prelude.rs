@@ -12,6 +12,7 @@ pub use super::import_report::Entity as ImportReport;
 pub use super::integration::Entity as Integration;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_group::Entity as MetadataGroup;
+pub use super::metadata_group_to_person::Entity as MetadataGroupToPerson;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::metadata_to_metadata::Entity as MetadataToMetadata;
 pub use super::metadata_to_metadata_group::Entity as MetadataToMetadataGroup;

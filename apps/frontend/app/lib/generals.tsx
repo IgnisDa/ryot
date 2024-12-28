@@ -9,6 +9,7 @@ import {
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
+	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
@@ -440,6 +441,17 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 					clientGqlService
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
+			: skipToken,
+	});
+
+export const getMetadataGroupDetailsQuery = (metadataGroupId: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId).queryKey,
+		queryFn: metadataGroupId
+			? () =>
+					clientGqlService
+						.request(MetadataGroupDetailsDocument, { metadataGroupId })
+						.then((data) => data.metadataGroupDetails)
 			: skipToken,
 	});
 

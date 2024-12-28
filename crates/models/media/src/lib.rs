@@ -408,30 +408,6 @@ pub struct PartialMetadataPerson {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
-pub struct MetadataPersonRelated {
-    pub role: String,
-    pub character: Option<String>,
-    pub metadata: PartialMetadataWithoutId,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
-pub struct MetadataPerson {
-    pub name: String,
-    pub identifier: String,
-    pub source: MediaSource,
-    pub gender: Option<String>,
-    pub place: Option<String>,
-    pub website: Option<String>,
-    pub source_url: Option<String>,
-    pub description: Option<String>,
-    pub images: Option<Vec<String>>,
-    pub death_date: Option<NaiveDate>,
-    pub birth_date: Option<NaiveDate>,
-    pub related: Vec<MetadataPersonRelated>,
-    pub source_specifics: Option<PersonSourceSpecifics>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
 pub struct MetadataImageForMediaDetails {
     pub image: String,
@@ -455,38 +431,38 @@ pub struct MetadataExternalIdentifiers {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MetadataDetails {
-    pub identifier: String,
-    pub is_nsfw: Option<bool>,
+    pub lot: MediaLot,
     pub title: String,
+    pub identifier: String,
+    pub genres: Vec<String>,
     pub source: MediaSource,
+    pub is_nsfw: Option<bool>,
+    pub publish_year: Option<i32>,
+    pub videos: Vec<MetadataVideo>,
     pub source_url: Option<String>,
     pub description: Option<String>,
+    pub groups: Vec<CommitMediaInput>,
+    pub publish_date: Option<NaiveDate>,
+    pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
-    pub lot: MediaLot,
     pub production_status: Option<String>,
     pub creators: Vec<MetadataFreeCreator>,
     pub people: Vec<PartialMetadataPerson>,
-    pub genres: Vec<String>,
-    pub url_images: Vec<MetadataImageForMediaDetails>,
-    pub s3_images: Vec<MetadataImageForMediaDetails>,
-    pub videos: Vec<MetadataVideo>,
-    pub publish_year: Option<i32>,
-    pub publish_date: Option<NaiveDate>,
-    pub suggestions: Vec<PartialMetadataWithoutId>,
-    pub groups: Vec<CommitMediaInput>,
-    pub provider_rating: Option<Decimal>,
     pub watch_providers: Vec<WatchProvider>,
-    pub audio_book_specifics: Option<AudioBookSpecifics>,
-    pub book_specifics: Option<BookSpecifics>,
-    pub external_identifiers: Option<MetadataExternalIdentifiers>,
-    pub movie_specifics: Option<MovieSpecifics>,
-    pub podcast_specifics: Option<PodcastSpecifics>,
     pub show_specifics: Option<ShowSpecifics>,
-    pub video_game_specifics: Option<VideoGameSpecifics>,
-    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
     pub anime_specifics: Option<AnimeSpecifics>,
     pub manga_specifics: Option<MangaSpecifics>,
     pub music_specifics: Option<MusicSpecifics>,
+    pub suggestions: Vec<PartialMetadataWithoutId>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub s3_images: Vec<MetadataImageForMediaDetails>,
+    pub url_images: Vec<MetadataImageForMediaDetails>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub external_identifiers: Option<MetadataExternalIdentifiers>,
 }
 
 /// A specific instance when an entity was seen.
@@ -858,7 +834,8 @@ pub struct MediaAssociatedPersonStateChanges {
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
 pub struct PersonStateChanges {
-    pub media_associated: HashSet<MediaAssociatedPersonStateChanges>,
+    pub metadata_associated: HashSet<MediaAssociatedPersonStateChanges>,
+    pub metadata_groups_associated: HashSet<MediaAssociatedPersonStateChanges>,
 }
 
 #[skip_serializing_none]
@@ -1206,9 +1183,9 @@ pub struct MetadataCreatorGroupedByRole {
     pub items: Vec<MetadataCreator>,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Serialize, Default, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
-    pub metadata_id: String,
+    pub entity_id: String,
     pub character: Option<String>,
 }
 
@@ -1257,11 +1234,11 @@ pub struct GraphqlMetadataDetails {
     pub assets: GraphqlMediaAssets,
     pub description: Option<String>,
     pub publish_date: Option<NaiveDate>,
+    pub group: Vec<GraphqlMetadataGroup>,
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
     pub production_status: Option<String>,
     pub created_by_user_id: Option<String>,
-    pub group: Option<GraphqlMetadataGroup>,
     pub watch_providers: Vec<WatchProvider>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,

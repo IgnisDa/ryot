@@ -5,15 +5,16 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
-use dependent_models::{PeopleSearchResponse, SearchResults};
+use dependent_models::{
+    PersonDetails, MetadataPersonRelated, PeopleSearchResponse, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MetadataVideo, MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -233,7 +234,7 @@ impl MediaProvider for NonMediaAnilistService {
         &self,
         identity: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let is_studio = matches!(
             source_specifics,
             Some(PersonSourceSpecifics {
@@ -261,7 +262,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .unwrap()
                 .studio
                 .unwrap();
-            let related = details
+            let related_metadata = details
                 .media
                 .unwrap()
                 .edges
@@ -287,8 +288,8 @@ impl MediaProvider for NonMediaAnilistService {
                     }
                 })
                 .collect();
-            MetadataPerson {
-                related,
+            PersonDetails {
+                related_metadata,
                 name: details.name,
                 website: details.site_url,
                 source: MediaSource::Anilist,
@@ -339,7 +340,7 @@ impl MediaProvider for NonMediaAnilistService {
                     None
                 }
             });
-            let mut related = vec![];
+            let mut related_metadata = vec![];
             details
                 .character_media
                 .unwrap()
@@ -359,7 +360,7 @@ impl MediaProvider for NonMediaAnilistService {
                     );
                     for character in characters {
                         if let Some(character) = character.and_then(|c| c.name) {
-                            related.push(MetadataPersonRelated {
+                            related_metadata.push(MetadataPersonRelated {
                                 character: character.full,
                                 role: "Voicing".to_owned(),
                                 metadata: PartialMetadataWithoutId {
@@ -378,43 +379,37 @@ impl MediaProvider for NonMediaAnilistService {
                         }
                     }
                 });
-            related.extend(
-                details
-                    .staff_media
-                    .unwrap()
-                    .edges
-                    .unwrap()
-                    .into_iter()
-                    .map(|r| {
-                        let edge = r.unwrap();
-                        let data = edge.node.unwrap();
-                        let title = data.title.unwrap();
-                        let title = get_in_preferred_language(
-                            title.native,
-                            title.english,
-                            title.romaji,
-                            &self.base.preferred_language,
-                        );
-                        MetadataPersonRelated {
-                            role: edge.staff_role.unwrap_or_else(|| "Production".to_owned()),
-                            metadata: PartialMetadataWithoutId {
-                                title,
-                                source: MediaSource::Anilist,
-                                identifier: data.id.to_string(),
-                                image: data.cover_image.unwrap().extra_large,
-                                lot: match data.type_.unwrap() {
-                                    staff_query::MediaType::ANIME => MediaLot::Anime,
-                                    staff_query::MediaType::MANGA => MediaLot::Manga,
-                                    staff_query::MediaType::Other(_) => unreachable!(),
-                                },
-                                ..Default::default()
+            related_metadata.extend(details.staff_media.unwrap().edges.unwrap().into_iter().map(
+                |r| {
+                    let edge = r.unwrap();
+                    let data = edge.node.unwrap();
+                    let title = data.title.unwrap();
+                    let title = get_in_preferred_language(
+                        title.native,
+                        title.english,
+                        title.romaji,
+                        &self.base.preferred_language,
+                    );
+                    MetadataPersonRelated {
+                        role: edge.staff_role.unwrap_or_else(|| "Production".to_owned()),
+                        metadata: PartialMetadataWithoutId {
+                            title,
+                            source: MediaSource::Anilist,
+                            identifier: data.id.to_string(),
+                            image: data.cover_image.unwrap().extra_large,
+                            lot: match data.type_.unwrap() {
+                                staff_query::MediaType::ANIME => MediaLot::Anime,
+                                staff_query::MediaType::MANGA => MediaLot::Manga,
+                                staff_query::MediaType::Other(_) => unreachable!(),
                             },
                             ..Default::default()
-                        }
-                    }),
-            );
-            MetadataPerson {
-                related,
+                        },
+                        ..Default::default()
+                    }
+                },
+            ));
+            PersonDetails {
+                related_metadata,
                 death_date,
                 birth_date,
                 images: Some(images),

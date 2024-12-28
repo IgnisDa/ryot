@@ -3,14 +3,16 @@ use async_trait::async_trait;
 use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
+use dependent_models::{
+    MetadataGroupPersonRelated, MetadataGroupSearchResponse, MetadataPersonRelated,
+    PeopleSearchResponse, PersonDetails, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
-    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -125,7 +127,7 @@ impl MediaProvider for YoutubeMusicService {
         let results = self.client.music_search_tracks(query).await?;
         let data = SearchResults {
             details: SearchDetails {
-                total: 1,
+                total: 100,
                 ..Default::default()
             },
             items: results
@@ -194,7 +196,7 @@ impl MediaProvider for YoutubeMusicService {
         let data = self.client.music_search_albums(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
-                total: 1,
+                total: 100,
                 ..Default::default()
             },
             items: data
@@ -215,34 +217,58 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
-        let data = self.client.music_artist(identifier, false).await?;
-        let related = if let Some(playlist_id) = data.tracks_playlist_id {
-            let items = self.client.music_playlist(playlist_id).await?;
-            items
-                .tracks
-                .items
-                .into_iter()
-                .map(|t| MetadataPersonRelated {
-                    role: "Artist".to_string(),
-                    metadata: PartialMetadataWithoutId {
-                        title: t.name,
-                        identifier: t.id,
-                        lot: MediaLot::Music,
-                        source: MediaSource::YoutubeMusic,
-                        image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+    ) -> Result<PersonDetails> {
+        let data = self.client.music_artist(identifier, true).await?;
+        let related_metadata = match data.tracks_playlist_id {
+            None => vec![],
+            Some(playlist_id) => {
+                let items = self.client.music_playlist(playlist_id).await?;
+                items
+                    .tracks
+                    .items
+                    .into_iter()
+                    .map(|t| MetadataPersonRelated {
+                        role: "Artist".to_string(),
+                        metadata: PartialMetadataWithoutId {
+                            title: t.name,
+                            identifier: t.id,
+                            lot: MediaLot::Music,
+                            source: MediaSource::YoutubeMusic,
+                            image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
+                            ..Default::default()
+                        },
                         ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .collect()
-        } else {
-            vec![]
+                    })
+                    .collect()
+            }
         };
+        let related_metadata_groups = data
+            .albums
+            .into_iter()
+            .map(|a| MetadataGroupPersonRelated {
+                role: "Artist".to_string(),
+                metadata_group: MetadataGroupWithoutId {
+                    title: a.name,
+                    lot: MediaLot::Music,
+                    identifier: a.id.clone(),
+                    source: MediaSource::YoutubeMusic,
+                    images: Some(
+                        self.order_images_by_size(&a.cover)
+                            .into_iter()
+                            .map(|c| MetadataImage {
+                                url: StoredUrl::Url(c.url),
+                            })
+                            .collect(),
+                    ),
+                    ..Default::default()
+                },
+            })
+            .collect();
         let identifier = data.id;
-        Ok(MetadataPerson {
-            related,
+        Ok(PersonDetails {
             name: data.name,
+            related_metadata,
+            related_metadata_groups,
             description: data.description,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
@@ -267,7 +293,7 @@ impl MediaProvider for YoutubeMusicService {
         let data = self.client.music_search_artists(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
-                total: 1,
+                total: 100,
                 ..Default::default()
             },
             items: data

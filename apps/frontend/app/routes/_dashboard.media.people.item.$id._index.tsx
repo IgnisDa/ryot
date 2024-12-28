@@ -23,9 +23,12 @@ import { sum } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
+	IconLibrary,
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { $path } from "remix-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -35,10 +38,12 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
+	BaseEntityDisplay,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
+import { getMetadataGroupDetailsQuery } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
@@ -74,13 +79,23 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
-	const [roleFilter, setRoleFilter] = useLocalStorage(
+	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
-		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
+		loaderData.personDetails.associatedMetadata.map((c) => c.name).at(0) ||
+			null,
+	);
+	const [groupRoleFilter, setGroupRoleFilter] = useLocalStorage(
+		"MediaTabRoleFilter",
+		loaderData.personDetails.associatedMetadataGroups
+			.map((c) => c.name)
+			.at(0) || null,
 	);
 
 	const totalMetadata = sum(
-		loaderData.personDetails.contents.map((c) => c.count),
+		loaderData.personDetails.associatedMetadata.map((c) => c.count),
+	);
+	const totalMetadataGroups = sum(
+		loaderData.personDetails.associatedMetadataGroups.map((c) => c.count),
 	);
 
 	return (
@@ -97,7 +112,8 @@ export default function Page() {
 				</Title>
 				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 					{[
-						`${totalMetadata} media items`,
+						totalMetadata ? `${totalMetadata} media items` : null,
+						totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
 						loaderData.personDetails.details.birthDate &&
 							`Birth: ${loaderData.personDetails.details.birthDate}`,
 						loaderData.personDetails.details.deathDate &&
@@ -149,6 +165,11 @@ export default function Page() {
 								Media
 							</Tabs.Tab>
 						) : null}
+						{totalMetadataGroups > 0 ? (
+							<Tabs.Tab value="groups" leftSection={<IconLibrary size={16} />}>
+								Groups
+							</Tabs.Tab>
+						) : null}
 						{loaderData.personDetails.details.description ? (
 							<Tabs.Tab
 								value="overview"
@@ -169,37 +190,75 @@ export default function Page() {
 							Actions
 						</Tabs.Tab>
 					</Tabs.List>
-					<Tabs.Panel value="media">
-						<MediaScrollArea>
-							<Stack gap="xl">
-								<Group justify="center">
-									<Text size="sm" c="dimmed">
-										Role:
-									</Text>
-									<Select
-										size="xs"
-										value={roleFilter}
-										onChange={(value) => setRoleFilter(value)}
-										data={loaderData.personDetails.contents.map((c) => ({
-											value: c.name,
-											label: `${c.name} (${c.count})`,
-										}))}
-									/>
-								</Group>
-								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-									{loaderData.personDetails.contents
-										.find((c) => c.name === roleFilter)
-										?.items.map((item) => (
-											<MetadataDisplay
-												key={item.metadataId}
-												character={item.character}
-												metadataId={item.metadataId}
-											/>
-										))}
-								</SimpleGrid>
-							</Stack>
-						</MediaScrollArea>
-					</Tabs.Panel>
+					{totalMetadata > 0 ? (
+						<Tabs.Panel value="media">
+							<MediaScrollArea>
+								<Stack gap="xl">
+									<Group justify="center">
+										<Text size="sm" c="dimmed">
+											Role:
+										</Text>
+										<Select
+											size="xs"
+											value={mediaRoleFilter}
+											onChange={(value) => setMediaRoleFilter(value)}
+											data={loaderData.personDetails.associatedMetadata.map(
+												(c) => ({
+													value: c.name,
+													label: `${c.name} (${c.count})`,
+												}),
+											)}
+										/>
+									</Group>
+									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+										{loaderData.personDetails.associatedMetadata
+											.find((c) => c.name === mediaRoleFilter)
+											?.items.map((item) => (
+												<MetadataDisplay
+													key={item.entityId}
+													character={item.character}
+													metadataId={item.entityId}
+												/>
+											))}
+									</SimpleGrid>
+								</Stack>
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
+					{totalMetadataGroups > 0 ? (
+						<Tabs.Panel value="groups">
+							<MediaScrollArea>
+								<Stack gap="xl">
+									<Group justify="center">
+										<Text size="sm" c="dimmed">
+											Role:
+										</Text>
+										<Select
+											size="xs"
+											value={groupRoleFilter}
+											onChange={(value) => setGroupRoleFilter(value)}
+											data={loaderData.personDetails.associatedMetadataGroups.map(
+												(c) => ({
+													value: c.name,
+													label: `${c.name} (${c.count})`,
+												}),
+											)}
+										/>
+									</Group>
+									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+										{loaderData.personDetails.associatedMetadataGroups
+											.find((c) => c.name === groupRoleFilter)
+											?.items.map((item) => (
+												<MetadataGroupDisplay
+													key={item.entityId}
+													metadataGroupId={item.entityId}
+												/>
+											))}
+									</SimpleGrid>
+								</Stack>
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
 					{loaderData.personDetails.details.description ? (
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
@@ -295,6 +354,22 @@ const MetadataDisplay = (props: {
 		<PartialMetadataDisplay
 			metadataId={props.metadataId}
 			extraText={props.character ? `as ${props.character}` : undefined}
+		/>
+	);
+};
+
+const MetadataGroupDisplay = (props: {
+	metadataGroupId: string;
+}) => {
+	const { data: metadataGroupDetails } = useQuery(
+		getMetadataGroupDetailsQuery(props.metadataGroupId),
+	);
+
+	return (
+		<BaseEntityDisplay
+			title={metadataGroupDetails?.details.title}
+			image={metadataGroupDetails?.details.displayImages[0]}
+			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 		/>
 	);
 };
