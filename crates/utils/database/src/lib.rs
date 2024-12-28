@@ -543,7 +543,7 @@ pub async fn calculate_user_activities_and_summary(
             }
         } else if let Some(music_extra) = seen.music_specifics {
             if let Some(runtime) = music_extra.duration {
-                activity.music_duration += runtime;
+                activity.music_duration += runtime / 60;
             }
         } else if let Some(book_extra) = seen.book_specifics {
             if let Some(pages) = book_extra.pages {
