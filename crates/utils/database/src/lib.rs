@@ -687,6 +687,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.podcast_count
             + activity.anime_count
             + activity.manga_count
+            + activity.music_count
             + activity.audio_book_count
             + activity.book_count
             + activity.video_game_count
@@ -700,6 +701,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.podcast_duration
             + activity.movie_duration
             + activity.show_duration
+            + activity.music_duration
             + activity.visual_novel_duration
             + activity.video_game_duration;
         activity.hour_records.sort_by_key(|hr| hr.hour);
