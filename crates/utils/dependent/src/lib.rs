@@ -2105,7 +2105,6 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
-    run_updates: bool,
     respect_cache: bool,
     mut import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2152,9 +2151,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    deploy_update_metadata_job(&db_metadata.id, ss).await?;
-                }
+                deploy_update_metadata_job(&db_metadata.id, ss).await?;
                 metadata.id = db_metadata.id;
             }
             ImportCompletedItem::Person(person) => {
@@ -2180,9 +2177,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    deploy_update_person_job(&db_person.id, ss).await?;
-                }
+                deploy_update_person_job(&db_person.id, ss).await?;
                 person.id = db_person.id;
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
@@ -2210,9 +2205,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    deploy_update_metadata_group_job(&metadata_group_id, ss).await?;
-                }
+                deploy_update_metadata_group_job(&metadata_group_id, ss).await?;
                 metadata_group.id = metadata_group_id;
             }
             _ => {}
