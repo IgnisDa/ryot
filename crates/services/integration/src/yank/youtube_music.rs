@@ -30,7 +30,7 @@ pub async fn yank_progress(
         .await
         .unwrap();
     let mut result = ImportResult::default();
-    for item in music_history.items {
+    for item in music_history.items.into_iter().rev() {
         let cache_key = ApplicationCacheKey::YoutubeMusicSongListened(UserLevelCacheKey {
             user_id: user_id.to_owned(),
             input: YoutubeMusicSongListened {
@@ -53,8 +53,6 @@ pub async fn yank_progress(
                 lot: MediaLot::Music,
                 source: MediaSource::YoutubeMusic,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
-                    ended_on: Some(date),
-                    started_on: Some(date),
                     provider_watched_on: Some("Youtube Music".to_owned()),
                     ..Default::default()
                 }],
