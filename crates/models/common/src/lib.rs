@@ -184,9 +184,11 @@ pub enum UserNotificationContent {
     PersonMediaAssociated,
     MetadataStatusChanged,
     MetadataEpisodeReleased,
+    PersonMetadataAssociated,
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,
     MetadataEpisodeImagesChanged,
+    PersonMetadataGroupAssociated,
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
 }

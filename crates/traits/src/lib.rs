@@ -8,8 +8,10 @@ use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
-use dependent_models::{MetadataGroupSearchResponse, PeopleSearchResponse, SearchResults};
-use media_models::{MetadataDetails, MetadataPerson, MetadataSearchItem, PartialMetadataWithoutId};
+use dependent_models::{
+    MetadataGroupSearchResponse, PersonDetails, PeopleSearchResponse, SearchResults,
+};
+use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
 use sea_orm::DatabaseConnection;
 
 #[async_trait]
@@ -49,7 +51,7 @@ pub trait MediaProvider {
         &self,
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         bail!("This provider does not support getting person details")
     }
 

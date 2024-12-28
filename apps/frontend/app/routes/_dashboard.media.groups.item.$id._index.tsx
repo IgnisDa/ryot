@@ -8,7 +8,6 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	Title,
 } from "@mantine/core";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
@@ -36,6 +35,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
+import { clientGqlService } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
@@ -85,16 +85,24 @@ export default function Page() {
 	return (
 		<Container>
 			<MediaDetailsLayout
+				title={loaderData.metadataGroupDetails.details.title}
 				images={loaderData.metadataGroupDetails.details.displayImages}
 				externalLink={{
 					lot: loaderData.metadataGroupDetails.details.lot,
 					source: loaderData.metadataGroupDetails.details.source,
 					href: loaderData.metadataGroupDetails.details.sourceUrl,
 				}}
+				partialDetailsFetcher={{
+					entityId: loaderData.metadataGroupDetails.details.id,
+					isAlreadyPartial: loaderData.metadataGroupDetails.details.isPartial,
+					fn: () =>
+						clientGqlService
+							.request(MetadataGroupDetailsDocument, {
+								metadataGroupId: loaderData.metadataGroupDetails.details.id,
+							})
+							.then((data) => data.metadataGroupDetails.details.isPartial),
+				}}
 			>
-				<Title id="group-title">
-					{loaderData.metadataGroupDetails.details.title}
-				</Title>
 				<Flex id="group-details" wrap="wrap" gap={4}>
 					<Text>
 						{loaderData.metadataGroupDetails.details.parts} media items

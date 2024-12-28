@@ -3,12 +3,12 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
-use dependent_models::{PeopleSearchResponse, SearchResults};
+use dependent_models::{PersonDetails, PeopleSearchResponse, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
-    PartialMetadataPerson, PeopleSearchItem, VisualNovelSpecifics,
+    MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
+    PeopleSearchItem, VisualNovelSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -122,7 +122,7 @@ impl MediaProvider for VndbService {
         &self,
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let rsp = self
             .client
             .post(format!("{}/producer", URL))
@@ -136,7 +136,7 @@ impl MediaProvider for VndbService {
             .map_err(|e| anyhow!(e))?;
         let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
-        Ok(MetadataPerson {
+        Ok(PersonDetails {
             identifier: item.id,
             name: item.title.unwrap(),
             source: MediaSource::Vndb,

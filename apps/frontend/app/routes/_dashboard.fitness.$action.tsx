@@ -386,7 +386,7 @@ export default function Page() {
 		setIsReorderDrawerOpened(exerciseIdentifier);
 		if (!exerciseIdentifier) return;
 		setTimeout(() => {
-			setIsReorderDrawerOpened(null);
+			setIsReorderDrawerOpened((val) => (val === undefined ? undefined : null));
 		}, 4000);
 	};
 

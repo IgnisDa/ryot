@@ -736,7 +736,6 @@ pub async fn commit_metadata_group(
         Some(m) => Ok(m),
         None => {
             let new_group = metadata_group::ActiveModel {
-                parts: ActiveValue::Set(0),
                 title: ActiveValue::Set(input.name),
                 lot: ActiveValue::Set(input.unique.lot),
                 is_partial: ActiveValue::Set(Some(true)),

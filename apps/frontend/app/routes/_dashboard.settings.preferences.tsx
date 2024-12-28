@@ -455,6 +455,10 @@ export default function Page() {
 												() => "New media is associated with a person",
 											)
 											.with(
+												UserNotificationContent.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
+											.with(
 												UserNotificationContent.NewWorkoutCreated,
 												() => "A new workout is created",
 											)

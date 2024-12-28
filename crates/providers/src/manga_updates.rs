@@ -4,13 +4,14 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
-use dependent_models::{PeopleSearchResponse, SearchResults};
+use dependent_models::{
+    PersonDetails, MetadataPersonRelated, PeopleSearchResponse, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -203,7 +204,7 @@ impl MediaProvider for MangaUpdatesService {
         &self,
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let data: ItemAuthor = self
             .client
             .get(format!("{}/authors/{}", URL, identity))
@@ -223,7 +224,7 @@ impl MediaProvider for MangaUpdatesService {
             .json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let related = related_data
+        let related_metadata = related_data
             .series_list
             .into_iter()
             .map(|r| MetadataPersonRelated {
@@ -238,8 +239,8 @@ impl MediaProvider for MangaUpdatesService {
                 ..Default::default()
             })
             .collect_vec();
-        let resp = MetadataPerson {
-            related,
+        let resp = PersonDetails {
+            related_metadata,
             gender: data.gender,
             place: data.birthplace,
             name: data.name.unwrap(),
