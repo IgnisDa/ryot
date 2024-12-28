@@ -275,6 +275,7 @@ export default function Page() {
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
+	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
 
 	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
 		submit(e);
@@ -333,23 +334,22 @@ export default function Page() {
 				<MediaDetailsLayout
 					images={loaderData.metadataDetails.assets.images}
 					externalLink={{
-						source: loaderData.metadataDetails.source,
 						lot: loaderData.metadataDetails.lot,
+						source: loaderData.metadataDetails.source,
 						href: loaderData.metadataDetails.sourceUrl,
 					}}
 				>
 					<Box>
 						{userPreferences.featuresEnabled.media.groups &&
-						loaderData.metadataDetails.group ? (
+						firstGroupAssociated ? (
 							<Link
-								to={$path("/media/groups/item/:id", {
-									id: loaderData.metadataDetails.group.id,
-								})}
 								style={{ color: "unset" }}
+								to={$path("/media/groups/item/:id", {
+									id: firstGroupAssociated.id,
+								})}
 							>
 								<Text c="dimmed" fs="italic">
-									{loaderData.metadataDetails.group.name} #
-									{loaderData.metadataDetails.group.part}
+									{firstGroupAssociated.name} #{firstGroupAssociated.part}
 								</Text>
 							</Link>
 						) : null}
