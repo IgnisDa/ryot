@@ -30,8 +30,8 @@ import {
 	GridPacking,
 	MediaLot,
 	UpdateUserPreferenceDocument,
-	type UserPreferences,
 	UserNotificationContent,
+	type UserPreferences,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";

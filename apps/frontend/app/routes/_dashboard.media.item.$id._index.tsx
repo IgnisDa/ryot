@@ -83,6 +83,7 @@ import {
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import {
+	type FormEvent,
 	Fragment,
 	type ReactNode,
 	type RefObject,
@@ -278,7 +279,7 @@ export default function Page() {
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
 
-	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+	const onSubmitProgressUpdate = (e: FormEvent<HTMLFormElement>) => {
 		submit(e);
 		events.updateProgress(loaderData.metadataDetails.title);
 		refreshUserMetadataDetails(loaderData.metadataId);
