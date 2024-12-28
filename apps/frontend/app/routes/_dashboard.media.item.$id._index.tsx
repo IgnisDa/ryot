@@ -367,19 +367,19 @@ export default function Page() {
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
 							userPreferences.featuresEnabled.media.groups &&
-							firstGroupAssociated ? (
-								<Link
-									key="group-link"
-									style={{ color: "unset" }}
-									to={$path("/media/groups/item/:id", {
-										id: firstGroupAssociated.id,
-									})}
-								>
-									<Text c="dimmed" fs="italic" span>
-										{firstGroupAssociated.name} #{firstGroupAssociated.part}
-									</Text>
-								</Link>
-							) : null,
+								firstGroupAssociated && (
+									<Link
+										key="group-link"
+										style={{ color: "unset" }}
+										to={$path("/media/groups/item/:id", {
+											id: firstGroupAssociated.id,
+										})}
+									>
+										<Text c="dimmed" fs="italic" span>
+											{firstGroupAssociated.name} #{firstGroupAssociated.part}
+										</Text>
+									</Link>
+								),
 							loaderData.metadataDetails.publishDate
 								? dayjsLib(loaderData.metadataDetails.publishDate).format("LL")
 								: loaderData.metadataDetails.publishYear,
