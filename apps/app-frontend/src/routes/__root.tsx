@@ -38,7 +38,7 @@ function RootDocument(props: { children: React.ReactNode }) {
 			<body>
 				<ApiClientProvider>
 					<AuthClientProvider>
-						<Reshaped theme="reshaped">
+						<Reshaped theme="slate">
 							<ReactQueryProvider>
 								{props.children}
 								<TanStackDevtools
