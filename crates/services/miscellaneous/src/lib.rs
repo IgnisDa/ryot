@@ -2587,32 +2587,43 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         for (idx, data) in provider_person.related_metadata_groups.iter().enumerate() {
-            let dg = commit_metadata_group(
-                CommitMediaInput {
-                    name: data.metadata_group.title.clone(),
-                    unique: UniqueMediaIdentifier {
-                        lot: data.metadata_group.lot,
-                        source: data.metadata_group.source,
-                        identifier: data.metadata_group.identifier.clone(),
-                    },
-                },
-                &self.0,
-            )
-            .await?;
+            let db_dg = match MetadataGroup::find()
+                .filter(metadata_group::Column::Lot.eq(data.metadata_group.lot))
+                .filter(metadata_group::Column::Source.eq(data.metadata_group.source))
+                .filter(metadata_group::Column::Identifier.eq(&data.metadata_group.identifier))
+                .one(&self.0.db)
+                .await?
+            {
+                Some(m) => m.id,
+                None => {
+                    let m = metadata_group::ActiveModel {
+                        parts: ActiveValue::Set(0),
+                        lot: ActiveValue::Set(data.metadata_group.lot),
+                        source: ActiveValue::Set(data.metadata_group.source),
+                        title: ActiveValue::Set(data.metadata_group.title.clone()),
+                        identifier: ActiveValue::Set(data.metadata_group.identifier.clone()),
+                        images: ActiveValue::Set(
+                            data.metadata_group.images.clone().filter(|i| !i.is_empty()),
+                        ),
+                        ..Default::default()
+                    };
+                    m.insert(&self.0.db).await?.id
+                }
+            };
             let already_intermediate = MetadataGroupToPerson::find()
                 .filter(metadata_group_to_person::Column::Role.eq(&data.role))
                 .filter(metadata_group_to_person::Column::PersonId.eq(&person_id))
-                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&dg.id))
+                .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&db_dg))
                 .one(&self.0.db)
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_group_to_person::ActiveModel {
                     role: ActiveValue::Set(data.role.clone()),
-                    metadata_group_id: ActiveValue::Set(dg.id),
+                    metadata_group_id: ActiveValue::Set(db_dg),
                     index: ActiveValue::Set(idx.try_into().unwrap()),
                     person_id: ActiveValue::Set(person_id.to_owned()),
                 };
-                intermediate.insert(&self.0.db).await.unwrap();
+                intermediate.insert(&self.0.db).await?;
             }
             let search_for = MediaAssociatedPersonStateChanges {
                 role: data.role.clone(),
@@ -2633,7 +2644,9 @@ ORDER BY RANDOM() LIMIT 10;
                     ),
                     MediaStateChanged::PersonMetadataGroupAssociated,
                 ));
-                current_state_changes.metadata_associated.insert(search_for);
+                current_state_changes
+                    .metadata_groups_associated
+                    .insert(search_for);
             }
         }
         to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
