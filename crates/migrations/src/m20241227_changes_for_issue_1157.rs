@@ -45,6 +45,8 @@ WHERE
 "#,
         )
         .await?;
+        db.execute_unprepared(r#"ALTER TABLE "metadata_group" ALTER COLUMN "parts" SET DEFAULT 0"#)
+            .await?;
         Ok(())
     }
 
