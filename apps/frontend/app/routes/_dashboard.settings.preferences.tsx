@@ -29,9 +29,9 @@ import {
 	DashboardElementLot,
 	GridPacking,
 	MediaLot,
-	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	type UserPreferences,
+	UserNotificationContent,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -388,7 +388,7 @@ export default function Page() {
 								providers.
 							</Text>
 							<SimpleGrid cols={{ md: 2 }}>
-								{Object.values(MediaStateChanged).map((name) => (
+								{Object.values(UserNotificationContent).map((name) => (
 									<Switch
 										size="xs"
 										key={name}
@@ -412,47 +412,55 @@ export default function Page() {
 										}}
 										label={match(name)
 											.with(
-												MediaStateChanged.MetadataEpisodeNameChanged,
+												UserNotificationContent.MetadataEpisodeNameChanged,
 												() => "Name of an episode changes",
 											)
 											.with(
-												MediaStateChanged.MetadataEpisodeImagesChanged,
+												UserNotificationContent.MetadataEpisodeImagesChanged,
 												() => "Images for an episode changes",
 											)
 											.with(
-												MediaStateChanged.MetadataEpisodeReleased,
+												UserNotificationContent.MetadataEpisodeReleased,
 												() => "Number of episodes changes",
 											)
 											.with(
-												MediaStateChanged.MetadataPublished,
+												UserNotificationContent.MetadataPublished,
 
 												() => "A media is published",
 											)
 											.with(
-												MediaStateChanged.MetadataStatusChanged,
+												UserNotificationContent.MetadataStatusChanged,
 												() => "Status changes",
 											)
 											.with(
-												MediaStateChanged.MetadataReleaseDateChanged,
+												UserNotificationContent.MetadataReleaseDateChanged,
 												() => "Release date changes",
 											)
 											.with(
-												MediaStateChanged.MetadataNumberOfSeasonsChanged,
+												UserNotificationContent.MetadataNumberOfSeasonsChanged,
 												() => "Number of seasons changes",
 											)
 											.with(
-												MediaStateChanged.MetadataChaptersOrEpisodesChanged,
+												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
 												() =>
 													"Number of chapters/episodes changes for manga/anime",
 											)
 											.with(
-												MediaStateChanged.ReviewPosted,
+												UserNotificationContent.ReviewPosted,
 												() =>
 													"A new public review is posted for media/people you monitor",
 											)
 											.with(
-												MediaStateChanged.PersonMediaAssociated,
+												UserNotificationContent.PersonMetadataAssociated,
 												() => "New media is associated with a person",
+											)
+											.with(
+												UserNotificationContent.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
+											.with(
+												UserNotificationContent.NewWorkoutCreated,
+												() => "A new workout is created",
 											)
 											.exhaustive()}
 									/>

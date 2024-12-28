@@ -5,13 +5,12 @@ use chrono::{Datelike, NaiveDate};
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::{ryot_log, PAGE_SIZE};
 use convert_case::{Case, Casing};
-use dependent_models::{PeopleSearchResponse, SearchResults};
+use dependent_models::{MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    BookSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    BookSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
@@ -207,7 +206,7 @@ impl MediaProvider for OpenlibraryService {
         &self,
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<MetadataPerson> {
+    ) -> Result<PersonDetails> {
         let rsp = self
             .client
             .get(format!("{}/authors/{}.json", URL, identifier))
@@ -238,7 +237,7 @@ impl MediaProvider for OpenlibraryService {
             .json()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut related = vec![];
+        let mut related_metadata = vec![];
         for entry in author_works.entries.unwrap_or_default() {
             if let Some(title) = entry.title {
                 let image = entry
@@ -250,7 +249,7 @@ impl MediaProvider for OpenlibraryService {
                     .collect_vec()
                     .first()
                     .cloned();
-                related.push(MetadataPersonRelated {
+                related_metadata.push(MetadataPersonRelated {
                     role: "Author".to_owned(),
                     metadata: PartialMetadataWithoutId {
                         title,
@@ -264,11 +263,11 @@ impl MediaProvider for OpenlibraryService {
                 })
             }
         }
-        ryot_log!(debug, "Found {} related works.", related.len());
+        ryot_log!(debug, "Found {} related works.", related_metadata.len());
         let name = data.name;
-        Ok(MetadataPerson {
-            related,
+        Ok(PersonDetails {
             description,
+            related_metadata,
             name: name.clone(),
             images: Some(images),
             identifier: identifier.clone(),

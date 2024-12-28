@@ -2,6 +2,7 @@ import {
 	ActionIcon,
 	Anchor,
 	Avatar,
+	Box,
 	Group,
 	Loader,
 	Menu,
@@ -14,7 +15,6 @@ import { useInViewport } from "@mantine/hooks";
 import { Form, Link } from "@remix-run/react";
 import {
 	EntityLot,
-	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	SeenState,
 	UserMetadataGroupDetailsDocument,
@@ -42,6 +42,7 @@ import {
 } from "~/components/common";
 import {
 	clientGqlService,
+	getMetadataGroupDetailsQuery,
 	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryFactory,
@@ -57,6 +58,47 @@ import {
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 
+const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
+	props.link ? (
+		<Anchor component={Link} to={props.link}>
+			{props.children}
+		</Anchor>
+	) : (
+		<Box>{props.children}</Box>
+	);
+
+export const BaseEntityDisplay = (props: {
+	link?: string;
+	image?: string;
+	title?: string;
+	extraText?: string;
+	hasInteracted?: boolean;
+}) => {
+	return (
+		<WrapperComponent link={props.link}>
+			<Avatar
+				w={85}
+				h={100}
+				mx="auto"
+				radius="sm"
+				src={props.image}
+				name={props.title}
+				imageProps={{ loading: "lazy" }}
+				styles={{ image: { objectPosition: "top" } }}
+			/>
+			<Text
+				mt={4}
+				size="xs"
+				ta="center"
+				lineClamp={1}
+				c={props.hasInteracted ? "yellow" : "dimmed"}
+			>
+				{props.title} {props.extraText}
+			</Text>
+		</WrapperComponent>
+	);
+};
+
 export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
@@ -69,31 +111,13 @@ export const PartialMetadataDisplay = (props: {
 	);
 
 	return (
-		<Anchor
-			component={Link}
-			data-media-id={props.metadataId}
-			to={$path("/media/item/:id", { id: props.metadataId })}
-		>
-			<Avatar
-				imageProps={{ loading: "lazy" }}
-				radius="sm"
-				src={metadataDetails?.image}
-				h={100}
-				w={85}
-				mx="auto"
-				name={metadataDetails?.title}
-				styles={{ image: { objectPosition: "top" } }}
-			/>
-			<Text
-				mt={4}
-				size="xs"
-				ta="center"
-				lineClamp={1}
-				c={userMetadataDetails?.hasInteracted ? "yellow" : "dimmed"}
-			>
-				{metadataDetails?.title} {props.extraText}
-			</Text>
-		</Anchor>
+		<BaseEntityDisplay
+			extraText={props.extraText}
+			image={metadataDetails?.image || undefined}
+			title={metadataDetails?.title || undefined}
+			hasInteracted={userMetadataDetails?.hasInteracted}
+			link={$path("/media/item/:id", { id: props.metadataId })}
+		/>
 	);
 };
 
@@ -275,13 +299,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useQuery({
-			queryKey: queryFactory.media.metadataGroupDetails(props.metadataGroupId)
-				.queryKey,
-			queryFn: async () => {
-				return clientGqlService
-					.request(MetadataGroupDetailsDocument, props)
-					.then((data) => data.metadataGroupDetails);
-			},
+			...getMetadataGroupDetailsQuery(props.metadataGroupId),
 			enabled: inViewport,
 		});
 	const { data: userMetadataGroupDetails } = useQuery({
@@ -348,6 +366,17 @@ export const PersonDisplayItem = (props: {
 		enabled: inViewport,
 	});
 
+	const metadataCount =
+		personDetails?.associatedMetadata.reduce(
+			(sum, content) => sum + content.items.length,
+			0,
+		) || 0;
+	const metadataGroupCount =
+		personDetails?.associatedMetadataGroups.reduce(
+			(sum, content) => sum + content.items.length,
+			0,
+		) || 0;
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
@@ -360,10 +389,10 @@ export const PersonDisplayItem = (props: {
 				id: props.personId,
 			})}
 			labels={{
-				left: personDetails
-					? `${personDetails.contents.reduce((sum, content) => sum + content.items.length, 0)} items`
-					: undefined,
 				right: props.rightLabel,
+				left: personDetails
+					? `${metadataCount + metadataGroupCount} items`
+					: undefined,
 			}}
 		/>
 	);

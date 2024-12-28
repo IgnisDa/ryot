@@ -218,3 +218,12 @@ fragment SetRestTimersPart on SetRestTimersSettings {
 	normal
 	failure
 }
+
+fragment PersonDetailsGroupedByRolePart on PersonDetailsGroupedByRole {
+	name
+	count
+	items {
+		entityId
+		character
+	}
+}

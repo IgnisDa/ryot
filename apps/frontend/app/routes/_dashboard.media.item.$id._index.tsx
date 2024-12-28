@@ -104,6 +104,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
+	BaseEntityDisplay,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -111,6 +112,7 @@ import {
 import {
 	PRO_REQUIRED_MESSAGE,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -274,6 +276,7 @@ export default function Page() {
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
+	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
 
 	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
 		submit(e);
@@ -330,30 +333,24 @@ export default function Page() {
 			/>
 			<Container>
 				<MediaDetailsLayout
+					title={loaderData.metadataDetails.title}
 					images={loaderData.metadataDetails.assets.images}
 					externalLink={{
-						source: loaderData.metadataDetails.source,
 						lot: loaderData.metadataDetails.lot,
+						source: loaderData.metadataDetails.source,
 						href: loaderData.metadataDetails.sourceUrl,
 					}}
+					partialDetailsFetcher={{
+						entityId: loaderData.metadataDetails.id,
+						isAlreadyPartial: loaderData.metadataDetails.isPartial,
+						fn: () =>
+							clientGqlService
+								.request(MetadataDetailsDocument, {
+									metadataId: loaderData.metadataDetails.id,
+								})
+								.then((data) => data.metadataDetails.isPartial),
+					}}
 				>
-					<Box>
-						{userPreferences.featuresEnabled.media.groups &&
-						loaderData.metadataDetails.group ? (
-							<Link
-								to={$path("/media/groups/item/:id", {
-									id: loaderData.metadataDetails.group.id,
-								})}
-								style={{ color: "unset" }}
-							>
-								<Text c="dimmed" fs="italic">
-									{loaderData.metadataDetails.group.name} #
-									{loaderData.metadataDetails.group.part}
-								</Text>
-							</Link>
-						) : null}
-						<Title id="media-title">{loaderData.metadataDetails.title}</Title>
-					</Box>
 					{loaderData.userMetadataDetails.collections.length > 0 ? (
 						<Group>
 							{loaderData.userMetadataDetails.collections.map((col) => (
@@ -367,73 +364,90 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
-					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-						{[
-							loaderData.metadataDetails.publishDate
-								? dayjsLib(loaderData.metadataDetails.publishDate).format("LL")
-								: loaderData.metadataDetails.publishYear,
-							loaderData.metadataDetails.originalLanguage,
-							loaderData.metadataDetails.productionStatus,
-							loaderData.metadataDetails.bookSpecifics?.pages &&
-								`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
-							loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
-								`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataDetails.animeSpecifics?.episodes &&
-								`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
-							loaderData.metadataDetails.mangaSpecifics?.chapters &&
-								`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
-							loaderData.metadataDetails.mangaSpecifics?.volumes &&
-								`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
-							loaderData.metadataDetails.movieSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.movieSpecifics.runtime,
-											"minute",
+					<Box>
+						{userPreferences.featuresEnabled.media.groups &&
+						firstGroupAssociated ? (
+							<Link
+								style={{ color: "unset" }}
+								to={$path("/media/groups/item/:id", {
+									id: firstGroupAssociated.id,
+								})}
+							>
+								<Text c="dimmed" fs="italic">
+									{firstGroupAssociated.name} #{firstGroupAssociated.part}
+								</Text>
+							</Link>
+						) : null}
+						<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+							{[
+								loaderData.metadataDetails.publishDate
+									? dayjsLib(loaderData.metadataDetails.publishDate).format(
+											"LL",
 										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.showSpecifics?.totalSeasons &&
-								`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
-							loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
-								`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataDetails.showSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.showSpecifics.runtime,
-											"minute",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.audioBookSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.audioBookSpecifics.runtime,
-											"minute",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.musicSpecifics?.duration &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.musicSpecifics.duration,
-											"second",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.musicSpecifics?.viewCount &&
-								formatQuantityWithCompactNotation(
-									loaderData.metadataDetails.musicSpecifics.viewCount,
-								),
-							loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
-								"Various Artists",
-						]
-							.filter(Boolean)
-							.join(" • ")}
-					</Text>
+									: loaderData.metadataDetails.publishYear,
+								loaderData.metadataDetails.originalLanguage,
+								loaderData.metadataDetails.productionStatus,
+								loaderData.metadataDetails.bookSpecifics?.pages &&
+									`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
+								loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
+									`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
+								loaderData.metadataDetails.animeSpecifics?.episodes &&
+									`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
+								loaderData.metadataDetails.mangaSpecifics?.chapters &&
+									`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
+								loaderData.metadataDetails.mangaSpecifics?.volumes &&
+									`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
+								loaderData.metadataDetails.movieSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.movieSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.showSpecifics?.totalSeasons &&
+									`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
+								loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
+									`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
+								loaderData.metadataDetails.showSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.showSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.audioBookSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.audioBookSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.musicSpecifics?.duration &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.musicSpecifics.duration,
+												"second",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.musicSpecifics?.viewCount &&
+									formatQuantityWithCompactNotation(
+										loaderData.metadataDetails.musicSpecifics.viewCount,
+									),
+								loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
+									"Various Artists",
+							]
+								.filter(Boolean)
+								.join(" • ")}
+						</Text>
+					</Box>
 					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
@@ -675,29 +689,13 @@ export default function Page() {
 													>
 														<Flex gap="md">
 															{c.items.map((creator) => (
-																<Box key={`${creator.id}-${creator.name}`}>
-																	{creator.id ? (
-																		<Anchor
-																			component={Link}
-																			data-creator-id={creator.id}
-																			to={$path("/media/people/item/:id", {
-																				id: creator.id,
-																			})}
-																		>
-																			<MetadataCreator
-																				name={creator.name}
-																				image={creator.image}
-																				character={creator.character}
-																			/>
-																		</Anchor>
-																	) : (
-																		<MetadataCreator
-																			name={creator.name}
-																			image={creator.image}
-																			character={creator.character}
-																		/>
-																	)}
-																</Box>
+																<MetadataCreator
+																	id={creator.id}
+																	name={creator.name}
+																	image={creator.image}
+																	character={creator.character}
+																	key={`${creator.id}-${creator.name}`}
+																/>
 															))}
 														</Flex>
 													</ScrollArea>
@@ -1287,28 +1285,18 @@ const DisplayShowSeasonEpisodes = (props: {
 
 const MetadataCreator = (props: {
 	name: string;
+	id?: string | null;
 	image?: string | null;
 	character?: string | null;
-}) => {
-	return (
-		<>
-			<Avatar
-				imageProps={{ loading: "lazy" }}
-				src={props.image}
-				h={100}
-				w={85}
-				radius="sm"
-				mx="auto"
-				alt={`${props.name} profile picture`}
-				styles={{ image: { objectPosition: "top" } }}
-			/>
-			<Text size="xs" c="dimmed" ta="center" lineClamp={3} mt={4}>
-				{props.name}
-				{props.character ? ` as ${props.character}` : null}
-			</Text>
-		</>
-	);
-};
+}) => (
+	<BaseEntityDisplay
+		image={props.image || undefined}
+		title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
+		link={
+			props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
+		}
+	/>
+);
 
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];

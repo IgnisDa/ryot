@@ -1,3 +1,4 @@
+// FIXME: Rename this to m20230411_create_metadata_group in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -32,7 +33,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(MetadataGroup::Identifier).text().not_null())
-                    .col(ColumnDef::new(MetadataGroup::Parts).integer().not_null())
+                    .col(
+                        ColumnDef::new(MetadataGroup::Parts)
+                            .integer()
+                            .default(0)
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(MetadataGroup::Title).text().not_null())
                     .col(ColumnDef::new(MetadataGroup::Description).text())
                     .col(ColumnDef::new(MetadataGroup::Lot).text().not_null())
