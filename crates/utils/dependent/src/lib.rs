@@ -361,6 +361,9 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
+    if !metadata.is_partial.unwrap_or_default() {
+        return Ok(vec![]);
+    }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))

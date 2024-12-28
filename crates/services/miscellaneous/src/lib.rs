@@ -2506,11 +2506,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         person_id: String,
     ) -> Result<Vec<(String, UserNotificationContent)>> {
-        let mut notifications = vec![];
         let person = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
+        if !person.is_partial.unwrap_or_default() {
+            return Ok(vec![]);
+        }
+        let mut notifications = vec![];
         let provider = self.get_non_metadata_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
@@ -2659,10 +2662,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
-        let notifications = self
-            .update_person(person_id.clone())
-            .await
-            .unwrap_or_default();
+        let notifications = self.update_person(person_id.clone()).await?;
         if !notifications.is_empty() {
             let users_to_notify =
                 get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &self.0.db)
@@ -2691,6 +2691,9 @@ ORDER BY RANDOM() LIMIT 10;
             .one(&self.0.db)
             .await?
             .ok_or(Error::new("Group not found"))?;
+        if !eg.is_partial.unwrap_or_default() {
+            return Ok(());
+        }
         let provider = get_metadata_provider(eg.lot, eg.source, &self.0).await?;
         let (group_details, associated_items) =
             provider.metadata_group_details(&eg.identifier).await?;
