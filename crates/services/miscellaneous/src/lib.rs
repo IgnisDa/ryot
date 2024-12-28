@@ -13,9 +13,9 @@ use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MediaStateChanged, MetadataGroupSearchInput, MetadataSearchInput,
-    PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl,
-    StringIdObject, UserLevelCacheKey,
+    IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
+    ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
@@ -47,14 +47,14 @@ use dependent_models::{
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, create_partial_metadata, create_user_notification,
+    commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update,
-    queue_media_state_changed_notification_for_user, refresh_collection_to_entity_association,
-    remove_entity_from_collection, update_metadata_and_notify_users,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
+    update_metadata_and_notify_users,
 };
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
@@ -2490,7 +2490,7 @@ ORDER BY RANDOM() LIMIT 10;
                 };
                 (
                     meta.id.to_string(),
-                    (notification, MediaStateChanged::MetadataPublished),
+                    (notification, UserNotificationContent::MetadataPublished),
                 )
             })
             .collect_vec();
@@ -2498,14 +2498,22 @@ ORDER BY RANDOM() LIMIT 10;
             let users_to_notify =
                 get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
-                queue_media_state_changed_notification_for_user(&user, &notification, &self.0)
-                    .await?;
+                create_notification_for_user(
+                    &user,
+                    &notification,
+                    UserNotificationLot::Queued,
+                    &self.0,
+                )
+                .await?;
             }
         }
         Ok(())
     }
 
-    async fn update_person(&self, person_id: String) -> Result<Vec<(String, MediaStateChanged)>> {
+    async fn update_person(
+        &self,
+        person_id: String,
+    ) -> Result<Vec<(String, UserNotificationContent)>> {
         let mut notifications = vec![];
         let person = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
@@ -2576,7 +2584,7 @@ ORDER BY RANDOM() LIMIT 10;
                         "{} has been associated with {} as {}",
                         person.name, title, data.role
                     ),
-                    MediaStateChanged::PersonMetadataAssociated,
+                    UserNotificationContent::PersonMetadataAssociated,
                 ));
                 current_state_changes.metadata_associated.insert(search_for);
             }
@@ -2637,7 +2645,7 @@ ORDER BY RANDOM() LIMIT 10;
                         "{} has been associated with {} as {}",
                         person.name, data.metadata_group.title, data.role
                     ),
-                    MediaStateChanged::PersonMetadataGroupAssociated,
+                    UserNotificationContent::PersonMetadataGroupAssociated,
                 ));
                 current_state_changes
                     .metadata_groups_associated
@@ -2669,9 +2677,10 @@ ORDER BY RANDOM() LIMIT 10;
                     .await?;
             for notification in notifications {
                 for (user_id, cte_id) in users_to_notify.iter() {
-                    queue_media_state_changed_notification_for_user(
+                    create_notification_for_user(
                         user_id,
                         &notification,
+                        UserNotificationLot::Queued,
                         &self.0,
                     )
                     .await
@@ -2728,7 +2737,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(user::Column::Id.is_in(monitored_by))
             .filter(Expr::cust(format!(
                 "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
-                MediaStateChanged::ReviewPosted
+                UserNotificationContent::ReviewPosted
             )))
             .into_tuple::<String>()
             .all(&self.0.db)
@@ -2879,9 +2888,9 @@ ORDER BY RANDOM() LIMIT 10;
             ryot_log!(debug, "Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.0.db).await?;
         }
-        ryot_log!(debug, "Deleting all queued notifications");
+        ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
-            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
+            .filter(user_notification::Column::IsAddressed.eq(true))
             .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleting revoked access tokens");
@@ -2897,7 +2906,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn put_entities_in_partial_state(&self) -> Result<()> {
+    async fn put_entities_in_partial_state(&self) -> Result<()> {
         async fn update_partial_states<Column1, Column2, Column3, T>(
             ute_filter_column: Column1,
             updater: UpdateMany<T>,
@@ -2956,7 +2965,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn send_pending_notifications(&self) -> Result<()> {
+    async fn send_pending_queued_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
@@ -2968,6 +2977,7 @@ ORDER BY RANDOM() LIMIT 10;
             if notifications.is_empty() {
                 continue;
             }
+            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
             let msg = notifications
                 .into_iter()
                 .map(|n| n.message)
@@ -2975,6 +2985,11 @@ ORDER BY RANDOM() LIMIT 10;
                 .join("\n");
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .filter(
+                    user_notification::Column::IsAddressed
+                        .eq(false)
+                        .or(user_notification::Column::IsAddressed.is_null()),
+                )
                 .all(&self.0.db)
                 .await?;
             for notification in platforms {
@@ -2993,6 +3008,61 @@ ORDER BY RANDOM() LIMIT 10;
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
+            UserNotification::update_many()
+                .filter(user_notification::Column::Id.is_in(notification_ids))
+                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+                .exec(&self.0.db)
+                .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn send_pending_immediate_notifications(&self) -> Result<()> {
+        let users = User::find().all(&self.0.db).await?;
+        for user_details in users {
+            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
+            let notifications = UserNotification::find()
+                .filter(user_notification::Column::UserId.eq(&user_details.id))
+                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Immediate))
+                .filter(
+                    user_notification::Column::IsAddressed
+                        .eq(false)
+                        .or(user_notification::Column::IsAddressed.is_null()),
+                )
+                .all(&self.0.db)
+                .await?;
+            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
+            let platforms = NotificationPlatform::find()
+                .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .all(&self.0.db)
+                .await?;
+            for notification in notifications {
+                for platform in platforms.iter() {
+                    if platform.is_disabled.unwrap_or_default() {
+                        ryot_log!(
+                        debug,
+                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
+                        user_details.id,
+                        platform.lot
+                    );
+                        continue;
+                    }
+                    if let Err(err) = send_notification(
+                        platform.platform_specifics.to_owned(),
+                        &self.0.config,
+                        &notification.message,
+                    )
+                    .await
+                    {
+                        ryot_log!(trace, "Error sending notification: {:?}", err);
+                    }
+                }
+            }
+            UserNotification::update_many()
+                .filter(user_notification::Column::Id.is_in(notification_ids))
+                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+                .exec(&self.0.db)
+                .await?;
         }
         Ok(())
     }
@@ -3030,7 +3100,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .trace_ok();
         ryot_log!(trace, "Sending all pending notifications");
-        self.send_pending_notifications().await.trace_ok();
+        self.send_pending_queued_notifications().await.trace_ok();
         ryot_log!(trace, "Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association()
             .await

@@ -6,8 +6,8 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MediaStateChanged, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl,
-    StringIdObject, UserLevelCacheKey,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl, StringIdObject,
+    UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -355,7 +355,7 @@ pub async fn change_metadata_associations(
 pub async fn update_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<Vec<(String, MediaStateChanged)>> {
+) -> Result<Vec<(String, UserNotificationContent)>> {
     let metadata = Metadata::find_by_id(metadata_id)
         .one(&ss.db)
         .await
@@ -382,7 +382,7 @@ pub async fn update_metadata(
                 if p1 != p2 {
                     notifications.push((
                         format!("Status changed from {:#?} to {:#?}", p1, p2),
-                        MediaStateChanged::MetadataStatusChanged,
+                        UserNotificationContent::MetadataStatusChanged,
                     ));
                 }
             }
@@ -390,7 +390,7 @@ pub async fn update_metadata(
                 if p1 != p2 {
                     notifications.push((
                         format!("Publish year from {:#?} to {:#?}", p1, p2),
-                        MediaStateChanged::MetadataReleaseDateChanged,
+                        UserNotificationContent::MetadataReleaseDateChanged,
                     ));
                 }
             }
@@ -402,7 +402,7 @@ pub async fn update_metadata(
                             s1.seasons.len(),
                             s2.seasons.len()
                         ),
-                        MediaStateChanged::MetadataNumberOfSeasonsChanged,
+                        UserNotificationContent::MetadataNumberOfSeasonsChanged,
                     ));
                 } else {
                     for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
@@ -419,7 +419,7 @@ pub async fn update_metadata(
                                     s2.episodes.len(),
                                     s1.season_number
                                 ),
-                                MediaStateChanged::MetadataEpisodeReleased,
+                                UserNotificationContent::MetadataEpisodeReleased,
                             ));
                         } else {
                             for (before_episode, after_episode) in
@@ -434,7 +434,7 @@ pub async fn update_metadata(
                                             s1.season_number,
                                             before_episode.episode_number
                                         ),
-                                        MediaStateChanged::MetadataEpisodeNameChanged,
+                                        UserNotificationContent::MetadataEpisodeNameChanged,
                                     ));
                                 }
                                 if before_episode.poster_images != after_episode.poster_images {
@@ -443,7 +443,7 @@ pub async fn update_metadata(
                                             "Episode image changed for S{}E{}",
                                             s1.season_number, before_episode.episode_number
                                         ),
-                                        MediaStateChanged::MetadataEpisodeImagesChanged,
+                                        UserNotificationContent::MetadataEpisodeImagesChanged,
                                     ));
                                 }
                                 if let (Some(pd1), Some(pd2)) =
@@ -458,7 +458,7 @@ pub async fn update_metadata(
                                                 s1.season_number,
                                                 before_episode.episode_number
                                             ),
-                                            MediaStateChanged::MetadataReleaseDateChanged,
+                                            UserNotificationContent::MetadataReleaseDateChanged,
                                         ));
                                     }
                                 }
@@ -472,7 +472,7 @@ pub async fn update_metadata(
                     if e1 != e2 {
                         notifications.push((
                             format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
-                            MediaStateChanged::MetadataChaptersOrEpisodesChanged,
+                            UserNotificationContent::MetadataChaptersOrEpisodesChanged,
                         ));
                     }
                 }
@@ -482,7 +482,7 @@ pub async fn update_metadata(
                     if c1 != c2 {
                         notifications.push((
                             format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
-                            MediaStateChanged::MetadataChaptersOrEpisodesChanged,
+                            UserNotificationContent::MetadataChaptersOrEpisodesChanged,
                         ));
                     }
                 }
@@ -495,7 +495,7 @@ pub async fn update_metadata(
                             p1.episodes.len(),
                             p2.episodes.len()
                         ),
-                        MediaStateChanged::MetadataEpisodeReleased,
+                        UserNotificationContent::MetadataEpisodeReleased,
                     ));
                 } else {
                     for (before_episode, after_episode) in
@@ -509,13 +509,13 @@ pub async fn update_metadata(
                                     after_episode.title,
                                     before_episode.number
                                 ),
-                                MediaStateChanged::MetadataEpisodeNameChanged,
+                                UserNotificationContent::MetadataEpisodeNameChanged,
                             ));
                         }
                         if before_episode.thumbnail != after_episode.thumbnail {
                             notifications.push((
                                 format!("Episode image changed for EP{}", before_episode.number),
-                                MediaStateChanged::MetadataEpisodeImagesChanged,
+                                UserNotificationContent::MetadataEpisodeImagesChanged,
                             ));
                         }
                     }
@@ -646,19 +646,24 @@ pub async fn create_user_notification(
         ..Default::default()
     };
     let notification = insert_data.insert(db).await?;
-    ryot_log!(debug, "Queued notification with id = {}", notification.id);
+    ryot_log!(
+        debug,
+        "Created user notification with id = {}",
+        notification.id
+    );
     Ok(true)
 }
 
-pub async fn queue_media_state_changed_notification_for_user(
+pub async fn create_notification_for_user(
     user_id: &String,
-    notification: &(String, MediaStateChanged),
+    notification: &(String, UserNotificationContent),
+    lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        create_user_notification(msg, user_id, &ss.db, UserNotificationLot::Queued)
+        create_user_notification(msg, user_id, &ss.db, lot)
             .await
             .trace_ok();
     } else {
@@ -699,9 +704,14 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for (user_id, cte_id) in users_to_notify.iter() {
-                queue_media_state_changed_notification_for_user(user_id, &notification, ss)
-                    .await
-                    .trace_ok();
+                create_notification_for_user(
+                    user_id,
+                    &notification,
+                    UserNotificationLot::Queued,
+                    ss,
+                )
+                .await
+                .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
@@ -1697,14 +1707,14 @@ pub async fn create_or_update_user_workout(
                     "The workout was never resumed after being paused",
                 ));
             }
-            let mut total = 0;
-            for duration in durations.iter() {
-                total += duration
-                    .to
-                    .unwrap_or(end_time)
-                    .signed_duration_since(duration.from)
-                    .num_seconds();
-            }
+            let total = durations
+                .iter()
+                .map(|d| {
+                    d.to.unwrap_or(end_time)
+                        .signed_duration_since(d.from)
+                        .num_seconds()
+                })
+                .sum();
             (total, durations)
         }
         None => (
@@ -1979,9 +1989,21 @@ pub async fn create_or_update_user_workout(
         old_workout.delete(&ss.db).await?;
     }
     let data = insert.insert(&ss.db).await?;
-    if to_update_workout.is_some() {
-        schedule_user_for_workout_revision(user_id, ss).await?;
-    }
+    match to_update_workout {
+        Some(_) => schedule_user_for_workout_revision(user_id, ss).await?,
+        None => {
+            create_notification_for_user(
+                user_id,
+                &(
+                    format!("New workout created - {}", data.name),
+                    UserNotificationContent::NewWorkoutCreated,
+                ),
+                UserNotificationLot::Immediate,
+                ss,
+            )
+            .await?
+        }
+    };
     Ok(data.id)
 }
 

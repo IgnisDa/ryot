@@ -12,6 +12,7 @@ pub enum UserNotification {
     Table,
     UserId,
     Message,
+    IsAddressed,
 }
 
 #[async_trait::async_trait]
@@ -31,6 +32,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserNotification::Lot).text().not_null())
                     .col(ColumnDef::new(UserNotification::Message).text().not_null())
                     .col(ColumnDef::new(UserNotification::UserId).text().not_null())
+                    .col(ColumnDef::new(UserNotification::IsAddressed).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("notification_to_user_foreign_key")

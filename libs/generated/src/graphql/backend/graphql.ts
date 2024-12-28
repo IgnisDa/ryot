@@ -1037,20 +1037,6 @@ export enum MediaSource {
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
-export enum MediaStateChanged {
-  MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
-  MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
-  MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
-  MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
-  MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
-  MetadataPublished = 'METADATA_PUBLISHED',
-  MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
-  MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
-  PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
-  PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
-  ReviewPosted = 'REVIEW_POSTED'
-}
-
 export type MetadataCreator = {
   character?: Maybe<Scalars['String']['output']>;
   id?: Maybe<Scalars['String']['output']>;
@@ -2690,14 +2676,29 @@ export type UserMetadataGroupDetails = {
   reviews: Array<ReviewItem>;
 };
 
+export enum UserNotificationContent {
+  MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
+  MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
+  MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
+  MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
+  MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
+  MetadataPublished = 'METADATA_PUBLISHED',
+  MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
+  MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
+  NewWorkoutCreated = 'NEW_WORKOUT_CREATED',
+  PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
+  PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
+  ReviewPosted = 'REVIEW_POSTED'
+}
+
 export type UserNotificationsPreferences = {
   enabled: Scalars['Boolean']['output'];
-  toSend: Array<MediaStateChanged>;
+  toSend: Array<UserNotificationContent>;
 };
 
 export type UserNotificationsPreferencesInput = {
   enabled: Scalars['Boolean']['input'];
-  toSend: Array<MediaStateChanged>;
+  toSend: Array<UserNotificationContent>;
 };
 
 export type UserOthersFeaturesEnabledPreferences = {
@@ -3406,7 +3407,7 @@ export type UserAnalyticsQuery = { userAnalytics: { hours: Array<{ hour: number,
 export type UserDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserDetailsQuery = { userDetails: { __typename: 'User', id: string, lot: UserLot, name: string, isDisabled?: boolean | null, oidcIssuerId?: string | null, preferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, disableVideos: boolean, persistQueries: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ hidden: boolean, section: DashboardElementLot, numElements?: number | null, deduplicateMedia?: boolean | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { logging: { muteSounds: boolean, promptForRestTimer: boolean, showDetailsWhileEditing: boolean }, exercises: { unitSystem: UserUnitSystem, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } }, measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } } }, notifications: { toSend: Array<MediaStateChanged>, enabled: boolean }, featuresEnabled: { analytics: { enabled: boolean }, others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, show: boolean, book: boolean, anime: boolean, manga: boolean, music: boolean, movie: boolean, groups: boolean, people: boolean, genres: boolean, podcast: boolean, audioBook: boolean, videoGame: boolean, visualNovel: boolean } } } } | { __typename: 'UserDetailsError' } };
+export type UserDetailsQuery = { userDetails: { __typename: 'User', id: string, lot: UserLot, name: string, isDisabled?: boolean | null, oidcIssuerId?: string | null, preferences: { general: { reviewScale: UserReviewScale, gridPacking: GridPacking, displayNsfw: boolean, disableVideos: boolean, persistQueries: boolean, disableReviews: boolean, disableIntegrations: boolean, disableWatchProviders: boolean, disableNavigationAnimation: boolean, dashboard: Array<{ hidden: boolean, section: DashboardElementLot, numElements?: number | null, deduplicateMedia?: boolean | null }>, watchProviders: Array<{ lot: MediaLot, values: Array<string> }> }, fitness: { logging: { muteSounds: boolean, promptForRestTimer: boolean, showDetailsWhileEditing: boolean }, exercises: { unitSystem: UserUnitSystem, setRestTimers: { drop?: number | null, warmup?: number | null, normal?: number | null, failure?: number | null } }, measurements: { custom: Array<{ name: string, dataType: UserCustomMeasurementDataType }>, inbuilt: { weight: boolean, bodyMassIndex: boolean, totalBodyWater: boolean, muscle: boolean, leanBodyMass: boolean, bodyFat: boolean, boneMass: boolean, visceralFat: boolean, waistCircumference: boolean, waistToHeightRatio: boolean, hipCircumference: boolean, waistToHipRatio: boolean, chestCircumference: boolean, thighCircumference: boolean, bicepsCircumference: boolean, neckCircumference: boolean, bodyFatCaliper: boolean, chestSkinfold: boolean, abdominalSkinfold: boolean, thighSkinfold: boolean, basalMetabolicRate: boolean, totalDailyEnergyExpenditure: boolean, calories: boolean } } }, notifications: { toSend: Array<UserNotificationContent>, enabled: boolean }, featuresEnabled: { analytics: { enabled: boolean }, others: { calendar: boolean, collections: boolean }, fitness: { enabled: boolean, workouts: boolean, templates: boolean, measurements: boolean }, media: { enabled: boolean, show: boolean, book: boolean, anime: boolean, manga: boolean, music: boolean, movie: boolean, groups: boolean, people: boolean, genres: boolean, podcast: boolean, audioBook: boolean, videoGame: boolean, visualNovel: boolean } } } } | { __typename: 'UserDetailsError' } };
 
 export type UserExerciseDetailsQueryVariables = Exact<{
   exerciseId: Scalars['String']['input'];

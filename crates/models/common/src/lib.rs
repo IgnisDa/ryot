@@ -177,9 +177,10 @@ pub struct ChangeCollectionToEntityInput {
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-pub enum MediaStateChanged {
+pub enum UserNotificationContent {
     ReviewPosted,
     MetadataPublished,
+    NewWorkoutCreated,
     MetadataStatusChanged,
     MetadataEpisodeReleased,
     PersonMetadataAssociated,

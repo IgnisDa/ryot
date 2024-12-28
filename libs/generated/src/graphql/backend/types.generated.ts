@@ -1065,20 +1065,6 @@ export enum MediaSource {
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
-export enum MediaStateChanged {
-  MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
-  MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
-  MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
-  MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
-  MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
-  MetadataPublished = 'METADATA_PUBLISHED',
-  MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
-  MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
-  PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
-  PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
-  ReviewPosted = 'REVIEW_POSTED'
-}
-
 export type MetadataCreator = {
   __typename?: 'MetadataCreator';
   character?: Maybe<Scalars['String']['output']>;
@@ -2786,15 +2772,30 @@ export type UserMetadataGroupDetails = {
   reviews: Array<ReviewItem>;
 };
 
+export enum UserNotificationContent {
+  MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
+  MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
+  MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
+  MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
+  MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
+  MetadataPublished = 'METADATA_PUBLISHED',
+  MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
+  MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
+  NewWorkoutCreated = 'NEW_WORKOUT_CREATED',
+  PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
+  PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
+  ReviewPosted = 'REVIEW_POSTED'
+}
+
 export type UserNotificationsPreferences = {
   __typename?: 'UserNotificationsPreferences';
   enabled: Scalars['Boolean']['output'];
-  toSend: Array<MediaStateChanged>;
+  toSend: Array<UserNotificationContent>;
 };
 
 export type UserNotificationsPreferencesInput = {
   enabled: Scalars['Boolean']['input'];
-  toSend: Array<MediaStateChanged>;
+  toSend: Array<UserNotificationContent>;
 };
 
 export type UserOthersFeaturesEnabledPreferences = {
