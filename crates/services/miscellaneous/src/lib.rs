@@ -394,27 +394,22 @@ ORDER BY RANDOM() LIMIT 10;
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        let group = {
-            let association = MetadataToMetadataGroup::find()
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-                .one(&self.0.db)
-                .await?;
-            match association {
-                None => None,
-                Some(a) => {
-                    let grp = a
-                        .find_related(MetadataGroup)
-                        .one(&self.0.db)
-                        .await?
-                        .unwrap();
-                    Some(GraphqlMetadataGroup {
-                        id: grp.id,
-                        name: grp.title,
-                        part: a.part,
-                    })
-                }
-            }
-        };
+
+        let mut group = vec![];
+        let associations = MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&self.0.db)
+            .await?;
+        for association in associations {
+            let grp = association.1.unwrap();
+            group.push(GraphqlMetadataGroup {
+                id: grp.id,
+                name: grp.title,
+                part: association.0.part,
+            });
+        }
+
         let watch_providers = model.watch_providers.unwrap_or_default();
 
         let resp = GraphqlMetadataDetails {

@@ -762,7 +762,7 @@ export type GraphqlMetadataDetails = {
   creators: Array<MetadataCreatorGroupedByRole>;
   description?: Maybe<Scalars['String']['output']>;
   genres: Array<GenreListItem>;
-  group?: Maybe<GraphqlMetadataGroup>;
+  group: Array<GraphqlMetadataGroup>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isNsfw?: Maybe<Scalars['Boolean']['output']>;
