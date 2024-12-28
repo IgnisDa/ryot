@@ -47,11 +47,10 @@ impl IntegrationService {
                             );
                             false
                         }
-                        Some(_) => true,
-                        None => true,
+                        _ => true,
                     });
                 metadata.seen_history.iter_mut().for_each(|update| {
-                    update.ended_on = Some(Utc::now().date_naive());
+                    update.ended_on = Some(update.ended_on.unwrap_or(Utc::now().date_naive()));
                     if let Some(progress) = update.progress {
                         if progress > integration.maximum_progress.unwrap() {
                             ryot_log!(
@@ -70,12 +69,12 @@ impl IntegrationService {
         })
         .await
         {
+            Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
             Ok(_) => {
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
                 to_update.update(&self.0.db).await?;
             }
-            Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
         }
         Ok(())
     }
