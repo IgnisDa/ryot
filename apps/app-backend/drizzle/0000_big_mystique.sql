@@ -142,7 +142,6 @@ CREATE TABLE "user" (
 	"name" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
-	"is_anonymous" boolean DEFAULT false,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
