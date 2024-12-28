@@ -1707,14 +1707,14 @@ pub async fn create_or_update_user_workout(
                     "The workout was never resumed after being paused",
                 ));
             }
-            let mut total = 0;
-            for duration in durations.iter() {
-                total += duration
-                    .to
-                    .unwrap_or(end_time)
-                    .signed_duration_since(duration.from)
-                    .num_seconds();
-            }
+            let total = durations
+                .iter()
+                .map(|d| {
+                    d.to.unwrap_or(end_time)
+                        .signed_duration_since(d.from)
+                        .num_seconds()
+                })
+                .sum();
             (total, durations)
         }
         None => (
