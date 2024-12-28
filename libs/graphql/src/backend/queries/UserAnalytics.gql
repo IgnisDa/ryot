@@ -18,6 +18,7 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 				showCount
 				totalCount
 				movieCount
+				musicCount
 				animeCount
 				mangaCount
 				workoutCount
@@ -31,6 +32,7 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 				totalWorkoutReps
 				totalShowDuration
 				totalMovieDuration
+				totalMusicDuration
 				totalMetadataCount
 				totalWorkoutWeight
 				totalPodcastDuration

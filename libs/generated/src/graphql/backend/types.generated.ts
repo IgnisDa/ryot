@@ -354,6 +354,7 @@ export type DailyUserActivityItem = {
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
+  musicCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
   totalAudioBookDuration: Scalars['Int']['output'];
@@ -365,6 +366,7 @@ export type DailyUserActivityItem = {
   totalMetadataGroupReviewCount: Scalars['Int']['output'];
   totalMetadataReviewCount: Scalars['Int']['output'];
   totalMovieDuration: Scalars['Int']['output'];
+  totalMusicDuration: Scalars['Int']['output'];
   totalPersonReviewCount: Scalars['Int']['output'];
   totalPodcastDuration: Scalars['Int']['output'];
   totalReviewCount: Scalars['Int']['output'];

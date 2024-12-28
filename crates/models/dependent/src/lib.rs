@@ -343,6 +343,8 @@ pub struct DailyUserActivityItem {
     pub manga_count: i64,
     pub movie_count: i64,
     pub total_movie_duration: i64,
+    pub music_count: i64,
+    pub total_music_duration: i64,
     pub show_count: i64,
     pub total_show_duration: i64,
     pub video_game_count: i64,
