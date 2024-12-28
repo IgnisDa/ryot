@@ -15,6 +15,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Loader,
 	type MantineStyleProp,
 	Modal,
 	MultiSelect,
@@ -29,7 +30,13 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
 import {
 	EntityLot,
 	GridPacking,
@@ -54,11 +61,13 @@ import {
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
+	IconRefresh,
 	IconSearch,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
@@ -121,22 +130,39 @@ export const ApplicationGrid = (props: {
 };
 
 export const MediaDetailsLayout = (props: {
+	title: string;
 	images: Array<string | null | undefined>;
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink?: {
-		source: MediaSource;
 		lot?: MediaLot;
+		source: MediaSource;
 		href?: string | null;
+	};
+	partialDetailsFetcher: {
+		entityId: string;
+		isAlreadyPartial?: boolean | null;
+		fn: () => Promise<boolean | undefined | null>;
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
+	const revalidator = useRevalidator();
+
+	const { data: isPartialData } = useQuery({
+		queryFn: props.partialDetailsFetcher.fn,
+		enabled: Boolean(props.partialDetailsFetcher.isAlreadyPartial),
+		queryKey: ["pollDetails", props.partialDetailsFetcher.entityId],
+		refetchInterval: (query) => {
+			if (query.state.data === true) return 500;
+			return false;
+		},
+	});
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
 			<Box
-				id="images-container"
 				pos="relative"
+				id="images-container"
 				className={classes.imagesContainer}
 			>
 				{props.images.length > 1 ? (
@@ -154,21 +180,21 @@ export const MediaDetailsLayout = (props: {
 				) : (
 					<Box w={300}>
 						<Image
-							src={props.images[0]}
-							height={400}
 							radius="lg"
+							height={400}
+							src={props.images[0]}
 							fallbackSrc={fallbackImageUrl}
 						/>
 					</Box>
 				)}
 				{props.externalLink ? (
 					<Badge
-						id="data-source"
-						pos="absolute"
 						size="lg"
 						top={10}
 						left={10}
 						color="dark"
+						pos="absolute"
+						id="data-source"
 						variant="filled"
 					>
 						<Flex gap={4} align="center">
@@ -188,6 +214,18 @@ export const MediaDetailsLayout = (props: {
 				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
+				<Group wrap="nowrap">
+					{props.partialDetailsFetcher.isAlreadyPartial ? (
+						isPartialData ? (
+							<Loader size="sm" />
+						) : (
+							<ActionIcon size="sm" onClick={() => revalidator.revalidate()}>
+								<IconRefresh />
+							</ActionIcon>
+						)
+					) : null}
+					<Title id="media-title">{props.title}</Title>
+				</Group>
 				{props.children}
 			</Stack>
 		</Flex>

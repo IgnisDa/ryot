@@ -9,7 +9,6 @@ import {
 	Stack,
 	Tabs,
 	Text,
-	Title,
 } from "@mantine/core";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
@@ -43,7 +42,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { getMetadataGroupDetailsQuery } from "~/lib/generals";
+import { clientGqlService, getMetadataGroupDetailsQuery } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
@@ -101,15 +100,23 @@ export default function Page() {
 	return (
 		<Container>
 			<MediaDetailsLayout
+				title={loaderData.personDetails.details.name}
 				images={loaderData.personDetails.details.displayImages}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.details.sourceUrl,
 				}}
+				partialDetailsFetcher={{
+					entityId: loaderData.personDetails.details.id,
+					isAlreadyPartial: loaderData.personDetails.details.isPartial,
+					fn: () =>
+						clientGqlService
+							.request(PersonDetailsDocument, {
+								personId: loaderData.personDetails.details.id,
+							})
+							.then((data) => data.personDetails.details.isPartial),
+				}}
 			>
-				<Title id="creator-title">
-					{loaderData.personDetails.details.name}
-				</Title>
 				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 					{[
 						totalMetadata ? `${totalMetadata} media items` : null,

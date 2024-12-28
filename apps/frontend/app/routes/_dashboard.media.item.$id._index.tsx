@@ -112,6 +112,7 @@ import {
 import {
 	PRO_REQUIRED_MESSAGE,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -332,13 +333,37 @@ export default function Page() {
 			/>
 			<Container>
 				<MediaDetailsLayout
+					title={loaderData.metadataDetails.title}
 					images={loaderData.metadataDetails.assets.images}
 					externalLink={{
 						lot: loaderData.metadataDetails.lot,
 						source: loaderData.metadataDetails.source,
 						href: loaderData.metadataDetails.sourceUrl,
 					}}
+					partialDetailsFetcher={{
+						entityId: loaderData.metadataDetails.id,
+						isAlreadyPartial: loaderData.metadataDetails.isPartial,
+						fn: () =>
+							clientGqlService
+								.request(MetadataDetailsDocument, {
+									metadataId: loaderData.metadataDetails.id,
+								})
+								.then((data) => data.metadataDetails.isPartial),
+					}}
 				>
+					{loaderData.userMetadataDetails.collections.length > 0 ? (
+						<Group>
+							{loaderData.userMetadataDetails.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									key={col.id}
+									creatorUserId={col.userId}
+									entityLot={EntityLot.Metadata}
+									entityId={loaderData.metadataId}
+								/>
+							))}
+						</Group>
+					) : null}
 					<Box>
 						{userPreferences.featuresEnabled.media.groups &&
 						firstGroupAssociated ? (
@@ -353,88 +378,76 @@ export default function Page() {
 								</Text>
 							</Link>
 						) : null}
-						<Title id="media-title">{loaderData.metadataDetails.title}</Title>
+						<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+							{[
+								loaderData.metadataDetails.publishDate
+									? dayjsLib(loaderData.metadataDetails.publishDate).format(
+											"LL",
+										)
+									: loaderData.metadataDetails.publishYear,
+								loaderData.metadataDetails.originalLanguage,
+								loaderData.metadataDetails.productionStatus,
+								loaderData.metadataDetails.bookSpecifics?.pages &&
+									`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
+								loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
+									`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
+								loaderData.metadataDetails.animeSpecifics?.episodes &&
+									`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
+								loaderData.metadataDetails.mangaSpecifics?.chapters &&
+									`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
+								loaderData.metadataDetails.mangaSpecifics?.volumes &&
+									`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
+								loaderData.metadataDetails.movieSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.movieSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.showSpecifics?.totalSeasons &&
+									`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
+								loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
+									`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
+								loaderData.metadataDetails.showSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.showSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.audioBookSpecifics?.runtime &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.audioBookSpecifics.runtime,
+												"minute",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.musicSpecifics?.duration &&
+									humanizeDuration(
+										dayjsLib
+											.duration(
+												loaderData.metadataDetails.musicSpecifics.duration,
+												"second",
+											)
+											.asMilliseconds(),
+									),
+								loaderData.metadataDetails.musicSpecifics?.viewCount &&
+									formatQuantityWithCompactNotation(
+										loaderData.metadataDetails.musicSpecifics.viewCount,
+									),
+								loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
+									"Various Artists",
+							]
+								.filter(Boolean)
+								.join(" • ")}
+						</Text>
 					</Box>
-					{loaderData.userMetadataDetails.collections.length > 0 ? (
-						<Group>
-							{loaderData.userMetadataDetails.collections.map((col) => (
-								<DisplayCollection
-									col={col}
-									key={col.id}
-									creatorUserId={col.userId}
-									entityLot={EntityLot.Metadata}
-									entityId={loaderData.metadataId}
-								/>
-							))}
-						</Group>
-					) : null}
-					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-						{[
-							loaderData.metadataDetails.publishDate
-								? dayjsLib(loaderData.metadataDetails.publishDate).format("LL")
-								: loaderData.metadataDetails.publishYear,
-							loaderData.metadataDetails.originalLanguage,
-							loaderData.metadataDetails.productionStatus,
-							loaderData.metadataDetails.bookSpecifics?.pages &&
-								`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
-							loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
-								`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataDetails.animeSpecifics?.episodes &&
-								`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
-							loaderData.metadataDetails.mangaSpecifics?.chapters &&
-								`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
-							loaderData.metadataDetails.mangaSpecifics?.volumes &&
-								`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
-							loaderData.metadataDetails.movieSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.movieSpecifics.runtime,
-											"minute",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.showSpecifics?.totalSeasons &&
-								`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
-							loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
-								`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataDetails.showSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.showSpecifics.runtime,
-											"minute",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.audioBookSpecifics?.runtime &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.audioBookSpecifics.runtime,
-											"minute",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.musicSpecifics?.duration &&
-								humanizeDuration(
-									dayjsLib
-										.duration(
-											loaderData.metadataDetails.musicSpecifics.duration,
-											"second",
-										)
-										.asMilliseconds(),
-								),
-							loaderData.metadataDetails.musicSpecifics?.viewCount &&
-								formatQuantityWithCompactNotation(
-									loaderData.metadataDetails.musicSpecifics.viewCount,
-								),
-							loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
-								"Various Artists",
-						]
-							.filter(Boolean)
-							.join(" • ")}
-					</Text>
 					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
