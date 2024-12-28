@@ -2686,7 +2686,6 @@ export enum UserNotificationContent {
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
   MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
   NewWorkoutCreated = 'NEW_WORKOUT_CREATED',
-  PersonMediaAssociated = 'PERSON_MEDIA_ASSOCIATED',
   PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
   PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
   ReviewPosted = 'REVIEW_POSTED'
