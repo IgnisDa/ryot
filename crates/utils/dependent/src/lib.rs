@@ -859,6 +859,10 @@ pub async fn deploy_background_job(
     }
     match job_name {
         BackgroundJob::UpdateAllMetadata => {
+            Metadata::update_many()
+                .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                .exec(&ss.db)
+                .await?;
             let many_metadata = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
