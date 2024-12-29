@@ -456,7 +456,6 @@ query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 			id
 			name
 			createdOn
-			visibility
 			summary {
 				...WorkoutSummaryPart
 			}

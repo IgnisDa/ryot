@@ -31,7 +31,6 @@ import {
 	IconChevronDown,
 	IconChevronUp,
 	IconClock,
-	IconLock,
 	IconPlus,
 	IconRoad,
 	IconTrophy,
@@ -229,11 +228,11 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 							workoutTemplateId: props.entityId,
 						})
 						.then(({ userWorkoutTemplateDetails }) => ({
+							detail: "",
 							name: userWorkoutTemplateDetails.details.name,
 							summary: userWorkoutTemplateDetails.details.summary,
 							timestamp: userWorkoutTemplateDetails.details.createdOn,
 							information: userWorkoutTemplateDetails.details.information,
-							detail: changeCase(userWorkoutTemplateDetails.details.visibility),
 						})),
 				)
 				.exhaustive(),
@@ -278,13 +277,12 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 							</Text>
 						</Group>
 						<Group mt="xs">
-							<DisplayStat
-								data={entityInformation.detail}
-								icon={match(loaderData.entity)
-									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
-									.with(FitnessEntity.Templates, () => <IconLock size={16} />)
-									.exhaustive()}
-							/>
+							{entityInformation.detail ? (
+								<DisplayStat
+									icon={<IconClock size={16} />}
+									data={entityInformation.detail}
+								/>
+							) : null}
 							{entityInformation.summary.total ? (
 								<>
 									{personalBestsAchieved !== 0 ? (

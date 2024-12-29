@@ -3142,5 +3142,4 @@ export type WorkoutTemplate = {
   information: WorkoutInformation;
   name: Scalars['String']['output'];
   summary: WorkoutSummary;
-  visibility: Visibility;
 };
