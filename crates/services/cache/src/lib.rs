@@ -123,7 +123,7 @@ impl CacheService {
     pub async fn get_value<T: DeserializeOwned>(&self, key: ApplicationCacheKey) -> Option<T> {
         let caches = self.get_values(vec![key.clone()]).await.ok()?;
         let db_value = serde_json::to_value(caches.get(&key)?).ok()?;
-        Some(serde_json::from_value::<T>(db_value).ok()?)
+        serde_json::from_value::<T>(db_value).ok()
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {
