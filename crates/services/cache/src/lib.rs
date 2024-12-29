@@ -117,9 +117,7 @@ impl CacheService {
         let mut values = HashMap::new();
         for cache in caches {
             let should_respect_version = self.should_respect_version(&cache.key);
-            let valid_by_expiry = cache
-                .expires_at
-                .map_or(true, |expires_at| expires_at > Utc::now());
+            let valid_by_expiry = cache.expires_at.map_or(true, |ea| ea > Utc::now());
             if valid_by_expiry {
                 if should_respect_version && cache.version != APP_COMMIT_SHA {
                     continue;
