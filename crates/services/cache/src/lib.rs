@@ -11,7 +11,6 @@ use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
-use uuid::Uuid;
 
 pub struct CacheService {
     db: DatabaseConnection,
@@ -64,7 +63,7 @@ impl CacheService {
     pub async fn set_keys(
         &self,
         items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
-    ) -> Result<Uuid> {
+    ) -> Result<()> {
         let now = Utc::now();
         let to_insert = items
             .into_iter()
@@ -94,7 +93,7 @@ impl CacheService {
             .await?;
         let insert_id = inserted.last_insert_id;
         ryot_log!(debug, "Inserted application cache with id = {insert_id:?}");
-        Ok(insert_id)
+        Ok(())
     }
 
     pub async fn set_key(
@@ -102,8 +101,7 @@ impl CacheService {
         key: ApplicationCacheKey,
         value: ApplicationCacheValue,
     ) -> Result<()> {
-        self.set_keys(vec![(key, value)]).await?;
-        Ok(())
+        self.set_keys(vec![(key, value)]).await
     }
 
     pub async fn get_values(
