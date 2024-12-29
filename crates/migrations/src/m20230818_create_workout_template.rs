@@ -1,8 +1,7 @@
 // FIXME: Rename this to m20230506_create_workout_template in the next major release
-use enum_models::Visibility;
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use crate::m20230417_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -15,7 +14,6 @@ pub enum WorkoutTemplate {
     CreatedOn,
     Name,
     Summary,
-    Visibility,
     Information,
 }
 
@@ -31,12 +29,6 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .text()
                             .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(WorkoutTemplate::Visibility)
-                            .text()
-                            .not_null()
-                            .default(Visibility::Private),
                     )
                     .col(
                         ColumnDef::new(WorkoutTemplate::Summary)
