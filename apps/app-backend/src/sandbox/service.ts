@@ -190,15 +190,15 @@ export class SandboxService {
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
+			if (timedOut)
+				return {
+					logs,
+					success: false,
+					error: `Sandbox timed out after ${timeoutMs}ms`,
+				};
+
 			try {
 				const parsed = JSON.parse(resultText) as SandboxResult;
-
-				if (timedOut)
-					return {
-						logs,
-						success: false,
-						error: `Sandbox timed out after ${timeoutMs}ms`,
-					};
 
 				return {
 					logs,
@@ -211,7 +211,7 @@ export class SandboxService {
 					logs,
 					success: false,
 					error:
-						timedOut || exit.signal === "SIGTERM" || exit.signal === "SIGKILL"
+						exit.signal === "SIGTERM" || exit.signal === "SIGKILL"
 							? `Sandbox timed out after ${timeoutMs}ms`
 							: resultText || formatExit(exit),
 				};
