@@ -116,14 +116,15 @@ impl CacheService {
             .await?;
         let mut values = HashMap::new();
         for cache in caches {
-            let should_respect_version = self.should_respect_version(&cache.key);
             let valid_by_expiry = cache.expires_at.map_or(true, |ea| ea > Utc::now());
-            if valid_by_expiry {
-                if should_respect_version && cache.version != APP_COMMIT_SHA {
-                    continue;
-                }
-                values.insert(cache.key, serde_json::from_value(cache.value)?);
+            if !valid_by_expiry {
+                continue;
             }
+            let should_respect_version = self.should_respect_version(&cache.key);
+            if should_respect_version && cache.version != APP_COMMIT_SHA {
+                continue;
+            }
+            values.insert(cache.key, serde_json::from_value(cache.value)?);
         }
         Ok(values)
     }
