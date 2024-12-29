@@ -1721,8 +1721,8 @@ pub async fn get_focused_workout_summary(
 
 /// Create a workout in the database and also update user and exercise associations.
 pub async fn create_or_update_user_workout(
-    input: UserWorkoutInput,
     user_id: &String,
+    input: UserWorkoutInput,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
@@ -1766,6 +1766,7 @@ pub async fn create_or_update_user_workout(
         None => (
             input
                 .create_workout_id
+                .clone()
                 .unwrap_or_else(|| format!("wor_{}", nanoid!(12))),
             None,
         ),
@@ -2021,16 +2022,18 @@ pub async fn create_or_update_user_workout(
     match to_update_workout {
         Some(_) => schedule_user_for_workout_revision(user_id, ss).await?,
         None => {
-            create_notification_for_user(
-                user_id,
-                &(
-                    format!("New workout created - {}", data.name),
-                    UserNotificationContent::NewWorkoutCreated,
-                ),
-                UserNotificationLot::Immediate,
-                ss,
-            )
-            .await?
+            if input.create_workout_id.is_none() {
+                create_notification_for_user(
+                    user_id,
+                    &(
+                        format!("New workout created - {}", data.name),
+                        UserNotificationContent::NewWorkoutCreated,
+                    ),
+                    UserNotificationLot::Immediate,
+                    ss,
+                )
+                .await?
+            }
         }
     };
     Ok(data.id)
@@ -2371,7 +2374,7 @@ where
             }
             ImportCompletedItem::Workout(workout) => {
                 need_to_schedule_user_for_workout_revision = true;
-                if let Err(err) = create_or_update_user_workout(workout, user_id, ss).await {
+                if let Err(err) = create_or_update_user_workout(user_id, workout, ss).await {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
                         identifier: "Exercise".to_string(),
@@ -2382,7 +2385,7 @@ where
             }
             ImportCompletedItem::ApplicationWorkout(workout) => {
                 let workout_input = db_workout_to_workout_input(workout.details);
-                match create_or_update_user_workout(workout_input, user_id, ss).await {
+                match create_or_update_user_workout(user_id, workout_input, ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(err.message),

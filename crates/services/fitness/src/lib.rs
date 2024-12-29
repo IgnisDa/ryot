@@ -525,7 +525,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        create_or_update_user_workout(input, user_id, &self.0).await
+        create_or_update_user_workout(user_id, input, &self.0).await
     }
 
     pub async fn update_user_workout_attributes(
@@ -626,8 +626,7 @@ impl FitnessService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.0.db).await?;
             let workout_input = db_workout_to_workout_input(workout);
-            self.create_or_update_user_workout(&user_id, workout_input)
-                .await?;
+            create_or_update_user_workout(&user_id, workout_input, &self.0).await?;
             ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
         }
         Ok(())
