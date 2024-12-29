@@ -54,6 +54,13 @@ impl CacheService {
         }
     }
 
+    fn should_respect_version(&self, key: &ApplicationCacheKey) -> bool {
+        match key {
+            ApplicationCacheKey::CoreDetails => true,
+            _ => false,
+        }
+    }
+
     pub async fn set_keys(
         &self,
         items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
@@ -109,11 +116,14 @@ impl CacheService {
             .await?;
         let mut values = HashMap::new();
         for cache in caches {
-            if cache
+            let should_respect_version = self.should_respect_version(&cache.key);
+            let valid_by_expiry = cache
                 .expires_at
-                .map_or(true, |expires_at| expires_at > Utc::now())
-                && cache.version == APP_COMMIT_SHA
-            {
+                .map_or(true, |expires_at| expires_at > Utc::now());
+            if valid_by_expiry {
+                if should_respect_version && cache.version != APP_COMMIT_SHA {
+                    continue;
+                }
                 values.insert(cache.key, serde_json::from_value(cache.value)?);
             }
         }
