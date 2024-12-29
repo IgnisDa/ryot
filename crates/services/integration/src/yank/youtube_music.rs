@@ -6,6 +6,7 @@ use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongList
 use common_utils::TEMP_DIR;
 use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
+use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rustypipe::client::RustyPipe;
 use supporting_service::SupportingService;
@@ -29,28 +30,44 @@ pub async fn yank_progress(
         .music_history()
         .await
         .unwrap();
+    let songs_listened_to_today = music_history
+        .items
+        .into_iter()
+        .rev()
+        .map(|item| item.id)
+        .collect_vec();
+    let cache_keys = songs_listened_to_today
+        .iter()
+        .map(|id| {
+            (
+                id.clone(),
+                ApplicationCacheKey::YoutubeMusicSongListened(UserLevelCacheKey {
+                    user_id: user_id.to_owned(),
+                    input: YoutubeMusicSongListened {
+                        id: id.clone(),
+                        listened_on: date,
+                    },
+                }),
+            )
+        })
+        .collect_vec();
+    let items_in_cache = ss
+        .cache_service
+        .get_values(cache_keys.iter().map(|(_id, key)| key.clone()).collect())
+        .await
+        .unwrap_or_default();
+    let songs_to_process = cache_keys
+        .iter()
+        .filter(|(_id, key)| !items_in_cache.contains_key(key))
+        .map(|(id, _key)| id)
+        .collect_vec();
     let mut result = ImportResult::default();
-    for item in music_history.items.into_iter().rev() {
-        let cache_key = ApplicationCacheKey::YoutubeMusicSongListened(UserLevelCacheKey {
-            user_id: user_id.to_owned(),
-            input: YoutubeMusicSongListened {
-                listened_on: date,
-                id: item.id.clone(),
-            },
-        });
-        if ss
-            .cache_service
-            .get_value::<EmptyCacheValue>(cache_key.clone())
-            .await
-            .is_some()
-        {
-            continue;
-        }
+    for item in songs_to_process {
         result
             .completed
             .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                identifier: item.id,
                 lot: MediaLot::Music,
+                identifier: item.to_owned(),
                 source: MediaSource::YoutubeMusic,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
                     provider_watched_on: Some(MediaSource::YoutubeMusic.to_string()),
@@ -58,13 +75,20 @@ pub async fn yank_progress(
                 }],
                 ..Default::default()
             }));
-        ss.cache_service
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
-            )
-            .await
-            .unwrap();
     }
+    ss.cache_service
+        .set_keys(
+            cache_keys
+                .into_iter()
+                .map(|(_id, key)| {
+                    (
+                        key,
+                        ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+                    )
+                })
+                .collect(),
+        )
+        .await
+        .ok();
     Ok(result)
 }

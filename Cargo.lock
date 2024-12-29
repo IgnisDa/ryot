@@ -1134,6 +1134,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "env-utils",
+ "itertools 0.13.0",
  "sea-orm",
  "sea-query",
  "serde",

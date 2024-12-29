@@ -7,6 +7,7 @@ use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
 use env_utils::APP_COMMIT_SHA;
+use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -53,22 +54,25 @@ impl CacheService {
         }
     }
 
-    pub async fn set_key(
+    pub async fn set_keys(
         &self,
-        key: ApplicationCacheKey,
-        value: ApplicationCacheValue,
+        items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
     ) -> Result<Uuid> {
         let now = Utc::now();
-        let expiry_hours = self.get_expiry_for_key(&key);
-        let to_insert = application_cache::ActiveModel {
-            key: ActiveValue::Set(key),
-            created_at: ActiveValue::Set(now),
-            version: ActiveValue::Set(APP_COMMIT_SHA.to_owned()),
-            value: ActiveValue::Set(serde_json::to_value(value)?),
-            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
-            ..Default::default()
-        };
-        let inserted = ApplicationCache::insert(to_insert)
+        let to_insert = items
+            .into_iter()
+            .map(|(key, value)| application_cache::ActiveModel {
+                created_at: ActiveValue::Set(now),
+                key: ActiveValue::Set(key.clone()),
+                version: ActiveValue::Set(APP_COMMIT_SHA.to_owned()),
+                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                expires_at: ActiveValue::Set(Some(
+                    now + Duration::hours(self.get_expiry_for_key(&key)),
+                )),
+                ..Default::default()
+            })
+            .collect_vec();
+        let inserted = ApplicationCache::insert_many(to_insert)
             .on_conflict(
                 OnConflict::column(application_cache::Column::Key)
                     .update_columns([
@@ -84,6 +88,15 @@ impl CacheService {
         let insert_id = inserted.last_insert_id;
         ryot_log!(debug, "Inserted application cache with id = {insert_id:?}");
         Ok(insert_id)
+    }
+
+    pub async fn set_key(
+        &self,
+        key: ApplicationCacheKey,
+        value: ApplicationCacheValue,
+    ) -> Result<()> {
+        self.set_keys(vec![(key, value)]).await?;
+        Ok(())
     }
 
     pub async fn get_values(
