@@ -396,11 +396,6 @@ export interface WorkoutTemplate {
 	information: WorkoutInformation;
 	name: string;
 	summary: WorkoutSummary;
-	/**
-	 * @default 'public'
-	 * @type {'public' | 'private'}
-	 */
-	visibility: Visibility;
 }
 
 export interface ImportOrExportWorkoutTemplateItem {
