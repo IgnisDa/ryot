@@ -3,16 +3,7 @@
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": [
-				"out/**",
-				"dist/**",
-				"build/**",
-				"types-dist/**",
-				".vitepress/dist/**"
-			]
-		},
-		"build:types": {
-			"outputs": ["types-dist/**"]
+			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
 		"build-chrome": {
 			"dependsOn": ["^build"],
@@ -26,9 +17,7 @@
 				"dist/*-firefox.zip"
 			]
 		},
-		"typecheck": {
-			"dependsOn": ["^build:types"]
-		},
+		"typecheck": {},
 		"lint": {},
 		"test": {
 			"dependsOn": ["^build"]
