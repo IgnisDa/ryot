@@ -25,7 +25,7 @@ use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, get_focused_workout_summary,
 };
-use enum_models::{EntityLot, ExerciseLot, ExerciseSource, Visibility};
+use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
     GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
@@ -137,15 +137,14 @@ impl FitnessService {
         let processed_exercises = information.exercises.clone();
         summary.focused = get_focused_workout_summary(&processed_exercises, &self.0).await;
         let template = workout_template::ActiveModel {
-            id: match input.update_workout_template_id {
-                Some(id) => ActiveValue::Set(id),
-                None => ActiveValue::Set(format!("wktpl_{}", nanoid!(12))),
-            },
             name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
             summary: ActiveValue::Set(summary),
             information: ActiveValue::Set(information),
-            visibility: ActiveValue::Set(Visibility::Private),
+            id: match input.update_workout_template_id {
+                Some(id) => ActiveValue::Set(id),
+                None => ActiveValue::Set(format!("wktpl_{}", nanoid!(12))),
+            },
             ..Default::default()
         };
         let template = WorkoutTemplate::insert(template)
@@ -154,7 +153,6 @@ impl FitnessService {
                     .update_columns([
                         workout_template::Column::Name,
                         workout_template::Column::Summary,
-                        workout_template::Column::Visibility,
                         workout_template::Column::Information,
                     ])
                     .to_owned(),
