@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use chrono::{Duration, Utc};
@@ -45,7 +45,7 @@ impl CacheService {
                 self.config.server.progress_update_threshold
             }
 
-            ApplicationCacheKey::YoutubeMusicSongListened { .. } => 48,
+            ApplicationCacheKey::YoutubeMusicSongListened { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::ListennotesSettings
@@ -86,21 +86,31 @@ impl CacheService {
         Ok(insert_id)
     }
 
+    pub async fn get_values(
+        &self,
+        keys: Vec<ApplicationCacheKey>,
+    ) -> Result<HashMap<ApplicationCacheKey, ApplicationCacheValue>> {
+        let caches = ApplicationCache::find()
+            .filter(application_cache::Column::Key.is_in(keys))
+            .all(&self.db)
+            .await?;
+        let mut values = HashMap::new();
+        for cache in caches {
+            if cache
+                .expires_at
+                .map_or(true, |expires_at| expires_at > Utc::now())
+                && cache.version == APP_COMMIT_SHA
+            {
+                values.insert(cache.key, serde_json::from_value(cache.value)?);
+            }
+        }
+        Ok(values)
+    }
+
     pub async fn get_value<T: DeserializeOwned>(&self, key: ApplicationCacheKey) -> Option<T> {
-        let cache = ApplicationCache::find()
-            .filter(application_cache::Column::Key.eq(key.clone()))
-            .one(&self.db)
-            .await
-            .ok()?;
-        let db_value = cache
-            .filter(|cache| {
-                cache
-                    .expires_at
-                    .map_or(true, |expires_at| expires_at > Utc::now())
-                    && cache.version == APP_COMMIT_SHA
-            })
-            .map(|m| m.value)?;
-        serde_json::from_value::<T>(db_value).ok()
+        let caches = self.get_values(vec![key.clone()]).await.ok()?;
+        let db_value = serde_json::to_value(caches.get(&key)?).ok()?;
+        Some(serde_json::from_value::<T>(db_value).ok()?)
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {
