@@ -28,6 +28,16 @@ mod yank;
 pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
+    async fn set_integration_last_triggered_on(
+        &self,
+        integration: &integration::Model,
+    ) -> Result<()> {
+        let mut integration: integration::ActiveModel = integration.clone().into();
+        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+        integration.update(&self.0.db).await?;
+        Ok(())
+    }
+
     async fn integration_progress_update(
         &self,
         integration: integration::Model,
@@ -70,11 +80,7 @@ impl IntegrationService {
         .await
         {
             Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
-            Ok(_) => {
-                let mut to_update: integration::ActiveModel = integration.into();
-                to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-                to_update.update(&self.0.db).await?;
-            }
+            Ok(_) => self.set_integration_last_triggered_on(&integration).await?,
         }
         Ok(())
     }
@@ -199,9 +205,7 @@ impl IntegrationService {
                         _ => unreachable!(),
                     };
                     if push_result.is_ok() {
-                        let mut integration: integration::ActiveModel = integration.into();
-                        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-                        integration.update(&self.0.db).await?;
+                        self.set_integration_last_triggered_on(&integration).await?;
                     }
                 }
             }
@@ -227,7 +231,7 @@ impl IntegrationService {
             .await?;
         for integration in integrations {
             let specifics = integration.provider_specifics.clone().unwrap();
-            match integration.provider {
+            let push_result = match integration.provider {
                 IntegrationProvider::JellyfinPush => {
                     push::jellyfin::push_progress(
                         specifics.jellyfin_push_base_url.unwrap(),
@@ -237,13 +241,13 @@ impl IntegrationService {
                         &metadata_title,
                         &show_extra_information,
                     )
-                    .await?;
+                    .await
                 }
                 _ => unreachable!(),
+            };
+            if push_result.is_ok() {
+                self.set_integration_last_triggered_on(&integration).await?;
             }
-            let mut integration: integration::ActiveModel = integration.into();
-            integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-            integration.update(&self.0.db).await?;
         }
         Ok(())
     }
