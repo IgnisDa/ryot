@@ -221,7 +221,7 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         for integration in integrations {
-            let specifics = integration.provider_specifics.unwrap();
+            let specifics = integration.provider_specifics.clone().unwrap();
             match integration.provider {
                 IntegrationProvider::JellyfinPush => {
                     push::jellyfin::push_progress(
@@ -236,6 +236,9 @@ impl IntegrationService {
                 }
                 _ => unreachable!(),
             }
+            let mut integration: integration::ActiveModel = integration.into();
+            integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+            integration.update(&self.0.db).await?;
         }
         Ok(())
     }
