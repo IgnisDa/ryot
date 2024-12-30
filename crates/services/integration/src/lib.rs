@@ -159,7 +159,7 @@ impl IntegrationService {
                 if !possible_collection_ids.contains(&cte.collection_id) {
                     continue;
                 }
-                let specifics = integration.provider_specifics.unwrap();
+                let specifics = integration.provider_specifics.clone().unwrap();
                 let metadata = Metadata::find_by_id(&cte.entity_id)
                     .one(&self.0.db)
                     .await?
@@ -171,7 +171,7 @@ impl IntegrationService {
                     _ => Some(metadata.identifier.clone()),
                 };
                 if let Some(entity_id) = maybe_entity_id {
-                    let _push_result = match integration.provider {
+                    let push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
                             push::radarr::push_progress(
                                 specifics.radarr_api_key.unwrap(),
@@ -198,6 +198,11 @@ impl IntegrationService {
                         }
                         _ => unreachable!(),
                     };
+                    if push_result.is_ok() {
+                        let mut integration: integration::ActiveModel = integration.into();
+                        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+                        integration.update(&self.0.db).await?;
+                    }
                 }
             }
         }
