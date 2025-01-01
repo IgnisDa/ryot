@@ -351,6 +351,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						e.seasonNumber === submission.showSeasonNumber &&
 						e.episodeNumber === submission.showEpisodeNumber,
 				);
+				const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
 				const firstEpisodeOfShow = allEpisodesInShow[0];
 				const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
 					episode: firstEpisodeOfShow.episodeNumber,
@@ -365,11 +366,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 					for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
-						const episode = allEpisodesInShow[i];
+						const currentEpisode = allEpisodesInShow[i];
+						if (
+							currentEpisode.seasonNumber === 0 &&
+							selectedEpisode.seasonNumber !== 0
+						) {
+							continue;
+						}
 						updates.push({
 							...variables,
-							showSeasonNumber: episode.seasonNumber,
-							showEpisodeNumber: episode.episodeNumber,
+							showSeasonNumber: currentEpisode.seasonNumber,
+							showEpisodeNumber: currentEpisode.episodeNumber,
 						});
 					}
 				}

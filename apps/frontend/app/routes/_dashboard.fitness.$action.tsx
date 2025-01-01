@@ -322,7 +322,11 @@ export default function Page() {
 					const exerciseIdx = currentWorkout?.exercises.findIndex(
 						(c) => c.identifier === triggeredBy.exerciseIdentifier,
 					);
-					if (exerciseIdx !== undefined && exerciseIdx !== -1) {
+					if (
+						exerciseIdx !== -1 &&
+						exerciseIdx !== undefined &&
+						userPreferences.fitness.logging.promptForRestTimer
+					) {
 						performTasksAfterSetConfirmed(triggeredBy.setIdx, exerciseIdx);
 					}
 				}
