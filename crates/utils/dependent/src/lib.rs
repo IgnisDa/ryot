@@ -1964,6 +1964,13 @@ pub async fn create_or_update_user_workout(
         template_id: input.template_id,
         repeated_from: input.repeated_from,
         duration: duration.try_into().unwrap(),
+        information: WorkoutInformation {
+            assets: input.assets,
+            comment: input.comment,
+            supersets: input.supersets,
+            durations: Some(durations),
+            exercises: processed_exercises,
+        },
         summary: WorkoutSummary {
             focused,
             total: Some(summary_total),
@@ -1977,13 +1984,6 @@ pub async fn create_or_update_user_workout(
                     num_sets: e.sets.len(),
                 })
                 .collect(),
-        },
-        information: WorkoutInformation {
-            assets: input.assets,
-            comment: input.comment,
-            supersets: input.supersets,
-            durations: Some(durations),
-            exercises: processed_exercises,
         },
     };
     let mut insert: workout::ActiveModel = model.into();
