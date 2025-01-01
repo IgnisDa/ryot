@@ -262,12 +262,13 @@ export type CurrentWorkoutTimer = {
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
-const timerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
+const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
 	"CurrentWorkoutTimer",
 	null,
 );
 
-export const useTimerAtom = () => useAtom(timerAtom);
+export const useCurrentWorkoutTimerAtom = () =>
+	useAtom(currentWorkoutTimerAtom);
 
 const measurementsDrawerOpenAtom = atom(false);
 

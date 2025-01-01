@@ -140,7 +140,7 @@ import {
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
-	useTimerAtom,
+	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
@@ -276,7 +276,7 @@ export default function Page() {
 		string | null
 	>();
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
-	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
@@ -768,7 +768,7 @@ const formatTimerDuration = (duration: number) =>
 
 const RestTimer = () => {
 	forceUpdateEverySecond();
-	const [currentTimer] = useTimerAtom();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
 
 	return currentTimer
 		? formatTimerDuration(
@@ -1294,7 +1294,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [currentTimer, _] = useTimerAtom();
+	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
@@ -1737,7 +1737,7 @@ const ExerciseDisplay = (props: {
 const DisplayExerciseSetRestTimer = (props: {
 	openTimerDrawer: () => void;
 }) => {
-	const [currentTimer] = useTimerAtom();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
 	forceUpdateEverySecond();
 
 	if (!currentTimer) return null;
@@ -1789,7 +1789,7 @@ const SetDisplay = (props: {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const [currentTimer, _] = useTimerAtom();
+	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -2348,7 +2348,7 @@ const TimerDrawer = (props: {
 	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 
 	forceUpdateEverySecond();
 
