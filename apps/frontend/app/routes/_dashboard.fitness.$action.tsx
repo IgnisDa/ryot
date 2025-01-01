@@ -137,10 +137,10 @@ import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
+	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
-	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
