@@ -87,6 +87,7 @@ export type InProgressWorkout = {
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
 	durations: Array<WorkoutDuration>;
+	timerDrawerLot: "timer" | "stopwatch";
 	currentActionOrCompleted: FitnessAction;
 };
 
@@ -118,6 +119,7 @@ export const getDefaultWorkout = (
 		videos: [],
 		supersets: [],
 		exercises: [],
+		timerDrawerLot: "timer",
 		startTime: date.toISOString(),
 		currentActionOrCompleted: fitnessEntity,
 		durations: [{ from: date.toISOString() }],
@@ -269,6 +271,20 @@ const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
 
 export const useCurrentWorkoutTimerAtom = () =>
 	useAtom(currentWorkoutTimerAtom);
+
+export type CurrentWorkoutStopwatch = {
+	startedAt: string;
+	wasPausedAt?: string;
+};
+
+const currentWorkoutStopwatchAtom =
+	atomWithStorage<CurrentWorkoutStopwatch | null>(
+		"CurrentWorkoutStopwatch",
+		null,
+	);
+
+export const useCurrentWorkoutStopwatchAtom = () =>
+	useAtom(currentWorkoutStopwatchAtom);
 
 const measurementsDrawerOpenAtom = atom(false);
 

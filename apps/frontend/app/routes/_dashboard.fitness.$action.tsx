@@ -137,6 +137,7 @@ import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
+	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
@@ -767,14 +768,31 @@ const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
 
 const RestTimer = () => {
-	forceUpdateEverySecond();
+	const [currentWorkout] = useCurrentWorkout();
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
+	const [currentStopwatch] = useCurrentWorkoutStopwatchAtom();
+	invariant(currentWorkout);
 
-	return currentTimer
-		? formatTimerDuration(
-				dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
-			)
-		: "Timer";
+	forceUpdateEverySecond();
+
+	return match(currentWorkout.timerDrawerLot)
+		.with("timer", () =>
+			currentTimer
+				? formatTimerDuration(
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
+					)
+				: "Timer",
+		)
+		.with("stopwatch", () =>
+			currentStopwatch
+				? formatTimerDuration(
+						dayjsLib(currentStopwatch.wasPausedAt).diff(
+							currentStopwatch.startedAt,
+						),
+					)
+				: "Stopwatch",
+		)
+		.exhaustive();
 };
 
 const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
@@ -2341,6 +2359,8 @@ const styles = {
 	},
 };
 
+const restTimerOptions = [180, 300, 480, "Custom"];
+
 const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -2348,20 +2368,66 @@ const TimerDrawer = (props: {
 	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const [currentStopwatch, setCurrentStopwatch] =
+		useCurrentWorkoutStopwatchAtom();
+
+	invariant(currentWorkout);
 
 	forceUpdateEverySecond();
 
 	return (
 		<Drawer
-			onClose={props.onClose}
-			opened={props.opened}
-			withCloseButton={false}
-			position="bottom"
 			size="md"
+			position="bottom"
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
 			styles={{ body: { ...styles.body, height: "100%" } }}
 		>
 			<Stack align="center">
+				{!currentTimer && !currentStopwatch ? (
+					<>
+						{restTimerOptions.map((option) => (
+							<Button
+								w={160}
+								key={option}
+								size="compact-xl"
+								variant="outline"
+								onClick={() => {
+									if (isNumber(option)) props.startTimer(option);
+									else {
+										const input = prompt("Enter duration in seconds");
+										if (!input) return;
+										const intInput = Number.parseInt(input);
+										if (intInput) props.startTimer(intInput);
+										else alert("Invalid input");
+									}
+								}}
+							>
+								{isNumber(option) ? `${option / 60} minutes` : option}
+							</Button>
+						))}
+						<Divider w="150%" />
+						<Button
+							w={160}
+							size="compact-xl"
+							variant="outline"
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.timerDrawerLot = "stopwatch";
+									}),
+								);
+								setCurrentStopwatch({ startedAt: dayjsLib().toISOString() });
+							}}
+						>
+							Stopwatch
+						</Button>
+					</>
+				) : null}
+				{currentStopwatch ? <>{JSON.stringify(currentStopwatch)}</> : null}
 				{currentTimer ? (
 					<>
 						<Group gap="xl">
@@ -2465,48 +2531,7 @@ const TimerDrawer = (props: {
 							</Button>
 						</Group>
 					</>
-				) : (
-					<>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(180)}
-						>
-							3 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(300)}
-						>
-							5 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(480)}
-						>
-							8 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => {
-								const input = prompt("Enter duration in seconds");
-								if (!input) return;
-								const intInput = Number.parseInt(input);
-								if (intInput) props.startTimer(intInput);
-								else alert("Invalid input");
-							}}
-						>
-							Custom
-						</Button>
-					</>
-				)}
+				) : null}
 			</Stack>
 		</Drawer>
 	);
