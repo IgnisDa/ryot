@@ -24,6 +24,7 @@ import {
 	ScrollArea,
 	Select,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Table,
 	Text,
@@ -398,7 +399,7 @@ export default function Page() {
 	return (
 		<Container size="sm">
 			{currentWorkout ? (
-				<ClientOnly fallback={<Text>Loading workout...</Text>}>
+				<ClientOnly>
 					{() => (
 						<>
 							<UploadAssetsModal
@@ -668,9 +669,16 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>
-					Loading {loaderData.isCreatingTemplate ? "template" : "workout"}...
-				</Text>
+				<Stack>
+					<Group wrap="nowrap">
+						<Skeleton h={80} w="80%" />
+						<Skeleton h={80} w="20%" />
+					</Group>
+					<Group wrap="nowrap">
+						<Skeleton h={80} w="20%" />
+						<Skeleton h={80} w="80%" />
+					</Group>
+				</Stack>
 			)}
 		</Container>
 	);
