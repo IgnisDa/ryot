@@ -242,9 +242,9 @@ export const ExerciseHistory = (props: {
 			.exhaustive(),
 	);
 	const exercise =
-		workoutDetails.details.information.exercises[props.exerciseIdx];
+		workoutDetails?.details.information.exercises[props.exerciseIdx];
 	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.id),
+		getExerciseDetailsQuery(exercise?.id || ""),
 	);
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),
