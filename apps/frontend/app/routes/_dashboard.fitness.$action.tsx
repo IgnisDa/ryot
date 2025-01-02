@@ -72,6 +72,7 @@ import {
 	IconClipboard,
 	IconClock,
 	IconDeviceWatch,
+	IconDeviceWatchCancel,
 	IconDeviceWatchPause,
 	IconDotsVertical,
 	IconDroplet,
@@ -2452,6 +2453,14 @@ const TimerAndStopwatchDrawer = (props: {
 				) : null}
 				{currentStopwatch ? (
 					<>
+						<Button
+							color="orange"
+							variant="outline"
+							leftSection={<IconDeviceWatchCancel />}
+							onClick={() => setCurrentStopwatch(null)}
+						>
+							Cancel
+						</Button>
 						<RingProgress
 							roundCaps
 							size={300}
