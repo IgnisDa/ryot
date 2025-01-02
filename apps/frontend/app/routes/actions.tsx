@@ -1,3 +1,4 @@
+import { setTimeout } from "node:timers/promises";
 import {
 	type ActionFunctionArgs,
 	redirect,
@@ -32,7 +33,6 @@ import {
 	set,
 } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
-import { wait } from "remix-utils/timers";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -50,7 +50,7 @@ import {
 } from "~/lib/utilities.server";
 
 const sleepForHalfSecond = async (request: Request) =>
-	await wait(500, { signal: request.signal });
+	await setTimeout(500, void 0, { signal: request.signal });
 
 export const loader = async () => redirect($path("/"));
 
