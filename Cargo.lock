@@ -45,7 +45,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
- "getrandom",
  "once_cell",
  "version_check",
  "zerocopy 0.7.35",
@@ -153,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.93"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
+checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
 name = "apalis"
@@ -216,7 +215,7 @@ dependencies = [
  "file-storage-service",
  "jwt-service",
  "media-models",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "sea-orm",
 ]
 
@@ -321,7 +320,7 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "handlebars",
- "http 1.1.0",
+ "http 1.2.0",
  "indexmap 2.7.0",
  "log",
  "mime",
@@ -342,9 +341,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-axum"
-version = "7.0.11"
+version = "7.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9aa80e171205c6d562057fd5a49167c8fbe61f7db2bed6540f6d4f2234d7ff2"
+checksum = "ec8c1bb47161c37286e40e2fa58055e97b2a2b6cf1022a6686967e10636fa5d7"
 dependencies = [
  "async-graphql",
  "async-trait",
@@ -467,9 +466,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.5.1"
+version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "300a12520b4e6d08b73f77680f12c16e8ae43250d55100e0b2be46d78da16a48"
+checksum = "44f6f1124d6e19ab6daf7f2e615644305dc6cb2d706892a8a8c0b98db35de020"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -493,9 +492,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-s3"
-version = "1.66.0"
+version = "1.67.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "154488d16ab0d627d15ab2832b57e68a16684c8c902f14cb8a75ec933fc94852"
+checksum = "bbc644164269a1e38ce7f2f7373629d3fb3d310c0e3feb5573a29744288b24d3"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -542,7 +541,7 @@ dependencies = [
  "hex",
  "hmac",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "once_cell",
  "p256 0.11.1",
  "percent-encoding",
@@ -664,7 +663,7 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "pin-project-lite",
  "tokio",
  "tracing",
@@ -682,7 +681,7 @@ dependencies = [
  "bytes-utils",
  "futures-core",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 0.4.6",
  "http-body 1.0.1",
  "http-body-util",
@@ -732,7 +731,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.5.2",
@@ -768,7 +767,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "mime",
@@ -820,17 +819,17 @@ dependencies = [
  "fitness-resolver",
  "fitness-service",
  "futures",
- "http 1.1.0",
+ "http 1.2.0",
  "importer-resolver",
  "importer-service",
  "integration-service",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "logs-wheel",
  "migrations",
  "miscellaneous-resolver",
  "miscellaneous-service",
  "openidconnect",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -1134,7 +1133,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "env-utils",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "sea-orm",
  "sea-query",
  "serde",
@@ -1174,9 +1173,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chrono"
-version = "0.4.38"
+version = "0.4.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
+checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -1320,7 +1319,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "strum",
 ]
 
@@ -1333,7 +1332,7 @@ dependencies = [
  "const-str",
  "enum-models",
  "env-utils",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "serde",
  "tokio",
 ]
@@ -1679,7 +1678,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "user-models",
  "uuid",
 ]
@@ -1699,7 +1698,7 @@ dependencies = [
  "enum-models",
  "fitness-models",
  "futures",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "jwt-service",
  "markdown",
  "media-models",
@@ -1732,7 +1731,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "strum",
 ]
 
@@ -1754,7 +1753,7 @@ dependencies = [
  "file-storage-service",
  "fitness-models",
  "importer-models",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "media-models",
  "nanoid",
  "providers",
@@ -2023,9 +2022,9 @@ dependencies = [
 
 [[package]]
 name = "ego-tree"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c6ba7d4eec39eaa9ab24d44a0e73a7949a1095a8b3f3abb11eddf27dbb56a53"
+checksum = "b2972feb8dffe7bc8c5463b1dacda1b0dfbed3710e50f977d965429692d74cd8"
 
 [[package]]
 name = "either"
@@ -2227,11 +2226,11 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "fitness-models",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "media-models",
  "mime_guess",
  "nanoid",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "sea-orm",
  "struson",
  "supporting-service",
@@ -2245,7 +2244,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "sea-orm",
  "serde",
  "serde_json",
@@ -2337,7 +2336,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
 ]
 
 [[package]]
@@ -2373,7 +2372,7 @@ dependencies = [
  "futures",
  "migrations",
  "nanoid",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "sea-orm",
  "sea-query",
  "slug",
@@ -2749,7 +2748,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.1.0",
+ "http 1.2.0",
  "indexmap 2.7.0",
  "slab",
  "tokio",
@@ -2905,9 +2904,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
+checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
 dependencies = [
  "bytes",
  "fnv",
@@ -2932,7 +2931,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.1.0",
+ "http 1.2.0",
 ]
 
 [[package]]
@@ -2943,7 +2942,7 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -3012,7 +3011,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "httparse",
  "httpdate",
@@ -3046,7 +3045,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
 dependencies = [
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "hyper 1.5.2",
  "hyper-util",
  "rustls 0.23.20",
@@ -3094,7 +3093,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "hyper 1.5.2",
  "pin-project-lite",
@@ -3320,18 +3319,18 @@ dependencies = [
  "flate2",
  "importer-models",
  "indexmap 2.7.0",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "media-models",
  "nest_struct",
  "providers",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
  "serde",
  "serde-xml-rs",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "specific-models",
  "specific-utils",
  "supporting-service",
@@ -3395,12 +3394,12 @@ dependencies = [
  "enum-models",
  "eventsource-stream",
  "external-utils",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "media-models",
  "providers",
  "radarr-api-rs",
  "regex",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "rust_decimal",
  "rust_decimal_macros",
  "rustypipe",
@@ -3476,9 +3475,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -3520,7 +3519,7 @@ dependencies = [
  "chrono",
  "jsonwebtoken",
  "serde",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "uuid",
 ]
 
@@ -3535,9 +3534,9 @@ dependencies = [
 
 [[package]]
 name = "lettre"
-version = "0.11.10"
+version = "0.11.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0161e452348e399deb685ba05e55ee116cae9410f4f51fe42d597361444521d9"
+checksum = "ab4c9a167ff73df98a5ecc07e8bf5ce90b583665da3d1762eb1f775ad4d0d6f5"
 dependencies = [
  "base64 0.22.1",
  "chumsky",
@@ -3717,7 +3716,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
 ]
 
 [[package]]
@@ -3830,7 +3829,7 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "futures",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "markdown",
  "media-models",
  "migrations",
@@ -3859,7 +3858,7 @@ dependencies = [
  "bytes",
  "encoding_rs",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "httparse",
  "memchr",
  "mime",
@@ -3931,7 +3930,7 @@ dependencies = [
  "config",
  "convert_case",
  "lettre",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
  "tracing",
@@ -4071,7 +4070,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_plain",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "sha2",
  "subtle",
  "thiserror 1.0.69",
@@ -4601,11 +4600,11 @@ dependencies = [
  "enum-models",
  "graphql_client",
  "hashbag",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "media-models",
  "paginate",
  "rand 0.9.0-beta.0",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "rust_decimal",
  "rust_decimal_macros",
  "rust_iso3166",
@@ -4614,7 +4613,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "strum",
  "supporting-service",
  "tracing",
@@ -4883,9 +4882,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.9"
+version = "0.12.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a77c62af46e79de0a562e1a9849205ffcb7fc1238876e9bd743357570e04046f"
+checksum = "43e734407157c3c2034e0258f5e4473ddb361b1e85f95a66690d67264d7cd1da"
 dependencies = [
  "async-compression",
  "base64 0.22.1",
@@ -4895,7 +4894,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.5.2",
@@ -4920,6 +4919,7 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-util",
+ "tower",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -5205,12 +5205,12 @@ dependencies = [
  "quick-js-dtp",
  "rand 0.8.5",
  "regex",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "ress",
  "serde",
  "serde_json",
  "serde_plain",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "sha1",
  "thiserror 2.0.9",
  "time",
@@ -5253,7 +5253,7 @@ dependencies = [
  "garde",
  "indexmap 2.7.0",
  "miette",
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "schematic_macros",
  "schematic_types",
  "serde",
@@ -5301,11 +5301,10 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "scraper"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0e749d29b2064585327af5038a5a8eb73aeebad4a3472e83531a436563f7208"
+checksum = "cc3d051b884f40e309de6c149734eab57aa8cc1347992710dc80bcc1c2194c15"
 dependencies = [
- "ahash 0.8.11",
  "cssparser",
  "ego-tree",
  "getopts",
@@ -5564,9 +5563,9 @@ checksum = "3cb6eb87a131f756572d7fb904f6e7b68633f09cca868c5df1c4b8d1a694bbba"
 
 [[package]]
 name = "serde"
-version = "1.0.215"
+version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
+checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
 dependencies = [
  "serde_derive",
 ]
@@ -5595,9 +5594,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.215"
+version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
+checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5606,9 +5605,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.133"
+version = "1.0.134"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7fceb2473b9166b2294ef05efcb65a3db80803f0b03ef86a5fc88a2b85ee377"
+checksum = "d00f4175c42ee48b15416f6193a959ba3a0d67fc699a0db9ad12df9f83991c7d"
 dependencies = [
  "indexmap 2.7.0",
  "itoa",
@@ -5675,9 +5674,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.11.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e28bdad6db2b8340e449f7108f020b3b092e8583a9e3fb82713e1d4e71fe817"
+checksum = "d6b6f7f2fcb69f747921f79f3926bd1e203fce4fef62c268dd3abfb6d86029aa"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -5687,7 +5686,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with_macros 3.11.0",
+ "serde_with_macros 3.12.0",
  "time",
 ]
 
@@ -5705,9 +5704,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.11.0"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d846214a9854ef724f3da161b426242d8de7c1fc7de2f89bb1efcb154dca79d"
+checksum = "8d00caa5193a3c8362ac2b73be6b9e768aa5a4b2f721d8f4b339600c3cb51f8e"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -5859,10 +5858,10 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0f85e838c6093957978793ece2c0893c838da8dd5bcab0ff6f57fcaa8fc8ee9"
 dependencies = [
- "reqwest 0.12.9",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "url",
  "uuid",
 ]
@@ -5875,7 +5874,7 @@ dependencies = [
  "rust_decimal",
  "sea-orm",
  "serde",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "strum",
 ]
 
@@ -6201,7 +6200,7 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "hashbag",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "sea-orm",
  "supporting-service",
  "tokio",
@@ -6310,7 +6309,7 @@ dependencies = [
  "env-utils",
  "file-storage-service",
  "isolang",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "openidconnect",
  "rustypipe",
  "sea-orm",
@@ -6568,9 +6567,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.41.1"
+version = "1.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cfb5bee7a6a52939ca9224d6ac897bb669134078daa8735560897f69de4d33"
+checksum = "5cec9b21b0450273377fc97bd4c33a8acffc8c996c987a7c5b319a0083707551"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6650,9 +6649,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
+checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
 dependencies = [
  "bytes",
  "futures-core",
@@ -6722,7 +6721,7 @@ dependencies = [
  "bitflags 2.6.0",
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "pin-project-lite",
@@ -6851,7 +6850,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "data-encoding",
- "http 1.1.0",
+ "http 1.2.0",
  "httparse",
  "log",
  "rand 0.8.5",
@@ -7000,7 +6999,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.11.0",
+ "serde_with 3.12.0",
  "strum",
 ]
 
@@ -7034,7 +7033,7 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "enum_meta",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "jwt-service",
  "media-models",
  "nanoid",
