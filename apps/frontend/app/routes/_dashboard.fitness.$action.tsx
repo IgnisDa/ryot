@@ -71,6 +71,8 @@ import {
 	IconChevronUp,
 	IconClipboard,
 	IconClock,
+	IconDeviceWatch,
+	IconDeviceWatchPause,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
@@ -128,6 +130,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
+	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
 	type InProgressWorkout,
 	type Superset,
@@ -406,7 +409,7 @@ export default function Page() {
 								modalOpenedBy={assetsModalOpened}
 								closeModal={() => setAssetsModalOpened(undefined)}
 							/>
-							<TimerDrawer
+							<TimerAndStopwatchDrawer
 								stopTimer={stopTimer}
 								startTimer={startTimer}
 								opened={timerDrawerOpened}
@@ -783,6 +786,8 @@ const RestTimer = () => {
 
 	forceUpdateEverySecond();
 
+	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
+
 	return match(currentWorkout.timerDrawerLot)
 		.with("timer", () =>
 			currentTimer
@@ -793,11 +798,7 @@ const RestTimer = () => {
 		)
 		.with("stopwatch", () =>
 			currentStopwatch
-				? formatTimerDuration(
-						dayjsLib(currentStopwatch.wasPausedAt).diff(
-							currentStopwatch.startedAt,
-						),
-					)
+				? formatTimerDuration(stopwatchMilliSeconds)
 				: "Stopwatch",
 		)
 		.exhaustive();
@@ -2369,7 +2370,18 @@ const styles = {
 
 const restTimerOptions = [180, 300, 480, "Custom"];
 
-const TimerDrawer = (props: {
+const getStopwatchMilliSeconds = (
+	currentStopwatch: CurrentWorkoutStopwatch,
+) => {
+	if (!currentStopwatch) return 0;
+	let total = 0;
+	for (const duration of currentStopwatch) {
+		total += dayjsLib(duration.to).diff(duration.from);
+	}
+	return total;
+};
+
+const TimerAndStopwatchDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
@@ -2384,6 +2396,9 @@ const TimerDrawer = (props: {
 	invariant(currentWorkout);
 
 	forceUpdateEverySecond();
+
+	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
+	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
 
 	return (
 		<Drawer
@@ -2428,14 +2443,53 @@ const TimerDrawer = (props: {
 										draft.timerDrawerLot = "stopwatch";
 									}),
 								);
-								setCurrentStopwatch({ startedAt: dayjsLib().toISOString() });
+								setCurrentStopwatch([{ from: dayjsLib().toISOString() }]);
 							}}
 						>
 							Stopwatch
 						</Button>
 					</>
 				) : null}
-				{currentStopwatch ? <>{JSON.stringify(currentStopwatch)}</> : null}
+				{currentStopwatch ? (
+					<>
+						<RingProgress
+							roundCaps
+							size={300}
+							thickness={6}
+							sections={[]}
+							rootColor={isStopwatchPaused ? "gray" : "orange"}
+							label={
+								<Text ta="center" fz={64}>
+									{formatTimerDuration(stopwatchMilliSeconds)}
+								</Text>
+							}
+						/>
+						<Button
+							color="orange"
+							variant="outline"
+							leftSection={
+								isStopwatchPaused ? (
+									<IconDeviceWatch />
+								) : (
+									<IconDeviceWatchPause />
+								)
+							}
+							onClick={() => {
+								setCurrentStopwatch(
+									produce(currentStopwatch, (draft) => {
+										if (Object.keys(draft.at(-1) || {}).length === 2) {
+											draft.push({ from: dayjsLib().toISOString() });
+										} else {
+											draft[draft.length - 1].to = dayjsLib().toISOString();
+										}
+									}),
+								);
+							}}
+						>
+							{isStopwatchPaused ? "Resume" : "Pause"}
+						</Button>
+					</>
+				) : null}
 				{currentTimer ? (
 					<>
 						<Group gap="xl">

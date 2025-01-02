@@ -272,16 +272,12 @@ const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
 export const useCurrentWorkoutTimerAtom = () =>
 	useAtom(currentWorkoutTimerAtom);
 
-export type CurrentWorkoutStopwatch = {
-	startedAt: string;
-	wasPausedAt?: string;
-};
+export type CurrentWorkoutStopwatch = Array<WorkoutDuration> | null;
 
-const currentWorkoutStopwatchAtom =
-	atomWithStorage<CurrentWorkoutStopwatch | null>(
-		"CurrentWorkoutStopwatch",
-		null,
-	);
+const currentWorkoutStopwatchAtom = atomWithStorage<CurrentWorkoutStopwatch>(
+	"CurrentWorkoutStopwatch",
+	null,
+);
 
 export const useCurrentWorkoutStopwatchAtom = () =>
 	useAtom(currentWorkoutStopwatchAtom);
