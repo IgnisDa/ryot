@@ -62,6 +62,7 @@ async-graphql = { version = "=7.0.13", features = [
 async-graphql-axum = "=7.0.13"
 async-trait = "=0.1.83"
 aws-sdk-s3 = { version = "=1.67.0", features = ["behavior-version-latest"] }
+# TODO: Update when https://github.com/async-graphql/async-graphql/pull/1653 is merged
 axum = { version = "=0.7.9", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.39"
