@@ -2510,7 +2510,10 @@ const TimerAndStopwatchDrawer = (props: {
 							color="orange"
 							variant="outline"
 							leftSection={<IconDeviceWatchCancel />}
-							onClick={() => setCurrentStopwatch(null)}
+							onClick={() => {
+								setCurrentStopwatch(null);
+								props.onClose();
+							}}
 						>
 							Cancel
 						</Button>
