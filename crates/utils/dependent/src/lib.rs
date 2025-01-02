@@ -1732,7 +1732,7 @@ pub async fn create_or_update_user_workout(
         Some(id) => {
             // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
             let model = Workout::find_by_id(id).one(&ss.db).await?.unwrap();
-            duration = model.duration.try_into().unwrap();
+            duration = model.duration.into();
             if let Some(d) = model.information.durations.clone() {
                 durations = d;
             }
