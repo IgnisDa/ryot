@@ -144,11 +144,12 @@ where
                     "Got response for individual item progress {:?}",
                     resp
                 );
-                let progress = if let Some(ebook_progress) = resp.ebook_progress {
-                    ebook_progress
-                } else {
-                    resp.progress
-                };
+                let mut progress = resp.progress;
+                if let Some(ebook_progress) = resp.ebook_progress {
+                    if ebook_progress > progress {
+                        progress = ebook_progress;
+                    }
+                }
                 result
                     .completed
                     .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
