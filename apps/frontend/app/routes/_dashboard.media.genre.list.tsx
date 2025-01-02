@@ -31,7 +31,6 @@ import {
 } from "~/components/common";
 import {
 	clientGqlService,
-	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
@@ -149,7 +148,6 @@ const DisplayGenre = (props: { genre: Genre }) => {
 			if (images.length < 4) images = images.splice(0, 1);
 			return images;
 		},
-		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 
 	return (

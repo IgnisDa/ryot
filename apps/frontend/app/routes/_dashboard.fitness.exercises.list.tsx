@@ -354,12 +354,9 @@ export default function Page() {
 																	!isNumber(currentWorkout.replacingExerciseIdx)
 																)
 																	return;
-																const selectedExercise =
-																	draft.exercises[
-																		currentWorkout.replacingExerciseIdx
-																	];
-																selectedExercise.name = exercise.name;
-																selectedExercise.exerciseId = exercise.id;
+																draft.exercises[
+																	currentWorkout.replacingExerciseIdx
+																].exerciseId = exercise.id;
 																draft.replacingExerciseIdx = undefined;
 															}),
 														);

@@ -52,7 +52,6 @@ type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 type Media = { imageSrc: string; key: string };
 
 export type Exercise = {
-	name: string;
 	lot: ExerciseLot;
 	identifier: string;
 	exerciseId: string;
@@ -134,7 +133,6 @@ export const getExerciseDetailsQuery = (exerciseId: string) =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.exerciseDetails),
-		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
 	});
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
@@ -321,7 +319,6 @@ export const duplicateOldWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			name: exerciseDetails.details.name,
 			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing
 				? exerciseIdx === 0
 				: false,
@@ -410,7 +407,6 @@ export const addExerciseToWorkout = async (
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
-			name: exerciseDetails.details.name,
 			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
 			exerciseId: ex.name,
 			lot: ex.lot,
