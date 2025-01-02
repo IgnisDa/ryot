@@ -23,7 +23,12 @@ import {
 	getUserMetadataDetailsQuery,
 	selectRandomElement,
 } from "~/lib/generals";
-import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
+import {
+	type InProgressWorkout,
+	useCurrentWorkout,
+	useCurrentWorkoutStopwatchAtom,
+	useCurrentWorkoutTimerAtom,
+} from "~/lib/state/fitness";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
 
 export const useGetMantineColors = () => {
@@ -96,9 +101,13 @@ export const useConfirmSubmit = () => {
 
 export const useGetWorkoutStarter = () => {
 	const revalidator = useRevalidator();
-	const [_, setCurrentWorkout] = useCurrentWorkout();
+	const [_w, setCurrentWorkout] = useCurrentWorkout();
+	const [_t, setTimer] = useCurrentWorkoutTimerAtom();
+	const [_s, setStopwatch] = useCurrentWorkoutStopwatchAtom();
 
 	const fn = (wkt: InProgressWorkout, action: FitnessAction) => {
+		setTimer(null);
+		setStopwatch(null);
 		setCurrentWorkout(wkt);
 		window.location.href = $path("/fitness/:action", { action });
 		revalidator.revalidate();
