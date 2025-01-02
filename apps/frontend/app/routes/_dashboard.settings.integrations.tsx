@@ -66,7 +66,10 @@ import {
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
+const PRO_INTEGRATIONS = [
+	IntegrationProvider.JellyfinPush,
+	IntegrationProvider.YoutubeMusic,
+];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Komga,
 	IntegrationProvider.PlexYank,
@@ -416,17 +419,18 @@ const CreateIntegrationModal = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider>();
-	const disableCreationButton =
+
+	const disableCreationButtonBecauseProRequired =
 		!coreDetails.isServerKeyValidated &&
 		provider &&
 		PRO_INTEGRATIONS.includes(provider);
 
 	return (
 		<Modal
-			opened={props.createModalOpened}
-			onClose={props.closeIntegrationModal}
 			centered
 			withCloseButton={false}
+			opened={props.createModalOpened}
+			onClose={props.closeIntegrationModal}
 		>
 			<Form
 				replace
@@ -596,9 +600,12 @@ const CreateIntegrationModal = (props: {
 					) : undefined}
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
-						disabled={!disableCreationButton}
+						disabled={!disableCreationButtonBecauseProRequired}
 					>
-						<Button type="submit" disabled={disableCreationButton}>
+						<Button
+							type="submit"
+							disabled={disableCreationButtonBecauseProRequired}
+						>
 							Submit
 						</Button>
 					</Tooltip>
