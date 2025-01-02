@@ -37,6 +37,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
+	type UseListStateHandlers,
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
@@ -133,6 +134,7 @@ import {
 import {
 	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
+	type Exercise,
 	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
@@ -1005,27 +1007,15 @@ const CreateSupersetModal = (props: {
 				/>
 			</Group>
 			<Stack gap="xs">
-				{cw.exercises.map((ex) => {
-					const index = exercises.findIndex((e) => e === ex.identifier);
-					return (
-						<Button
-							size="xs"
-							fullWidth
-							key={ex.identifier}
-							color={selectedColor}
-							variant={index !== -1 ? "light" : "outline"}
-							disabled={cw.supersets
-								.flatMap((s) => s.exercises)
-								.includes(ex.identifier)}
-							onClick={() => {
-								if (index !== -1) setExercisesHandle.remove(index);
-								else setExercisesHandle.append(ex.identifier);
-							}}
-						>
-							{ex.name}
-						</Button>
-					);
-				})}
+				{cw.exercises.map((ex) => (
+					<CreateSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						selectedColor={selectedColor}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
 			</Stack>
 			<Button
 				disabled={exercises.length <= 1}
@@ -1048,6 +1038,41 @@ const CreateSupersetModal = (props: {
 	);
 };
 
+const CreateSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	exercises: string[];
+	selectedColor: string;
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.selectedColor}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
+	);
+};
+
 const EditSupersetModal = (props: {
 	onClose: () => void;
 	supersetWith: string;
@@ -1064,28 +1089,15 @@ const EditSupersetModal = (props: {
 		<Stack gap="lg">
 			<Text>Editing {props.superset[1].color} superset:</Text>
 			<Stack gap="xs">
-				{cw.exercises.map((ex) => {
-					const index = exercises.findIndex((e) => e === ex.identifier);
-					return (
-						<Button
-							size="xs"
-							fullWidth
-							key={ex.identifier}
-							color={props.superset[1].color}
-							variant={index !== -1 ? "light" : "outline"}
-							disabled={cw.supersets
-								.filter((s) => s.identifier !== props.superset[1].identifier)
-								.flatMap((s) => s.exercises)
-								.includes(ex.identifier)}
-							onClick={() => {
-								if (index !== -1) setExercisesHandle.remove(index);
-								else setExercisesHandle.append(ex.identifier);
-							}}
-						>
-							{ex.name}
-						</Button>
-					);
-				})}
+				{cw.exercises.map((ex) => (
+					<EditSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						superset={props.superset[1]}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
 			</Stack>
 			<Group wrap="nowrap">
 				<Button
@@ -1126,6 +1138,42 @@ const EditSupersetModal = (props: {
 				</Button>
 			</Group>
 		</Stack>
+	);
+};
+
+const EditSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	superset: Superset;
+	exercises: string[];
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.superset.color}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.filter((s) => s.identifier !== props.superset.identifier)
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
 	);
 };
 
@@ -1201,11 +1249,16 @@ const UploadAssetsModal = (props: {
 	const exercise =
 		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
 
+	const { data: exerciseDetails } = useQuery({
+		...getExerciseDetailsQuery(exercise?.exerciseId || ""),
+		enabled: exercise !== null,
+	});
+
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
 			opened={props.modalOpenedBy !== undefined}
-			title={`Images for ${exercise ? exercise.name : "the workout"}`}
+			title={`Images for ${exerciseDetails ? exerciseDetails.name : "the workout"}`}
 		>
 			<Stack>
 				{fileUploadAllowed ? (
@@ -1395,7 +1448,7 @@ const ExerciseDisplay = (props: {
 								component={Link}
 								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
-								{exercise.name}
+								{exerciseDetails?.name}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
@@ -1505,7 +1558,7 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
 									openConfirmationModal(
-										`This removes '${exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
 											for (const asset of assets)
@@ -2660,51 +2713,14 @@ const ReorderDrawer = (props: {
 							gap="xs"
 						>
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
-							{exerciseElements.map((de, index) => {
-								const isForThisExercise =
-									props.exerciseToReorder === de.identifier;
-								return (
-									<Draggable
-										index={index}
-										draggableId={index.toString()}
-										key={`${index}-${de.exerciseId}`}
-									>
-										{(provided) => (
-											<Paper
-												py={6}
-												px="sm"
-												withBorder
-												radius="md"
-												ref={provided.innerRef}
-												{...provided.draggableProps}
-												{...provided.dragHandleProps}
-											>
-												<Group justify="space-between" wrap="nowrap">
-													<Text
-														size="sm"
-														c={isForThisExercise ? "teal" : undefined}
-													>
-														{de.name}
-													</Text>
-													<ThemeIcon
-														size="xs"
-														variant="transparent"
-														color={isForThisExercise ? "teal" : "gray"}
-													>
-														{match(getProgressOfExercise(currentWorkout, index))
-															.with("complete", () => <IconDropletFilled />)
-															.with("in-progress", () => (
-																<IconDropletHalf2Filled />
-															))
-															.with("not-started", () => <IconDroplet />)
-															.exhaustive()}
-													</ThemeIcon>
-												</Group>
-											</Paper>
-										)}
-									</Draggable>
-								);
-							})}
+							{exerciseElements.map((exercise, index) => (
+								<ReorderDrawerExerciseElement
+									index={index}
+									exercise={exercise}
+									key={exercise.identifier}
+									exerciseToReorder={props.exerciseToReorder}
+								/>
+							))}
 							{provided.placeholder}
 						</Stack>
 					)}
@@ -2712,6 +2728,55 @@ const ReorderDrawer = (props: {
 			</DragDropContext>
 		</Drawer>
 	) : null;
+};
+
+const ReorderDrawerExerciseElement = (props: {
+	index: number;
+	exercise: Exercise;
+	exerciseToReorder: string | null | undefined;
+}) => {
+	const [currentWorkout] = useCurrentWorkout();
+	const isForThisExercise =
+		props.exerciseToReorder === props.exercise.identifier;
+
+	invariant(currentWorkout);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Draggable index={props.index} draggableId={props.index.toString()}>
+			{(provided) => (
+				<Paper
+					py={6}
+					px="sm"
+					withBorder
+					radius="md"
+					ref={provided.innerRef}
+					{...provided.draggableProps}
+					{...provided.dragHandleProps}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Text size="sm" c={isForThisExercise ? "teal" : undefined}>
+							{exerciseDetails?.name}
+						</Text>
+						<ThemeIcon
+							size="xs"
+							variant="transparent"
+							color={isForThisExercise ? "teal" : "gray"}
+						>
+							{match(getProgressOfExercise(currentWorkout, props.index))
+								.with("complete", () => <IconDropletFilled />)
+								.with("in-progress", () => <IconDropletHalf2Filled />)
+								.with("not-started", () => <IconDroplet />)
+								.exhaustive()}
+						</ThemeIcon>
+					</Group>
+				</Paper>
+			)}
+		</Draggable>
+	);
 };
 
 const NoteInput = (props: {
