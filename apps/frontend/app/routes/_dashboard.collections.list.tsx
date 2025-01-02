@@ -74,7 +74,6 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	commaDelimitedString,
-	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryClient,
@@ -309,7 +308,6 @@ const DisplayCollection = (props: {
 			}
 			return images;
 		},
-		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 
 	const [hoveredStates, setHoveredStates] = useListState<boolean>([]);

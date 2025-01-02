@@ -474,6 +474,7 @@ pub struct WorkoutInformation {
 }
 
 /// The summary about an exercise done in a workout.
+#[skip_serializing_none]
 #[derive(
     Eq,
     Clone,

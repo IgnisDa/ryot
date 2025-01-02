@@ -490,7 +490,7 @@ export default function Page() {
 										<IconBellRinging />
 									</ActionIcon>
 									<Text size="xs">
-										Show me notifications related to the current workout
+										Send me notifications related to the current workout
 									</Text>
 								</Group>
 								<Select
@@ -544,6 +544,7 @@ export default function Page() {
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Divider />
+							<Title order={4}>Current workout</Title>
 							{(
 								[
 									"muteSounds",

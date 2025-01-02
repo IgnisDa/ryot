@@ -24,8 +24,14 @@ UPDATE exercise SET identifier = id;
 ALTER TABLE exercise RENAME COLUMN identifier TO name;
 DROP INDEX "exercise__identifier__index";
 CREATE INDEX "{}" ON "exercise" ("name");
-
-UPDATE workout
+              "#,
+                EXERCISE_NAME_INDEX
+            ))
+            .await?;
+            for table in ["workout", "workout_template"] {
+                db.execute_unprepared(&format!(
+                    r#"
+UPDATE "{table}"
 SET information =
     JSONB_SET(
         information,
@@ -59,9 +65,9 @@ SET information =
         )
     );
             "#,
-                EXERCISE_NAME_INDEX
-            ))
-            .await?;
+                ))
+                .await?;
+            }
         }
         db.execute_unprepared(
             r#"

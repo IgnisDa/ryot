@@ -1726,7 +1726,7 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
-    let (duration, durations) = match input.durations.clone() {
+    let (mut duration, mut durations) = match input.durations.clone() {
         Some(durations) => {
             if durations.is_empty() {
                 return Err(Error::new("Durations cannot be empty"));
@@ -1758,11 +1758,15 @@ pub async fn create_or_update_user_workout(
     };
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
-        Some(id) => (
-            id.to_owned(),
+        Some(id) => {
             // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
-            Some(Workout::find_by_id(id).one(&ss.db).await?.unwrap()),
-        ),
+            let model = Workout::find_by_id(id).one(&ss.db).await?.unwrap();
+            duration = model.duration.into();
+            if let Some(d) = model.information.durations.clone() {
+                durations = d;
+            }
+            (id.to_owned(), Some(model))
+        }
         None => (
             input
                 .create_workout_id
@@ -1989,6 +1993,13 @@ pub async fn create_or_update_user_workout(
         template_id: input.template_id,
         repeated_from: input.repeated_from,
         duration: duration.try_into().unwrap(),
+        information: WorkoutInformation {
+            assets: input.assets,
+            comment: input.comment,
+            supersets: input.supersets,
+            durations: Some(durations),
+            exercises: processed_exercises,
+        },
         summary: WorkoutSummary {
             focused,
             total: Some(summary_total),
@@ -2002,13 +2013,6 @@ pub async fn create_or_update_user_workout(
                     num_sets: e.sets.len(),
                 })
                 .collect(),
-        },
-        information: WorkoutInformation {
-            assets: input.assets,
-            comment: input.comment,
-            supersets: input.supersets,
-            durations: Some(durations),
-            exercises: processed_exercises,
         },
     };
     let mut insert: workout::ActiveModel = model.into();

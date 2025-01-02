@@ -1,3 +1,4 @@
+import { setTimeout } from "node:timers/promises";
 import {
 	type ActionFunctionArgs,
 	redirect,
@@ -32,7 +33,6 @@ import {
 	set,
 } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
-import { wait } from "remix-utils/timers";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -50,7 +50,7 @@ import {
 } from "~/lib/utilities.server";
 
 const sleepForHalfSecond = async (request: Request) =>
-	await wait(500, { signal: request.signal });
+	await setTimeout(500, void 0, { signal: request.signal });
 
 export const loader = async () => redirect($path("/"));
 
@@ -351,6 +351,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						e.seasonNumber === submission.showSeasonNumber &&
 						e.episodeNumber === submission.showEpisodeNumber,
 				);
+				const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
 				const firstEpisodeOfShow = allEpisodesInShow[0];
 				const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
 					episode: firstEpisodeOfShow.episodeNumber,
@@ -365,11 +366,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 					for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
-						const episode = allEpisodesInShow[i];
+						const currentEpisode = allEpisodesInShow[i];
+						if (
+							currentEpisode.seasonNumber === 0 &&
+							selectedEpisode.seasonNumber !== 0
+						) {
+							continue;
+						}
 						updates.push({
 							...variables,
-							showSeasonNumber: episode.seasonNumber,
-							showEpisodeNumber: episode.episodeNumber,
+							showSeasonNumber: currentEpisode.seasonNumber,
+							showEpisodeNumber: currentEpisode.episodeNumber,
 						});
 					}
 				}
