@@ -24,6 +24,7 @@ import {
 	ScrollArea,
 	Select,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Table,
 	Text,
@@ -36,6 +37,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
+	type UseListStateHandlers,
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
@@ -70,6 +72,9 @@ import {
 	IconChevronUp,
 	IconClipboard,
 	IconClock,
+	IconDeviceWatch,
+	IconDeviceWatchCancel,
+	IconDeviceWatchPause,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
@@ -127,7 +132,9 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
+	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
+	type Exercise,
 	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
@@ -137,10 +144,11 @@ import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
+	useCurrentWorkoutStopwatchAtom,
+	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
-	useTimerAtom,
 } from "~/lib/state/fitness";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
@@ -276,7 +284,7 @@ export default function Page() {
 		string | null
 	>();
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
-	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 	const [assetsModalOpened, setAssetsModalOpened] = useState<
 		string | null | undefined
 	>(undefined);
@@ -397,14 +405,14 @@ export default function Page() {
 	return (
 		<Container size="sm">
 			{currentWorkout ? (
-				<ClientOnly fallback={<Text>Loading workout...</Text>}>
+				<ClientOnly>
 					{() => (
 						<>
 							<UploadAssetsModal
 								modalOpenedBy={assetsModalOpened}
 								closeModal={() => setAssetsModalOpened(undefined)}
 							/>
-							<TimerDrawer
+							<TimerAndStopwatchDrawer
 								stopTimer={stopTimer}
 								startTimer={startTimer}
 								opened={timerDrawerOpened}
@@ -667,9 +675,16 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>
-					Loading {loaderData.isCreatingTemplate ? "template" : "workout"}...
-				</Text>
+				<Stack>
+					<Group wrap="nowrap">
+						<Skeleton h={80} w="80%" />
+						<Skeleton h={80} w="20%" />
+					</Group>
+					<Group wrap="nowrap">
+						<Skeleton h={80} w="20%" />
+						<Skeleton h={80} w="80%" />
+					</Group>
+				</Stack>
 			)}
 		</Container>
 	);
@@ -767,14 +782,29 @@ const formatTimerDuration = (duration: number) =>
 	dayjsLib.duration(duration).format("mm:ss");
 
 const RestTimer = () => {
-	forceUpdateEverySecond();
-	const [currentTimer] = useTimerAtom();
+	const [currentWorkout] = useCurrentWorkout();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
+	const [currentStopwatch] = useCurrentWorkoutStopwatchAtom();
+	invariant(currentWorkout);
 
-	return currentTimer
-		? formatTimerDuration(
-				dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
-			)
-		: "Timer";
+	forceUpdateEverySecond();
+
+	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
+
+	return match(currentWorkout.timerDrawerLot)
+		.with("timer", () =>
+			currentTimer
+				? formatTimerDuration(
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
+					)
+				: "Timer",
+		)
+		.with("stopwatch", () =>
+			currentStopwatch
+				? formatTimerDuration(stopwatchMilliSeconds)
+				: "Stopwatch",
+		)
+		.exhaustive();
 };
 
 const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
@@ -977,27 +1007,15 @@ const CreateSupersetModal = (props: {
 				/>
 			</Group>
 			<Stack gap="xs">
-				{cw.exercises.map((ex) => {
-					const index = exercises.findIndex((e) => e === ex.identifier);
-					return (
-						<Button
-							size="xs"
-							fullWidth
-							key={ex.identifier}
-							color={selectedColor}
-							variant={index !== -1 ? "light" : "outline"}
-							disabled={cw.supersets
-								.flatMap((s) => s.exercises)
-								.includes(ex.identifier)}
-							onClick={() => {
-								if (index !== -1) setExercisesHandle.remove(index);
-								else setExercisesHandle.append(ex.identifier);
-							}}
-						>
-							{ex.name}
-						</Button>
-					);
-				})}
+				{cw.exercises.map((ex) => (
+					<CreateSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						selectedColor={selectedColor}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
 			</Stack>
 			<Button
 				disabled={exercises.length <= 1}
@@ -1020,6 +1038,41 @@ const CreateSupersetModal = (props: {
 	);
 };
 
+const CreateSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	exercises: string[];
+	selectedColor: string;
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.selectedColor}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
+	);
+};
+
 const EditSupersetModal = (props: {
 	onClose: () => void;
 	supersetWith: string;
@@ -1036,28 +1089,15 @@ const EditSupersetModal = (props: {
 		<Stack gap="lg">
 			<Text>Editing {props.superset[1].color} superset:</Text>
 			<Stack gap="xs">
-				{cw.exercises.map((ex) => {
-					const index = exercises.findIndex((e) => e === ex.identifier);
-					return (
-						<Button
-							size="xs"
-							fullWidth
-							key={ex.identifier}
-							color={props.superset[1].color}
-							variant={index !== -1 ? "light" : "outline"}
-							disabled={cw.supersets
-								.filter((s) => s.identifier !== props.superset[1].identifier)
-								.flatMap((s) => s.exercises)
-								.includes(ex.identifier)}
-							onClick={() => {
-								if (index !== -1) setExercisesHandle.remove(index);
-								else setExercisesHandle.append(ex.identifier);
-							}}
-						>
-							{ex.name}
-						</Button>
-					);
-				})}
+				{cw.exercises.map((ex) => (
+					<EditSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						superset={props.superset[1]}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
 			</Stack>
 			<Group wrap="nowrap">
 				<Button
@@ -1098,6 +1138,42 @@ const EditSupersetModal = (props: {
 				</Button>
 			</Group>
 		</Stack>
+	);
+};
+
+const EditSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	superset: Superset;
+	exercises: string[];
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.superset.color}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.filter((s) => s.identifier !== props.superset.identifier)
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
 	);
 };
 
@@ -1173,11 +1249,16 @@ const UploadAssetsModal = (props: {
 	const exercise =
 		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
 
+	const { data: exerciseDetails } = useQuery({
+		...getExerciseDetailsQuery(exercise?.exerciseId || ""),
+		enabled: exercise !== null,
+	});
+
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
 			opened={props.modalOpenedBy !== undefined}
-			title={`Images for ${exercise ? exercise.name : "the workout"}`}
+			title={`Images for ${exerciseDetails ? exerciseDetails.name : "the workout"}`}
 		>
 			<Stack>
 				{fileUploadAllowed ? (
@@ -1294,7 +1375,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [currentTimer, _] = useTimerAtom();
+	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
@@ -1367,7 +1448,7 @@ const ExerciseDisplay = (props: {
 								component={Link}
 								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
-								{exercise.name}
+								{exerciseDetails?.name}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
@@ -1477,7 +1558,7 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
 									openConfirmationModal(
-										`This removes '${exercise.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
 											for (const asset of assets)
@@ -1737,7 +1818,7 @@ const ExerciseDisplay = (props: {
 const DisplayExerciseSetRestTimer = (props: {
 	openTimerDrawer: () => void;
 }) => {
-	const [currentTimer] = useTimerAtom();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
 	forceUpdateEverySecond();
 
 	if (!currentTimer) return null;
@@ -1789,7 +1870,7 @@ const SetDisplay = (props: {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const [currentTimer, _] = useTimerAtom();
+	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -2341,27 +2422,139 @@ const styles = {
 	},
 };
 
-const TimerDrawer = (props: {
+const restTimerOptions = [180, 300, 480, "Custom"];
+
+const getStopwatchMilliSeconds = (
+	currentStopwatch: CurrentWorkoutStopwatch,
+) => {
+	if (!currentStopwatch) return 0;
+	let total = 0;
+	for (const duration of currentStopwatch) {
+		total += dayjsLib(duration.to).diff(duration.from);
+	}
+	return total;
+};
+
+const TimerAndStopwatchDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
 	pauseOrResumeTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
+	const [currentStopwatch, setCurrentStopwatch] =
+		useCurrentWorkoutStopwatchAtom();
+
+	invariant(currentWorkout);
 
 	forceUpdateEverySecond();
 
+	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
+	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
+
 	return (
 		<Drawer
-			onClose={props.onClose}
-			opened={props.opened}
-			withCloseButton={false}
-			position="bottom"
 			size="md"
+			position="bottom"
+			opened={props.opened}
+			onClose={props.onClose}
+			withCloseButton={false}
 			styles={{ body: { ...styles.body, height: "100%" } }}
 		>
 			<Stack align="center">
+				{!currentTimer && !currentStopwatch ? (
+					<>
+						{restTimerOptions.map((option) => (
+							<Button
+								w={160}
+								key={option}
+								size="compact-xl"
+								variant="outline"
+								onClick={() => {
+									if (isNumber(option)) props.startTimer(option);
+									else {
+										const input = prompt("Enter duration in seconds");
+										if (!input) return;
+										const intInput = Number.parseInt(input);
+										if (intInput) props.startTimer(intInput);
+										else alert("Invalid input");
+									}
+								}}
+							>
+								{isNumber(option) ? `${option / 60} minutes` : option}
+							</Button>
+						))}
+						<Divider w="150%" />
+						<Button
+							w={160}
+							size="compact-xl"
+							variant="outline"
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.timerDrawerLot = "stopwatch";
+									}),
+								);
+								setCurrentStopwatch([{ from: dayjsLib().toISOString() }]);
+							}}
+						>
+							Stopwatch
+						</Button>
+					</>
+				) : null}
+				{currentStopwatch ? (
+					<>
+						<Button
+							color="orange"
+							variant="outline"
+							leftSection={<IconDeviceWatchCancel />}
+							onClick={() => {
+								setCurrentStopwatch(null);
+								props.onClose();
+							}}
+						>
+							Cancel
+						</Button>
+						<RingProgress
+							roundCaps
+							size={300}
+							thickness={6}
+							sections={[]}
+							rootColor={isStopwatchPaused ? "gray" : "orange"}
+							label={
+								<Text ta="center" fz={64}>
+									{formatTimerDuration(stopwatchMilliSeconds)}
+								</Text>
+							}
+						/>
+						<Button
+							color="orange"
+							variant="outline"
+							leftSection={
+								isStopwatchPaused ? (
+									<IconDeviceWatch />
+								) : (
+									<IconDeviceWatchPause />
+								)
+							}
+							onClick={() => {
+								setCurrentStopwatch(
+									produce(currentStopwatch, (draft) => {
+										if (Object.keys(draft.at(-1) || {}).length === 2) {
+											draft.push({ from: dayjsLib().toISOString() });
+										} else {
+											draft[draft.length - 1].to = dayjsLib().toISOString();
+										}
+									}),
+								);
+							}}
+						>
+							{isStopwatchPaused ? "Resume" : "Pause"}
+						</Button>
+					</>
+				) : null}
 				{currentTimer ? (
 					<>
 						<Group gap="xl">
@@ -2465,48 +2658,7 @@ const TimerDrawer = (props: {
 							</Button>
 						</Group>
 					</>
-				) : (
-					<>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(180)}
-						>
-							3 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(300)}
-						>
-							5 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => props.startTimer(480)}
-						>
-							8 minutes
-						</Button>
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => {
-								const input = prompt("Enter duration in seconds");
-								if (!input) return;
-								const intInput = Number.parseInt(input);
-								if (intInput) props.startTimer(intInput);
-								else alert("Invalid input");
-							}}
-						>
-							Custom
-						</Button>
-					</>
-				)}
+				) : null}
 			</Stack>
 		</Drawer>
 	);
@@ -2564,51 +2716,14 @@ const ReorderDrawer = (props: {
 							gap="xs"
 						>
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
-							{exerciseElements.map((de, index) => {
-								const isForThisExercise =
-									props.exerciseToReorder === de.identifier;
-								return (
-									<Draggable
-										index={index}
-										draggableId={index.toString()}
-										key={`${index}-${de.exerciseId}`}
-									>
-										{(provided) => (
-											<Paper
-												py={6}
-												px="sm"
-												withBorder
-												radius="md"
-												ref={provided.innerRef}
-												{...provided.draggableProps}
-												{...provided.dragHandleProps}
-											>
-												<Group justify="space-between" wrap="nowrap">
-													<Text
-														size="sm"
-														c={isForThisExercise ? "teal" : undefined}
-													>
-														{de.name}
-													</Text>
-													<ThemeIcon
-														size="xs"
-														variant="transparent"
-														color={isForThisExercise ? "teal" : "gray"}
-													>
-														{match(getProgressOfExercise(currentWorkout, index))
-															.with("complete", () => <IconDropletFilled />)
-															.with("in-progress", () => (
-																<IconDropletHalf2Filled />
-															))
-															.with("not-started", () => <IconDroplet />)
-															.exhaustive()}
-													</ThemeIcon>
-												</Group>
-											</Paper>
-										)}
-									</Draggable>
-								);
-							})}
+							{exerciseElements.map((exercise, index) => (
+								<ReorderDrawerExerciseElement
+									index={index}
+									exercise={exercise}
+									key={exercise.identifier}
+									exerciseToReorder={props.exerciseToReorder}
+								/>
+							))}
 							{provided.placeholder}
 						</Stack>
 					)}
@@ -2616,6 +2731,55 @@ const ReorderDrawer = (props: {
 			</DragDropContext>
 		</Drawer>
 	) : null;
+};
+
+const ReorderDrawerExerciseElement = (props: {
+	index: number;
+	exercise: Exercise;
+	exerciseToReorder: string | null | undefined;
+}) => {
+	const [currentWorkout] = useCurrentWorkout();
+	const isForThisExercise =
+		props.exerciseToReorder === props.exercise.identifier;
+
+	invariant(currentWorkout);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Draggable index={props.index} draggableId={props.index.toString()}>
+			{(provided) => (
+				<Paper
+					py={6}
+					px="sm"
+					withBorder
+					radius="md"
+					ref={provided.innerRef}
+					{...provided.draggableProps}
+					{...provided.dragHandleProps}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Text size="sm" c={isForThisExercise ? "teal" : undefined}>
+							{exerciseDetails?.name}
+						</Text>
+						<ThemeIcon
+							size="xs"
+							variant="transparent"
+							color={isForThisExercise ? "teal" : "gray"}
+						>
+							{match(getProgressOfExercise(currentWorkout, props.index))
+								.with("complete", () => <IconDropletFilled />)
+								.with("in-progress", () => <IconDropletHalf2Filled />)
+								.with("not-started", () => <IconDroplet />)
+								.exhaustive()}
+						</ThemeIcon>
+					</Group>
+				</Paper>
+			)}
+		</Draggable>
+	);
 };
 
 const NoteInput = (props: {

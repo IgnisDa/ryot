@@ -52,7 +52,6 @@ type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 type Media = { imageSrc: string; key: string };
 
 export type Exercise = {
-	name: string;
 	lot: ExerciseLot;
 	identifier: string;
 	exerciseId: string;
@@ -87,6 +86,7 @@ export type InProgressWorkout = {
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
 	durations: Array<WorkoutDuration>;
+	timerDrawerLot: "timer" | "stopwatch";
 	currentActionOrCompleted: FitnessAction;
 };
 
@@ -118,6 +118,7 @@ export const getDefaultWorkout = (
 		videos: [],
 		supersets: [],
 		exercises: [],
+		timerDrawerLot: "timer",
 		startTime: date.toISOString(),
 		currentActionOrCompleted: fitnessEntity,
 		durations: [{ from: date.toISOString() }],
@@ -132,7 +133,6 @@ export const getExerciseDetailsQuery = (exerciseId: string) =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.exerciseDetails),
-		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
 	});
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
@@ -262,12 +262,23 @@ export type CurrentWorkoutTimer = {
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
-const timerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
+const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
 	"CurrentWorkoutTimer",
 	null,
 );
 
-export const useTimerAtom = () => useAtom(timerAtom);
+export const useCurrentWorkoutTimerAtom = () =>
+	useAtom(currentWorkoutTimerAtom);
+
+export type CurrentWorkoutStopwatch = Array<WorkoutDuration> | null;
+
+const currentWorkoutStopwatchAtom = atomWithStorage<CurrentWorkoutStopwatch>(
+	"CurrentWorkoutStopwatch",
+	null,
+);
+
+export const useCurrentWorkoutStopwatchAtom = () =>
+	useAtom(currentWorkoutStopwatchAtom);
 
 const measurementsDrawerOpenAtom = atom(false);
 
@@ -308,7 +319,6 @@ export const duplicateOldWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			name: exerciseDetails.details.name,
 			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing
 				? exerciseIdx === 0
 				: false,
@@ -397,7 +407,6 @@ export const addExerciseToWorkout = async (
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
-			name: exerciseDetails.details.name,
 			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
 			exerciseId: ex.name,
 			lot: ex.lot,

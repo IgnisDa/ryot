@@ -430,7 +430,6 @@ export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
-		staleTime: dayjs.duration(1, "day").asMilliseconds(),
 	});
 
 export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
