@@ -39,11 +39,11 @@ pub async fn yank_progress(
         .items
         .into_iter()
         .rev()
-        .map(|item| item.id)
+        .map(|item| (item.id, item.name))
         .collect_vec();
     let cache_keys = songs_listened_to_today
         .iter()
-        .map(|id| {
+        .map(|(id, _)| {
             (
                 id.clone(),
                 ApplicationCacheKey::YoutubeMusicSongListened(UserLevelCacheKey {
@@ -63,8 +63,8 @@ pub async fn yank_progress(
         .unwrap_or_default();
     let mut result = ImportResult::default();
     let mut items_to_cache = vec![];
-    for song in songs_listened_to_today {
-        let Some(cache_key) = cache_keys.get(&song) else {
+    for (song_id, name) in songs_listened_to_today {
+        let Some(cache_key) = cache_keys.get(&song_id) else {
             continue;
         };
         let (cache_value, progress) = match items_in_cache.get(cache_key) {
@@ -87,7 +87,8 @@ pub async fn yank_progress(
         result
             .completed
             .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                identifier: song,
+                source_id: name,
+                identifier: song_id,
                 lot: MediaLot::Music,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
                     progress: Some(progress),
