@@ -343,6 +343,8 @@ pub struct DailyUserActivityItem {
     pub manga_count: i64,
     pub movie_count: i64,
     pub total_movie_duration: i64,
+    pub music_count: i64,
+    pub total_music_duration: i64,
     pub show_count: i64,
     pub total_show_duration: i64,
     pub video_game_count: i64,
@@ -449,6 +451,12 @@ pub struct UserRecommendationsKey {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct YoutubeMusicSongListenedResponse {
+    pub is_complete: bool,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
@@ -459,18 +467,19 @@ pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
-#[serde(untagged)]
 pub enum ApplicationCacheValue {
-    Empty(EmptyCacheValue),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
+    MetadataRecentlyConsumed(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
     UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
 }

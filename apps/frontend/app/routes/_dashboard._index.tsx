@@ -288,6 +288,21 @@ export default function Page() {
 											]}
 										/>
 										<DisplayStatForMediaType
+											lot={MediaLot.Music}
+											data={[
+												{
+													label: "Songs",
+													value: latestUserSummary.musicCount,
+													type: "number",
+												},
+												{
+													label: "Runtime",
+													value: latestUserSummary.totalMusicDuration,
+													type: "duration",
+												},
+											]}
+										/>
+										<DisplayStatForMediaType
 											lot={MediaLot.Show}
 											data={[
 												{

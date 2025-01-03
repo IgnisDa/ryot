@@ -354,6 +354,7 @@ export type DailyUserActivityItem = {
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
+  musicCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
   totalAudioBookDuration: Scalars['Int']['output'];
@@ -365,6 +366,7 @@ export type DailyUserActivityItem = {
   totalMetadataGroupReviewCount: Scalars['Int']['output'];
   totalMetadataReviewCount: Scalars['Int']['output'];
   totalMovieDuration: Scalars['Int']['output'];
+  totalMusicDuration: Scalars['Int']['output'];
   totalPersonReviewCount: Scalars['Int']['output'];
   totalPodcastDuration: Scalars['Int']['output'];
   totalReviewCount: Scalars['Int']['output'];
@@ -940,7 +942,8 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
-  Sonarr = 'SONARR'
+  Sonarr = 'SONARR',
+  YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
 export type IntegrationSourceSpecificsInput = {
@@ -966,6 +969,7 @@ export type IntegrationSourceSpecificsInput = {
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LoginError = {

@@ -228,11 +228,11 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 							workoutTemplateId: props.entityId,
 						})
 						.then(({ userWorkoutTemplateDetails }) => ({
-							detail: "",
 							name: userWorkoutTemplateDetails.details.name,
 							summary: userWorkoutTemplateDetails.details.summary,
 							timestamp: userWorkoutTemplateDetails.details.createdOn,
 							information: userWorkoutTemplateDetails.details.information,
+							detail: `${userWorkoutTemplateDetails.details.information.exercises.length} exercises`,
 						})),
 				)
 				.exhaustive(),
@@ -277,12 +277,13 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 							</Text>
 						</Group>
 						<Group mt="xs">
-							{entityInformation.detail ? (
-								<DisplayStat
-									icon={<IconClock size={16} />}
-									data={entityInformation.detail}
-								/>
-							) : null}
+							<DisplayStat
+								data={entityInformation.detail}
+								icon={match(loaderData.entity)
+									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
+									.with(FitnessEntity.Templates, () => <IconWeight size={16} />)
+									.exhaustive()}
+							/>
 							{entityInformation.summary.total ? (
 								<>
 									{personalBestsAchieved !== 0 ? (

@@ -24,6 +24,7 @@ import {
 	LucidePackageOpen,
 	LucideProjector,
 	LucideRefreshCcwDot,
+	LucideRouter,
 	LucideRuler,
 	LucideScale3D,
 	LucideShare,
@@ -197,6 +198,11 @@ const dataToDisplay = [
 			{
 				icon: LucideCandy,
 				text: "Suggestions that cater to your tastes based on your watch history",
+			},
+			{
+				icon: LucideRouter,
+				text: "Integrations with Youtube Music and Jellyfin for your music collection",
+				isPro: true,
 			},
 		],
 	},

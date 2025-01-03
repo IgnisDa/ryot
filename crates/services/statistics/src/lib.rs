@@ -198,6 +198,11 @@ impl StatisticsService {
                 daily_user_activity::Column::MovieDuration.sum(),
                 "total_movie_duration",
             )
+            .column_as(daily_user_activity::Column::MusicCount.sum(), "music_count")
+            .column_as(
+                daily_user_activity::Column::MusicDuration.sum(),
+                "total_music_duration",
+            )
             .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
             .column_as(
                 daily_user_activity::Column::ShowDuration.sum(),

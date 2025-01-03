@@ -576,6 +576,7 @@ pub enum IntegrationProvider {
     PlexSink,
     PlexYank,
     GenericJson,
+    YoutubeMusic,
     JellyfinPush,
     JellyfinSink,
     Audiobookshelf,

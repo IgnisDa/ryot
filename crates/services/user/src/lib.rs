@@ -469,15 +469,22 @@ impl UserService {
         user_id: String,
         input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
+        match input.provider {
+            IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
+                server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+            }
+            _ => {}
+        }
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
                 "Minimum progress cannot be greater than maximum progress",
             ));
         }
         let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf
-            | IntegrationProvider::Komga
-            | IntegrationProvider::PlexYank => IntegrationLot::Yank,
+            IntegrationProvider::Komga
+            | IntegrationProvider::PlexYank
+            | IntegrationProvider::YoutubeMusic
+            | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
             IntegrationProvider::Radarr
             | IntegrationProvider::Sonarr
             | IntegrationProvider::JellyfinPush => IntegrationLot::Push,

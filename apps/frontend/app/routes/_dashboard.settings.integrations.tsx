@@ -2,6 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
+	Anchor,
 	Box,
 	Button,
 	Checkbox,
@@ -65,18 +66,28 @@ import {
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
+const PRO_INTEGRATIONS = [
+	IntegrationProvider.JellyfinPush,
+	IntegrationProvider.YoutubeMusic,
+];
 const YANK_INTEGRATIONS = [
-	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
 	IntegrationProvider.PlexYank,
+	IntegrationProvider.YoutubeMusic,
+	IntegrationProvider.Audiobookshelf,
 ];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
 	IntegrationProvider.JellyfinPush,
 ];
+const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
+	IntegrationProvider.Komga,
+	IntegrationProvider.PlexYank,
+	IntegrationProvider.Audiobookshelf,
+];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
+const NO_PROGRESS_ADJUSTMENT = [...PUSH_INTEGRATIONS];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -193,6 +204,7 @@ const createSchema = z.object({
 			jellyfinPushBaseUrl: z.string().optional(),
 			jellyfinPushUsername: z.string().optional(),
 			jellyfinPushPassword: z.string().optional(),
+			youtubeMusicAuthCookie: z.string().optional(),
 		})
 		.optional(),
 });
@@ -404,17 +416,18 @@ const CreateIntegrationModal = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider>();
-	const disableCreationButton =
+
+	const disableCreationButtonBecauseProRequired =
 		!coreDetails.isServerKeyValidated &&
 		provider &&
 		PRO_INTEGRATIONS.includes(provider);
 
 	return (
 		<Modal
-			opened={props.createModalOpened}
-			onClose={props.closeIntegrationModal}
 			centered
 			withCloseButton={false}
+			opened={props.createModalOpened}
+			onClose={props.closeIntegrationModal}
 		>
 			<Form
 				replace
@@ -424,36 +437,37 @@ const CreateIntegrationModal = (props: {
 			>
 				<Stack>
 					<Select
-						label="Select a provider"
-						name="provider"
 						required
+						searchable
+						name="provider"
+						label="Select a provider"
+						onChange={(e) => setProvider(e as IntegrationProvider)}
 						data={Object.values(IntegrationProvider).map((is) => ({
 							label: changeCase(is),
 							value: is,
 						}))}
-						onChange={(e) => setProvider(e as IntegrationProvider)}
 					/>
-					{provider && !PUSH_INTEGRATIONS.includes(provider) ? (
+					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
-								size="xs"
-								label="Minimum progress"
-								description="Progress will not be synced below this value"
-								required
-								name="minimumProgress"
-								defaultValue={MINIMUM_PROGRESS}
 								min={0}
+								required
 								max={100}
+								size="xs"
+								name="minimumProgress"
+								label="Minimum progress"
+								defaultValue={MINIMUM_PROGRESS}
+								description="Progress will not be synced below this value"
 							/>
 							<NumberInput
-								size="xs"
-								label="Maximum progress"
-								description="After this value, progress will be marked as completed"
-								required
-								name="maximumProgress"
-								defaultValue={MAXIMUM_PROGRESS}
 								min={0}
+								required
 								max={100}
+								size="xs"
+								name="maximumProgress"
+								label="Maximum progress"
+								defaultValue={MAXIMUM_PROGRESS}
+								description="After this value, progress will be marked as completed"
 							/>
 						</Group>
 					) : null}
@@ -514,6 +528,28 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
+						.with(IntegrationProvider.YoutubeMusic, () => (
+							<>
+								<TextInput
+									required
+									label="Auth Cookie"
+									name="providerSpecifics.youtubeMusicAuthCookie"
+									description={
+										<Text size="xs" c="dimmed">
+											Please follow the{" "}
+											<Anchor
+												target="_blank"
+												rel="noreferrer noopener"
+												href="https://docs.ryot.io/integrations#youtube-music"
+											>
+												docs
+											</Anchor>{" "}
+											to get the correct cookie
+										</Text>
+									}
+								/>
+							</>
+						))
 						.with(IntegrationProvider.PlexSink, () => (
 							<>
 								<TextInput
@@ -544,7 +580,8 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
 						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
-					{provider && YANK_INTEGRATIONS.includes(provider) ? (
+					{provider &&
+					SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
 						<Tooltip
 							label="Only available for Pro users"
 							disabled={coreDetails.isServerKeyValidated}
@@ -560,9 +597,12 @@ const CreateIntegrationModal = (props: {
 					) : undefined}
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
-						disabled={!disableCreationButton}
+						disabled={!disableCreationButtonBecauseProRequired}
 					>
-						<Button type="submit" disabled={disableCreationButton}>
+						<Button
+							type="submit"
+							disabled={disableCreationButtonBecauseProRequired}
+						>
 							Submit
 						</Button>
 					</Tooltip>
@@ -637,7 +677,7 @@ const UpdateIntegrationModal = (props: {
 						defaultValue={props.updateIntegrationData.id}
 					/>
 					<Stack>
-						{!PUSH_INTEGRATIONS.includes(
+						{!NO_PROGRESS_ADJUSTMENT.includes(
 							props.updateIntegrationData.provider,
 						) ? (
 							<Group wrap="nowrap">
@@ -668,7 +708,7 @@ const UpdateIntegrationModal = (props: {
 								props.updateIntegrationData.isDisabled || undefined
 							}
 						/>
-						{YANK_INTEGRATIONS.includes(
+						{SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
 							props.updateIntegrationData.provider,
 						) ? (
 							<Checkbox

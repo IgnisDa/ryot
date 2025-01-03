@@ -361,6 +361,9 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
+    if !metadata.is_partial.unwrap_or_default() {
+        return Ok(vec![]);
+    }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
@@ -818,6 +821,28 @@ pub async fn deploy_update_metadata_job(
     Ok(true)
 }
 
+pub async fn deploy_update_metadata_group_job(
+    metadata_group_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+        metadata_group_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
+pub async fn deploy_update_person_job(
+    person_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+        person_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
 pub async fn deploy_background_job(
     user_id: &String,
     job_name: BackgroundJob,
@@ -834,6 +859,10 @@ pub async fn deploy_background_job(
     }
     match job_name {
         BackgroundJob::UpdateAllMetadata => {
+            Metadata::update_many()
+                .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                .exec(&ss.db)
+                .await?;
             let many_metadata = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
@@ -1214,7 +1243,7 @@ pub async fn mark_entity_as_recently_consumed(
                     entity_id: entity_id.to_owned(),
                 },
             }),
-            ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+            ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
         )
         .await?;
     Ok(())
@@ -1261,7 +1290,6 @@ pub async fn progress_update(
             provider_watched_on: input.provider_watched_on.clone(),
         },
     });
-    acquire_lock!(&ss.db, &cache_and_lock_key);
     if respect_cache {
         let in_cache = ss
             .cache_service
@@ -1276,6 +1304,7 @@ pub async fn progress_update(
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
+    acquire_lock!(&ss.db, &cache_and_lock_key);
     let all_prev_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
@@ -1489,7 +1518,7 @@ pub async fn progress_update(
         ss.cache_service
             .set_key(
                 cache_and_lock_key,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+                ApplicationCacheValue::ProgressUpdateCache(EmptyCacheValue::default()),
             )
             .await?;
     }
@@ -2087,7 +2116,6 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
-    run_updates: bool,
     respect_cache: bool,
     mut import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2134,9 +2162,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    deploy_update_metadata_job(&db_metadata.id, ss).await?;
-                }
+                deploy_update_metadata_job(&db_metadata.id, ss).await?;
                 metadata.id = db_metadata.id;
             }
             ImportCompletedItem::Person(person) => {
@@ -2162,12 +2188,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        db_person.id.clone(),
-                    )))
-                    .await?;
-                }
+                deploy_update_person_job(&db_person.id, ss).await?;
                 person.id = db_person.id;
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
@@ -2195,12 +2216,7 @@ where
                         continue;
                     }
                 };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(metadata_group_id.clone()),
-                    ))
-                    .await?;
-                }
+                deploy_update_metadata_group_job(&metadata_group_id, ss).await?;
                 metadata_group.id = metadata_group_id;
             }
             _ => {}

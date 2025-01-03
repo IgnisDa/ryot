@@ -38,6 +38,7 @@ plugins:
       include_dir: includes
   - offline
   - search
+  - badges
 
 markdown_extensions:
   - admonition
