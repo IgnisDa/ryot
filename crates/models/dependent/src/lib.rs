@@ -451,6 +451,12 @@ pub struct UserRecommendationsKey {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct YoutubeMusicSongListenedResponse {
+    pub is_complete: bool,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
@@ -475,4 +481,5 @@ pub enum ApplicationCacheValue {
     UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
 }
