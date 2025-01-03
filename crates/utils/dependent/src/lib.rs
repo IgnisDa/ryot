@@ -1290,7 +1290,6 @@ pub async fn progress_update(
             provider_watched_on: input.provider_watched_on.clone(),
         },
     });
-    acquire_lock!(&ss.db, &cache_and_lock_key);
     if respect_cache {
         let in_cache = ss
             .cache_service
@@ -1305,6 +1304,7 @@ pub async fn progress_update(
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
+    acquire_lock!(&ss.db, &cache_and_lock_key);
     let all_prev_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
