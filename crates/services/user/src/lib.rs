@@ -469,6 +469,14 @@ impl UserService {
         user_id: String,
         input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
+        match input.provider {
+            IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
+                if !self.0.is_server_key_validated().await? {
+                    return Err(Error::new("Server key is not validated"));
+                }
+            }
+            _ => {}
+        }
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
                 "Minimum progress cannot be greater than maximum progress",

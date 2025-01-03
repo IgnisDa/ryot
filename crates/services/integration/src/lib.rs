@@ -1,5 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
+use anyhow::anyhow;
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_utils::ryot_log;
@@ -233,15 +234,19 @@ impl IntegrationService {
             let specifics = integration.provider_specifics.clone().unwrap();
             let push_result = match integration.provider {
                 IntegrationProvider::JellyfinPush => {
-                    push::jellyfin::push_progress(
-                        specifics.jellyfin_push_base_url.unwrap(),
-                        specifics.jellyfin_push_username.unwrap(),
-                        specifics.jellyfin_push_password.unwrap(),
-                        &metadata_lot,
-                        &metadata_title,
-                        &show_extra_information,
-                    )
-                    .await
+                    if !self.0.is_server_key_validated().await? {
+                        Err(anyhow!("Server key is not validated"))
+                    } else {
+                        push::jellyfin::push_progress(
+                            specifics.jellyfin_push_base_url.unwrap(),
+                            specifics.jellyfin_push_username.unwrap(),
+                            specifics.jellyfin_push_password.unwrap(),
+                            &metadata_lot,
+                            &metadata_title,
+                            &show_extra_information,
+                        )
+                        .await
+                    }
                 }
                 _ => unreachable!(),
             };
@@ -300,12 +305,16 @@ impl IntegrationService {
                     .await
                 }
                 IntegrationProvider::YoutubeMusic => {
-                    yank::youtube_music::yank_progress(
-                        specifics.youtube_music_auth_cookie.unwrap(),
-                        user_id,
-                        &self.0,
-                    )
-                    .await
+                    if !self.0.is_server_key_validated().await? {
+                        Err(anyhow!("Server key is not validated"))
+                    } else {
+                        yank::youtube_music::yank_progress(
+                            specifics.youtube_music_auth_cookie.unwrap(),
+                            user_id,
+                            &self.0,
+                        )
+                        .await
+                    }
                 }
                 _ => continue,
             };
