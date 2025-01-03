@@ -1,6 +1,5 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::anyhow;
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_utils::ryot_log;
@@ -9,7 +8,7 @@ use database_models::{
     prelude::{CollectionToEntity, Integration, Metadata, Seen, UserToEntity},
     seen, user_to_entity,
 };
-use database_utils::user_by_id;
+use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
@@ -234,19 +233,16 @@ impl IntegrationService {
             let specifics = integration.provider_specifics.clone().unwrap();
             let push_result = match integration.provider {
                 IntegrationProvider::JellyfinPush => {
-                    if !self.0.is_server_key_validated().await? {
-                        Err(anyhow!("Server key is not validated"))
-                    } else {
-                        push::jellyfin::push_progress(
-                            specifics.jellyfin_push_base_url.unwrap(),
-                            specifics.jellyfin_push_username.unwrap(),
-                            specifics.jellyfin_push_password.unwrap(),
-                            &metadata_lot,
-                            &metadata_title,
-                            &show_extra_information,
-                        )
-                        .await
-                    }
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                    push::jellyfin::push_progress(
+                        specifics.jellyfin_push_base_url.unwrap(),
+                        specifics.jellyfin_push_username.unwrap(),
+                        specifics.jellyfin_push_password.unwrap(),
+                        &metadata_lot,
+                        &metadata_title,
+                        &show_extra_information,
+                    )
+                    .await
                 }
                 _ => unreachable!(),
             };
@@ -305,16 +301,13 @@ impl IntegrationService {
                     .await
                 }
                 IntegrationProvider::YoutubeMusic => {
-                    if !self.0.is_server_key_validated().await? {
-                        Err(anyhow!("Server key is not validated"))
-                    } else {
-                        yank::youtube_music::yank_progress(
-                            specifics.youtube_music_auth_cookie.unwrap(),
-                            user_id,
-                            &self.0,
-                        )
-                        .await
-                    }
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                    yank::youtube_music::yank_progress(
+                        specifics.youtube_music_auth_cookie.unwrap(),
+                        user_id,
+                        &self.0,
+                    )
+                    .await
                 }
                 _ => continue,
             };

@@ -471,9 +471,7 @@ impl UserService {
     ) -> Result<StringIdObject> {
         match input.provider {
             IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
-                if !self.0.is_server_key_validated().await? {
-                    return Err(Error::new("Server key is not validated"));
-                }
+                server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
             }
             _ => {}
         }
