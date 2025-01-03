@@ -87,10 +87,7 @@ const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 ];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
-const NO_PROGRESS_ADJUSTMENT = [
-	...PUSH_INTEGRATIONS,
-	IntegrationProvider.YoutubeMusic,
-];
+const NO_PROGRESS_ADJUSTMENT = [...PUSH_INTEGRATIONS];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -453,24 +450,24 @@ const CreateIntegrationModal = (props: {
 					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
-								size="xs"
-								label="Minimum progress"
-								description="Progress will not be synced below this value"
-								required
-								name="minimumProgress"
-								defaultValue={MINIMUM_PROGRESS}
 								min={0}
+								required
 								max={100}
+								size="xs"
+								name="minimumProgress"
+								label="Minimum progress"
+								defaultValue={MINIMUM_PROGRESS}
+								description="Progress will not be synced below this value"
 							/>
 							<NumberInput
-								size="xs"
-								label="Maximum progress"
-								description="After this value, progress will be marked as completed"
-								required
-								name="maximumProgress"
-								defaultValue={MAXIMUM_PROGRESS}
 								min={0}
+								required
 								max={100}
+								size="xs"
+								name="maximumProgress"
+								label="Maximum progress"
+								defaultValue={MAXIMUM_PROGRESS}
+								description="After this value, progress will be marked as completed"
 							/>
 						</Group>
 					) : null}
