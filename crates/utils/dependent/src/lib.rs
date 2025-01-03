@@ -1243,7 +1243,7 @@ pub async fn mark_entity_as_recently_consumed(
                     entity_id: entity_id.to_owned(),
                 },
             }),
-            ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+            ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
         )
         .await?;
     Ok(())
@@ -1518,7 +1518,7 @@ pub async fn progress_update(
         ss.cache_service
             .set_key(
                 cache_and_lock_key,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+                ApplicationCacheValue::ProgressUpdateCache(EmptyCacheValue::default()),
             )
             .await?;
     }

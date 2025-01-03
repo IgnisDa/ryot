@@ -343,7 +343,9 @@ pub struct YoutubeMusicSongListened {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+)]
 pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,

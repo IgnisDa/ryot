@@ -467,16 +467,16 @@ pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
-#[serde(untagged)]
 pub enum ApplicationCacheValue {
-    Empty(EmptyCacheValue),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
+    MetadataRecentlyConsumed(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
     UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
