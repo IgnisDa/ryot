@@ -5,7 +5,7 @@ use chrono::Utc;
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{
-    ApplicationCacheValue, ImportCompletedItem, ImportResult, YoutubeMusicSongListened,
+    ApplicationCacheValue, ImportCompletedItem, ImportResult, YoutubeMusicSongListenedResponse,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -69,15 +69,15 @@ pub async fn yank_progress(
         };
         let (cache_value, progress) = match items_in_cache.get(cache_key) {
             None => (
-                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListened {
+                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListenedResponse {
                     is_complete: false,
                 }),
                 dec!(35),
             ),
-            Some(ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListened {
-                is_complete,
-            })) if !is_complete => (
-                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListened {
+            Some(ApplicationCacheValue::YoutubeMusicSongListened(
+                YoutubeMusicSongListenedResponse { is_complete },
+            )) if !is_complete => (
+                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListenedResponse {
                     is_complete: true,
                 }),
                 dec!(100),

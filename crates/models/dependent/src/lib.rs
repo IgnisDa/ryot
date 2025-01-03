@@ -451,7 +451,7 @@ pub struct UserRecommendationsKey {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct YoutubeMusicSongListened {
+pub struct YoutubeMusicSongListenedResponse {
     pub is_complete: bool,
 }
 
@@ -481,5 +481,5 @@ pub enum ApplicationCacheValue {
     UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
-    YoutubeMusicSongListened(YoutubeMusicSongListened),
+    YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
 }
