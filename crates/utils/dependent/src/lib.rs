@@ -1497,16 +1497,16 @@ pub async fn progress_update(
             ryot_log!(debug, "Progress update percentage = {:?}", progress);
             let seen_insert = seen::ActiveModel {
                 progress: ActiveValue::Set(progress),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                metadata_id: ActiveValue::Set(input.metadata_id),
                 started_on: ActiveValue::Set(started_on),
                 finished_on: ActiveValue::Set(finished_on),
+                user_id: ActiveValue::Set(user_id.to_owned()),
                 state: ActiveValue::Set(SeenState::InProgress),
-                provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+                metadata_id: ActiveValue::Set(input.metadata_id),
                 show_extra_information: ActiveValue::Set(show_ei),
-                podcast_extra_information: ActiveValue::Set(podcast_ei),
                 anime_extra_information: ActiveValue::Set(anime_ei),
                 manga_extra_information: ActiveValue::Set(manga_ei),
+                podcast_extra_information: ActiveValue::Set(podcast_ei),
+                provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                 ..Default::default()
             };
             seen_insert.insert(&ss.db).await.unwrap()
