@@ -461,6 +461,7 @@ impl AppConfig {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.anime_and_manga.mal.client_id = gt();
+        cl.books.hardcover.api_key = gt();
         cl.books.google_books.api_key = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();
