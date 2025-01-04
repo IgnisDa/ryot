@@ -35,6 +35,12 @@ books:
     # @envvar BOOKS_GOOGLE_BOOKS_PASS_RAW_QUERY
     pass_raw_query: false
 
+  # Settings related to Hardcover.
+  hardcover:
+    # The API key to be used.
+    # @envvar BOOKS_HARDCOVER_API_KEY
+    api_key: ""
+
   # Settings related to Openlibrary.
   openlibrary:
     # The image sizes to fetch from Openlibrary.
