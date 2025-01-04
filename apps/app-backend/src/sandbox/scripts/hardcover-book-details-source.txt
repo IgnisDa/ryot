@@ -132,8 +132,11 @@ const response = await httpCall(
 	"POST",
 	"https://api.hardcover.app/v1/graphql",
 	{
-		headers: { Authorization: apiKey },
 		body: JSON.stringify({ query: graphqlQuery, variables: { id: bookId } }),
+		headers: {
+			Authorization: apiKey,
+			"Content-Type": "application/json",
+		},
 	},
 );
 
