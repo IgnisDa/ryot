@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { type Context, Hono } from "hono";
 import { fromJSONSchema, z } from "zod";
@@ -55,8 +55,8 @@ const schemaSearchResponse = z.object({
 
 type ParsedImportPayload = {
 	name: string;
+	external_id: string;
 	properties: Record<string, unknown>;
-	external_ids: Record<string, string>;
 };
 
 const handleFailedSandboxResult = (
@@ -77,19 +77,8 @@ const upsertImportedEntity = async (input: {
 	userId: string;
 	schemaId: string;
 	payload: ParsedImportPayload;
+	detailsSandboxScriptId: string;
 }) => {
-	const externalIdConditions = Object.entries(input.payload.external_ids).map(
-		([idKey, idValue]) => sql`${entity.externalIds} ->> ${idKey} = ${idValue}`,
-	);
-
-	const externalIdCondition =
-		externalIdConditions.length === 1
-			? externalIdConditions[0]
-			: or(...externalIdConditions);
-
-	if (!externalIdCondition)
-		throw new Error("Imported payload is missing external IDs");
-
 	return db.transaction(async (tx) => {
 		const [existingEntity] = await tx
 			.select({ id: entity.id })
@@ -98,7 +87,8 @@ const upsertImportedEntity = async (input: {
 				and(
 					eq(entity.schemaId, input.schemaId),
 					eq(entity.userId, input.userId),
-					externalIdCondition,
+					eq(entity.externalId, input.payload.external_id),
+					eq(entity.detailsSandboxScriptId, input.detailsSandboxScriptId),
 				),
 			)
 			.orderBy(asc(entity.createdAt))
@@ -109,8 +99,9 @@ const upsertImportedEntity = async (input: {
 			userId: input.userId,
 			name: input.payload.name,
 			schemaId: input.schemaId,
+			externalId: input.payload.external_id,
 			properties: input.payload.properties,
-			externalIds: input.payload.external_ids,
+			detailsSandboxScriptId: input.detailsSandboxScriptId,
 		};
 
 		if (existingEntity) {
@@ -132,9 +123,10 @@ const upsertImportedEntity = async (input: {
 	});
 };
 
-const getScriptById = async (scriptId: string, userId: string) => {
+const getScriptById = async (scriptId: string) => {
 	const [script] = await db
 		.select({
+			id: sandboxScript.id,
 			code: sandboxScript.code,
 			schemaId: entitySchema.id,
 			schemaSlug: entitySchema.slug,
@@ -152,12 +144,7 @@ const getScriptById = async (scriptId: string, userId: string) => {
 			entitySchema,
 			eq(entitySchema.id, entitySchemaSandboxScript.entitySchemaId),
 		)
-		.where(
-			and(
-				eq(sandboxScript.id, scriptId),
-				or(eq(sandboxScript.userId, userId), isNull(sandboxScript.userId)),
-			),
-		)
+		.where(eq(sandboxScript.id, scriptId))
 		.limit(1);
 
 	return script;
@@ -223,15 +210,15 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 				if (!acc[row.id])
 					acc[row.id] = {
 						id: row.id,
-						scriptPairs: [],
 						slug: row.slug,
 						name: row.name,
+						scriptPairs: [],
 					};
 				acc[row.id].scriptPairs.push({
-					detailsScriptId: row.detailsScriptId,
-					detailsScriptName: row.detailsScriptName,
 					searchScriptId: row.searchScriptId,
+					detailsScriptId: row.detailsScriptId,
 					searchScriptName: row.searchScriptName,
+					detailsScriptName: row.detailsScriptName,
 				});
 				return acc;
 			},
@@ -242,10 +229,10 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 					slug: string;
 					name: string;
 					scriptPairs: Array<{
-						detailsScriptId: string;
-						detailsScriptName: string;
 						searchScriptId: string;
+						detailsScriptId: string;
 						searchScriptName: string;
+						detailsScriptName: string;
 					}>;
 				}
 			>,
@@ -257,7 +244,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const script = await getScriptById(body.search_script_id, user.id);
+		const script = await getScriptById(body.search_script_id);
 		if (!script) return errorResponse(c, "Search script not found", 404);
 
 		const sandbox = getSandboxService();
@@ -285,7 +272,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const script = await getScriptById(body.details_script_id, user.id);
+		const script = await getScriptById(body.details_script_id);
 		if (!script) return errorResponse(c, "Details script not found", 404);
 
 		const sandbox = getSandboxService();
@@ -337,7 +324,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 
 		const parsedResult: ParsedImportPayload = {
 			name: parsedEnvelope.data.name,
-			external_ids: parsedEnvelope.data.external_ids,
+			external_id: parsedEnvelope.data.external_id,
 			properties: properties as Record<string, unknown>,
 		};
 
@@ -346,6 +333,7 @@ export const entitySchemasApi = new Hono<{ Variables: AuthType }>()
 				userId: user.id,
 				payload: parsedResult,
 				schemaId: script.schemaId,
+				detailsSandboxScriptId: script.id,
 			});
 
 			return successResponse(c, persistedEntity);
