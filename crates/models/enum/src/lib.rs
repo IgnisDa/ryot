@@ -73,6 +73,7 @@ pub enum MediaSource {
     Itunes,
     Anilist,
     Audible,
+    Hardcover,
     Listennotes,
     GoogleBooks,
     Openlibrary,

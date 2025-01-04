@@ -199,15 +199,16 @@ impl SupportingService {
                                 .collect(),
                             "en".to_owned(),
                         ),
-                        MediaSource::GoogleBooks
+                        MediaSource::Mal
+                        | MediaSource::Igdb
+                        | MediaSource::Vndb
+                        | MediaSource::Custom
+                        | MediaSource::Anilist
+                        | MediaSource::Hardcover
+                        | MediaSource::GoogleBooks
                         | MediaSource::Listennotes
                         | MediaSource::Openlibrary
-                        | MediaSource::Igdb
-                        | MediaSource::MangaUpdates
-                        | MediaSource::Anilist
-                        | MediaSource::Mal
-                        | MediaSource::Custom
-                        | MediaSource::Vndb => (vec!["us".to_owned()], "us".to_owned()),
+                        | MediaSource::MangaUpdates => (vec!["us".to_owned()], "us".to_owned()),
                     };
                     ProviderLanguageInformation {
                         source,
