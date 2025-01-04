@@ -69,6 +69,7 @@ CREATE TABLE "entity_schema" (
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_schema_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
@@ -78,6 +79,7 @@ CREATE TABLE "entity_schema_sandbox_script" (
 	"entity_schema_id" text NOT NULL,
 	"search_sandbox_script_id" text NOT NULL,
 	"details_sandbox_script_id" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_schema_sandbox_script_unique" UNIQUE("entity_schema_id","search_sandbox_script_id","details_sandbox_script_id")
 );
 --> statement-breakpoint
@@ -89,16 +91,18 @@ CREATE TABLE "event" (
 	"user_id" text NOT NULL,
 	"session_entity_id" text,
 	"event_schema_id" text NOT NULL,
-	"entity_id" text NOT NULL
+	"entity_id" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "event_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties_schema" jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"entity_schema_id" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "event_schema_entity_schema_slug_unique" UNIQUE("entity_schema_id","slug")
 );
 --> statement-breakpoint
