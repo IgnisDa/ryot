@@ -113,7 +113,7 @@ export const entity = pgTable(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		schemaId: text()
+		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
 		detailsSandboxScriptId: text()
@@ -126,8 +126,8 @@ export const entity = pgTable(
 	},
 	(table) => [
 		index("entity_user_id_idx").on(table.userId),
-		index("entity_schema_id_idx").on(table.schemaId),
 		index("entity_external_id_idx").on(table.externalId),
+		index("entity_entity_schema_id_idx").on(table.entitySchemaId),
 		index("entity_properties_idx").using("gin", table.properties),
 		index("entity_search_vector_idx").using("gin", table.searchVector),
 		index("entity_details_sandbox_script_id_idx").on(
@@ -135,8 +135,8 @@ export const entity = pgTable(
 		),
 		unique("entity_user_schema_script_external_id_unique").on(
 			table.userId,
-			table.schemaId,
 			table.externalId,
+			table.entitySchemaId,
 			table.detailsSandboxScriptId,
 		),
 	],
@@ -279,12 +279,12 @@ export const entityRelations = relations(entity, ({ one, many }) => ({
 		relationName: "sessionEntity",
 	}),
 	schema: one(entitySchema, {
-		fields: [entity.schemaId],
 		references: [entitySchema.id],
+		fields: [entity.entitySchemaId],
 	}),
 	detailsSandboxScript: one(sandboxScript, {
-		fields: [entity.detailsSandboxScriptId],
 		references: [sandboxScript.id],
+		fields: [entity.detailsSandboxScriptId],
 	}),
 	user: one(user, {
 		references: [user.id],
