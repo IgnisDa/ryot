@@ -4602,6 +4602,7 @@ dependencies = [
  "hashbag",
  "itertools 0.14.0",
  "media-models",
+ "nest_struct",
  "paginate",
  "rand 0.9.0-beta.0",
  "reqwest 0.12.12",
