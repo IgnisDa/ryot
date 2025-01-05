@@ -1,4 +1,5 @@
 use anyhow::Result;
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::PersonSourceSpecifics;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -6,13 +7,23 @@ use dependent_models::{
     MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION},
+    Client,
+};
 use traits::MediaProvider;
 
-pub struct HardcoverService {}
+pub struct HardcoverService {
+    client: Client,
+}
 
 impl HardcoverService {
     pub async fn new(config: &config::HardcoverConfig) -> Self {
-        Self {}
+        let client = get_base_http_client(Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&config.api_key).unwrap(),
+        )]));
+        Self { client }
     }
 }
 
