@@ -52,7 +52,11 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::AudioBook, &[MediaSource::Audible]),
     (
         MediaLot::Book,
-        &[MediaSource::Openlibrary, MediaSource::GoogleBooks],
+        &[
+            MediaSource::Openlibrary,
+            MediaSource::GoogleBooks,
+            MediaSource::Hardcover,
+        ],
     ),
     (
         MediaLot::Podcast,
