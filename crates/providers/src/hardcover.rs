@@ -2,6 +2,7 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::PersonSourceSpecifics;
+use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
@@ -12,6 +13,23 @@ use reqwest::{
     Client,
 };
 use traits::MediaProvider;
+
+static URL: &str = "https://api.hardcover.app/v1/graphql";
+
+fn get_search_query(query: &str, page: i32, query_type: &str) -> String {
+    format!(
+        "
+query {{
+  search(
+    page: {page}, per_page: {PAGE_SIZE},
+    query: {query}, query_type: {query_type}
+  ) {{
+    results
+  }}
+}}
+    "
+    )
+}
 
 pub struct HardcoverService {
     client: Client,
@@ -39,6 +57,16 @@ impl MediaProvider for HardcoverService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
+        let body = get_search_query(query, page.unwrap_or(1), "book");
+        let data = self
+            .client
+            .post(URL)
+            .json(&serde_json::json!({"query": body}))
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+        dbg!(&data);
         todo!()
     }
 
