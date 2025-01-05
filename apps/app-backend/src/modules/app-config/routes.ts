@@ -1,14 +1,11 @@
-import { Hono } from "hono";
-import { describeRoute, validator as zValidator } from "hono-openapi";
-import { z } from "zod";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
 import { appConfigKeys } from "~/lib/app-config";
 import {
+	errorJsonResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
-	protectedRouteSpec,
 } from "~/lib/openapi";
-import { successResponse } from "~/lib/response";
 import { setAppConfigValue } from "./repository";
 
 const setAppConfigBody = z.object({
@@ -17,29 +14,33 @@ const setAppConfigBody = z.object({
 });
 
 const appConfigValueSchema = z.object({
+	key: z.string(),
 	updatedAt: z.string(),
-	updatedByUserId: z.string(),
 	value: z.string().nullable(),
-	key: z.enum(appConfigKeys),
+	updatedByUserId: z.string().nullable(),
 });
 
 const setAppConfigResponseSchema = z.object({
 	config_value: appConfigValueSchema,
 });
 
-export const appConfigApi = new Hono<{ Variables: AuthType }>().post(
-	"/set",
-	describeRoute(
-		protectedRouteSpec({
-			tags: ["app-config"],
-			summary: "Set an app config key",
-			responses: {
-				400: payloadValidationErrorResponse,
-				200: jsonResponse("Config value was saved", setAppConfigResponseSchema),
-			},
-		}),
-	),
-	zValidator("json", setAppConfigBody),
+const setAppConfigRoute = createRoute({
+	path: "/set",
+	method: "post",
+	tags: ["app-config"],
+	summary: "Set an app config key",
+	request: {
+		body: { content: { "application/json": { schema: setAppConfigBody } } },
+	},
+	responses: {
+		400: payloadValidationErrorResponse,
+		401: errorJsonResponse("Request is unauthenticated"),
+		200: jsonResponse("Config value was saved", setAppConfigResponseSchema),
+	},
+});
+
+export const appConfigApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
+	setAppConfigRoute,
 	async (c) => {
 		const user = c.get("user");
 		const parsed = c.req.valid("json");
@@ -51,6 +52,14 @@ export const appConfigApi = new Hono<{ Variables: AuthType }>().post(
 			updatedByUserId: user.id,
 		});
 
-		return successResponse(c, { config_value: configValue });
+		return c.json(
+			{
+				config_value: {
+					...configValue,
+					updatedAt: configValue.updatedAt.toISOString(),
+				},
+			},
+			200,
+		);
 	},
 );
