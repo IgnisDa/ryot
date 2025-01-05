@@ -3,8 +3,10 @@ use common_models::StringIdObject;
 use database_models::access_link;
 use dependent_models::{BasicUserDetails, UserDetailsResult};
 use media_models::{
-    CreateAccessLinkInput, GetPasswordChangeSessionInput, GetPasswordChangeSessionResponse,
-    ProcessAccessLinkInput, ProcessAccessLinkResult, SetPasswordViaSessionInput, UserResetResult,
+    CreateAccessLinkInput, GenerateUserImpersonationLinkInput,
+    GenerateUserImpersonationLinkResponse, GetPasswordChangeSessionInput,
+    GetPasswordChangeSessionResponse, ProcessAccessLinkInput, ProcessAccessLinkResult,
+    SetPasswordViaSessionInput, UserResetResult,
 };
 use traits::GraphqlDependencyInjector;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -150,5 +152,15 @@ impl UserManagementMutationResolver {
     ) -> Result<bool> {
         let (service, _) = self.dependency_and_user(gql_ctx).await?;
         Ok(authentication_operations::revoke_access_link(service, access_link_id).await?)
+    }
+
+    /// Generate a user impersonation link. Requires admin access token.
+    async fn generate_user_impersonation_link(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: GenerateUserImpersonationLinkInput,
+    ) -> Result<GenerateUserImpersonationLinkResponse> {
+        let service = self.dependency(gql_ctx);
+        Ok(access_link_operations::generate_impersonation_link(service, input).await?)
     }
 }

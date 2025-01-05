@@ -1036,6 +1036,15 @@ export type FrontendUmamiConfig = {
   websiteId: Scalars['String']['output'];
 };
 
+export type GenerateUserImpersonationLinkInput = {
+  adminAccessToken: Scalars['String']['input'];
+  userId: Scalars['String']['input'];
+};
+
+export type GenerateUserImpersonationLinkResponse = {
+  impersonationUrl: Scalars['String']['output'];
+};
+
 export type GenreDetails = {
   contents: IdResults;
   details: GenreListItem;
@@ -1787,6 +1796,8 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Generate a one-time URL for downloading application logs. Admin only. */
   generateLogDownloadUrl: Scalars['String']['output'];
+  /** Generate a user impersonation link. Requires admin access token. */
+  generateUserImpersonationLink: GenerateUserImpersonationLinkResponse;
   /** Get a URL which can be used to set a new password for the user. */
   getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
@@ -2032,6 +2043,11 @@ export type MutationRootDisassociateMetadataArgs = {
 
 export type MutationRootExpireCacheKeyArgs = {
   cacheId: Scalars['UUID']['input'];
+};
+
+
+export type MutationRootGenerateUserImpersonationLinkArgs = {
+  input: GenerateUserImpersonationLinkInput;
 };
 
 
