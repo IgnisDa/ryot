@@ -1,14 +1,10 @@
 import { type Config, config } from "~/lib/config";
-import {
-	apiFailure,
-	apiSuccess,
-	type ConfigValueResult,
-} from "~/sandbox/types";
+import { apiFailure, apiSuccess } from "~/sandbox/types";
 
 const isConfigKey = (key: string): key is keyof Config =>
 	Object.hasOwn(config, key);
 
-export const getAppConfigValue = (key: unknown): ConfigValueResult => {
+export const getAppConfigValue = (key: unknown) => {
 	if (typeof key !== "string" || !key.trim())
 		return apiFailure("getAppConfigValue expects a non-empty key string");
 
