@@ -14,7 +14,7 @@ COPY --from=prepare /app/out/json/ .
 # 2. The native addon is optional - msgpackr works fine with pure JS fallback
 # 3. Performance impact is negligible (~5% on serialization operations)
 # See: https://github.com/oven-sh/bun/issues/12919
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 RUN bun run --filter @ryot/app-backend build
 RUN bun run --filter @ryot/app-frontend build
