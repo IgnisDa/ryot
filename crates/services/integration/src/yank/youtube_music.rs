@@ -35,21 +35,16 @@ pub async fn yank_progress(
         .music_history()
         .await
         .unwrap();
-    let songs_listened_to_today = music_history
-        .items
-        .into_iter()
-        .rev()
-        .filter_map(|history| {
-            history.playback_date.and_then(|d| {
-                let yt_date =
-                    NaiveDate::from_ymd_opt(d.year(), d.month() as u32, d.day().into()).unwrap();
-                match yt_date == date {
-                    true => Some((history.item.id, history.item.name)),
-                    false => None,
-                }
-            })
+    let songs_listened_to_today = music_history.items.into_iter().rev().filter_map(|history| {
+        history.playback_date.and_then(|d| {
+            let yt_date =
+                NaiveDate::from_ymd_opt(d.year(), d.month() as u32, d.day().into()).unwrap();
+            match yt_date == date {
+                false => None,
+                true => Some((history.item.id, history.item.name)),
+            }
         })
-        .collect_vec();
+    });
     let cache_keys = songs_listened_to_today
         .iter()
         .map(|(id, _)| {
