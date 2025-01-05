@@ -5196,7 +5196,7 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 [[package]]
 name = "rustypipe"
 version = "0.8.0"
-source = "git+https://codeberg.org/ThetaDev/rustypipe.git?branch=feat/user-history#5044cb0ed55204b916868b8798d399de974b2c0d"
+source = "git+https://codeberg.org/ThetaDev/rustypipe.git?branch=feat/user-history#c90d966b17eab24e957d980695888a459707055c"
 dependencies = [
  "data-encoding",
  "fancy-regex",
@@ -7272,7 +7272,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
