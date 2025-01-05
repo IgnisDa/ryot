@@ -87,9 +87,9 @@ use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
     anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
-    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
-    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
-    youtube_music::YoutubeMusicService,
+    hardcover::HardcoverService, igdb::IgdbService, itunes::ITunesService,
+    listennotes::ListennotesService, mal::NonMediaMalService, manga_updates::MangaUpdatesService,
+    vndb::VndbService, youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -1533,6 +1533,9 @@ ORDER BY RANDOM() LIMIT 10;
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
+            MediaSource::Hardcover => {
+                Box::new(HardcoverService::new(&self.0.config.books.hardcover).await)
+            }
             MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => {

@@ -1058,6 +1058,7 @@ export enum MediaSource {
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
   GoogleBooks = 'GOOGLE_BOOKS',
+  Hardcover = 'HARDCOVER',
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
