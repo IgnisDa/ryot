@@ -23,7 +23,6 @@ export const entitySchema = pgTable(
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
-		displayConfig: jsonb().notNull().default({}),
 		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -248,7 +247,6 @@ export const savedView = pgTable(
 		name: text().notNull(),
 		queryDefinition: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
-		displayConfig: jsonb().notNull().default({}),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
