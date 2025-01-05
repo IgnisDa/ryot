@@ -13,6 +13,7 @@ use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
 };
+use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize};
 use traits::MediaProvider;
 
@@ -55,21 +56,29 @@ struct Response {
         search: nest! {
             results: nest! {
                 found: i32,
-                hits: Vec<
-                  nest! {
-                    document: nest! {
-                        id: String,
-                        title: String,
-                        release_year: Option<i32>,
-                        image: Option<nest! {
-                            url: Option<String>,
-                        }>,
-                    },
-                  }
-                >,
+                hits: Vec<nest! { document: Book }>,
             }
         }
     },
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Book {
+    id: String,
+    title: String,
+    pages: Option<i32>,
+    image: Option<Image>,
+    rating: Option<Decimal>,
+    release_year: Option<i32>,
+    images: Option<Vec<Image>>,
+    release_date: Option<String>,
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Image {
+    url: Option<String>,
 }
 
 pub struct HardcoverService {
