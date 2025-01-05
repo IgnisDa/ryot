@@ -10,7 +10,25 @@ export const demoJobPayloadSchema = z.object({
 
 export type DemoJobPayload = z.infer<typeof demoJobPayloadSchema>;
 
+const getValidatedPayload = (taskIdentifier: string, payload: unknown) => {
+	switch (taskIdentifier) {
+		case DEMO_JOB: {
+			const parsed = demoJobPayloadSchema.safeParse(payload);
+			if (!parsed.success) {
+				throw new Error(
+					`Invalid payload for ${DEMO_JOB}: ${parsed.error.message}`,
+				);
+			}
+
+			return parsed.data;
+		}
+		default:
+			return payload;
+	}
+};
+
 export const addJob = async (taskIdentifier: string, payload: unknown) => {
 	const pool = getWorkerPool();
-	await quickAddJob({ pgPool: pool }, taskIdentifier, payload);
+	const validatedPayload = getValidatedPayload(taskIdentifier, payload);
+	await quickAddJob({ pgPool: pool }, taskIdentifier, validatedPayload);
 };
