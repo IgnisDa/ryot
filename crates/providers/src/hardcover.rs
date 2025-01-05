@@ -1,6 +1,7 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -37,13 +38,42 @@ query {{
 }}
     "#
     );
-    let body = serde_json::json!({"query": body});
     let data = client
         .post(URL)
-        .json(&body)
+        .json(&serde_json::json!({"query": body}))
         .send()
         .await?
         .json::<T>()
+        .await
+        .unwrap();
+    Ok(data)
+}
+
+async fn get_book_details(identifier: &str, client: &Client) -> Result<MetadataDetails> {
+    let body = format!(r#"
+query {{
+  books_by_pk(id: {identifier}) {{
+    pages
+    title
+    rating
+    description
+    cached_tags
+    release_date
+    release_year
+    image {{ url }}
+    images {{ url }}
+    book_series {{ series {{ id name }} }}
+    contributions {{ contribution author_id }}
+    recommendations(where: {{ item_type: {{ _eq: "book" }} }}) {{ item_id }}
+  }}
+}}
+    "#);
+    let data = client
+        .post(URL)
+        .json(&serde_json::json!({"query": body}))
+        .send()
+        .await?
+        .json::<Book>()
         .await
         .unwrap();
     Ok(data)
@@ -72,7 +102,22 @@ struct Book {
     rating: Option<Decimal>,
     release_year: Option<i32>,
     images: Option<Vec<Image>>,
-    release_date: Option<String>,
+    description: Option<String>,
+    release_date: Option<NaiveDate>,
+    cached_tags: nest! {
+        #[serde(rename = "Genre")]
+        genre: Vec<nest! { tag: String }>
+    },
+    contributions: Option<Vec<nest! {
+        author_id: String,
+        contribution: Option<String>
+    }>>,
+    book_series: Option<Vec<nest! {
+        series: nest! {
+            id: String,
+            name: String
+        }
+    }>>,
 }
 
 #[nest_struct]
@@ -98,7 +143,7 @@ impl HardcoverService {
 #[async_trait]
 impl MediaProvider for HardcoverService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        todo!()
+        let details = get_book_details(identifier, &self.client).await?;
     }
 
     async fn metadata_search(
