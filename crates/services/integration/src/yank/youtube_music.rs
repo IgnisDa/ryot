@@ -8,7 +8,6 @@ use dependent_models::{
     ApplicationCacheValue, ImportCompletedItem, ImportResult, YoutubeMusicSongListenedResponse,
 };
 use enum_models::{MediaLot, MediaSource};
-use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
 use rustypipe::client::RustyPipe;
@@ -46,7 +45,7 @@ pub async fn yank_progress(
         })
     });
     let cache_keys = songs_listened_to_today
-        .iter()
+        .clone()
         .map(|(id, _)| {
             (
                 id.clone(),
