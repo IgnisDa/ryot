@@ -1,7 +1,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { auth, type MaybeAuthType } from "~/auth";
-import { requireAuth, withSession } from "~/auth/middleware";
+import { requireAuth } from "~/auth/middleware";
 import { errorJsonResponse, jsonResponse } from "~/lib/openapi";
 import { appConfigApi } from "~/modules/app-config/routes";
 import { entitiesApi } from "~/modules/entities/routes";
@@ -24,6 +24,7 @@ const meRoute = createRoute({
 	path: "/me",
 	method: "get",
 	tags: ["protected"],
+	middleware: [requireAuth],
 	summary: "Get the current user session",
 	responses: {
 		200: jsonResponse("Authenticated session details", meResponseSchema),
@@ -50,12 +51,6 @@ export const apiApp = baseApp
 		servers: [{ url: "/api" }],
 	})
 	.get("/docs", swaggerUI({ url: "/api/openapi.json" }))
-	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw))
-	.use("*", withSession)
-	.use("/me", requireAuth)
-	.use("/app-config/*", requireAuth)
-	.use("/sandbox/*", requireAuth)
-	.use("/entities/*", requireAuth)
-	.use("/entity-schemas/*", requireAuth);
+	.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 
 export type AppType = typeof baseApp;
