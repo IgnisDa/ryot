@@ -149,7 +149,7 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("refreshUserRecommendationsKey", async () => {
+		.with("refreshUserMetadataRecommendationsKey", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				RefreshUserMetadataRecommendationsKeyDocument,
@@ -232,7 +232,7 @@ export default function Page() {
 									<Form
 										method="POST"
 										action={withQuery(".?index", {
-											intent: "refreshUserRecommendationsKey",
+											intent: "refreshUserMetadataRecommendationsKey",
 										})}
 									>
 										<ActionIcon
