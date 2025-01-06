@@ -221,6 +221,11 @@ const getNextSetInWorkout = (
 				};
 		}
 	}
+	const isLastSetOfLastExercise =
+		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
+		currentSetIdx ===
+			currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
+	if (isLastSetOfLastExercise) return null;
 	return {
 		wasLastSet: false,
 		setIdx: currentSetIdx + 1,
@@ -249,6 +254,14 @@ const usePerformTasksAfterSetConfirmed = () => {
 				if (!draft) return;
 				const currentExercise = draft.exercises[exerciseIdx];
 				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
+				if (!nextSet) {
+					currentExercise.isCollapsed = true;
+					currentExercise.isShowDetailsOpen = false;
+					setTimeout(() => {
+						window.scroll({ top: 0, behavior: "smooth" });
+					}, 800);
+					return;
+				}
 				focusOnExercise(nextSet.exerciseIdx);
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
