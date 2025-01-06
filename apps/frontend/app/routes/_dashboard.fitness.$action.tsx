@@ -205,16 +205,26 @@ const getNextSetInWorkout = (
 			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
 		}
 	}
-	if (areAllSetsConfirmed)
-		return {
-			exerciseIdx: currentExerciseIdx + 1,
-			setIdx: 0,
-			wasLastSet: true,
-		};
+	if (areAllSetsConfirmed) {
+		for (
+			let i = currentExerciseIdx + 1;
+			i < currentWorkout.exercises.length;
+			i++
+		) {
+			const exerciseProgress =
+				getProgressOfExercise(currentWorkout, i) !== "complete";
+			if (exerciseProgress)
+				return {
+					setIdx: 0,
+					exerciseIdx: i,
+					wasLastSet: true,
+				};
+		}
+	}
 	return {
-		exerciseIdx: currentExerciseIdx,
-		setIdx: currentSetIdx + 1,
 		wasLastSet: false,
+		setIdx: currentSetIdx + 1,
+		exerciseIdx: currentExerciseIdx,
 	};
 };
 
