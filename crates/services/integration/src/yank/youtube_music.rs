@@ -1,14 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{
     ApplicationCacheValue, ImportCompletedItem, ImportResult, YoutubeMusicSongListenedResponse,
 };
 use enum_models::{MediaLot, MediaSource};
-use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
 use rustypipe::client::RustyPipe;
@@ -28,21 +27,25 @@ pub async fn yank_progress(
 ) -> Result<ImportResult> {
     let date = Utc::now().date_naive();
     let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
-    client.set_auth_cookie(auth_cookie).await;
+    client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client
         .query()
         .authenticated()
         .music_history()
         .await
         .unwrap();
-    let songs_listened_to_today = music_history
-        .items
-        .into_iter()
-        .rev()
-        .map(|item| (item.id, item.name))
-        .collect_vec();
+    let songs_listened_to_today = music_history.items.into_iter().rev().filter_map(|history| {
+        history.playback_date.and_then(|d| {
+            let yt_date =
+                NaiveDate::from_ymd_opt(d.year(), d.month() as u32, d.day().into()).unwrap();
+            match yt_date == date {
+                false => None,
+                true => Some((history.item.id, history.item.name)),
+            }
+        })
+    });
     let cache_keys = songs_listened_to_today
-        .iter()
+        .clone()
         .map(|(id, _)| {
             (
                 id.clone(),
