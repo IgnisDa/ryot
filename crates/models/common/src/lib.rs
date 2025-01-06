@@ -356,6 +356,7 @@ pub enum ApplicationCacheKey {
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     UserMetadataRecommendationsKey(UserLevelCacheKey<()>),
+    UserMetadataRecommendations(UserLevelCacheKey<String>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),

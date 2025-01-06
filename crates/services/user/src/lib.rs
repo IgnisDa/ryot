@@ -15,7 +15,10 @@ use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsKey};
+use dependent_models::{
+    ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsKey,
+    UserMetadataRecommendationsResponse,
+};
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
@@ -54,18 +57,12 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    pub async fn user_metadata_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let limit = preferences
-            .general
-            .dashboard
-            .into_iter()
-            .find(|d| d.section == DashboardElementLot::Recommendations)
-            .unwrap()
-            .num_elements;
-        let recommendation_key = match self
-            .0
-            .cache_service
+    pub async fn user_metadata_recommendations(
+        &self,
+        user_id: &String,
+    ) -> Result<UserMetadataRecommendationsResponse> {
+        let cc = &self.0.cache_service;
+        let recommendation_key = match cc
             .get_value::<UserMetadataRecommendationsKey>(
                 ApplicationCacheKey::UserMetadataRecommendationsKey(UserLevelCacheKey {
                     input: (),
@@ -77,6 +74,25 @@ impl UserService {
             Some(k) => k.recommendations_key,
             None => Utc::now().hour().to_string(),
         };
+        let metadata_recommendations_key =
+            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                user_id: user_id.to_owned(),
+                input: recommendation_key.clone(),
+            });
+        if let Some(recommendations) = cc
+            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
+            .await
+        {
+            return Ok(recommendations);
+        };
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
+        let limit = preferences
+            .general
+            .dashboard
+            .into_iter()
+            .find(|d| d.section == DashboardElementLot::Recommendations)
+            .unwrap()
+            .num_elements;
         let recs = Metadata::find()
             .filter(metadata::Column::IsRecommendation.eq(true))
             .order_by(
@@ -93,6 +109,11 @@ impl UserService {
             .into_iter()
             .map(|r| r.id)
             .collect_vec();
+        cc.set_key(
+            metadata_recommendations_key,
+            ApplicationCacheValue::UserMetadataRecommendations(recs.clone()),
+        )
+        .await?;
         Ok(recs)
     }
 

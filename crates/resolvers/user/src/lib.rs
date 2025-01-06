@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform, user};
-use dependent_models::UserDetailsResult;
+use dependent_models::{UserDetailsResult, UserMetadataRecommendationsResponse};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -22,7 +22,10 @@ impl AuthProvider for UserQuery {}
 #[Object]
 impl UserQuery {
     /// Get metadata recommendations for the currently logged in user.
-    async fn user_metadata_recommendations(&self, gql_ctx: &Context<'_>) -> Result<Vec<String>> {
+    async fn user_metadata_recommendations(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<UserMetadataRecommendationsResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_metadata_recommendations(&user_id).await

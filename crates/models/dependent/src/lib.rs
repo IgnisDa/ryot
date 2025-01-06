@@ -462,6 +462,7 @@ pub struct EmptyCacheValue {
 }
 
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
+pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
@@ -482,4 +483,5 @@ pub enum ApplicationCacheValue {
     MetadataGroupSearch(MetadataGroupSearchResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsKey(UserMetadataRecommendationsKey),
+    UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }
