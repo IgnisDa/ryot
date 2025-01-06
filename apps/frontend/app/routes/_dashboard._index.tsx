@@ -25,10 +25,10 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
-	RefreshUserRecommendationsKeyDocument,
+	RefreshUserMetadataRecommendationsKeyDocument,
 	UserAnalyticsDocument,
+	UserMetadataRecommendationsDocument,
 	type UserPreferences,
-	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -96,12 +96,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			)?.hidden
 		)
 			return [];
-		const { userRecommendations } = await serverGqlService.authenticatedRequest(
-			request,
-			UserRecommendationsDocument,
-			{},
-		);
-		return userRecommendations;
+		const { userMetadataRecommendations } =
+			await serverGqlService.authenticatedRequest(
+				request,
+				UserMetadataRecommendationsDocument,
+			);
+		return userMetadataRecommendations;
 	};
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
@@ -152,8 +152,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		.with("refreshUserRecommendationsKey", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
-				RefreshUserRecommendationsKeyDocument,
-				{},
+				RefreshUserMetadataRecommendationsKeyDocument,
 			);
 			return {};
 		})
