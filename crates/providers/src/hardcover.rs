@@ -20,6 +20,73 @@ use traits::MediaProvider;
 
 static URL: &str = "https://api.hardcover.app/v1/graphql";
 
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Response<T> {
+    data: T,
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Search {
+    search: nest! {
+        results: nest! {
+            found: i32,
+            hits: Vec<nest! { document: Book<String> }>,
+        }
+    },
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct BooksByPk {
+    books_by_pk: Book<i64>,
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Book<TId> {
+    id: TId,
+    title: String,
+    pages: Option<i32>,
+    image: Option<Image>,
+    rating: Option<Decimal>,
+    release_year: Option<i32>,
+    images: Option<Vec<Image>>,
+    description: Option<String>,
+    release_date: Option<NaiveDate>,
+    cached_tags: Option<
+        nest! {
+          #[serde(rename = "Genre")]
+          genre: Option<Vec<nest! { tag: String }>>
+        },
+    >,
+    contributions: Option<
+        Vec<
+            nest! {
+                author_id: Option<TId>,
+                contribution: Option<String>
+            },
+        >,
+    >,
+    book_series: Option<
+        Vec<
+            nest! {
+                series: nest! {
+                    id: TId,
+                    name: String
+                }
+            },
+        >,
+    >,
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
+struct Image {
+    url: Option<String>,
+}
+
 async fn get_search_response<T: DeserializeOwned>(
     query: &str,
     page: i32,
@@ -44,15 +111,16 @@ query {{
         .send()
         .await?
         .json::<T>()
-        .await
-        .unwrap();
+        .await?;
     Ok(data)
 }
 
 async fn get_book_details(identifier: &str, client: &Client) -> Result<MetadataDetails> {
-    let body = format!(r#"
+    let body = format!(
+        r#"
 query {{
   books_by_pk(id: {identifier}) {{
+    id
     pages
     title
     rating
@@ -67,63 +135,18 @@ query {{
     recommendations(where: {{ item_type: {{ _eq: "book" }} }}) {{ item_id }}
   }}
 }}
-    "#);
+    "#
+    );
     let data = client
         .post(URL)
         .json(&serde_json::json!({"query": body}))
         .send()
         .await?
-        .json::<Book>()
+        .json::<Response<BooksByPk>>()
         .await
         .unwrap();
-    Ok(data)
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Response {
-    data: nest! {
-        search: nest! {
-            results: nest! {
-                found: i32,
-                hits: Vec<nest! { document: Book }>,
-            }
-        }
-    },
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Book {
-    id: String,
-    title: String,
-    pages: Option<i32>,
-    image: Option<Image>,
-    rating: Option<Decimal>,
-    release_year: Option<i32>,
-    images: Option<Vec<Image>>,
-    description: Option<String>,
-    release_date: Option<NaiveDate>,
-    cached_tags: nest! {
-        #[serde(rename = "Genre")]
-        genre: Vec<nest! { tag: String }>
-    },
-    contributions: Option<Vec<nest! {
-        author_id: String,
-        contribution: Option<String>
-    }>>,
-    book_series: Option<Vec<nest! {
-        series: nest! {
-            id: String,
-            name: String
-        }
-    }>>,
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Image {
-    url: Option<String>,
+    dbg!(&data);
+    todo!()
 }
 
 pub struct HardcoverService {
@@ -144,6 +167,7 @@ impl HardcoverService {
 impl MediaProvider for HardcoverService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details = get_book_details(identifier, &self.client).await?;
+        todo!()
     }
 
     async fn metadata_search(
@@ -153,7 +177,8 @@ impl MediaProvider for HardcoverService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let response = get_search_response::<Response>(query, page, "book", &self.client).await?;
+        let response =
+            get_search_response::<Response<Search>>(query, page, "book", &self.client).await?;
         let response = response.data.search.results;
         let items = response
             .hits
