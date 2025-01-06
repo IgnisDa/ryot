@@ -151,6 +151,8 @@ import {
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 
+const SET_TIMEOUT_DELAY = 800;
+
 export const loader = async ({ params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, {
 		action: z.nativeEnum(FitnessAction),
@@ -259,7 +261,7 @@ const usePerformTasksAfterSetConfirmed = () => {
 					currentExercise.isShowDetailsOpen = false;
 					setTimeout(() => {
 						window.scroll({ top: 0, behavior: "smooth" });
-					}, 800);
+					}, SET_TIMEOUT_DELAY);
 					return;
 				}
 				focusOnExercise(nextSet.exerciseIdx);
@@ -1209,7 +1211,7 @@ const focusOnExercise = (idx: number) => {
 	setTimeout(() => {
 		const exercise = document.getElementById(idx.toString());
 		exercise?.scrollIntoView({ behavior: "smooth" });
-	}, 800);
+	}, SET_TIMEOUT_DELAY);
 };
 
 const exerciseHasDetailsToShow = (
