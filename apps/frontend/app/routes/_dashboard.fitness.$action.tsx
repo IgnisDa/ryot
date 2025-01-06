@@ -151,7 +151,7 @@ import {
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 
-const SET_TIMEOUT_DELAY = 800;
+const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, {
@@ -261,7 +261,7 @@ const usePerformTasksAfterSetConfirmed = () => {
 					currentExercise.isShowDetailsOpen = false;
 					setTimeout(() => {
 						window.scroll({ top: 0, behavior: "smooth" });
-					}, SET_TIMEOUT_DELAY);
+					}, DEFAULT_SET_TIMEOUT_DELAY);
 					return;
 				}
 				focusOnExercise(nextSet.exerciseIdx);
@@ -365,7 +365,7 @@ export default function Page() {
 				}
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => closeTimerDrawer(), 500);
+				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY);
 			}
 		}
 	}, 1000);
@@ -1211,7 +1211,7 @@ const focusOnExercise = (idx: number) => {
 	setTimeout(() => {
 		const exercise = document.getElementById(idx.toString());
 		exercise?.scrollIntoView({ behavior: "smooth" });
-	}, SET_TIMEOUT_DELAY);
+	}, DEFAULT_SET_TIMEOUT_DELAY);
 };
 
 const exerciseHasDetailsToShow = (
