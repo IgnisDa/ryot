@@ -15,7 +15,7 @@ use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, UserDetailsResult, UserRecommendationsKey};
+use dependent_models::{ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsKey};
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
@@ -54,7 +54,7 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
+    pub async fn user_metadata_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
             .general
@@ -66,12 +66,12 @@ impl UserService {
         let recommendation_key = match self
             .0
             .cache_service
-            .get_value::<UserRecommendationsKey>(ApplicationCacheKey::UserRecommendationsKey(
-                UserLevelCacheKey {
+            .get_value::<UserMetadataRecommendationsKey>(
+                ApplicationCacheKey::UserMetadataRecommendationsKey(UserLevelCacheKey {
                     input: (),
                     user_id: user_id.to_owned(),
-                },
-            ))
+                }),
+            )
             .await
         {
             Some(k) => k.recommendations_key,
@@ -96,18 +96,23 @@ impl UserService {
         Ok(recs)
     }
 
-    pub async fn refresh_user_recommendations_key(&self, user_id: &String) -> Result<bool> {
+    pub async fn refresh_user_metadata_recommendations_key(
+        &self,
+        user_id: &String,
+    ) -> Result<bool> {
         let key = nanoid!(12);
         self.0
             .cache_service
             .set_key(
-                ApplicationCacheKey::UserRecommendationsKey(UserLevelCacheKey {
+                ApplicationCacheKey::UserMetadataRecommendationsKey(UserLevelCacheKey {
                     input: (),
                     user_id: user_id.to_owned(),
                 }),
-                ApplicationCacheValue::UserRecommendationsKey(UserRecommendationsKey {
-                    recommendations_key: key,
-                }),
+                ApplicationCacheValue::UserMetadataRecommendationsKey(
+                    UserMetadataRecommendationsKey {
+                        recommendations_key: key,
+                    },
+                ),
             )
             .await?;
         Ok(true)

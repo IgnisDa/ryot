@@ -445,7 +445,7 @@ pub struct IgdbSettings {
 
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct UserRecommendationsKey {
+pub struct UserMetadataRecommendationsKey {
     pub recommendations_key: String,
 }
 
@@ -478,8 +478,8 @@ pub enum ApplicationCacheValue {
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
-    UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
+    UserMetadataRecommendationsKey(UserMetadataRecommendationsKey),
 }

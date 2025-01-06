@@ -1297,8 +1297,8 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
-  /** Refresh the user recommendations key. */
-  refreshUserRecommendationsKey: Scalars['Boolean']['output'];
+  /** Refresh the user metadata recommendations key. */
+  refreshUserMetadataRecommendationsKey: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -1861,12 +1861,12 @@ export type QueryRoot = {
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
+  /** Get metadata recommendations for the currently logged in user. */
+  userMetadataRecommendations: Array<Scalars['String']['output']>;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
-  /** Get media recommendations for the currently logged in user. */
-  userRecommendations: Array<Scalars['String']['output']>;
   /** Get upcoming calendar events for the given filter. */
   userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
   /** Get details about a workout. */
