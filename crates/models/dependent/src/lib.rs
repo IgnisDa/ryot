@@ -433,34 +433,16 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct ListennotesSettings {
-    pub genres: HashMap<i32, String>,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct IgdbSettings {
-    pub access_token: String,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct UserMetadataRecommendationsKey {
-    pub recommendations_key: String,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct YoutubeMusicSongListenedResponse {
-    pub is_complete: bool,
-}
-
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type IgdbSettings = String;
+pub type YoutubeMusicSongListenedResponse = bool;
+pub type UserMetadataRecommendationsKey = String;
+pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;

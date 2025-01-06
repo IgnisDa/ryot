@@ -71,7 +71,7 @@ impl UserService {
             )
             .await
         {
-            Some(k) => k.recommendations_key,
+            Some(k) => k,
             None => Utc::now().hour().to_string(),
         };
         let metadata_recommendations_key =
@@ -129,11 +129,7 @@ impl UserService {
                     input: (),
                     user_id: user_id.to_owned(),
                 }),
-                ApplicationCacheValue::UserMetadataRecommendationsKey(
-                    UserMetadataRecommendationsKey {
-                        recommendations_key: key,
-                    },
-                ),
+                ApplicationCacheValue::UserMetadataRecommendationsKey(key),
             )
             .await?;
         Ok(true)
