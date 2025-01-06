@@ -227,7 +227,7 @@ const getNextSetInWorkout = (
 		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
 		currentSetIdx ===
 			currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
-	if (isLastSetOfLastExercise) return null;
+	if (isLastSetOfLastExercise) return { wasLastSet: true };
 	return {
 		wasLastSet: false,
 		setIdx: currentSetIdx + 1,
@@ -251,35 +251,33 @@ const usePerformTasksAfterSetConfirmed = () => {
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
+		let exerciseIdxToFocusOn = undefined;
 		setCurrentWorkout((cw) =>
 			produce(cw, (draft) => {
 				if (!draft) return;
 				const currentExercise = draft.exercises[exerciseIdx];
 				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
-				if (!nextSet) {
-					currentExercise.isCollapsed = true;
-					currentExercise.isShowDetailsOpen = false;
-					setTimeout(() => {
-						window.scroll({ top: 0, behavior: "smooth" });
-					}, DEFAULT_SET_TIMEOUT_DELAY);
-					return;
-				}
-				focusOnExercise(nextSet.exerciseIdx);
+				exerciseIdxToFocusOn = nextSet.exerciseIdx;
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
 					currentExercise.isShowDetailsOpen = false;
-					const nextExercise = draft.exercises[nextSet.exerciseIdx];
-					const nextExerciseHasDetailsToShow =
-						nextExercise &&
-						exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-					if (nextExerciseHasDetailsToShow) {
-						nextExercise.isCollapsed = false;
-						if (userPreferences.fitness.logging.showDetailsWhileEditing)
-							nextExercise.isShowDetailsOpen = true;
+					if (isNumber(nextSet.exerciseIdx)) {
+						const nextExercise = draft.exercises[nextSet.exerciseIdx];
+						const nextExerciseHasDetailsToShow =
+							nextExercise &&
+							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+						if (nextExerciseHasDetailsToShow) {
+							nextExercise.isCollapsed = false;
+							if (userPreferences.fitness.logging.showDetailsWhileEditing)
+								nextExercise.isShowDetailsOpen = true;
+						}
 					}
 				}
 			}),
 		);
+		if (isNumber(exerciseIdxToFocusOn)) {
+			focusOnExercise(exerciseIdxToFocusOn);
+		}
 	};
 
 	return performTask;
