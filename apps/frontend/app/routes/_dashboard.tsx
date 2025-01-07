@@ -119,7 +119,6 @@ import {
 	ThreePointSmileyRating,
 	Verb,
 	convertDecimalToThreePointSmiley,
-	getLot,
 	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
@@ -171,17 +170,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 
 	const mediaLinks = [
-		...(Object.entries(userPreferences.featuresEnabled.media || {})
-			.filter(([v, _]) => v !== "enabled")
-			.filter(([name, _]) => getLot(name) !== undefined)
-			.map(([name, enabled]) => {
-				// biome-ignore lint/style/noNonNullAssertion: required here
-				return { name: getLot(name)!, enabled };
-			})
-			?.filter((f) => f.enabled)
-			.map((f) => {
-				return { label: f.name, href: undefined };
-			}) || []),
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return { label: f, href: undefined };
+		}),
 		userPreferences.featuresEnabled.media.groups
 			? {
 					label: "Groups",
