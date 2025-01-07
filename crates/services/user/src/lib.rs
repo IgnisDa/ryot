@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
-use chrono::{Timelike, Utc};
+use chrono::Utc;
 use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
@@ -16,8 +16,7 @@ use database_utils::{
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsKey,
-    UserMetadataRecommendationsResponse,
+    ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
@@ -62,22 +61,10 @@ impl UserService {
         user_id: &String,
     ) -> Result<UserMetadataRecommendationsResponse> {
         let cc = &self.0.cache_service;
-        let recommendation_key = match cc
-            .get_value::<UserMetadataRecommendationsKey>(
-                ApplicationCacheKey::UserMetadataRecommendationsKey(UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.to_owned(),
-                }),
-            )
-            .await
-        {
-            Some(k) => k,
-            None => Utc::now().hour().to_string(),
-        };
         let metadata_recommendations_key =
             ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                input: (),
                 user_id: user_id.to_owned(),
-                input: recommendation_key.clone(),
             });
         if let Some(recommendations) = cc
             .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
@@ -93,13 +80,17 @@ impl UserService {
             .find(|d| d.section == DashboardElementLot::Recommendations)
             .unwrap()
             .num_elements;
+        // TODO: With the metadata enabled from user preferences, make multiple queries
+        // with a filter on metadata.lot. In a for loop, keep adding to the recommendations
+        // set until the limit is reached. In the end, convert it to a Vec and then shuffle
+        // it before returning.
         let recs = Metadata::find()
             .filter(metadata::Column::IsRecommendation.eq(true))
             .order_by(
                 Expr::expr(Func::md5(
                     Expr::col(metadata::Column::Title)
                         .concat(Expr::val(user_id))
-                        .concat(Expr::val(recommendation_key)),
+                        .concat(Expr::val(nanoid!(12))),
                 )),
                 Order::Desc,
             )
@@ -117,20 +108,15 @@ impl UserService {
         Ok(recs)
     }
 
-    pub async fn refresh_user_metadata_recommendations_key(
-        &self,
-        user_id: &String,
-    ) -> Result<bool> {
-        let key = nanoid!(12);
+    pub async fn refresh_user_metadata_recommendations(&self, user_id: &String) -> Result<bool> {
         self.0
             .cache_service
-            .set_key(
-                ApplicationCacheKey::UserMetadataRecommendationsKey(UserLevelCacheKey {
+            .expire_key(ApplicationCacheKey::UserMetadataRecommendations(
+                UserLevelCacheKey {
                     input: (),
                     user_id: user_id.to_owned(),
-                }),
-                ApplicationCacheValue::UserMetadataRecommendationsKey(key),
-            )
+                },
+            ))
             .await?;
         Ok(true)
     }
