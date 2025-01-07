@@ -58,31 +58,13 @@ pub struct UserMediaFeaturesEnabledPreferences {
     #[educe(Default = true)]
     pub enabled: bool,
     #[educe(Default = true)]
-    pub anime: bool,
-    #[educe(Default = true)]
-    pub audio_book: bool,
-    #[educe(Default = true)]
-    pub book: bool,
-    #[educe(Default = true)]
-    pub manga: bool,
-    #[educe(Default = true)]
-    pub music: bool,
-    #[educe(Default = true)]
-    pub movie: bool,
-    #[educe(Default = true)]
-    pub podcast: bool,
-    #[educe(Default = true)]
-    pub show: bool,
-    #[educe(Default = true)]
-    pub video_game: bool,
-    #[educe(Default = true)]
-    pub visual_novel: bool,
-    #[educe(Default = true)]
     pub people: bool,
     #[educe(Default = true)]
     pub groups: bool,
     #[educe(Default = true)]
     pub genres: bool,
+    #[educe(Default = MediaLot::iter().collect())]
+    pub specific: Vec<MediaLot>,
 }
 
 #[derive(

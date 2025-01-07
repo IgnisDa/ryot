@@ -93,19 +93,10 @@ query UserDetails {
 					}
 					media {
 						enabled
-						show
-						book
-						anime
-						manga
-						music
-						movie
 						groups
 						people
 						genres
-						podcast
-						audioBook
-						videoGame
-						visualNovel
+						specific
 					}
 				}
 			}

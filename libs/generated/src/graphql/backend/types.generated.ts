@@ -2685,37 +2685,19 @@ export type UserMeasurementsListInput = {
 
 export type UserMediaFeaturesEnabledPreferences = {
   __typename?: 'UserMediaFeaturesEnabledPreferences';
-  anime: Scalars['Boolean']['output'];
-  audioBook: Scalars['Boolean']['output'];
-  book: Scalars['Boolean']['output'];
   enabled: Scalars['Boolean']['output'];
   genres: Scalars['Boolean']['output'];
   groups: Scalars['Boolean']['output'];
-  manga: Scalars['Boolean']['output'];
-  movie: Scalars['Boolean']['output'];
-  music: Scalars['Boolean']['output'];
   people: Scalars['Boolean']['output'];
-  podcast: Scalars['Boolean']['output'];
-  show: Scalars['Boolean']['output'];
-  videoGame: Scalars['Boolean']['output'];
-  visualNovel: Scalars['Boolean']['output'];
+  specific: Array<MediaLot>;
 };
 
 export type UserMediaFeaturesEnabledPreferencesInput = {
-  anime: Scalars['Boolean']['input'];
-  audioBook: Scalars['Boolean']['input'];
-  book: Scalars['Boolean']['input'];
   enabled: Scalars['Boolean']['input'];
   genres: Scalars['Boolean']['input'];
   groups: Scalars['Boolean']['input'];
-  manga: Scalars['Boolean']['input'];
-  movie: Scalars['Boolean']['input'];
-  music: Scalars['Boolean']['input'];
   people: Scalars['Boolean']['input'];
-  podcast: Scalars['Boolean']['input'];
-  show: Scalars['Boolean']['input'];
-  videoGame: Scalars['Boolean']['input'];
-  visualNovel: Scalars['Boolean']['input'];
+  specific: Array<MediaLot>;
 };
 
 export type UserMediaNextEntry = {
