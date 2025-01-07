@@ -25,7 +25,7 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
-	RefreshUserMetadataRecommendationsKeyDocument,
+	RefreshUserMetadataRecommendationsDocument,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
 	type UserPreferences,
@@ -149,10 +149,10 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("refreshUserMetadataRecommendationsKey", async () => {
+		.with("refreshUserMetadataRecommendations", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
-				RefreshUserMetadataRecommendationsKeyDocument,
+				RefreshUserMetadataRecommendationsDocument,
 			);
 			return {};
 		})
@@ -232,7 +232,7 @@ export default function Page() {
 									<Form
 										method="POST"
 										action={withQuery(".?index", {
-											intent: "refreshUserMetadataRecommendationsKey",
+											intent: "refreshUserMetadataRecommendations",
 										})}
 									>
 										<ActionIcon
