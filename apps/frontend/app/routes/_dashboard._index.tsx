@@ -61,7 +61,6 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	MediaColors,
 	dayjsLib,
-	getLot,
 	getMetadataIcon,
 	openConfirmationModal,
 } from "~/lib/generals";
@@ -642,13 +641,13 @@ const DisplayStatForMediaType = (props: {
 	}>;
 }) => {
 	const userPreferences = useUserPreferences();
-	const isEnabled = Object.entries(
-		userPreferences.featuresEnabled.media || {},
-	).find(([name, _]) => getLot(name) === props.lot);
+	const isEnabled = userPreferences.featuresEnabled.media.specific.includes(
+		props.lot,
+	);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
 
-	return isEnabled?.[1] && userPreferences.featuresEnabled.media.enabled ? (
+	return isEnabled && userPreferences.featuresEnabled.media.enabled ? (
 		<UnstyledLink
 			to={$path("/media/:action/:lot", {
 				action: "list",
