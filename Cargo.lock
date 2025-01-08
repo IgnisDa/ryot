@@ -7039,6 +7039,7 @@ dependencies = [
  "nanoid",
  "notification-service",
  "openidconnect",
+ "rand 0.9.0-beta.0",
  "sea-orm",
  "supporting-service",
  "tracing",
