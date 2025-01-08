@@ -38,6 +38,7 @@ use openidconnect::{
     core::CoreResponseType, reqwest::async_http_client, AuthenticationFlow, AuthorizationCode,
     CsrfToken, Nonce, Scope, TokenResponse,
 };
+use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
     prelude::Expr,
     sea_query::{extension::postgres::PgExpr, Func},
@@ -79,33 +80,44 @@ impl UserService {
             .into_iter()
             .find(|d| d.section == DashboardElementLot::Recommendations)
             .unwrap()
-            .num_elements;
-        // TODO: With the metadata enabled from user preferences, make multiple queries
-        // with a filter on metadata.lot. In a for loop, keep adding to the recommendations
-        // set until the limit is reached. In the end, convert it to a Vec and then shuffle
-        // it before returning.
-        let recs = Metadata::find()
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .order_by(
-                Expr::expr(Func::md5(
-                    Expr::col(metadata::Column::Title)
-                        .concat(Expr::val(user_id))
-                        .concat(Expr::val(nanoid!(12))),
-                )),
-                Order::Desc,
-            )
-            .limit(limit)
-            .all(&self.0.db)
-            .await?
-            .into_iter()
-            .map(|r| r.id)
-            .collect_vec();
+            .num_elements
+            .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
+        let enabled = preferences.features_enabled.media.specific;
+        if enabled.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut recommendations = HashSet::new();
+        loop {
+            if recommendations.len() >= limit.try_into().unwrap() {
+                break;
+            }
+            let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
+            let rec = Metadata::find()
+                .select_only()
+                .column(metadata::Column::Id)
+                .filter(metadata::Column::Lot.eq(*selected_lot))
+                .filter(metadata::Column::IsRecommendation.eq(true))
+                .order_by(
+                    Expr::expr(Func::md5(
+                        Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
+                    )),
+                    Order::Desc,
+                )
+                .into_tuple::<String>()
+                .one(&self.0.db)
+                .await?;
+            if let Some(rec) = rec {
+                recommendations.insert(rec);
+            }
+        }
+        let mut recommendations = recommendations.into_iter().collect_vec();
+        recommendations.shuffle(&mut rand::rng());
         cc.set_key(
             metadata_recommendations_key,
-            ApplicationCacheValue::UserMetadataRecommendations(recs.clone()),
+            ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
         )
         .await?;
-        Ok(recs)
+        Ok(recommendations)
     }
 
     pub async fn refresh_user_metadata_recommendations(&self, user_id: &String) -> Result<bool> {
