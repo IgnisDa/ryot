@@ -26,6 +26,7 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 	RefreshUserMetadataRecommendationsDocument,
+	type UserAnalytics,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
 	type UserPreferences,
@@ -163,8 +164,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const unitSystem = useUserUnitSystem();
-	const theme = useMantineTheme();
 	const submit = useConfirmSubmit();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
@@ -266,246 +265,9 @@ export default function Page() {
 							latestUserSummary ? (
 								<Section key={v} lot={v}>
 									<SectionTitle text="Summary" />
-									<SimpleGrid
-										cols={{ base: 1, sm: 2, md: 3 }}
-										style={{ alignItems: "center" }}
-										spacing="xs"
-									>
-										<DisplayStatForMediaType
-											lot={MediaLot.Movie}
-											data={[
-												{
-													label: "Movies",
-													value: latestUserSummary.movieCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalMovieDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Music}
-											data={[
-												{
-													label: "Songs",
-													value: latestUserSummary.musicCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalMusicDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Show}
-											data={[
-												{
-													label: "Show episodes",
-													value: latestUserSummary.showCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalShowDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.VideoGame}
-											data={[
-												{
-													label: "Video games",
-													value: latestUserSummary.videoGameCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalVideoGameDuration,
-													type: "duration",
-													hideIfZero: true,
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.VisualNovel}
-											data={[
-												{
-													label: "Visual Novels",
-													value: latestUserSummary.visualNovelCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalVisualNovelDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.AudioBook}
-											data={[
-												{
-													label: "Audio books",
-													value: latestUserSummary.audioBookCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalAudioBookDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Book}
-											data={[
-												{
-													label: "Books",
-													value: latestUserSummary.bookCount,
-													type: "number",
-												},
-												{
-													label: "Pages",
-													value: latestUserSummary.totalBookPages,
-													type: "number",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Podcast}
-											data={[
-												{
-													label: "Podcasts",
-													value: latestUserSummary.podcastCount,
-													type: "number",
-												},
-												{
-													label: "Runtime",
-													value: latestUserSummary.totalPodcastDuration,
-													type: "duration",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Manga}
-											data={[
-												{
-													label: "Manga",
-													value: latestUserSummary.mangaCount,
-													type: "number",
-												},
-											]}
-										/>
-										<DisplayStatForMediaType
-											lot={MediaLot.Anime}
-											data={[
-												{
-													label: "Anime",
-													value: latestUserSummary.animeCount,
-													type: "number",
-												},
-											]}
-										/>
-										{userPreferences.featuresEnabled.media.enabled ? (
-											<>
-												<ActualDisplayStat
-													icon={<IconServer />}
-													lot="Metadata stats"
-													color={theme.colors.grape[8]}
-													data={[
-														{
-															label: "Media",
-															value: latestUserSummary.totalMetadataCount,
-															type: "number",
-														},
-														{
-															label: "Reviews",
-															value: latestUserSummary.totalMetadataReviewCount,
-															type: "number",
-															hideIfZero: true,
-														},
-													]}
-												/>
-												{userPreferences.featuresEnabled.media.people ? (
-													<UnstyledLink
-														to={$path("/media/people/:action", {
-															action: "list",
-														})}
-													>
-														<ActualDisplayStat
-															icon={<IconFriends />}
-															lot="People stats"
-															color={theme.colors.red[9]}
-															data={[
-																{
-																	label: "People Reviewed",
-																	value:
-																		latestUserSummary.totalPersonReviewCount,
-																	type: "number",
-																	hideIfZero: true,
-																},
-															]}
-														/>
-													</UnstyledLink>
-												) : null}
-											</>
-										) : null}
-										{userPreferences.featuresEnabled.fitness.enabled ? (
-											<UnstyledLink
-												to={$path("/fitness/:entity/list", {
-													entity: "workouts",
-												})}
-											>
-												<ActualDisplayStat
-													icon={<IconBarbell stroke={1.3} />}
-													lot="Workouts"
-													color={theme.colors.teal[2]}
-													data={[
-														{
-															label: "Workouts",
-															value: latestUserSummary.workoutCount,
-															type: "number",
-														},
-														{
-															label: "Runtime",
-															value: latestUserSummary.totalWorkoutDuration,
-															type: "duration",
-														},
-														{
-															label: "Runtime",
-															value: displayWeightWithUnit(
-																unitSystem,
-																latestUserSummary.totalWorkoutWeight,
-																true,
-															),
-															type: "string",
-														},
-													]}
-												/>
-											</UnstyledLink>
-										) : null}
-										{userPreferences.featuresEnabled.fitness.enabled ? (
-											<ActualDisplayStat
-												icon={<IconScaleOutline stroke={1.3} />}
-												lot="Fitness"
-												color={theme.colors.yellow[5]}
-												data={[
-													{
-														label: "Measurements",
-														value: latestUserSummary.userMeasurementCount,
-														type: "number",
-														hideIfZero: true,
-													},
-												]}
-											/>
-										) : null}
-									</SimpleGrid>
+									<DisplaySummarySection
+										latestUserSummary={latestUserSummary}
+									/>
 								</Section>
 							) : null,
 						)
@@ -515,6 +277,258 @@ export default function Page() {
 		</Container>
 	);
 }
+
+export const DisplaySummarySection = ({
+	latestUserSummary,
+}: {
+	latestUserSummary: UserAnalytics["activities"]["items"][0];
+}) => {
+	const userPreferences = useUserPreferences();
+	const unitSystem = useUserUnitSystem();
+	const theme = useMantineTheme();
+
+	return (
+		<SimpleGrid
+			cols={{ base: 1, sm: 2, md: 3 }}
+			style={{ alignItems: "center" }}
+			spacing="xs"
+		>
+			<DisplayStatForMediaType
+				lot={MediaLot.Movie}
+				data={[
+					{
+						label: "Movies",
+						value: latestUserSummary.movieCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalMovieDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Music}
+				data={[
+					{
+						label: "Songs",
+						value: latestUserSummary.musicCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalMusicDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Show}
+				data={[
+					{
+						label: "Show episodes",
+						value: latestUserSummary.showCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalShowDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.VideoGame}
+				data={[
+					{
+						label: "Video games",
+						value: latestUserSummary.videoGameCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalVideoGameDuration,
+						type: "duration",
+						hideIfZero: true,
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.VisualNovel}
+				data={[
+					{
+						label: "Visual Novels",
+						value: latestUserSummary.visualNovelCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalVisualNovelDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.AudioBook}
+				data={[
+					{
+						label: "Audio books",
+						value: latestUserSummary.audioBookCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalAudioBookDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Book}
+				data={[
+					{
+						label: "Books",
+						value: latestUserSummary.bookCount,
+						type: "number",
+					},
+					{
+						label: "Pages",
+						value: latestUserSummary.totalBookPages,
+						type: "number",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Podcast}
+				data={[
+					{
+						label: "Podcasts",
+						value: latestUserSummary.podcastCount,
+						type: "number",
+					},
+					{
+						label: "Runtime",
+						value: latestUserSummary.totalPodcastDuration,
+						type: "duration",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Manga}
+				data={[
+					{
+						label: "Manga",
+						value: latestUserSummary.mangaCount,
+						type: "number",
+					},
+				]}
+			/>
+			<DisplayStatForMediaType
+				lot={MediaLot.Anime}
+				data={[
+					{
+						label: "Anime",
+						value: latestUserSummary.animeCount,
+						type: "number",
+					},
+				]}
+			/>
+			{userPreferences.featuresEnabled.media.enabled ? (
+				<>
+					<ActualDisplayStat
+						icon={<IconServer />}
+						lot="Metadata stats"
+						color={theme.colors.grape[8]}
+						data={[
+							{
+								label: "Media",
+								value: latestUserSummary.totalMetadataCount,
+								type: "number",
+							},
+							{
+								label: "Reviews",
+								value: latestUserSummary.totalMetadataReviewCount,
+								type: "number",
+								hideIfZero: true,
+							},
+						]}
+					/>
+					{userPreferences.featuresEnabled.media.people ? (
+						<UnstyledLink
+							to={$path("/media/people/:action", {
+								action: "list",
+							})}
+						>
+							<ActualDisplayStat
+								icon={<IconFriends />}
+								lot="People stats"
+								color={theme.colors.red[9]}
+								data={[
+									{
+										label: "People Reviewed",
+										value: latestUserSummary.totalPersonReviewCount,
+										type: "number",
+										hideIfZero: true,
+									},
+								]}
+							/>
+						</UnstyledLink>
+					) : null}
+				</>
+			) : null}
+			{userPreferences.featuresEnabled.fitness.enabled ? (
+				<UnstyledLink
+					to={$path("/fitness/:entity/list", {
+						entity: "workouts",
+					})}
+				>
+					<ActualDisplayStat
+						icon={<IconBarbell stroke={1.3} />}
+						lot="Workouts"
+						color={theme.colors.teal[2]}
+						data={[
+							{
+								label: "Workouts",
+								value: latestUserSummary.workoutCount,
+								type: "number",
+							},
+							{
+								label: "Runtime",
+								value: latestUserSummary.totalWorkoutDuration,
+								type: "duration",
+							},
+							{
+								label: "Runtime",
+								value: displayWeightWithUnit(
+									unitSystem,
+									latestUserSummary.totalWorkoutWeight,
+									true,
+								),
+								type: "string",
+							},
+						]}
+					/>
+				</UnstyledLink>
+			) : null}
+			{userPreferences.featuresEnabled.fitness.enabled ? (
+				<ActualDisplayStat
+					icon={<IconScaleOutline stroke={1.3} />}
+					lot="Fitness"
+					color={theme.colors.yellow[5]}
+					data={[
+						{
+							label: "Measurements",
+							value: latestUserSummary.userMeasurementCount,
+							type: "number",
+							hideIfZero: true,
+						},
+					]}
+				/>
+			) : null}
+		</SimpleGrid>
+	);
+};
 
 const SectionTitle = (props: { text: string }) => (
 	<Text fz={{ base: "h2", md: "h1" }} fw="bold">
