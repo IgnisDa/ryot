@@ -139,7 +139,7 @@ pub async fn get_metadata_provider(
     let err = || Err(Error::new("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
-        MediaSource::Hardcover => Box::new(HardcoverService::new(&ss.config.books.hardcover).await),
+        MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
