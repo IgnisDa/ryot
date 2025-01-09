@@ -38,6 +38,7 @@ import {
 } from "~/components/common";
 import {
 	BaseEntityDisplay,
+	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -320,6 +321,10 @@ export default function Page() {
 											)}
 											formValue={loaderData.personId}
 											entityLot={EntityLot.Person}
+										/>
+										<MarkEntityAsPartialMenuItem
+											entityLot={EntityLot.Person}
+											entityId={loaderData.personId}
 										/>
 									</Menu.Dropdown>
 								</Menu>
