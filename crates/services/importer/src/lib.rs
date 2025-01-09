@@ -11,7 +11,7 @@ use database_models::{
 };
 use dependent_utils::{
     commit_metadata, deploy_background_job, generate_exercise_id, get_google_books_service,
-    get_openlibrary_service, get_tmdb_non_media_service, process_import,
+    get_hardcover_service, get_openlibrary_service, get_tmdb_non_media_service, process_import,
 };
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
@@ -92,6 +92,7 @@ impl ImporterService {
             ImportSource::Goodreads => {
                 goodreads::import(
                     input.generic_csv.unwrap(),
+                    &get_hardcover_service(&self.0.config).await.unwrap(),
                     &get_google_books_service(&self.0.config).await.unwrap(),
                     &get_openlibrary_service(&self.0.config).await.unwrap(),
                 )
@@ -102,6 +103,7 @@ impl ImporterService {
             ImportSource::Storygraph => {
                 storygraph::import(
                     input.generic_csv.unwrap(),
+                    &get_hardcover_service(&self.0.config).await.unwrap(),
                     &get_google_books_service(&self.0.config).await.unwrap(),
                     &get_openlibrary_service(&self.0.config).await.unwrap(),
                 )
@@ -111,6 +113,7 @@ impl ImporterService {
                 audiobookshelf::import(
                     input.url_and_key.unwrap(),
                     &self.0,
+                    &get_hardcover_service(&self.0.config).await.unwrap(),
                     &get_google_books_service(&self.0.config).await.unwrap(),
                     &get_openlibrary_service(&self.0.config).await.unwrap(),
                     |input| {

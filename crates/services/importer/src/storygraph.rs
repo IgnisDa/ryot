@@ -11,7 +11,9 @@ use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,
 };
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use providers::{
+    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
+};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -50,6 +52,7 @@ struct History {
 
 pub async fn import(
     input: DeployGenericCsvImportInput,
+    hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
@@ -88,8 +91,13 @@ pub async fn import(
             });
             continue;
         };
-        let Some((identifier, source)) =
-            get_identifier_from_book_isbn(&isbn, google_books_service, open_library_service).await
+        let Some((identifier, source)) = get_identifier_from_book_isbn(
+            &isbn,
+            hardcover_service,
+            google_books_service,
+            open_library_service,
+        )
+        .await
         else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),

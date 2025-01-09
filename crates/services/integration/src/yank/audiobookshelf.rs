@@ -10,7 +10,9 @@ use enum_models::{MediaLot, MediaSource};
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use providers::{
+    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
+};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
@@ -31,6 +33,7 @@ pub async fn yank_progress<F>(
     base_url: String,
     access_token: String,
     ss: &Arc<SupportingService>,
+    hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
@@ -61,6 +64,7 @@ where
                 match &metadata.isbn {
                     Some(isbn) => match get_identifier_from_book_isbn(
                         isbn,
+                        hardcover_service,
                         google_books_service,
                         open_library_service,
                     )
@@ -176,7 +180,9 @@ where
 
 pub async fn sync_to_owned_collection(
     access_token: String,
-    isbn_service: GoogleBooksService,
+    hardcover_service: &HardcoverService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let client = get_http_client(&access_token);
 
@@ -203,8 +209,15 @@ pub async fn sync_to_owned_collection(
             let (identifier, lot, source) =
                 if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                     match &metadata.isbn {
-                        Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
-                            Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
+                        Some(isbn) => match get_identifier_from_book_isbn(
+                            isbn,
+                            hardcover_service,
+                            google_books_service,
+                            open_library_service,
+                        )
+                        .await
+                        {
+                            Some(data) => (data.0, MediaLot::Book, data.1),
                             _ => continue,
                         },
                         _ => continue,

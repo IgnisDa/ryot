@@ -13,7 +13,9 @@ use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     UniqueMediaIdentifier,
 };
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use providers::{
+    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
+};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
@@ -28,6 +30,7 @@ use super::{ImportFailStep, ImportFailedItem};
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
     ss: &Arc<SupportingService>,
+    hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
     commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
@@ -76,6 +79,7 @@ where
                 match &metadata.isbn {
                     Some(isbn) => match get_identifier_from_book_isbn(
                         isbn,
+                        hardcover_service,
                         google_books_service,
                         open_library_service,
                     )
