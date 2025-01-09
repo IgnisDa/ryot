@@ -476,6 +476,7 @@ export default function Page() {
 											.with(MediaSource.Tmdb, () => "tmdb.svg")
 											.with(MediaSource.Vndb, () => "vndb.ico")
 											.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
+											.with(MediaSource.Hardcover, () => "hardcover.png")
 											.with(MediaSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
@@ -485,15 +486,16 @@ export default function Page() {
 										)}
 										{match(loaderData.metadataDetails.source)
 											.with(
-												MediaSource.Anilist,
 												MediaSource.Igdb,
-												MediaSource.Listennotes,
 												MediaSource.Tmdb,
 												MediaSource.Vndb,
+												MediaSource.Anilist,
+												MediaSource.Listennotes,
 												() => "%",
 											)
 											.with(
 												MediaSource.Audible,
+												MediaSource.Hardcover,
 												MediaSource.GoogleBooks,
 												() => "/5",
 											)
