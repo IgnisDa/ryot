@@ -105,6 +105,7 @@ import {
 } from "~/components/common";
 import {
 	BaseEntityDisplay,
+	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -996,26 +997,10 @@ export default function Page() {
 													Remove item
 												</Menu.Item>
 											</Form>
-											<Form
-												replace
-												method="POST"
-												onSubmit={(e) => submit(e)}
-												action={withQuery($path("/actions"), {
-													intent: "markEntityAsPartial",
-												})}
-											>
-												<input
-													hidden
-													name="entityId"
-													defaultValue={loaderData.metadataId}
-												/>
-												<input
-													hidden
-													name="entityLot"
-													defaultValue={EntityLot.Metadata}
-												/>
-												<Menu.Item type="submit">Update details</Menu.Item>
-											</Form>
+											<MarkEntityAsPartialMenuItem
+												entityLot={EntityLot.Metadata}
+												entityId={loaderData.metadataId}
+											/>
 										</Menu.Dropdown>
 									</Menu>
 									{canCurrentUserUpdate ? (
