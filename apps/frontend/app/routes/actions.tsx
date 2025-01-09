@@ -16,6 +16,7 @@ import {
 	DeleteS3ObjectDocument,
 	DeployBulkProgressUpdateDocument,
 	EntityLot,
+	MarkEntityAsPartialDocument,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -472,6 +473,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				);
 			}
 		})
+		.with("markEntityAsPartial", async () => {
+			const submission = processSubmission(formData, markEntityAsPartialSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				MarkEntityAsPartialDocument,
+				{ input: submission },
+			);
+			extendResponseHeaders(
+				headers,
+				await createToastHeaders({
+					message: "Entity will be updated in the background",
+					type: "success",
+				}),
+			);
+		})
 		.run();
 	if (redirectTo) {
 		headers.append("Location", redirectTo.toString());
@@ -566,4 +582,9 @@ const bulkCollectionAction = z.object({
 			entityLot: z.nativeEnum(EntityLot),
 		}),
 	),
+});
+
+const markEntityAsPartialSchema = z.object({
+	entityId: z.string(),
+	entityLot: z.nativeEnum(EntityLot),
 });
