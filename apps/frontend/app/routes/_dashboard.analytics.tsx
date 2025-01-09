@@ -59,7 +59,7 @@ import { type ComponentType, type ReactNode, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { DisplaySummarySection, ProRequiredAlert } from "~/components/common";
+import { ProRequiredAlert } from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
@@ -178,9 +178,7 @@ export default function Page() {
 	const toCaptureRef = useRef<HTMLDivElement>(null);
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const userAnalytics = useGetUserAnalytics();
 	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
-	const latestUserSummary = userAnalytics?.activities.items.at(0);
 
 	return (
 		<>
@@ -264,13 +262,6 @@ export default function Page() {
 							<Grid.Col span={{ base: 12, md: 6 }}>
 								<TimeOfDayChart />
 							</Grid.Col>
-							{latestUserSummary ? (
-								<Grid.Col span={12}>
-									<DisplaySummarySection
-										latestUserSummary={latestUserSummary}
-									/>
-								</Grid.Col>
-							) : null}
 							<Grid.Col span={12}>
 								<ActivitySection />
 							</Grid.Col>
