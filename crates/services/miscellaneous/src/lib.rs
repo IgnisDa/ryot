@@ -50,12 +50,12 @@ use dependent_utils::{
     commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
-    get_entity_recently_consumed, get_hardcover_service, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
-    update_metadata_and_notify_users,
+    get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
+    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, refresh_collection_to_entity_association,
+    remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
@@ -87,10 +87,9 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
-    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
-    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
-    youtube_music::YoutubeMusicService,
+    anilist::NonMediaAnilistService, audible::AudibleService, igdb::IgdbService,
+    itunes::ITunesService, listennotes::ListennotesService, mal::NonMediaMalService,
+    manga_updates::MangaUpdatesService, vndb::VndbService, youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -1572,9 +1571,7 @@ ORDER BY RANDOM() LIMIT 10;
             MediaSource::Itunes => {
                 Box::new(ITunesService::new(&self.0.config.podcasts.itunes).await)
             }
-            MediaSource::GoogleBooks => {
-                Box::new(GoogleBooksService::new(&self.0.config.books.google_books).await)
-            }
+            MediaSource::GoogleBooks => Box::new(get_google_books_service(&self.0.config).await?),
             MediaSource::Audible => {
                 Box::new(AudibleService::new(&self.0.config.audio_books.audible).await)
             }
