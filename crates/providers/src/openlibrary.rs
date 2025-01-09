@@ -61,7 +61,6 @@ struct BookSearchItem {
     publish_year: Option<i32>,
     author_names: Vec<String>,
     description: Option<String>,
-    book_specifics: BookSpecifics,
     publish_date: Option<NaiveDate>,
 }
 
@@ -501,10 +500,6 @@ impl MediaProvider for OpenlibraryService {
                     identifier: get_key(&d.key),
                     publish_year: d.first_publish_year,
                     author_names: d.author_name.unwrap_or_default(),
-                    book_specifics: BookSpecifics {
-                        pages: d.number_of_pages_median,
-                        ..Default::default()
-                    },
                     ..Default::default()
                 }
             })
