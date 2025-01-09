@@ -1287,7 +1287,7 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
-  /** Mark an entity as partial so that it's details updated. */
+  /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];

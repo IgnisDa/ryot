@@ -417,7 +417,7 @@ impl MiscellaneousMutation {
         service.deploy_background_job(&user_id, job_name).await
     }
 
-    /// Mark an entity as partial so that it's details updated.
+    /// Mark an entity as partial.
     async fn mark_entity_as_partial(
         &self,
         gql_ctx: &Context<'_>,
