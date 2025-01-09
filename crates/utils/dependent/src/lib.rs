@@ -2564,18 +2564,16 @@ pub async fn get_identifier_from_book_isbn(
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
 ) -> Option<(String, MediaSource)> {
-    let mut identifier = None;
-    let mut source = MediaSource::Hardcover;
     if let Some(id) = hardcover_service.id_from_isbn(isbn).await {
-        identifier = Some(id);
-    } else if let Some(id) = google_books_service.id_from_isbn(isbn).await {
-        identifier = Some(id);
-        source = MediaSource::GoogleBooks;
-    } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
-        identifier = Some(id);
-        source = MediaSource::Openlibrary;
+        return Some((id, MediaSource::Hardcover));
     }
-    identifier.map(|id| (id, source))
+    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::GoogleBooks));
+    }
+    if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::Openlibrary));
+    }
+    None
 }
 
 pub async fn expire_user_collections_list_cache(
