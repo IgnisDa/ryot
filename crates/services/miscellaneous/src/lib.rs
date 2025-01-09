@@ -67,10 +67,10 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
-    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
+    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
+    MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
+    MetadataListInput, MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
@@ -1072,6 +1072,38 @@ ORDER BY RANDOM() LIMIT 10;
         job_name: BackgroundJob,
     ) -> Result<bool> {
         deploy_background_job(user_id, job_name, &self.0).await
+    }
+
+    pub async fn mark_entity_as_partial(
+        &self,
+        _user_id: &String,
+        input: MarkEntityAsPartialInput,
+    ) -> Result<bool> {
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                Metadata::update_many()
+                    .filter(metadata::Column::Id.eq(&input.entity_id))
+                    .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            EntityLot::MetadataGroup => {
+                MetadataGroup::update_many()
+                    .filter(metadata_group::Column::Id.eq(&input.entity_id))
+                    .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            EntityLot::Person => {
+                Person::update_many()
+                    .filter(person::Column::Id.eq(&input.entity_id))
+                    .col_expr(person::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            _ => return Err(Error::new("Invalid entity lot".to_owned())),
+        }
+        Ok(true)
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {

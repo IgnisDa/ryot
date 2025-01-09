@@ -440,3 +440,25 @@ export const ToggleMediaMonitorMenuItem = (props: {
 		</Form>
 	);
 };
+
+export const MarkEntityAsPartialMenuItem = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+}) => {
+	const submit = useConfirmSubmit();
+
+	return (
+		<Form
+			replace
+			method="POST"
+			onSubmit={(e) => submit(e)}
+			action={withQuery($path("/actions"), {
+				intent: "markEntityAsPartial",
+			})}
+		>
+			<input hidden name="entityId" defaultValue={props.entityId} />
+			<input hidden name="entityLot" defaultValue={props.entityLot} />
+			<Menu.Item type="submit">Update details</Menu.Item>
+		</Form>
+	);
+};

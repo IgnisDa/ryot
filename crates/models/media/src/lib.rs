@@ -1372,6 +1372,12 @@ pub struct UpdateSeenItemInput {
     pub provider_watched_on: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MarkEntityAsPartialInput {
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PresignedPutUrlResponse {
     pub upload_url: String,

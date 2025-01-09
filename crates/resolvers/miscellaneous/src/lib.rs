@@ -13,9 +13,10 @@ use dependent_models::{
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupsListInput, MetadataListInput,
-    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput,
+    MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails, PeopleListInput,
+    ProgressUpdateInput, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -414,6 +415,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(&user_id, job_name).await
+    }
+
+    /// Mark an entity as partial.
+    async fn mark_entity_as_partial(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MarkEntityAsPartialInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.mark_entity_as_partial(&user_id, input).await
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.
