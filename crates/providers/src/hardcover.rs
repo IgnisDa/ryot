@@ -43,6 +43,12 @@ struct Search {
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
+struct Editions {
+    editions: Vec<nest! { book_id: i64 }>,
+}
+
+#[nest_struct]
+#[derive(Debug, Deserialize)]
 struct BooksByPk {
     books_by_pk: Book<i64>,
 }
@@ -330,5 +336,39 @@ impl MediaProvider for HardcoverService {
         _display_nsfw: bool,
     ) -> Result<PeopleSearchResponse> {
         todo!()
+    }
+}
+
+fn get_isbn_body(isbn_type: &str, isbn: &str) -> String {
+    format!(
+        r#"
+query {{
+  editions(where: {{ isbn_{isbn_type}: {{ _eq: "{isbn}" }} }}) {{
+    book_id
+  }}
+}}
+    "#
+    )
+}
+
+impl HardcoverService {
+    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
+        for isbn_type in ["10", "13"] {
+            let body = get_isbn_body(isbn_type, isbn);
+            let rsp = self
+                .client
+                .post(URL)
+                .json(&serde_json::json!({ "query": body }))
+                .send()
+                .await
+                .unwrap()
+                .json::<Response<Editions>>()
+                .await
+                .unwrap();
+            if let Some(edition) = rsp.data.editions.first() {
+                return Some(edition.book_id.to_string());
+            }
+        }
+        None
     }
 }

@@ -121,6 +121,10 @@ pub async fn get_google_books_service(config: &config::AppConfig) -> Result<Goog
     Ok(GoogleBooksService::new(&config.books.google_books).await)
 }
 
+pub async fn get_hardcover_service(config: &config::AppConfig) -> Result<HardcoverService> {
+    Ok(HardcoverService::new(&config.books.hardcover).await)
+}
+
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
