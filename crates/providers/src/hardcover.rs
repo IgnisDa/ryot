@@ -132,7 +132,12 @@ query {{
     images {{ url }}
     book_series {{ series {{ id name }} }}
     contributions {{ contribution author_id }}
-    recommendations(where: {{ item_type: {{ _eq: "book" }} }}) {{ item_id }}
+    recommendations(
+      where: {{
+        subject_id: {{ _eq: {identifier} }},
+        subject_type: {{ _eq: "Book" }}, item_type: {{ _eq: "Book" }}
+      }}
+    ) {{ item_id }}
   }}
 }}
     "#
