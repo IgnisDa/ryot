@@ -57,6 +57,7 @@ struct Book<TId> {
     slug: Option<String>,
     rating: Option<Decimal>,
     release_year: Option<i32>,
+    compilation: Option<bool>,
     images: Option<Vec<Image>>,
     description: Option<String>,
     release_date: Option<NaiveDate>,
@@ -132,6 +133,7 @@ query {{
     pages
     title
     rating
+    compilation
     description
     cached_tags
     release_date
@@ -180,7 +182,10 @@ query {{
         publish_date: data.release_date,
         publish_year: data.release_year,
         identifier: data.id.to_string(),
-        book_specifics: Some(BookSpecifics { pages: data.pages }),
+        book_specifics: Some(BookSpecifics {
+            pages: data.pages,
+            is_compilation: data.compilation,
+        }),
         source_url: data
             .slug
             .map(|s| format!("https://hardcover.app/books/{s}")),

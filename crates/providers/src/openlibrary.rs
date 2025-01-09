@@ -455,6 +455,7 @@ impl MediaProvider for OpenlibraryService {
             )),
             book_specifics: Some(BookSpecifics {
                 pages: Some(num_pages),
+                ..Default::default()
             }),
             ..Default::default()
         })
@@ -502,6 +503,7 @@ impl MediaProvider for OpenlibraryService {
                     author_names: d.author_name.unwrap_or_default(),
                     book_specifics: BookSpecifics {
                         pages: d.number_of_pages_median,
+                        ..Default::default()
                     },
                     ..Default::default()
                 }

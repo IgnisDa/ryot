@@ -104,10 +104,12 @@ export enum BackgroundJob {
 
 export type BookSpecifics = {
   __typename?: 'BookSpecifics';
+  isCompilation?: Maybe<Scalars['Boolean']['output']>;
   pages?: Maybe<Scalars['Int']['output']>;
 };
 
 export type BookSpecificsInput = {
+  isCompilation?: InputMaybe<Scalars['Boolean']['input']>;
   pages?: InputMaybe<Scalars['Int']['input']>;
 };
 
