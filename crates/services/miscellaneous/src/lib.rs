@@ -67,10 +67,10 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
-    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
+    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
+    MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
+    MetadataListInput, MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
     PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
@@ -1072,6 +1072,38 @@ ORDER BY RANDOM() LIMIT 10;
         job_name: BackgroundJob,
     ) -> Result<bool> {
         deploy_background_job(user_id, job_name, &self.0).await
+    }
+
+    pub async fn mark_entity_as_partial(
+        &self,
+        _user_id: &String,
+        input: MarkEntityAsPartialInput,
+    ) -> Result<bool> {
+        match input.entity_lot {
+            EntityLot::Metadata => {
+                Metadata::update_many()
+                    .filter(metadata::Column::Id.eq(&input.entity_id))
+                    .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            EntityLot::MetadataGroup => {
+                MetadataGroup::update_many()
+                    .filter(metadata_group::Column::Id.eq(&input.entity_id))
+                    .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            EntityLot::Person => {
+                Person::update_many()
+                    .filter(person::Column::Id.eq(&input.entity_id))
+                    .col_expr(person::Column::IsPartial, Expr::value(true))
+                    .exec(&self.0.db)
+                    .await?;
+            }
+            _ => return Err(Error::new("Invalid entity lot".to_owned())),
+        }
+        Ok(true)
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -2963,14 +2995,30 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn get_pending_notifications_for_user(
+        &self,
+        user_id: &String,
+        lot: UserNotificationLot,
+    ) -> Result<Vec<user_notification::Model>> {
+        let notifications = UserNotification::find()
+            .filter(user_notification::Column::UserId.eq(user_id))
+            .filter(user_notification::Column::Lot.eq(lot))
+            .filter(
+                user_notification::Column::IsAddressed
+                    .eq(false)
+                    .or(user_notification::Column::IsAddressed.is_null()),
+            )
+            .all(&self.0.db)
+            .await?;
+        Ok(notifications)
+    }
+
     async fn send_pending_queued_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = UserNotification::find()
-                .filter(user_notification::Column::UserId.eq(&user_details.id))
-                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
-                .all(&self.0.db)
+            let notifications = self
+                .get_pending_notifications_for_user(&user_details.id, UserNotificationLot::Queued)
                 .await?;
             if notifications.is_empty() {
                 continue;
@@ -2983,11 +3031,6 @@ ORDER BY RANDOM() LIMIT 10;
                 .join("\n");
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
-                .filter(
-                    user_notification::Column::IsAddressed
-                        .eq(false)
-                        .or(user_notification::Column::IsAddressed.is_null()),
-                )
                 .all(&self.0.db)
                 .await?;
             for notification in platforms {
@@ -3019,15 +3062,11 @@ ORDER BY RANDOM() LIMIT 10;
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = UserNotification::find()
-                .filter(user_notification::Column::UserId.eq(&user_details.id))
-                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Immediate))
-                .filter(
-                    user_notification::Column::IsAddressed
-                        .eq(false)
-                        .or(user_notification::Column::IsAddressed.is_null()),
+            let notifications = self
+                .get_pending_notifications_for_user(
+                    &user_details.id,
+                    UserNotificationLot::Immediate,
                 )
-                .all(&self.0.db)
                 .await?;
             let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
             let platforms = NotificationPlatform::find()

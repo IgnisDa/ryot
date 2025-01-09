@@ -1004,6 +1004,11 @@ export type MangaSpecificsInput = {
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type MarkEntityAsPartialInput = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
+};
+
 export type MediaCollectionContentsResults = {
   __typename?: 'MediaCollectionContentsResults';
   details: SearchDetails;
@@ -1287,6 +1292,8 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
+  /** Mark an entity as partial. */
+  markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];
   /**
@@ -1494,6 +1501,11 @@ export type MutationRootDisassociateMetadataArgs = {
 
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
+};
+
+
+export type MutationRootMarkEntityAsPartialArgs = {
+  input: MarkEntityAsPartialInput;
 };
 
 
