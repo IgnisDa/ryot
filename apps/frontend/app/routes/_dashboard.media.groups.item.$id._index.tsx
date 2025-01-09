@@ -31,6 +31,7 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
+	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -196,6 +197,10 @@ export default function Page() {
 											)}
 											formValue={loaderData.metadataGroupId}
 											entityLot={EntityLot.MetadataGroup}
+										/>
+										<MarkEntityAsPartialMenuItem
+											entityLot={EntityLot.MetadataGroup}
+											entityId={loaderData.metadataGroupId}
 										/>
 									</Menu.Dropdown>
 								</Menu>
