@@ -2997,14 +2997,30 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn get_pending_notifications_for_user(
+        &self,
+        user_id: &String,
+        lot: UserNotificationLot,
+    ) -> Result<Vec<user_notification::Model>> {
+        let notifications = UserNotification::find()
+            .filter(user_notification::Column::UserId.eq(user_id))
+            .filter(user_notification::Column::Lot.eq(lot))
+            .filter(
+                user_notification::Column::IsAddressed
+                    .eq(false)
+                    .or(user_notification::Column::IsAddressed.is_null()),
+            )
+            .all(&self.0.db)
+            .await?;
+        Ok(notifications)
+    }
+
     async fn send_pending_queued_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = UserNotification::find()
-                .filter(user_notification::Column::UserId.eq(&user_details.id))
-                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Queued))
-                .all(&self.0.db)
+            let notifications = self
+                .get_pending_notifications_for_user(&user_details.id, UserNotificationLot::Queued)
                 .await?;
             if notifications.is_empty() {
                 continue;
@@ -3017,11 +3033,6 @@ ORDER BY RANDOM() LIMIT 10;
                 .join("\n");
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
-                .filter(
-                    user_notification::Column::IsAddressed
-                        .eq(false)
-                        .or(user_notification::Column::IsAddressed.is_null()),
-                )
                 .all(&self.0.db)
                 .await?;
             for notification in platforms {
@@ -3053,15 +3064,11 @@ ORDER BY RANDOM() LIMIT 10;
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = UserNotification::find()
-                .filter(user_notification::Column::UserId.eq(&user_details.id))
-                .filter(user_notification::Column::Lot.eq(UserNotificationLot::Immediate))
-                .filter(
-                    user_notification::Column::IsAddressed
-                        .eq(false)
-                        .or(user_notification::Column::IsAddressed.is_null()),
+            let notifications = self
+                .get_pending_notifications_for_user(
+                    &user_details.id,
+                    UserNotificationLot::Immediate,
                 )
-                .all(&self.0.db)
                 .await?;
             let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
             let platforms = NotificationPlatform::find()
