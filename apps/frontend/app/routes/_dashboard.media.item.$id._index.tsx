@@ -106,6 +106,7 @@ import {
 } from "~/components/common";
 import {
 	BaseEntityDisplay,
+	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -991,6 +992,10 @@ export default function Page() {
 													Remove item
 												</Menu.Item>
 											</Form>
+											<MarkEntityAsPartialMenuItem
+												entityLot={EntityLot.Metadata}
+												entityId={loaderData.metadataId}
+											/>
 										</Menu.Dropdown>
 									</Menu>
 									{canCurrentUserUpdate ? (
