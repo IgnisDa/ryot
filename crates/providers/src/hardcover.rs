@@ -2,7 +2,7 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{PersonSourceSpecifics, SearchDetails};
+use common_models::{PersonSourceSpecifics, SearchDetails, StringIdObject};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -55,6 +55,7 @@ struct Book<TId> {
     images: Option<Vec<Image>>,
     description: Option<String>,
     release_date: Option<NaiveDate>,
+    recommendations: Option<Vec<StringIdObject>>,
     cached_tags: Option<
         nest! {
           #[serde(rename = "Genre")]
