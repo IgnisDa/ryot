@@ -35,9 +35,9 @@ use database_models::{
     review, seen, user, user_notification, user_to_entity,
 };
 use database_utils::{
-    admin_account_guard, apply_collection_filter, calculate_user_activities_and_summary,
-    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
-    item_reviews, revoke_access_link, user_by_id,
+    apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
+    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    revoke_access_link, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
@@ -1076,10 +1076,9 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn mark_entity_as_partial(
         &self,
-        user_id: &String,
+        _user_id: &String,
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
-        admin_account_guard(user_id, &self.0).await?;
         match input.entity_lot {
             EntityLot::Metadata => {
                 Metadata::update_many()
