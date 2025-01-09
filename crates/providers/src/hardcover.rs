@@ -2,13 +2,17 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{PersonSourceSpecifics, SearchDetails, StringIdObject};
+use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
 };
-use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
+use enum_models::{MediaLot, MediaSource};
+use media_models::{
+    BookSpecifics, CommitMediaInput, MetadataDetails, MetadataImageForMediaDetails,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+};
 use nest_struct::nest_struct;
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -50,12 +54,13 @@ struct Book<TId> {
     title: String,
     pages: Option<i32>,
     image: Option<Image>,
+    slug: Option<String>,
     rating: Option<Decimal>,
     release_year: Option<i32>,
     images: Option<Vec<Image>>,
     description: Option<String>,
     release_date: Option<NaiveDate>,
-    recommendations: Option<Vec<StringIdObject>>,
+    recommendations: Option<Vec<nest! { item_book: Option<Book<TId>> }>>,
     cached_tags: Option<
         nest! {
           #[serde(rename = "Genre")]
@@ -66,7 +71,8 @@ struct Book<TId> {
         Vec<
             nest! {
                 author_id: Option<TId>,
-                contribution: Option<String>
+                contribution: Option<String>,
+                author: nest! { name: String }
             },
         >,
     >,
@@ -122,6 +128,7 @@ async fn get_book_details(identifier: &str, client: &Client) -> Result<MetadataD
 query {{
   books_by_pk(id: {identifier}) {{
     id
+    slug
     pages
     title
     rating
@@ -132,7 +139,7 @@ query {{
     image {{ url }}
     images {{ url }}
     book_series {{ series {{ id name }} }}
-    contributions {{ contribution author_id }}
+    contributions {{ contribution author_id author {{ name }} }}
     recommendations(
       where: {{
         subject_id: {{ _eq: {identifier} }},
@@ -151,8 +158,84 @@ query {{
         .json::<Response<BooksByPk>>()
         .await
         .unwrap();
-    dbg!(&data);
-    todo!()
+    let data = data.data.books_by_pk;
+    let mut images = vec![];
+    if let Some(i) = data.image {
+        if let Some(image) = i.url {
+            images.push(MetadataImageForMediaDetails { image });
+        }
+    }
+    for i in data.images.into_iter().flatten() {
+        if let Some(image) = i.url {
+            images.push(MetadataImageForMediaDetails { image });
+        }
+    }
+    let details = MetadataDetails {
+        title: data.title,
+        url_images: images,
+        lot: MediaLot::Book,
+        provider_rating: data.rating,
+        description: data.description,
+        source: MediaSource::Hardcover,
+        publish_date: data.release_date,
+        publish_year: data.release_year,
+        identifier: data.id.to_string(),
+        book_specifics: Some(BookSpecifics { pages: data.pages }),
+        source_url: data
+            .slug
+            .map(|s| format!("https://hardcover.app/books/{s}")),
+        suggestions: data
+            .recommendations
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|i| {
+                i.item_book.map(|b| PartialMetadataWithoutId {
+                    title: b.title,
+                    lot: MediaLot::Book,
+                    identifier: b.id.to_string(),
+                    source: MediaSource::Hardcover,
+                    ..Default::default()
+                })
+            })
+            .collect(),
+        genres: data
+            .cached_tags
+            .into_iter()
+            .flat_map(|t| t.genre.unwrap_or_default().into_iter().map(|g| g.tag))
+            .collect(),
+        groups: data
+            .book_series
+            .into_iter()
+            .flatten()
+            .map(|r| CommitMediaInput {
+                name: r.series.name,
+                unique: UniqueMediaIdentifier {
+                    lot: MediaLot::Book,
+                    source: MediaSource::Hardcover,
+                    identifier: r.series.id.to_string(),
+                },
+            })
+            .collect(),
+        people: data
+            .contributions
+            .into_iter()
+            .flatten()
+            .flat_map(|a| {
+                a.author_id.map(|c| PartialMetadataPerson {
+                    name: a.author.name,
+                    identifier: c.to_string(),
+                    source: MediaSource::Hardcover,
+                    role: a
+                        .contribution
+                        .unwrap_or_else(|| "Author".to_owned())
+                        .to_string(),
+                    ..Default::default()
+                })
+            })
+            .collect(),
+        ..Default::default()
+    };
+    Ok(details)
 }
 
 pub struct HardcoverService {
@@ -173,7 +256,7 @@ impl HardcoverService {
 impl MediaProvider for HardcoverService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details = get_book_details(identifier, &self.client).await?;
-        todo!()
+        Ok(details)
     }
 
     async fn metadata_search(
