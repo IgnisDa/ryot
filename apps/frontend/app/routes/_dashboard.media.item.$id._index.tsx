@@ -301,6 +301,7 @@ export default function Page() {
 		loaderData.metadataDetails.productionStatus,
 		loaderData.metadataDetails.bookSpecifics?.pages &&
 			`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
+		loaderData.metadataDetails.bookSpecifics?.isCompilation && "Compilation",
 		loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
 			`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
 		loaderData.metadataDetails.animeSpecifics?.episodes &&
