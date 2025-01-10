@@ -1113,6 +1113,7 @@ export type MetadataGroupDetails = {
 };
 
 export type MetadataGroupSearchInput = {
+  lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
 };
