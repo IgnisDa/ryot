@@ -279,6 +279,7 @@ query CoreDetails {
 		tokenValidForDays
 		localAuthDisabled
 		fileStorageEnabled
+		peopleSearchSources
 		isServerKeyValidated
 		metadataLotSourceMappings {
 			lot

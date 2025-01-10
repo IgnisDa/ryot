@@ -150,6 +150,16 @@ impl SupportingService {
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             is_server_key_validated: self.get_is_server_key_validated().await,
+            people_search_sources: vec![
+                MediaSource::Tmdb,
+                MediaSource::Anilist,
+                MediaSource::Vndb,
+                MediaSource::Openlibrary,
+                MediaSource::Audible,
+                MediaSource::MangaUpdates,
+                MediaSource::Igdb,
+                MediaSource::YoutubeMusic,
+            ],
             metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
                 .iter()
                 .map(|(lot, sources)| MetadataLotSourceMappings {

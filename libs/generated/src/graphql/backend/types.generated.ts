@@ -227,6 +227,7 @@ export type CoreDetails = {
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
+  peopleSearchSources: Array<MediaSource>;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];

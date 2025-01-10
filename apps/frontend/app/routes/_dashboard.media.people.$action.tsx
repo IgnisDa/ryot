@@ -49,7 +49,7 @@ import {
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	getEnhancedCookieName,
@@ -71,17 +71,6 @@ enum Action {
 	List = "list",
 	Search = "search",
 }
-
-const SEARCH_SOURCES_ALLOWED = [
-	MediaSource.Tmdb,
-	MediaSource.Anilist,
-	MediaSource.Vndb,
-	MediaSource.Openlibrary,
-	MediaSource.Audible,
-	MediaSource.MangaUpdates,
-	MediaSource.Igdb,
-	MediaSource.YoutubeMusic,
-] as const;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
@@ -169,6 +158,7 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const coreDetails = useCoreDetails();
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -241,12 +231,12 @@ export default function Page() {
 					{loaderData.action === Action.Search ? (
 						<>
 							<Select
-								data={SEARCH_SOURCES_ALLOWED.map((o) => ({
+								onChange={(v) => setP("source", v)}
+								defaultValue={loaderData.peopleSearch?.url.source}
+								data={coreDetails.peopleSearchSources.map((o) => ({
 									value: o.toString(),
 									label: startCase(o.toLowerCase()),
 								}))}
-								defaultValue={loaderData.peopleSearch?.url.source}
-								onChange={(v) => setP("source", v)}
 							/>
 							{loaderData.peopleSearch?.url.source === MediaSource.Tmdb ? (
 								<Checkbox
