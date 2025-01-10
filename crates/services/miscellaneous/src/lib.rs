@@ -1544,12 +1544,18 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(results) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
+        let source = match input.lot {
+            MediaLot::Movie => MediaSource::Tmdb,
+            MediaLot::VideoGame => MediaSource::Igdb,
+            MediaLot::Music => MediaSource::YoutubeMusic,
+            _ => return Err(Error::new("This lot is not supported".to_owned())),
+        };
         let query = input.search.query.unwrap_or_default();
         if query.is_empty() {
             return Ok(SearchResults::default());
         }
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
+        let provider = get_metadata_provider(input.lot, source, &self.0).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;

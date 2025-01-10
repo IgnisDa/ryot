@@ -262,7 +262,6 @@ pub struct UserAnalyticsInput {
 )]
 pub struct MetadataGroupSearchInput {
     pub lot: MediaLot,
-    pub source: MediaSource,
     pub search: SearchInput,
 }
 
