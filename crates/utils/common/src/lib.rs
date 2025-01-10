@@ -78,7 +78,7 @@ pub const METADATA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
 ];
 
-pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 8] = [
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Tmdb,
     MediaSource::Anilist,
     MediaSource::Vndb,
@@ -87,6 +87,7 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 8] = [
     MediaSource::MangaUpdates,
     MediaSource::Igdb,
     MediaSource::YoutubeMusic,
+    MediaSource::Hardcover,
 ];
 
 pub const METADATA_GROUP_SOURCE_LOT_MAPPINGS: &[(MediaSource, MediaLot)] = &[
