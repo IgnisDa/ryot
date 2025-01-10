@@ -48,7 +48,7 @@ pub const EXERCISE_LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &
     ),
     (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
 ];
-pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
+pub const METADATA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::AudioBook, &[MediaSource::Audible]),
     (
         MediaLot::Book,
@@ -76,6 +76,23 @@ pub const MEDIA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::Music, &[MediaSource::YoutubeMusic]),
     (MediaLot::Show, &[MediaSource::Tmdb]),
     (MediaLot::VisualNovel, &[MediaSource::Vndb]),
+];
+
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 8] = [
+    MediaSource::Tmdb,
+    MediaSource::Anilist,
+    MediaSource::Vndb,
+    MediaSource::Openlibrary,
+    MediaSource::Audible,
+    MediaSource::MangaUpdates,
+    MediaSource::Igdb,
+    MediaSource::YoutubeMusic,
+];
+
+pub const METADATA_GROUP_SOURCE_LOT_MAPPINGS: &[(MediaSource, MediaLot)] = &[
+    (MediaSource::Tmdb, MediaLot::Movie),
+    (MediaSource::Igdb, MediaLot::VideoGame),
+    (MediaSource::YoutubeMusic, MediaLot::Music),
 ];
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {

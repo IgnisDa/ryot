@@ -8,12 +8,13 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::{ApplicationCacheKey, BackendError};
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
-    MEDIA_LOT_MAPPINGS, PAGE_SIZE,
+    METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
 use database_models::prelude::Exercise;
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
-    ExerciseParametersLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
+    ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
+    ProviderLanguageInformation,
 };
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -146,21 +147,19 @@ impl SupportingService {
             disable_telemetry: self.config.disable_telemetry,
             smtp_enabled: self.config.server.smtp.is_enabled(),
             signup_allowed: self.config.users.allow_registration,
+            people_search_sources: PEOPLE_SEARCH_SOURCES.to_vec(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             is_server_key_validated: self.get_is_server_key_validated().await,
-            people_search_sources: vec![
-                MediaSource::Tmdb,
-                MediaSource::Anilist,
-                MediaSource::Vndb,
-                MediaSource::Openlibrary,
-                MediaSource::Audible,
-                MediaSource::MangaUpdates,
-                MediaSource::Igdb,
-                MediaSource::YoutubeMusic,
-            ],
-            metadata_lot_source_mappings: MEDIA_LOT_MAPPINGS
+            metadata_group_source_lot_mappings: METADATA_GROUP_SOURCE_LOT_MAPPINGS
+                .iter()
+                .map(|(source, lot)| MetadataGroupSourceLotMapping {
+                    lot: *lot,
+                    source: *source,
+                })
+                .collect(),
+            metadata_lot_source_mappings: METADATA_LOT_MAPPINGS
                 .iter()
                 .map(|(lot, sources)| MetadataLotSourceMappings {
                     lot: *lot,

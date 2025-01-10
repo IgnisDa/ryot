@@ -223,6 +223,7 @@ export type CoreDetails = {
   frontend: FrontendConfig;
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
@@ -1130,6 +1131,12 @@ export type MetadataGroupSearchResults = {
   __typename?: 'MetadataGroupSearchResults';
   details: SearchDetails;
   items: Array<MetadataGroupSearchItem>;
+};
+
+export type MetadataGroupSourceLotMapping = {
+  __typename?: 'MetadataGroupSourceLotMapping';
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type MetadataGroupsListInput = {

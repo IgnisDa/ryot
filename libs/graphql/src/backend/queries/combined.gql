@@ -281,6 +281,10 @@ query CoreDetails {
 		fileStorageEnabled
 		peopleSearchSources
 		isServerKeyValidated
+		metadataGroupSourceLotMappings {
+			lot
+			source
+		}
 		metadataLotSourceMappings {
 			lot
 			sources

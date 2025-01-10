@@ -230,6 +230,13 @@ pub struct MetadataLotSourceMappings {
 
 #[skip_serializing_none]
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct MetadataGroupSourceLotMapping {
+    pub lot: MediaLot,
+    pub source: MediaSource,
+}
+
+#[skip_serializing_none]
+#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
     pub version: String,
@@ -250,6 +257,7 @@ pub struct CoreDetails {
     pub exercise_parameters: ExerciseParameters,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
+    pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
 }
 
 #[derive(SimpleObject)]
