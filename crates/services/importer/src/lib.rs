@@ -4,7 +4,7 @@ use async_graphql::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
-use common_utils::ryot_log;
+use common_utils::{ryot_log, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE};
 use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
@@ -72,10 +72,12 @@ impl ImporterService {
         user_id: String,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
+        let import_started_at = Utc::now();
         let model = import_report::ActiveModel {
             source: ActiveValue::Set(input.source),
             progress: ActiveValue::Set(Some(dec!(0))),
             user_id: ActiveValue::Set(user_id.to_owned()),
+            estimated_finish_time: ActiveValue::Set(import_started_at + Duration::hours(1)),
             ..Default::default()
         };
         let db_import_job = model.insert(&self.0.db).await.unwrap();
@@ -143,6 +145,12 @@ impl ImporterService {
         let mut model: import_report::ActiveModel = db_import_job.into();
         match maybe_import {
             Ok(import) => {
+                let mut quick_update_model = model.clone();
+                quick_update_model.estimated_finish_time = ActiveValue::Set(
+                    import_started_at
+                        + Duration::seconds((1..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE as i64).sum()),
+                );
+                quick_update_model.update(&self.0.db).await?;
                 match process_import(&user_id, false, import, &self.0, |progress| {
                     let id = import_id.clone();
                     async move {
