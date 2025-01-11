@@ -2120,76 +2120,6 @@ where
         _ => 1,
     });
 
-    for i in import.completed.iter_mut() {
-        match i {
-            ImportCompletedItem::Metadata(metadata) => {
-                let Ok(r) = commit_metadata(
-                    CommitMediaInput {
-                        name: metadata.source_id.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata.lot,
-                            source: metadata.source,
-                            identifier: metadata.identifier.clone(),
-                        },
-                    },
-                    ss,
-                )
-                .await
-                else {
-                    continue;
-                };
-                metadata.id = r.id.clone();
-            }
-            ImportCompletedItem::Person(person) => {
-                let Ok(p) = commit_person(
-                    CommitPersonInput {
-                        source: person.source,
-                        name: person.name.clone(),
-                        identifier: person.identifier.clone(),
-                        source_specifics: person.source_specifics.clone(),
-                    },
-                    &ss.db,
-                )
-                .await
-                else {
-                    continue;
-                };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        p.id.clone(),
-                    )))
-                    .await?;
-                }
-                person.id = p.id.clone();
-            }
-            ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let Ok(g) = commit_metadata_group(
-                    CommitMediaInput {
-                        name: metadata_group.title.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata_group.lot,
-                            source: metadata_group.source,
-                            identifier: metadata_group.identifier.clone(),
-                        },
-                    },
-                    ss,
-                )
-                .await
-                else {
-                    continue;
-                };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(g.id.clone()),
-                    ))
-                    .await?;
-                }
-                metadata_group.id = g.id.clone();
-            }
-            _ => {}
-        }
-    }
-
     let source_result = import.clone();
     let total = import.completed.len();
 
@@ -2212,7 +2142,20 @@ where
                 create_or_update_collection(user_id, col_details, ss).await?;
             }
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = metadata.id;
+                let db_metadata_id = commit_metadata(
+                    CommitMediaInput {
+                        name: metadata.source_id.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata.lot,
+                            source: metadata.source,
+                            identifier: metadata.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                .unwrap()
+                .id;
                 for seen in metadata.seen_history.iter() {
                     let progress = match seen.progress {
                         Some(_p) => seen.progress,
@@ -2276,7 +2219,26 @@ where
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let db_metadata_group_id = metadata_group.id;
+                let db_metadata_group_id = commit_metadata_group(
+                    CommitMediaInput {
+                        name: metadata_group.title.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata_group.lot,
+                            source: metadata_group.source,
+                            identifier: metadata_group.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                .unwrap()
+                .id;
+                if run_updates {
+                    ss.perform_application_job(ApplicationJob::Mp(
+                        MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
+                    ))
+                    .await?;
+                }
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2306,7 +2268,24 @@ where
                 }
             }
             ImportCompletedItem::Person(person) => {
-                let db_person_id = person.id;
+                let db_person_id = commit_person(
+                    CommitPersonInput {
+                        source: person.source,
+                        name: person.name.clone(),
+                        identifier: person.identifier.clone(),
+                        source_specifics: person.source_specifics.clone(),
+                    },
+                    &ss.db,
+                )
+                .await
+                .unwrap()
+                .id;
+                if run_updates {
+                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                        db_person_id.clone(),
+                    )))
+                    .await?;
+                }
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
