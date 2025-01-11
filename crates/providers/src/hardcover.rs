@@ -49,7 +49,6 @@ struct Editions {
     editions: Vec<nest! { book_id: i64 }>,
 }
 
-#[nest_struct]
 #[derive(Debug, Deserialize)]
 struct BooksByPk {
     books_by_pk: Item<i64>,
@@ -58,6 +57,11 @@ struct BooksByPk {
 #[derive(Debug, Deserialize)]
 struct AuthorsByPk {
     authors_by_pk: Item<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishersByPk {
+    publishers_by_pk: Item<i64>,
 }
 
 #[nest_struct]
@@ -80,6 +84,7 @@ struct Item<TId> {
     release_date: Option<NaiveDate>,
     images: Option<Vec<ImageOrLink>>,
     alternate_names: Option<Vec<String>>,
+    editions: Option<Vec<nest! { book: Option<Item<TId>> }>>,
     recommendations: Option<Vec<nest! { item_book: Option<Item<TId>> }>>,
     cached_tags: Option<
         nest! {
@@ -424,7 +429,57 @@ query {{
                 Ok(details)
             }
             "publisher" => {
-                todo!()
+                let body = format!(
+                    r#"
+{{
+  publishers_by_pk(id: {identifier}) {{
+    id
+    name
+    slug
+    editions(limit: 10000) {{ book {{ id title }} }}
+  }}
+}}
+                "#
+                );
+                let data = self
+                    .client
+                    .post(URL)
+                    .json(&serde_json::json!({"query": body}))
+                    .send()
+                    .await?
+                    .json::<Response<PublishersByPk>>()
+                    .await
+                    .unwrap();
+                let data = data.data.publishers_by_pk;
+                let details = PersonDetails {
+                    name: data.name.unwrap(),
+                    source: MediaSource::Hardcover,
+                    identifier: data.id.to_string(),
+                    source_specifics: source_specifics.clone(),
+                    source_url: data
+                        .slug
+                        .map(|s| format!("https://hardcover.app/publishers/{s}")),
+                    related_metadata: data
+                        .editions
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|e| {
+                            e.book.map(|b| MetadataPersonRelated {
+                                role: "Publisher".to_owned(),
+                                metadata: PartialMetadataWithoutId {
+                                    lot: MediaLot::Book,
+                                    title: b.title.unwrap(),
+                                    identifier: b.id.to_string(),
+                                    source: MediaSource::Hardcover,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            })
+                        })
+                        .collect(),
+                    ..Default::default()
+                };
+                Ok(details)
             }
             _ => unreachable!(),
         }
