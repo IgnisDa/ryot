@@ -108,10 +108,10 @@ function EntityDetailPage() {
 		},
 	});
 
-	const properties = toRecord(entityRequest.data?.properties);
+	const properties = toRecord(entityRequest.data?.data.properties);
 	const assets = toRecord(properties?.assets);
 
-	const title = toStringValue(entityRequest.data?.name) ?? "Untitled";
+	const title = toStringValue(entityRequest.data?.data.name) ?? "Untitled";
 	const pages = toNumberValue(properties?.pages);
 	const description = toStringValue(properties?.description);
 	const publishYear = toNumberValue(properties?.publish_year);
@@ -133,7 +133,8 @@ function EntityDetailPage() {
 						<Title order={2}>{title}</Title>
 						<Group gap="xs">
 							<Badge color="blue" variant="light">
-								Schema: {String(entityRequest.data?.schema_slug ?? "unknown")}
+								Schema:{" "}
+								{String(entityRequest.data?.data.schema_slug ?? "unknown")}
 							</Badge>
 							<Badge color="gray" variant="light">
 								Entity ID: {params.entityId}
