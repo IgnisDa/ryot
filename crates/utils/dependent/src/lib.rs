@@ -2098,7 +2098,7 @@ async fn is_entity_partial(
     let is_partial = match entity_lot {
         EntityLot::Metadata => Metadata::find_by_id(entity_id)
             .select_only()
-            .column(metadata::Column::IsPartial)
+            .column(metadata::Column::IsSpecificsPartial)
             .into_tuple::<bool>()
             .one(&ss.db),
         EntityLot::Person => Person::find_by_id(entity_id)
