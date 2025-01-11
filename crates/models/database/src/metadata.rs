@@ -26,7 +26,6 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub is_partial: Option<bool>,
     pub publish_year: Option<i32>,
-    pub is_specifics_partial: bool,
     pub source_url: Option<String>,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,

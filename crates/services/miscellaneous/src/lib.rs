@@ -2349,11 +2349,15 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         let date_to_calculate_from = get_current_date(&self.0.timezone).pred_opt().unwrap();
 
-        let mut meta_stream = Metadata::find()
+        let selected_metadata = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(metadata::Column::IsSpecificsPartial.eq(false))
-            .stream(&self.0.db)
-            .await?;
+            .filter(
+                metadata::Column::IsPartial
+                    .eq(false)
+                    .or(metadata::Column::IsPartial.is_null()),
+            );
+
+        let mut meta_stream = selected_metadata.clone().stream(&self.0.db).await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
             ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
@@ -2417,12 +2421,8 @@ ORDER BY RANDOM() LIMIT 10;
 
         ryot_log!(debug, "Finished deleting invalid calendar events");
 
-        let mut metadata_stream = Metadata::find()
-            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(metadata::Column::IsSpecificsPartial.eq(false))
-            .order_by_desc(metadata::Column::LastUpdatedOn)
-            .stream(&self.0.db)
-            .await?;
+        let mut metadata_stream = selected_metadata.stream(&self.0.db).await?;
+
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {

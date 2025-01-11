@@ -2155,7 +2155,7 @@ where
                     for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
                         let is_specifics_partial = Metadata::find_by_id(&db_metadata_id)
                             .select_only()
-                            .column(metadata::Column::IsSpecificsPartial)
+                            .column(metadata::Column::IsPartial)
                             .into_tuple::<bool>()
                             .one(&ss.db)
                             .await?
