@@ -64,6 +64,11 @@ struct PublishersByPk {
     publishers_by_pk: Item<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SeriesByPk {
+    series_by_pk: Item<i64>,
+}
+
 #[nest_struct]
 #[derive(Debug, Deserialize)]
 struct Item<TId> {
@@ -333,7 +338,42 @@ query {{
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        todo!()
+        let body = format!(
+            r#"
+{{
+  series_by_pk(id: {identifier}) {{
+    id
+    name
+    slug
+    books_count
+    description
+  }}
+}}
+    "#
+        );
+        let data = self
+            .client
+            .post(URL)
+            .json(&serde_json::json!({"query": body}))
+            .send()
+            .await?
+            .json::<Response<SeriesByPk>>()
+            .await
+            .unwrap();
+        let data = data.data.series_by_pk;
+        let details = MetadataGroupWithoutId {
+            lot: MediaLot::Book,
+            title: data.name.unwrap(),
+            description: data.description,
+            source: MediaSource::Hardcover,
+            identifier: data.id.to_string(),
+            parts: data.books_count.unwrap_or_default().try_into().unwrap(),
+            source_url: data
+                .slug
+                .map(|s| format!("https://hardcover.app/series/{s}")),
+            ..Default::default()
+        };
+        Ok((details, vec![]))
     }
 
     async fn metadata_group_search(
