@@ -9,6 +9,7 @@ export const Route = createFileRoute("/_protected/")({
 
 function App() {
 	const authClient = useAuthClient();
+	const { user } = Route.useRouteContext();
 
 	const runMutation = useMutation({
 		mutationFn: async () => {
@@ -22,6 +23,7 @@ function App() {
 			<section className="island-shell rise-in relative overflow-hidden rounded-4xl px-6 py-10 sm:px-10 sm:py-14">
 				<Button onClick={() => runMutation.mutate()}>Create API Key</Button>
 				{runMutation.data?.key && <p>API Key: {runMutation.data.key}</p>}
+				{JSON.stringify(user, null, 3)}
 				<div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
 				<div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
 				<p className="island-kicker mb-3">TanStack Start Base Template</p>
