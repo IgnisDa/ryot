@@ -193,6 +193,7 @@ query ImportReports {
 		startedOn
 		finishedOn
 		wasSuccess
+		estimatedFinishTime
 		details {
 			import {
 				total
