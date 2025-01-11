@@ -108,8 +108,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						name: submission.name,
 						source: submission.source,
 						sourceSpecifics: {
-							isAnilistStudio: submission.isAnilistStudio,
 							isTmdbCompany: submission.isTmdbCompany,
+							isAnilistStudio: submission.isAnilistStudio,
+							isHardcoverPublisher: submission.isHardcoverPublisher,
 						},
 					},
 				},
@@ -504,11 +505,12 @@ const commitMediaSchema = z.object({
 });
 
 const commitPersonSchema = z.object({
+	name: z.string(),
 	identifier: z.string(),
 	source: z.nativeEnum(MediaSource),
-	name: z.string(),
 	isTmdbCompany: zx.BoolAsString.optional(),
 	isAnilistStudio: zx.BoolAsString.optional(),
+	isHardcoverPublisher: zx.BoolAsString.optional(),
 });
 
 const reviewCommentSchema = z.object({
