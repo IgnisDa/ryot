@@ -2265,7 +2265,7 @@ where
                 .unwrap();
             ryot_log!(
                 debug,
-                "Entity = {}, value = {:?}",
+                "Entity = {:#?}, value = {:?}",
                 check_key.identifier,
                 value
             );
@@ -2278,11 +2278,11 @@ where
                     if let Either::Left(r) = value {
                         *r += 1;
                     }
-                    ryot_log!(debug, "Entity {} is partial", check_key.identifier);
+                    ryot_log!(debug, "Entity {:#?} is partial", check_key.identifier);
                     sleep_for_n_seconds(5).await;
                 }
                 false => {
-                    ryot_log!(debug, "Entity {} is not partial", check_key.identifier);
+                    ryot_log!(debug, "Entity {:#?} is not partial", check_key.identifier);
                     entities_to_watch_partial_state_for
                         .insert(check_key.clone(), Either::Right(()));
                 }
