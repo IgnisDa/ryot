@@ -2250,6 +2250,14 @@ where
     if run_updates {
         let total = keys.len() * MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE;
 
+        let sleep_time = if keys.len() > 1000 {
+            1
+        } else if keys.len() > 500 {
+            3
+        } else {
+            5
+        };
+
         for (idx, check_key) in keys.cycle().enumerate() {
             if entities_to_watch_partial_state_for
                 .values()
@@ -2279,7 +2287,7 @@ where
                         *r += 1;
                     }
                     ryot_log!(debug, "Entity {:#?} is partial", check_key.identifier);
-                    sleep_for_n_seconds(5).await;
+                    sleep_for_n_seconds(sleep_time).await;
                 }
                 false => {
                     ryot_log!(debug, "Entity {:#?} is not partial", check_key.identifier);
