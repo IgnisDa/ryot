@@ -1,5 +1,6 @@
 import type { StatusCode } from "hono/utils/http-status";
 import { fromJSONSchema, z } from "zod";
+import { EntitySchemaSandboxScriptKind } from "~/db/schema";
 import { paginatedResponse } from "~/lib/openapi";
 import { positiveIntSchema } from "~/lib/zod/base";
 import {
@@ -52,7 +53,10 @@ export const runSchemaSearch = async (input: {
 	userId: string;
 	body: SchemaSearchBody;
 }) => {
-	const script = await getScriptById(input.body.searchScriptId);
+	const script = await getScriptById({
+		scriptId: input.body.searchScriptId,
+		kind: EntitySchemaSandboxScriptKind.search,
+	});
 	if (!script) return failure("Search script not found", 404);
 
 	const sandbox = getSandboxService();
@@ -126,7 +130,10 @@ export const runSchemaImport = async (input: {
 	userId: string;
 	body: SchemaImportBody;
 }) => {
-	const script = await getScriptById(input.body.detailsScriptId);
+	const script = await getScriptById({
+		scriptId: input.body.detailsScriptId,
+		kind: EntitySchemaSandboxScriptKind.details,
+	});
 	if (!script) return failure("Details script not found", 404);
 
 	const sandbox = getSandboxService();
