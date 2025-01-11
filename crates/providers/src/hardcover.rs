@@ -126,7 +126,7 @@ async fn get_search_response(
     page: i32,
     query_type: &str,
     client: &Client,
-) -> Result<Response<Search>> {
+) -> Result<SearchSearchResults> {
     let body = format!(
         r#"
 query {{
@@ -144,9 +144,9 @@ query {{
         .json(&serde_json::json!({"query": body}))
         .send()
         .await?
-        .json()
+        .json::<Response<Search>>()
         .await?;
-    Ok(data)
+    Ok(data.data.search.results)
 }
 
 fn query_type_from_specifics(source_specifics: &Option<PersonSourceSpecifics>) -> String {
@@ -305,7 +305,6 @@ query {{
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "book", &self.client).await?;
-        let response = response.data.search.results;
         let items = response
             .hits
             .into_iter()
@@ -345,7 +344,6 @@ query {{
     ) -> Result<MetadataGroupSearchResponse> {
         let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "series", &self.client).await?;
-        let response = response.data.search.results;
         let items = response
             .hits
             .into_iter()
@@ -519,7 +517,6 @@ query {{
         let page = page.unwrap_or(1);
         let query_type = query_type_from_specifics(source_specifics);
         let response = get_search_response(query, page, &query_type, &self.client).await?;
-        let response = response.data.search.results;
         let items = response
             .hits
             .into_iter()
