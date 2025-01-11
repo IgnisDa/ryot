@@ -346,8 +346,10 @@ query {{
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let body = format!(
-            r#"
+        match query_type_from_specifics(source_specifics).as_str() {
+            "author" => {
+                let body = format!(
+                    r#"
 {{
   authors_by_pk(id: {identifier}) {{
     id
@@ -363,63 +365,69 @@ query {{
   }}
 }}
     "#
-        );
-        let data = self
-            .client
-            .post(URL)
-            .json(&serde_json::json!({"query": body}))
-            .send()
-            .await?
-            .json::<Response<AuthorsByPk>>()
-            .await
-            .unwrap();
-        let data = data.data.authors_by_pk;
-        let mut images = vec![];
-        if let Some(i) = data.image {
-            if let Some(image) = i.url {
-                images.push(image);
+                );
+                let data = self
+                    .client
+                    .post(URL)
+                    .json(&serde_json::json!({"query": body}))
+                    .send()
+                    .await?
+                    .json::<Response<AuthorsByPk>>()
+                    .await
+                    .unwrap();
+                let data = data.data.authors_by_pk;
+                let mut images = vec![];
+                if let Some(i) = data.image {
+                    if let Some(image) = i.url {
+                        images.push(image);
+                    }
+                }
+                let details = PersonDetails {
+                    images: Some(images),
+                    description: data.bio,
+                    name: data.name.unwrap(),
+                    birth_date: data.born_date,
+                    death_date: data.death_date,
+                    source: MediaSource::Hardcover,
+                    identifier: data.id.to_string(),
+                    alternate_names: data.alternate_names,
+                    source_specifics: source_specifics.clone(),
+                    source_url: data
+                        .slug
+                        .map(|s| format!("https://hardcover.app/authors/{s}")),
+                    website: data
+                        .links
+                        .unwrap_or_default()
+                        .into_iter()
+                        .find(|i| i.url.is_some())
+                        .and_then(|i| i.url),
+                    related_metadata: data
+                        .contributions
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|c| {
+                            c.book.map(|b| MetadataPersonRelated {
+                                role: "Author".to_owned(),
+                                metadata: PartialMetadataWithoutId {
+                                    title: b.title,
+                                    lot: MediaLot::Book,
+                                    identifier: b.id.to_string(),
+                                    source: MediaSource::Hardcover,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            })
+                        })
+                        .collect(),
+                    ..Default::default()
+                };
+                Ok(details)
             }
+            "publisher" => {
+                todo!()
+            }
+            _ => unreachable!(),
         }
-        let details = PersonDetails {
-            images: Some(images),
-            description: data.bio,
-            name: data.name.unwrap(),
-            birth_date: data.born_date,
-            death_date: data.death_date,
-            source: MediaSource::Hardcover,
-            identifier: data.id.to_string(),
-            alternate_names: data.alternate_names,
-            source_specifics: source_specifics.clone(),
-            source_url: data
-                .slug
-                .map(|s| format!("https://hardcover.app/authors/{s}")),
-            website: data
-                .links
-                .unwrap_or_default()
-                .into_iter()
-                .find(|i| i.url.is_some())
-                .and_then(|i| i.url),
-            related_metadata: data
-                .contributions
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|c| {
-                    c.book.map(|b| MetadataPersonRelated {
-                        role: "Author".to_owned(),
-                        metadata: PartialMetadataWithoutId {
-                            title: b.title,
-                            lot: MediaLot::Book,
-                            identifier: b.id.to_string(),
-                            source: MediaSource::Hardcover,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    })
-                })
-                .collect(),
-            ..Default::default()
-        };
-        Ok(details)
     }
 
     async fn people_search(
