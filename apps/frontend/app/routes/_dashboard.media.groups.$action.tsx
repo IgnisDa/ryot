@@ -236,7 +236,7 @@ export default function Page() {
 								onChange={(v) => setP("source", v)}
 								defaultValue={loaderData.search?.url.source}
 								data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
-									value: o.toString(),
+									value: o.source.toString(),
 									label: startCase(o.source.toLowerCase()),
 								}))}
 							/>
