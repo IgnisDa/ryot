@@ -2033,8 +2033,9 @@ async fn create_collection_and_add_entity_to_it(
     entity_lot: EntityLot,
     collection_name: String,
     ss: &Arc<SupportingService>,
-) -> Result<()> {
-    create_or_update_collection(
+    import_failed_set: &mut Vec<ImportFailedItem>,
+) {
+    if let Err(e) = create_or_update_collection(
         user_id,
         CreateOrUpdateCollectionInput {
             name: collection_name.clone(),
@@ -2042,8 +2043,16 @@ async fn create_collection_and_add_entity_to_it(
         },
         ss,
     )
-    .await?;
-    add_entity_to_collection(
+    .await
+    {
+        import_failed_set.push(ImportFailedItem {
+            identifier: collection_name.clone(),
+            step: ImportFailStep::DatabaseCommit,
+            error: Some(format!("Failed to create collection {}", e.message)),
+            ..Default::default()
+        });
+    }
+    if let Err(e) = add_entity_to_collection(
         user_id,
         ChangeCollectionToEntityInput {
             entity_id,
@@ -2055,8 +2064,14 @@ async fn create_collection_and_add_entity_to_it(
         ss,
     )
     .await
-    .ok();
-    Ok(())
+    {
+        import_failed_set.push(ImportFailedItem {
+            identifier: collection_name.clone(),
+            step: ImportFailStep::DatabaseCommit,
+            error: Some(format!("Failed to add entity to collection {}", e.message)),
+            ..Default::default()
+        });
+    };
 }
 
 pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
@@ -2253,8 +2268,9 @@ where
                         EntityLot::Metadata,
                         col,
                         ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
@@ -2310,8 +2326,9 @@ where
                         EntityLot::MetadataGroup,
                         col,
                         ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
                 }
             }
             ImportCompletedItem::Person(person) => {
@@ -2365,8 +2382,9 @@ where
                         EntityLot::Person,
                         col,
                         ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
                 }
             }
             ImportCompletedItem::Collection(col_details) => {
@@ -2422,8 +2440,9 @@ where
                                 EntityLot::Workout,
                                 col,
                                 ss,
+                                &mut import.failed,
                             )
-                            .await?;
+                            .await;
                         }
                     }
                 }
