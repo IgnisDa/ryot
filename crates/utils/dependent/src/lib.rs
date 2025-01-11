@@ -2113,8 +2113,8 @@ where
 
     import.completed.shuffle(&mut rand::rng());
 
-    // DEV: We need to make sure that exercises are created before the workouts because
-    // workouts depend on them.
+    // DEV: We need to make sure that exercises are created first because workouts are
+    // dependent on them.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
