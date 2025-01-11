@@ -93,6 +93,7 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
 pub const METADATA_GROUP_SOURCE_LOT_MAPPINGS: &[(MediaSource, MediaLot)] = &[
     (MediaSource::Tmdb, MediaLot::Movie),
     (MediaSource::Igdb, MediaLot::VideoGame),
+    (MediaSource::Hardcover, MediaLot::Book),
     (MediaSource::YoutubeMusic, MediaLot::Music),
 ];
 
