@@ -764,7 +764,7 @@ export default function Page() {
 														}}
 													>
 														Mark EP-
-														{nextEntry.episode} as listened
+														{nextEntry.episode} as watched
 													</Menu.Item>
 												</>
 											) : null}
