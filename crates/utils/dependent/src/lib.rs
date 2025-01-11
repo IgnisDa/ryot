@@ -1,17 +1,17 @@
 use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
-use application_utils::get_current_date;
+use application_utils::{get_current_date, graphql_to_db_order};
 use async_graphql::{Enum, Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl, StringIdObject,
-    UserLevelCacheKey, UserNotificationContent,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
+    StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -25,12 +25,15 @@ use database_models::{
     review, seen, user_measurement, user_notification, user_to_entity, workout,
 };
 use database_utils::{
-    admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision, user_by_id,
+    admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
+    schedule_user_for_workout_revision, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult, SearchResults,
+};
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -46,13 +49,14 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails, MetadataImage,
+    MetadataListInput, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
+    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
 };
+use migrations::AliasedReview;
 use nanoid::nanoid;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -76,9 +80,10 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{DateTimeUtc, Expr},
-    sea_query::OnConflict,
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
+    sea_query::{extension::postgres::PgExpr, Alias, Func, NullOrdering, OnConflict, PgFunc},
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -2711,4 +2716,155 @@ pub async fn remove_entity_from_collection(
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
+}
+
+pub async fn metadata_list(
+    user_id: String,
+    input: MetadataListInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let preferences = user_by_id(&user_id, ss).await?.preferences;
+
+    let avg_rating_col = "user_average_rating";
+    let cloned_user_id_1 = user_id.clone();
+    let cloned_user_id_2 = user_id.clone();
+
+    let order_by = input
+        .sort
+        .clone()
+        .map(|a| graphql_to_db_order(a.order))
+        .unwrap_or(Order::Asc);
+    let review_scale = match preferences.general.review_scale {
+        UserReviewScale::OutOfFive => 20,
+        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
+    };
+    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|s| s.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let paginator = Metadata::find()
+        .select_only()
+        .column(metadata::Column::Id)
+        .expr_as(
+            Func::round_with_precision(
+                Func::avg(
+                    Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(review_scale),
+                ),
+                review_scale,
+            ),
+            avg_rating_col,
+        )
+        .group_by(metadata::Column::Id)
+        .group_by(user_to_entity::Column::MediaReason)
+        .filter(user_to_entity::Column::UserId.eq(&user_id))
+        .apply_if(input.lot, |query, v| {
+            query.filter(metadata::Column::Lot.eq(v))
+        })
+        .inner_join(UserToEntity)
+        .join(
+            JoinType::LeftJoin,
+            metadata::Relation::Review
+                .def()
+                .on_condition(move |_left, right| {
+                    Condition::all().add(
+                        Expr::col((right, review::Column::UserId)).eq(cloned_user_id_1.clone()),
+                    )
+                }),
+        )
+        .join(
+            JoinType::LeftJoin,
+            metadata::Relation::Seen
+                .def()
+                .on_condition(move |_left, right| {
+                    Condition::all()
+                        .add(Expr::col((right, seen::Column::UserId)).eq(cloned_user_id_2.clone()))
+                }),
+        )
+        .apply_if(input.search.and_then(|s| s.query), |query, v| {
+            query.filter(
+                Condition::any()
+                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
+                    .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
+            )
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    metadata::Column::Id,
+                    collection_to_entity::Column::MetadataId,
+                )
+            },
+        )
+        .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
+            MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
+            MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
+            MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
+            MediaGeneralFilter::Unfinished => query.filter(
+                Expr::expr(
+                    Expr::val(UserToMediaReason::Finished.to_string())
+                        .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
+                )
+                .not(),
+            ),
+            s => query.filter(seen::Column::State.eq(match s {
+                MediaGeneralFilter::Dropped => SeenState::Dropped,
+                MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                _ => unreachable!(),
+            })),
+        })
+        .apply_if(input.sort.map(|s| s.by), |query, v| match v {
+            MediaSortBy::LastUpdated => query
+                .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
+                .group_by(user_to_entity::Column::LastUpdatedOn),
+            MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+            MediaSortBy::ReleaseDate => query.order_by_with_nulls(
+                metadata::Column::PublishYear,
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::LastSeen => query.order_by_with_nulls(
+                seen::Column::FinishedOn.max(),
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::UserRating => query.order_by_with_nulls(
+                Expr::col(Alias::new(avg_rating_col)),
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::ProviderRating => query.order_by_with_nulls(
+                metadata::Column::ProviderRating,
+                order_by,
+                NullOrdering::Last,
+            ),
+        })
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for c in paginator.fetch_page(page - 1).await? {
+        items.push(c);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items,
+    })
 }

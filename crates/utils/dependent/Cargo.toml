@@ -20,6 +20,7 @@ fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 providers = { path = "../../providers" }
 rand = { workspace = true }
