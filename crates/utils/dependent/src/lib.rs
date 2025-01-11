@@ -68,6 +68,7 @@ use providers::{
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
+use rand::seq::SliceRandom;
 use rust_decimal::{
     prelude::{FromPrimitive, One, ToPrimitive},
     Decimal,
@@ -2137,6 +2138,15 @@ where
         _ => true,
     });
 
+    import.completed.shuffle(&mut rand::rng());
+
+    // DEV: We need to make sure that exercises are created before the workouts because
+    // workouts depend on them.
+    import.completed.sort_by_key(|i| match i {
+        ImportCompletedItem::Exercise(_) => 0,
+        _ => 1,
+    });
+
     #[derive(Debug, Clone, Eq, PartialEq, Hash)]
     struct EntityToWatch {
         title: String,
@@ -2319,13 +2329,6 @@ where
 
         on_item_processed(dec!(80)).await?;
     }
-
-    // DEV: We need to make sure that exercises are created before the workouts because
-    // workouts depend on them.
-    import.completed.sort_by_key(|i| match i {
-        ImportCompletedItem::Exercise(_) => 0,
-        _ => 1,
-    });
 
     let source_result = import.clone();
     let total = import.completed.len();

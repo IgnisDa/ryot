@@ -1769,6 +1769,7 @@ dependencies = [
  "media-models",
  "nanoid",
  "providers",
+ "rand 0.9.0-beta.0",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
