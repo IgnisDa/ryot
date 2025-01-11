@@ -6,7 +6,8 @@ use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
+    MetadataGroupSearchResponse, MetadataPersonRelated, PeopleSearchResponse, PersonDetails,
+    SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
@@ -91,7 +92,8 @@ struct Item<TId> {
             nest! {
                 author_id: Option<TId>,
                 contribution: Option<String>,
-                author: nest! { name: String }
+                author: Option<nest! { name: String }>,
+                book: Option<nest! { id: TId, title: String }>,
             },
         >,
     >,
@@ -141,9 +143,34 @@ query {{
     Ok(data)
 }
 
-async fn get_book_details(identifier: &str, client: &Client) -> Result<MetadataDetails> {
-    let body = format!(
-        r#"
+fn query_type_from_specifics(source_specifics: &Option<PersonSourceSpecifics>) -> String {
+    match source_specifics {
+        Some(source_specifics) if source_specifics.is_hardcover_publisher.unwrap_or(false) => {
+            "publisher".to_owned()
+        }
+        _ => "author".to_owned(),
+    }
+}
+
+pub struct HardcoverService {
+    client: Client,
+}
+
+impl HardcoverService {
+    pub async fn new(config: &config::HardcoverConfig) -> Self {
+        let client = get_base_http_client(Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&config.api_key).unwrap(),
+        )]));
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl MediaProvider for HardcoverService {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
+        let body = format!(
+            r#"
 query {{
   books_by_pk(id: {identifier}) {{
     id
@@ -169,180 +196,98 @@ query {{
   }}
 }}
     "#
-    );
-    let data = client
-        .post(URL)
-        .json(&serde_json::json!({"query": body}))
-        .send()
-        .await?
-        .json::<Response<BooksByPk>>()
-        .await
-        .unwrap();
-    let data = data.data.books_by_pk;
-    let mut images = vec![];
-    if let Some(i) = data.image {
-        if let Some(image) = i.url {
-            images.push(MetadataImageForMediaDetails { image });
+        );
+        let data = self
+            .client
+            .post(URL)
+            .json(&serde_json::json!({"query": body}))
+            .send()
+            .await?
+            .json::<Response<BooksByPk>>()
+            .await
+            .unwrap();
+        let data = data.data.books_by_pk;
+        let mut images = vec![];
+        if let Some(i) = data.image {
+            if let Some(image) = i.url {
+                images.push(MetadataImageForMediaDetails { image });
+            }
         }
-    }
-    for i in data.images.into_iter().flatten() {
-        if let Some(image) = i.url {
-            images.push(MetadataImageForMediaDetails { image });
+        for i in data.images.into_iter().flatten() {
+            if let Some(image) = i.url {
+                images.push(MetadataImageForMediaDetails { image });
+            }
         }
-    }
-    let details = MetadataDetails {
-        url_images: images,
-        lot: MediaLot::Book,
-        title: data.title.unwrap(),
-        provider_rating: data.rating,
-        description: data.description,
-        source: MediaSource::Hardcover,
-        publish_date: data.release_date,
-        publish_year: data.release_year,
-        identifier: data.id.to_string(),
-        book_specifics: Some(BookSpecifics {
-            pages: data.pages,
-            is_compilation: data.compilation,
-        }),
-        source_url: data
-            .slug
-            .map(|s| format!("https://hardcover.app/books/{s}")),
-        suggestions: data
-            .recommendations
-            .unwrap_or_default()
-            .into_iter()
-            .flat_map(|i| {
-                i.item_book.map(|b| PartialMetadataWithoutId {
-                    lot: MediaLot::Book,
-                    title: b.title.unwrap(),
-                    identifier: b.id.to_string(),
-                    source: MediaSource::Hardcover,
-                    ..Default::default()
+        let details = MetadataDetails {
+            url_images: images,
+            lot: MediaLot::Book,
+            title: data.title.unwrap(),
+            provider_rating: data.rating,
+            description: data.description,
+            source: MediaSource::Hardcover,
+            publish_date: data.release_date,
+            publish_year: data.release_year,
+            identifier: data.id.to_string(),
+            book_specifics: Some(BookSpecifics {
+                pages: data.pages,
+                is_compilation: data.compilation,
+            }),
+            source_url: data
+                .slug
+                .map(|s| format!("https://hardcover.app/books/{s}")),
+            suggestions: data
+                .recommendations
+                .unwrap_or_default()
+                .into_iter()
+                .flat_map(|i| {
+                    i.item_book.map(|b| PartialMetadataWithoutId {
+                        lot: MediaLot::Book,
+                        title: b.title.unwrap(),
+                        identifier: b.id.to_string(),
+                        source: MediaSource::Hardcover,
+                        ..Default::default()
+                    })
                 })
-            })
-            .collect(),
-        genres: data
-            .cached_tags
-            .into_iter()
-            .flat_map(|t| t.genre.unwrap_or_default().into_iter().map(|g| g.tag))
-            .collect(),
-        groups: data
-            .book_series
-            .into_iter()
-            .flatten()
-            .map(|r| CommitMediaInput {
-                name: r.series.name,
-                unique: UniqueMediaIdentifier {
-                    lot: MediaLot::Book,
-                    source: MediaSource::Hardcover,
-                    identifier: r.series.id.to_string(),
-                },
-            })
-            .collect(),
-        people: data
-            .contributions
-            .into_iter()
-            .flatten()
-            .flat_map(|a| {
-                a.author_id.map(|c| PartialMetadataPerson {
-                    name: a.author.name,
-                    identifier: c.to_string(),
-                    source: MediaSource::Hardcover,
-                    role: a
-                        .contribution
-                        .unwrap_or_else(|| "Author".to_owned())
-                        .to_string(),
-                    ..Default::default()
+                .collect(),
+            genres: data
+                .cached_tags
+                .into_iter()
+                .flat_map(|t| t.genre.unwrap_or_default().into_iter().map(|g| g.tag))
+                .collect(),
+            groups: data
+                .book_series
+                .into_iter()
+                .flatten()
+                .map(|r| CommitMediaInput {
+                    name: r.series.name,
+                    unique: UniqueMediaIdentifier {
+                        lot: MediaLot::Book,
+                        source: MediaSource::Hardcover,
+                        identifier: r.series.id.to_string(),
+                    },
                 })
-            })
-            .collect(),
-        ..Default::default()
-    };
-    Ok(details)
-}
-
-async fn get_person_details(
-    identifier: &str,
-    client: &Client,
-    source_specifics: &Option<PersonSourceSpecifics>,
-) -> Result<PersonDetails> {
-    let body = format!(
-        r#"
-{{
-  authors_by_pk(id: {identifier}) {{
-    id
-    bio
-    name
-    slug
-    links
-    born_date
-    death_date
-    image {{ url }}
-    alternate_names
-  }}
-}}
-    "#
-    );
-    let data = client
-        .post(URL)
-        .json(&serde_json::json!({"query": body}))
-        .send()
-        .await?
-        .json::<Response<AuthorsByPk>>()
-        .await
-        .unwrap();
-    let data = data.data.authors_by_pk;
-    let mut images = vec![];
-    if let Some(i) = data.image {
-        if let Some(image) = i.url {
-            images.push(image);
-        }
-    }
-    let details = PersonDetails {
-        description: data.bio,
-        name: data.name.unwrap(),
-        birth_date: data.born_date,
-        death_date: data.death_date,
-        source: MediaSource::Hardcover,
-        identifier: data.id.to_string(),
-        alternate_names: data.alternate_names,
-        source_specifics: source_specifics.clone(),
-        source_url: data
-            .slug
-            .map(|s| format!("https://hardcover.app/authors/{s}")),
-        images: match images.is_empty() {
-            true => None,
-            false => Some(images),
-        },
-        website: data
-            .links
-            .unwrap_or_default()
-            .into_iter()
-            .find(|i| i.url.is_some())
-            .and_then(|i| i.url),
-        ..Default::default()
-    };
-    Ok(details)
-}
-
-pub struct HardcoverService {
-    client: Client,
-}
-
-impl HardcoverService {
-    pub async fn new(config: &config::HardcoverConfig) -> Self {
-        let client = get_base_http_client(Some(vec![(
-            AUTHORIZATION,
-            HeaderValue::from_str(&config.api_key).unwrap(),
-        )]));
-        Self { client }
-    }
-}
-
-#[async_trait]
-impl MediaProvider for HardcoverService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let details = get_book_details(identifier, &self.client).await?;
+                .collect(),
+            people: data
+                .contributions
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|a| {
+                    a.author.and_then(|ath| {
+                        a.author_id.map(|c| PartialMetadataPerson {
+                            name: ath.name,
+                            identifier: c.to_string(),
+                            source: MediaSource::Hardcover,
+                            role: a
+                                .contribution
+                                .unwrap_or_else(|| "Author".to_owned())
+                                .to_string(),
+                            ..Default::default()
+                        })
+                    })
+                })
+                .collect(),
+            ..Default::default()
+        };
         Ok(details)
     }
 
@@ -401,7 +346,82 @@ impl MediaProvider for HardcoverService {
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        get_person_details(identifier, &self.client, source_specifics).await
+        let body = format!(
+            r#"
+{{
+  authors_by_pk(id: {identifier}) {{
+    id
+    bio
+    name
+    slug
+    links
+    born_date
+    death_date
+    image {{ url }}
+    alternate_names
+    contributions {{ contribution book {{ id title }} }}
+  }}
+}}
+    "#
+        );
+        let data = self
+            .client
+            .post(URL)
+            .json(&serde_json::json!({"query": body}))
+            .send()
+            .await?
+            .json::<Response<AuthorsByPk>>()
+            .await
+            .unwrap();
+        let data = data.data.authors_by_pk;
+        let mut images = vec![];
+        if let Some(i) = data.image {
+            if let Some(image) = i.url {
+                images.push(image);
+            }
+        }
+        let details = PersonDetails {
+            images: Some(images),
+            description: data.bio,
+            name: data.name.unwrap(),
+            birth_date: data.born_date,
+            death_date: data.death_date,
+            source: MediaSource::Hardcover,
+            identifier: data.id.to_string(),
+            alternate_names: data.alternate_names,
+            source_specifics: source_specifics.clone(),
+            source_url: data
+                .slug
+                .map(|s| format!("https://hardcover.app/authors/{s}")),
+            website: data
+                .links
+                .unwrap_or_default()
+                .into_iter()
+                .find(|i| i.url.is_some())
+                .and_then(|i| i.url),
+            related_metadata: data
+                .contributions
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| {
+                    c.contribution.and_then(|contrib| {
+                        c.book.map(|b| MetadataPersonRelated {
+                            role: contrib,
+                            metadata: PartialMetadataWithoutId {
+                                title: b.title,
+                                lot: MediaLot::Book,
+                                identifier: b.id.to_string(),
+                                source: MediaSource::Hardcover,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })
+                    })
+                })
+                .collect(),
+            ..Default::default()
+        };
+        Ok(details)
     }
 
     async fn people_search(
@@ -412,14 +432,9 @@ impl MediaProvider for HardcoverService {
         _display_nsfw: bool,
     ) -> Result<PeopleSearchResponse> {
         let page = page.unwrap_or(1);
-        let query_type = match source_specifics {
-            Some(source_specifics) if source_specifics.is_hardcover_publisher.unwrap_or(false) => {
-                "publisher"
-            }
-            _ => "author",
-        };
+        let query_type = query_type_from_specifics(source_specifics);
         let response =
-            get_search_response::<Response<Search>>(query, page, query_type, &self.client).await?;
+            get_search_response::<Response<Search>>(query, page, &query_type, &self.client).await?;
         let response = response.data.search.results;
         let items = response
             .hits
