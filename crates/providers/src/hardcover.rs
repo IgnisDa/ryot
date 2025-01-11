@@ -54,21 +54,31 @@ struct BooksByPk {
     books_by_pk: Item<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+struct AuthorsByPk {
+    authors_by_pk: Item<i64>,
+}
+
 #[nest_struct]
 #[derive(Debug, Deserialize)]
 struct Item<TId> {
     id: TId,
     pages: Option<i32>,
-    image: Option<Image>,
+    bio: Option<String>,
     name: Option<String>,
     slug: Option<String>,
     title: Option<String>,
     rating: Option<Decimal>,
     release_year: Option<i32>,
     compilation: Option<bool>,
-    images: Option<Vec<Image>>,
+    image: Option<ImageOrLink>,
     description: Option<String>,
+    born_date: Option<NaiveDate>,
+    death_date: Option<NaiveDate>,
+    links: Option<Vec<ImageOrLink>>,
     release_date: Option<NaiveDate>,
+    images: Option<Vec<ImageOrLink>>,
+    alternate_names: Option<Vec<String>>,
     recommendations: Option<Vec<nest! { item_book: Option<Item<TId>> }>>,
     cached_tags: Option<
         nest! {
@@ -99,7 +109,7 @@ struct Item<TId> {
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
-struct Image {
+struct ImageOrLink {
     url: Option<String>,
 }
 
@@ -251,6 +261,70 @@ query {{
     Ok(details)
 }
 
+async fn get_person_details(
+    identifier: &str,
+    client: &Client,
+    source_specifics: &Option<PersonSourceSpecifics>,
+) -> Result<PersonDetails> {
+    let body = format!(
+        r#"
+{{
+  authors_by_pk(id: {identifier}) {{
+    id
+    bio
+    name
+    slug
+    links
+    born_date
+    death_date
+    image {{ url }}
+    alternate_names
+  }}
+}}
+    "#
+    );
+    let data = client
+        .post(URL)
+        .json(&serde_json::json!({"query": body}))
+        .send()
+        .await?
+        .json::<Response<AuthorsByPk>>()
+        .await
+        .unwrap();
+    let data = data.data.authors_by_pk;
+    let mut images = vec![];
+    if let Some(i) = data.image {
+        if let Some(image) = i.url {
+            images.push(image);
+        }
+    }
+    let details = PersonDetails {
+        description: data.bio,
+        name: data.name.unwrap(),
+        birth_date: data.born_date,
+        death_date: data.death_date,
+        source: MediaSource::Hardcover,
+        identifier: data.id.to_string(),
+        alternate_names: data.alternate_names,
+        source_specifics: source_specifics.clone(),
+        source_url: data
+            .slug
+            .map(|s| format!("https://hardcover.app/authors/{s}")),
+        images: match images.is_empty() {
+            true => None,
+            false => Some(images),
+        },
+        website: data
+            .links
+            .unwrap_or_default()
+            .into_iter()
+            .find(|i| i.url.is_some())
+            .and_then(|i| i.url),
+        ..Default::default()
+    };
+    Ok(details)
+}
+
 pub struct HardcoverService {
     client: Client,
 }
@@ -325,9 +399,9 @@ impl MediaProvider for HardcoverService {
     async fn person_details(
         &self,
         identifier: &str,
-        _source_specifics: &Option<PersonSourceSpecifics>,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        todo!()
+        get_person_details(identifier, &self.client, source_specifics).await
     }
 
     async fn people_search(
