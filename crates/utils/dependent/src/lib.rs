@@ -1881,8 +1881,18 @@ pub async fn create_or_update_user_workout(
                     .one(&ss.db)
                     .await?
                 {
-                    let workout_set =
-                        workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
+                    let workout_set = workout
+                        .information
+                        .exercises
+                        .get(r.exercise_idx)
+                        .and_then(|exercise| exercise.sets.get(r.set_idx));
+                    let workout_set = match workout_set {
+                        Some(s) => s,
+                        None => {
+                            ryot_log!(error, "Workout set {} does not exist", r.set_idx,);
+                            continue;
+                        }
+                    };
                     if get_personal_best(set, best_type)
                         > get_personal_best(&workout_set, best_type)
                     {
