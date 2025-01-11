@@ -4,6 +4,11 @@ The default provider that Ryot uses for book tracking is
 [Openlibrary](https://openlibrary.org). You might find it lacking in some cases, so Ryot
 also supports other providers.
 
+!!! warning
+
+   Once you have followed any of the following steps, restart the server and delete the
+   application cache using [this guide](../configuration.md#delete-all-cache).
+
 ## Hardcover
 
 Ryot supports tracking books via [Hardcover](https://hardcover.app). I prefer this method
