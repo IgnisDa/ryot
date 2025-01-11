@@ -202,7 +202,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let details: ItemDetails = match rsp.json().await {
             Ok(s) => s,
             Err(e) => {
-                ryot_log!(error, "Encountered error for id = {id:?}: {e:?}", id = d.id);
+                ryot_log!(debug, "Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,

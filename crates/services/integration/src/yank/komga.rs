@@ -408,7 +408,7 @@ pub async fn yank_progress(
         mutex_task.get_or_init(|| {
             tokio::spawn(async move {
                 if let Err(e) = sse_listener(tx, base_url, komga_username, komga_password).await {
-                    ryot_log!(error, "SSE listener error: {}", e);
+                    ryot_log!(debug, "SSE listener error: {}", e);
                 }
             });
         });

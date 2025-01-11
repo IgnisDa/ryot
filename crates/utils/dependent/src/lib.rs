@@ -1772,7 +1772,7 @@ pub async fn create_or_update_user_workout(
             .one(&ss.db)
             .await?
         else {
-            ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
+            ryot_log!(debug, "Exercise with id = {} not found", ex.exercise_id);
             continue;
         };
         let mut sets = vec![];
@@ -1889,7 +1889,7 @@ pub async fn create_or_update_user_workout(
                     let workout_set = match workout_set {
                         Some(s) => s,
                         None => {
-                            ryot_log!(error, "Workout set {} does not exist", r.set_idx,);
+                            ryot_log!(debug, "Workout set {} does not exist", r.set_idx);
                             continue;
                         }
                     };
