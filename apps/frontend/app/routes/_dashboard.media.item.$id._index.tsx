@@ -252,7 +252,7 @@ const editSeenItem = z.object({
 	providerWatchedOn: z.string().optional(),
 });
 
-const METADATA_WITH_GRANULAR_UPDATES = [
+const METADATA_LOTS_WITH_GRANULAR_UPDATES = [
 	MediaLot.Show,
 	MediaLot.Anime,
 	MediaLot.Manga,
@@ -846,7 +846,7 @@ export default function Page() {
 													>
 														Set progress
 													</Menu.Item>
-													{!METADATA_WITH_GRANULAR_UPDATES.includes(
+													{!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
 														loaderData.metadataDetails.lot,
 													) ? (
 														<StateChangeButtons />
@@ -873,7 +873,7 @@ export default function Page() {
 														<Menu.Item type="submit">I finished it</Menu.Item>
 													</Form>
 												</>
-											) : !METADATA_WITH_GRANULAR_UPDATES.includes(
+											) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
 													loaderData.metadataDetails.lot,
 												) ? (
 												<>
