@@ -11,9 +11,9 @@ use dependent_models::{
 };
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    BookSpecifics, CommitMediaInput, MetadataDetails, MetadataImageForMediaDetails,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    BookSpecifics, CommitMediaInput, MetadataDetails, MetadataGroupSearchItem,
+    MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
 use nest_struct::nest_struct;
 use reqwest::{
@@ -21,7 +21,7 @@ use reqwest::{
     Client,
 };
 use rust_decimal::Decimal;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::Deserialize;
 use traits::MediaProvider;
 
 static URL: &str = "https://api.hardcover.app/v1/graphql";
@@ -76,6 +76,7 @@ struct Item<TId> {
     rating: Option<Decimal>,
     release_year: Option<i32>,
     compilation: Option<bool>,
+    books_count: Option<usize>,
     image: Option<ImageOrLink>,
     description: Option<String>,
     born_date: Option<NaiveDate>,
@@ -120,12 +121,12 @@ struct ImageOrLink {
     url: Option<String>,
 }
 
-async fn get_search_response<T: DeserializeOwned>(
+async fn get_search_response(
     query: &str,
     page: i32,
     query_type: &str,
     client: &Client,
-) -> Result<T> {
+) -> Result<Response<Search>> {
     let body = format!(
         r#"
 query {{
@@ -143,7 +144,7 @@ query {{
         .json(&serde_json::json!({"query": body}))
         .send()
         .await?
-        .json::<T>()
+        .json()
         .await?;
     Ok(data)
 }
@@ -303,8 +304,7 @@ query {{
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let response =
-            get_search_response::<Response<Search>>(query, page, "book", &self.client).await?;
+        let response = get_search_response(query, page, "book", &self.client).await?;
         let response = response.data.search.results;
         let items = response
             .hits
@@ -343,7 +343,31 @@ query {{
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<MetadataGroupSearchResponse> {
-        todo!()
+        let page = page.unwrap_or(1);
+        let response = get_search_response(query, page, "series", &self.client).await?;
+        let response = response.data.search.results;
+        let items = response
+            .hits
+            .into_iter()
+            .map(|h| MetadataGroupSearchItem {
+                identifier: h.document.id,
+                parts: h.document.books_count,
+                name: h.document.name.unwrap(),
+                image: h.document.image.and_then(|i| i.url),
+            })
+            .collect();
+        let resp = MetadataGroupSearchResponse {
+            details: SearchDetails {
+                total: response.found,
+                next_page: if page < response.found / PAGE_SIZE {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items,
+        };
+        Ok(resp)
     }
 
     async fn person_details(
@@ -494,8 +518,7 @@ query {{
     ) -> Result<PeopleSearchResponse> {
         let page = page.unwrap_or(1);
         let query_type = query_type_from_specifics(source_specifics);
-        let response =
-            get_search_response::<Response<Search>>(query, page, &query_type, &self.client).await?;
+        let response = get_search_response(query, page, &query_type, &self.client).await?;
         let response = response.data.search.results;
         let items = response
             .hits
