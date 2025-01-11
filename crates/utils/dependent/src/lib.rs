@@ -2171,7 +2171,7 @@ where
                 if !was_updated_successfully {
                     import.failed.push(ImportFailedItem {
                         lot: Some(metadata.lot),
-                        identifier: metadata.source_id.to_string(),
+                        identifier: db_metadata_id.clone(),
                         step: ImportFailStep::MediaDetailsFromProvider,
                         error: Some("Progress update *might* be wrong".to_owned()),
                         ..Default::default()
