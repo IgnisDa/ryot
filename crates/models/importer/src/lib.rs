@@ -9,14 +9,13 @@ pub enum ImportFailStep {
     /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
     #[default]
     ItemDetailsFromSource,
-    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
-    MediaDetailsFromProvider,
     /// Failed to transform the data into the required format
     InputTransformation,
-    /// Failed to save a seen history item
-    SeenHistoryConversion,
-    /// Failed to save a review/rating item
-    ReviewConversion,
+    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
+    MediaDetailsFromProvider,
+    /// Failed to save a entity/review/progress item
+    #[serde(untagged)]
+    DatabaseCommit,
 }
 
 #[derive(

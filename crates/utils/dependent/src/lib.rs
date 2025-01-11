@@ -2205,7 +2205,7 @@ where
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
-                            step: ImportFailStep::SeenHistoryConversion,
+                            step: ImportFailStep::DatabaseCommit,
                             identifier: metadata.source_id.to_owned(),
                             error: Some(e.message),
                         });
@@ -2221,7 +2221,7 @@ where
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
                                 lot: Some(metadata.lot),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata.source_id.to_owned(),
                                 error: Some(e.message),
                             });
@@ -2274,7 +2274,7 @@ where
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
                                 lot: Some(metadata_group.lot),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata_group.title.to_owned(),
                                 error: Some(e.message),
                             });
@@ -2320,7 +2320,7 @@ where
                             import.failed.push(ImportFailedItem {
                                 error: Some(e.message),
                                 identifier: person.name.to_owned(),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 ..Default::default()
                             });
                         };
