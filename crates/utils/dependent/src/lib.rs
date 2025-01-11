@@ -2270,6 +2270,8 @@ where
 
         ryot_log!(debug, "Sleep time = {sleep_time}");
 
+        sleep_for_n_seconds(sleep_time).await;
+
         for (idx, check_key) in keys.cycle().enumerate() {
             if entities_to_watch_partial_state_for
                 .values()
