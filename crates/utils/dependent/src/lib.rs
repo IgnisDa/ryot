@@ -2110,7 +2110,7 @@ where
     for i in import.completed.iter_mut() {
         match i {
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata = match commit_metadata(
+                let Ok(r) = commit_metadata(
                     CommitMediaInput {
                         name: metadata.source_id.clone(),
                         unique: UniqueMediaIdentifier {
@@ -2122,56 +2122,38 @@ where
                     ss,
                 )
                 .await
-                {
-                    Ok(r) => r,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            lot: Some(metadata.lot),
-                            identifier: metadata.source_id.to_owned(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                        });
-                        continue;
-                    }
+                else {
+                    continue;
                 };
                 if run_updates {
-                    deploy_update_metadata_job(&db_metadata.id, ss).await?;
+                    deploy_update_metadata_job(&r.id, ss).await?;
                 }
-                metadata.id = db_metadata.id;
+                metadata.id = r.id;
             }
             ImportCompletedItem::Person(person) => {
-                let db_person = match commit_person(
+                let Ok(p) = commit_person(
                     CommitPersonInput {
-                        identifier: person.identifier.clone(),
-                        name: person.name.clone(),
                         source: person.source,
+                        name: person.name.clone(),
+                        identifier: person.identifier.clone(),
                         source_specifics: person.source_specifics.clone(),
                     },
                     &ss.db,
                 )
                 .await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            identifier: person.identifier.clone(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            ..Default::default()
-                        });
-                        continue;
-                    }
+                else {
+                    continue;
                 };
                 if run_updates {
                     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        db_person.id.clone(),
+                        p.id.clone(),
                     )))
                     .await?;
                 }
-                person.id = db_person.id;
+                person.id = p.id;
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let metadata_group_id = match commit_metadata_group(
+                let Ok(g) = commit_metadata_group(
                     CommitMediaInput {
                         name: metadata_group.title.clone(),
                         unique: UniqueMediaIdentifier {
@@ -2183,25 +2165,16 @@ where
                     ss,
                 )
                 .await
-                {
-                    Ok(r) => r.id,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            lot: Some(metadata_group.lot),
-                            identifier: metadata_group.title.to_owned(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                        });
-                        continue;
-                    }
+                else {
+                    continue;
                 };
                 if run_updates {
                     ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(metadata_group_id.clone()),
+                        MpApplicationJob::UpdateMetadataGroup(g.id.clone()),
                     ))
                     .await?;
                 }
-                metadata_group.id = metadata_group_id;
+                metadata_group.id = g.id;
             }
             _ => {}
         }
