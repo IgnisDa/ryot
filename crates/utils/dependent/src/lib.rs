@@ -2135,7 +2135,7 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = commit_metadata(
+                let db_metadata_id = match commit_metadata(
                     CommitMediaInput {
                         name: metadata.source_id.clone(),
                         unique: UniqueMediaIdentifier {
@@ -2147,8 +2147,18 @@ where
                     ss,
                 )
                 .await
-                .unwrap()
-                .id;
+                {
+                    Ok(m) => m.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata.source_id.to_string(),
+                        });
+                        continue;
+                    }
+                };
                 let mut was_updated_successfully = false;
                 for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
                     let is_partial = Metadata::find_by_id(&db_metadata_id)
@@ -2246,7 +2256,7 @@ where
                 create_or_update_collection(user_id, col_details, ss).await?;
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let db_metadata_group_id = commit_metadata_group(
+                let db_metadata_group_id = match commit_metadata_group(
                     CommitMediaInput {
                         name: metadata_group.title.clone(),
                         unique: UniqueMediaIdentifier {
@@ -2258,8 +2268,18 @@ where
                     ss,
                 )
                 .await
-                .unwrap()
-                .id;
+                {
+                    Ok(m) => m.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata_group.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata_group.title.to_string(),
+                        });
+                        continue;
+                    }
+                };
                 ss.perform_application_job(ApplicationJob::Mp(
                     MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
                 ))
@@ -2293,7 +2313,7 @@ where
                 }
             }
             ImportCompletedItem::Person(person) => {
-                let db_person_id = commit_person(
+                let db_person_id = match commit_person(
                     CommitPersonInput {
                         source: person.source,
                         name: person.name.clone(),
@@ -2303,8 +2323,18 @@ where
                     &ss.db,
                 )
                 .await
-                .unwrap()
-                .id;
+                {
+                    Ok(p) => p.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            identifier: person.name.to_string(),
+                            step: ImportFailStep::DatabaseCommit,
+                            ..Default::default()
+                        });
+                        continue;
+                    }
+                };
                 ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
                     db_person_id.clone(),
                 )))
