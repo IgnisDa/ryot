@@ -2341,10 +2341,9 @@ where
             ImportCompletedItem::Metadata(metadata) => {
                 let db_metadata_id = metadata.id;
                 for seen in metadata.seen_history.iter() {
-                    let progress = if seen.progress.is_some() {
-                        seen.progress
-                    } else {
-                        Some(dec!(100))
+                    let progress = match seen.progress {
+                        Some(_p) => seen.progress,
+                        None => Some(dec!(100)),
                     };
                     if let Err(e) = progress_update(
                         user_id,
