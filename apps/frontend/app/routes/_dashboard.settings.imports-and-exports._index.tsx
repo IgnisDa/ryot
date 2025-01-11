@@ -425,63 +425,103 @@ export default function Page() {
 													data-import-report-id={report.id}
 												>
 													<Accordion.Control disabled={isInProgress}>
-														<Indicator
-															inline
-															size={12}
-															offset={-3}
-															processing={isInProgress}
-															color={
-																isInProgress
-																	? undefined
-																	: report.wasSuccess
-																		? "green"
-																		: "red"
-															}
-														>
-															{changeCase(report.source)}{" "}
-															<Text size="xs" span c="dimmed">
-																({dayjsLib(report.startedOn).fromNow()})
-															</Text>
-														</Indicator>
-														{isInProgress && report.progress ? (
-															<Progress
-																mt="xs"
-																animated
-																value={Number(report.progress)}
-															/>
-														) : null}
+														<Stack gap="xs">
+															<Box>
+																<Indicator
+																	inline
+																	size={12}
+																	offset={-3}
+																	processing={isInProgress}
+																	color={
+																		isInProgress
+																			? undefined
+																			: report.wasSuccess
+																				? "green"
+																				: "red"
+																	}
+																>
+																	{changeCase(report.source)}{" "}
+																	<Text size="xs" span c="dimmed">
+																		({dayjsLib(report.startedOn).fromNow()})
+																	</Text>
+																</Indicator>
+															</Box>
+															{isInProgress && report.progress ? (
+																<>
+																	<Box>
+																		<Text span fw="bold" mr={4}>
+																			Estimated to finish at:
+																		</Text>
+																		{dayjsLib(
+																			report.estimatedFinishTime,
+																		).format("lll")}
+																	</Box>
+																	<Progress
+																		animated
+																		value={Number(report.progress)}
+																	/>
+																</>
+															) : null}
+														</Stack>
 													</Accordion.Control>
 													<Accordion.Panel
 														styles={{ content: { paddingTop: 0 } }}
 													>
-														{report.details ? (
-															<Stack>
-																<Text>
-																	<Text span fw="bold" mr={4}>
-																		Total imported:
-																	</Text>
-																	{report.details.import.total},
-																	<Text span fw="bold" ml="md" mr={4}>
-																		Failed:
-																	</Text>
-																	{report.details.failedItems.length}
-																</Text>
-																{report.details.failedItems.length > 0 ? (
-																	<CodeHighlight
-																		mah={400}
-																		language="json"
-																		style={{ overflow: "scroll" }}
-																		code={JSON.stringify(
-																			report.details.failedItems,
-																			null,
-																			2,
-																		)}
-																	/>
-																) : null}
-															</Stack>
-														) : (
-															<Text>This import never finished</Text>
-														)}
+														<Stack>
+															<Box>
+																<Group>
+																	{report.details ? (
+																		<Box>
+																			<Text span fw="bold" mr={4}>
+																				Total imported:
+																			</Text>
+																			{report.details.import.total},
+																		</Box>
+																	) : null}
+																	<Box>
+																		<Text span fw="bold" mr={4}>
+																			Started at:
+																		</Text>
+																		{dayjsLib(report.startedOn).format("lll")}
+																	</Box>
+																</Group>
+																<Group>
+																	<Box>
+																		{report.finishedOn ? (
+																			<>
+																				<Text span fw="bold" mr={4}>
+																					Finished on:
+																				</Text>
+																				{dayjsLib(report.finishedOn).format(
+																					"lll",
+																				)}
+																			</>
+																		) : null}
+																	</Box>
+																	{report.details ? (
+																		<Box>
+																			<Text span fw="bold" mr={4}>
+																				Failed:
+																			</Text>
+																			{report.details.failedItems.length}
+																		</Box>
+																	) : null}
+																</Group>
+															</Box>
+															{report.details &&
+															report.details.failedItems.length > 0 ? (
+																<CodeHighlight
+																	mah={400}
+																	language="json"
+																	style={{ overflow: "scroll" }}
+																	code={JSON.stringify(
+																		report.details.failedItems,
+																		null,
+																		2,
+																	)}
+																/>
+															) : null}
+														</Stack>
 													</Accordion.Panel>
 												</Accordion.Item>
 											);
