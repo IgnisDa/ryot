@@ -2257,12 +2257,6 @@ where
                     .await?;
                 }
             }
-            ImportCompletedItem::Exercise(exercise) => {
-                create_custom_exercise(user_id, exercise, ss).await?;
-            }
-            ImportCompletedItem::Collection(col_details) => {
-                create_or_update_collection(user_id, col_details, ss).await?;
-            }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let db_metadata_group_id = match commit_metadata_group(
                     CommitMediaInput {
@@ -2375,25 +2369,48 @@ where
                     .await?;
                 }
             }
+            ImportCompletedItem::Collection(col_details) => {
+                if let Err(e) = create_or_update_collection(user_id, col_details.clone(), ss).await
+                {
+                    import.failed.push(ImportFailedItem {
+                        error: Some(e.message),
+                        identifier: col_details.name.clone(),
+                        step: ImportFailStep::DatabaseCommit,
+                        ..Default::default()
+                    });
+                }
+            }
+            ImportCompletedItem::Exercise(exercise) => {
+                if let Err(e) = create_custom_exercise(user_id, exercise.clone(), ss).await {
+                    import.failed.push(ImportFailedItem {
+                        error: Some(e.message),
+                        identifier: exercise.name.clone(),
+                        step: ImportFailStep::DatabaseCommit,
+                        ..Default::default()
+                    });
+                }
+            }
             ImportCompletedItem::Workout(workout) => {
                 need_to_schedule_user_for_workout_revision = true;
-                if let Err(err) = create_or_update_user_workout(user_id, workout, ss).await {
+                if let Err(err) = create_or_update_user_workout(user_id, workout.clone(), ss).await
+                {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
-                        identifier: "Exercise".to_string(),
-                        step: ImportFailStep::InputTransformation,
+                        identifier: workout.name,
+                        step: ImportFailStep::DatabaseCommit,
                         ..Default::default()
                     });
                 }
             }
             ImportCompletedItem::ApplicationWorkout(workout) => {
+                need_to_schedule_user_for_workout_revision = true;
                 let workout_input = db_workout_to_workout_input(workout.details);
-                match create_or_update_user_workout(user_id, workout_input, ss).await {
+                match create_or_update_user_workout(user_id, workout_input.clone(), ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(err.message),
-                            identifier: "Exercise".to_string(),
-                            step: ImportFailStep::InputTransformation,
+                            identifier: workout_input.name,
+                            step: ImportFailStep::DatabaseCommit,
                             ..Default::default()
                         });
                     }
@@ -2412,11 +2429,13 @@ where
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
+                if let Err(err) =
+                    create_user_measurement(user_id, measurement.clone(), &ss.db).await
+                {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
-                        identifier: "Measurement".to_string(),
-                        step: ImportFailStep::InputTransformation,
+                        step: ImportFailStep::DatabaseCommit,
+                        identifier: measurement.timestamp.to_string(),
                         ..Default::default()
                     });
                 }
