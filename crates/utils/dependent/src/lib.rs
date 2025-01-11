@@ -2091,7 +2091,6 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
-    run_updates: bool,
     respect_cache: bool,
     mut import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2150,34 +2149,32 @@ where
                 .await
                 .unwrap()
                 .id;
-                if run_updates {
-                    let mut was_updated_successfully = false;
-                    for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                        let is_partial = Metadata::find_by_id(&db_metadata_id)
-                            .select_only()
-                            .column(metadata::Column::IsPartial)
-                            .into_tuple::<bool>()
-                            .one(&ss.db)
-                            .await?
-                            .unwrap_or(true);
-                        if is_partial {
-                            deploy_update_metadata_job(&db_metadata_id, ss).await?;
-                            let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                            ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
-                            sleep_for_n_seconds(sleep_time).await;
-                        } else {
-                            was_updated_successfully = true;
-                            break;
-                        }
+                let mut was_updated_successfully = false;
+                for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                    let is_partial = Metadata::find_by_id(&db_metadata_id)
+                        .select_only()
+                        .column(metadata::Column::IsPartial)
+                        .into_tuple::<bool>()
+                        .one(&ss.db)
+                        .await?
+                        .unwrap_or(true);
+                    if is_partial {
+                        deploy_update_metadata_job(&db_metadata_id, ss).await?;
+                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                        sleep_for_n_seconds(sleep_time).await;
+                    } else {
+                        was_updated_successfully = true;
+                        break;
                     }
-                    if !was_updated_successfully {
-                        import.failed.push(ImportFailedItem {
-                            identifier: metadata.source_id.to_string(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            error: Some("Progress update *might* be wrong".to_owned()),
-                            ..Default::default()
-                        });
-                    }
+                }
+                if !was_updated_successfully {
+                    import.failed.push(ImportFailedItem {
+                        identifier: metadata.source_id.to_string(),
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        error: Some("Progress update *might* be wrong".to_owned()),
+                        ..Default::default()
+                    });
                 }
                 for seen in metadata.seen_history.iter() {
                     let progress = match seen.progress {
@@ -2262,12 +2259,10 @@ where
                 .await
                 .unwrap()
                 .id;
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
-                    ))
-                    .await?;
-                }
+                ss.perform_application_job(ApplicationJob::Mp(
+                    MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
+                ))
+                .await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2309,12 +2304,10 @@ where
                 .await
                 .unwrap()
                 .id;
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        db_person_id.clone(),
-                    )))
-                    .await?;
-                }
+                ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                    db_person_id.clone(),
+                )))
+                .await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
