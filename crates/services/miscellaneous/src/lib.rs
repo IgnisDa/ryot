@@ -10,7 +10,7 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{Days, Duration, NaiveDate, Utc};
+use chrono::{Days, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
@@ -2814,10 +2814,13 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
-        let threshold = Utc::now() - Duration::hours(24);
         let all_jobs = ImportReport::find()
-            .filter(import_report::Column::WasSuccess.is_null())
-            .filter(import_report::Column::StartedOn.lt(threshold))
+            .filter(
+                import_report::Column::WasSuccess
+                    .eq(false)
+                    .or(import_report::Column::WasSuccess.is_null()),
+            )
+            .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
             .all(&self.0.db)
             .await?;
         for job in all_jobs {
