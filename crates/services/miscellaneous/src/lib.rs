@@ -2351,7 +2351,7 @@ ORDER BY RANDOM() LIMIT 10;
 
         let mut meta_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(metadata::Column::IsPartial.eq(false))
+            .filter(metadata::Column::IsSpecificsPartial.eq(false))
             .stream(&self.0.db)
             .await?;
 
@@ -2419,11 +2419,7 @@ ORDER BY RANDOM() LIMIT 10;
 
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(
-                metadata::Column::IsPartial
-                    .is_null()
-                    .or(metadata::Column::IsPartial.eq(false)),
-            )
+            .filter(metadata::Column::IsSpecificsPartial.eq(false))
             .order_by_desc(metadata::Column::LastUpdatedOn)
             .stream(&self.0.db)
             .await?;
