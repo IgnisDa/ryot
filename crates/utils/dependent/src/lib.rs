@@ -2153,8 +2153,6 @@ where
                 if run_updates {
                     let mut was_updated_successfully = false;
                     for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                         let is_specifics_partial = Metadata::find_by_id(&db_metadata_id)
                             .select_only()
                             .column(metadata::Column::IsSpecificsPartial)
@@ -2164,6 +2162,8 @@ where
                             .unwrap_or(true);
                         if is_specifics_partial {
                             deploy_update_metadata_job(&db_metadata_id, ss).await?;
+                            let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                            ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                             sleep_for_n_seconds(sleep_time).await;
                         } else {
                             was_updated_successfully = true;
