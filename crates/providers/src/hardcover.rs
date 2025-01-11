@@ -404,18 +404,16 @@ query {{
                 .unwrap_or_default()
                 .into_iter()
                 .filter_map(|c| {
-                    c.contribution.and_then(|contrib| {
-                        c.book.map(|b| MetadataPersonRelated {
-                            role: contrib,
-                            metadata: PartialMetadataWithoutId {
-                                title: b.title,
-                                lot: MediaLot::Book,
-                                identifier: b.id.to_string(),
-                                source: MediaSource::Hardcover,
-                                ..Default::default()
-                            },
+                    c.book.map(|b| MetadataPersonRelated {
+                        role: "Author".to_owned(),
+                        metadata: PartialMetadataWithoutId {
+                            title: b.title,
+                            lot: MediaLot::Book,
+                            identifier: b.id.to_string(),
+                            source: MediaSource::Hardcover,
                             ..Default::default()
-                        })
+                        },
+                        ..Default::default()
                     })
                 })
                 .collect(),
