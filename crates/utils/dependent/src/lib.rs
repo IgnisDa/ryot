@@ -2144,7 +2144,7 @@ where
         identifier: String,
     }
 
-    let mut entities_to_watch_partial_state_for: HashMap<EntityToWatch, Either<u8, ()>> =
+    let mut entities_to_watch_partial_state_for: HashMap<EntityToWatch, Either<usize, ()>> =
         HashMap::new();
 
     for i in import.completed.iter_mut() {
@@ -2248,7 +2248,9 @@ where
     let keys = keys.keys();
 
     if run_updates {
-        for check_key in keys.cycle() {
+        let total = keys.len() * MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE;
+
+        for (idx, check_key) in keys.cycle().enumerate() {
             if entities_to_watch_partial_state_for
                 .values()
                 .all(|v| match v {
@@ -2285,6 +2287,11 @@ where
                         .insert(check_key.clone(), Either::Right(()));
                 }
             }
+            on_item_processed(
+                Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap()
+                    * dec!(100),
+            )
+            .await?;
         }
 
         for (key, value) in entities_to_watch_partial_state_for {
@@ -2299,6 +2306,8 @@ where
                 }
             }
         }
+
+        on_item_processed(dec!(80)).await?;
     }
 
     // DEV: We need to make sure that exercises are created before the workouts because
@@ -2501,10 +2510,6 @@ where
                 }
             }
         }
-        on_item_processed(
-            Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
-        )
-        .await?;
     }
 
     if need_to_schedule_user_for_workout_revision {
