@@ -135,6 +135,7 @@ pub struct PersonDetails {
     pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,
     pub birth_date: Option<NaiveDate>,
+    pub alternate_names: Option<Vec<String>>,
     pub related_metadata: Vec<MetadataPersonRelated>,
     pub source_specifics: Option<PersonSourceSpecifics>,
     pub related_metadata_groups: Vec<MetadataGroupPersonRelated>,
