@@ -108,19 +108,18 @@ export default function Page() {
 		loaderData.personDetails.details.place &&
 			loaderData.personDetails.details.place,
 		loaderData.personDetails.details.gender,
+		loaderData.personDetails.details.alternateNames &&
+			loaderData.personDetails.details.alternateNames.length > 0 &&
+			`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
 		loaderData.personDetails.details.website && (
 			<Anchor
 				target="_blank"
 				referrerPolicy="no-referrer"
-				fz={{ base: "xs", md: "sm" }}
 				href={loaderData.personDetails.details.website}
 			>
 				Website
 			</Anchor>
 		),
-		loaderData.personDetails.details.alternateNames &&
-			loaderData.personDetails.details.alternateNames.length > 0 &&
-			`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
 	].filter(Boolean);
 
 	return (
