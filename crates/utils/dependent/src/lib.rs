@@ -9,7 +9,10 @@ use common_models::{
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl, StringIdObject,
     UserLevelCacheKey, UserNotificationContent,
 };
-use common_utils::{acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{
+    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES,
+};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
@@ -77,6 +80,7 @@ use sea_orm::{
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::Either;
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
@@ -2107,6 +2111,16 @@ where
         _ => true,
     });
 
+    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+    struct EntityToWatch {
+        title: String,
+        lot: EntityLot,
+        identifier: String,
+    }
+
+    let mut entities_to_watch_partial_state_for: HashMap<EntityToWatch, Either<u8, ()>> =
+        HashMap::new();
+
     for i in import.completed.iter_mut() {
         match i {
             ImportCompletedItem::Metadata(metadata) => {
@@ -2128,7 +2142,15 @@ where
                 if run_updates {
                     deploy_update_metadata_job(&r.id, ss).await?;
                 }
-                metadata.id = r.id;
+                metadata.id = r.id.clone();
+                entities_to_watch_partial_state_for.insert(
+                    EntityToWatch {
+                        identifier: r.id.clone(),
+                        lot: EntityLot::Metadata,
+                        title: metadata.source_id.clone(),
+                    },
+                    Either::Left(0),
+                );
             }
             ImportCompletedItem::Person(person) => {
                 let Ok(p) = commit_person(
@@ -2150,7 +2172,15 @@ where
                     )))
                     .await?;
                 }
-                person.id = p.id;
+                person.id = p.id.clone();
+                entities_to_watch_partial_state_for.insert(
+                    EntityToWatch {
+                        lot: EntityLot::Person,
+                        identifier: p.id.clone(),
+                        title: person.name.clone(),
+                    },
+                    Either::Left(0),
+                );
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let Ok(g) = commit_metadata_group(
@@ -2174,14 +2204,51 @@ where
                     ))
                     .await?;
                 }
-                metadata_group.id = g.id;
+                metadata_group.id = g.id.clone();
+                entities_to_watch_partial_state_for.insert(
+                    EntityToWatch {
+                        identifier: g.id.clone(),
+                        lot: EntityLot::MetadataGroup,
+                        title: metadata_group.title.clone(),
+                    },
+                    Either::Left(0),
+                );
             }
             _ => {}
         }
     }
 
-    // DEV: We need to sort the exercises to make sure they are created before the workouts
-    // because the workouts depend on the exercises.
+    if run_updates {
+        for check_key in entities_to_watch_partial_state_for.clone().keys().cycle() {
+            if entities_to_watch_partial_state_for
+                .values()
+                .all(|v| match v {
+                    Either::Right(_) => true,
+                    Either::Left(r) => *r >= MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE,
+                })
+            {
+                break;
+            }
+            sleep_for_n_seconds(10).await;
+            dbg!(&check_key);
+        }
+
+        for (key, value) in entities_to_watch_partial_state_for {
+            if let Either::Left(r) = value {
+                if r > MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                    import.failed.push(ImportFailedItem {
+                        identifier: key.title,
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        error: Some(format!("Progress update *might* be wrong",)),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+    }
+
+    // DEV: We need to make sure that exercises are created before the workouts because
+    // workouts depend on them.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,

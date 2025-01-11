@@ -21,6 +21,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     ")"
 );
 pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
+pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: u8 = 5;
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 #[cfg(not(debug_assertions))]
