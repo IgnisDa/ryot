@@ -61,6 +61,7 @@ pub enum Metadata {
     MusicSpecifics,
     WatchProviders,
     ExternalIdentifiers,
+    IsSpecificsPartial,
 }
 
 #[async_trait::async_trait]
@@ -113,6 +114,25 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
                     .col(ColumnDef::new(Metadata::MusicSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::CreatedByUserId).text())
+                    .col(
+                        ColumnDef::new(Metadata::IsSpecificsPartial)
+                            .boolean()
+                            .not_null()
+                            .generated(
+                                Expr::expr(Expr::col(Metadata::AnimeSpecifics).is_null())
+                                    .and(Expr::col(Metadata::AnimeSpecifics).is_null())
+                                    .and(Expr::col(Metadata::AudioBookSpecifics).is_null())
+                                    .and(Expr::col(Metadata::BookSpecifics).is_null())
+                                    .and(Expr::col(Metadata::MangaSpecifics).is_null())
+                                    .and(Expr::col(Metadata::MovieSpecifics).is_null())
+                                    .and(Expr::col(Metadata::PodcastSpecifics).is_null())
+                                    .and(Expr::col(Metadata::ShowSpecifics).is_null())
+                                    .and(Expr::col(Metadata::VideoGameSpecifics).is_null())
+                                    .and(Expr::col(Metadata::VisualNovelSpecifics).is_null())
+                                    .and(Expr::col(Metadata::MusicSpecifics).is_null()),
+                                true,
+                            ),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_TO_USER_FOREIGN_KEY)
