@@ -140,6 +140,9 @@ export default function Page() {
 								Website
 							</Anchor>
 						),
+						loaderData.personDetails.details.alternateNames &&
+							loaderData.personDetails.details.alternateNames.length > 0 &&
+							`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
 					]
 						.filter(Boolean)
 						.map<ReactNode>((s) => s)
