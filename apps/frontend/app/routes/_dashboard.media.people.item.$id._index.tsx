@@ -27,6 +27,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -129,13 +130,7 @@ export default function Page() {
 						loaderData.personDetails.details.place &&
 							loaderData.personDetails.details.place,
 						loaderData.personDetails.details.gender,
-					]
-						.filter(Boolean)
-						.join(" • ")}
-					{loaderData.personDetails.details.website ? (
-						<>
-							{" "}
-							•{" "}
+						loaderData.personDetails.details.website && (
 							<Anchor
 								target="_blank"
 								referrerPolicy="no-referrer"
@@ -144,8 +139,11 @@ export default function Page() {
 							>
 								Website
 							</Anchor>
-						</>
-					) : null}
+						),
+					]
+						.filter(Boolean)
+						.map<ReactNode>((s) => s)
+						.reduce((prev, curr) => [prev, " • ", curr])}
 				</Text>
 				{loaderData.userPersonDetails.collections.length > 0 ? (
 					<Group>
