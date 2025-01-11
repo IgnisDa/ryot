@@ -98,6 +98,30 @@ export default function Page() {
 	const totalMetadataGroups = sum(
 		loaderData.personDetails.associatedMetadataGroups.map((c) => c.count),
 	);
+	const additionalPersonDetails = [
+		totalMetadata ? `${totalMetadata} media items` : null,
+		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
+		loaderData.personDetails.details.birthDate &&
+			`Birth: ${loaderData.personDetails.details.birthDate}`,
+		loaderData.personDetails.details.deathDate &&
+			`Death: ${loaderData.personDetails.details.deathDate}`,
+		loaderData.personDetails.details.place &&
+			loaderData.personDetails.details.place,
+		loaderData.personDetails.details.gender,
+		loaderData.personDetails.details.website && (
+			<Anchor
+				target="_blank"
+				referrerPolicy="no-referrer"
+				fz={{ base: "xs", md: "sm" }}
+				href={loaderData.personDetails.details.website}
+			>
+				Website
+			</Anchor>
+		),
+		loaderData.personDetails.details.alternateNames &&
+			loaderData.personDetails.details.alternateNames.length > 0 &&
+			`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
+	].filter(Boolean);
 
 	return (
 		<Container>
@@ -119,35 +143,13 @@ export default function Page() {
 							.then((data) => data.personDetails.details.isPartial),
 				}}
 			>
-				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-					{[
-						totalMetadata ? `${totalMetadata} media items` : null,
-						totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
-						loaderData.personDetails.details.birthDate &&
-							`Birth: ${loaderData.personDetails.details.birthDate}`,
-						loaderData.personDetails.details.deathDate &&
-							`Death: ${loaderData.personDetails.details.deathDate}`,
-						loaderData.personDetails.details.place &&
-							loaderData.personDetails.details.place,
-						loaderData.personDetails.details.gender,
-						loaderData.personDetails.details.website && (
-							<Anchor
-								target="_blank"
-								referrerPolicy="no-referrer"
-								fz={{ base: "xs", md: "sm" }}
-								href={loaderData.personDetails.details.website}
-							>
-								Website
-							</Anchor>
-						),
-						loaderData.personDetails.details.alternateNames &&
-							loaderData.personDetails.details.alternateNames.length > 0 &&
-							`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
-					]
-						.filter(Boolean)
-						.map<ReactNode>((s) => s)
-						.reduce((prev, curr) => [prev, " • ", curr])}
-				</Text>
+				{additionalPersonDetails.length > 0 ? (
+					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+						{additionalPersonDetails
+							.map<ReactNode>((s) => s)
+							.reduce((prev, curr) => [prev, " • ", curr])}
+					</Text>
+				) : null}
 				{loaderData.userPersonDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (

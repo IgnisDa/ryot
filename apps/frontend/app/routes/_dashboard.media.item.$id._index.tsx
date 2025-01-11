@@ -438,13 +438,13 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
-					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-						{additionalMetadataDetails.length > 0
-							? additionalMetadataDetails
-									.map<ReactNode>((s) => s)
-									.reduce((prev, curr) => [prev, " • ", curr])
-							: null}
-					</Text>
+					{additionalMetadataDetails.length > 0 ? (
+						<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+							{additionalMetadataDetails
+								.map<ReactNode>((s) => s)
+								.reduce((prev, curr) => [prev, " • ", curr])}
+						</Text>
+					) : null}
 					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
