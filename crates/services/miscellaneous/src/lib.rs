@@ -892,7 +892,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
-        metadata_list(user_id, input, &self.0).await
+        metadata_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_bulk_progress_update(

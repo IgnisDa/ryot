@@ -17,13 +17,14 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
+use dependent_utils::metadata_list;
 use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    ImportOrExportPersonItem, ReviewItem,
+    ImportOrExportPersonItem, MetadataListInput, ReviewItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -172,19 +173,20 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let related_metadata = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for rm in related_metadata.iter() {
-            let m = rm
-                .find_related(Metadata)
+        let related_metadata = metadata_list(
+            user_id,
+            MetadataListInput {
+                take: Some(10000),
+                ..Default::default()
+            },
+            &self.0,
+        )
+        .await?;
+        for rm in related_metadata.items.iter() {
+            let m = Metadata::find_by_id(rm)
                 .one(&self.0.db)
-                .await
-                .unwrap()
-                .unwrap();
+                .await?
+                .ok_or_else(|| Error::new("Metadata with the given ID does not exist"))?;
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))

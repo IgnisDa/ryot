@@ -2237,6 +2237,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enum-models",
  "fitness-models",
  "itertools 0.13.0",

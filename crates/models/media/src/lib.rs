@@ -1285,8 +1285,9 @@ pub struct SortInput<T: InputType + Default> {
     pub by: T,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaGeneralFilter {
+    #[default]
     All,
     Rated,
     Unrated,
@@ -1295,20 +1296,20 @@ pub enum MediaGeneralFilter {
     Unfinished,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
-    pub general: Option<MediaGeneralFilter>,
     pub collections: Option<Vec<String>>,
+    pub general: Option<MediaGeneralFilter>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MetadataListInput {
     pub take: Option<u64>,
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
     pub search: Option<SearchInput>,
-    pub sort: Option<SortInput<MediaSortBy>>,
     pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<MediaSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

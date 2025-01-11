@@ -2719,11 +2719,11 @@ pub async fn remove_entity_from_collection(
 }
 
 pub async fn metadata_list(
-    user_id: String,
+    user_id: &String,
     input: MetadataListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
-    let preferences = user_by_id(&user_id, ss).await?.preferences;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
 
     let avg_rating_col = "user_average_rating";
     let cloned_user_id_1 = user_id.clone();
@@ -2760,7 +2760,7 @@ pub async fn metadata_list(
         )
         .group_by(metadata::Column::Id)
         .group_by(user_to_entity::Column::MediaReason)
-        .filter(user_to_entity::Column::UserId.eq(&user_id))
+        .filter(user_to_entity::Column::UserId.eq(user_id))
         .apply_if(input.lot, |query, v| {
             query.filter(metadata::Column::Lot.eq(v))
         })
