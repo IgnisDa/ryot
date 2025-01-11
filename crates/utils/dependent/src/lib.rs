@@ -10,8 +10,8 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -2125,6 +2125,14 @@ where
 
     let mut need_to_schedule_user_for_workout_revision = false;
 
+    let sleep_time = if total > 1000 {
+        1
+    } else if total > 500 {
+        3
+    } else {
+        5
+    };
+
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
             debug,
@@ -2135,12 +2143,6 @@ where
         );
         match item {
             ImportCompletedItem::Empty => {}
-            ImportCompletedItem::Exercise(exercise) => {
-                create_custom_exercise(user_id, exercise, ss).await?;
-            }
-            ImportCompletedItem::Collection(col_details) => {
-                create_or_update_collection(user_id, col_details, ss).await?;
-            }
             ImportCompletedItem::Metadata(metadata) => {
                 let db_metadata_id = commit_metadata(
                     CommitMediaInput {
@@ -2156,6 +2158,34 @@ where
                 .await
                 .unwrap()
                 .id;
+                if run_updates {
+                    let mut was_updated_successfully = false;
+                    for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                        ryot_log!(debug, "Metadata updated check attempt: {}", attempt + 1);
+                        let is_specifics_partial = Metadata::find_by_id(&db_metadata_id)
+                            .select_only()
+                            .column(metadata::Column::IsSpecificsPartial)
+                            .into_tuple::<bool>()
+                            .one(&ss.db)
+                            .await?
+                            .unwrap_or(true);
+                        if is_specifics_partial {
+                            deploy_update_metadata_job(&db_metadata_id, ss).await?;
+                            sleep_for_n_seconds(sleep_time).await;
+                        } else {
+                            was_updated_successfully = true;
+                            break;
+                        }
+                    }
+                    if !was_updated_successfully {
+                        import.failed.push(ImportFailedItem {
+                            identifier: metadata.source_id.to_string(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                            error: Some("Progress update *might* be wrong".to_owned()),
+                            ..Default::default()
+                        });
+                    }
+                }
                 for seen in metadata.seen_history.iter() {
                     let progress = match seen.progress {
                         Some(_p) => seen.progress,
@@ -2217,6 +2247,12 @@ where
                     )
                     .await?;
                 }
+            }
+            ImportCompletedItem::Exercise(exercise) => {
+                create_custom_exercise(user_id, exercise, ss).await?;
+            }
+            ImportCompletedItem::Collection(col_details) => {
+                create_or_update_collection(user_id, col_details, ss).await?;
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let db_metadata_group_id = commit_metadata_group(
