@@ -3,11 +3,11 @@ import { z } from "@hono/zod-openapi";
 import { requireAuth } from "~/auth/middleware";
 
 export const ERROR_CODES = {
-	UNAUTHENTICATED: "unauthenticated",
-	VALIDATION_FAILED: "validation_failed",
+	TIMEOUT: "timeout",
 	NOT_FOUND: "not_found",
 	INTERNAL_ERROR: "internal_error",
-	TIMEOUT: "timeout",
+	UNAUTHENTICATED: "unauthenticated",
+	VALIDATION_FAILED: "validation_failed",
 	HEALTH_CHECK_FAILED: "health_check_failed",
 } as const;
 
