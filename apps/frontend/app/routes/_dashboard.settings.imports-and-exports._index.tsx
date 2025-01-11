@@ -220,11 +220,11 @@ export default function Page() {
 									<Title order={2}>Import data</Title>
 									<Anchor
 										size="xs"
+										target="_blank"
 										href={withFragment(
 											`${coreDetails.docsLink}/importing.html`,
 											deployImportSource ? kebabCase(deployImportSource) : "",
 										)}
-										target="_blank"
 									>
 										Docs
 									</Anchor>
