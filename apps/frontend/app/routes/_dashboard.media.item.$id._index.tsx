@@ -766,6 +766,7 @@ export default function Page() {
 														Mark EP-
 														{nextEntry.episode} as watched
 													</Menu.Item>
+													<PutOnHoldBtn />
 												</>
 											) : null}
 											{loaderData.metadataDetails.lot === MediaLot.Manga &&
@@ -787,6 +788,7 @@ export default function Page() {
 															: `VOL-${nextEntry.volume}`}{" "}
 														as read
 													</Menu.Item>
+													<PutOnHoldBtn />
 												</>
 											) : null}
 											{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
