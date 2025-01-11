@@ -345,7 +345,7 @@ impl MediaProvider for HardcoverService {
             _ => "author",
         };
         let response =
-            get_search_response::<Response<Search>>(query, page, &query_type, &self.client).await?;
+            get_search_response::<Response<Search>>(query, page, query_type, &self.client).await?;
         let response = response.data.search.results;
         let items = response
             .hits
