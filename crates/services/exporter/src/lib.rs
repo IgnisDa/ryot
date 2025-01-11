@@ -236,7 +236,6 @@ impl ExporterService {
                 source: m.source,
                 source_id: m.title,
                 identifier: m.identifier.clone(),
-                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -279,7 +278,6 @@ impl ExporterService {
                 title: m.title,
                 source: m.source,
                 identifier: m.identifier.clone(),
-                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }
@@ -321,7 +319,6 @@ impl ExporterService {
                 source: p.source,
                 identifier: p.identifier,
                 source_specifics: p.source_specifics,
-                ..Default::default()
             };
             writer.serialize_value(&exp).unwrap();
         }

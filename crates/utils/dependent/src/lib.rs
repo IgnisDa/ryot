@@ -1893,8 +1893,7 @@ pub async fn create_or_update_user_workout(
                             continue;
                         }
                     };
-                    if get_personal_best(set, best_type)
-                        > get_personal_best(&workout_set, best_type)
+                    if get_personal_best(set, best_type) > get_personal_best(workout_set, best_type)
                     {
                         if let Some(ref mut set_personal_bests) = set.personal_bests {
                             set_personal_bests.push(*best_type);
@@ -2194,7 +2193,6 @@ where
                         identifier: db_metadata_id.clone(),
                         step: ImportFailStep::MediaDetailsFromProvider,
                         error: Some("Progress update *might* be wrong".to_owned()),
-                        ..Default::default()
                     });
                 }
                 for seen in metadata.seen_history.iter() {

@@ -1076,7 +1076,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn mark_entity_as_partial(
         &self,
-        _user_id: &String,
+        _user_id: &str,
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
         match input.entity_lot {

@@ -300,7 +300,6 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     }
                 })
                 .collect(),
-            ..Default::default()
         };
         completed.push(ImportCompletedItem::Metadata(item));
     }
