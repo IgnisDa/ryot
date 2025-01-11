@@ -2089,6 +2089,32 @@ pub async fn create_custom_exercise(
     Ok(exercise.id)
 }
 
+async fn is_entity_partial(
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let is_partial = match entity_lot {
+        EntityLot::Metadata => Metadata::find_by_id(entity_id)
+            .select_only()
+            .column(metadata::Column::IsPartial)
+            .into_tuple::<bool>()
+            .one(&ss.db),
+        EntityLot::Person => Person::find_by_id(entity_id)
+            .select_only()
+            .column(person::Column::IsPartial)
+            .into_tuple::<bool>()
+            .one(&ss.db),
+        EntityLot::MetadataGroup => MetadataGroup::find_by_id(entity_id)
+            .select_only()
+            .column(metadata_group::Column::IsPartial)
+            .into_tuple::<bool>()
+            .one(&ss.db),
+        _ => unreachable!(),
+    };
+    Ok(is_partial.await?.unwrap_or_default())
+}
+
 pub async fn process_import<F>(
     user_id: &String,
     run_updates: bool,
@@ -2218,8 +2244,11 @@ where
         }
     }
 
+    let keys = entities_to_watch_partial_state_for.clone();
+    let keys = keys.keys();
+
     if run_updates {
-        for check_key in entities_to_watch_partial_state_for.clone().keys().cycle() {
+        for check_key in keys.cycle() {
             if entities_to_watch_partial_state_for
                 .values()
                 .all(|v| match v {
@@ -2229,8 +2258,33 @@ where
             {
                 break;
             }
-            sleep_for_n_seconds(10).await;
-            dbg!(&check_key);
+            let value = entities_to_watch_partial_state_for
+                .get_mut(&check_key)
+                .unwrap();
+            ryot_log!(
+                debug,
+                "Entity = {}, value = {:?}",
+                check_key.identifier,
+                value
+            );
+            if value.is_right() {
+                continue;
+            }
+            let is_partial = is_entity_partial(&check_key.identifier, check_key.lot, ss).await?;
+            match is_partial {
+                true => {
+                    if let Either::Left(r) = value {
+                        *r += 1;
+                    }
+                    ryot_log!(debug, "Entity {} is partial", check_key.identifier);
+                    sleep_for_n_seconds(5).await;
+                }
+                false => {
+                    ryot_log!(debug, "Entity {} is not partial", check_key.identifier);
+                    entities_to_watch_partial_state_for
+                        .insert(check_key.clone(), Either::Right(()));
+                }
+            }
         }
 
         for (key, value) in entities_to_watch_partial_state_for {
