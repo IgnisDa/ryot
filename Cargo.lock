@@ -5196,7 +5196,7 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 [[package]]
 name = "rustypipe"
 version = "0.8.0"
-source = "git+https://codeberg.org/ThetaDev/rustypipe.git?branch=feat/user-history#c90d966b17eab24e957d980695888a459707055c"
+source = "git+https://codeberg.org/ThetaDev/rustypipe.git?rev=addeb82110#addeb821101aa968b95455604bc13bd24f50328f"
 dependencies = [
  "data-encoding",
  "fancy-regex",
