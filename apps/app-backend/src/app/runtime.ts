@@ -9,50 +9,14 @@ import {
 	shutdownWorkers,
 } from "~/queue";
 import { initializeSandboxService, shutdownSandboxService } from "~/sandbox";
-import { initializeWorker, shutdownWorker } from "~/worker";
 import { app } from "./server";
 
 export const startServer = async () => {
-	try {
-		await migrateDB();
-		await initializeRedis();
-		await initializeQueues();
-		await initializeSandboxService();
-		await initializeWorkers();
-		await initializeWorker();
-	} catch (error) {
-		try {
-			await shutdownWorker();
-		} catch (shutdownError) {
-			console.error("Error during startup rollback:", shutdownError);
-		}
-
-		try {
-			await shutdownWorkers();
-		} catch (shutdownError) {
-			console.error("Error during startup rollback:", shutdownError);
-		}
-
-		try {
-			await shutdownQueues();
-		} catch (shutdownError) {
-			console.error("Error during startup rollback:", shutdownError);
-		}
-
-		try {
-			await shutdownSandboxService();
-		} catch (shutdownError) {
-			console.error("Error during startup rollback:", shutdownError);
-		}
-
-		try {
-			await shutdownRedis();
-		} catch (shutdownError) {
-			console.error("Error during startup rollback:", shutdownError);
-		}
-
-		throw error;
-	}
+	await migrateDB();
+	await initializeRedis();
+	await initializeQueues();
+	await initializeSandboxService();
+	await initializeWorkers();
 
 	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
@@ -75,7 +39,6 @@ export const startServer = async () => {
 		}, gracefulShutdownTimeout);
 
 		try {
-			await shutdownWorker();
 			await shutdownWorkers();
 			await shutdownQueues();
 			await shutdownSandboxService();
