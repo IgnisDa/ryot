@@ -146,13 +146,12 @@ impl ImporterService {
         match maybe_import {
             Ok(import) => {
                 let mut quick_update_model = model.clone();
+                let each_item = (1..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE + 1)
+                    .map(|i| usize::pow(2, i as u32))
+                    .sum::<usize>();
                 quick_update_model.estimated_finish_time = ActiveValue::Set(
                     import_started_at
-                        + Duration::seconds(
-                            (import.completed.len()
-                                * ((1..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE).sum::<usize>()))
-                                as i64,
-                        ),
+                        + Duration::seconds((import.completed.len() * each_item) as i64),
                 );
                 quick_update_model.update(&self.0.db).await?;
                 match process_import(&user_id, false, import, &self.0, |progress| {
