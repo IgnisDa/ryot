@@ -29,6 +29,7 @@ pub enum Person {
     SourceSpecifics,
     StateChanges,
     SourceUrl,
+    AlternateNames,
 }
 
 #[derive(Iden)]
@@ -144,6 +145,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Person::StateChanges).json_binary())
                     .col(ColumnDef::new(Person::SourceUrl).text())
+                    .col(ColumnDef::new(Person::AlternateNames).array(ColumnType::Text))
                     .to_owned(),
             )
             .await?;
