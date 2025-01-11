@@ -2125,14 +2125,6 @@ where
 
     let mut need_to_schedule_user_for_workout_revision = false;
 
-    let sleep_time = if total > 1000 {
-        1
-    } else if total > 500 {
-        3
-    } else {
-        5
-    };
-
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(
             debug,
@@ -2161,7 +2153,8 @@ where
                 if run_updates {
                     let mut was_updated_successfully = false;
                     for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                        ryot_log!(debug, "Metadata updated check attempt: {}", attempt + 1);
+                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                         let is_specifics_partial = Metadata::find_by_id(&db_metadata_id)
                             .select_only()
                             .column(metadata::Column::IsSpecificsPartial)
