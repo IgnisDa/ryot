@@ -34,6 +34,8 @@ const healthRoute = createRoute({
 });
 
 export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
+	const shouldEnqueueDemoJob = c.req.query("enqueueDemoJob") === "true";
+
 	try {
 		await db.execute(sql`SELECT 1`);
 	} catch (error) {
@@ -58,10 +60,12 @@ export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
 		);
 	}
 
-	try {
-		await addJob(DEMO_JOB, { message: "Health check test" });
-	} catch (error) {
-		console.error("Failed to enqueue demo job:", error);
+	if (shouldEnqueueDemoJob) {
+		try {
+			await addJob(DEMO_JOB, { message: "Health check test" });
+		} catch (error) {
+			console.error("Failed to enqueue demo job:", error);
+		}
 	}
 
 	return c.json(successResponse({ status: "healthy" as const }), 200);
