@@ -10,8 +10,8 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES,
+    acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -81,7 +81,6 @@ use sea_orm::{
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::Either;
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
@@ -2147,16 +2146,6 @@ where
         _ => 1,
     });
 
-    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-    struct EntityToWatch {
-        title: String,
-        lot: EntityLot,
-        identifier: String,
-    }
-
-    let mut entities_to_watch_partial_state_for: HashMap<EntityToWatch, Either<usize, ()>> =
-        HashMap::new();
-
     for i in import.completed.iter_mut() {
         match i {
             ImportCompletedItem::Metadata(metadata) => {
@@ -2175,18 +2164,7 @@ where
                 else {
                     continue;
                 };
-                if run_updates {
-                    deploy_update_metadata_job(&r.id, ss).await?;
-                }
                 metadata.id = r.id.clone();
-                entities_to_watch_partial_state_for.insert(
-                    EntityToWatch {
-                        identifier: r.id.clone(),
-                        lot: EntityLot::Metadata,
-                        title: metadata.source_id.clone(),
-                    },
-                    Either::Left(0),
-                );
             }
             ImportCompletedItem::Person(person) => {
                 let Ok(p) = commit_person(
@@ -2209,14 +2187,6 @@ where
                     .await?;
                 }
                 person.id = p.id.clone();
-                entities_to_watch_partial_state_for.insert(
-                    EntityToWatch {
-                        lot: EntityLot::Person,
-                        identifier: p.id.clone(),
-                        title: person.name.clone(),
-                    },
-                    Either::Left(0),
-                );
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let Ok(g) = commit_metadata_group(
@@ -2241,95 +2211,9 @@ where
                     .await?;
                 }
                 metadata_group.id = g.id.clone();
-                entities_to_watch_partial_state_for.insert(
-                    EntityToWatch {
-                        identifier: g.id.clone(),
-                        lot: EntityLot::MetadataGroup,
-                        title: metadata_group.title.clone(),
-                    },
-                    Either::Left(0),
-                );
             }
             _ => {}
         }
-    }
-
-    let keys = entities_to_watch_partial_state_for.clone();
-    let keys = keys.keys();
-
-    if run_updates {
-        let total = keys.len() * MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE;
-
-        let sleep_time = if keys.len() > 1000 {
-            1
-        } else if keys.len() > 500 {
-            3
-        } else {
-            5
-        };
-
-        ryot_log!(debug, "Sleep time = {sleep_time}");
-
-        sleep_for_n_seconds(sleep_time).await;
-
-        for (idx, check_key) in keys.cycle().enumerate() {
-            if entities_to_watch_partial_state_for
-                .values()
-                .all(|v| match v {
-                    Either::Right(_) => true,
-                    Either::Left(r) => *r >= MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE,
-                })
-            {
-                break;
-            }
-            let value = entities_to_watch_partial_state_for
-                .get_mut(&check_key)
-                .unwrap();
-            ryot_log!(
-                debug,
-                "Entity = {:#?}, value = {:?}",
-                check_key.identifier,
-                value
-            );
-            if value.is_right() {
-                continue;
-            }
-            let is_partial = is_entity_partial(&check_key.identifier, check_key.lot, ss).await?;
-            match is_partial {
-                true => {
-                    if let Either::Left(r) = value {
-                        *r += 1;
-                    }
-                    ryot_log!(debug, "Entity {:#?} is partial", check_key.identifier);
-                    sleep_for_n_seconds(sleep_time).await;
-                }
-                false => {
-                    ryot_log!(debug, "Entity {:#?} is not partial", check_key.identifier);
-                    entities_to_watch_partial_state_for
-                        .insert(check_key.clone(), Either::Right(()));
-                }
-            }
-            on_item_processed(
-                Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap()
-                    * dec!(100),
-            )
-            .await?;
-        }
-
-        for (key, value) in entities_to_watch_partial_state_for {
-            if let Either::Left(r) = value {
-                if r > MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                    import.failed.push(ImportFailedItem {
-                        identifier: key.title,
-                        step: ImportFailStep::MediaDetailsFromProvider,
-                        error: Some(format!("Progress update *might* be wrong",)),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-
-        on_item_processed(dec!(80)).await?;
     }
 
     let source_result = import.clone();
@@ -2524,6 +2408,11 @@ where
                 }
             }
         }
+
+        on_item_processed(
+            Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
+        )
+        .await?;
     }
 
     if need_to_schedule_user_for_workout_revision {
