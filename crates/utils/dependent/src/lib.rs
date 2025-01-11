@@ -2028,11 +2028,11 @@ pub async fn create_or_update_user_workout(
 }
 
 async fn create_collection_and_add_entity_to_it(
-    ss: &Arc<SupportingService>,
     user_id: &String,
-    collection_name: String,
     entity_id: String,
     entity_lot: EntityLot,
+    collection_name: String,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     create_or_update_collection(
         user_id,
@@ -2248,11 +2248,11 @@ where
                 }
                 for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
+                        col,
+                        ss,
                     )
                     .await?;
                 }
@@ -2305,11 +2305,11 @@ where
                 }
                 for col in metadata_group.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
+                        col,
+                        ss,
                     )
                     .await?;
                 }
@@ -2360,11 +2360,11 @@ where
                 }
                 for col in person.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_person_id.clone(),
                         EntityLot::Person,
+                        col,
+                        ss,
                     )
                     .await?;
                 }
@@ -2417,11 +2417,11 @@ where
                     Ok(workout_id) => {
                         for col in workout.collections.into_iter() {
                             create_collection_and_add_entity_to_it(
-                                ss,
                                 user_id,
-                                col,
                                 workout_id.clone(),
                                 EntityLot::Workout,
+                                col,
+                                ss,
                             )
                             .await?;
                         }
