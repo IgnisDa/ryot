@@ -1712,6 +1712,7 @@ export type PersonSortInput = {
 
 export type PersonSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isHardcoverPublisher?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 

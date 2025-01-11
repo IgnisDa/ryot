@@ -11,7 +11,8 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     BookSpecifics, CommitMediaInput, MetadataDetails, MetadataImageForMediaDetails,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use nest_struct::nest_struct;
 use reqwest::{
@@ -36,7 +37,7 @@ struct Search {
     search: nest! {
         results: nest! {
             found: i32,
-            hits: Vec<nest! { document: Book<String> }>,
+            hits: Vec<nest! { document: Item<String> }>,
         }
     },
 }
@@ -50,24 +51,25 @@ struct Editions {
 #[nest_struct]
 #[derive(Debug, Deserialize)]
 struct BooksByPk {
-    books_by_pk: Book<i64>,
+    books_by_pk: Item<i64>,
 }
 
 #[nest_struct]
 #[derive(Debug, Deserialize)]
-struct Book<TId> {
+struct Item<TId> {
     id: TId,
-    title: String,
     pages: Option<i32>,
     image: Option<Image>,
+    name: Option<String>,
     slug: Option<String>,
+    title: Option<String>,
     rating: Option<Decimal>,
     release_year: Option<i32>,
     compilation: Option<bool>,
     images: Option<Vec<Image>>,
     description: Option<String>,
     release_date: Option<NaiveDate>,
-    recommendations: Option<Vec<nest! { item_book: Option<Book<TId>> }>>,
+    recommendations: Option<Vec<nest! { item_book: Option<Item<TId>> }>>,
     cached_tags: Option<
         nest! {
           #[serde(rename = "Genre")]
@@ -179,9 +181,9 @@ query {{
         }
     }
     let details = MetadataDetails {
-        title: data.title,
         url_images: images,
         lot: MediaLot::Book,
+        title: data.title.unwrap(),
         provider_rating: data.rating,
         description: data.description,
         source: MediaSource::Hardcover,
@@ -201,8 +203,8 @@ query {{
             .into_iter()
             .flat_map(|i| {
                 i.item_book.map(|b| PartialMetadataWithoutId {
-                    title: b.title,
                     lot: MediaLot::Book,
+                    title: b.title.unwrap(),
                     identifier: b.id.to_string(),
                     source: MediaSource::Hardcover,
                     ..Default::default()
@@ -284,8 +286,8 @@ impl MediaProvider for HardcoverService {
             .hits
             .into_iter()
             .map(|h| MetadataSearchItem {
-                title: h.document.title,
                 identifier: h.document.id,
+                title: h.document.title.unwrap(),
                 publish_year: h.document.release_year,
                 image: h.document.image.and_then(|i| i.url),
             })
@@ -332,10 +334,41 @@ impl MediaProvider for HardcoverService {
         &self,
         query: &str,
         page: Option<i32>,
-        _source_specifics: &Option<PersonSourceSpecifics>,
+        source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
     ) -> Result<PeopleSearchResponse> {
-        todo!()
+        let page = page.unwrap_or(1);
+        let query_type = match source_specifics {
+            Some(source_specifics) if source_specifics.is_hardcover_publisher.unwrap_or(false) => {
+                "publisher"
+            }
+            _ => "author",
+        };
+        let response =
+            get_search_response::<Response<Search>>(query, page, &query_type, &self.client).await?;
+        let response = response.data.search.results;
+        let items = response
+            .hits
+            .into_iter()
+            .map(|h| PeopleSearchItem {
+                identifier: h.document.id,
+                name: h.document.name.unwrap(),
+                image: h.document.image.and_then(|i| i.url),
+                ..Default::default()
+            })
+            .collect();
+        let resp = SearchResults {
+            items,
+            details: SearchDetails {
+                total: response.found,
+                next_page: if page < response.found / PAGE_SIZE {
+                    Some(page + 1)
+                } else {
+                    None
+                },
+            },
+        };
+        Ok(resp)
     }
 }
 

@@ -286,6 +286,7 @@ pub struct MetadataGroupSearchInput {
 pub struct PersonSourceSpecifics {
     pub is_tmdb_company: Option<bool>,
     pub is_anilist_studio: Option<bool>,
+    pub is_hardcover_publisher: Option<bool>,
 }
 
 #[skip_serializing_none]
