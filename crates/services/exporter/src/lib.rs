@@ -45,12 +45,12 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 #[derive(Eq, PartialEq, Copy, Display, Clone, Debug, EnumIter)]
 #[strum(serialize_all = "snake_case")]
 enum ExportItem {
-    Media,
     People,
     Workouts,
+    Metadata,
     Exercises,
-    MediaGroups,
     Measurements,
+    MetadataGroups,
     WorkoutTemplates,
 }
 
@@ -119,11 +119,13 @@ impl ExporterService {
             writer.name(&export.to_string())?;
             writer.begin_array().unwrap();
             match export {
-                ExportItem::Media => self.export_media(&user_id, &mut writer).await?,
+                ExportItem::Metadata => self.export_media(&user_id, &mut writer).await?,
                 ExportItem::People => self.export_people(&user_id, &mut writer).await?,
                 ExportItem::Workouts => self.export_workouts(&user_id, &mut writer).await?,
                 ExportItem::Exercises => self.export_exercises(&user_id, &mut writer).await?,
-                ExportItem::MediaGroups => self.export_media_group(&user_id, &mut writer).await?,
+                ExportItem::MetadataGroups => {
+                    self.export_media_group(&user_id, &mut writer).await?
+                }
                 ExportItem::Measurements => self.export_measurements(&user_id, &mut writer).await?,
                 ExportItem::WorkoutTemplates => {
                     self.export_workout_templates(&user_id, &mut writer).await?
