@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
-	findFacetBySlug,
+	findEnabledFacetBySlug,
 	selectEnabledFacets,
 	sortFacetsByOrder,
 } from "./model";
@@ -110,31 +110,24 @@ describe("selectEnabledFacets", () => {
 	});
 });
 
-describe("findFacetBySlug", () => {
-	it("finds facet by slug", () => {
+describe("findEnabledFacetBySlug", () => {
+	it("returns facet only when enabled", () => {
 		const facets = [
-			mkFacet("1", "Media", "media"),
-			mkFacet("2", "People", "people", 2),
+			mkFacet("1", "Media", "media", 1, true),
+			mkFacet("2", "Books", "books", 2, false),
 		];
 
-		const facet = findFacetBySlug(facets, "people");
-
-		expect(facet).toBeDefined();
-		expect(facet?.id).toBe("2");
-		expect(facet?.name).toBe("People");
+		expect(findEnabledFacetBySlug(facets, "media")?.id).toBe("1");
+		expect(findEnabledFacetBySlug(facets, "books")).toBeUndefined();
 	});
 
-	it("returns undefined when slug not found", () => {
-		const facets = [mkFacet("1", "Media", "media")];
+	it("returns undefined when slug is not found", () => {
+		const facets = [mkFacet("1", "Media", "media", 1, true)];
 
-		const facet = findFacetBySlug(facets, "nonexistent");
-
-		expect(facet).toBeUndefined();
+		expect(findEnabledFacetBySlug(facets, "nonexistent")).toBeUndefined();
 	});
 
 	it("returns undefined for empty facets array", () => {
-		const facet = findFacetBySlug([], "any-slug");
-
-		expect(facet).toBeUndefined();
+		expect(findEnabledFacetBySlug([], "any-slug")).toBeUndefined();
 	});
 });
