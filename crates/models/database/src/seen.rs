@@ -101,9 +101,10 @@ impl ActiveModelBehavior for ActiveModel {
         let state = self.state.clone().unwrap();
         let progress = self.progress.clone().unwrap();
         let finished_on = self.finished_on.clone().unwrap();
+        let started_on = self.started_on.clone().unwrap();
         if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
-            if finished_on.is_none() {
+            if finished_on.is_none() && started_on.is_some() {
                 self.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
             }
         }
