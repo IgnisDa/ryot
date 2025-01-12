@@ -48,6 +48,7 @@ pub struct Model {
     pub total_review_count: i32,
     pub total_count: i32,
     pub total_duration: i32,
+    pub workout_calories_burnt: i32,
     #[sea_orm(column_type = "Json")]
     pub hour_records: Vec<DailyUserActivityHourRecord>,
     pub workout_exercises: Vec<String>,

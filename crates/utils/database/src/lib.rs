@@ -596,6 +596,11 @@ pub async fn calculate_user_activities_and_summary(
             workout.start_time,
         );
         activity.workout_count += 1;
+        activity.workout_calories_burnt += workout
+            .calories_burnt
+            .unwrap_or_default()
+            .to_i32()
+            .unwrap_or_default();
         activity.workout_duration += workout.duration / 60;
         let workout_total = workout.summary.total.unwrap();
         activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
