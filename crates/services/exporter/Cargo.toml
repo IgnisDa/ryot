@@ -25,3 +25,7 @@ struson = { workspace = true }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

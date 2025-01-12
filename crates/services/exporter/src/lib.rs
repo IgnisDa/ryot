@@ -3,8 +3,8 @@ use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
-use common_models::ExportJob;
-use common_utils::TEMP_DIR;
+use common_models::{ExportJob, SearchInput};
+use common_utils::{ryot_log, TEMP_DIR};
 use database_models::{
     exercise,
     prelude::{
@@ -173,73 +173,87 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let related_metadata = metadata_list(
-            user_id,
-            MetadataListInput {
-                take: Some(10000),
-                ..Default::default()
-            },
-            &self.0,
-        )
-        .await?;
-        for rm in related_metadata.items.iter() {
-            let m = Metadata::find_by_id(rm)
-                .one(&self.0.db)
-                .await?
-                .ok_or_else(|| Error::new("Metadata with the given ID does not exist"))?;
-            let seen_history = m
-                .find_related(Seen)
-                .filter(seen::Column::UserId.eq(user_id))
-                .all(&self.0.db)
-                .await
-                .unwrap();
-            let seen_history = seen_history
-                .into_iter()
-                .map(|s| {
-                    let (show_season_number, show_episode_number) = match s.show_extra_information {
-                        Some(d) => (Some(d.season), Some(d.episode)),
-                        None => (None, None),
-                    };
-                    let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
-                    let anime_episode_number = s.anime_extra_information.and_then(|d| d.episode);
-                    let manga_chapter_number =
-                        s.manga_extra_information.clone().and_then(|d| d.chapter);
-                    let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
-                    ImportOrExportMetadataItemSeen {
-                        progress: Some(s.progress),
-                        started_on: s.started_on,
-                        ended_on: s.finished_on,
-                        provider_watched_on: s.provider_watched_on,
-                        show_season_number,
-                        show_episode_number,
-                        podcast_episode_number,
-                        anime_episode_number,
-                        manga_chapter_number,
-                        manga_volume_number,
-                    }
-                })
-                .collect();
-            let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, &self.0)
-                .await?
-                .into_iter()
-                .map(|r| self.get_review_export_item(r))
-                .collect();
-            let collections =
-                entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::Metadata)
+        let mut current_page = 1;
+        loop {
+            let related_metadata = metadata_list(
+                user_id,
+                MetadataListInput {
+                    search: Some(SearchInput {
+                        page: Some(current_page),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &self.0,
+            )
+            .await?;
+            ryot_log!(debug, "Exporting metadata list page: {current_page}");
+            for rm in related_metadata.items.iter() {
+                let m = Metadata::find_by_id(rm)
+                    .one(&self.0.db)
+                    .await?
+                    .ok_or_else(|| Error::new("Metadata with the given ID does not exist"))?;
+                let seen_history = m
+                    .find_related(Seen)
+                    .filter(seen::Column::UserId.eq(user_id))
+                    .all(&self.0.db)
+                    .await
+                    .unwrap();
+                let seen_history = seen_history
+                    .into_iter()
+                    .map(|s| {
+                        let (show_season_number, show_episode_number) =
+                            match s.show_extra_information {
+                                Some(d) => (Some(d.season), Some(d.episode)),
+                                None => (None, None),
+                            };
+                        let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
+                        let anime_episode_number =
+                            s.anime_extra_information.and_then(|d| d.episode);
+                        let manga_chapter_number =
+                            s.manga_extra_information.clone().and_then(|d| d.chapter);
+                        let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
+                        ImportOrExportMetadataItemSeen {
+                            progress: Some(s.progress),
+                            started_on: s.started_on,
+                            ended_on: s.finished_on,
+                            provider_watched_on: s.provider_watched_on,
+                            show_season_number,
+                            show_episode_number,
+                            podcast_episode_number,
+                            anime_episode_number,
+                            manga_chapter_number,
+                            manga_volume_number,
+                        }
+                    })
+                    .collect();
+                let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, &self.0)
                     .await?
                     .into_iter()
-                    .map(|c| c.name)
+                    .map(|r| self.get_review_export_item(r))
                     .collect();
-            let exp = ImportOrExportMetadataItem {
-                reviews,
-                lot: m.lot,
-                collections,
-                seen_history,
-                source: m.source,
-                source_id: m.title,
-                identifier: m.identifier.clone(),
-            };
-            writer.serialize_value(&exp).unwrap();
+                let collections =
+                    entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::Metadata)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
+                let exp = ImportOrExportMetadataItem {
+                    reviews,
+                    lot: m.lot,
+                    collections,
+                    seen_history,
+                    source: m.source,
+                    source_id: m.title,
+                    identifier: m.identifier.clone(),
+                };
+                writer.serialize_value(&exp).unwrap();
+            }
+            if let Some(next_page) = related_metadata.details.next_page {
+                current_page = next_page;
+            } else {
+                break;
+            }
         }
         Ok(())
     }

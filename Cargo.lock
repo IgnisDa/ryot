@@ -2250,6 +2250,7 @@ dependencies = [
  "supporting-service",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
