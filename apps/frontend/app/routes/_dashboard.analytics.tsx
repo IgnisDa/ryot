@@ -41,6 +41,7 @@ import {
 	IconBarbell,
 	IconClock,
 	IconDeviceFloppy,
+	IconFlame,
 	IconImageInPicture,
 	type IconProps,
 	IconRepeat,
@@ -665,10 +666,20 @@ const StatisticsCard = () => {
 							tooltipLabel={fitness.workoutCount}
 						/>
 						<StatItem
-							label="Reps"
-							icon={IconRepeat}
-							tooltipLabel={fitness.workoutReps}
-							text={formatQuantityWithCompactNotation(fitness.workoutReps)}
+							label={
+								fitness.workoutCaloriesBurnt > 0 ? "Calories Burnt" : "Reps"
+							}
+							icon={fitness.workoutCaloriesBurnt > 0 ? IconFlame : IconRepeat}
+							tooltipLabel={
+								fitness.workoutCaloriesBurnt > 0
+									? `${fitness.workoutCaloriesBurnt} calories`
+									: fitness.workoutReps
+							}
+							text={formatQuantityWithCompactNotation(
+								fitness.workoutCaloriesBurnt > 0
+									? fitness.workoutCaloriesBurnt
+									: fitness.workoutReps,
+							)}
 						/>
 						<StatItem
 							label="Weight"
