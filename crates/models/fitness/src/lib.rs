@@ -641,6 +641,7 @@ pub struct UserWorkoutInput {
     pub template_id: Option<String>,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
+    pub calories_burnt: Option<Decimal>,
     // If specified, the workout will be created with this ID.
     #[graphql(skip_input)]
     pub create_workout_id: Option<String>,

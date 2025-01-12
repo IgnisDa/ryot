@@ -2800,6 +2800,7 @@ export type UserWorkoutDetails = {
 
 export type UserWorkoutInput = {
   assets?: InputMaybe<EntityAssetsInput>;
+  caloriesBurnt?: InputMaybe<Scalars['Decimal']['input']>;
   comment?: InputMaybe<Scalars['String']['input']>;
   durations?: InputMaybe<Array<WorkoutDurationInput>>;
   endTime: Scalars['DateTime']['input'];
@@ -2857,6 +2858,7 @@ export type WatchProvider = {
 
 /** A workout that was completed by the user. */
 export type Workout = {
+  caloriesBurnt?: Maybe<Scalars['Decimal']['output']>;
   duration: Scalars['Int']['output'];
   endTime: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];

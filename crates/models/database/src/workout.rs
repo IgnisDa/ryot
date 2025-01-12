@@ -42,6 +42,7 @@ pub struct Model {
     #[serde(skip)]
     pub repeated_from: Option<String>,
     pub information: WorkoutInformation,
+    pub calories_burnt: Option<Decimal>,
 }
 
 #[async_trait]

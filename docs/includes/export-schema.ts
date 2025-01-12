@@ -406,6 +406,7 @@ export interface ImportOrExportWorkoutTemplateItem {
 
 /** A workout that was completed by the user. */
 export interface Workout {
+	calories_burnt: string | null;
 	duration: number;
 	end_time: string;
 	id: string;
