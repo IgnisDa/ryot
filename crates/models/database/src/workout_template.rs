@@ -5,7 +5,9 @@ use fitness_models::{WorkoutInformation, WorkoutSummary};
 use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
+#[skip_serializing_none]
 #[derive(
     Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, Serialize, Deserialize, Schematic,
 )]

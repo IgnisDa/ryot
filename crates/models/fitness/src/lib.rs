@@ -601,6 +601,7 @@ pub struct WorkoutFocusedSummary {
     pub equipments: Vec<WorkoutEquipmentFocusedSummary>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Clone,
     Debug,
