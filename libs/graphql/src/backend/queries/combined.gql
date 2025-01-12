@@ -425,6 +425,7 @@ query UserWorkoutDetails($workoutId: String!) {
 			startTime
 			templateId
 			repeatedFrom
+			caloriesBurnt
 			summary {
 				...WorkoutSummaryPart
 			}
