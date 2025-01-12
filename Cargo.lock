@@ -1339,13 +1339,14 @@ dependencies = [
 
 [[package]]
 name = "compact_str"
-version = "0.7.1"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f86b9c4c00838774a6d902ef931eff7470720c51d90c2e32cfe15dc304737b3f"
+checksum = "3b79c4069c6cad78e2e0cdfcbd26275770669fb39fd308a752dc110e83b9af32"
 dependencies = [
  "castaway",
  "cfg-if",
  "itoa",
+ "rustversion",
  "ryu",
  "static_assertions",
 ]
@@ -2573,22 +2574,23 @@ dependencies = [
 
 [[package]]
 name = "garde"
-version = "0.20.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a3233677ea1554a48235d81bb59d2a41654969a8e29a1316c48105fd1701693"
+checksum = "f4bd1d7843e437a4caf1d6a9112ba1ee9635b09d909af22aa4e6ec01fe971e22"
 dependencies = [
  "compact_str",
  "garde_derive",
  "once_cell",
  "regex",
+ "rust_decimal",
  "smallvec",
 ]
 
 [[package]]
 name = "garde_derive"
-version = "0.20.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8796f322e43105351a7ec35148807b32b5b6058a539656dafe4a5b456d5ca41f"
+checksum = "a0636cbdc03994db48fc89a0ce7765bd68d08bd8a7a68cb9a36bcde96790f413"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5249,9 +5251,9 @@ dependencies = [
 
 [[package]]
 name = "schematic"
-version = "0.17.7"
+version = "0.17.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ef9a634be1649ec5f5516e39eb78d2e84fcf5eef3792acae353d8ade6a7b391"
+checksum = "bc902ccf410e32f7d1fdcad8080729def0cd5e696fb70ca7468bfcd02ff4fe80"
 dependencies = [
  "garde",
  "indexmap 2.7.0",
@@ -5271,9 +5273,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.17.5"
+version = "0.17.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26d2d4005b3b6482801d60ba093c550d25382401e0c4d1c3fbba80eb07e28626"
+checksum = "55f638e083cb574cc60a6f15a9eecc45bb4ace4bbbeda0e904298788f04e9453"
 dependencies = [
  "convert_case",
  "darling",
@@ -7276,7 +7278,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

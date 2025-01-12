@@ -112,7 +112,7 @@ rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.13"
 # TODO: Change to official release when it is published
 rustypipe = { git = "https://codeberg.org/ThetaDev/rustypipe.git", rev = "addeb82110" }
-schematic = { version = "=0.17.7", features = [
+schematic = { version = "=0.17.8", features = [
     "config",
     "env",
     "json",
