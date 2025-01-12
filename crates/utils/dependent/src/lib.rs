@@ -21,8 +21,9 @@ use database_models::{
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
+        WorkoutTemplate,
     },
-    review, seen, user_measurement, user_notification, user_to_entity, workout,
+    review, seen, user_measurement, user_notification, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
@@ -3034,6 +3035,40 @@ pub async fn user_workouts_list(
             query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
         })
         .order_by_desc(workout::Column::EndTime)
+        .into_tuple::<String>()
+        .paginate(&ss.db, PAGE_SIZE.try_into().unwrap());
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages.try_into().unwrap() {
+                Some(page + 1)
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn user_workout_templates_list(
+    user_id: &String,
+    input: SearchInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page = input.page.unwrap_or(1);
+    let paginator = WorkoutTemplate::find()
+        .select_only()
+        .column(workout_template::Column::Id)
+        .filter(workout_template::Column::UserId.eq(user_id))
+        .apply_if(input.query, |query, v| {
+            query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
+        })
+        .order_by_desc(workout_template::Column::CreatedOn)
         .into_tuple::<String>()
         .paginate(&ss.db, PAGE_SIZE.try_into().unwrap());
     let ItemsAndPagesNumber {
