@@ -6,7 +6,6 @@ use std::{
 
 use application_utils::{
     get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
-    graphql_to_db_order,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
@@ -35,7 +34,7 @@ use database_models::{
     review, seen, user, user_notification, user_to_entity,
 };
 use database_utils::{
-    apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
+    calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
     revoke_access_link, user_by_id,
 };
@@ -52,8 +51,8 @@ use dependent_utils::{
     first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_groups_list, metadata_images_as_urls, metadata_list, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
+    metadata_groups_list, metadata_images_as_urls, metadata_list, people_list, post_review,
+    progress_update, refresh_collection_to_entity_association, remove_entity_from_collection,
     update_metadata_and_notify_users,
 };
 use enum_models::{
@@ -71,13 +70,12 @@ use media_models::{
     MediaAssociatedPersonStateChanges, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
     MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
-    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    PartialMetadataWithoutId, PeopleListInput, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -1835,78 +1833,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input
-            .search
-            .clone()
-            .and_then(|f| f.page)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
-        let alias = "media_count";
-        let media_items_col = Expr::col(Alias::new(alias));
-        let (order_by, sort_order) = match input.sort {
-            None => (media_items_col, Order::Desc),
-            Some(ord) => (
-                match ord.by {
-                    PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
-                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
-                },
-                graphql_to_db_order(ord.order),
-            ),
-        };
-        let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
-        let creators_paginator = Person::find()
-            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                query.filter(
-                    Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
-                )
-            })
-            .apply_if(
-                input.filter.clone().and_then(|f| f.collections),
-                |query, v| {
-                    apply_collection_filter(
-                        query,
-                        Some(v),
-                        input.invert_collection,
-                        person::Column::Id,
-                        collection_to_entity::Column::PersonId,
-                    )
-                },
-            )
-            .column_as(
-                Expr::expr(Func::count(Expr::col((
-                    Alias::new("metadata_to_person"),
-                    metadata_to_person::Column::MetadataId,
-                )))),
-                alias,
-            )
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .left_join(MetadataToPerson)
-            .inner_join(UserToEntity)
-            .group_by(person::Column::Id)
-            .group_by(person::Column::Name)
-            .order_by(order_by, sort_order)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, take);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = creators_paginator.num_items_and_pages().await?;
-        let mut creators = vec![];
-        for cr in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(cr);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items: creators,
-        })
+        people_list(&user_id, input, &self.0).await
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {

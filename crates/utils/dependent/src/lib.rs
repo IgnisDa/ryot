@@ -51,9 +51,9 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
     ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails,
     MetadataGroupsListInput, MetadataImage, MetadataListInput, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput,
+    PersonAndMetadataGroupsSortBy, ProgressUpdateError, ProgressUpdateErrorVariant,
+    ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
 };
@@ -2940,5 +2940,82 @@ pub async fn metadata_groups_list(
             },
         },
         items,
+    })
+}
+
+pub async fn people_list(
+    user_id: &String,
+    input: PeopleListInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|f| f.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let alias = "media_count";
+    let media_items_col = Expr::col(Alias::new(alias));
+    let (order_by, sort_order) = match input.sort {
+        None => (media_items_col, Order::Desc),
+        Some(ord) => (
+            match ord.by {
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+            },
+            graphql_to_db_order(ord.order),
+        ),
+    };
+    let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
+    let creators_paginator = Person::find()
+        .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
+            query.filter(Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))))
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    person::Column::Id,
+                    collection_to_entity::Column::PersonId,
+                )
+            },
+        )
+        .column_as(
+            Expr::expr(Func::count(Expr::col((
+                Alias::new("metadata_to_person"),
+                metadata_to_person::Column::MetadataId,
+            )))),
+            alias,
+        )
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .left_join(MetadataToPerson)
+        .inner_join(UserToEntity)
+        .group_by(person::Column::Id)
+        .group_by(person::Column::Name)
+        .order_by(order_by, sort_order)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = creators_paginator.num_items_and_pages().await?;
+    let mut creators = vec![];
+    for cr in creators_paginator.fetch_page(page - 1).await? {
+        creators.push(cr);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items: creators,
     })
 }
