@@ -49,8 +49,9 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails, MetadataImage,
-    MetadataListInput, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails,
+    MetadataGroupsListInput, MetadataImage, MetadataListInput, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
     ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
@@ -2846,6 +2847,79 @@ pub async fn metadata_list(
                 NullOrdering::Last,
             ),
         })
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for c in paginator.fetch_page(page - 1).await? {
+        items.push(c);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn metadata_groups_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    input: MetadataGroupsListInput,
+) -> Result<SearchResults<String>> {
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|f| f.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let alias = "parts";
+    let media_items_col = Expr::col(Alias::new(alias));
+    let (order_by, sort_order) = match input.sort {
+        None => (media_items_col, Order::Desc),
+        Some(ord) => (
+            match ord.by {
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
+                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+            },
+            graphql_to_db_order(ord.order),
+        ),
+    };
+    let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
+    let paginator = MetadataGroup::find()
+        .select_only()
+        .column(metadata_group::Column::Id)
+        .group_by(metadata_group::Column::Id)
+        .inner_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(metadata_group::Column::Id.is_not_null())
+        .apply_if(input.search.and_then(|f| f.query), |query, v| {
+            query.filter(
+                Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
+            )
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    metadata_group::Column::Id,
+                    collection_to_entity::Column::MetadataGroupId,
+                )
+            },
+        )
+        .order_by(order_by, sort_order)
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
