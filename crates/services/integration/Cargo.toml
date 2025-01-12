@@ -16,6 +16,7 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 eventsource-stream = { workspace = true }
+external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
@@ -31,7 +32,6 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = { workspace = true }
-specific-models = { path = "../../models/specific" }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tracing = { workspace = true }
