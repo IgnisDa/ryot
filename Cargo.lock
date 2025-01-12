@@ -1755,13 +1755,16 @@ dependencies = [
  "importer-models",
  "itertools 0.14.0",
  "media-models",
+ "migrations",
  "nanoid",
  "providers",
+ "rand 0.9.0-beta.0",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
  "serde",
  "serde_json",
+ "slug",
  "sqlx",
  "supporting-service",
  "tracing",
@@ -2224,6 +2227,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enum-models",
  "fitness-models",
  "itertools 0.14.0",
@@ -2236,6 +2240,7 @@ dependencies = [
  "supporting-service",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -2370,12 +2375,10 @@ dependencies = [
  "enum-models",
  "fitness-models",
  "futures",
- "migrations",
  "nanoid",
  "reqwest 0.12.12",
  "sea-orm",
  "sea-query",
- "slug",
  "supporting-service",
  "tracing",
 ]
@@ -5197,7 +5200,7 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 [[package]]
 name = "rustypipe"
 version = "0.8.0"
-source = "git+https://codeberg.org/ThetaDev/rustypipe.git?branch=feat/user-history#c90d966b17eab24e957d980695888a459707055c"
+source = "git+https://codeberg.org/ThetaDev/rustypipe.git?rev=addeb82110#addeb821101aa968b95455604bc13bd24f50328f"
 dependencies = [
  "data-encoding",
  "fancy-regex",
@@ -7040,6 +7043,7 @@ dependencies = [
  "nanoid",
  "notification-service",
  "openidconnect",
+ "rand 0.9.0-beta.0",
  "sea-orm",
  "supporting-service",
  "tracing",

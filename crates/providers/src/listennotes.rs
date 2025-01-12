@@ -180,7 +180,7 @@ impl ListennotesService {
             .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await;
         let genres = if let Some(value) = maybe_settings {
-            value.genres
+            value
         } else {
             #[derive(Debug, Serialize, Deserialize, Default)]
             #[serde(rename_all = "snake_case")]
@@ -205,9 +205,7 @@ impl ListennotesService {
             }
             cc.set_key(
                 ApplicationCacheKey::ListennotesSettings,
-                ApplicationCacheValue::ListennotesSettings(ListennotesSettings {
-                    genres: genres.clone(),
-                }),
+                ApplicationCacheValue::ListennotesSettings(genres.clone()),
             )
             .await
             .ok();

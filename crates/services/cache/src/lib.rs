@@ -33,8 +33,8 @@ impl CacheService {
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
-            | ApplicationCacheKey::UserRecommendationsKey { .. }
-            | ApplicationCacheKey::MetadataRecentlyConsumed { .. } => 1,
+            | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
+            | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
             ApplicationCacheKey::UserAnalytics { .. } => 2,
 
@@ -48,8 +48,8 @@ impl CacheService {
             ApplicationCacheKey::YoutubeMusicSongListened { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
-            | ApplicationCacheKey::ListennotesSettings
-            | ApplicationCacheKey::TmdbSettings => 120,
+            | ApplicationCacheKey::TmdbSettings
+            | ApplicationCacheKey::ListennotesSettings => 120,
         }
     }
 

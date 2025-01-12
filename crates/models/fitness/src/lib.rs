@@ -10,7 +10,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -119,21 +119,6 @@ pub struct UserMeasurementStats {
     pub calories: Option<Decimal>,
     // DEV: The only custom data type we allow is decimal
     pub custom: Option<HashMap<String, Decimal>>,
-}
-
-#[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
-pub struct ExerciseListItem {
-    pub id: String,
-    pub name: String,
-    pub lot: ExerciseLot,
-    #[graphql(skip)]
-    pub attributes: ExerciseAttributes,
-    pub num_times_interacted: Option<i32>,
-    pub last_updated_on: Option<DateTimeUtc>,
-    pub muscle: Option<ExerciseMuscle>,
-    pub image: Option<String>,
-    #[graphql(skip)]
-    pub muscles: Vec<ExerciseMuscle>,
 }
 
 /// The totals of a workout and the different bests achieved.
@@ -601,6 +586,7 @@ pub struct WorkoutFocusedSummary {
     pub equipments: Vec<WorkoutEquipmentFocusedSummary>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Clone,
     Debug,
@@ -685,11 +671,11 @@ pub enum ExerciseSortBy {
     TimesPerformed,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct ExercisesListInput {
     pub search: SearchInput,
-    pub filter: Option<ExerciseListFilter>,
     pub sort_by: Option<ExerciseSortBy>,
+    pub filter: Option<ExerciseListFilter>,
 }
 
 #[derive(Debug, InputObject)]

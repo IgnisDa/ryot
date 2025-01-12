@@ -84,8 +84,8 @@ query UsersList($query: String) {
 	}
 }
 
-query UserRecommendations {
-	userRecommendations
+query UserMetadataRecommendations {
+	userMetadataRecommendations
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
@@ -169,18 +169,10 @@ query ExerciseDetails($exerciseId: String!) {
 
 query ExercisesList($input: ExercisesListInput!) {
 	exercisesList(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			id
-			lot
-			name
-			image
-			muscle
-			lastUpdatedOn
-			numTimesInteracted
 		}
 	}
 }
@@ -193,6 +185,7 @@ query ImportReports {
 		startedOn
 		finishedOn
 		wasSuccess
+		estimatedFinishTime
 		details {
 			import {
 				total

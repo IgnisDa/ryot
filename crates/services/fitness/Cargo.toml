@@ -17,12 +17,10 @@ dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
-migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
-slug = { workspace = true }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 

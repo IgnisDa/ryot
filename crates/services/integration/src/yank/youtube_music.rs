@@ -4,9 +4,7 @@ use anyhow::Result;
 use chrono::{NaiveDate, Utc};
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
-use dependent_models::{
-    ApplicationCacheValue, ImportCompletedItem, ImportResult, YoutubeMusicSongListenedResponse,
-};
+use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
@@ -14,12 +12,12 @@ use rustypipe::client::RustyPipe;
 use supporting_service::SupportingService;
 
 // DEV: Youtube music only returns one record regardless of how many time you have listened
-// to it that day. For each song listened to today, we cache the song id with
-// `is_complete=false` and return `progress=35%`. Next time, if the song is already cached,
-// we change the cache to `is_complete=true` and return the `progress=100%`. Thus the music
-// gets marked as complete and gets the correct start and end date marked. When the song
-// appears again that day, we silently ignore it since it is already in the cache as
-// completely synced.
+// to it that day. It also does not include what time the song was listened to. So, for
+// each song listened to today, we cache the song id with `is_complete=false` and return
+// `progress=35%`. Next time, if the song is already cached, we change the cache to
+// `is_complete=true` and return `progress=100%`. Thus the music gets marked as complete
+// and gets the correct start and end date marked. When the song appears again that day, we
+// silently ignore it since it is already in the cache as completely synced.
 pub async fn yank_progress(
     auth_cookie: String,
     user_id: &String,
@@ -72,17 +70,11 @@ pub async fn yank_progress(
         };
         let (cache_value, progress) = match items_in_cache.get(cache_key) {
             None => (
-                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListenedResponse {
-                    is_complete: false,
-                }),
+                ApplicationCacheValue::YoutubeMusicSongListened(false),
                 dec!(35),
             ),
-            Some(ApplicationCacheValue::YoutubeMusicSongListened(
-                YoutubeMusicSongListenedResponse { is_complete },
-            )) if !is_complete => (
-                ApplicationCacheValue::YoutubeMusicSongListened(YoutubeMusicSongListenedResponse {
-                    is_complete: true,
-                }),
+            Some(ApplicationCacheValue::YoutubeMusicSongListened(is_complete)) if !is_complete => (
+                ApplicationCacheValue::YoutubeMusicSongListened(true),
                 dec!(100),
             ),
             _ => continue,

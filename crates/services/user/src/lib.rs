@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
-use chrono::{Timelike, Utc};
+use chrono::Utc;
 use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
@@ -15,7 +15,9 @@ use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, UserDetailsResult, UserRecommendationsKey};
+use dependent_models::{
+    ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
@@ -36,6 +38,7 @@ use openidconnect::{
     core::CoreResponseType, reqwest::async_http_client, AuthenticationFlow, AuthorizationCode,
     CsrfToken, Nonce, Scope, TokenResponse,
 };
+use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
     prelude::Expr,
     sea_query::{extension::postgres::PgExpr, Func},
@@ -54,7 +57,22 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
+    pub async fn user_metadata_recommendations(
+        &self,
+        user_id: &String,
+    ) -> Result<UserMetadataRecommendationsResponse> {
+        let cc = &self.0.cache_service;
+        let metadata_recommendations_key =
+            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            });
+        if let Some(recommendations) = cc
+            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
+            .await
+        {
+            return Ok(recommendations);
+        };
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
             .general
@@ -62,53 +80,55 @@ impl UserService {
             .into_iter()
             .find(|d| d.section == DashboardElementLot::Recommendations)
             .unwrap()
-            .num_elements;
-        let recommendation_key = match self
-            .0
+            .num_elements
+            .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
+        let enabled = preferences.features_enabled.media.specific;
+        if enabled.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut recommendations = HashSet::new();
+        loop {
+            if recommendations.len() >= limit.try_into().unwrap() {
+                break;
+            }
+            let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
+            let rec = Metadata::find()
+                .select_only()
+                .column(metadata::Column::Id)
+                .filter(metadata::Column::Lot.eq(*selected_lot))
+                .filter(metadata::Column::IsRecommendation.eq(true))
+                .order_by(
+                    Expr::expr(Func::md5(
+                        Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
+                    )),
+                    Order::Desc,
+                )
+                .into_tuple::<String>()
+                .one(&self.0.db)
+                .await?;
+            if let Some(rec) = rec {
+                recommendations.insert(rec);
+            }
+        }
+        let mut recommendations = recommendations.into_iter().collect_vec();
+        recommendations.shuffle(&mut rand::rng());
+        cc.set_key(
+            metadata_recommendations_key,
+            ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
+        )
+        .await?;
+        Ok(recommendations)
+    }
+
+    pub async fn refresh_user_metadata_recommendations(&self, user_id: &String) -> Result<bool> {
+        self.0
             .cache_service
-            .get_value::<UserRecommendationsKey>(ApplicationCacheKey::UserRecommendationsKey(
+            .expire_key(ApplicationCacheKey::UserMetadataRecommendations(
                 UserLevelCacheKey {
                     input: (),
                     user_id: user_id.to_owned(),
                 },
             ))
-            .await
-        {
-            Some(k) => k.recommendations_key,
-            None => Utc::now().hour().to_string(),
-        };
-        let recs = Metadata::find()
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .order_by(
-                Expr::expr(Func::md5(
-                    Expr::col(metadata::Column::Title)
-                        .concat(Expr::val(user_id))
-                        .concat(Expr::val(recommendation_key)),
-                )),
-                Order::Desc,
-            )
-            .limit(limit)
-            .all(&self.0.db)
-            .await?
-            .into_iter()
-            .map(|r| r.id)
-            .collect_vec();
-        Ok(recs)
-    }
-
-    pub async fn refresh_user_recommendations_key(&self, user_id: &String) -> Result<bool> {
-        let key = nanoid!(12);
-        self.0
-            .cache_service
-            .set_key(
-                ApplicationCacheKey::UserRecommendationsKey(UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.to_owned(),
-                }),
-                ApplicationCacheValue::UserRecommendationsKey(UserRecommendationsKey {
-                    recommendations_key: key,
-                }),
-            )
             .await?;
         Ok(true)
     }

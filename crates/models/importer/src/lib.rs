@@ -6,17 +6,15 @@ use serde::{Deserialize, Serialize};
 /// The various steps in which media importing can fail
 #[derive(Debug, Default, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
 pub enum ImportFailStep {
-    /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
+    /// Failed to get details from the source (eg: MediaTracker, Goodreads etc.)
     #[default]
     ItemDetailsFromSource,
-    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
-    MediaDetailsFromProvider,
     /// Failed to transform the data into the required format
     InputTransformation,
-    /// Failed to save a seen history item
-    SeenHistoryConversion,
-    /// Failed to save a review/rating item
-    ReviewConversion,
+    /// Failed to get metadata from the provider (eg: Openlibrary, IGDB etc.)
+    MediaDetailsFromProvider,
+    /// Failed to save an entity/review/progress item
+    DatabaseCommit,
 }
 
 #[derive(

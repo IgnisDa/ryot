@@ -20,6 +20,7 @@ pub struct Model {
     pub progress: Option<Decimal>,
     pub was_success: Option<bool>,
     pub finished_on: Option<DateTimeUtc>,
+    pub estimated_finish_time: DateTimeUtc,
     pub details: Option<ImportResultResponse>,
     #[graphql(skip)]
     pub source_result: Option<serde_json::Value>,

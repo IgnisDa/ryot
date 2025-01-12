@@ -56,7 +56,7 @@ pub async fn integration_webhook(
         .process_integration_webhook(integration_slug, payload)
         .await
         .map_err(|e| {
-            ryot_log!(error, "{:?}", e);
+            ryot_log!(debug, "{:?}", e);
             StatusCode::UNPROCESSABLE_ENTITY
         })?;
     Ok((StatusCode::OK, response))

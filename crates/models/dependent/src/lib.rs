@@ -34,7 +34,6 @@ use serde_with::skip_serializing_none;
 use strum::Display;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)
@@ -443,35 +442,17 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct ListennotesSettings {
-    pub genres: HashMap<i32, String>,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct IgdbSettings {
-    pub access_token: String,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct UserRecommendationsKey {
-    pub recommendations_key: String,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct YoutubeMusicSongListenedResponse {
-    pub is_complete: bool,
-}
-
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type IgdbSettings = String;
+pub type YoutubeMusicSongListenedResponse = bool;
+pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
+pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
@@ -488,8 +469,8 @@ pub enum ApplicationCacheValue {
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
-    UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
+    UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }

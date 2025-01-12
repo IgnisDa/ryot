@@ -8,8 +8,8 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExerciseListItem, ExercisesListInput, UpdateUserExerciseSettings,
-    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
+    ExercisesListInput, UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput,
+    UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::FitnessService;
 use sea_orm::prelude::DateTimeUtc;
@@ -51,7 +51,7 @@ impl FitnessQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<ExerciseListItem>> {
+    ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(user_id, input).await

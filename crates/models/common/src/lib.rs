@@ -166,6 +166,7 @@ pub struct NamedObject {
     FromJsonQueryResult,
 )]
 pub struct SearchInput {
+    pub take: Option<u64>,
     pub page: Option<i32>,
     pub query: Option<String>,
 }
@@ -353,8 +354,8 @@ pub enum ApplicationCacheKey {
     TmdbSettings,
     ListennotesSettings,
     UserCollectionsList(UserLevelCacheKey<()>),
-    UserRecommendationsKey(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
+    UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),

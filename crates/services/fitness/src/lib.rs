@@ -3,17 +3,15 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
-use common_models::{SearchDetails, SearchInput, StoredUrl};
-use common_utils::{ryot_log, PAGE_SIZE};
+use common_models::{SearchInput, StoredUrl};
+use common_utils::ryot_log;
 use database_models::{
-    collection_to_entity, exercise,
-    prelude::{
-        CollectionToEntity, Exercise, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
-    },
+    exercise,
+    prelude::{Exercise, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate},
     user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    entity_in_collections, ilike_sql, item_reviews, schedule_user_for_workout_revision,
+    entity_in_collections, item_reviews, schedule_user_for_workout_revision,
     server_key_validation_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
@@ -23,27 +21,23 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, get_focused_workout_summary,
+    db_workout_to_workout_input, exercises_list, get_focused_workout_summary,
+    user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExerciseSortBy, ExercisesListInput,
-    GithubExercise, GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
+    ExerciseAttributes, ExerciseCategory, ExercisesListInput, GithubExercise,
+    GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
 use futures::TryStreamExt;
-use migrations::AliasedExercise;
 use nanoid::nanoid;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait,
-    ItemsAndPagesNumber, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, RelationTrait,
+    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder,
 };
-use sea_query::{
-    extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict, PgFunc,
-};
-use slug::slugify;
+use sea_query::{Expr, OnConflict};
 use supporting_service::SupportingService;
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
@@ -58,33 +52,7 @@ impl FitnessService {
         user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        let page = input.page.unwrap_or(1);
-        let paginator = WorkoutTemplate::find()
-            .select_only()
-            .column(workout_template::Column::Id)
-            .filter(workout_template::Column::UserId.eq(user_id))
-            .apply_if(input.query, |query, v| {
-                query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
-            })
-            .order_by_desc(workout_template::Column::CreatedOn)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages.try_into().unwrap() {
-                    Some(page + 1)
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        user_workout_templates_list(&user_id, input, &self.0).await
     }
 
     pub async fn user_workout_template_details(
@@ -256,153 +224,15 @@ impl FitnessService {
         user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        let page = input.page.unwrap_or(1);
-        let paginator = Workout::find()
-            .select_only()
-            .column(workout::Column::Id)
-            .filter(workout::Column::UserId.eq(user_id))
-            .apply_if(input.query, |query, v| {
-                query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
-            })
-            .order_by_desc(workout::Column::EndTime)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages.try_into().unwrap() {
-                    Some(page + 1)
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        user_workouts_list(&user_id, input, &self.0).await
     }
 
     pub async fn exercises_list(
         &self,
         user_id: String,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<ExerciseListItem>> {
-        let page = input.search.page.unwrap_or(1);
-        let ex = Alias::new("exercise");
-        let etu = Alias::new("user_to_entity");
-        let order_by_col = match input.sort_by {
-            None => Expr::col((ex, exercise::Column::Id)),
-            Some(sb) => match sb {
-                // DEV: This is just a small hack to reduce duplicated code. We
-                // are ordering by name for the other `sort_by` anyway.
-                ExerciseSortBy::Name => Expr::val("1"),
-                ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((
-                        etu.clone(),
-                        user_to_entity::Column::ExerciseNumTimesInteracted,
-                    ))
-                    .into(),
-                    Expr::val(0).into(),
-                ])),
-                ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
-                    Expr::col((etu.clone(), user_to_entity::Column::LastUpdatedOn)).into(),
-                    // DEV: For some reason this does not work without explicit casting on postgres
-                    Func::cast_as(Expr::val("1900-01-01"), Alias::new("timestamptz")).into(),
-                ])),
-            },
-        };
-        let paginator = Exercise::find()
-            .column_as(
-                Expr::col((
-                    etu.clone(),
-                    user_to_entity::Column::ExerciseNumTimesInteracted,
-                )),
-                "num_times_interacted",
-            )
-            .column_as(
-                Expr::col((etu, user_to_entity::Column::LastUpdatedOn)),
-                "last_updated_on",
-            )
-            .filter(
-                exercise::Column::Source
-                    .eq(ExerciseSource::Github)
-                    .or(exercise::Column::CreatedByUserId.eq(&user_id)),
-            )
-            .apply_if(input.filter, |query, q| {
-                query
-                    .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
-                    .apply_if(q.muscle, |q, v| {
-                        q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(exercise::Column::Muscles))))
-                    })
-                    .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
-                    .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
-                    .apply_if(q.mechanic, |q, v| {
-                        q.filter(exercise::Column::Mechanic.eq(v))
-                    })
-                    .apply_if(q.equipment, |q, v| {
-                        q.filter(exercise::Column::Equipment.eq(v))
-                    })
-                    .apply_if(q.collection, |q, v| {
-                        q.left_join(CollectionToEntity)
-                            .filter(collection_to_entity::Column::CollectionId.eq(v))
-                    })
-            })
-            .apply_if(input.search.query, |query, v| {
-                query.filter(
-                    Condition::any()
-                        .add(
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                .ilike(ilike_sql(&v)),
-                        )
-                        .add(Expr::col(exercise::Column::Name).ilike(slugify(v))),
-                )
-            })
-            .join(
-                JoinType::LeftJoin,
-                user_to_entity::Relation::Exercise
-                    .def()
-                    .rev()
-                    .on_condition(move |_left, right| {
-                        Condition::all()
-                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(&user_id))
-                    }),
-            )
-            .order_by_desc(order_by_col)
-            .order_by_asc(exercise::Column::Id)
-            .into_model::<ExerciseListItem>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let mut items = vec![];
-        for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
-            let mut converted_exercise = ex.clone();
-            if let Some(img) = ex.attributes.internal_images.first() {
-                converted_exercise.image = Some(
-                    self.0
-                        .file_storage_service
-                        .get_stored_asset(img.clone())
-                        .await,
-                )
-            }
-            converted_exercise.muscle = ex.muscles.first().cloned();
-            items.push(converted_exercise);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages.try_into().unwrap() {
-                    Some(page + 1)
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+    ) -> Result<SearchResults<String>> {
+        exercises_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {
