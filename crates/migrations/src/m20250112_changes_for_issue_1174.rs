@@ -41,7 +41,6 @@ SET details = jsonb_set(
 )
 WHERE details -> 'failed_items' @> '[{{"step": "{enum_name}"}}]';
         "#,
-                enum_name = enum_name
             ))
             .await?;
         }
