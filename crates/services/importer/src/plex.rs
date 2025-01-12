@@ -3,12 +3,12 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
+use external_models::plex as plex_models;
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
-use specific_models::plex as plex_models;
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(Some(vec![

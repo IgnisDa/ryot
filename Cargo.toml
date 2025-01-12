@@ -8,10 +8,10 @@ members = [
     "crates/models/database",
     "crates/models/dependent",
     "crates/models/enum",
+    "crates/models/external",
     "crates/models/fitness",
     "crates/models/importer",
     "crates/models/media",
-    "crates/models/specific",
     "crates/models/user",
     "crates/providers",
     "crates/resolvers/collection",
@@ -43,7 +43,6 @@ members = [
     "crates/utils/dependent",
     "crates/utils/external",
     "crates/utils/env",
-    "crates/utils/specific",
 ]
 resolver = "2"
 
@@ -112,7 +111,7 @@ rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.13"
 # TODO: Change to official release when it is published
 rustypipe = { git = "https://codeberg.org/ThetaDev/rustypipe.git", rev = "addeb82110" }
-schematic = { version = "=0.17.7", features = [
+schematic = { version = "=0.17.8", features = [
     "config",
     "env",
     "json",

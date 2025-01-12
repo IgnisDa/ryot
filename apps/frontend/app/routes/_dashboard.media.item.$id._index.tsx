@@ -1076,16 +1076,14 @@ export default function Page() {
 							loaderData.userMetadataDetails.showProgress ? (
 								<Virtuoso
 									data={loaderData.metadataDetails.showSpecifics.seasons}
-									itemContent={(seasonIdx, season) => {
-										return (
-											<DisplayShowSeason
-												season={season}
-												seasonIdx={seasonIdx}
-												key={season.seasonNumber}
-												openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
-											/>
-										);
-									}}
+									itemContent={(seasonIdx, season) => (
+										<DisplayShowSeason
+											season={season}
+											seasonIdx={seasonIdx}
+											key={season.seasonNumber}
+											openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
+										/>
+									)}
 								/>
 							) : null}
 						</Tabs.Panel>
@@ -1870,12 +1868,13 @@ const DisplayShowSeason = (props: {
 	season: Season;
 	seasonIdx: number;
 	openSeasonModal: () => void;
-	seasonProgress?: SeasonProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 
-	const numTimesSeen = props.seasonProgress?.timesSeen || 0;
+	const seasonProgress =
+		loaderData.userMetadataDetails.showProgress?.[props.seasonIdx];
+	const numTimesSeen = seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
 
 	return (
