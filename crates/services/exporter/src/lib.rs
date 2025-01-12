@@ -114,6 +114,7 @@ impl ExporterService {
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();
         for export in ExportItem::iter() {
+            ryot_log!(debug, "Exporting {export}");
             writer.name(&export.to_string())?;
             writer.begin_array().unwrap();
             match export {
@@ -131,6 +132,7 @@ impl ExporterService {
         }
         writer.end_object().unwrap();
         writer.finish_document().unwrap();
+        ryot_log!(debug, "Exporting completed");
         let ended_at = Utc::now();
         let (_key, url) = self
             .0
