@@ -15,12 +15,17 @@ import {
 	Pagination,
 	Select,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
+import {
+	type UseListStateHandlers,
+	useDisclosure,
+	useListState,
+} from "@mantine/hooks";
 import type {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
@@ -51,6 +56,7 @@ import {
 	IconFilter,
 	IconPlus,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -73,6 +79,8 @@ import {
 } from "~/lib/hooks";
 import {
 	addExerciseToWorkout,
+	getExerciseDetailsQuery,
+	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
@@ -173,20 +181,19 @@ const mergeExerciseSchema = z.object({
 	mergeInto: z.string(),
 });
 
+type SelectExercise = { name: string; lot: ExerciseLot };
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const submit = useSubmit();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
-	const [selectedExercises, setSelectedExercises] = useListState<{
-		name: string;
-		lot: ExerciseLot;
-	}>([]);
+	const [selectedExercises, setSelectedExercises] =
+		useListState<SelectExercise>([]);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -286,105 +293,16 @@ export default function Page() {
 								</Box>
 								<SimpleGrid cols={{ md: 2, lg: 3 }}>
 									{loaderData.exercisesList.items.map((exercise) => (
-										<Flex
-											key={exercise.id}
-											gap="lg"
-											align="center"
-											data-exercise-id={exercise.id}
-										>
-											{allowAddingExerciseToWorkout ? (
-												<Checkbox
-													onChange={(e) => {
-														if (e.currentTarget.checked)
-															setSelectedExercises.append({
-																name: exercise.id,
-																lot: exercise.lot,
-															});
-														else
-															setSelectedExercises.filter(
-																(item) => item.name !== exercise.id,
-															);
-													}}
-												/>
-											) : null}
-											<Indicator
-												size={16}
-												offset={8}
-												color="grape"
-												position="top-start"
-												disabled={!exercise.numTimesInteracted}
-												label={exercise.numTimesInteracted ?? ""}
-											>
-												<Avatar
-													size="lg"
-													radius="xl"
-													src={exercise.image}
-													imageProps={{ loading: "lazy" }}
-												/>
-											</Indicator>
-											<Link
-												style={{ all: "unset", cursor: "pointer" }}
-												to={getExerciseDetailsPath(exercise.id)}
-												onClick={(e) => {
-													if (allowAddingExerciseToWorkout) return;
-													if (mergingExercise) {
-														e.preventDefault();
-														openConfirmationModal(
-															"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
-															() => {
-																const formData = new FormData();
-																formData.append("mergeFrom", mergingExercise);
-																formData.append("mergeInto", exercise.id);
-																setMergingExercise(null);
-																submit(formData, {
-																	method: "POST",
-																	action: withQuery(".", {
-																		intent: "mergeExercise",
-																	}),
-																});
-															},
-														);
-														return;
-													}
-													if (currentWorkout) {
-														e.preventDefault();
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																if (
-																	!isNumber(currentWorkout.replacingExerciseIdx)
-																)
-																	return;
-																draft.exercises[
-																	currentWorkout.replacingExerciseIdx
-																].exerciseId = exercise.id;
-																draft.replacingExerciseIdx = undefined;
-															}),
-														);
-														navigate(-1);
-														return;
-													}
-												}}
-											>
-												<Flex direction="column" justify="space-around">
-													<Text>{exercise.name}</Text>
-													<Flex>
-														{exercise.muscle ? (
-															<Text size="xs">
-																{startCase(snakeCase(exercise.muscle))}
-															</Text>
-														) : null}
-														{exercise.lastUpdatedOn ? (
-															<Text size="xs" c="dimmed">
-																{exercise.muscle ? "," : null}{" "}
-																{dayjsLib(exercise.lastUpdatedOn).format(
-																	"D MMM",
-																)}
-															</Text>
-														) : null}
-													</Flex>
-												</Flex>
-											</Link>
-										</Flex>
+										<ExerciseItemDisplay
+											key={exercise}
+											exerciseId={exercise}
+											mergingExercise={mergingExercise}
+											setMergingExercise={setMergingExercise}
+											setSelectedExercises={setSelectedExercises}
+											allowAddingExerciseToWorkout={
+												allowAddingExerciseToWorkout
+											}
+										/>
 									))}
 								</SimpleGrid>
 							</>
@@ -489,5 +407,121 @@ const FiltersModalForm = () => {
 				/>
 			</Stack>
 		</MantineThemeProvider>
+	);
+};
+
+const ExerciseItemDisplay = (props: {
+	exerciseId: string;
+	mergingExercise: string | null;
+	allowAddingExerciseToWorkout: boolean | null;
+	setMergingExercise: (value: string | null) => void;
+	setSelectedExercises: UseListStateHandlers<SelectExercise>;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const navigate = useNavigate();
+	const submit = useSubmit();
+	const { data: exercise } = useQuery(
+		getExerciseDetailsQuery(props.exerciseId),
+	);
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(props.exerciseId),
+	);
+
+	const firstMuscle = exercise?.muscles?.at(0);
+	const numTimesInteracted =
+		userExerciseDetails?.details?.exerciseNumTimesInteracted;
+	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
+
+	return exercise && userExerciseDetails ? (
+		<Flex gap="lg" align="center">
+			{props.allowAddingExerciseToWorkout ? (
+				<Checkbox
+					onChange={(e) => {
+						if (e.currentTarget.checked)
+							props.setSelectedExercises.append({
+								name: props.exerciseId,
+								lot: exercise.lot,
+							});
+						else
+							props.setSelectedExercises.filter(
+								(item) => item.name !== props.exerciseId,
+							);
+					}}
+				/>
+			) : null}
+			<Indicator
+				size={16}
+				offset={8}
+				color="grape"
+				position="top-start"
+				disabled={!numTimesInteracted}
+				label={numTimesInteracted ?? ""}
+			>
+				<Avatar
+					size="lg"
+					radius="xl"
+					imageProps={{ loading: "lazy" }}
+					src={exercise.attributes.images[0]}
+				/>
+			</Indicator>
+			<Link
+				style={{ all: "unset", cursor: "pointer" }}
+				to={getExerciseDetailsPath(props.exerciseId)}
+				onClick={(e) => {
+					if (props.allowAddingExerciseToWorkout) return;
+					if (props.mergingExercise) {
+						e.preventDefault();
+						openConfirmationModal(
+							"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+							() => {
+								const formData = new FormData();
+								if (props.mergingExercise)
+									formData.append("mergeFrom", props.mergingExercise);
+								formData.append("mergeInto", props.exerciseId);
+								props.setMergingExercise(null);
+								submit(formData, {
+									method: "POST",
+									action: withQuery(".", {
+										intent: "mergeExercise",
+									}),
+								});
+							},
+						);
+						return;
+					}
+					if (currentWorkout) {
+						e.preventDefault();
+						setCurrentWorkout(
+							produce(currentWorkout, (draft) => {
+								if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
+								draft.exercises[
+									currentWorkout.replacingExerciseIdx
+								].exerciseId = props.exerciseId;
+								draft.replacingExerciseIdx = undefined;
+							}),
+						);
+						navigate(-1);
+						return;
+					}
+				}}
+			>
+				<Flex direction="column" justify="space-around">
+					<Text>{exercise.name}</Text>
+					<Flex>
+						{firstMuscle ? (
+							<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
+						) : null}
+						{lastUpdatedOn ? (
+							<Text size="xs" c="dimmed">
+								{firstMuscle ? "," : null}{" "}
+								{dayjsLib(lastUpdatedOn).format("D MMM")}
+							</Text>
+						) : null}
+					</Flex>
+				</Flex>
+			</Link>
+		</Flex>
+	) : (
+		<Skeleton height={56} />
 	);
 };
