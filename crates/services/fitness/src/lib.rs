@@ -239,6 +239,7 @@ impl FitnessService {
         user_id: String,
         input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
+        let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
         let page = input.search.page.unwrap_or(1);
         let ex = Alias::new("exercise");
         let etu = Alias::new("user_to_entity");
@@ -322,7 +323,7 @@ impl FitnessService {
             .order_by_desc(order_by_col)
             .order_by_asc(exercise::Column::Id)
             .into_model::<ExerciseListItem>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
+            .paginate(&self.0.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
