@@ -30,18 +30,18 @@ use serde_with::skip_serializing_none;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    #[serde(skip)]
-    pub repeated_from: Option<String>,
-    pub start_time: DateTimeUtc,
-    pub end_time: DateTimeUtc,
+    pub name: String,
     pub duration: i32,
     #[graphql(skip)]
     #[serde(skip)]
     pub user_id: String,
+    pub end_time: DateTimeUtc,
+    pub start_time: DateTimeUtc,
     pub summary: WorkoutSummary,
-    pub information: WorkoutInformation,
-    pub name: String,
     pub template_id: Option<String>,
+    #[serde(skip)]
+    pub repeated_from: Option<String>,
+    pub information: WorkoutInformation,
 }
 
 #[async_trait]
