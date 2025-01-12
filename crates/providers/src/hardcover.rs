@@ -423,7 +423,7 @@ query {{
             details: SearchDetails {
                 total: response.found,
                 next_page: if page < response.found / PAGE_SIZE {
-                    Some((page + 1).try_into().unwrap())
+                    Some(page + 1)
                 } else {
                     None
                 },
