@@ -58,6 +58,7 @@ pub enum DailyUserActivity {
     WorkoutMuscles,
     WorkoutExercises,
     WorkoutEquipments,
+    WorkoutCaloriesBurnt,
 }
 
 // FIXME: Remove this function and move it to the main function.
@@ -118,6 +119,7 @@ pub async fn create_daily_user_activity_table(manager: &SchemaManager<'_>) -> Re
                 .col(integer_not_null(DailyUserActivity::TotalReviewCount))
                 .col(integer_not_null(DailyUserActivity::TotalCount))
                 .col(integer_not_null(DailyUserActivity::TotalDuration))
+                .col(integer_not_null(DailyUserActivity::WorkoutCaloriesBurnt))
                 .col(
                     ColumnDef::new(DailyUserActivity::HourRecords)
                         .json_binary()
