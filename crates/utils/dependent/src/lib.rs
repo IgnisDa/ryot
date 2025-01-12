@@ -1,15 +1,18 @@
 use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
 
-use application_utils::get_current_date;
+use application_utils::{get_current_date, graphql_to_db_order};
 use async_graphql::{Enum, Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, StoredUrl, StringIdObject,
-    UserLevelCacheKey, UserNotificationContent,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    StoredUrl, StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
-use common_utils::{acquire_lock, ryot_log, EXERCISE_LOT_MAPPINGS, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{
+    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+};
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
@@ -18,21 +21,25 @@ use database_models::{
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
         MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
+        WorkoutTemplate,
     },
-    review, seen, user_measurement, user_notification, user_to_entity, workout,
+    review, seen, user_measurement, user_notification, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    admin_account_guard, get_cte_column_from_lot, schedule_user_for_workout_revision, user_by_id,
+    admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
+    schedule_user_for_workout_revision, user_by_id,
 };
-use dependent_models::{ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult, SearchResults,
+};
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationLot, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
-    ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
-    UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+    ExerciseBestSetRecord, ExerciseSortBy, ExercisesListInput, ProcessedExercise,
+    UserExerciseInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
@@ -43,13 +50,15 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MetadataDetails, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails,
+    MetadataGroupsListInput, MetadataImage, MetadataListInput, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput,
+    PersonAndMetadataGroupsSortBy, ProgressUpdateError, ProgressUpdateErrorVariant,
+    ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
+    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
 };
+use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -65,6 +74,7 @@ use providers::{
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
+use rand::seq::SliceRandom;
 use rust_decimal::{
     prelude::{FromPrimitive, One, ToPrimitive},
     Decimal,
@@ -72,11 +82,13 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{DateTimeUtc, Expr},
-    sea_query::OnConflict,
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
+    sea_query::{extension::postgres::PgExpr, Alias, Func, NullOrdering, OnConflict, PgFunc},
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
+use slug::slugify;
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
@@ -1768,7 +1780,7 @@ pub async fn create_or_update_user_workout(
             .one(&ss.db)
             .await?
         else {
-            ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
+            ryot_log!(debug, "Exercise with id = {} not found", ex.exercise_id);
             continue;
         };
         let mut sets = vec![];
@@ -1877,10 +1889,19 @@ pub async fn create_or_update_user_workout(
                     .one(&ss.db)
                     .await?
                 {
-                    let workout_set =
-                        workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
-                    if get_personal_best(set, best_type)
-                        > get_personal_best(&workout_set, best_type)
+                    let workout_set = workout
+                        .information
+                        .exercises
+                        .get(r.exercise_idx)
+                        .and_then(|exercise| exercise.sets.get(r.set_idx));
+                    let workout_set = match workout_set {
+                        Some(s) => s,
+                        None => {
+                            ryot_log!(debug, "Workout set {} does not exist", r.set_idx);
+                            continue;
+                        }
+                    };
+                    if get_personal_best(set, best_type) > get_personal_best(workout_set, best_type)
                     {
                         if let Some(ref mut set_personal_bests) = set.personal_bests {
                             set_personal_bests.push(*best_type);
@@ -2015,13 +2036,14 @@ pub async fn create_or_update_user_workout(
 }
 
 async fn create_collection_and_add_entity_to_it(
-    ss: &Arc<SupportingService>,
     user_id: &String,
-    collection_name: String,
     entity_id: String,
     entity_lot: EntityLot,
-) -> Result<()> {
-    create_or_update_collection(
+    collection_name: String,
+    ss: &Arc<SupportingService>,
+    import_failed_set: &mut Vec<ImportFailedItem>,
+) {
+    if let Err(e) = create_or_update_collection(
         user_id,
         CreateOrUpdateCollectionInput {
             name: collection_name.clone(),
@@ -2029,8 +2051,16 @@ async fn create_collection_and_add_entity_to_it(
         },
         ss,
     )
-    .await?;
-    add_entity_to_collection(
+    .await
+    {
+        import_failed_set.push(ImportFailedItem {
+            identifier: collection_name.clone(),
+            step: ImportFailStep::DatabaseCommit,
+            error: Some(format!("Failed to create collection {}", e.message)),
+            ..Default::default()
+        });
+    }
+    if let Err(e) = add_entity_to_collection(
         user_id,
         ChangeCollectionToEntityInput {
             entity_id,
@@ -2042,8 +2072,14 @@ async fn create_collection_and_add_entity_to_it(
         ss,
     )
     .await
-    .ok();
-    Ok(())
+    {
+        import_failed_set.push(ImportFailedItem {
+            identifier: collection_name.clone(),
+            step: ImportFailStep::DatabaseCommit,
+            error: Some(format!("Failed to add entity to collection {}", e.message)),
+            ..Default::default()
+        });
+    };
 }
 
 pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
@@ -2087,7 +2123,6 @@ pub async fn create_custom_exercise(
 
 pub async fn process_import<F>(
     user_id: &String,
-    run_updates: bool,
     respect_cache: bool,
     mut import: ImportResult,
     ss: &Arc<SupportingService>,
@@ -2107,108 +2142,10 @@ where
         _ => true,
     });
 
-    for i in import.completed.iter_mut() {
-        match i {
-            ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata = match commit_metadata(
-                    CommitMediaInput {
-                        name: metadata.source_id.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata.lot,
-                            source: metadata.source,
-                            identifier: metadata.identifier.clone(),
-                        },
-                    },
-                    ss,
-                )
-                .await
-                {
-                    Ok(r) => r,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            lot: Some(metadata.lot),
-                            identifier: metadata.source_id.to_owned(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                        });
-                        continue;
-                    }
-                };
-                if run_updates {
-                    deploy_update_metadata_job(&db_metadata.id, ss).await?;
-                }
-                metadata.id = db_metadata.id;
-            }
-            ImportCompletedItem::Person(person) => {
-                let db_person = match commit_person(
-                    CommitPersonInput {
-                        identifier: person.identifier.clone(),
-                        name: person.name.clone(),
-                        source: person.source,
-                        source_specifics: person.source_specifics.clone(),
-                    },
-                    &ss.db,
-                )
-                .await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            identifier: person.identifier.clone(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                            ..Default::default()
-                        });
-                        continue;
-                    }
-                };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                        db_person.id.clone(),
-                    )))
-                    .await?;
-                }
-                person.id = db_person.id;
-            }
-            ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let metadata_group_id = match commit_metadata_group(
-                    CommitMediaInput {
-                        name: metadata_group.title.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata_group.lot,
-                            source: metadata_group.source,
-                            identifier: metadata_group.identifier.clone(),
-                        },
-                    },
-                    ss,
-                )
-                .await
-                {
-                    Ok(r) => r.id,
-                    Err(e) => {
-                        import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
-                            lot: Some(metadata_group.lot),
-                            identifier: metadata_group.title.to_owned(),
-                            step: ImportFailStep::MediaDetailsFromProvider,
-                        });
-                        continue;
-                    }
-                };
-                if run_updates {
-                    ss.perform_application_job(ApplicationJob::Mp(
-                        MpApplicationJob::UpdateMetadataGroup(metadata_group_id.clone()),
-                    ))
-                    .await?;
-                }
-                metadata_group.id = metadata_group_id;
-            }
-            _ => {}
-        }
-    }
+    import.completed.shuffle(&mut rand::rng());
 
-    // DEV: We need to sort the exercises to make sure they are created before the workouts
-    // because the workouts depend on the exercises.
+    // DEV: We need to make sure that exercises are created first because workouts are
+    // dependent on them.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
         _ => 1,
@@ -2229,19 +2166,62 @@ where
         );
         match item {
             ImportCompletedItem::Empty => {}
-            ImportCompletedItem::Exercise(exercise) => {
-                create_custom_exercise(user_id, exercise, ss).await?;
-            }
-            ImportCompletedItem::Collection(col_details) => {
-                create_or_update_collection(user_id, col_details, ss).await?;
-            }
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = metadata.id;
-                for seen in metadata.seen_history.iter() {
-                    let progress = if seen.progress.is_some() {
-                        seen.progress
+                let db_metadata_id = match commit_metadata(
+                    CommitMediaInput {
+                        name: metadata.source_id.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata.lot,
+                            source: metadata.source,
+                            identifier: metadata.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                {
+                    Ok(m) => m.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata.source_id.to_string(),
+                        });
+                        continue;
+                    }
+                };
+                let mut was_updated_successfully = false;
+                for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                    let is_partial = Metadata::find_by_id(&db_metadata_id)
+                        .select_only()
+                        .column(metadata::Column::IsPartial)
+                        .into_tuple::<bool>()
+                        .one(&ss.db)
+                        .await?
+                        .unwrap_or(true);
+                    if is_partial {
+                        deploy_update_metadata_job(&db_metadata_id, ss).await?;
+                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                        sleep_for_n_seconds(sleep_time).await;
                     } else {
-                        Some(dec!(100))
+                        was_updated_successfully = true;
+                        break;
+                    }
+                }
+                if !was_updated_successfully {
+                    import.failed.push(ImportFailedItem {
+                        lot: Some(metadata.lot),
+                        identifier: db_metadata_id.clone(),
+                        step: ImportFailStep::MediaDetailsFromProvider,
+                        error: Some("Progress update *might* be wrong".to_owned()),
+                    });
+                }
+                for seen in metadata.seen_history.iter() {
+                    let progress = match seen.progress {
+                        Some(_p) => seen.progress,
+                        None => Some(dec!(100)),
                     };
                     if let Err(e) = progress_update(
                         user_id,
@@ -2266,7 +2246,7 @@ where
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
-                            step: ImportFailStep::SeenHistoryConversion,
+                            step: ImportFailStep::DatabaseCommit,
                             identifier: metadata.source_id.to_owned(),
                             error: Some(e.message),
                         });
@@ -2282,7 +2262,7 @@ where
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
                                 lot: Some(metadata.lot),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata.source_id.to_owned(),
                                 error: Some(e.message),
                             });
@@ -2291,17 +2271,45 @@ where
                 }
                 for col in metadata.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
+                        col,
+                        ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
                 }
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
-                let db_metadata_group_id = metadata_group.id;
+                let db_metadata_group_id = match commit_metadata_group(
+                    CommitMediaInput {
+                        name: metadata_group.title.clone(),
+                        unique: UniqueMediaIdentifier {
+                            lot: metadata_group.lot,
+                            source: metadata_group.source,
+                            identifier: metadata_group.identifier.clone(),
+                        },
+                    },
+                    ss,
+                )
+                .await
+                {
+                    Ok(m) => m.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            lot: Some(metadata_group.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata_group.title.to_string(),
+                        });
+                        continue;
+                    }
+                };
+                ss.perform_application_job(ApplicationJob::Mp(
+                    MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
+                ))
+                .await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2312,7 +2320,7 @@ where
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
                                 lot: Some(metadata_group.lot),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata_group.title.to_owned(),
                                 error: Some(e.message),
                             });
@@ -2321,17 +2329,43 @@ where
                 }
                 for col in metadata_group.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
+                        col,
+                        ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
                 }
             }
             ImportCompletedItem::Person(person) => {
-                let db_person_id = person.id;
+                let db_person_id = match commit_person(
+                    CommitPersonInput {
+                        source: person.source,
+                        name: person.name.clone(),
+                        identifier: person.identifier.clone(),
+                        source_specifics: person.source_specifics.clone(),
+                    },
+                    &ss.db,
+                )
+                .await
+                {
+                    Ok(p) => p.id,
+                    Err(e) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(e.message),
+                            identifier: person.name.to_string(),
+                            step: ImportFailStep::DatabaseCommit,
+                            ..Default::default()
+                        });
+                        continue;
+                    }
+                };
+                ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+                    db_person_id.clone(),
+                )))
+                .await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2343,7 +2377,7 @@ where
                             import.failed.push(ImportFailedItem {
                                 error: Some(e.message),
                                 identifier: person.name.to_owned(),
-                                step: ImportFailStep::ReviewConversion,
+                                step: ImportFailStep::DatabaseCommit,
                                 ..Default::default()
                             });
                         };
@@ -2351,62 +2385,90 @@ where
                 }
                 for col in person.collections.into_iter() {
                     create_collection_and_add_entity_to_it(
-                        ss,
                         user_id,
-                        col,
                         db_person_id.clone(),
                         EntityLot::Person,
+                        col,
+                        ss,
+                        &mut import.failed,
                     )
-                    .await?;
+                    .await;
+                }
+            }
+            ImportCompletedItem::Collection(col_details) => {
+                if let Err(e) = create_or_update_collection(user_id, col_details.clone(), ss).await
+                {
+                    import.failed.push(ImportFailedItem {
+                        error: Some(e.message),
+                        identifier: col_details.name.clone(),
+                        step: ImportFailStep::DatabaseCommit,
+                        ..Default::default()
+                    });
+                }
+            }
+            ImportCompletedItem::Exercise(exercise) => {
+                if let Err(e) = create_custom_exercise(user_id, exercise.clone(), ss).await {
+                    import.failed.push(ImportFailedItem {
+                        error: Some(e.message),
+                        identifier: exercise.name.clone(),
+                        step: ImportFailStep::DatabaseCommit,
+                        ..Default::default()
+                    });
                 }
             }
             ImportCompletedItem::Workout(workout) => {
                 need_to_schedule_user_for_workout_revision = true;
-                if let Err(err) = create_or_update_user_workout(user_id, workout, ss).await {
+                if let Err(err) = create_or_update_user_workout(user_id, workout.clone(), ss).await
+                {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
-                        identifier: "Exercise".to_string(),
-                        step: ImportFailStep::InputTransformation,
+                        identifier: workout.name,
+                        step: ImportFailStep::DatabaseCommit,
                         ..Default::default()
                     });
                 }
             }
             ImportCompletedItem::ApplicationWorkout(workout) => {
+                need_to_schedule_user_for_workout_revision = true;
                 let workout_input = db_workout_to_workout_input(workout.details);
-                match create_or_update_user_workout(user_id, workout_input, ss).await {
+                match create_or_update_user_workout(user_id, workout_input.clone(), ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(err.message),
-                            identifier: "Exercise".to_string(),
-                            step: ImportFailStep::InputTransformation,
+                            identifier: workout_input.name,
+                            step: ImportFailStep::DatabaseCommit,
                             ..Default::default()
                         });
                     }
                     Ok(workout_id) => {
                         for col in workout.collections.into_iter() {
                             create_collection_and_add_entity_to_it(
-                                ss,
                                 user_id,
-                                col,
                                 workout_id.clone(),
                                 EntityLot::Workout,
+                                col,
+                                ss,
+                                &mut import.failed,
                             )
-                            .await?;
+                            .await;
                         }
                     }
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
+                if let Err(err) =
+                    create_user_measurement(user_id, measurement.clone(), &ss.db).await
+                {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
-                        identifier: "Measurement".to_string(),
-                        step: ImportFailStep::InputTransformation,
+                        step: ImportFailStep::DatabaseCommit,
+                        identifier: measurement.timestamp.to_string(),
                         ..Default::default()
                     });
                 }
             }
         }
+
         on_item_processed(
             Decimal::from_usize(idx + 1).unwrap() / Decimal::from_usize(total).unwrap() * dec!(100),
         )
@@ -2657,4 +2719,490 @@ pub async fn remove_entity_from_collection(
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
+}
+
+pub async fn metadata_list(
+    user_id: &String,
+    input: MetadataListInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let preferences = user_by_id(user_id, ss).await?.preferences;
+
+    let avg_rating_col = "user_average_rating";
+    let cloned_user_id_1 = user_id.clone();
+    let cloned_user_id_2 = user_id.clone();
+
+    let order_by = input
+        .sort
+        .clone()
+        .map(|a| graphql_to_db_order(a.order))
+        .unwrap_or(Order::Asc);
+    let review_scale = match preferences.general.review_scale {
+        UserReviewScale::OutOfFive => 20,
+        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
+    };
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|s| s.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let paginator = Metadata::find()
+        .select_only()
+        .column(metadata::Column::Id)
+        .expr_as(
+            Func::round_with_precision(
+                Func::avg(
+                    Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(review_scale),
+                ),
+                review_scale,
+            ),
+            avg_rating_col,
+        )
+        .group_by(metadata::Column::Id)
+        .group_by(user_to_entity::Column::MediaReason)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .apply_if(input.lot, |query, v| {
+            query.filter(metadata::Column::Lot.eq(v))
+        })
+        .inner_join(UserToEntity)
+        .join(
+            JoinType::LeftJoin,
+            metadata::Relation::Review
+                .def()
+                .on_condition(move |_left, right| {
+                    Condition::all().add(
+                        Expr::col((right, review::Column::UserId)).eq(cloned_user_id_1.clone()),
+                    )
+                }),
+        )
+        .join(
+            JoinType::LeftJoin,
+            metadata::Relation::Seen
+                .def()
+                .on_condition(move |_left, right| {
+                    Condition::all()
+                        .add(Expr::col((right, seen::Column::UserId)).eq(cloned_user_id_2.clone()))
+                }),
+        )
+        .apply_if(input.search.and_then(|s| s.query), |query, v| {
+            query.filter(
+                Condition::any()
+                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
+                    .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
+            )
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    metadata::Column::Id,
+                    collection_to_entity::Column::MetadataId,
+                )
+            },
+        )
+        .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
+            MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
+            MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
+            MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
+            MediaGeneralFilter::Unfinished => query.filter(
+                Expr::expr(
+                    Expr::val(UserToMediaReason::Finished.to_string())
+                        .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
+                )
+                .not(),
+            ),
+            s => query.filter(seen::Column::State.eq(match s {
+                MediaGeneralFilter::Dropped => SeenState::Dropped,
+                MediaGeneralFilter::OnAHold => SeenState::OnAHold,
+                _ => unreachable!(),
+            })),
+        })
+        .apply_if(input.sort.map(|s| s.by), |query, v| match v {
+            MediaSortBy::LastUpdated => query
+                .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
+                .group_by(user_to_entity::Column::LastUpdatedOn),
+            MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+            MediaSortBy::ReleaseDate => query.order_by_with_nulls(
+                metadata::Column::PublishYear,
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::LastSeen => query.order_by_with_nulls(
+                seen::Column::FinishedOn.max(),
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::UserRating => query.order_by_with_nulls(
+                Expr::col(Alias::new(avg_rating_col)),
+                order_by,
+                NullOrdering::Last,
+            ),
+            MediaSortBy::ProviderRating => query.order_by_with_nulls(
+                metadata::Column::ProviderRating,
+                order_by,
+                NullOrdering::Last,
+            ),
+        })
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for c in paginator.fetch_page(page - 1).await? {
+        items.push(c);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn metadata_groups_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    input: MetadataGroupsListInput,
+) -> Result<SearchResults<String>> {
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|f| f.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let alias = "parts";
+    let media_items_col = Expr::col(Alias::new(alias));
+    let (order_by, sort_order) = match input.sort {
+        None => (media_items_col, Order::Desc),
+        Some(ord) => (
+            match ord.by {
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
+                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+            },
+            graphql_to_db_order(ord.order),
+        ),
+    };
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
+    let paginator = MetadataGroup::find()
+        .select_only()
+        .column(metadata_group::Column::Id)
+        .group_by(metadata_group::Column::Id)
+        .inner_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(metadata_group::Column::Id.is_not_null())
+        .apply_if(input.search.and_then(|f| f.query), |query, v| {
+            query.filter(
+                Condition::all().add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
+            )
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    metadata_group::Column::Id,
+                    collection_to_entity::Column::MetadataGroupId,
+                )
+            },
+        )
+        .order_by(order_by, sort_order)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for c in paginator.fetch_page(page - 1).await? {
+        items.push(c);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn people_list(
+    user_id: &String,
+    input: PeopleListInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page: u64 = input
+        .search
+        .clone()
+        .and_then(|f| f.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    let alias = "media_count";
+    let media_items_col = Expr::col(Alias::new(alias));
+    let (order_by, sort_order) = match input.sort {
+        None => (media_items_col, Order::Desc),
+        Some(ord) => (
+            match ord.by {
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+            },
+            graphql_to_db_order(ord.order),
+        ),
+    };
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
+    let creators_paginator = Person::find()
+        .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
+            query.filter(Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))))
+        })
+        .apply_if(
+            input.filter.clone().and_then(|f| f.collections),
+            |query, v| {
+                apply_collection_filter(
+                    query,
+                    Some(v),
+                    input.invert_collection,
+                    person::Column::Id,
+                    collection_to_entity::Column::PersonId,
+                )
+            },
+        )
+        .column_as(
+            Expr::expr(Func::count(Expr::col((
+                Alias::new("metadata_to_person"),
+                metadata_to_person::Column::MetadataId,
+            )))),
+            alias,
+        )
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .left_join(MetadataToPerson)
+        .inner_join(UserToEntity)
+        .group_by(person::Column::Id)
+        .group_by(person::Column::Name)
+        .order_by(order_by, sort_order)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = creators_paginator.num_items_and_pages().await?;
+    let mut creators = vec![];
+    for cr in creators_paginator.fetch_page(page - 1).await? {
+        creators.push(cr);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages {
+                Some((page + 1).try_into().unwrap())
+            } else {
+                None
+            },
+        },
+        items: creators,
+    })
+}
+
+pub async fn user_workouts_list(
+    user_id: &String,
+    input: SearchInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page = input.page.unwrap_or(1);
+    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let paginator = Workout::find()
+        .select_only()
+        .column(workout::Column::Id)
+        .filter(workout::Column::UserId.eq(user_id))
+        .apply_if(input.query, |query, v| {
+            query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
+        })
+        .order_by_desc(workout::Column::EndTime)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages.try_into().unwrap() {
+                Some(page + 1)
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn user_workout_templates_list(
+    user_id: &String,
+    input: SearchInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page = input.page.unwrap_or(1);
+    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let paginator = WorkoutTemplate::find()
+        .select_only()
+        .column(workout_template::Column::Id)
+        .filter(workout_template::Column::UserId.eq(user_id))
+        .apply_if(input.query, |query, v| {
+            query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
+        })
+        .order_by_desc(workout_template::Column::CreatedOn)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages.try_into().unwrap() {
+                Some(page + 1)
+            } else {
+                None
+            },
+        },
+        items,
+    })
+}
+
+pub async fn exercises_list(
+    user_id: &String,
+    input: ExercisesListInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let user_id = user_id.to_owned();
+    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
+    let page = input.search.page.unwrap_or(1);
+    let ex = Alias::new("exercise");
+    let etu = Alias::new("user_to_entity");
+    let order_by_col = match input.sort_by {
+        None => Expr::col((ex, exercise::Column::Id)),
+        Some(sb) => match sb {
+            // DEV: This is just a small hack to reduce duplicated code. We
+            // are ordering by name for the other `sort_by` anyway.
+            ExerciseSortBy::Name => Expr::val("1"),
+            ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
+                Expr::col((
+                    etu.clone(),
+                    user_to_entity::Column::ExerciseNumTimesInteracted,
+                ))
+                .into(),
+                Expr::val(0).into(),
+            ])),
+            ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
+                Expr::col((etu.clone(), user_to_entity::Column::LastUpdatedOn)).into(),
+                // DEV: For some reason this does not work without explicit casting on postgres
+                Func::cast_as(Expr::val("1900-01-01"), Alias::new("timestamptz")).into(),
+            ])),
+        },
+    };
+    let paginator = Exercise::find()
+        .select_only()
+        .column(exercise::Column::Id)
+        .filter(
+            exercise::Column::Source
+                .eq(ExerciseSource::Github)
+                .or(exercise::Column::CreatedByUserId.eq(&user_id)),
+        )
+        .apply_if(input.filter, |query, q| {
+            query
+                .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
+                .apply_if(q.muscle, |q, v| {
+                    q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(exercise::Column::Muscles))))
+                })
+                .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
+                .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
+                .apply_if(q.mechanic, |q, v| {
+                    q.filter(exercise::Column::Mechanic.eq(v))
+                })
+                .apply_if(q.equipment, |q, v| {
+                    q.filter(exercise::Column::Equipment.eq(v))
+                })
+                .apply_if(q.collection, |q, v| {
+                    q.left_join(CollectionToEntity)
+                        .filter(collection_to_entity::Column::CollectionId.eq(v))
+                })
+        })
+        .apply_if(input.search.query, |query, v| {
+            query.filter(
+                Condition::any()
+                    .add(
+                        Expr::col((AliasedExercise::Table, AliasedExercise::Id))
+                            .ilike(ilike_sql(&v)),
+                    )
+                    .add(Expr::col(exercise::Column::Name).ilike(slugify(v))),
+            )
+        })
+        .join(
+            JoinType::LeftJoin,
+            user_to_entity::Relation::Exercise
+                .def()
+                .rev()
+                .on_condition(move |_left, right| {
+                    Condition::all()
+                        .add(Expr::col((right, user_to_entity::Column::UserId)).eq(&user_id))
+                }),
+        )
+        .order_by_desc(order_by_col)
+        .order_by_asc(exercise::Column::Id)
+        .into_tuple::<String>()
+        .paginate(&ss.db, take);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
+        items.push(ex);
+    }
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages.try_into().unwrap() {
+                Some(page + 1)
+            } else {
+                None
+            },
+        },
+        items,
+    })
 }

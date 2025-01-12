@@ -66,9 +66,9 @@ pub async fn import(
             Err(e) => {
                 failed.push(ImportFailedItem {
                     lot: Some(lot),
-                    step: ImportFailStep::MediaDetailsFromProvider,
                     identifier: record.id.clone(),
-                    error: Some(e.to_string()),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some(format!("Could not fetch details from TMDB: {e}")),
                 });
                 continue;
             }

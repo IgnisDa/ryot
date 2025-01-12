@@ -157,6 +157,7 @@ pub struct NamedObject {
     Clone, Debug, Default, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
 )]
 pub struct SearchInput {
+    pub take: Option<u64>,
     pub page: Option<i32>,
     pub query: Option<String>,
 }

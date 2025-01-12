@@ -17,6 +17,7 @@ pub enum ImportReport {
     FinishedOn,
     WasSuccess,
     SourceResult,
+    EstimatedFinishTime,
 }
 
 #[async_trait::async_trait]
@@ -45,6 +46,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ImportReport::UserId).text().not_null())
                     .col(ColumnDef::new(ImportReport::Progress).decimal())
                     .col(ColumnDef::new(ImportReport::SourceResult).json_binary())
+                    .col(
+                        ColumnDef::new(ImportReport::EstimatedFinishTime)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")

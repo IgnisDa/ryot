@@ -152,6 +152,11 @@ impl CollectionService {
         &self,
         input: CollectionContentsInput,
     ) -> Result<CollectionContents> {
+        let take = input
+            .search
+            .clone()
+            .and_then(|s| s.take)
+            .unwrap_or(PAGE_SIZE as u64);
         let search = input.search.unwrap_or_default();
         let sort = input.sort.unwrap_or_default();
         let filter = input.filter.unwrap_or_default();
@@ -163,8 +168,6 @@ impl CollectionService {
         let Some(collection) = maybe_collection else {
             return Err(Error::new("Collection not found".to_owned()));
         };
-
-        let take = input.take.unwrap_or_else(|| PAGE_SIZE.try_into().unwrap());
         let results = if take != 0 {
             let paginator = CollectionToEntity::find()
                 .left_join(Metadata)

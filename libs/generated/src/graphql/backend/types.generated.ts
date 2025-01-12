@@ -148,7 +148,6 @@ export type CollectionContentsInput = {
   filter?: InputMaybe<CollectionContentsFilter>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<CollectionContentsSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum CollectionContentsSortBy {
@@ -576,23 +575,6 @@ export type ExerciseListFilter = {
   type?: InputMaybe<ExerciseLot>;
 };
 
-export type ExerciseListItem = {
-  __typename?: 'ExerciseListItem';
-  id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lastUpdatedOn?: Maybe<Scalars['DateTime']['output']>;
-  lot: ExerciseLot;
-  muscle?: Maybe<ExerciseMuscle>;
-  name: Scalars['String']['output'];
-  numTimesInteracted?: Maybe<Scalars['Int']['output']>;
-};
-
-export type ExerciseListResults = {
-  __typename?: 'ExerciseListResults';
-  details: SearchDetails;
-  items: Array<ExerciseListItem>;
-};
-
 /** The different types of exercises that can be done. */
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
@@ -842,16 +824,14 @@ export type ImportDetails = {
 
 /** The various steps in which media importing can fail */
 export enum ImportFailStep {
+  /** Failed to save an entity/review/progress item */
+  DatabaseCommit = 'DATABASE_COMMIT',
   /** Failed to transform the data into the required format */
   InputTransformation = 'INPUT_TRANSFORMATION',
-  /** Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.) */
+  /** Failed to get details from the source (eg: MediaTracker, Goodreads etc.) */
   ItemDetailsFromSource = 'ITEM_DETAILS_FROM_SOURCE',
-  /** Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.) */
-  MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER',
-  /** Failed to save a review/rating item */
-  ReviewConversion = 'REVIEW_CONVERSION',
-  /** Failed to save a seen history item */
-  SeenHistoryConversion = 'SEEN_HISTORY_CONVERSION'
+  /** Failed to get metadata from the provider (eg: Openlibrary, IGDB etc.) */
+  MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER'
 }
 
 export type ImportFailedItem = {
@@ -876,6 +856,7 @@ export type ImportOrExportItemReviewComment = {
 export type ImportReport = {
   __typename?: 'ImportReport';
   details?: Maybe<ImportResultResponse>;
+  estimatedFinishTime: Scalars['DateTime']['output'];
   finishedOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
   progress?: Maybe<Scalars['Decimal']['output']>;
@@ -1129,7 +1110,6 @@ export type MetadataGroupsListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataListInput = {
@@ -1138,7 +1118,6 @@ export type MetadataListInput = {
   lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataLotSourceMappings = {
@@ -1627,7 +1606,6 @@ export type PeopleListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type PeopleSearchInput = {
@@ -1810,7 +1788,7 @@ export type QueryRoot = {
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get a paginated list of exercises in the database. */
-  exercisesList: ExerciseListResults;
+  exercisesList: IdResults;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
@@ -2094,6 +2072,7 @@ export type SearchDetails = {
 export type SearchInput = {
   page?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<Scalars['String']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Seen = {

@@ -34,7 +34,6 @@ use serde_with::skip_serializing_none;
 use strum::Display;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)

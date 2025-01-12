@@ -106,7 +106,9 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(PeopleListDocument, { input: { take } })
+										.request(PeopleListDocument, {
+											input: { search: { take } },
+										})
 										.then((r) =>
 											r.peopleList.items.map((p) => ({
 												entityId: p,
@@ -119,7 +121,9 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(MetadataGroupsListDocument, { input: { take } })
+										.request(MetadataGroupsListDocument, {
+											input: { search: { take } },
+										})
 										.then((r) =>
 											r.metadataGroupsList.items.map((p) => ({
 												entityId: p,

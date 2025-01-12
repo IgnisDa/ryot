@@ -116,9 +116,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
-				collectionId: foundInProgressCollection.id,
-				take: takeInProgress,
+				search: { take: takeInProgress },
 				sort: { order: GraphqlSortOrder.Desc },
+				collectionId: foundInProgressCollection.id,
 			},
 		}),
 		getRecommendations(),

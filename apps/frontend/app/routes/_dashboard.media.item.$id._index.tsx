@@ -252,6 +252,13 @@ const editSeenItem = z.object({
 	providerWatchedOn: z.string().optional(),
 });
 
+const METADATA_LOTS_WITH_GRANULAR_UPDATES = [
+	MediaLot.Show,
+	MediaLot.Anime,
+	MediaLot.Manga,
+	MediaLot.Podcast,
+];
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -285,7 +292,7 @@ export default function Page() {
 		refreshUserMetadataDetails(loaderData.metadataId);
 	};
 
-	const PutOnHoldBtn = () => {
+	const PutOnHoldMenuItem = () => {
 		return (
 			<Form
 				action={withQuery($path("/actions"), {
@@ -301,7 +308,7 @@ export default function Page() {
 			</Form>
 		);
 	};
-	const DropBtn = () => {
+	const DropMenuItem = () => {
 		return (
 			<Form
 				action={withQuery($path("/actions"), {
@@ -320,8 +327,8 @@ export default function Page() {
 	const StateChangeButtons = () => {
 		return (
 			<>
-				<PutOnHoldBtn />
-				<DropBtn />
+				<PutOnHoldMenuItem />
+				<DropMenuItem />
 			</>
 		);
 	};
@@ -738,12 +745,12 @@ export default function Page() {
 																{`S${nextEntry.season}-E${nextEntry.episode}`}{" "}
 																as seen
 															</Menu.Item>
-															<PutOnHoldBtn />
+															<PutOnHoldMenuItem />
 														</>
 													) : null}
 													{loaderData.userMetadataDetails.history.length !==
 													0 ? (
-														<DropBtn />
+														<DropMenuItem />
 													) : (
 														<Menu.Item disabled>
 															No history. Update from the seasons tab.
@@ -751,42 +758,51 @@ export default function Page() {
 													)}
 												</>
 											) : null}
-											{loaderData.metadataDetails.lot === MediaLot.Anime &&
-											nextEntry ? (
+											{loaderData.metadataDetails.lot === MediaLot.Anime ? (
 												<>
 													<Menu.Label>Anime</Menu.Label>
 													<Menu.Item
 														onClick={() => {
 															setMetadataToUpdate({
 																metadataId: loaderData.metadataId,
-																animeEpisodeNumber: nextEntry.episode,
+																animeEpisodeNumber: nextEntry?.episode || 1,
 															});
 														}}
 													>
 														Mark EP-
-														{nextEntry.episode} as listened
+														{nextEntry?.episode || 1} as watched
 													</Menu.Item>
+													{nextEntry ? <PutOnHoldMenuItem /> : null}
+													{loaderData.userMetadataDetails.history.length !==
+													0 ? (
+														<DropMenuItem />
+													) : null}
 												</>
 											) : null}
-											{loaderData.metadataDetails.lot === MediaLot.Manga &&
-											nextEntry ? (
+											{loaderData.metadataDetails.lot === MediaLot.Manga ? (
 												<>
 													<Menu.Label>Manga</Menu.Label>
 													<Menu.Item
 														onClick={() => {
 															setMetadataToUpdate({
 																metadataId: loaderData.metadataId,
-																mangaChapterNumber: nextEntry.chapter,
-																mangaVolumeNumber: nextEntry.volume,
+																mangaVolumeNumber: nextEntry?.volume,
+																mangaChapterNumber: nextEntry?.chapter,
 															});
 														}}
 													>
 														Mark{" "}
-														{nextEntry.chapter
-															? `CH-${nextEntry.chapter}`
-															: `VOL-${nextEntry.volume}`}{" "}
+														{nextEntry &&
+															(nextEntry.chapter
+																? `CH-${nextEntry.chapter}`
+																: `VOL-${nextEntry.volume}`)}{" "}
 														as read
 													</Menu.Item>
+													{nextEntry ? <PutOnHoldMenuItem /> : null}
+													{loaderData.userMetadataDetails.history.length !==
+													0 ? (
+														<DropMenuItem />
+													) : null}
 												</>
 											) : null}
 											{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
@@ -805,12 +821,12 @@ export default function Page() {
 																Mark EP-
 																{nextEntry.episode} as listened
 															</Menu.Item>
-															<PutOnHoldBtn />
+															<PutOnHoldMenuItem />
 														</>
 													) : null}
 													{loaderData.userMetadataDetails.history.length !==
 													0 ? (
-														<DropBtn />
+														<DropMenuItem />
 													) : (
 														<Menu.Item disabled>
 															No history. Update from the episodes tab.
@@ -830,9 +846,9 @@ export default function Page() {
 													>
 														Set progress
 													</Menu.Item>
-													{loaderData.metadataDetails.lot !== MediaLot.Show &&
-													loaderData.metadataDetails.lot !==
-														MediaLot.Podcast ? (
+													{!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
+														loaderData.metadataDetails.lot,
+													) ? (
 														<StateChangeButtons />
 													) : null}
 													<Form
@@ -857,8 +873,9 @@ export default function Page() {
 														<Menu.Item type="submit">I finished it</Menu.Item>
 													</Form>
 												</>
-											) : loaderData.metadataDetails.lot !== MediaLot.Show &&
-												loaderData.metadataDetails.lot !== MediaLot.Podcast ? (
+											) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
+													loaderData.metadataDetails.lot,
+												) ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
 													<Form

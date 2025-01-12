@@ -139,7 +139,6 @@ pub async fn import(
                 rating,
                 ..Default::default()
             }],
-            ..Default::default()
         }));
     }
     Ok(ImportResult { completed, failed })
