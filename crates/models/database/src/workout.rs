@@ -8,8 +8,10 @@ use fitness_models::{WorkoutInformation, WorkoutSummary};
 use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 /// A workout that was completed by the user.
+#[skip_serializing_none]
 #[derive(
     Clone,
     Debug,

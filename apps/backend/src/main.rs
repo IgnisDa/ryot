@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use apalis::{
-    layers::{retry::RetryPolicy, WorkerBuilderExt},
+    layers::WorkerBuilderExt,
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
@@ -200,7 +200,6 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .enable_tracing()
                 .rate_limit(5, Duration::new(5, 0))
-                .retry(RetryPolicy::retries(3))
                 .data(app_services.clone())
                 .backend(mp_application_job_storage)
                 .build_fn(perform_mp_application_job),

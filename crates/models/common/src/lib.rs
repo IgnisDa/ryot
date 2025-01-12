@@ -166,6 +166,7 @@ pub struct NamedObject {
     FromJsonQueryResult,
 )]
 pub struct SearchInput {
+    pub take: Option<u64>,
     pub page: Option<i32>,
     pub query: Option<String>,
 }

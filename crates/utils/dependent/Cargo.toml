@@ -20,13 +20,16 @@ fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 providers = { path = "../../providers" }
+rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+slug = { workspace = true }
 sqlx = { workspace = true }
 supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }

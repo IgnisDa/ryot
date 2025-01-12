@@ -145,7 +145,6 @@ pub async fn import(
                 }),
                 ..Default::default()
             }],
-            ..Default::default()
         })
     }
     Ok(ImportResult {

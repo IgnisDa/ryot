@@ -6,11 +6,10 @@ use std::{
 
 use application_utils::{
     get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
-    graphql_to_db_order,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{Days, Duration, NaiveDate, Utc};
+use chrono::{Days, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
@@ -35,7 +34,7 @@ use database_models::{
     review, seen, user, user_notification, user_to_entity,
 };
 use database_utils::{
-    apply_collection_filter, calculate_user_activities_and_summary, entity_in_collections,
+    calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
     revoke_access_link, user_by_id,
 };
@@ -52,9 +51,10 @@ use dependent_utils::{
     deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
     get_entity_recently_consumed, get_metadata_provider, get_openlibrary_service,
     get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, refresh_collection_to_entity_association,
-    remove_entity_from_collection, update_metadata_and_notify_users,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
+    metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
+    update_metadata_and_notify_users,
 };
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
@@ -68,20 +68,18 @@ use media_models::{
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
-    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
-    MetadataListInput, MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PeopleListInput, PersonAndMetadataGroupsSortBy,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
-    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    MediaAssociatedPersonStateChanges, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    PartialMetadataWithoutId, PeopleListInput, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
-    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen,
-    AliasedUserToEntity,
+    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -94,19 +92,19 @@ use providers::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, query::UpdateMany, sea_query::NullOrdering, ActiveModelTrait,
-    ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
-    FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    prelude::DateTimeUtc, query::UpdateMany, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    extension::postgres::PgExpr, Alias, Asterisk, Condition, Expr, Func, PgFunc,
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
-use user_models::{DashboardElementLot, UserReviewScale};
+use user_models::DashboardElementLot;
 use uuid::Uuid;
 
 static ENTITY_UPDATE_CHUNK_SIZE: usize = 5;
@@ -893,151 +891,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
-        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
-
-        let avg_rating_col = "user_average_rating";
-        let cloned_user_id_1 = user_id.clone();
-        let cloned_user_id_2 = user_id.clone();
-
-        let order_by = input
-            .sort
-            .clone()
-            .map(|a| graphql_to_db_order(a.order))
-            .unwrap_or(Order::Asc);
-        let review_scale = match preferences.general.review_scale {
-            UserReviewScale::OutOfFive => 20,
-            UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
-        };
-        let take = input.take.unwrap_or(PAGE_SIZE as u64);
-        let page: u64 = input
-            .search
-            .clone()
-            .and_then(|s| s.page)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
-        let paginator = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .expr_as(
-                Func::round_with_precision(
-                    Func::avg(
-                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(review_scale),
-                    ),
-                    review_scale,
-                ),
-                avg_rating_col,
-            )
-            .group_by(metadata::Column::Id)
-            .group_by(user_to_entity::Column::MediaReason)
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .apply_if(input.lot, |query, v| {
-                query.filter(metadata::Column::Lot.eq(v))
-            })
-            .inner_join(UserToEntity)
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::Review
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, review::Column::UserId)).eq(cloned_user_id_1.clone()),
-                        )
-                    }),
-            )
-            .join(
-                JoinType::LeftJoin,
-                metadata::Relation::Seen
-                    .def()
-                    .on_condition(move |_left, right| {
-                        Condition::all().add(
-                            Expr::col((right, seen::Column::UserId)).eq(cloned_user_id_2.clone()),
-                        )
-                    }),
-            )
-            .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                query.filter(
-                    Cond::any()
-                        .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
-                        .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
-                )
-            })
-            .apply_if(
-                input.filter.clone().and_then(|f| f.collections),
-                |query, v| {
-                    apply_collection_filter(
-                        query,
-                        Some(v),
-                        input.invert_collection,
-                        metadata::Column::Id,
-                        collection_to_entity::Column::MetadataId,
-                    )
-                },
-            )
-            .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
-                MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-                MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
-                MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-                MediaGeneralFilter::Unfinished => query.filter(
-                    Expr::expr(
-                        Expr::val(UserToMediaReason::Finished.to_string())
-                            .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
-                    )
-                    .not(),
-                ),
-                s => query.filter(seen::Column::State.eq(match s {
-                    MediaGeneralFilter::Dropped => SeenState::Dropped,
-                    MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                    _ => unreachable!(),
-                })),
-            })
-            .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                MediaSortBy::LastUpdated => query
-                    .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
-                    .group_by(user_to_entity::Column::LastUpdatedOn),
-                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
-                MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                    metadata::Column::PublishYear,
-                    order_by,
-                    NullOrdering::Last,
-                ),
-                MediaSortBy::LastSeen => query.order_by_with_nulls(
-                    seen::Column::FinishedOn.max(),
-                    order_by,
-                    NullOrdering::Last,
-                ),
-                MediaSortBy::UserRating => query.order_by_with_nulls(
-                    Expr::col(Alias::new(avg_rating_col)),
-                    order_by,
-                    NullOrdering::Last,
-                ),
-                MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                    metadata::Column::ProviderRating,
-                    order_by,
-                    NullOrdering::Last,
-                ),
-            })
-            .into_tuple::<String>()
-            .paginate(&self.0.db, take);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let mut items = vec![];
-        for c in paginator.fetch_page(page - 1).await? {
-            items.push(c);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        metadata_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_bulk_progress_update(
@@ -1076,7 +930,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn mark_entity_as_partial(
         &self,
-        _user_id: &String,
+        _user_id: &str,
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
         match input.entity_lot {
@@ -1964,73 +1818,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input
-            .search
-            .clone()
-            .and_then(|f| f.page)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
-        let alias = "parts";
-        let media_items_col = Expr::col(Alias::new(alias));
-        let (order_by, sort_order) = match input.sort {
-            None => (media_items_col, Order::Desc),
-            Some(ord) => (
-                match ord.by {
-                    PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
-                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
-                },
-                graphql_to_db_order(ord.order),
-            ),
-        };
-        let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
-        let paginator = MetadataGroup::find()
-            .select_only()
-            .column(metadata_group::Column::Id)
-            .group_by(metadata_group::Column::Id)
-            .inner_join(UserToEntity)
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .filter(metadata_group::Column::Id.is_not_null())
-            .apply_if(input.search.and_then(|f| f.query), |query, v| {
-                query.filter(
-                    Condition::all()
-                        .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
-                )
-            })
-            .apply_if(
-                input.filter.clone().and_then(|f| f.collections),
-                |query, v| {
-                    apply_collection_filter(
-                        query,
-                        Some(v),
-                        input.invert_collection,
-                        metadata_group::Column::Id,
-                        collection_to_entity::Column::MetadataGroupId,
-                    )
-                },
-            )
-            .order_by(order_by, sort_order)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, take);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let mut items = vec![];
-        for c in paginator.fetch_page(page - 1).await? {
-            items.push(c);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        metadata_groups_list(&user_id, &self.0, input).await
     }
 
     pub async fn people_list(
@@ -2038,78 +1826,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input
-            .search
-            .clone()
-            .and_then(|f| f.page)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
-        let alias = "media_count";
-        let media_items_col = Expr::col(Alias::new(alias));
-        let (order_by, sort_order) = match input.sort {
-            None => (media_items_col, Order::Desc),
-            Some(ord) => (
-                match ord.by {
-                    PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
-                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
-                },
-                graphql_to_db_order(ord.order),
-            ),
-        };
-        let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
-        let creators_paginator = Person::find()
-            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                query.filter(
-                    Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
-                )
-            })
-            .apply_if(
-                input.filter.clone().and_then(|f| f.collections),
-                |query, v| {
-                    apply_collection_filter(
-                        query,
-                        Some(v),
-                        input.invert_collection,
-                        person::Column::Id,
-                        collection_to_entity::Column::PersonId,
-                    )
-                },
-            )
-            .column_as(
-                Expr::expr(Func::count(Expr::col((
-                    Alias::new("metadata_to_person"),
-                    metadata_to_person::Column::MetadataId,
-                )))),
-                alias,
-            )
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .left_join(MetadataToPerson)
-            .inner_join(UserToEntity)
-            .group_by(person::Column::Id)
-            .group_by(person::Column::Name)
-            .order_by(order_by, sort_order)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, take);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = creators_paginator.num_items_and_pages().await?;
-        let mut creators = vec![];
-        for cr in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(cr);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items: creators,
-        })
+        people_list(&user_id, input, &self.0).await
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
@@ -2341,11 +2058,15 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         let date_to_calculate_from = get_current_date(&self.0.timezone).pred_opt().unwrap();
 
-        let mut meta_stream = Metadata::find()
+        let selected_metadata = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(metadata::Column::IsPartial.eq(false))
-            .stream(&self.0.db)
-            .await?;
+            .filter(
+                metadata::Column::IsPartial
+                    .eq(false)
+                    .or(metadata::Column::IsPartial.is_null()),
+            );
+
+        let mut meta_stream = selected_metadata.clone().stream(&self.0.db).await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
             ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
@@ -2409,16 +2130,8 @@ ORDER BY RANDOM() LIMIT 10;
 
         ryot_log!(debug, "Finished deleting invalid calendar events");
 
-        let mut metadata_stream = Metadata::find()
-            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(
-                metadata::Column::IsPartial
-                    .is_null()
-                    .or(metadata::Column::IsPartial.eq(false)),
-            )
-            .order_by_desc(metadata::Column::LastUpdatedOn)
-            .stream(&self.0.db)
-            .await?;
+        let mut metadata_stream = selected_metadata.stream(&self.0.db).await?;
+
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
@@ -2813,10 +2526,13 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
-        let threshold = Utc::now() - Duration::hours(24);
         let all_jobs = ImportReport::find()
-            .filter(import_report::Column::WasSuccess.is_null())
-            .filter(import_report::Column::StartedOn.lt(threshold))
+            .filter(
+                import_report::Column::WasSuccess
+                    .eq(false)
+                    .or(import_report::Column::WasSuccess.is_null()),
+            )
+            .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
             .all(&self.0.db)
             .await?;
         for job in all_jobs {
