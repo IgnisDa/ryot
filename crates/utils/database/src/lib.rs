@@ -716,7 +716,7 @@ pub async fn calculate_user_activities_and_summary(
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);
         model.total_duration = ActiveValue::Set(total_duration);
-        model.insert(db).await.ok();
+        model.insert(db).await.unwrap();
     }
 
     Ok(())
