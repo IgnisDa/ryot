@@ -9,6 +9,8 @@ use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot, MediaSource};
+use external_models::audiobookshelf as audiobookshelf_models;
+use external_utils::audiobookshelf::get_updated_metadata;
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     UniqueMediaIdentifier,
@@ -21,8 +23,6 @@ use reqwest::{
     Client,
 };
 use serde_json::json;
-use specific_models::audiobookshelf as audiobookshelf_models;
-use specific_utils::audiobookshelf::get_updated_metadata;
 use supporting_service::SupportingService;
 
 use super::{ImportFailStep, ImportFailedItem};
