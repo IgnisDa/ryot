@@ -165,7 +165,6 @@ export type CollectionContentsInput = {
   filter?: InputMaybe<CollectionContentsFilter>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<CollectionContentsSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum CollectionContentsSortBy {
@@ -823,13 +822,13 @@ export type ImportDetails = {
 
 /** The various steps in which media importing can fail */
 export enum ImportFailStep {
-  /** Failed to save a entity/review/progress item */
+  /** Failed to save an entity/review/progress item */
   DatabaseCommit = 'DATABASE_COMMIT',
   /** Failed to transform the data into the required format */
   InputTransformation = 'INPUT_TRANSFORMATION',
-  /** Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.) */
+  /** Failed to get details from the source (eg: MediaTracker, Goodreads etc.) */
   ItemDetailsFromSource = 'ITEM_DETAILS_FROM_SOURCE',
-  /** Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.) */
+  /** Failed to get metadata from the provider (eg: Openlibrary, IGDB etc.) */
   MediaDetailsFromProvider = 'MEDIA_DETAILS_FROM_PROVIDER'
 }
 
@@ -1094,7 +1093,6 @@ export type MetadataGroupsListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataListInput = {
@@ -1103,7 +1101,6 @@ export type MetadataListInput = {
   lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataLotSourceMappings = {
@@ -1583,7 +1580,6 @@ export type PeopleListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
-  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type PeopleSearchInput = {
@@ -2034,6 +2030,7 @@ export type SearchDetails = {
 export type SearchInput = {
   page?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<Scalars['String']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Seen = {

@@ -2740,7 +2740,11 @@ pub async fn metadata_list(
         UserReviewScale::OutOfFive => 20,
         UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
     };
-    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
     let page: u64 = input
         .search
         .clone()
@@ -2895,7 +2899,11 @@ pub async fn metadata_groups_list(
             graphql_to_db_order(ord.order),
         ),
     };
-    let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
     let paginator = MetadataGroup::find()
         .select_only()
         .column(metadata_group::Column::Id)
@@ -2968,7 +2976,11 @@ pub async fn people_list(
             graphql_to_db_order(ord.order),
         ),
     };
-    let take = input.take.unwrap_or(PAGE_SIZE.try_into().unwrap());
+    let take = input
+        .search
+        .clone()
+        .and_then(|s| s.take)
+        .unwrap_or(PAGE_SIZE as u64);
     let creators_paginator = Person::find()
         .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
             query.filter(Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))))

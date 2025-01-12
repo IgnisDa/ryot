@@ -1144,7 +1144,6 @@ pub struct CollectionContentsFilter {
 
 #[derive(Debug, InputObject)]
 pub struct CollectionContentsInput {
-    pub take: Option<u64>,
     pub collection_id: String,
     pub search: Option<SearchInput>,
     pub filter: Option<CollectionContentsFilter>,
@@ -1304,7 +1303,6 @@ pub struct MediaFilter {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MetadataListInput {
-    pub take: Option<u64>,
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
     pub search: Option<SearchInput>,
@@ -1314,7 +1312,6 @@ pub struct MetadataListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct PeopleListInput {
-    pub take: Option<u64>,
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
@@ -1323,7 +1320,6 @@ pub struct PeopleListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MetadataGroupsListInput {
-    pub take: Option<u64>,
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,

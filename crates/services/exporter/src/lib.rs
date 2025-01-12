@@ -182,8 +182,8 @@ impl ExporterService {
             let related_metadata = metadata_list(
                 user_id,
                 MetadataListInput {
-                    take: Some(1000),
                     search: Some(SearchInput {
+                        take: Some(1000),
                         page: Some(current_page),
                         ..Default::default()
                     }),
@@ -274,8 +274,8 @@ impl ExporterService {
                 user_id,
                 &self.0,
                 MetadataGroupsListInput {
-                    take: Some(1000),
                     search: Some(SearchInput {
+                        take: Some(1000),
                         page: Some(current_page),
                         ..Default::default()
                     }),
@@ -330,8 +330,8 @@ impl ExporterService {
             let related_people = people_list(
                 user_id,
                 PeopleListInput {
-                    take: Some(1000),
                     search: Some(SearchInput {
+                        take: Some(1000),
                         page: Some(current_page),
                         ..Default::default()
                     }),
