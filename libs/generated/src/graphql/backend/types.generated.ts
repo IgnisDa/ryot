@@ -2412,6 +2412,7 @@ export type UserFeaturesEnabledPreferencesInput = {
 export type UserFitnessAnalytics = {
   __typename?: 'UserFitnessAnalytics';
   measurementCount: Scalars['Int']['output'];
+  workoutCaloriesBurnt: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
   workoutDistance: Scalars['Int']['output'];
   workoutDuration: Scalars['Int']['output'];
