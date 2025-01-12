@@ -13,15 +13,15 @@ chrono-tz = { workspace = true }
 convert_case = { workspace = true }
 csv = { workspace = true }
 data-encoding = { workspace = true }
-enum_meta = { workspace = true }
-env-utils = { path = "../../utils/env" }
-external-utils = { path = "../../utils/external" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
+enum_meta = { workspace = true }
 enum-models = { path = "../../models/enum" }
+env-utils = { path = "../../utils/env" }
+external-utils = { path = "../../utils/external" }
 fitness-models = { path = "../../models/fitness" }
 flate2 = { workspace = true }
 importer-models = { path = "../../models/importer" }
@@ -39,7 +39,6 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde-xml-rs = { workspace = true }
 specific-models = { path = "../../models/specific" }
-specific-utils = { path = "../../utils/specific" }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }

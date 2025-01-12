@@ -7,6 +7,7 @@ use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{MediaLot, MediaSource};
+use external_utils::audiobookshelf::get_updated_metadata;
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
@@ -17,7 +18,6 @@ use reqwest::{
 };
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use specific_utils::audiobookshelf::get_updated_metadata;
 use supporting_service::SupportingService;
 
 fn get_http_client(access_token: &String) -> Client {

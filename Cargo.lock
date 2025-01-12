@@ -2250,10 +2250,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
+ "database-models",
+ "dependent-utils",
+ "enum-models",
  "reqwest 0.12.12",
  "sea-orm",
  "serde",
  "serde_json",
+ "supporting-service",
  "tracing",
 ]
 
@@ -3337,7 +3341,6 @@ dependencies = [
  "serde_json",
  "serde_with 3.12.0",
  "specific-models",
- "specific-utils",
  "supporting-service",
  "tracing",
  "traits",
@@ -3414,7 +3417,6 @@ dependencies = [
  "serde_json",
  "sonarr-api-rs",
  "specific-models",
- "specific-utils",
  "supporting-service",
  "tokio",
  "tracing",
@@ -5881,19 +5883,6 @@ dependencies = [
  "serde",
  "serde_with 3.12.0",
  "strum",
-]
-
-[[package]]
-name = "specific-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "common-utils",
- "database-models",
- "dependent-utils",
- "enum-models",
- "sea-orm",
- "supporting-service",
 ]
 
 [[package]]
