@@ -348,13 +348,13 @@ query {{
     books_count
     description
     book_series(
+      order_by: {{ position: asc }}
       where: {{
         book: {{
-          book_status_id: {{_eq: "1"}}, compilation: {{_eq: false}},
-          default_physical_edition: {{language_id: {{_eq: 1}}}}
+          book_status_id: {{ _eq: "1" }}, compilation: {{ _eq: false }},
+          default_physical_edition: {{ language_id: {{ _eq: 1 }} }}
         }}
       }}
-      order_by: {{position: asc}}
     ) {{
       book {{ id title }}
     }}
