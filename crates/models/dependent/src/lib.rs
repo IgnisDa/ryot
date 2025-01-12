@@ -47,7 +47,6 @@ use strum::Display;
     name = "MetadataGroupSearchResults",
     params(media_models::MetadataGroupSearchItem)
 ))]
-#[graphql(concrete(name = "GenreListResults", params(media_models::GenreListItem)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,

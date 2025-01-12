@@ -202,14 +202,10 @@ query ImportReports {
 
 query GenresList($input: SearchInput!) {
 	genresList(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			id
-			name
-			numItems
 		}
 	}
 }

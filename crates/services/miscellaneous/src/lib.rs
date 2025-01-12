@@ -1766,7 +1766,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
+    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<String>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let num_items = "num_items";
         let query = Genre::find()
@@ -1798,7 +1798,7 @@ ORDER BY RANDOM() LIMIT 10;
         } = paginator.num_items_and_pages().await?;
         let mut items = vec![];
         for c in paginator.fetch_page(page - 1).await? {
-            items.push(c);
+            items.push(c.id);
         }
         Ok(SearchResults {
             details: SearchDetails {

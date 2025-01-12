@@ -710,12 +710,6 @@ export type GenreListItem = {
   numItems?: Maybe<Scalars['Int']['output']>;
 };
 
-export type GenreListResults = {
-  __typename?: 'GenreListResults';
-  details: SearchDetails;
-  items: Array<GenreListItem>;
-};
-
 export type GraphqlCalendarEvent = {
   __typename?: 'GraphqlCalendarEvent';
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
@@ -1796,7 +1790,7 @@ export type QueryRoot = {
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
-  genresList: GenreListResults;
+  genresList: IdResults;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
