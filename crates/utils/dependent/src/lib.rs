@@ -6,8 +6,8 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
-    StringIdObject, UserLevelCacheKey, UserNotificationContent,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    StoredUrl, StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
@@ -3017,5 +3017,39 @@ pub async fn people_list(
             },
         },
         items: creators,
+    })
+}
+
+pub async fn user_workouts_list(
+    user_id: &String,
+    input: SearchInput,
+    ss: &Arc<SupportingService>,
+) -> Result<SearchResults<String>> {
+    let page = input.page.unwrap_or(1);
+    let paginator = Workout::find()
+        .select_only()
+        .column(workout::Column::Id)
+        .filter(workout::Column::UserId.eq(user_id))
+        .apply_if(input.query, |query, v| {
+            query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
+        })
+        .order_by_desc(workout::Column::EndTime)
+        .into_tuple::<String>()
+        .paginate(&ss.db, PAGE_SIZE.try_into().unwrap());
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
+    Ok(SearchResults {
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: if page < number_of_pages.try_into().unwrap() {
+                Some(page + 1)
+            } else {
+                None
+            },
+        },
+        items,
     })
 }

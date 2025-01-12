@@ -23,7 +23,7 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, get_focused_workout_summary,
+    db_workout_to_workout_input, get_focused_workout_summary, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
@@ -256,33 +256,7 @@ impl FitnessService {
         user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        let page = input.page.unwrap_or(1);
-        let paginator = Workout::find()
-            .select_only()
-            .column(workout::Column::Id)
-            .filter(workout::Column::UserId.eq(user_id))
-            .apply_if(input.query, |query, v| {
-                query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
-            })
-            .order_by_desc(workout::Column::EndTime)
-            .into_tuple::<String>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages.try_into().unwrap() {
-                    Some(page + 1)
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        user_workouts_list(&user_id, input, &self.0).await
     }
 
     pub async fn exercises_list(
