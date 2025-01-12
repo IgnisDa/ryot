@@ -26,7 +26,7 @@ use dependent_utils::{
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, ExerciseListItem, ExercisesListInput, GithubExercise,
+    ExerciseAttributes, ExerciseCategory, ExercisesListInput, GithubExercise,
     GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
     UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
@@ -231,7 +231,7 @@ impl FitnessService {
         &self,
         user_id: String,
         input: ExercisesListInput,
-    ) -> Result<SearchResults<ExerciseListItem>> {
+    ) -> Result<SearchResults<String>> {
         exercises_list(&user_id, input, &self.0).await
     }
 

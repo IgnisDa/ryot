@@ -38,7 +38,7 @@ use enum_models::{
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
-    ExerciseBestSetRecord, ExerciseListItem, ExerciseSortBy, ExercisesListInput, ProcessedExercise,
+    ExerciseBestSetRecord, ExerciseSortBy, ExercisesListInput, ProcessedExercise,
     UserExerciseInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
@@ -3108,7 +3108,7 @@ pub async fn exercises_list(
     user_id: &String,
     input: ExercisesListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<ExerciseListItem>> {
+) -> Result<SearchResults<String>> {
     let user_id = user_id.to_owned();
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let page = input.search.page.unwrap_or(1);
@@ -3136,17 +3136,8 @@ pub async fn exercises_list(
         },
     };
     let paginator = Exercise::find()
-        .column_as(
-            Expr::col((
-                etu.clone(),
-                user_to_entity::Column::ExerciseNumTimesInteracted,
-            )),
-            "num_times_interacted",
-        )
-        .column_as(
-            Expr::col((etu, user_to_entity::Column::LastUpdatedOn)),
-            "last_updated_on",
-        )
+        .select_only()
+        .column(exercise::Column::Id)
         .filter(
             exercise::Column::Source
                 .eq(ExerciseSource::Github)
@@ -3193,7 +3184,7 @@ pub async fn exercises_list(
         )
         .order_by_desc(order_by_col)
         .order_by_asc(exercise::Column::Id)
-        .into_model::<ExerciseListItem>()
+        .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
         number_of_items,
@@ -3201,13 +3192,7 @@ pub async fn exercises_list(
     } = paginator.num_items_and_pages().await?;
     let mut items = vec![];
     for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
-        let mut converted_exercise = ex.clone();
-        if let Some(img) = ex.attributes.internal_images.first() {
-            converted_exercise.image =
-                Some(ss.file_storage_service.get_stored_asset(img.clone()).await)
-        }
-        converted_exercise.muscle = ex.muscles.first().cloned();
-        items.push(converted_exercise);
+        items.push(ex);
     }
     Ok(SearchResults {
         details: SearchDetails {

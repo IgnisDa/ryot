@@ -169,18 +169,10 @@ query ExerciseDetails($exerciseId: String!) {
 
 query ExercisesList($input: ExercisesListInput!) {
 	exercisesList(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			id
-			lot
-			name
-			image
-			muscle
-			lastUpdatedOn
-			numTimesInteracted
 		}
 	}
 }

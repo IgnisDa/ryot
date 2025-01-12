@@ -575,23 +575,6 @@ export type ExerciseListFilter = {
   type?: InputMaybe<ExerciseLot>;
 };
 
-export type ExerciseListItem = {
-  __typename?: 'ExerciseListItem';
-  id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  lastUpdatedOn?: Maybe<Scalars['DateTime']['output']>;
-  lot: ExerciseLot;
-  muscle?: Maybe<ExerciseMuscle>;
-  name: Scalars['String']['output'];
-  numTimesInteracted?: Maybe<Scalars['Int']['output']>;
-};
-
-export type ExerciseListResults = {
-  __typename?: 'ExerciseListResults';
-  details: SearchDetails;
-  items: Array<ExerciseListItem>;
-};
-
 /** The different types of exercises that can be done. */
 export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
@@ -1805,7 +1788,7 @@ export type QueryRoot = {
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get a paginated list of exercises in the database. */
-  exercisesList: ExerciseListResults;
+  exercisesList: IdResults;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
