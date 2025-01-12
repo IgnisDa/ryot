@@ -6,9 +6,8 @@ use chrono::{DateTime, Utc};
 use common_models::{ExportJob, SearchInput};
 use common_utils::{ryot_log, TEMP_DIR};
 use database_models::{
-    exercise,
-    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity},
-    seen, user_to_entity,
+    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen},
+    seen,
 };
 use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, user_workout_details,
@@ -16,11 +15,11 @@ use database_utils::{
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use dependent_utils::{
-    metadata_groups_list, metadata_list, people_list, user_workout_templates_list,
+    exercises_list, metadata_groups_list, metadata_list, people_list, user_workout_templates_list,
     user_workouts_list,
 };
 use enum_models::EntityLot;
-use fitness_models::UserMeasurementsListInput;
+use fitness_models::{ExercisesListInput, UserMeasurementsListInput};
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -35,7 +34,6 @@ use reqwest::{
 };
 use sea_orm::{
     strum::Display, ColumnTrait, EntityTrait, EnumIter, Iterable, ModelTrait, QueryFilter,
-    QuerySelect,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
@@ -432,39 +430,54 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let exercises = UserToEntity::find()
-            .select_only()
-            .column(exercise::Column::Id)
-            .column(exercise::Column::Name)
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .left_join(Exercise)
-            .into_tuple::<(String, String)>()
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for (exercise_id, exercise_name) in exercises {
-            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, &self.0)
-                .await?
-                .into_iter()
-                .map(|r| self.get_review_export_item(r))
-                .collect_vec();
-            let collections =
-                entity_in_collections(&self.0.db, user_id, &exercise_id, EntityLot::Exercise)
+        let mut current_page = 1;
+        loop {
+            let exercises = exercises_list(
+                user_id,
+                ExercisesListInput {
+                    search: SearchInput {
+                        take: Some(1000),
+                        page: Some(current_page),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                &self.0,
+            )
+            .await?;
+            for exercise_id in exercises.items {
+                let reviews =
+                    item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, &self.0)
+                        .await?
+                        .into_iter()
+                        .map(|r| self.get_review_export_item(r))
+                        .collect_vec();
+                let collections =
+                    entity_in_collections(&self.0.db, user_id, &exercise_id, EntityLot::Exercise)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect_vec();
+                if reviews.is_empty() && collections.is_empty() {
+                    continue;
+                }
+                let exercise = Exercise::find_by_id(exercise_id.clone())
+                    .one(&self.0.db)
                     .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect_vec();
-            if reviews.is_empty() && collections.is_empty() {
-                continue;
+                    .ok_or_else(|| Error::new("Exercise with the given ID does not exist"))?;
+                let exp = ImportOrExportExerciseItem {
+                    reviews,
+                    collections,
+                    id: exercise_id,
+                    name: exercise.name,
+                };
+                writer.serialize_value(&exp).unwrap();
             }
-            let exp = ImportOrExportExerciseItem {
-                reviews,
-                collections,
-                id: exercise_id,
-                name: exercise_name,
-            };
-            writer.serialize_value(&exp).unwrap();
+            if let Some(next_page) = exercises.details.next_page {
+                current_page = next_page;
+            } else {
+                break;
+            }
         }
         Ok(())
     }

@@ -671,11 +671,11 @@ pub enum ExerciseSortBy {
     TimesPerformed,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct ExercisesListInput {
     pub search: SearchInput,
-    pub filter: Option<ExerciseListFilter>,
     pub sort_by: Option<ExerciseSortBy>,
+    pub filter: Option<ExerciseListFilter>,
 }
 
 #[derive(Debug, InputObject)]
