@@ -1321,7 +1321,7 @@ pub struct PeopleListInput {
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MetadataGroupsListInput {
     pub take: Option<u64>,
     pub search: Option<SearchInput>,

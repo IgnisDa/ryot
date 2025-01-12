@@ -17,14 +17,14 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use dependent_utils::metadata_list;
+use dependent_utils::{metadata_groups_list, metadata_list};
 use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    ImportOrExportPersonItem, MetadataListInput, ReviewItem,
+    ImportOrExportPersonItem, MetadataGroupsListInput, MetadataListInput, ReviewItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -263,39 +263,53 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let related_metadata = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for rm in related_metadata.iter() {
-            let m = rm
-                .find_related(MetadataGroup)
-                .one(&self.0.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, &self.0)
-                .await?
-                .into_iter()
-                .map(|r| self.get_review_export_item(r))
-                .collect();
-            let collections =
-                entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::MetadataGroup)
+        let mut current_page = 1;
+        loop {
+            let related_metadata = metadata_groups_list(
+                user_id,
+                &self.0,
+                MetadataGroupsListInput {
+                    search: Some(SearchInput {
+                        page: Some(current_page),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+            .await?;
+            ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
+            for rm in related_metadata.items.iter() {
+                let m = MetadataGroup::find_by_id(rm)
+                    .one(&self.0.db)
                     .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
-            let exp = ImportOrExportMetadataGroupItem {
-                reviews,
-                lot: m.lot,
-                collections,
-                title: m.title,
-                source: m.source,
-                identifier: m.identifier.clone(),
-            };
-            writer.serialize_value(&exp).unwrap();
+                    .ok_or_else(|| Error::new("Metadata group with the given ID does not exist"))?;
+                let reviews =
+                    item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, &self.0)
+                        .await?
+                        .into_iter()
+                        .map(|r| self.get_review_export_item(r))
+                        .collect();
+                let collections =
+                    entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::MetadataGroup)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
+                let exp = ImportOrExportMetadataGroupItem {
+                    reviews,
+                    lot: m.lot,
+                    collections,
+                    title: m.title,
+                    source: m.source,
+                    identifier: m.identifier.clone(),
+                };
+                writer.serialize_value(&exp).unwrap();
+            }
+            if let Some(next_page) = related_metadata.details.next_page {
+                current_page = next_page;
+            } else {
+                break;
+            }
         }
         Ok(())
     }
