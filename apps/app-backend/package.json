@@ -2,6 +2,7 @@
 	"main": "src/index.ts",
 	"name": "@ryot/app-backend",
 	"scripts": {
+		"test": "bun test",
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"dev": "bun run --watch src/index.ts",

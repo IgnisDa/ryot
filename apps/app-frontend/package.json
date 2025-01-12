@@ -6,6 +6,7 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
+		"test": "bun test",
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"preview": "vite preview",
