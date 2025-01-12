@@ -17,14 +17,15 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use dependent_utils::{metadata_groups_list, metadata_list};
+use dependent_utils::{metadata_groups_list, metadata_list, people_list};
 use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    ImportOrExportPersonItem, MetadataGroupsListInput, MetadataListInput, ReviewItem,
+    ImportOrExportPersonItem, MetadataGroupsListInput, MetadataListInput, PeopleListInput,
+    ReviewItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -319,38 +320,52 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let related_people = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::PersonId.is_not_null())
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for rm in related_people.iter() {
-            let p = rm
-                .find_related(Person)
-                .one(&self.0.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, &self.0)
-                .await?
-                .into_iter()
-                .map(|r| self.get_review_export_item(r))
-                .collect();
-            let collections = entity_in_collections(&self.0.db, user_id, &p.id, EntityLot::Person)
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
-            let exp = ImportOrExportPersonItem {
-                reviews,
-                collections,
-                name: p.name,
-                source: p.source,
-                identifier: p.identifier,
-                source_specifics: p.source_specifics,
-            };
-            writer.serialize_value(&exp).unwrap();
+        let mut current_page = 1;
+        loop {
+            let related_people = people_list(
+                user_id,
+                PeopleListInput {
+                    search: Some(SearchInput {
+                        page: Some(current_page),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &self.0,
+            )
+            .await?;
+            ryot_log!(debug, "Exporting people list page: {current_page}");
+            for rm in related_people.items.iter() {
+                let p = Person::find_by_id(rm)
+                    .one(&self.0.db)
+                    .await?
+                    .ok_or_else(|| Error::new("Person with the given ID does not exist"))?;
+                let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, &self.0)
+                    .await?
+                    .into_iter()
+                    .map(|r| self.get_review_export_item(r))
+                    .collect();
+                let collections =
+                    entity_in_collections(&self.0.db, user_id, &p.id, EntityLot::Person)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.name)
+                        .collect();
+                let exp = ImportOrExportPersonItem {
+                    reviews,
+                    collections,
+                    name: p.name,
+                    source: p.source,
+                    identifier: p.identifier,
+                    source_specifics: p.source_specifics,
+                };
+                writer.serialize_value(&exp).unwrap();
+            }
+            if let Some(next_page) = related_people.details.next_page {
+                current_page = next_page;
+            } else {
+                break;
+            }
         }
         Ok(())
     }

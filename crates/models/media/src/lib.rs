@@ -1312,7 +1312,7 @@ pub struct MetadataListInput {
     pub sort: Option<SortInput<MediaSortBy>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct PeopleListInput {
     pub take: Option<u64>,
     pub search: Option<SearchInput>,
