@@ -9,7 +9,6 @@
 		"module": "ESNext",
 		"skipLibCheck": true,
 		"noUnusedLocals": true,
-		"types": ["vite/client"],
 		"noUnusedParameters": true,
 		"verbatimModuleSyntax": true,
 		"moduleResolution": "bundler",
@@ -17,6 +16,7 @@
 		"allowImportingTsExtensions": true,
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true,
+		"types": ["vite/client", "bun-types"],
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
 			"#/*": ["./src/*"],
