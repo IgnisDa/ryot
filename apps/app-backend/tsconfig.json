@@ -9,6 +9,7 @@
 		"skipLibCheck": true,
 		"moduleResolution": "bundler",
 		"jsxImportSource": "hono/jsx",
-		"paths": { "~/*": ["src/*"] }
+		"paths": { "~/*": ["src/*"] },
+		"noUncheckedIndexedAccess": true
 	}
 }
