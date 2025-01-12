@@ -1334,16 +1334,16 @@ pub struct MediaConsumedInput {
     pub lot: MediaLot,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct UserMetadataDetailsEpisodeProgress {
-    pub episode_number: i32,
     pub times_seen: usize,
+    pub episode_number: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct UserMetadataDetailsShowSeasonProgress {
-    pub season_number: i32,
     pub times_seen: usize,
+    pub season_number: i32,
     pub episodes: Vec<UserMetadataDetailsEpisodeProgress>,
 }
 
