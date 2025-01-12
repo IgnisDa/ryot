@@ -1,3 +1,4 @@
+import { FacetMode } from "~/db/schema";
 import { animePropertiesJsonSchema } from "~/lib/zod/anime";
 import {
 	bookPropertiesJsonSchema,
@@ -22,6 +23,21 @@ import myanimelistMangaSearchScriptCode from "~/sandbox/scripts/myanimelist-mang
 import openLibraryBookDetailsScriptCode from "~/sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-search-source.txt";
 
+export const builtinFacets = () => [
+	{
+		slug: "media",
+		name: "Media",
+		mode: FacetMode.curated,
+		description: "Track media across books, anime, and manga.",
+	},
+	{
+		slug: "fitness",
+		name: "Fitness",
+		mode: FacetMode.curated,
+		description: "Track workouts, measurements, and progress.",
+	},
+];
+
 const bookEventSchemas = () => [
 	{
 		name: "Read",
@@ -39,18 +55,21 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "book",
 		name: "Book",
+		facetSlug: "media",
 		eventSchemas: bookEventSchemas(),
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
 		slug: "anime",
 		name: "Anime",
+		facetSlug: "media",
 		eventSchemas: [],
 		propertiesSchema: animePropertiesJsonSchema,
 	},
 	{
 		slug: "manga",
 		name: "Manga",
+		facetSlug: "media",
 		eventSchemas: [],
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
