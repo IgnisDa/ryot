@@ -111,10 +111,8 @@ struct Item<TId> {
     book_series: Option<
         Vec<
             nest! {
-                series: nest! {
-                    id: TId,
-                    name: String
-                }
+                book: Option<Item<TId>>,
+                series: Option<nest! { id: TId, name: String }>
             },
         >,
     >,
@@ -269,13 +267,15 @@ query {{
                 .book_series
                 .into_iter()
                 .flatten()
-                .map(|r| CommitMediaInput {
-                    name: r.series.name,
-                    unique: UniqueMediaIdentifier {
-                        lot: MediaLot::Book,
-                        source: MediaSource::Hardcover,
-                        identifier: r.series.id.to_string(),
-                    },
+                .filter_map(|s| {
+                    s.series.map(|r| CommitMediaInput {
+                        name: r.name,
+                        unique: UniqueMediaIdentifier {
+                            lot: MediaLot::Book,
+                            identifier: r.id.to_string(),
+                            source: MediaSource::Hardcover,
+                        },
+                    })
                 })
                 .collect(),
             people: data
@@ -347,6 +347,17 @@ query {{
     slug
     books_count
     description
+    book_series(
+      where: {{
+        book: {{
+          book_status_id: {{_eq: "1"}}, compilation: {{_eq: false}},
+          default_physical_edition: {{language_id: {{_eq: 1}}}}
+        }}
+      }}
+      order_by: {{position: asc}}
+    ) {{
+      book {{ id title }}
+    }}
   }}
 }}
     "#
@@ -373,7 +384,21 @@ query {{
                 .map(|s| format!("https://hardcover.app/series/{s}")),
             ..Default::default()
         };
-        Ok((details, vec![]))
+        let related = data
+            .book_series
+            .into_iter()
+            .flatten()
+            .filter_map(|s| {
+                s.book.map(|r| PartialMetadataWithoutId {
+                    lot: MediaLot::Book,
+                    title: r.title.unwrap(),
+                    identifier: r.id.to_string(),
+                    source: MediaSource::Hardcover,
+                    ..Default::default()
+                })
+            })
+            .collect();
+        Ok((details, related))
     }
 
     async fn metadata_group_search(
