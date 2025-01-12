@@ -528,10 +528,10 @@ impl ExporterService {
                 false => Some(rev.comments),
             },
             review: Some(ImportOrExportItemReview {
-                visibility: Some(rev.visibility),
+                text: rev.text_original,
                 date: Some(rev.posted_on),
                 spoiler: Some(rev.is_spoiler),
-                text: rev.text_original,
+                visibility: Some(rev.visibility),
             }),
         }
     }
