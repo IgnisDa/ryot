@@ -29,6 +29,7 @@ rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+slug = { workspace = true }
 sqlx = { workspace = true }
 supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
