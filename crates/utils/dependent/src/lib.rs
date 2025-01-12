@@ -3039,6 +3039,7 @@ pub async fn user_workouts_list(
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
     let page = input.page.unwrap_or(1);
+    let take = input.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = Workout::find()
         .select_only()
         .column(workout::Column::Id)
@@ -3048,7 +3049,7 @@ pub async fn user_workouts_list(
         })
         .order_by_desc(workout::Column::EndTime)
         .into_tuple::<String>()
-        .paginate(&ss.db, PAGE_SIZE.try_into().unwrap());
+        .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,
@@ -3073,6 +3074,7 @@ pub async fn user_workout_templates_list(
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
     let page = input.page.unwrap_or(1);
+    let take = input.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = WorkoutTemplate::find()
         .select_only()
         .column(workout_template::Column::Id)
@@ -3082,7 +3084,7 @@ pub async fn user_workout_templates_list(
         })
         .order_by_desc(workout_template::Column::CreatedOn)
         .into_tuple::<String>()
-        .paginate(&ss.db, PAGE_SIZE.try_into().unwrap());
+        .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,

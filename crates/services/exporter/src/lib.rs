@@ -386,6 +386,7 @@ impl ExporterService {
             let workout_ids = user_workouts_list(
                 user_id,
                 SearchInput {
+                    take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
                 },
@@ -476,6 +477,7 @@ impl ExporterService {
             let workout_template_ids = user_workout_templates_list(
                 user_id,
                 SearchInput {
+                    take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
                 },
