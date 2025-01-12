@@ -7,17 +7,15 @@ use common_models::{ExportJob, SearchInput};
 use common_utils::{ryot_log, TEMP_DIR};
 use database_models::{
     exercise,
-    prelude::{
-        Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout, WorkoutTemplate,
-    },
-    seen, user_to_entity, workout, workout_template,
+    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, WorkoutTemplate},
+    seen, user_to_entity, workout_template,
 };
 use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
-use dependent_utils::{metadata_groups_list, metadata_list, people_list};
+use dependent_utils::{metadata_groups_list, metadata_list, people_list, user_workouts_list};
 use enum_models::EntityLot;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
@@ -380,21 +378,31 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
-        let workout_ids = Workout::find()
-            .select_only()
-            .column(workout::Column::Id)
-            .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::EndTime)
-            .into_tuple::<String>()
-            .all(&self.0.db)
+        let mut current_page = 1;
+        loop {
+            let workout_ids = user_workouts_list(
+                user_id,
+                SearchInput {
+                    page: Some(current_page),
+                    ..Default::default()
+                },
+                &self.0,
+            )
             .await?;
-        for workout_id in workout_ids {
-            let details = user_workout_details(user_id, workout_id, &self.0).await?;
-            let exp = ImportOrExportWorkoutItem {
-                details: details.details,
-                collections: details.collections.into_iter().map(|c| c.name).collect(),
-            };
-            writer.serialize_value(&exp).unwrap();
+            ryot_log!(debug, "Exporting workouts list page: {current_page}");
+            for workout_id in workout_ids.items {
+                let details = user_workout_details(user_id, workout_id, &self.0).await?;
+                let exp = ImportOrExportWorkoutItem {
+                    details: details.details,
+                    collections: details.collections.into_iter().map(|c| c.name).collect(),
+                };
+                writer.serialize_value(&exp).unwrap();
+            }
+            if let Some(next_page) = workout_ids.details.next_page {
+                current_page = next_page;
+            } else {
+                break;
+            }
         }
         Ok(())
     }
