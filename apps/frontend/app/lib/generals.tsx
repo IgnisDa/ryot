@@ -508,3 +508,35 @@ export const openConfirmationModal = (title: string, onConfirm: () => void) =>
 		children: <Text size="sm">{title}</Text>,
 		labels: { confirm: "Confirm", cancel: "Cancel" },
 	});
+
+export enum ApplicationTimeRange {
+	Yesterday = "Yesterday",
+	Past7Days = "Past 7 Days",
+	Past30Days = "Past 30 Days",
+	Past6Months = "Past 6 Months",
+	Past12Months = "Past 12 Months",
+	ThisWeek = "This Week",
+	ThisMonth = "This Month",
+	ThisYear = "This Year",
+	AllTime = "All Time",
+	Custom = "Custom",
+}
+
+export const getStartTimeFromRange = (range: ApplicationTimeRange) =>
+	match(range)
+		.with(ApplicationTimeRange.Yesterday, () => dayjs().subtract(1, "day"))
+		.with(ApplicationTimeRange.ThisWeek, () => dayjs().startOf("week"))
+		.with(ApplicationTimeRange.ThisMonth, () => dayjs().startOf("month"))
+		.with(ApplicationTimeRange.ThisYear, () => dayjs().startOf("year"))
+		.with(ApplicationTimeRange.Past7Days, () => dayjs().subtract(7, "day"))
+		.with(ApplicationTimeRange.Past30Days, () => dayjs().subtract(30, "day"))
+		.with(ApplicationTimeRange.Past6Months, () => dayjs().subtract(6, "month"))
+		.with(ApplicationTimeRange.Past12Months, () =>
+			dayjs().subtract(12, "month"),
+		)
+		.with(
+			ApplicationTimeRange.AllTime,
+			ApplicationTimeRange.Custom,
+			() => undefined,
+		)
+		.exhaustive();
