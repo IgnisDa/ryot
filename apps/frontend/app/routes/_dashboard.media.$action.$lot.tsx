@@ -4,6 +4,7 @@ import {
 	Button,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -58,9 +59,11 @@ import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
+	ProRequiredAlert,
 } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import {
+	ApplicationTimeRange,
 	Verb,
 	commaDelimitedString,
 	getLot,
@@ -70,6 +73,7 @@ import {
 import {
 	useAppSearchParam,
 	useApplicationEvents,
+	useCoreDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -228,6 +232,7 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -325,37 +330,43 @@ export default function Page() {
 									</Text>{" "}
 									items found
 								</Box>
-								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((item) => {
-										const becItem = {
-											entityId: item,
-											entityLot: EntityLot.Metadata,
-										};
-										const isAdded = bulkEditingCollection.isAdded(becItem);
-										return (
-											<MetadataDisplayItem
-												key={item}
-												metadataId={item}
-												rightLabelHistory
-												topRight={
-													bulkEditingState &&
-													bulkEditingState.data.action === "add" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="green"
-															onClick={() => {
-																if (isAdded) bulkEditingState.remove(becItem);
-																else bulkEditingState.add(becItem);
-															}}
-														>
-															<IconCheck size={18} />
-														</ActionIcon>
-													) : undefined
-												}
-											/>
-										);
-									})}
-								</ApplicationGrid>
+								{(loaderData.mediaList?.url.startDateRange ||
+									loaderData.mediaList?.url.endDateRange) &&
+								!coreDetails.isServerKeyValidated ? (
+									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
+								) : (
+									<ApplicationGrid>
+										{loaderData.mediaList.list.items.map((item) => {
+											const becItem = {
+												entityId: item,
+												entityLot: EntityLot.Metadata,
+											};
+											const isAdded = bulkEditingCollection.isAdded(becItem);
+											return (
+												<MetadataDisplayItem
+													key={item}
+													metadataId={item}
+													rightLabelHistory
+													topRight={
+														bulkEditingState &&
+														bulkEditingState.data.action === "add" ? (
+															<ActionIcon
+																variant={isAdded ? "filled" : "transparent"}
+																color="green"
+																onClick={() => {
+																	if (isAdded) bulkEditingState.remove(becItem);
+																	else bulkEditingState.add(becItem);
+																}}
+															>
+																<IconCheck size={18} />
+															</ActionIcon>
+														) : undefined
+													}
+												/>
+											);
+										})}
+									</ApplicationGrid>
+								)}
 							</>
 						) : (
 							<Text>You do not have any saved yet</Text>
@@ -615,6 +626,11 @@ const FiltersModalForm = () => {
 				cookieName={loaderData.cookieName}
 				collections={loaderData.mediaList.url.collections}
 				invertCollection={loaderData.mediaList.url.invertCollection}
+			/>
+			<Divider />
+			<Select
+				placeholder="Select a date range"
+				data={Object.values(ApplicationTimeRange)}
 			/>
 		</>
 	);
