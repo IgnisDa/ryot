@@ -126,15 +126,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Import job started in the background",
-					}),
-				},
-			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Import job started in the background",
+				}),
+			});
 		})
 		.with("deployExport", async () => {
 			await serverGqlService.authenticatedRequest(
@@ -142,15 +139,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeployExportJobDocument,
 				{},
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Export job started in the background",
-					}),
-				},
-			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Export job started in the background",
+				}),
+			});
 		})
 		.with("deleteExport", async () => {
 			const submission = processSubmission(formData, deleteExportSchema);
@@ -159,15 +153,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeleteS3ObjectDocument,
 				{ key: submission.key },
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Export job deleted successfully",
-					}),
-				},
-			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Export job deleted successfully",
+				}),
+			});
 		})
 		.run();
 };
