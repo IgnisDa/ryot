@@ -1,6 +1,7 @@
 import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	Accordion,
+	ActionIcon,
 	Anchor,
 	Box,
 	Button,
@@ -28,6 +29,7 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
+	DeleteS3ObjectDocument,
 	DeployExportJobDocument,
 	DeployImportJobDocument,
 	ImportReportsDocument,
@@ -40,7 +42,7 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
 import { match } from "ts-pattern";
@@ -150,8 +152,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				},
 			);
 		})
+		.with("deleteExport", async () => {
+			const submission = processSubmission(formData, deleteExportSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				DeleteS3ObjectDocument,
+				{ key: submission.key },
+			);
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Export job deleted successfully",
+					}),
+				},
+			);
+		})
 		.run();
 };
+
+const deleteExportSchema = z.object({
+	key: z.string(),
+});
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
@@ -585,11 +608,39 @@ export default function Page() {
 														({filesize(exp.size)})
 													</Text>
 												</Group>
-												<Anchor href={exp.url} target="_blank" rel="noreferrer">
-													<ThemeIcon color="blue" variant="transparent">
-														<IconDownload />
-													</ThemeIcon>
-												</Anchor>
+												<Group>
+													<Anchor
+														href={exp.url}
+														target="_blank"
+														rel="noreferrer"
+													>
+														<ThemeIcon color="blue" variant="transparent">
+															<IconDownload />
+														</ThemeIcon>
+													</Anchor>
+													<Form
+														method="POST"
+														encType="multipart/form-data"
+														action={withQuery(".", { intent: "deleteExport" })}
+													>
+														<input hidden name="key" defaultValue={exp.key} />
+														<ActionIcon
+															color="red"
+															type="submit"
+															variant="transparent"
+															onClick={(e) => {
+																const form = e.currentTarget.form;
+																e.preventDefault();
+																openConfirmationModal(
+																	"Are you sure you want to delete this export? This action is irreversible.",
+																	() => submit(form),
+																);
+															}}
+														>
+															<IconTrash />
+														</ActionIcon>
+													</Form>
+												</Group>
 											</Group>
 										</Box>
 									))}
