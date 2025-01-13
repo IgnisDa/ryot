@@ -91,10 +91,11 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
+	mineDateRange: undefined,
 	mineCollection: undefined,
-	mineGeneralFilter: MediaGeneralFilter.All,
-	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
+	mineSortOrder: GraphqlSortOrder.Desc,
+	mineGeneralFilter: MediaGeneralFilter.All,
 };
 
 enum Action {
@@ -119,15 +120,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
+				collections: commaDelimitedString,
+				endDateRange: z.string().date().optional(),
+				startDateRange: z.string().date().optional(),
+				invertCollection: zx.BoolAsString.optional(),
+				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
-				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collections: commaDelimitedString,
-				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -135,13 +138,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					input: {
 						lot,
-						search: { page: query[pageQueryParam], query: query.query },
+						invertCollection: urlParse.invertCollection,
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+						search: { page: query[pageQueryParam], query: query.query },
 						filter: {
 							general: urlParse.generalFilter,
 							collections: urlParse.collections,
+							dateRange: {
+								endDate: urlParse.endDateRange,
+								startDate: urlParse.startDateRange,
+							},
 						},
-						invertCollection: urlParse.invertCollection,
 					},
 				},
 			);
@@ -228,21 +235,23 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const bulkEditingState = bulkEditingCollection.state;
 
+	const bulkEditingState = bulkEditingCollection.state;
+	const mediaSearch = loaderData.mediaSearch;
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection;
-	const mediaSearch = loaderData.mediaSearch;
+		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
+		loaderData.mediaList?.url.startDateRange !== defaultFilters.mineDateRange ||
+		loaderData.mediaList?.url.endDateRange !== defaultFilters.mineDateRange;
 
 	return (
 		<Container>
 			<Tabs
-				variant="default"
 				mt="sm"
+				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
 					if (v)
@@ -301,9 +310,9 @@ export default function Page() {
 								<IconFilter size={24} />
 							</ActionIcon>
 							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
 								opened={filtersModalOpened}
+								cookieName={loaderData.cookieName}
+								closeFiltersModal={closeFiltersModal}
 							>
 								<FiltersModalForm />
 							</FiltersModal>

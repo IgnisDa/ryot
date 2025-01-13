@@ -472,10 +472,10 @@ export const FiltersModal = (props: {
 
 	return (
 		<Modal
-			onClose={props.closeFiltersModal}
+			centered
 			opened={props.opened}
 			withCloseButton={false}
-			centered
+			onClose={props.closeFiltersModal}
 		>
 			<Stack>
 				<Group justify="space-between">
