@@ -95,8 +95,9 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineDateRange: undefined,
 	mineCollection: undefined,
+	mineEndDateRange: undefined,
+	mineStartDateRange: undefined,
 	mineSortBy: MediaSortBy.LastSeen,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
@@ -249,8 +250,9 @@ export default function Page() {
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
-		loaderData.mediaList?.url.startDateRange !== defaultFilters.mineDateRange ||
-		loaderData.mediaList?.url.endDateRange !== defaultFilters.mineDateRange;
+		loaderData.mediaList?.url.startDateRange !==
+			defaultFilters.mineStartDateRange ||
+		loaderData.mediaList?.url.endDateRange !== defaultFilters.mineEndDateRange;
 
 	return (
 		<Container>
