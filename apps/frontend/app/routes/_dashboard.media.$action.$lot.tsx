@@ -572,18 +572,13 @@ const FiltersModalForm = () => {
 		<>
 			<Select
 				defaultValue={loaderData.mediaList.url.generalFilter}
-				data={[
-					{
-						group: "General filters",
-						items: Object.values(MediaGeneralFilter).map((o) => ({
-							value: o.toString(),
-							label: startCase(o.toLowerCase()),
-						})),
-					},
-				]}
 				onChange={(v) => {
 					if (v) setP("generalFilter", v);
 				}}
+				data={Object.values(MediaGeneralFilter).map((o) => ({
+					value: o.toString(),
+					label: startCase(o.toLowerCase()),
+				}))}
 			/>
 			<Flex gap="xs" align="center">
 				<Select
