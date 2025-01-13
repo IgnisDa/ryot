@@ -29,7 +29,6 @@ import {
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	DeleteS3ObjectDocument,
 	DeployExportJobDocument,
 	DeployImportJobDocument,
 	ImportReportsDocument,
@@ -45,6 +44,7 @@ import {
 import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
@@ -146,26 +146,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			});
 		})
-		.with("deleteExport", async () => {
-			const submission = processSubmission(formData, deleteExportSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeleteS3ObjectDocument,
-				{ key: submission.key },
-			);
-			return Response.json({ status: "success" } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Export job deleted successfully",
-				}),
-			});
-		})
 		.run();
 };
-
-const deleteExportSchema = z.object({
-	key: z.string(),
-});
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
@@ -611,8 +593,9 @@ export default function Page() {
 													</Anchor>
 													<Form
 														method="POST"
-														encType="multipart/form-data"
-														action={withQuery(".", { intent: "deleteExport" })}
+														action={withQuery($path("/actions"), {
+															intent: "deleteS3Asset",
+														})}
 													>
 														<input hidden name="key" defaultValue={exp.key} />
 														<ActionIcon
