@@ -645,6 +645,7 @@ export type ExercisesListInput = {
 export type ExportJob = {
   __typename?: 'ExportJob';
   endedAt: Scalars['DateTime']['output'];
+  key: Scalars['String']['output'];
   size: Scalars['Int']['output'];
   startedAt: Scalars['DateTime']['output'];
   url: Scalars['String']['output'];
