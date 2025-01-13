@@ -1002,6 +1002,7 @@ export type MediaCollectionContentsResults = {
 
 export type MediaFilter = {
   collections?: InputMaybe<Array<Scalars['String']['input']>>;
+  dateRange?: InputMaybe<ApplicationDateRangeInput>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
 
