@@ -636,7 +636,7 @@ const FiltersModalForm = () => {
 			<Stack gap="xs">
 				<Select
 					size="xs"
-					description="Select a date range"
+					description="Finished between time range"
 					data={Object.values(ApplicationTimeRange)}
 					defaultValue={loaderData.mediaList.url.dateRange}
 					onChange={(v) => {
