@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ApplicationCache::Version).text().not_null())
+                    .col(ColumnDef::new(ApplicationCache::Version).text())
                     .to_owned(),
             )
             .await?;
