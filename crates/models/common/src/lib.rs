@@ -206,6 +206,7 @@ pub enum UserNotificationContent {
 pub struct ExportJob {
     pub size: i64,
     pub url: String,
+    pub key: String,
     pub ended_at: DateTimeUtc,
     pub started_at: DateTimeUtc,
 }

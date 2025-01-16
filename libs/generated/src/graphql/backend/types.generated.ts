@@ -649,6 +649,7 @@ export type ExercisesListInput = {
 export type ExportJob = {
   __typename?: 'ExportJob';
   endedAt: Scalars['DateTime']['output'];
+  key: Scalars['String']['output'];
   size: Scalars['Int']['output'];
   startedAt: Scalars['DateTime']['output'];
   url: Scalars['String']['output'];
@@ -712,12 +713,6 @@ export type GenreListItem = {
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
   numItems?: Maybe<Scalars['Int']['output']>;
-};
-
-export type GenreListResults = {
-  __typename?: 'GenreListResults';
-  details: SearchDetails;
-  items: Array<GenreListItem>;
 };
 
 export type GraphqlCalendarEvent = {
@@ -1810,7 +1805,7 @@ export type QueryRoot = {
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
-  genresList: GenreListResults;
+  genresList: IdResults;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
