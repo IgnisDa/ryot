@@ -580,7 +580,7 @@ const MediaSearchItem = (props: {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP, delP }] = useAppSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	if (!loaderData.mediaList) return null;
 
@@ -640,12 +640,17 @@ const FiltersModalForm = () => {
 					data={Object.values(ApplicationTimeRange)}
 					defaultValue={loaderData.mediaList.url.dateRange}
 					onChange={(v) => {
-						const startDateRange = getStartTimeFromRange(
-							v as ApplicationTimeRange,
-						);
+						const range = v as ApplicationTimeRange;
+						const startDateRange = getStartTimeFromRange(range);
 						setP("dateRange", v);
+						if (range === ApplicationTimeRange.Custom) return;
 						setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
-						delP("endDateRange");
+						setP(
+							"endDateRange",
+							range === ApplicationTimeRange.AllTime
+								? ""
+								: dayjsLib().format("YYYY-MM-DD"),
+						);
 					}}
 				/>
 				{loaderData.mediaList.url.dateRange === ApplicationTimeRange.Custom ? (
