@@ -10,6 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE "application_cache" ALTER COLUMN "version" DROP NOT NULL;
+ALTER TABLE "application_cache" ALTER COLUMN "expires_at" NOT NULL;
         "#,
         )
         .await?;
