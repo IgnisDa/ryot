@@ -121,10 +121,8 @@ impl CacheService {
             if !valid_by_expiry {
                 continue;
             }
-            if let Some(version) = cache.version {
-                if version != self.version {
-                    continue;
-                }
+            if cache.version.filter(|v| v == &self.version).is_none() {
+                continue;
             }
             values.insert(cache.key, serde_json::from_value(cache.value)?);
         }
