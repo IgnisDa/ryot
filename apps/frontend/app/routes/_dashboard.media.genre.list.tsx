@@ -8,16 +8,17 @@ import {
 	Image,
 	Pagination,
 	Paper,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	GenreDetailsDocument,
 	GenresListDocument,
-	type GenresListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getInitials, isString, truncate } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
@@ -101,8 +102,8 @@ export default function Page() {
 							items found
 						</Box>
 						<ApplicationGrid>
-							{loaderData.genresList.items.map((genre) => (
-								<DisplayGenre key={genre.id} genre={genre} />
+							{loaderData.genresList.items.map((genreId) => (
+								<DisplayGenre key={genreId} genreId={genreId} />
 							))}
 						</ApplicationGrid>
 					</>
@@ -124,18 +125,16 @@ export default function Page() {
 	);
 }
 
-type Genre = GenresListQuery["genresList"]["items"][number];
-
-const DisplayGenre = (props: { genre: Genre }) => {
+const DisplayGenre = (props: { genreId: string }) => {
 	const coreDetails = useCoreDetails();
-	const color = useGetRandomMantineColor(props.genre.name);
-	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.genre.name));
-	const { data: genreImages } = useQuery({
-		queryKey: queryFactory.media.genreImages(props.genre.id).queryKey,
+	const { ref, inViewport } = useInViewport();
+	const { data: genreData } = useQuery({
+		enabled: inViewport,
+		queryKey: queryFactory.media.genreImages(props.genreId).queryKey,
 		queryFn: async () => {
 			const { genreDetails } = await clientGqlService.request(
 				GenreDetailsDocument,
-				{ input: { genreId: props.genre.id } },
+				{ input: { genreId: props.genreId } },
 			);
 			let images = [];
 			for (const content of genreDetails.contents.items) {
@@ -146,27 +145,31 @@ const DisplayGenre = (props: { genre: Genre }) => {
 				if (isString(image)) images.push(image);
 			}
 			if (images.length < 4) images = images.splice(0, 1);
-			return images;
+			return { genreDetails, images };
 		},
 	});
 
-	return (
+	const genreName = genreData?.genreDetails.details.name || "";
+	const color = useGetRandomMantineColor(genreName);
+	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
+
+	return genreData ? (
 		<Anchor
 			component={Link}
-			to={$path("/media/genre/:id", { id: props.genre.id })}
+			to={$path("/media/genre/:id", { id: props.genreId })}
 		>
 			<Stack gap={4}>
 				<Box pos="relative">
 					{coreDetails.isServerKeyValidated ? (
 						<Paper radius="md" style={{ overflow: "hidden" }}>
 							<Flex h={260} w={168} wrap="wrap">
-								{genreImages?.map((image) => (
+								{genreData.images.map((image) => (
 									<Image
-										h={genreImages.length === 1 ? "auto" : 130}
-										w={genreImages.length === 1 ? "auto" : 84}
 										key={image}
 										src={image}
-										alt={props.genre.name}
+										alt={props.genreId}
+										h={genreData.images.length === 1 ? "auto" : 130}
+										w={genreData.images.length === 1 ? "auto" : 84}
 									/>
 								))}
 							</Flex>
@@ -174,9 +177,9 @@ const DisplayGenre = (props: { genre: Genre }) => {
 					) : (
 						<>
 							<Image
-								radius="md"
 								h={260}
-								alt={props.genre.name}
+								radius="md"
+								alt={genreName}
 								fallbackSrc={fallbackImageUrl}
 							/>
 							<Box pos="absolute" left={0} right={0} bottom={0}>
@@ -187,9 +190,11 @@ const DisplayGenre = (props: { genre: Genre }) => {
 				</Box>
 				<Group justify="center">
 					<Box h={11} w={11} bg={color} style={{ borderRadius: 2 }} />
-					<Text>{truncate(props.genre.name, { length: 13 })}</Text>
+					<Text>{truncate(genreName, { length: 13 })}</Text>
 				</Group>
 			</Stack>
 		</Anchor>
+	) : (
+		<Skeleton height={290} ref={ref} />
 	);
 };
