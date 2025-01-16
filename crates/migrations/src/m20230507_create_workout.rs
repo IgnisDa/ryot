@@ -1,7 +1,6 @@
-// FIXME: Rename this to m20230507_create_workout in the next major release
 use sea_orm_migration::prelude::*;
 
-use super::{m20230417_create_user::User, m20230818_create_workout_template::WorkoutTemplate};
+use super::{m20230404_create_user::User, m20230506_create_workout_template::WorkoutTemplate};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

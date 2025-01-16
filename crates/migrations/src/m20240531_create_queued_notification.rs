@@ -1,7 +1,7 @@
 // FIXME: Remove this migration completely
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::m20230404_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

@@ -1,7 +1,6 @@
-// FIXME: Rename this to m20230506_create_workout_template in the next major release
 use sea_orm_migration::prelude::*;
 
-use crate::m20230417_create_user::User;
+use crate::m20230404_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

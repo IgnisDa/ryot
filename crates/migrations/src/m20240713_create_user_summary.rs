@@ -2,7 +2,7 @@
 
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::m20230404_create_user::User;
 
 pub static USER_STATISTIC_PRIMARY_KEY: &str = "pk-user_summary";
 

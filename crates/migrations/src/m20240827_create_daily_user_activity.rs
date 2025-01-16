@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::m20230404_create_user::User;
 
 fn integer_not_null<T: IntoIden>(col: T) -> ColumnDef {
     ColumnDef::new(col).integer().not_null().default(0).take()
