@@ -65,15 +65,20 @@ impl CacheService {
         let now = Utc::now();
         let to_insert = items
             .into_iter()
-            .map(|(key, value)| application_cache::ActiveModel {
-                created_at: ActiveValue::Set(now),
-                key: ActiveValue::Set(key.clone()),
-                version: ActiveValue::Set(self.version.to_owned()),
-                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
-                expires_at: ActiveValue::Set(Some(
-                    now + Duration::hours(self.get_expiry_for_key(&key)),
-                )),
-                ..Default::default()
+            .map(|(key, value)| {
+                let version = self
+                    .should_respect_version(&key)
+                    .then(|| self.version.to_owned());
+                application_cache::ActiveModel {
+                    created_at: ActiveValue::Set(now),
+                    key: ActiveValue::Set(key.clone()),
+                    version: ActiveValue::Set(version),
+                    value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                    expires_at: ActiveValue::Set(Some(
+                        now + Duration::hours(self.get_expiry_for_key(&key)),
+                    )),
+                    ..Default::default()
+                }
             })
             .collect_vec();
         let inserted = ApplicationCache::insert_many(to_insert)
@@ -116,9 +121,10 @@ impl CacheService {
             if !valid_by_expiry {
                 continue;
             }
-            let should_respect_version = self.should_respect_version(&cache.key);
-            if should_respect_version && cache.version != self.version {
-                continue;
+            if let Some(version) = cache.version {
+                if version != self.version {
+                    continue;
+                }
             }
             values.insert(cache.key, serde_json::from_value(cache.value)?);
         }
