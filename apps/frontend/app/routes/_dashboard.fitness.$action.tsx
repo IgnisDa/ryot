@@ -716,11 +716,18 @@ export default function Page() {
 const NameAndCommentInputs = (props: {
 	openAssetsModal: () => void;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
 
 	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
 	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
+	const [isCaloriesBurntModalOpen, setIsCaloriesBurntModalOpen] =
+		useState(false);
+	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(
+		currentWorkout.caloriesBurnt,
+		500,
+	);
 	const workoutHasImages = currentWorkout.images.length > 0;
 
 	useDidUpdate(() => {
@@ -741,8 +748,28 @@ const NameAndCommentInputs = (props: {
 			);
 	}, [comment]);
 
+	useDidUpdate(() => {
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.caloriesBurnt = caloriesBurnt;
+			}),
+		);
+	}, [caloriesBurnt]);
+
 	return (
 		<>
+			<Modal
+				withCloseButton={false}
+				opened={isCaloriesBurntModalOpen}
+				onClose={() => setIsCaloriesBurntModalOpen(false)}
+			>
+				<NumberInput
+					size="sm"
+					label="Calories burnt"
+					value={currentWorkout.caloriesBurnt}
+					onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
+				/>
+			</Modal>
 			<TextInput
 				required
 				size="sm"
@@ -762,9 +789,22 @@ const NameAndCommentInputs = (props: {
 			<Textarea
 				size="sm"
 				minRows={2}
-				label="Comment"
 				defaultValue={comment}
+				styles={{ label: { width: "100%" } }}
 				placeholder="Your thoughts about this workout"
+				label={
+					<Group justify="space-between" mr="xs">
+						<Text size="sm">Comments</Text>
+						{!loaderData.isCreatingTemplate ? (
+							<Anchor
+								size="xs"
+								onClick={() => setIsCaloriesBurntModalOpen(true)}
+							>
+								Details
+							</Anchor>
+						) : null}
+					</Group>
+				}
 				onChange={(e) => setComment(e.currentTarget.value)}
 			/>
 		</>

@@ -59,6 +59,7 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 			workoutRestTime
 			measurementCount
 			workoutPersonalBests
+			workoutCaloriesBurnt
 			workoutExercises {
 				count
 				exercise

@@ -2019,6 +2019,7 @@ pub async fn create_or_update_user_workout(
         start_time: input.start_time,
         template_id: input.template_id,
         repeated_from: input.repeated_from,
+        calories_burnt: input.calories_burnt,
         duration: duration.try_into().unwrap(),
         information: WorkoutInformation {
             assets: input.assets,
@@ -2526,6 +2527,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         create_workout_id: Some(user_workout.id),
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
+        calories_burnt: user_workout.calories_burnt,
         supersets: user_workout.information.supersets,
         durations: user_workout.information.durations,
         exercises: user_workout

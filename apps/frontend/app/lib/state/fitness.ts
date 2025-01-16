@@ -81,6 +81,7 @@ export type InProgressWorkout = {
 	videos: Array<string>;
 	repeatedFrom?: string;
 	supersets: Superset[];
+	caloriesBurnt?: number;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
@@ -212,6 +213,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
+			caloriesBurnt: currentWorkout.caloriesBurnt?.toString(),
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			assets: {

@@ -42,6 +42,7 @@ import {
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
+	IconFlame,
 	IconPencil,
 	IconPlayerPlay,
 	IconRepeat,
@@ -137,6 +138,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				repeatedWorkout: repeatedWorkout,
 				template,
 				collections: userWorkoutDetails.collections,
+				caloriesBurnt: userWorkoutDetails.details.caloriesBurnt,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -156,6 +158,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				repeatedWorkout: null,
 				template: null,
 				collections: userWorkoutTemplateDetails.collections,
+				caloriesBurnt: null,
 			};
 		})
 		.exhaustive();
@@ -543,6 +546,13 @@ export default function Page() {
 												loaderData.summary.total.restTime * 1e3,
 												{ round: true, units: ["m", "s"] },
 											)}
+										/>
+									) : null}
+									{loaderData.caloriesBurnt &&
+									Number(loaderData.caloriesBurnt) > 0 ? (
+										<DisplayStat
+											icon={<IconFlame size={16} />}
+											data={`${loaderData.caloriesBurnt} calories`}
 										/>
 									) : null}
 								</>

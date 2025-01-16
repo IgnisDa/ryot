@@ -54,10 +54,7 @@ impl CacheService {
     }
 
     fn should_respect_version(&self, key: &ApplicationCacheKey) -> bool {
-        match key {
-            ApplicationCacheKey::CoreDetails => true,
-            _ => false,
-        }
+        matches!(key, ApplicationCacheKey::CoreDetails)
     }
 
     pub async fn set_keys(

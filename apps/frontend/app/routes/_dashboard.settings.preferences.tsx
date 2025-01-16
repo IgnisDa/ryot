@@ -250,9 +250,9 @@ export default function Page() {
 													defaultValue={
 														userPreferences.featuresEnabled[facet].specific
 													}
-													data={Object.values(MediaLot).map((lot) => ({
+													data={Object.entries(MediaLot).map(([name, lot]) => ({
 														value: lot,
-														label: changeCase(lot),
+														label: changeCase(name),
 													}))}
 													onChange={(val) => {
 														if (val) {
