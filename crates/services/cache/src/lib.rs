@@ -74,9 +74,9 @@ impl CacheService {
                     key: ActiveValue::Set(key.clone()),
                     version: ActiveValue::Set(version),
                     value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
-                    expires_at: ActiveValue::Set(Some(
+                    expires_at: ActiveValue::Set(
                         now + Duration::hours(self.get_expiry_for_key(&key)),
-                    )),
+                    ),
                     ..Default::default()
                 }
             })
@@ -117,7 +117,7 @@ impl CacheService {
             .await?;
         let mut values = HashMap::new();
         for cache in caches {
-            let valid_by_expiry = cache.expires_at.map_or(true, |ea| ea > Utc::now());
+            let valid_by_expiry = cache.expires_at > Utc::now();
             if !valid_by_expiry {
                 continue;
             }
@@ -143,7 +143,7 @@ impl CacheService {
         let deleted = ApplicationCache::update_many()
             .filter(application_cache::Column::Key.eq(key))
             .set(application_cache::ActiveModel {
-                expires_at: ActiveValue::Set(Some(Utc::now())),
+                expires_at: ActiveValue::Set(Utc::now()),
                 ..Default::default()
             })
             .exec(&self.db)
