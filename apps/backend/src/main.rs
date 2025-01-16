@@ -259,13 +259,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240606_is_v6_migration'
+            WHERE version = 'm20240825_is_v7_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240817_is_last_v6_migration'
+                WHERE version = 'm20250117_is_last_v7_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v6 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v7 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
