@@ -10,11 +10,11 @@ pub struct Model {
     pub id: Uuid,
     pub version: Option<String>,
     pub created_at: DateTimeUtc,
+    pub expires_at: DateTimeUtc,
     #[sea_orm(column_type = "Json")]
     pub key: ApplicationCacheKey,
     #[sea_orm(column_type = "Json")]
     pub value: serde_json::Value,
-    pub expires_at: Option<DateTimeUtc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
