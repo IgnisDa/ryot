@@ -25,45 +25,8 @@ mod m20240607_create_integration;
 mod m20240712_create_notification_platform;
 mod m20240713_create_user_summary;
 mod m20240714_create_access_link;
-mod m20240825_is_v7_migration;
 mod m20240827_create_daily_user_activity;
-mod m20240827_zz_changes_for_daily_user_activity;
-mod m20240828_add_last_login_on_column_to_user;
-mod m20240828_zz_add_columns_to_daily_user_activity;
-mod m20240829_change_structure_for_exercise_extra_information;
-mod m20240831_add_is_account_default_column_to_access_link;
-mod m20240831_add_templates_key_to_preferences;
-mod m20240903_add_changes_for_user_to_collection_removal;
-mod m20240904_create_monitored_entity;
-mod m20240918_add_default_rest_timer_to_workout_template;
-mod m20240923_remove_extra_columns_for_daily_user_activities;
-mod m20240926_add_columns_for_open_sourcing_pro_version;
-mod m20240928_add_grid_packing_to_general_preferences;
-mod m20241002_add_columns_for_associating_seen_with_reviews;
-mod m20241004_create_application_cache;
-mod m20241006_changes_for_issue_1056;
-mod m20241010_changes_for_issue_708;
-mod m20241013_changes_for_issue_1052;
-mod m20241019_changes_for_issue_929;
-mod m20241019_changes_for_issue_964;
-mod m20241025_changes_for_issue_1084;
-mod m20241110_changes_for_issue_1103;
-mod m20241121_changes_for_issue_445;
-mod m20241124_changes_for_issue_1118;
-mod m20241126_changes_for_issue_1113;
-mod m20241129_changes_for_issue_1114;
 mod m20241214_create_user_notification;
-mod m20241215_changes_for_issue_1131;
-mod m20241220_changes_for_issue_1141;
-mod m20241220_changes_for_issue_49;
-mod m20241224_changes_for_issue_1139;
-mod m20241227_changes_for_issue_1157;
-mod m20241228_changes_for_issue_1130;
-mod m20241229_changes_for_issue_1155;
-mod m20250112_changes_for_issue_1174;
-mod m20250113_changes_for_issue_1169;
-mod m20250115_changes_for_issue_1110;
-mod m20250116_changes_for_issue_1161;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -110,45 +73,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240712_create_notification_platform::Migration),
             Box::new(m20240713_create_user_summary::Migration),
             Box::new(m20240714_create_access_link::Migration),
-            Box::new(m20240825_is_v7_migration::Migration),
             Box::new(m20240827_create_daily_user_activity::Migration),
-            Box::new(m20240827_zz_changes_for_daily_user_activity::Migration),
-            Box::new(m20240828_add_last_login_on_column_to_user::Migration),
-            Box::new(m20240828_zz_add_columns_to_daily_user_activity::Migration),
-            Box::new(m20240829_change_structure_for_exercise_extra_information::Migration),
-            Box::new(m20240831_add_templates_key_to_preferences::Migration),
-            Box::new(m20240831_add_is_account_default_column_to_access_link::Migration),
-            Box::new(m20240903_add_changes_for_user_to_collection_removal::Migration),
-            Box::new(m20240904_create_monitored_entity::Migration),
-            Box::new(m20240918_add_default_rest_timer_to_workout_template::Migration),
-            Box::new(m20240923_remove_extra_columns_for_daily_user_activities::Migration),
-            Box::new(m20240926_add_columns_for_open_sourcing_pro_version::Migration),
-            Box::new(m20240928_add_grid_packing_to_general_preferences::Migration),
-            Box::new(m20241002_add_columns_for_associating_seen_with_reviews::Migration),
-            Box::new(m20241004_create_application_cache::Migration),
-            Box::new(m20241006_changes_for_issue_1056::Migration),
-            Box::new(m20241010_changes_for_issue_708::Migration),
-            Box::new(m20241013_changes_for_issue_1052::Migration),
-            Box::new(m20241019_changes_for_issue_929::Migration),
-            Box::new(m20241019_changes_for_issue_964::Migration),
-            Box::new(m20241025_changes_for_issue_1084::Migration),
-            Box::new(m20241110_changes_for_issue_1103::Migration),
-            Box::new(m20241121_changes_for_issue_445::Migration),
-            Box::new(m20241124_changes_for_issue_1118::Migration),
-            Box::new(m20241129_changes_for_issue_1114::Migration),
-            Box::new(m20241126_changes_for_issue_1113::Migration),
             Box::new(m20241214_create_user_notification::Migration),
-            Box::new(m20241215_changes_for_issue_1131::Migration),
-            Box::new(m20241220_changes_for_issue_49::Migration),
-            Box::new(m20241220_changes_for_issue_1141::Migration),
-            Box::new(m20241224_changes_for_issue_1139::Migration),
-            Box::new(m20241227_changes_for_issue_1157::Migration),
-            Box::new(m20241228_changes_for_issue_1130::Migration),
-            Box::new(m20241229_changes_for_issue_1155::Migration),
-            Box::new(m20250112_changes_for_issue_1174::Migration),
-            Box::new(m20250113_changes_for_issue_1169::Migration),
-            Box::new(m20250115_changes_for_issue_1110::Migration),
-            Box::new(m20250116_changes_for_issue_1161::Migration),
         ]
     }
 }
