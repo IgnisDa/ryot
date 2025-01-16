@@ -83,6 +83,7 @@ import {
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import {
+	type FormEvent,
 	Fragment,
 	type ReactNode,
 	type RefObject,
@@ -286,7 +287,78 @@ export default function Page() {
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
 
-	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+	const additionalMetadataDetails = [
+		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
+			<Link
+				key="group-link"
+				style={{ color: "unset" }}
+				to={$path("/media/groups/item/:id", {
+					id: firstGroupAssociated.id,
+				})}
+			>
+				<Text c="dimmed" fs="italic" span>
+					{firstGroupAssociated.name} #{firstGroupAssociated.part}
+				</Text>
+			</Link>
+		),
+		loaderData.metadataDetails.publishDate
+			? dayjsLib(loaderData.metadataDetails.publishDate).format("LL")
+			: loaderData.metadataDetails.publishYear,
+		loaderData.metadataDetails.originalLanguage,
+		loaderData.metadataDetails.productionStatus,
+		loaderData.metadataDetails.bookSpecifics?.pages &&
+			`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
+		loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
+			`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
+		loaderData.metadataDetails.animeSpecifics?.episodes &&
+			`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
+		loaderData.metadataDetails.mangaSpecifics?.chapters &&
+			`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
+		loaderData.metadataDetails.mangaSpecifics?.volumes &&
+			`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
+		loaderData.metadataDetails.movieSpecifics?.runtime &&
+			humanizeDuration(
+				dayjsLib
+					.duration(loaderData.metadataDetails.movieSpecifics.runtime, "minute")
+					.asMilliseconds(),
+			),
+		loaderData.metadataDetails.showSpecifics?.totalSeasons &&
+			`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
+		loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
+			`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
+		loaderData.metadataDetails.showSpecifics?.runtime &&
+			humanizeDuration(
+				dayjsLib
+					.duration(loaderData.metadataDetails.showSpecifics.runtime, "minute")
+					.asMilliseconds(),
+			),
+		loaderData.metadataDetails.audioBookSpecifics?.runtime &&
+			humanizeDuration(
+				dayjsLib
+					.duration(
+						loaderData.metadataDetails.audioBookSpecifics.runtime,
+						"minute",
+					)
+					.asMilliseconds(),
+			),
+		loaderData.metadataDetails.musicSpecifics?.duration &&
+			humanizeDuration(
+				dayjsLib
+					.duration(
+						loaderData.metadataDetails.musicSpecifics.duration,
+						"second",
+					)
+					.asMilliseconds(),
+			),
+		loaderData.metadataDetails.musicSpecifics?.viewCount &&
+			formatQuantityWithCompactNotation(
+				loaderData.metadataDetails.musicSpecifics.viewCount,
+			),
+		loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
+			"Various Artists",
+	].filter(Boolean);
+
+	const onSubmitProgressUpdate = (e: FormEvent<HTMLFormElement>) => {
 		submit(e);
 		events.updateProgress(loaderData.metadataDetails.title);
 		refreshUserMetadataDetails(loaderData.metadataId);
@@ -372,90 +444,13 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
-					<Box>
-						{userPreferences.featuresEnabled.media.groups &&
-						firstGroupAssociated ? (
-							<Link
-								style={{ color: "unset" }}
-								to={$path("/media/groups/item/:id", {
-									id: firstGroupAssociated.id,
-								})}
-							>
-								<Text c="dimmed" fs="italic">
-									{firstGroupAssociated.name} #{firstGroupAssociated.part}
-								</Text>
-							</Link>
-						) : null}
-						<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-							{[
-								loaderData.metadataDetails.publishDate
-									? dayjsLib(loaderData.metadataDetails.publishDate).format(
-											"LL",
-										)
-									: loaderData.metadataDetails.publishYear,
-								loaderData.metadataDetails.originalLanguage,
-								loaderData.metadataDetails.productionStatus,
-								loaderData.metadataDetails.bookSpecifics?.pages &&
-									`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
-								loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
-									`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
-								loaderData.metadataDetails.animeSpecifics?.episodes &&
-									`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
-								loaderData.metadataDetails.mangaSpecifics?.chapters &&
-									`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
-								loaderData.metadataDetails.mangaSpecifics?.volumes &&
-									`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
-								loaderData.metadataDetails.movieSpecifics?.runtime &&
-									humanizeDuration(
-										dayjsLib
-											.duration(
-												loaderData.metadataDetails.movieSpecifics.runtime,
-												"minute",
-											)
-											.asMilliseconds(),
-									),
-								loaderData.metadataDetails.showSpecifics?.totalSeasons &&
-									`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
-								loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
-									`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
-								loaderData.metadataDetails.showSpecifics?.runtime &&
-									humanizeDuration(
-										dayjsLib
-											.duration(
-												loaderData.metadataDetails.showSpecifics.runtime,
-												"minute",
-											)
-											.asMilliseconds(),
-									),
-								loaderData.metadataDetails.audioBookSpecifics?.runtime &&
-									humanizeDuration(
-										dayjsLib
-											.duration(
-												loaderData.metadataDetails.audioBookSpecifics.runtime,
-												"minute",
-											)
-											.asMilliseconds(),
-									),
-								loaderData.metadataDetails.musicSpecifics?.duration &&
-									humanizeDuration(
-										dayjsLib
-											.duration(
-												loaderData.metadataDetails.musicSpecifics.duration,
-												"second",
-											)
-											.asMilliseconds(),
-									),
-								loaderData.metadataDetails.musicSpecifics?.viewCount &&
-									formatQuantityWithCompactNotation(
-										loaderData.metadataDetails.musicSpecifics.viewCount,
-									),
-								loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
-									"Various Artists",
-							]
-								.filter(Boolean)
-								.join(" • ")}
-						</Text>
-					</Box>
+					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+						{additionalMetadataDetails.length > 0
+							? additionalMetadataDetails
+									.map<ReactNode>((s) => s)
+									.reduce((prev, curr) => [prev, " • ", curr])
+							: null}
+					</Text>
 					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
@@ -1078,16 +1073,14 @@ export default function Page() {
 							loaderData.userMetadataDetails.showProgress ? (
 								<Virtuoso
 									data={loaderData.metadataDetails.showSpecifics.seasons}
-									itemContent={(seasonIdx, season) => {
-										return (
-											<DisplayShowSeason
-												season={season}
-												seasonIdx={seasonIdx}
-												key={season.seasonNumber}
-												openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
-											/>
-										);
-									}}
+									itemContent={(seasonIdx, season) => (
+										<DisplayShowSeason
+											season={season}
+											seasonIdx={seasonIdx}
+											key={season.seasonNumber}
+											openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
+										/>
+									)}
 								/>
 							) : null}
 						</Tabs.Panel>
@@ -1872,12 +1865,13 @@ const DisplayShowSeason = (props: {
 	season: Season;
 	seasonIdx: number;
 	openSeasonModal: () => void;
-	seasonProgress?: SeasonProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 
-	const numTimesSeen = props.seasonProgress?.timesSeen || 0;
+	const seasonProgress =
+		loaderData.userMetadataDetails.showProgress?.[props.seasonIdx];
+	const numTimesSeen = seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
 
 	return (

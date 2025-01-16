@@ -12,11 +12,10 @@ use dependent_models::{
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
-    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GroupedCalendarEvent, MarkEntityAsPartialInput,
-    MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails, PeopleListInput,
-    ProgressUpdateInput, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
+    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput, MetadataListInput,
+    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -111,7 +110,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<GenreListItem>> {
+    ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.genres_list(input).await
     }

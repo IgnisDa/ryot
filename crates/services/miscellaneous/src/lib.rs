@@ -47,12 +47,13 @@ use dependent_models::{
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
-    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_job,
-    first_metadata_image_as_url, get_entity_recently_consumed, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_groups_list, metadata_images_as_urls, metadata_list, people_list, post_review,
-    progress_update, refresh_collection_to_entity_association, remove_entity_from_collection,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
+    deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
+    get_entity_recently_consumed, get_metadata_provider, get_openlibrary_service,
+    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
+    metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
     update_metadata_and_notify_users,
 };
 use enum_models::{
@@ -1157,11 +1158,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap()
             .unwrap();
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                person.id,
-            )))
-            .await?;
+        deploy_update_person_job(&person.id, &self.0).await?;
         Ok(true)
     }
 
@@ -1174,11 +1171,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap()
             .unwrap();
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
-                metadata_group.id,
-            )))
-            .await?;
+        deploy_update_metadata_group_job(&metadata_group.id, &self.0).await?;
         Ok(true)
     }
 
@@ -1773,7 +1766,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<GenreListItem>> {
+    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<String>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let num_items = "num_items";
         let query = Genre::find()
@@ -1805,7 +1798,7 @@ ORDER BY RANDOM() LIMIT 10;
         } = paginator.num_items_and_pages().await?;
         let mut items = vec![];
         for c in paginator.fetch_page(page - 1).await? {
-            items.push(c);
+            items.push(c.id);
         }
         Ok(SearchResults {
             details: SearchDetails {
@@ -2258,11 +2251,14 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         person_id: String,
     ) -> Result<Vec<(String, UserNotificationContent)>> {
-        let mut notifications = vec![];
         let person = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
+        if !person.is_partial.unwrap_or_default() {
+            return Ok(vec![]);
+        }
+        let mut notifications = vec![];
         let provider = self.get_non_metadata_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
@@ -2411,10 +2407,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
-        let notifications = self
-            .update_person(person_id.clone())
-            .await
-            .unwrap_or_default();
+        let notifications = self.update_person(person_id.clone()).await?;
         if !notifications.is_empty() {
             let users_to_notify =
                 get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &self.0.db)
@@ -2443,6 +2436,9 @@ ORDER BY RANDOM() LIMIT 10;
             .one(&self.0.db)
             .await?
             .ok_or(Error::new("Group not found"))?;
+        if !eg.is_partial.unwrap_or_default() {
+            return Ok(());
+        }
         let provider = get_metadata_provider(eg.lot, eg.source, &self.0).await?;
         let (group_details, associated_items) =
             provider.metadata_group_details(&eg.identifier).await?;

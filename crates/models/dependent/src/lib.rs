@@ -47,9 +47,6 @@ use strum::Display;
     name = "MetadataGroupSearchResults",
     params(media_models::MetadataGroupSearchItem)
 ))]
-#[graphql(concrete(name = "GenreListResults", params(media_models::GenreListItem)))]
-#[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
-#[graphql(concrete(name = "WorkoutTemplateListResults", params(workout_template::Model)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
@@ -342,6 +339,8 @@ pub struct DailyUserActivityItem {
     pub manga_count: i64,
     pub movie_count: i64,
     pub total_movie_duration: i64,
+    pub music_count: i64,
+    pub total_music_duration: i64,
     pub show_count: i64,
     pub total_show_duration: i64,
     pub video_game_count: i64,
@@ -430,46 +429,35 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct ListennotesSettings {
-    pub genres: HashMap<i32, String>,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct IgdbSettings {
-    pub access_token: String,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct UserRecommendationsKey {
-    pub recommendations_key: String,
-}
-
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+pub type IgdbSettings = String;
+pub type YoutubeMusicSongListenedResponse = bool;
+pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
+pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
-#[serde(untagged)]
 pub enum ApplicationCacheValue {
-    Empty(EmptyCacheValue),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
+    MetadataRecentlyConsumed(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
-    UserRecommendationsKey(UserRecommendationsKey),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
+    UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }

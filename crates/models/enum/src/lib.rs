@@ -7,19 +7,19 @@ use strum::Display;
 
 /// The different types of media that can be stored.
 #[derive(
+    Eq,
+    Enum,
+    Copy,
+    Hash,
     Debug,
     Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
     Default,
-    Hash,
+    EnumIter,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -576,6 +576,7 @@ pub enum IntegrationProvider {
     PlexSink,
     PlexYank,
     GenericJson,
+    YoutubeMusic,
     JellyfinPush,
     JellyfinSink,
     Audiobookshelf,

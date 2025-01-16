@@ -72,16 +72,16 @@ impl ExporterService {
             .file_storage_service
             .list_objects_at_prefix(format!("exports/{}", user_id))
             .await;
-        for (size, object_key) in objects {
+        for (size, key) in objects {
             let url = self
                 .0
                 .file_storage_service
-                .get_presigned_url(object_key.clone())
+                .get_presigned_url(key.clone())
                 .await;
             let metadata = self
                 .0
                 .file_storage_service
-                .get_object_metadata(object_key)
+                .get_object_metadata(key.clone())
                 .await;
             let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
                 .unwrap()
@@ -89,13 +89,13 @@ impl ExporterService {
             let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
                 .unwrap()
                 .with_timezone(&Utc);
-            let exp = ExportJob {
+            resp.push(ExportJob {
                 size,
                 url,
+                key,
                 ended_at,
                 started_at,
-            };
-            resp.push(exp);
+            });
         }
         resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
         Ok(resp)

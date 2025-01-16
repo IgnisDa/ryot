@@ -151,6 +151,8 @@ import {
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 
+const DEFAULT_SET_TIMEOUT_DELAY = 800;
+
 export const loader = async ({ params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, {
 		action: z.nativeEnum(FitnessAction),
@@ -205,16 +207,31 @@ const getNextSetInWorkout = (
 			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
 		}
 	}
-	if (areAllSetsConfirmed)
-		return {
-			exerciseIdx: currentExerciseIdx + 1,
-			setIdx: 0,
-			wasLastSet: true,
-		};
+	if (areAllSetsConfirmed) {
+		for (
+			let i = currentExerciseIdx + 1;
+			i < currentWorkout.exercises.length;
+			i++
+		) {
+			const exerciseProgress =
+				getProgressOfExercise(currentWorkout, i) !== "complete";
+			if (exerciseProgress)
+				return {
+					setIdx: 0,
+					exerciseIdx: i,
+					wasLastSet: true,
+				};
+		}
+	}
+	const isLastSetOfLastExercise =
+		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
+		currentSetIdx ===
+			currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
+	if (isLastSetOfLastExercise) return { wasLastSet: true };
 	return {
-		exerciseIdx: currentExerciseIdx,
-		setIdx: currentSetIdx + 1,
 		wasLastSet: false,
+		setIdx: currentSetIdx + 1,
+		exerciseIdx: currentExerciseIdx,
 	};
 };
 
@@ -234,27 +251,33 @@ const usePerformTasksAfterSetConfirmed = () => {
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
+		let exerciseIdxToFocusOn = undefined;
 		setCurrentWorkout((cw) =>
 			produce(cw, (draft) => {
 				if (!draft) return;
 				const currentExercise = draft.exercises[exerciseIdx];
 				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
-				focusOnExercise(nextSet.exerciseIdx);
+				exerciseIdxToFocusOn = nextSet.exerciseIdx;
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
 					currentExercise.isShowDetailsOpen = false;
-					const nextExercise = draft.exercises[nextSet.exerciseIdx];
-					const nextExerciseHasDetailsToShow =
-						nextExercise &&
-						exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-					if (nextExerciseHasDetailsToShow) {
-						nextExercise.isCollapsed = false;
-						if (userPreferences.fitness.logging.showDetailsWhileEditing)
-							nextExercise.isShowDetailsOpen = true;
+					if (isNumber(nextSet.exerciseIdx)) {
+						const nextExercise = draft.exercises[nextSet.exerciseIdx];
+						const nextExerciseHasDetailsToShow =
+							nextExercise &&
+							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
+						if (nextExerciseHasDetailsToShow) {
+							nextExercise.isCollapsed = false;
+							if (userPreferences.fitness.logging.showDetailsWhileEditing)
+								nextExercise.isShowDetailsOpen = true;
+						}
 					}
 				}
 			}),
 		);
+		if (isNumber(exerciseIdxToFocusOn)) {
+			focusOnExercise(exerciseIdxToFocusOn);
+		}
 	};
 
 	return performTask;
@@ -340,7 +363,7 @@ export default function Page() {
 				}
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => closeTimerDrawer(), 500);
+				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY);
 			}
 		}
 	}, 1000);
@@ -1186,7 +1209,7 @@ const focusOnExercise = (idx: number) => {
 	setTimeout(() => {
 		const exercise = document.getElementById(idx.toString());
 		exercise?.scrollIntoView({ behavior: "smooth" });
-	}, 800);
+	}, DEFAULT_SET_TIMEOUT_DELAY);
 };
 
 const exerciseHasDetailsToShow = (

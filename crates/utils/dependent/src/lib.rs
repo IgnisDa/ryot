@@ -373,6 +373,9 @@ pub async fn update_metadata(
         .await
         .unwrap()
         .unwrap();
+    if !metadata.is_partial.unwrap_or_default() {
+        return Ok(vec![]);
+    }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
@@ -830,6 +833,28 @@ pub async fn deploy_update_metadata_job(
     Ok(true)
 }
 
+pub async fn deploy_update_metadata_group_job(
+    metadata_group_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateMetadataGroup(
+        metadata_group_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
+pub async fn deploy_update_person_job(
+    person_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
+        person_id.to_owned(),
+    )))
+    .await?;
+    Ok(true)
+}
+
 pub async fn deploy_background_job(
     user_id: &String,
     job_name: BackgroundJob,
@@ -846,6 +871,10 @@ pub async fn deploy_background_job(
     }
     match job_name {
         BackgroundJob::UpdateAllMetadata => {
+            Metadata::update_many()
+                .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                .exec(&ss.db)
+                .await?;
             let many_metadata = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
@@ -1226,7 +1255,7 @@ pub async fn mark_entity_as_recently_consumed(
                     entity_id: entity_id.to_owned(),
                 },
             }),
-            ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+            ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
         )
         .await?;
     Ok(())
@@ -1273,7 +1302,6 @@ pub async fn progress_update(
             provider_watched_on: input.provider_watched_on.clone(),
         },
     });
-    acquire_lock!(&ss.db, &cache_and_lock_key);
     if respect_cache {
         let in_cache = ss
             .cache_service
@@ -1288,6 +1316,7 @@ pub async fn progress_update(
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
+    acquire_lock!(&ss.db, &cache_and_lock_key);
     let all_prev_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
@@ -1480,16 +1509,16 @@ pub async fn progress_update(
             ryot_log!(debug, "Progress update percentage = {:?}", progress);
             let seen_insert = seen::ActiveModel {
                 progress: ActiveValue::Set(progress),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                metadata_id: ActiveValue::Set(input.metadata_id),
                 started_on: ActiveValue::Set(started_on),
                 finished_on: ActiveValue::Set(finished_on),
+                user_id: ActiveValue::Set(user_id.to_owned()),
                 state: ActiveValue::Set(SeenState::InProgress),
-                provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+                metadata_id: ActiveValue::Set(input.metadata_id),
                 show_extra_information: ActiveValue::Set(show_ei),
-                podcast_extra_information: ActiveValue::Set(podcast_ei),
                 anime_extra_information: ActiveValue::Set(anime_ei),
                 manga_extra_information: ActiveValue::Set(manga_ei),
+                podcast_extra_information: ActiveValue::Set(podcast_ei),
+                provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                 ..Default::default()
             };
             seen_insert.insert(&ss.db).await.unwrap()
@@ -1501,7 +1530,7 @@ pub async fn progress_update(
         ss.cache_service
             .set_key(
                 cache_and_lock_key,
-                ApplicationCacheValue::Empty(EmptyCacheValue::default()),
+                ApplicationCacheValue::ProgressUpdateCache(EmptyCacheValue::default()),
             )
             .await?;
     }
@@ -2306,10 +2335,7 @@ where
                         continue;
                     }
                 };
-                ss.perform_application_job(ApplicationJob::Mp(
-                    MpApplicationJob::UpdateMetadataGroup(db_metadata_group_id.clone()),
-                ))
-                .await?;
+                deploy_update_metadata_group_job(&db_metadata_group_id, ss).await?;
                 for review in metadata_group.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,
@@ -2362,10 +2388,7 @@ where
                         continue;
                     }
                 };
-                ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdatePerson(
-                    db_person_id.clone(),
-                )))
-                .await?;
+                deploy_update_person_job(&db_person_id, ss).await?;
                 for review in person.reviews.iter() {
                     if let Some(input) = convert_review_into_input(
                         review,

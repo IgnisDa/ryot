@@ -8,7 +8,7 @@ use database_models::{
     prelude::{CollectionToEntity, Integration, Metadata, Seen, UserToEntity},
     seen, user_to_entity,
 };
-use database_utils::user_by_id;
+use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, process_import};
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
@@ -28,6 +28,16 @@ mod yank;
 pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
+    async fn set_integration_last_triggered_on(
+        &self,
+        integration: &integration::Model,
+    ) -> Result<()> {
+        let mut integration: integration::ActiveModel = integration.clone().into();
+        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+        integration.update(&self.0.db).await?;
+        Ok(())
+    }
+
     async fn integration_progress_update(
         &self,
         integration: integration::Model,
@@ -47,11 +57,10 @@ impl IntegrationService {
                             );
                             false
                         }
-                        Some(_) => true,
-                        None => false,
+                        _ => true,
                     });
                 metadata.seen_history.iter_mut().for_each(|update| {
-                    update.ended_on = Some(Utc::now().date_naive());
+                    update.ended_on = Some(update.ended_on.unwrap_or(Utc::now().date_naive()));
                     if let Some(progress) = update.progress {
                         if progress > integration.maximum_progress.unwrap() {
                             ryot_log!(
@@ -70,12 +79,8 @@ impl IntegrationService {
         })
         .await
         {
-            Ok(_) => {
-                let mut to_update: integration::ActiveModel = integration.into();
-                to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-                to_update.update(&self.0.db).await?;
-            }
             Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
+            Ok(_) => self.set_integration_last_triggered_on(&integration).await?,
         }
         Ok(())
     }
@@ -160,7 +165,7 @@ impl IntegrationService {
                 if !possible_collection_ids.contains(&cte.collection_id) {
                     continue;
                 }
-                let specifics = integration.provider_specifics.unwrap();
+                let specifics = integration.provider_specifics.clone().unwrap();
                 let metadata = Metadata::find_by_id(&cte.entity_id)
                     .one(&self.0.db)
                     .await?
@@ -172,7 +177,7 @@ impl IntegrationService {
                     _ => Some(metadata.identifier.clone()),
                 };
                 if let Some(entity_id) = maybe_entity_id {
-                    let _push_result = match integration.provider {
+                    let push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
                             push::radarr::push_progress(
                                 specifics.radarr_api_key.unwrap(),
@@ -199,6 +204,9 @@ impl IntegrationService {
                         }
                         _ => unreachable!(),
                     };
+                    if push_result.is_ok() {
+                        self.set_integration_last_triggered_on(&integration).await?;
+                    }
                 }
             }
         }
@@ -222,9 +230,10 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         for integration in integrations {
-            let specifics = integration.provider_specifics.unwrap();
-            match integration.provider {
+            let specifics = integration.provider_specifics.clone().unwrap();
+            let push_result = match integration.provider {
                 IntegrationProvider::JellyfinPush => {
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
                     push::jellyfin::push_progress(
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
@@ -233,9 +242,12 @@ impl IntegrationService {
                         &metadata_title,
                         &show_extra_information,
                     )
-                    .await?;
+                    .await
                 }
                 _ => unreachable!(),
+            };
+            if push_result.is_ok() {
+                self.set_integration_last_triggered_on(&integration).await?;
             }
         }
         Ok(())
@@ -285,6 +297,15 @@ impl IntegrationService {
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
                         &self.0.db,
+                    )
+                    .await
+                }
+                IntegrationProvider::YoutubeMusic => {
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                    yank::youtube_music::yank_progress(
+                        specifics.youtube_music_auth_cookie.unwrap(),
+                        user_id,
+                        &self.0,
                     )
                     .await
                 }

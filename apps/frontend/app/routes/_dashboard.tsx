@@ -107,7 +107,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
-import { type FormEvent, useState } from "react";
+import { type FC, type FormEvent, type ReactNode, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
@@ -119,7 +119,6 @@ import {
 	ThreePointSmileyRating,
 	Verb,
 	convertDecimalToThreePointSmiley,
-	getLot,
 	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
@@ -171,17 +170,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 
 	const mediaLinks = [
-		...(Object.entries(userPreferences.featuresEnabled.media || {})
-			.filter(([v, _]) => v !== "enabled")
-			.filter(([name, _]) => getLot(name) !== undefined)
-			.map(([name, enabled]) => {
-				// biome-ignore lint/style/noNonNullAssertion: required here
-				return { name: getLot(name)!, enabled };
-			})
-			?.filter((f) => f.enabled)
-			.map((f) => {
-				return { label: f.name, href: undefined };
-			}) || []),
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return { label: f, href: undefined };
+		}),
 		userPreferences.featuresEnabled.media.groups
 			? {
 					label: "Groups",
@@ -822,7 +813,7 @@ export default function Layout() {
 
 interface LinksGroupProps {
 	// biome-ignore lint/suspicious/noExplicitAny: required here
-	icon: React.FC<any>;
+	icon: FC<any>;
 	label: string;
 	href?: string;
 	opened: boolean;
@@ -1405,7 +1396,7 @@ const ReviewEntityForm = ({
 	});
 
 	const SmileySurround = (props: {
-		children: React.ReactNode;
+		children: ReactNode;
 		smileyRating: ThreePointSmileyRating;
 	}) => (
 		<ThemeIcon

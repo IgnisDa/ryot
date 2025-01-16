@@ -22,6 +22,7 @@ media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 notification-service = { path = "../../services/notification" }
 openidconnect = { workspace = true }
+rand = { workspace = true }
 sea-orm = { workspace = true }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }

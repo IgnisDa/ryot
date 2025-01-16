@@ -9,6 +9,7 @@ import {
 	Group,
 	Input,
 	JsonInput,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	SegmentedControl,
@@ -35,7 +36,14 @@ import {
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cn, isNumber, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	cn,
+	isBoolean,
+	isNumber,
+	snakeCase,
+	startCase,
+} from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
@@ -209,31 +217,56 @@ export default function Page() {
 						<Stack>
 							<Text>Features that you want to use.</Text>
 							{(["media", "fitness", "analytics", "others"] as const).map(
-								(facet) => (
-									<Fragment key={facet}>
-										<Title order={4}>{startCase(facet)}</Title>
-										<SimpleGrid cols={2}>
-											{Object.entries(
-												userPreferences.featuresEnabled[facet],
-											).map(([name, isEnabled]) => (
-												<Switch
-													key={name}
-													size="xs"
-													label={changeCase(snakeCase(name))}
-													defaultChecked={isEnabled}
-													disabled={!!isEditDisabled}
-													onChange={(ev) => {
-														updatePreference((draft) => {
-															// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
-															(draft as any).featuresEnabled[facet][name] =
-																ev.currentTarget.checked;
-														});
+								(facet) => {
+									const entries = Object.entries(
+										userPreferences.featuresEnabled[facet],
+									);
+
+									return (
+										<Fragment key={facet}>
+											<Title order={4}>{startCase(facet)}</Title>
+											<SimpleGrid cols={2}>
+												{entries.map(([name, isEnabled]) =>
+													isBoolean(isEnabled) ? (
+														<Switch
+															key={name}
+															size="xs"
+															defaultChecked={isEnabled}
+															disabled={!!isEditDisabled}
+															label={changeCase(snakeCase(name))}
+															onChange={(ev) => {
+																updatePreference((draft) => {
+																	// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
+																	(draft as any).featuresEnabled[facet][name] =
+																		ev.currentTarget.checked;
+																});
+															}}
+														/>
+													) : null,
+												)}
+											</SimpleGrid>
+											{facet === "media" ? (
+												<MultiSelect
+													defaultValue={
+														userPreferences.featuresEnabled[facet].specific
+													}
+													data={Object.values(MediaLot).map((lot) => ({
+														value: lot,
+														label: changeCase(lot),
+													}))}
+													onChange={(val) => {
+														if (val) {
+															updatePreference((draft) => {
+																draft.featuresEnabled[facet].specific =
+																	val as MediaLot[];
+															});
+														}
 													}}
 												/>
-											))}
-										</SimpleGrid>
-									</Fragment>
-								),
+											) : null}
+										</Fragment>
+									);
+								},
 							)}
 						</Stack>
 					</Tabs.Panel>
@@ -544,7 +577,7 @@ export default function Page() {
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Divider />
-							<Title order={4}>Current workout</Title>
+							<Title order={4}>Workout logging</Title>
 							{(
 								[
 									"muteSounds",
@@ -555,7 +588,7 @@ export default function Page() {
 								const [label, isGatedBehindServerKeyValidation] = match(option)
 									.with(
 										"muteSounds",
-										() => ["Mute sounds while logging workouts"] as const,
+										() => ["Mute all sounds for actions"] as const,
 									)
 									.with(
 										"promptForRestTimer",

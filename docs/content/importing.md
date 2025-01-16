@@ -38,10 +38,9 @@ You can import your watched movies and shows from [Plex](https://plex.tv).
       This will only import media that are already finished. Setup an
       [integration](./integrations.md#plex-sink) if you want to import media in progress.
 
-### Steps
-
-- Obtain a `Plex-Token` as described [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken).
-- Enter the correct details in the inputs.
+1. Obtain a `Plex-Token` as described
+   [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken).
+2. Enter the correct details in the inputs.
 
 ## Trakt
 
@@ -49,20 +48,19 @@ All movies and shows can be imported from [Trakt](https://trakt.tv) along with
 their ratings, history, comments and lists. A few points to note.
 
 - It is necessary to set your account's privacy to public during the
-  duration of the import. The Trakt authentication flow is pretty complicated
-  and I don't think it would be worth implementing.
+  duration of the import.
 - Items that have been "check(ed) in" will not be imported.
 
-### Steps
+---
 
-- Login to your Trakt account and go to the settings page.
-- If your account is set to private, uncheck the box next to it. You can revert
+1. Login to your Trakt account and go to the settings page.
+2. If your account is set to private, uncheck the box next to it. You can revert
   this change once the import is complete.
-- If you have any lists that are private, you need to change them to public.
+1. If you have any lists that are private, you need to change them to public.
   Otherwise they will not be imported.
-- Find your profile slug. This is usually your username. You can find it by
+1. Find your profile slug. This is usually your username. You can find it by
   going to your profile page, and checking the URL.
-- Enter this username in the input.
+1. Enter this username in the input.
 
 ## Audiobookshelf
 
@@ -76,11 +74,9 @@ ITunes ID or ISBN.
     - If you have enabled the option to auto delete podcast episodes, you'll have to
       manually mark them as completed.
 
-### Steps
-
-- Obtain an API token as described in the Audiobookshelf
+1. Obtain an API token as described in the Audiobookshelf
   [authentication](https://api.audiobookshelf.org/#authentication) docs.
-- Enter the correct details in the input.
+2. Enter the correct details in the input.
 
 ## Goodreads
 
@@ -89,12 +85,12 @@ following manner:
 
 - Want To Read -> Watchlist
 
-### Steps
+---
 
-- Login to your Goodreads account and go to the "My Books" section.
-- Click on "Import and export" on the left sidebar.
-- Click on "Export Library" and download the CSV file.
-- Upload this file in the input.
+1. Login to your Goodreads account and go to the "My Books" section.
+2. Click on "Import and export" on the left sidebar.
+3. Click on "Export Library" and download the CSV file.
+4. Upload this file in the input.
 
 ## MediaTracker
 
@@ -105,13 +101,13 @@ the following caveats:
   added to the "In Progress" collection so you can manually fix their progress
   if needed.
 
-### Steps
+---
 
-- Login to your MediaTracker account and click on your name on the top right.
-- Click on the "Application tokens" section.
-- Enter a name and click on "Add token".
-- Copy the token that was just generated.
-- Enter the details in the inputs.
+1. Login to your MediaTracker account and click on your name on the top right.
+2. Click on the "Application tokens" section.
+3. Enter a name and click on "Add token".
+4. Copy the token that was just generated.
+5. Enter the details in the inputs.
 
 ## Generic Json
 
@@ -127,36 +123,30 @@ or from a source that is not supported by Ryot.
 The Watchlist and all movies can be imported from [Movary](https://movary.org)
 along with ratings, history, and comments.
 
-### Steps
-
-- Login to your Movary account and go to the settings page. Go to "Personal data"
+1. Login to your Movary account and go to the settings page. Go to "Personal data"
   under the "Account" section.
-- Export "history.csv", "watchlist.csv" and "ratings.csv".
-- Upload these files in the input.
+2. Export "history.csv", "watchlist.csv" and "ratings.csv".
+3. Upload these files in the input.
 
 ## MyAnimeList
 
 Manga and Anime can be imported from [MyAnimeList](https://myanimelist.net) along with
 ratings, history and progress.
 
-### Steps
-
-- Login to your MyAnimeList account and go to
+1. Login to your MyAnimeList account and go to
   [exports](http://myanimelist.net/panel.php?go=export).
-- Export your anime and manga history.
-- Upload these files in the input.
+2. Export your anime and manga history.
+3. Upload these files in the input.
 
 ## Anilist
 
 Manga and anime can be imported from [Anilist](https://anilist.co) along with ratings,
 history, favorites and custom lists.
 
-### Steps
-
-- Login to your Anilist account and go to your [account
+1. Login to your Anilist account and go to your [account
   settings](https://anilist.co/settings/account).
-- Scroll down to the "GDPR Data Download" section and click on "Download".
-- Upload the JSON file in the input.
+2. Scroll down to the "GDPR Data Download" section and click on "Download".
+3. Upload the JSON file in the input.
 
 ## StoryGraph
 
@@ -166,16 +156,16 @@ translates "Read Status" in the following manner:
 
 - to-read -> Watchlist
 
-### Steps
+---
 
-- Login to your account and click on your profile and go to the "Manage Account"
+1. Login to your account and click on your profile and go to the "Manage Account"
   page.
-- Scroll to the bottom and click on "Export StoryGraph Library" and then
+2. Scroll to the bottom and click on "Export StoryGraph Library" and then
   "Generate export".
-- Once the export is done, you will receive an email. refresh the page above and
+3. Once the export is done, you will receive an email. refresh the page above and
   download the CSV file.
-- Optionally, you can edit the CSV file and manually add the missing ISBN.
-- Upload this file in the input.
+4. Optionally, you can edit the CSV file and manually add the missing ISBN.
+5. Upload this file in the input.
 
 ## Strong App
 
@@ -183,35 +173,29 @@ You can import your completed workouts from [Strong](https://www.strong.app/) ap
 exercise does not exist in your instance, it will be created. You can later use the "Edit
 Exercise" or "Merge Exercise" actions to map the exercise to an existing one.
 
-### Steps
-
-- Login to your Strong account on the app and go to the "Settings" page.
-- Scroll down to the "General" section and click on "Export data".
-- Upload the csv file in the input.
+1. Login to your Strong account on the app and go to the "Settings" page.
+2. Scroll down to the "General" section and click on "Export data".
+3. Upload the csv file in the input.
 
 ## Hevy
 
 You can import your workouts from [Hevy](https://www.hevy.com). Exercises will be created
 using the same strategy as the [Strong app](#strong-app) importer.
 
-### Steps
-
-- Login to your Hevy account on the app and go to the "Profile" page.
-- Click on the cog icon on the top right and select "Export & Import Data" under
+1. Login to your Hevy account on the app and go to the "Profile" page.
+2. Click on the cog icon on the top right and select "Export & Import Data" under
   "Preferences".
-- Click on "Export" and then click on the button that says "Export Workouts".
-- Upload the csv file in the input.
+3. Click on "Export" and then click on the button that says "Export Workouts".
+4. Upload the csv file in the input.
 
 ## IMDb
 
 You can import your watchlist from [IMDb](https://www.imdb.com). They will be added to
 the "Watchlist" collection.
 
-### Steps
-
-- Go to your account and select your watchlist.
-- Go the bottom and click on the "Export this list" button.
-- Upload the csv file in the input.
+1. Go to your account and select your watchlist.
+2. Go the bottom and click on the "Export this list" button.
+3. Upload the csv file in the input.
 
 ## IGDb
 
@@ -222,12 +206,12 @@ separately. A few points to note:
 - Importing into the "Completed" collection will set 100% progress for the items.
 - Import into any other collection will just add the items to the collection.
 
-### Steps
+---
 
-- Login to your account and go to your profile. The default activity lists can be exported
+1. Login to your account and go to your profile. The default activity lists can be exported
   from  here. Click on the list you want to export and download it as CSV.
-- For your custom lists, please visit the "My Lists" page.
-- Upload the CSV file and choose the collection you want to import into.
+2. For your custom lists, please visit the "My Lists" page.
+3. Upload the CSV file and choose the collection you want to import into.
 
 ## TV Time
 

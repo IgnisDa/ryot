@@ -878,6 +878,8 @@ pub struct IntegrationProviderSpecifics {
     pub jellyfin_push_base_url: Option<String>,
     pub jellyfin_push_username: Option<String>,
     pub jellyfin_push_password: Option<String>,
+
+    pub youtube_music_auth_cookie: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
@@ -1332,16 +1334,16 @@ pub struct MediaConsumedInput {
     pub lot: MediaLot,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct UserMetadataDetailsEpisodeProgress {
-    pub episode_number: i32,
     pub times_seen: usize,
+    pub episode_number: i32,
 }
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Debug)]
 pub struct UserMetadataDetailsShowSeasonProgress {
-    pub season_number: i32,
     pub times_seen: usize,
+    pub season_number: i32,
     pub episodes: Vec<UserMetadataDetailsEpisodeProgress>,
 }
 

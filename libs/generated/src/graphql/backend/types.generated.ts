@@ -353,6 +353,7 @@ export type DailyUserActivityItem = {
   day: Scalars['NaiveDate']['output'];
   mangaCount: Scalars['Int']['output'];
   movieCount: Scalars['Int']['output'];
+  musicCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
   totalAudioBookDuration: Scalars['Int']['output'];
@@ -364,6 +365,7 @@ export type DailyUserActivityItem = {
   totalMetadataGroupReviewCount: Scalars['Int']['output'];
   totalMetadataReviewCount: Scalars['Int']['output'];
   totalMovieDuration: Scalars['Int']['output'];
+  totalMusicDuration: Scalars['Int']['output'];
   totalPersonReviewCount: Scalars['Int']['output'];
   totalPodcastDuration: Scalars['Int']['output'];
   totalReviewCount: Scalars['Int']['output'];
@@ -643,6 +645,7 @@ export type ExercisesListInput = {
 export type ExportJob = {
   __typename?: 'ExportJob';
   endedAt: Scalars['DateTime']['output'];
+  key: Scalars['String']['output'];
   size: Scalars['Int']['output'];
   startedAt: Scalars['DateTime']['output'];
   url: Scalars['String']['output'];
@@ -706,12 +709,6 @@ export type GenreListItem = {
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
   numItems?: Maybe<Scalars['Int']['output']>;
-};
-
-export type GenreListResults = {
-  __typename?: 'GenreListResults';
-  details: SearchDetails;
-  items: Array<GenreListItem>;
 };
 
 export type GraphqlCalendarEvent = {
@@ -921,7 +918,8 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
-  Sonarr = 'SONARR'
+  Sonarr = 'SONARR',
+  YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
 export type IntegrationSourceSpecificsInput = {
@@ -947,6 +945,7 @@ export type IntegrationSourceSpecificsInput = {
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LoginError = {
@@ -1279,8 +1278,8 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
-  /** Refresh the user recommendations key. */
-  refreshUserRecommendationsKey: Scalars['Boolean']['output'];
+  /** Refresh the user metadata recommendations. */
+  refreshUserMetadataRecommendations: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -1792,7 +1791,7 @@ export type QueryRoot = {
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
-  genresList: GenreListResults;
+  genresList: IdResults;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
@@ -1847,12 +1846,12 @@ export type QueryRoot = {
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
+  /** Get metadata recommendations for the currently logged in user. */
+  userMetadataRecommendations: Array<Scalars['String']['output']>;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
-  /** Get media recommendations for the currently logged in user. */
-  userRecommendations: Array<Scalars['String']['output']>;
   /** Get upcoming calendar events for the given filter. */
   userUpcomingCalendarEvents: Array<GraphqlCalendarEvent>;
   /** Get details about a workout. */
@@ -2672,37 +2671,19 @@ export type UserMeasurementsListInput = {
 
 export type UserMediaFeaturesEnabledPreferences = {
   __typename?: 'UserMediaFeaturesEnabledPreferences';
-  anime: Scalars['Boolean']['output'];
-  audioBook: Scalars['Boolean']['output'];
-  book: Scalars['Boolean']['output'];
   enabled: Scalars['Boolean']['output'];
   genres: Scalars['Boolean']['output'];
   groups: Scalars['Boolean']['output'];
-  manga: Scalars['Boolean']['output'];
-  movie: Scalars['Boolean']['output'];
-  music: Scalars['Boolean']['output'];
   people: Scalars['Boolean']['output'];
-  podcast: Scalars['Boolean']['output'];
-  show: Scalars['Boolean']['output'];
-  videoGame: Scalars['Boolean']['output'];
-  visualNovel: Scalars['Boolean']['output'];
+  specific: Array<MediaLot>;
 };
 
 export type UserMediaFeaturesEnabledPreferencesInput = {
-  anime: Scalars['Boolean']['input'];
-  audioBook: Scalars['Boolean']['input'];
-  book: Scalars['Boolean']['input'];
   enabled: Scalars['Boolean']['input'];
   genres: Scalars['Boolean']['input'];
   groups: Scalars['Boolean']['input'];
-  manga: Scalars['Boolean']['input'];
-  movie: Scalars['Boolean']['input'];
-  music: Scalars['Boolean']['input'];
   people: Scalars['Boolean']['input'];
-  podcast: Scalars['Boolean']['input'];
-  show: Scalars['Boolean']['input'];
-  videoGame: Scalars['Boolean']['input'];
-  visualNovel: Scalars['Boolean']['input'];
+  specific: Array<MediaLot>;
 };
 
 export type UserMediaNextEntry = {

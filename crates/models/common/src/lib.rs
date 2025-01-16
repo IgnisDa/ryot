@@ -154,7 +154,16 @@ pub struct NamedObject {
 }
 
 #[derive(
-    Clone, Debug, Default, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
+    Eq,
+    Clone,
+    Hash,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    FromJsonQueryResult,
 )]
 pub struct SearchInput {
     pub take: Option<u64>,
@@ -197,6 +206,7 @@ pub enum UserNotificationContent {
 pub struct ExportJob {
     pub size: i64,
     pub url: String,
+    pub key: String,
     pub ended_at: DateTimeUtc,
     pub started_at: DateTimeUtc,
 }
@@ -224,7 +234,7 @@ pub struct DailyUserActivityHourRecord {
 /// The start date must be before the end date.
 #[skip_serializing_none]
 #[derive(
-    Debug, Default, Serialize, Deserialize, SimpleObject, InputObject, Clone, Eq, PartialEq,
+    Debug, Hash, Default, Serialize, Deserialize, SimpleObject, InputObject, Clone, Eq, PartialEq,
 )]
 #[graphql(input_name = "ApplicationDateRangeInput")]
 pub struct ApplicationDateRange {
@@ -232,7 +242,7 @@ pub struct ApplicationDateRange {
     pub start_date: Option<NaiveDate>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
@@ -242,14 +252,16 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 }
 
 #[skip_serializing_none]
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq)]
 pub struct UserAnalyticsInput {
     pub date_range: ApplicationDateRange,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Hash, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
+)]
 pub struct MetadataGroupSearchInput {
     pub lot: MediaLot,
     pub source: MediaSource,
@@ -279,7 +291,9 @@ pub struct PersonSourceSpecifics {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Hash, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
+)]
 pub struct PeopleSearchInput {
     pub search: SearchInput,
     pub source: MediaSource,
@@ -287,7 +301,9 @@ pub struct PeopleSearchInput {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Hash, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
+)]
 pub struct MetadataSearchInput {
     pub lot: MediaLot,
     pub search: SearchInput,
@@ -295,21 +311,21 @@ pub struct MetadataSearchInput {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserLevelCacheKey<T> {
     pub input: T,
     pub user_id: String,
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataRecentlyConsumedCacheInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProgressUpdateCacheInput {
     pub metadata_id: String,
     pub show_season_number: Option<i32>,
@@ -322,19 +338,29 @@ pub struct ProgressUpdateCacheInput {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct YoutubeMusicSongListened {
+    pub id: String,
+    pub listened_on: NaiveDate,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+)]
 pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
     TmdbSettings,
     ListennotesSettings,
     UserCollectionsList(UserLevelCacheKey<()>),
-    UserRecommendationsKey(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
+    UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
+    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }

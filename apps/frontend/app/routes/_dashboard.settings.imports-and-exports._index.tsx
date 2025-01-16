@@ -1,6 +1,7 @@
 import { CodeHighlight } from "@mantine/code-highlight";
 import {
 	Accordion,
+	ActionIcon,
 	Anchor,
 	Box,
 	Button,
@@ -40,9 +41,10 @@ import {
 	kebabCase,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
@@ -124,15 +126,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Import job started in the background",
-					}),
-				},
-			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Import job started in the background",
+				}),
+			});
 		})
 		.with("deployExport", async () => {
 			await serverGqlService.authenticatedRequest(
@@ -140,15 +139,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeployExportJobDocument,
 				{},
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Export job started in the background",
-					}),
-				},
-			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Export job started in the background",
+				}),
+			});
 		})
 		.run();
 };
@@ -585,11 +581,40 @@ export default function Page() {
 														({filesize(exp.size)})
 													</Text>
 												</Group>
-												<Anchor href={exp.url} target="_blank" rel="noreferrer">
-													<ThemeIcon color="blue" variant="transparent">
-														<IconDownload />
-													</ThemeIcon>
-												</Anchor>
+												<Group>
+													<Anchor
+														href={exp.url}
+														target="_blank"
+														rel="noreferrer"
+													>
+														<ThemeIcon color="blue" variant="transparent">
+															<IconDownload />
+														</ThemeIcon>
+													</Anchor>
+													<Form
+														method="POST"
+														action={withQuery($path("/actions"), {
+															intent: "deleteS3Asset",
+														})}
+													>
+														<input hidden name="key" defaultValue={exp.key} />
+														<ActionIcon
+															color="red"
+															type="submit"
+															variant="transparent"
+															onClick={(e) => {
+																const form = e.currentTarget.form;
+																e.preventDefault();
+																openConfirmationModal(
+																	"Are you sure you want to delete this export? This action is irreversible.",
+																	() => submit(form),
+																);
+															}}
+														>
+															<IconTrash />
+														</ActionIcon>
+													</Form>
+												</Group>
 											</Group>
 										</Box>
 									))}

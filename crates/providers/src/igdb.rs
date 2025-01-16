@@ -10,8 +10,8 @@ use common_models::{
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, PersonDetails,
-    MetadataPersonRelated, PeopleSearchResponse, SearchResults,
+    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, MetadataPersonRelated,
+    PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -540,14 +540,12 @@ impl IgdbService {
             .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
             .await;
         let access_token = if let Some(value) = maybe_settings {
-            value.access_token
+            value
         } else {
             let access_token = self.get_access_token().await;
             cc.set_key(
                 ApplicationCacheKey::IgdbSettings,
-                ApplicationCacheValue::IgdbSettings(IgdbSettings {
-                    access_token: access_token.clone(),
-                }),
+                ApplicationCacheValue::IgdbSettings(access_token.clone()),
             )
             .await
             .ok();

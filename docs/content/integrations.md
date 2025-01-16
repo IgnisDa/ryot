@@ -135,26 +135,20 @@ have a valid provider ID (Audible, ITunes or ISBN).
 
 ### Komga
 
-The [Komga](https://komga.org/) integration can sync all media if they
-have a valid metadata provider.
-
-#### Steps
-
-If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
-urls will be populated automatically. If you don't, you will either need to manually add
-the manga to your collection or you can perform the following steps.
+The [Komga](https://komga.org/) integration can sync all media if they have a valid
+metadata provider. If you use [Komf](https://github.com/Snd-R/komf) or some similar
+metadata provider these urls will be populated automatically. If you don't, you will either
+need to manually add the manga to your collection or you can perform the following steps.
 
 1. Navigate to the manga and open the Edit tab
 3. Navigate to the Links tab
-4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
-
-Then perform these steps on Ryot
-
-1. Create an integration and select Komga as the source
-2. Provide your Base URL. It should look something like this `http://komga.acme.com` or
+4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not
+   case-sensitive)
+5. On Ryot, create an integration and select Komga as the source
+6. Provide your Base URL. It should look something like this `https://komga.acme.com` or
    `http://127.0.0.1:25600`
-3. Provide your Username and Password.
-4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
+7. Provide your Username and Password.
+8. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
 
 ### Plex Yank
@@ -169,6 +163,23 @@ want to sync media progress, then take a look at the [Plex Sink](#plex-sink) int
    token](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken)
    is sufficient.
 2. Go to your Ryot integration settings and fill in the details.
+
+### Youtube Music
+
+L|Pro Version|https://ryot.io|
+
+The [Youtube Music](https://music.youtube.com) integration syncs all music that you have
+listened to ["Yesterday"](https://music.youtube.com/history). Since Youtube Music does not
+have an official API, this integration is prone to breakage and needs some roundabout steps
+to setup.
+
+1. Install the [Cookie Editor](https://cookie-editor.com) extension in your browser. Make
+   sure you allow the extension to work on incognito windows.
+2. Open a new incognito window in your browser and login to Youtube Music.
+3. Once logged in, open the extension and export the cookies as "Header String". After
+   copying them, close the browser immediately so that they are not invalidated.
+  ![image](./images/integrations_youtube-music-export-cookies.png)
+4. Paste the exported cookies in the input.
 
 ## Push integrations
 
@@ -189,6 +200,8 @@ Events: `Item added to collection`
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Jellyfin
+
+L|Pro Version|https://ryot.io|
 
 Events: `Item marked as completed`
 
