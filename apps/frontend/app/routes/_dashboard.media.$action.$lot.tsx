@@ -67,6 +67,7 @@ import {
 	Verb,
 	commaDelimitedString,
 	getLot,
+	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
 } from "~/lib/generals";
@@ -96,11 +97,10 @@ export type SearchParams = {
 
 const defaultFilters = {
 	mineCollection: undefined,
-	mineEndDateRange: undefined,
-	mineStartDateRange: undefined,
 	mineSortBy: MediaSortBy.LastSeen,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
+	mineDateRange: ApplicationTimeRange.AllTime,
 };
 
 enum Action {
@@ -126,10 +126,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				collections: commaDelimitedString,
-				endDateRange: z.string().date().optional(),
-				startDateRange: z.string().date().optional(),
+				endDateRange: z.string().optional(),
+				startDateRange: z.string().optional(),
 				invertCollection: zx.BoolAsString.optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+				dateRange: z
+					.nativeEnum(ApplicationTimeRange)
+					.default(defaultFilters.mineDateRange),
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
@@ -195,8 +198,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				metadataSearch === false ? 0 : metadataSearch.details.total,
 				undefined,
 				{
-					search: metadataSearch,
 					url: urlParse,
+					search: metadataSearch,
 					mediaSources: metadataSourcesForLot.sources,
 				},
 			] as const;
@@ -250,9 +253,7 @@ export default function Page() {
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
-		loaderData.mediaList?.url.startDateRange !==
-			defaultFilters.mineStartDateRange ||
-		loaderData.mediaList?.url.endDateRange !== defaultFilters.mineEndDateRange;
+		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange;
 
 	return (
 		<Container>
@@ -577,7 +578,7 @@ const MediaSearchItem = (props: {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const [_, { setP, delP }] = useAppSearchParam(loaderData.cookieName);
 
 	if (!loaderData.mediaList) return null;
 
@@ -633,6 +634,15 @@ const FiltersModalForm = () => {
 			<Select
 				placeholder="Select a date range"
 				data={Object.values(ApplicationTimeRange)}
+				defaultValue={loaderData.mediaList.url.dateRange}
+				onChange={(v) => {
+					const startDateRange = getStartTimeFromRange(
+						v as ApplicationTimeRange,
+					);
+					setP("dateRange", v);
+					setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
+					delP("endDateRange");
+				}}
 			/>
 		</>
 	);
