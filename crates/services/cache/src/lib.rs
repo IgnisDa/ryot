@@ -6,7 +6,6 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
-use env_utils::APP_COMMIT_SHA;
 use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
@@ -23,7 +22,7 @@ impl CacheService {
         Self {
             config,
             db: db.clone(),
-            version: format!("{}-{}", Utc::now(), APP_COMMIT_SHA),
+            version: Utc::now().to_string(),
         }
     }
 }

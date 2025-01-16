@@ -1,4 +1,3 @@
-pub const APP_COMMIT_SHA: &str = env!("APP_COMMIT_SHA");
 pub const APP_VERSION: &str = env!("APP_VERSION");
 pub const UNKEY_API_ID: &str = env!("UNKEY_API_ID");
 pub const TRAKT_CLIENT_ID: &str = env!("TRAKT_CLIENT_ID");
