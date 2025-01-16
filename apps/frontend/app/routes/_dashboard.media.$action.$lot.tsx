@@ -15,6 +15,7 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
@@ -66,6 +67,7 @@ import {
 	ApplicationTimeRange,
 	Verb,
 	commaDelimitedString,
+	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
 	getVerb,
@@ -631,19 +633,45 @@ const FiltersModalForm = () => {
 				invertCollection={loaderData.mediaList.url.invertCollection}
 			/>
 			<Divider />
-			<Select
-				placeholder="Select a date range"
-				data={Object.values(ApplicationTimeRange)}
-				defaultValue={loaderData.mediaList.url.dateRange}
-				onChange={(v) => {
-					const startDateRange = getStartTimeFromRange(
-						v as ApplicationTimeRange,
-					);
-					setP("dateRange", v);
-					setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
-					delP("endDateRange");
-				}}
-			/>
+			<Stack gap="xs">
+				<Select
+					size="xs"
+					description="Select a date range"
+					data={Object.values(ApplicationTimeRange)}
+					defaultValue={loaderData.mediaList.url.dateRange}
+					onChange={(v) => {
+						const startDateRange = getStartTimeFromRange(
+							v as ApplicationTimeRange,
+						);
+						setP("dateRange", v);
+						setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
+						delP("endDateRange");
+					}}
+				/>
+				{loaderData.mediaList.url.dateRange === ApplicationTimeRange.Custom ? (
+					<DatePickerInput
+						size="xs"
+						type="range"
+						description="Select custom dates"
+						defaultValue={
+							loaderData.mediaList.url.startDateRange &&
+							loaderData.mediaList.url.endDateRange
+								? [
+										new Date(loaderData.mediaList.url.startDateRange),
+										new Date(loaderData.mediaList.url.endDateRange),
+									]
+								: undefined
+						}
+						onChange={(v) => {
+							const start = v[0];
+							const end = v[1];
+							if (!start || !end) return;
+							setP("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
+							setP("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
+						}}
+					/>
+				) : null}
+			</Stack>
 		</>
 	);
 };
