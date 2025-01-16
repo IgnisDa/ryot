@@ -1,7 +1,7 @@
 # Migration
 
 All steps below are required unless otherwise stated. Please follow them in the correct
-order. Please make sure to replace `ryot` with `ryot-pro` if you are using the pro version.
+order.
 
 ## From `v7.*` to `v8.*`
 
@@ -16,8 +16,8 @@ order. Please make sure to replace `ryot` with `ryot-pro` if you are using the p
    change: `image: "ignisda/ryot:v8"` in your docker-compose file. This will
    automatically apply all migrations required for the new version.
 
-4. Login as the admin user and go to the "Miscellaneous" settings page and click on the
-   button to "Perform background tasks".
+4. **OPTIONAL**: Login as the admin user and go to the "Miscellaneous" settings page and
+   click on the button to "Perform background tasks".
 
 ## From `v6.*` to `v7.*`
 
