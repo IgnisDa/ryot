@@ -13,6 +13,7 @@ use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
 
 pub struct CacheService {
+    version: String,
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
 }
@@ -22,6 +23,7 @@ impl CacheService {
         Self {
             config,
             db: db.clone(),
+            version: format!("{}-{}", Utc::now(), APP_COMMIT_SHA),
         }
     }
 }
@@ -67,7 +69,7 @@ impl CacheService {
             .map(|(key, value)| application_cache::ActiveModel {
                 created_at: ActiveValue::Set(now),
                 key: ActiveValue::Set(key.clone()),
-                version: ActiveValue::Set(APP_COMMIT_SHA.to_owned()),
+                version: ActiveValue::Set(self.version.to_owned()),
                 value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
                 expires_at: ActiveValue::Set(Some(
                     now + Duration::hours(self.get_expiry_for_key(&key)),
@@ -116,7 +118,7 @@ impl CacheService {
                 continue;
             }
             let should_respect_version = self.should_respect_version(&cache.key);
-            if should_respect_version && cache.version != APP_COMMIT_SHA {
+            if should_respect_version && cache.version != self.version {
                 continue;
             }
             values.insert(cache.key, serde_json::from_value(cache.value)?);
