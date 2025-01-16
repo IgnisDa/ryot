@@ -17,7 +17,7 @@ services:
     container_name: ryot-db
 
   ryot:
-    image: ignisda/ryot:v7 # or ghcr.io/ignisda/ryot:v7
+    image: ignisda/ryot:v8 # or ghcr.io/ignisda/ryot:v8
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
       - TZ=Europe/Amsterdam
