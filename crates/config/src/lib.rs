@@ -111,8 +111,18 @@ pub struct GoogleBooksConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_HARDCOVER_")]
+pub struct HardcoverConfig {
+    /// The API key to be used.
+    pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct BookConfig {
+    /// Settings related to Hardcover.
+    #[setting(nested)]
+    pub hardcover: HardcoverConfig,
     /// Settings related to Openlibrary.
     #[setting(nested)]
     pub openlibrary: OpenlibraryConfig,
@@ -451,6 +461,7 @@ impl AppConfig {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.anime_and_manga.mal.client_id = gt();
+        cl.books.hardcover.api_key = gt();
         cl.books.google_books.api_key = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();

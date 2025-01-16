@@ -19,7 +19,7 @@ import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	MediaLot,
+	type MediaLot,
 	MediaSource,
 	MetadataGroupSearchDocument,
 	type MetadataGroupSearchQuery,
@@ -50,9 +50,10 @@ import {
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
+	getCoreDetails,
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	serverGqlService,
@@ -71,12 +72,6 @@ enum Action {
 	List = "list",
 	Search = "search",
 }
-
-const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
-	[MediaSource.Tmdb]: MediaLot.Movie,
-	[MediaSource.Igdb]: MediaLot.VideoGame,
-	[MediaSource.YoutubeMusic]: MediaLot.Music,
-};
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
@@ -118,7 +113,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 			});
-			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
+			const coreDetails = await getCoreDetails();
+			const lot = coreDetails.metadataGroupSourceLotMappings.find(
+				(m) => m.source === urlParse.source,
+			)?.lot;
 			invariant(lot);
 			const { metadataGroupSearch } =
 				await serverGqlService.authenticatedRequest(
@@ -161,6 +159,7 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 	const [
@@ -234,12 +233,12 @@ export default function Page() {
 					{loaderData.action === Action.Search ? (
 						<>
 							<Select
-								data={Object.keys(SEARCH_SOURCES_ALLOWED).map((o) => ({
-									value: o.toString(),
-									label: startCase(o.toLowerCase()),
-								}))}
-								defaultValue={loaderData.search?.url.source}
 								onChange={(v) => setP("source", v)}
+								defaultValue={loaderData.search?.url.source}
+								data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
+									value: o.source.toString(),
+									label: startCase(o.source.toLowerCase()),
+								}))}
 							/>
 						</>
 					) : null}

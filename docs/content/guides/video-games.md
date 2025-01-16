@@ -13,18 +13,14 @@ You can follow the below steps to obtain your own API keys and enable video game
 ### Steps
 
 1. Create a [Twitch](https://twitch.tv) account.
-
 2. Open your [developer console](https://dev.twitch.tv/console).
-
 3. Click on "Register Your Application" on the dashboard.
-
 4. Fill up the details. Any name will suffice but it must be unique. Click on "Create"
    when you are done.
-
 5. You will be guided back to your application dashboard. Click on "Manage" for
    the application you just created.
-
 6. Generate a client secret. Copy the **Client ID** and **Client Secret**.
-
 7. Set the `VIDEO_GAMES_*` environment variables as described in the
    [configuration](../configuration.md#important-parameters) docs.
+8. Restart the server and delete the application cache using [this
+   guide](../configuration.md#delete-all-cache).

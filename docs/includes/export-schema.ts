@@ -135,7 +135,7 @@ export interface ImportOrExportMetadataItemSeen {
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
-export type MediaSource = 'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
+export type MediaSource = 'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
@@ -158,7 +158,7 @@ export interface ImportOrExportMetadataItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -184,7 +184,7 @@ export interface ImportOrExportMetadataGroupItem {
 	 * The source of media.
 	 *
 	 * @default 'custom'
-	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -193,6 +193,7 @@ export interface ImportOrExportMetadataGroupItem {
 
 export interface PersonSourceSpecifics {
 	is_anilist_studio: boolean | null;
+	is_hardcover_publisher: boolean | null;
 	is_tmdb_company: boolean | null;
 }
 
@@ -210,7 +211,7 @@ export interface ImportOrExportPersonItem {
 	 * The source of data.
 	 *
 	 * @default 'custom'
-	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
+	 * @type {'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music'}
 	 */
 	source: MediaSource;
 	/** The source specific data. */

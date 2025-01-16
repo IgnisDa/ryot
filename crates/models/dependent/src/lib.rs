@@ -131,6 +131,7 @@ pub struct PersonDetails {
     pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,
     pub birth_date: Option<NaiveDate>,
+    pub alternate_names: Option<Vec<String>>,
     pub related_metadata: Vec<MetadataPersonRelated>,
     pub source_specifics: Option<PersonSourceSpecifics>,
     pub related_metadata_groups: Vec<MetadataGroupPersonRelated>,
@@ -226,6 +227,13 @@ pub struct MetadataLotSourceMappings {
 
 #[skip_serializing_none]
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct MetadataGroupSourceLotMapping {
+    pub lot: MediaLot,
+    pub source: MediaSource,
+}
+
+#[skip_serializing_none]
+#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
     pub version: String,
@@ -242,9 +250,11 @@ pub struct CoreDetails {
     pub file_storage_enabled: bool,
     pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
+    pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
+    pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
 }
 
 #[derive(SimpleObject)]

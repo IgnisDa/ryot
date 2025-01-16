@@ -49,7 +49,7 @@ import {
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	getEnhancedCookieName,
@@ -72,16 +72,12 @@ enum Action {
 	Search = "search",
 }
 
-const SEARCH_SOURCES_ALLOWED = [
-	MediaSource.Tmdb,
-	MediaSource.Anilist,
-	MediaSource.Vndb,
-	MediaSource.Openlibrary,
-	MediaSource.Audible,
-	MediaSource.MangaUpdates,
-	MediaSource.Igdb,
-	MediaSource.YoutubeMusic,
-] as const;
+const searchUrlSchema = z.object({
+	isTmdbCompany: zx.BoolAsString.optional(),
+	isAnilistStudio: zx.BoolAsString.optional(),
+	isHardcoverPublisher: zx.BoolAsString.optional(),
+	source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
+});
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
@@ -120,11 +116,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = zx.parseQuery(request, {
-				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
-				isTmdbCompany: zx.BoolAsString.optional(),
-				isAnilistStudio: zx.BoolAsString.optional(),
-			});
+			const urlParse = zx.parseQuery(request, searchUrlSchema);
 			const { peopleSearch } = await serverGqlService.authenticatedRequest(
 				request,
 				PeopleSearchDocument,
@@ -132,8 +124,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					input: {
 						source: urlParse.source,
 						sourceSpecifics: {
-							isAnilistStudio: urlParse.isAnilistStudio,
 							isTmdbCompany: urlParse.isTmdbCompany,
+							isAnilistStudio: urlParse.isAnilistStudio,
+							isHardcoverPublisher: urlParse.isHardcoverPublisher,
 						},
 						search: { page: query[pageQueryParam], query: query.query },
 					},
@@ -169,6 +162,7 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const coreDetails = useCoreDetails();
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -241,29 +235,38 @@ export default function Page() {
 					{loaderData.action === Action.Search ? (
 						<>
 							<Select
-								data={SEARCH_SOURCES_ALLOWED.map((o) => ({
+								onChange={(v) => setP("source", v)}
+								defaultValue={loaderData.peopleSearch?.url.source}
+								data={coreDetails.peopleSearchSources.map((o) => ({
 									value: o.toString(),
 									label: startCase(o.toLowerCase()),
 								}))}
-								defaultValue={loaderData.peopleSearch?.url.source}
-								onChange={(v) => setP("source", v)}
 							/>
 							{loaderData.peopleSearch?.url.source === MediaSource.Tmdb ? (
 								<Checkbox
+									label="Company"
 									checked={loaderData.peopleSearch?.url.isTmdbCompany}
 									onChange={(e) =>
 										setP("isTmdbCompany", String(e.target.checked))
 									}
-									label="Company"
 								/>
 							) : null}
 							{loaderData.peopleSearch?.url.source === MediaSource.Anilist ? (
 								<Checkbox
+									label="Studio"
 									checked={loaderData.peopleSearch?.url.isAnilistStudio}
 									onChange={(e) =>
 										setP("isAnilistStudio", String(e.target.checked))
 									}
-									label="Studio"
+								/>
+							) : null}
+							{loaderData.peopleSearch?.url.source === MediaSource.Hardcover ? (
+								<Checkbox
+									label="Publisher"
+									checked={loaderData.peopleSearch?.url.isHardcoverPublisher}
+									onChange={(e) =>
+										setP("isHardcoverPublisher", String(e.target.checked))
+									}
 								/>
 							) : null}
 						</>
@@ -374,11 +377,9 @@ const PersonSearchItem = (props: {
 				if (loaderData.peopleSearch) {
 					setIsLoading(true);
 					const id = await commitPerson(
-						props.item.identifier,
-						loaderData.peopleSearch.url.source,
 						props.item.name,
-						loaderData.peopleSearch.url.isTmdbCompany,
-						loaderData.peopleSearch.url.isAnilistStudio,
+						props.item.identifier,
+						loaderData.peopleSearch.url,
 					);
 					setIsLoading(false);
 					return navigate($path("/media/people/item/:id", { id }));
@@ -389,18 +390,23 @@ const PersonSearchItem = (props: {
 };
 
 const commitPerson = async (
-	identifier: string,
-	source: MediaSource,
 	name: string,
-	isTmdbCompany?: boolean,
-	isAnilistStudio?: boolean,
+	identifier: string,
+	additionalData: z.infer<typeof searchUrlSchema>,
 ) => {
 	const data = new FormData();
 	data.append("identifier", identifier);
-	data.append("source", source);
+	data.append("source", additionalData.source);
 	if (name) data.append("name", name);
-	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
-	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
+	if (additionalData.isTmdbCompany)
+		data.append("isTmdbCompany", String(additionalData.isTmdbCompany));
+	if (additionalData.isAnilistStudio)
+		data.append("isAnilistStudio", String(additionalData.isAnilistStudio));
+	if (additionalData.isHardcoverPublisher)
+		data.append(
+			"isHardcoverPublisher",
+			String(additionalData.isHardcoverPublisher),
+		);
 	const resp = await fetch($path("/actions", { intent: "commitPerson" }), {
 		method: "POST",
 		body: data,

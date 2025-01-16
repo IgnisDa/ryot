@@ -1,6 +1,7 @@
 pub mod anilist;
 pub mod audible;
 pub mod google_books;
+pub mod hardcover;
 pub mod igdb;
 pub mod itunes;
 pub mod listennotes;

@@ -223,6 +223,7 @@ impl GoogleBooksService {
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),
             book_specifics: Some(BookSpecifics {
                 pages: item.page_count,
+                ..Default::default()
             }),
             source_url: Some(format!(
                 "https://www.google.co.in/books/edition/{}/{}",

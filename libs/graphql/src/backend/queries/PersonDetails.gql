@@ -20,6 +20,7 @@ query PersonDetails($personId: String!) {
 			identifier
 			description
 			displayImages
+			alternateNames
 		}
 	}
 }

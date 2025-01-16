@@ -10,10 +10,12 @@ use database_models::{
 };
 use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::{commit_metadata, process_import};
+use dependent_utils::{
+    commit_metadata, get_google_books_service, get_hardcover_service, get_openlibrary_service,
+    process_import,
+};
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitMediaInput, SeenShowExtraInformation};
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -276,8 +278,9 @@ impl IntegrationService {
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         &self.0,
-                        &GoogleBooksService::new(&self.0.config.books.google_books).await,
-                        &OpenlibraryService::new(&self.0.config.books.openlibrary).await,
+                        &get_hardcover_service(&self.0.config).await.unwrap(),
+                        &get_google_books_service(&self.0.config).await.unwrap(),
+                        &get_openlibrary_service(&self.0.config).await.unwrap(),
                         |input| {
                             commit_metadata(
                                 CommitMediaInput {
@@ -364,7 +367,9 @@ impl IntegrationService {
                 IntegrationProvider::Audiobookshelf => {
                     yank::audiobookshelf::sync_to_owned_collection(
                         specifics.audiobookshelf_base_url.unwrap(),
-                        GoogleBooksService::new(&self.0.config.books.google_books).await,
+                        &get_hardcover_service(&self.0.config).await.unwrap(),
+                        &get_google_books_service(&self.0.config).await.unwrap(),
+                        &get_openlibrary_service(&self.0.config).await.unwrap(),
                     )
                     .await
                 }

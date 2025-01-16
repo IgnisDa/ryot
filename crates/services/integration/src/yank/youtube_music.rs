@@ -59,7 +59,7 @@ pub async fn yank_progress(
         .collect::<HashMap<_, _>>();
     let items_in_cache = ss
         .cache_service
-        .get_values(cache_keys.iter().map(|(_id, key)| key.clone()).collect())
+        .get_values(cache_keys.values().cloned().collect())
         .await
         .unwrap_or_default();
     let mut result = ImportResult::default();

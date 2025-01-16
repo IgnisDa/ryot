@@ -49,8 +49,9 @@ use dependent_utils::{
     commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
-    get_entity_recently_consumed, get_metadata_provider, get_openlibrary_service,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
+    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
     handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
     metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
     refresh_collection_to_entity_association, remove_entity_from_collection,
@@ -84,10 +85,9 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::NonMediaAnilistService, audible::AudibleService, google_books::GoogleBooksService,
-    igdb::IgdbService, itunes::ITunesService, listennotes::ListennotesService,
-    mal::NonMediaMalService, manga_updates::MangaUpdatesService, vndb::VndbService,
-    youtube_music::YoutubeMusicService,
+    anilist::NonMediaAnilistService, audible::AudibleService, igdb::IgdbService,
+    itunes::ITunesService, listennotes::ListennotesService, mal::NonMediaMalService,
+    manga_updates::MangaUpdatesService, vndb::VndbService, youtube_music::YoutubeMusicService,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -1419,14 +1419,13 @@ ORDER BY RANDOM() LIMIT 10;
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
+            MediaSource::Hardcover => Box::new(get_hardcover_service(&self.0.config).await?),
             MediaSource::Vndb => Box::new(VndbService::new(&self.0.config.visual_novels).await),
             MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => {
                 Box::new(ITunesService::new(&self.0.config.podcasts.itunes).await)
             }
-            MediaSource::GoogleBooks => {
-                Box::new(GoogleBooksService::new(&self.0.config.books.google_books).await)
-            }
+            MediaSource::GoogleBooks => Box::new(get_google_books_service(&self.0.config).await?),
             MediaSource::Audible => {
                 Box::new(AudibleService::new(&self.0.config.audio_books.audible).await)
             }
@@ -2277,17 +2276,18 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(|i: &Vec<MetadataImage>| !i.is_empty());
         let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
         let mut to_update_person: person::ActiveModel = person.clone().into();
-        to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update_person.description = ActiveValue::Set(provider_person.description);
-        to_update_person.gender = ActiveValue::Set(provider_person.gender);
-        to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
-        to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
-        to_update_person.place = ActiveValue::Set(provider_person.place);
-        to_update_person.website = ActiveValue::Set(provider_person.website);
-        to_update_person.source_url = ActiveValue::Set(provider_person.source_url);
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
+        to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
+        to_update_person.place = ActiveValue::Set(provider_person.place);
+        to_update_person.gender = ActiveValue::Set(provider_person.gender);
+        to_update_person.website = ActiveValue::Set(provider_person.website);
+        to_update_person.source_url = ActiveValue::Set(provider_person.source_url);
+        to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
+        to_update_person.death_date = ActiveValue::Set(provider_person.death_date);
+        to_update_person.description = ActiveValue::Set(provider_person.description);
+        to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
         for data in provider_person.related_metadata.clone() {
             let title = data.metadata.title.clone();
             let pm = create_partial_metadata(data.metadata, &self.0.db).await?;

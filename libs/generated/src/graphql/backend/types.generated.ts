@@ -104,10 +104,12 @@ export enum BackgroundJob {
 
 export type BookSpecifics = {
   __typename?: 'BookSpecifics';
+  isCompilation?: Maybe<Scalars['Boolean']['output']>;
   pages?: Maybe<Scalars['Int']['output']>;
 };
 
 export type BookSpecificsInput = {
+  isCompilation?: InputMaybe<Scalars['Boolean']['input']>;
   pages?: InputMaybe<Scalars['Int']['input']>;
 };
 
@@ -220,10 +222,12 @@ export type CoreDetails = {
   frontend: FrontendConfig;
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
+  peopleSearchSources: Array<MediaSource>;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
@@ -1039,6 +1043,7 @@ export enum MediaSource {
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
   GoogleBooks = 'GOOGLE_BOOKS',
+  Hardcover = 'HARDCOVER',
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
@@ -1102,6 +1107,12 @@ export type MetadataGroupSearchResults = {
   __typename?: 'MetadataGroupSearchResults';
   details: SearchDetails;
   items: Array<MetadataGroupSearchItem>;
+};
+
+export type MetadataGroupSourceLotMapping = {
+  __typename?: 'MetadataGroupSourceLotMapping';
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type MetadataGroupsListInput = {
@@ -1629,6 +1640,7 @@ export type PeopleSearchResults = {
 
 export type Person = {
   __typename?: 'Person';
+  alternateNames?: Maybe<Array<Scalars['String']['output']>>;
   birthDate?: Maybe<Scalars['NaiveDate']['output']>;
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
@@ -1674,6 +1686,7 @@ export type PersonSortInput = {
 
 export type PersonSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isHardcoverPublisher?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };
 

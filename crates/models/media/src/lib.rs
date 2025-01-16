@@ -74,6 +74,7 @@ pub struct AudioBookSpecifics {
 #[graphql(input_name = "BookSpecificsInput")]
 pub struct BookSpecifics {
     pub pages: Option<i32>,
+    pub is_compilation: Option<bool>,
 }
 
 #[skip_serializing_none]

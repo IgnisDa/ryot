@@ -64,6 +64,7 @@ use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
     audible::AudibleService,
     google_books::GoogleBooksService,
+    hardcover::HardcoverService,
     igdb::IgdbService,
     itunes::ITunesService,
     listennotes::ListennotesService,
@@ -132,6 +133,10 @@ pub async fn get_google_books_service(config: &config::AppConfig) -> Result<Goog
     Ok(GoogleBooksService::new(&config.books.google_books).await)
 }
 
+pub async fn get_hardcover_service(config: &config::AppConfig) -> Result<HardcoverService> {
+    Ok(HardcoverService::new(&config.books.hardcover).await)
+}
+
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
@@ -146,6 +151,7 @@ pub async fn get_metadata_provider(
     let err = || Err(Error::new("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await),
+        MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await),
         MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
         MediaSource::Itunes => Box::new(ITunesService::new(&ss.config.podcasts.itunes).await),
@@ -2623,18 +2629,20 @@ pub async fn add_entity_to_collection(
 
 pub async fn get_identifier_from_book_isbn(
     isbn: &str,
+    hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
 ) -> Option<(String, MediaSource)> {
-    let mut identifier = None;
-    let mut source = MediaSource::GoogleBooks;
-    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
-        identifier = Some(id);
-    } else if let Some(id) = open_library_service.id_from_isbn(isbn).await {
-        identifier = Some(id);
-        source = MediaSource::Openlibrary;
+    if let Some(id) = hardcover_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::Hardcover));
     }
-    identifier.map(|id| (id, source))
+    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::GoogleBooks));
+    }
+    if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::Openlibrary));
+    }
+    None
 }
 
 pub async fn expire_user_collections_list_cache(

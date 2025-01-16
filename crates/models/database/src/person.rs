@@ -16,28 +16,29 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    pub place: Option<String>,
+    pub gender: Option<String>,
     pub created_on: DateTimeUtc,
-    pub last_updated_on: DateTimeUtc,
-    pub name: String,
+    pub website: Option<String>,
     pub is_partial: Option<bool>,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub images: Option<Vec<MetadataImage>>,
+    pub source_url: Option<String>,
     #[sea_orm(ignore)]
     pub display_images: Vec<String>,
     pub description: Option<String>,
-    pub gender: Option<String>,
+    pub last_updated_on: DateTimeUtc,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
-    pub place: Option<String>,
-    pub website: Option<String>,
-    pub source_url: Option<String>,
+    #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
-    pub source_specifics: Option<PersonSourceSpecifics>,
+    pub images: Option<Vec<MetadataImage>>,
+    pub alternate_names: Option<Vec<String>>,
     #[graphql(skip)]
     pub state_changes: Option<PersonStateChanges>,
+    #[graphql(skip)]
+    pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
