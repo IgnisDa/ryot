@@ -2832,6 +2832,18 @@ pub async fn metadata_list(
             )
         })
         .apply_if(
+            input.filter.clone().and_then(|f| f.date_range),
+            |outer_query, outer_value| {
+                outer_query
+                    .apply_if(outer_value.start_date, |inner_query, inner_value| {
+                        inner_query.filter(seen::Column::FinishedOn.gte(inner_value))
+                    })
+                    .apply_if(outer_value.end_date, |inner_query, inner_value| {
+                        inner_query.filter(seen::Column::FinishedOn.lte(inner_value))
+                    })
+            },
+        )
+        .apply_if(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
