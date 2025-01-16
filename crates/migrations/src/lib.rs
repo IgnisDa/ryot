@@ -19,11 +19,8 @@ mod m20230912_create_calendar_event;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
 mod m20231219_create_metadata_relations;
-mod m20240509_create_user_to_collection;
-mod m20240531_create_queued_notification;
 mod m20240607_create_integration;
 mod m20240712_create_notification_platform;
-mod m20240713_create_user_summary;
 mod m20240714_create_access_link;
 mod m20240827_create_daily_user_activity;
 mod m20240904_create_monitored_entity;
@@ -69,11 +66,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
             Box::new(m20231219_create_metadata_relations::Migration),
-            Box::new(m20240509_create_user_to_collection::Migration),
-            Box::new(m20240531_create_queued_notification::Migration),
             Box::new(m20240607_create_integration::Migration),
             Box::new(m20240712_create_notification_platform::Migration),
-            Box::new(m20240713_create_user_summary::Migration),
             Box::new(m20240714_create_access_link::Migration),
             Box::new(m20240827_create_daily_user_activity::Migration),
             Box::new(m20240904_create_monitored_entity::Migration),
