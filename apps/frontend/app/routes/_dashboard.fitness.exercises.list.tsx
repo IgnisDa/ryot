@@ -24,6 +24,7 @@ import {
 import {
 	type UseListStateHandlers,
 	useDisclosure,
+	useInViewport,
 	useListState,
 } from "@mantine/hooks";
 import type {
@@ -417,15 +418,18 @@ const ExerciseItemDisplay = (props: {
 	setMergingExercise: (value: string | null) => void;
 	setSelectedExercises: UseListStateHandlers<SelectExercise>;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const navigate = useNavigate();
 	const submit = useSubmit();
-	const { data: exercise } = useQuery(
-		getExerciseDetailsQuery(props.exerciseId),
-	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(props.exerciseId),
-	);
+	const navigate = useNavigate();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const { ref, inViewport } = useInViewport();
+	const { data: exercise } = useQuery({
+		...getExerciseDetailsQuery(props.exerciseId),
+		enabled: inViewport,
+	});
+	const { data: userExerciseDetails } = useQuery({
+		...getUserExerciseDetailsQuery(props.exerciseId),
+		enabled: inViewport,
+	});
 
 	const firstMuscle = exercise?.muscles?.at(0);
 	const numTimesInteracted =
@@ -522,6 +526,6 @@ const ExerciseItemDisplay = (props: {
 			</Link>
 		</Flex>
 	) : (
-		<Skeleton height={56} />
+		<Skeleton height={56} ref={ref} />
 	);
 };

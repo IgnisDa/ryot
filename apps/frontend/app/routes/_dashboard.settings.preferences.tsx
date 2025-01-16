@@ -250,9 +250,9 @@ export default function Page() {
 													defaultValue={
 														userPreferences.featuresEnabled[facet].specific
 													}
-													data={Object.entries(MediaLot).map(([name, lot]) => ({
+													data={Object.values(MediaLot).map((lot) => ({
 														value: lot,
-														label: changeCase(name),
+														label: changeCase(lot),
 													}))}
 													onChange={(val) => {
 														if (val) {
@@ -577,7 +577,7 @@ export default function Page() {
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Divider />
-							<Title order={4}>Current workout</Title>
+							<Title order={4}>Workout logging</Title>
 							{(
 								[
 									"muteSounds",
@@ -588,7 +588,7 @@ export default function Page() {
 								const [label, isGatedBehindServerKeyValidation] = match(option)
 									.with(
 										"muteSounds",
-										() => ["Mute sounds while logging workouts"] as const,
+										() => ["Mute all sounds for actions"] as const,
 									)
 									.with(
 										"promptForRestTimer",

@@ -20,6 +20,7 @@ query GetPresignedS3Url($key: String!) {
 query UserExports {
 	userExports {
 		url
+		key
 		size
 		endedAt
 		startedAt
@@ -202,14 +203,10 @@ query ImportReports {
 
 query GenresList($input: SearchInput!) {
 	genresList(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			id
-			name
-			numItems
 		}
 	}
 }

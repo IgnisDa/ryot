@@ -308,7 +308,6 @@ export default function Page() {
 		loaderData.metadataDetails.productionStatus,
 		loaderData.metadataDetails.bookSpecifics?.pages &&
 			`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
-		loaderData.metadataDetails.bookSpecifics?.isCompilation && "Compilation",
 		loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
 			`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
 		loaderData.metadataDetails.animeSpecifics?.episodes &&
@@ -445,13 +444,13 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
-					{additionalMetadataDetails.length > 0 ? (
-						<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-							{additionalMetadataDetails
-								.map<ReactNode>((s) => s)
-								.reduce((prev, curr) => [prev, " • ", curr])}
-						</Text>
-					) : null}
+					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+						{additionalMetadataDetails.length > 0
+							? additionalMetadataDetails
+									.map<ReactNode>((s) => s)
+									.reduce((prev, curr) => [prev, " • ", curr])
+							: null}
+					</Text>
 					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
