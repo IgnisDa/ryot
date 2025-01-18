@@ -13,11 +13,11 @@ export const mediaPropertiesSchema = z
 		genres: stringArraySchema,
 		isNsfw: nullableBooleanSchema,
 		publishYear: nullableIntSchema,
+		sourceUrl: nullableStringSchema,
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
 		providerRating: nullableNumberSchema,
 		productionStatus: nullableStringSchema,
-		sourceUrl: nullableStringSchema.optional(),
 	})
 	.strict();
 
