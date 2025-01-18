@@ -2,17 +2,23 @@ import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
 import {
 	createAuthRoute,
-	ERROR_CODES,
-	errorResponse,
+	createNotFoundErrorResult,
+	createValidationErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
+	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
 import {
+	customFacetError,
+	facetNotFoundError,
+	resolveCustomFacetAccess,
+} from "../facets/access";
+import { getFacetScopeForUser } from "../facets/repository";
+import {
 	createEntitySchemaForUser,
 	getEntitySchemaBySlugForUser,
-	getFacetScopeForEntitySchemas,
 	listEntitySchemasByFacetForUser,
 } from "./repository";
 import {
@@ -68,7 +74,6 @@ const createEntitySchemaRoute = createAuthRoute(
 
 const duplicateSlugError = "Entity schema slug already exists";
 const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
-const customFacetError = "Built-in facets do not support entity schemas";
 
 const isUniqueSlugConstraintError = (error: unknown) => {
 	if (!error || typeof error !== "object") return false;
@@ -79,36 +84,25 @@ const isUniqueSlugConstraintError = (error: unknown) => {
 	return code === "23505" && constraint === entitySchemaUniqueConstraint;
 };
 
-const getCustomFacetScope = async (input: {
-	userId: string;
-	facetId: string;
-}) => {
-	const foundFacet = await getFacetScopeForEntitySchemas(input);
-	if (!foundFacet)
-		return {
-			status: 404 as const,
-			body: errorResponse(ERROR_CODES.NOT_FOUND, "Facet not found"),
-		};
-	if (foundFacet.isBuiltin)
-		return {
-			status: 400 as const,
-			body: errorResponse(ERROR_CODES.VALIDATION_FAILED, customFacetError),
-		};
-
-	return { facet: foundFacet };
-};
-
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
 		const query = c.req.valid("query");
 		const facetId = resolveEntitySchemaFacetId(query.facetId);
 
-		const foundFacet = await getCustomFacetScope({
-			facetId,
-			userId: user.id,
-		});
-		if ("body" in foundFacet) return c.json(foundFacet.body, foundFacet.status);
+		const foundFacet = resolveCustomFacetAccess(
+			await getFacetScopeForUser({
+				facetId,
+				userId: user.id,
+			}),
+		);
+		if ("error" in foundFacet)
+			return c.json(
+				foundFacet.error === "not_found"
+					? createNotFoundErrorResult(facetNotFoundError).body
+					: createValidationErrorResult(customFacetError).body,
+				foundFacet.error === "not_found" ? 404 : 400,
+			);
 
 		const entitySchemas = await listEntitySchemasByFacetForUser({
 			facetId,
@@ -122,32 +116,38 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 		const facetId = resolveEntitySchemaFacetId(body.facetId);
 
-		const foundFacet = await getCustomFacetScope({
-			facetId,
-			userId: user.id,
-		});
-		if ("body" in foundFacet) return c.json(foundFacet.body, foundFacet.status);
+		const foundFacet = resolveCustomFacetAccess(
+			await getFacetScopeForUser({
+				facetId,
+				userId: user.id,
+			}),
+		);
+		if ("error" in foundFacet)
+			return c.json(
+				foundFacet.error === "not_found"
+					? createNotFoundErrorResult(facetNotFoundError).body
+					: createValidationErrorResult(customFacetError).body,
+				foundFacet.error === "not_found" ? 404 : 400,
+			);
 
-		let entitySchemaInput: ReturnType<typeof resolveEntitySchemaCreateInput>;
-		try {
-			entitySchemaInput = resolveEntitySchemaCreateInput(body);
-		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: "Entity schema payload is invalid";
-			return c.json(errorResponse(ERROR_CODES.VALIDATION_FAILED, message), 400);
-		}
+		const entitySchemaInputResult = resolveValidationResult(
+			() => resolveEntitySchemaCreateInput(body),
+			"Entity schema payload is invalid",
+		);
+		if ("body" in entitySchemaInputResult)
+			return c.json(
+				entitySchemaInputResult.body,
+				entitySchemaInputResult.status,
+			);
+
+		const entitySchemaInput = entitySchemaInputResult.data;
 
 		const existingEntitySchema = await getEntitySchemaBySlugForUser({
 			userId: user.id,
 			slug: entitySchemaInput.slug,
 		});
 		if (existingEntitySchema)
-			return c.json(
-				errorResponse(ERROR_CODES.VALIDATION_FAILED, duplicateSlugError),
-				400,
-			);
+			return c.json(createValidationErrorResult(duplicateSlugError).body, 400);
 
 		try {
 			const createdEntitySchema = await createEntitySchemaForUser({
@@ -162,7 +162,7 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		} catch (error) {
 			if (isUniqueSlugConstraintError(error))
 				return c.json(
-					errorResponse(ERROR_CODES.VALIDATION_FAILED, duplicateSlugError),
+					createValidationErrorResult(duplicateSlugError).body,
 					400,
 				);
 
