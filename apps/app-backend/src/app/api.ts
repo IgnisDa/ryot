@@ -10,8 +10,6 @@ import {
 	jsonResponse,
 	successResponse,
 } from "~/lib/openapi";
-import { entitiesApi } from "~/modules/entities/routes";
-import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { facetsApi } from "~/modules/facets/routes";
 import { healthApi } from "~/modules/health/routes";
 import { metricsApi } from "~/modules/metrics/routes";
@@ -69,9 +67,7 @@ export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 		return c.json(successResponse({ user, session }), 200);
 	})
 	.route("/sandbox", sandboxApi)
-	.route("/facets", facetsApi)
-	.route("/entities", entitiesApi)
-	.route("/event-schemas", eventSchemasApi);
+	.route("/facets", facetsApi);
 
 export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
