@@ -126,7 +126,7 @@ const sourceUrl = `https://myanimelist.net/manga/${payloadIdentifier}/${title}`;
 
 return {
 	name: title,
-	external_id: payloadIdentifier,
+	externalId: payloadIdentifier,
 	properties: {
 		genres: collectGenres(payload?.genres),
 		assets: { remote_images: collectImages(payload?.main_picture) },
