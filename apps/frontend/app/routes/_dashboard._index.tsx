@@ -11,7 +11,7 @@ import type {
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { redirect, useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -30,10 +30,7 @@ import type { ReactNode } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
-import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	DisplaySummarySection,
@@ -41,19 +38,17 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
+import {
+	clientGqlService,
+	dayjsLib,
+	openConfirmationModal,
+} from "~/lib/generals";
 import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
-
-const searchParamsSchema = z.object({
-	shouldRefreshMetadataRecommendations: zx.BoolAsString.optional(),
-});
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const preferences = await getUserPreferences(request);
@@ -66,7 +61,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	};
 	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const query = zx.parseQuery(request, searchParamsSchema);
 	const getRecommendations = async () => {
 		if (
 			preferences.general.dashboard.find(
@@ -78,7 +72,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				UserMetadataRecommendationsDocument,
-				{ shouldRefresh: query.shouldRefreshMetadataRecommendations },
+				{},
 			);
 		return userMetadataRecommendations;
 	};
@@ -113,9 +107,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 		}),
 	]);
-	if (query.shouldRefreshMetadataRecommendations) {
-		return redirect(".");
-	}
 	return {
 		userAnalytics,
 		userUpcomingCalendarEvents,
@@ -134,7 +125,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const navigate = useNavigate();
+	const revalidator = useRevalidator();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
@@ -203,12 +194,13 @@ export default function Page() {
 										onClick={() => {
 											openConfirmationModal(
 												"Are you sure you want to refresh the recommendations?",
-												() =>
-													navigate(
-														withQuery(".", {
-															shouldRefreshMetadataRecommendations: true,
-														}),
-													),
+												async () => {
+													await clientGqlService.request(
+														UserMetadataRecommendationsDocument,
+														{ shouldRefresh: true },
+													);
+													revalidator.revalidate();
+												},
 											);
 										}}
 									>
