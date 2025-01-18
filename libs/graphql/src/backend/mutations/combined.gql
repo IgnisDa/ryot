@@ -263,10 +263,6 @@ mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
-mutation RefreshUserMetadataRecommendations {
-	refreshUserMetadataRecommendations
-}
-
 mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
 	markEntityAsPartial(input: $input)
 }

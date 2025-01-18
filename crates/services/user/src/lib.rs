@@ -120,19 +120,6 @@ impl UserService {
         Ok(recommendations)
     }
 
-    pub async fn refresh_user_metadata_recommendations(&self, user_id: &String) -> Result<bool> {
-        self.0
-            .cache_service
-            .expire_key(ApplicationCacheKey::UserMetadataRecommendations(
-                UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.to_owned(),
-                },
-            ))
-            .await?;
-        Ok(true)
-    }
-
     pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
         let links = AccessLink::find()
             .filter(access_link::Column::UserId.eq(user_id))

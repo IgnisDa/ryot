@@ -1290,8 +1290,6 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
-  /** Refresh the user metadata recommendations. */
-  refreshUserMetadataRecommendations: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.

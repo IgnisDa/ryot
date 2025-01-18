@@ -271,13 +271,4 @@ impl UserMutation {
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
     }
-
-    /// Refresh the user metadata recommendations.
-    async fn refresh_user_metadata_recommendations(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
-            .refresh_user_metadata_recommendations(&user_id)
-            .await
-    }
 }
