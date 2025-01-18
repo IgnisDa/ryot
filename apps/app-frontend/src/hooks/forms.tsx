@@ -42,8 +42,8 @@ function TextField(props: TextFieldProps) {
 type SubmitButtonProps = {
 	label: string;
 	variant?: string;
-	className?: string;
 	disabled?: boolean;
+	fullWidth?: boolean;
 	pendingLabel?: string;
 };
 
@@ -55,8 +55,8 @@ function SubmitButton(props: SubmitButtonProps) {
 			{([canSubmit, isSubmitting]) => (
 				<Button
 					type="submit"
+					fullWidth={props.fullWidth}
 					variant={props.variant}
-					className={props.className}
 					disabled={props.disabled || isSubmitting || !canSubmit}
 				>
 					{isSubmitting ? (props.pendingLabel ?? props.label) : props.label}
