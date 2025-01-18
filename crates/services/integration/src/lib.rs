@@ -262,14 +262,15 @@ impl IntegrationService {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
             .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
-            if integration.is_disabled.unwrap_or_default() {
-                ryot_log!(debug, "Integration {} is disabled", integration.id);
-                continue;
-            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
@@ -344,14 +345,15 @@ impl IntegrationService {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::SyncToOwnedCollection.eq(true))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
             .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
-            if integration.is_disabled.unwrap_or_default() {
-                ryot_log!(debug, "Integration {} is disabled", integration.id);
-                continue;
-            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
