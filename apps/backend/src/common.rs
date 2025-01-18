@@ -151,7 +151,7 @@ pub async fn create_app_services(
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
-            1024 * 1024 * config.server.max_file_size,
+            1024 * 1024 * config.server.max_file_size_mb,
         ))
         .layer(cors);
 

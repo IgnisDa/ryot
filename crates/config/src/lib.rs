@@ -363,7 +363,7 @@ pub struct ServerConfig {
     pub progress_update_threshold: i64,
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
-    pub max_file_size: usize,
+    pub max_file_size_mb: usize,
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,
