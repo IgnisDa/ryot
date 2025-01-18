@@ -22,7 +22,7 @@ impl CacheService {
         Self {
             config,
             db: db.clone(),
-            version: Utc::now().to_string(),
+            version: Utc::now().to_rfc2822(),
         }
     }
 }
