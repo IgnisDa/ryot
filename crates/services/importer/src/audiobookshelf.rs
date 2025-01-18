@@ -10,7 +10,7 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
-use external_utils::audiobookshelf::get_updated_metadata;
+use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     UniqueMediaIdentifier,
@@ -133,7 +133,7 @@ where
                                     identifier: itunes_id.clone(),
                                 })
                                 .await?;
-                                let podcast = get_updated_metadata(&itunes_id, ss).await?;
+                                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
                                 if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                     get_podcast_episode_number_by_name(&p, &episode.title)
                                 }) {

@@ -120,7 +120,7 @@ pub mod jellyfin {
 pub mod audiobookshelf {
     use super::*;
 
-    pub async fn get_updated_metadata(
+    pub async fn get_updated_podcast_metadata(
         identifier: &String,
         ss: &Arc<SupportingService>,
     ) -> Result<metadata::Model> {

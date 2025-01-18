@@ -8,7 +8,7 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use external_utils::audiobookshelf::get_updated_metadata;
+use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
@@ -81,7 +81,7 @@ where
                 })
                 .await
                 .unwrap();
-                let podcast = get_updated_metadata(&itunes_id, ss).await?;
+                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
                 if let Some(episode) = podcast
                     .podcast_specifics
                     .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))
