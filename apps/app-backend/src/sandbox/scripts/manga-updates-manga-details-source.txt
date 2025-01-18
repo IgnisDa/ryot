@@ -111,7 +111,7 @@ return {
 	properties: {
 		volumes,
 		chapters,
-		is_nsfw: null,
+		isNsfw: null,
 		production_status: productionStatus,
 		publish_year: parsePublishYear(payload?.year),
 		assets: { remoteImages: collectImages(payload?.image) },
