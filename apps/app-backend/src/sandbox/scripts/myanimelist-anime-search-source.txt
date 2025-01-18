@@ -108,7 +108,7 @@ const minimumTotalItems = (currentPage - 1) * pageSize + items.length;
 return {
 	items,
 	details: {
-		total_items: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
-		next_page: hasNextPage ? currentPage + 1 : null,
+		nextPage: hasNextPage ? currentPage + 1 : null,
+		totalItems: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
 	},
 };
