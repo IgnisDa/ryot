@@ -89,12 +89,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
 				collectionId,
-				filter: {
-					entityLot: query.entityLot,
-					metadataLot: query.metadataLot,
-				},
 				sort: { by: query.sortBy, order: query.orderBy },
 				search: { page: query[pageQueryParam], query: query.query },
+				filter: { entityLot: query.entityLot, metadataLot: query.metadataLot },
 			},
 		}),
 	]);
