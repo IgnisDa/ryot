@@ -1,16 +1,17 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
-use common_models::{DefaultCollection, StringIdObject};
+use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+    CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    UniqueMediaIdentifier,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -29,18 +30,14 @@ fn get_http_client(access_token: &String) -> Client {
     )]))
 }
 
-pub async fn yank_progress<F>(
+pub async fn yank_progress(
     base_url: String,
     access_token: String,
     ss: &Arc<SupportingService>,
     hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
-) -> Result<ImportResult>
-where
-    F: Future<Output = async_graphql::Result<StringIdObject>>,
-{
+) -> Result<ImportResult> {
     let url = format!("{}/api", base_url);
     let client = get_http_client(&access_token);
 
@@ -74,11 +71,17 @@ where
             {
                 let lot = MediaLot::Podcast;
                 let source = MediaSource::Itunes;
-                commit_metadata(UniqueMediaIdentifier {
-                    lot,
-                    source,
-                    identifier: itunes_id.clone(),
-                })
+                commit_metadata(
+                    CommitMediaInput {
+                        name: "Loading...".to_owned(),
+                        unique: UniqueMediaIdentifier {
+                            lot,
+                            source,
+                            identifier: itunes_id.clone(),
+                        },
+                    },
+                    ss,
+                )
                 .await
                 .unwrap();
                 let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
