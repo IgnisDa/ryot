@@ -60,28 +60,7 @@ where
     for item in resp.library_items.iter() {
         let metadata = item.media.clone().unwrap().metadata;
         let (progress_id, identifier, lot, source, podcast_episode_number) =
-            if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
-                match &metadata.isbn {
-                    Some(isbn) => match get_identifier_from_book_isbn(
-                        isbn,
-                        hardcover_service,
-                        google_books_service,
-                        open_library_service,
-                    )
-                    .await
-                    {
-                        Some(id) => (item.id.clone(), id.0, MediaLot::Book, id.1, None),
-                        _ => {
-                            ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
-                            continue;
-                        }
-                    },
-                    _ => {
-                        ryot_log!(debug, "No ISBN found for item {:#?}", item);
-                        continue;
-                    }
-                }
-            } else if let Some(asin) = metadata.asin.clone() {
+            if let Some(asin) = metadata.asin.clone() {
                 (
                     item.id.clone(),
                     asin,
@@ -121,6 +100,21 @@ where
                     }
                     _ => {
                         ryot_log!(debug, "No recent episode found for item {:?}", item);
+                        continue;
+                    }
+                }
+            } else if let Some(isbn) = metadata.isbn.clone() {
+                match get_identifier_from_book_isbn(
+                    &isbn,
+                    hardcover_service,
+                    google_books_service,
+                    open_library_service,
+                )
+                .await
+                {
+                    Some(id) => (item.id.clone(), id.0, MediaLot::Book, id.1, None),
+                    _ => {
+                        ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
                         continue;
                     }
                 }
