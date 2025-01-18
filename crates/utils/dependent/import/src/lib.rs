@@ -18,7 +18,8 @@ use dependent_collection_utils::{add_entities_to_collection, create_or_update_co
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_fitness_utils::{
     create_custom_exercise, create_or_update_user_measurement, create_or_update_user_workout,
-    db_workout_to_workout_input, generate_exercise_id,
+    db_workout_template_to_workout_input, db_workout_to_workout_input, generate_exercise_id,
+    upsert_workout_template,
 };
 use dependent_jobs_utils::deploy_update_media_entity_job;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -171,11 +172,13 @@ where
 
     import.completed.shuffle(&mut rand::rng());
 
-    // DEV: We need to make sure that exercises are created first because workouts are
-    // dependent on them.
+    // DEV: We need to make sure dependent workout imports are created in order.
     import.completed.sort_by_key(|i| match i {
         ImportCompletedItem::Exercise(_) => 0,
-        _ => 1,
+        ImportCompletedItem::ApplicationWorkoutTemplate(_) => 1,
+        ImportCompletedItem::Workout(_) => 2,
+        ImportCompletedItem::ApplicationWorkout(_) => 3,
+        _ => 4,
     });
 
     let source_result = import.clone();
@@ -553,6 +556,34 @@ where
                                 user_id,
                                 workout_id.clone(),
                                 EntityLot::Workout,
+                                col.collection_name,
+                                ss,
+                                col.information,
+                                &mut import.failed,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            }
+            ImportCompletedItem::ApplicationWorkoutTemplate(workout_template) => {
+                let workout_template_input =
+                    db_workout_template_to_workout_input(workout_template.details);
+                match upsert_workout_template(user_id, workout_template_input.clone(), ss).await {
+                    Err(err) => {
+                        import.failed.push(ImportFailedItem {
+                            error: Some(err.to_string()),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: workout_template_input.name,
+                            ..Default::default()
+                        });
+                    }
+                    Ok(workout_template_id) => {
+                        for col in workout_template.collections.into_iter() {
+                            create_collection_and_add_entity_to_it(
+                                user_id,
+                                workout_template_id.clone(),
+                                EntityLot::WorkoutTemplate,
                                 col.collection_name,
                                 ss,
                                 col.information,
