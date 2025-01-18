@@ -141,6 +141,10 @@ where
                         progress = ebook_progress;
                     }
                 }
+                if progress == dec!(1) && resp.is_finished {
+                    ryot_log!(debug, "Item {:?} is finished", item);
+                    continue;
+                }
                 result
                     .completed
                     .push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
