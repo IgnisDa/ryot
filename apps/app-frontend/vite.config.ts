@@ -16,7 +16,7 @@ const openApiTypesPath = fileURLToPath(
 const openApiSourceUrl =
 	process.env.RYOT_APP_OPENAPI_URL ?? "http://localhost:8000/api/openapi.json";
 
-const createOpenApiTypesPlugin = (): Plugin => {
+const openApiTypesPlugin = (): Plugin => {
 	let currentHash = "";
 	let isUpdatingOpenApiTypes = false;
 	let hasLoggedConnectionFailure = false;
@@ -96,7 +96,7 @@ const config = defineConfig({
 	server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
 	plugins: [
 		devtools(),
-		createOpenApiTypesPlugin(),
+		openApiTypesPlugin(),
 		tsconfigPaths({ projects: ["./tsconfig.json"] }),
 		tanstackStart({ spa: { enabled: true } }),
 		viteReact(),
