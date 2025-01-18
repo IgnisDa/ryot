@@ -11,7 +11,7 @@ import type {
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { redirect, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -21,7 +21,6 @@ import {
 	MediaLot,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
-	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
@@ -50,14 +49,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
-	const t = preferences.general.dashboard.find(
-		(de) => de.section === el,
-	)?.numElements;
-	invariant(isNumber(t));
-	return t;
-};
-
 const searchParamsSchema = z.object({
 	shouldRefreshMetadataRecommendations: zx.BoolAsString.optional(),
 });
@@ -66,8 +57,15 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const preferences = await getUserPreferences(request);
-	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
+	const getTake = (el: DashboardElementLot) => {
+		const t = preferences.general.dashboard.find(
+			(de) => de.section === el,
+		)?.numElements;
+		invariant(isNumber(t));
+		return t;
+	};
+	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(DashboardElementLot.InProgress);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const getRecommendations = async () => {
 		if (
@@ -115,6 +113,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			},
 		}),
 	]);
+	if (query.shouldRefreshMetadataRecommendations) {
+		return redirect(".");
+	}
 	return {
 		userAnalytics,
 		userUpcomingCalendarEvents,
