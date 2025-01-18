@@ -23,7 +23,7 @@ You can use the following steps to obtain your own API keys:
 3. Set the environment variable as described in the [configuration](../configuration.md)
    docs.
    ```bash
-   BOOKS_HARDCOVER_API_KEY="Bearer eyJhbGciOiJIUzI1NiIsCJ9.5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36Pw5c"
+   BOOKS_HARDCOVER_API_KEY=Bearer eyJhbGciOiJIUzI1NiIsCJ9.5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36Pw5c
    ```
 
 ## Google Books
