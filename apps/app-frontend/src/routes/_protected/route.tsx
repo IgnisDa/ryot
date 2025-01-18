@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Box, Button, Flex, Group, Stack, Text } from "@mantine/core";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { FacetModal } from "#/features/facets/components/facet-modal";
@@ -41,6 +42,7 @@ function RouteComponent() {
 function FacetSidebarContent() {
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
+	const [facetOperationsRef] = useAutoAnimate<HTMLDivElement>();
 
 	return (
 		<Stack gap="lg">
@@ -56,7 +58,7 @@ function FacetSidebarContent() {
 					{state.isCustomizeMode ? "Save" : "Customize"}
 				</Button>
 			</Group>
-			<FacetTrackingSection />
+			<FacetTrackingSection autoAnimateRef={facetOperationsRef} />
 		</Stack>
 	);
 }
