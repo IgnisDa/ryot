@@ -2004,6 +2004,11 @@ export type QueryRootUserMetadataGroupDetailsArgs = {
 };
 
 
+export type QueryRootUserMetadataRecommendationsArgs = {
+  shouldRefresh?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
 export type QueryRootUserPersonDetailsArgs = {
   personId: Scalars['String']['input'];
 };
