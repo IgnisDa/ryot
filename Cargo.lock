@@ -1130,6 +1130,7 @@ dependencies = [
  "common-models",
  "common-utils",
  "config",
+ "data-encoding",
  "database-models",
  "dependent-models",
  "env-utils",

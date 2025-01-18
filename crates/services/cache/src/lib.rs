@@ -4,6 +4,7 @@ use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
+use data_encoding::BASE64;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
 use itertools::Itertools;
@@ -22,7 +23,7 @@ impl CacheService {
         Self {
             config,
             db: db.clone(),
-            version: Utc::now().to_string(),
+            version: BASE64.encode(Utc::now().to_string().as_bytes()),
         }
     }
 }
