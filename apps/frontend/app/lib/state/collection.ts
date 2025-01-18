@@ -83,7 +83,10 @@ export const useBulkEditCollection = () => {
 							.with("remove", () =>
 								clientGqlService
 									.request(CollectionContentsDocument, {
-										input: { take, collectionId: bec.collection.id },
+										input: {
+											search: { take },
+											collectionId: bec.collection.id,
+										},
 									})
 									.then((r) => r.collectionContents.results.items),
 							)

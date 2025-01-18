@@ -288,11 +288,11 @@ const DisplayCollection = (props: {
 				CollectionContentsDocument,
 				{
 					input: {
+						search: { take: 10 },
 						collectionId: props.collection.id,
-						take: 10,
 						sort: {
-							by: CollectionContentsSortBy.LastUpdatedOn,
 							order: GraphqlSortOrder.Desc,
+							by: CollectionContentsSortBy.LastUpdatedOn,
 						},
 					},
 				},
