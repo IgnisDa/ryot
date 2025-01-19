@@ -7,7 +7,7 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
 use media_models::{
@@ -83,8 +83,12 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
         .unwrap()
 }
 
+pub fn get_current_time(timezone: &chrono_tz::Tz) -> NaiveDateTime {
+    Utc::now().with_timezone(timezone).naive_local()
+}
+
 pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
-    Utc::now().with_timezone(timezone).date_naive()
+    get_current_time(timezone).date()
 }
 
 pub fn graphql_to_db_order(value: GraphqlSortOrder) -> Order {
