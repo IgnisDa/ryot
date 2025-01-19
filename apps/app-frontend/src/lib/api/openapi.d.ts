@@ -553,11 +553,7 @@ export interface paths {
                                 facetId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
-                                    /** @enum {string} */
-                                    type: "object";
-                                    properties: {
-                                        [key: string]: unknown;
-                                    };
+                                    [key: string]: unknown;
                                 };
                             }[];
                         };
@@ -614,11 +610,7 @@ export interface paths {
                         slug?: string;
                         facetId: string;
                         propertiesSchema: string | {
-                            /** @enum {string} */
-                            type: "object";
-                            properties: {
-                                [key: string]: unknown;
-                            };
+                            [key: string]: unknown;
                         };
                     };
                 };
@@ -638,11 +630,7 @@ export interface paths {
                                 facetId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
-                                    /** @enum {string} */
-                                    type: "object";
-                                    properties: {
-                                        [key: string]: unknown;
-                                    };
+                                    [key: string]: unknown;
                                 };
                             };
                         };
