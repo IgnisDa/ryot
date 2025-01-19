@@ -192,6 +192,39 @@ export const buildDefaultEventFormValues = (
 	};
 };
 
+export function syncCreateEventFormValues(
+	eventSchemas: AppEventSchema[],
+	values: CreateEventFormValues,
+) {
+	const selectedEventSchema = getSelectedEventSchema(
+		eventSchemas,
+		values.eventSchemaId,
+	);
+
+	return {
+		eventSchemaId: selectedEventSchema?.id ?? "",
+		properties: reconcileEventProperties(
+			selectedEventSchema?.propertiesSchema ?? {},
+			values.properties,
+		),
+	};
+}
+
+export function getEventFormReconciliationState(
+	eventSchemas: AppEventSchema[],
+	eventSchemaId?: string,
+) {
+	const selectedEventSchema = getSelectedEventSchema(
+		eventSchemas,
+		eventSchemaId,
+	);
+
+	return {
+		eventSchemaId: selectedEventSchema?.id ?? "",
+		propertiesSchema: selectedEventSchema?.propertiesSchema ?? {},
+	};
+}
+
 const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	switch (propertyDef.type) {
 		case "string":
