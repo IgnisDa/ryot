@@ -166,11 +166,6 @@ want to sync media progress, then take a look at the [Plex Sink](#plex-sink) int
 
 ### Youtube Music
 
-!!! warn
-
-      This currently has a [bug](https://github.com/IgnisDa/ryot/issues/1186). Please do
-      not use this integration until the bug is fixed.
-
 L|Pro Version|https://ryot.io|
 
 The [Youtube Music](https://music.youtube.com) integration syncs all music that you have
