@@ -25,7 +25,9 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
 // `is_complete=true` and return `progress=100%`. Thus the music gets marked as complete
 // and gets the correct start and end date marked. When the song appears again that day, we
 // silently ignore it since it is already in the cache as completely synced.
-// 10 minutes before the end of the day, we do not ever deploy the 35% progress.
+//
+// Also, 10 minutes before the end of the day, we do not deploy the 35% progress since it
+// messes up with the caching mechanism which works on the current date.
 pub async fn yank_progress(
     auth_cookie: String,
     user_id: &String,
