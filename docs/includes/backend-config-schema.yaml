@@ -171,8 +171,8 @@ server:
   graphql_playground_enabled: true
 
   # The maximum file size in MB for user uploads.
-  # @envvar SERVER_MAX_FILE_SIZE
-  max_file_size: 70
+  # @envvar SERVER_MAX_FILE_SIZE_MB
+  max_file_size_mb: 70
 
   # The OIDC related settings.
   oidc:
