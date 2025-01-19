@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use application_utils::get_current_date;
+use chrono::NaiveDate;
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
@@ -23,7 +24,7 @@ pub async fn yank_progress(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    let date = Utc::now().date_naive();
+    let date = get_current_date(&ss.timezone);
     let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client
