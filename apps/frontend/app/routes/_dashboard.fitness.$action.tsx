@@ -453,7 +453,7 @@ export default function Page() {
 								onClose={() => setSupersetModalOpened(null)}
 							/>
 							<Stack ref={parent}>
-								<NameAndCommentInputs
+								<NameAndOtherInputs
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
@@ -713,7 +713,7 @@ export default function Page() {
 	);
 }
 
-const NameAndCommentInputs = (props: {
+const NameAndOtherInputs = (props: {
 	openAssetsModal: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -759,23 +759,32 @@ const NameAndCommentInputs = (props: {
 	return (
 		<>
 			<Modal
-				withCloseButton={false}
+				title="Additional details"
 				opened={isCaloriesBurntModalOpen}
 				onClose={() => setIsCaloriesBurntModalOpen(false)}
 			>
-				<NumberInput
-					size="sm"
-					label="Calories burnt"
-					value={currentWorkout.caloriesBurnt}
-					onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
-				/>
+				<Stack gap="xs">
+					<Textarea
+						size="sm"
+						minRows={2}
+						label="Comments"
+						defaultValue={comment}
+						placeholder="Your thoughts about this workout"
+						onChange={(e) => setComment(e.currentTarget.value)}
+					/>
+					<NumberInput
+						size="sm"
+						label="Calories burnt"
+						value={currentWorkout.caloriesBurnt}
+						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
+					/>
+				</Stack>
 			</Modal>
 			<TextInput
-				required
 				size="sm"
-				label="Name"
 				defaultValue={name}
 				placeholder="A name for your workout"
+				styles={{ label: { width: "100%" } }}
 				onChange={(e) => setName(e.currentTarget.value)}
 				rightSection={
 					<ActionIcon
@@ -785,16 +794,9 @@ const NameAndCommentInputs = (props: {
 						<IconCamera size={30} />
 					</ActionIcon>
 				}
-			/>
-			<Textarea
-				size="sm"
-				minRows={2}
-				defaultValue={comment}
-				styles={{ label: { width: "100%" } }}
-				placeholder="Your thoughts about this workout"
 				label={
 					<Group justify="space-between" mr="xs">
-						<Text size="sm">Comments</Text>
+						<Text size="sm">Name</Text>
 						{!loaderData.isCreatingTemplate ? (
 							<Anchor
 								size="xs"
@@ -805,7 +807,6 @@ const NameAndCommentInputs = (props: {
 						) : null}
 					</Group>
 				}
-				onChange={(e) => setComment(e.currentTarget.value)}
 			/>
 		</>
 	);
