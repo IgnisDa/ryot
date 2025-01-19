@@ -11,7 +11,6 @@ import {
 	Paper,
 	Stack,
 	Text,
-	Textarea,
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -29,6 +28,7 @@ import {
 } from "#/features/entity-schemas/hooks";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { getFacetEntitySchemaViewState } from "#/features/entity-schemas/model";
+import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
 import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
@@ -124,9 +124,7 @@ function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
 	return (
 		<Stack gap="md">
 			{props.entitySchemas.map((entitySchema) => {
-				const propertyCount = Object.keys(
-					entitySchema.propertiesSchema.properties,
-				).length;
+				const propertyCount = Object.keys(entitySchema.propertiesSchema).length;
 
 				return (
 					<Paper key={entitySchema.id} p="lg" withBorder radius="md">
@@ -211,30 +209,10 @@ function EntitySchemaCreateModal(props: {
 							)}
 						</entitySchemaForm.AppField>
 
-						<entitySchemaForm.AppField name="propertiesSchema">
-							{(field) => (
-								<Textarea
-									autosize
-									required
-									minRows={8}
-									label="Properties schema"
-									disabled={props.isLoading}
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									placeholder='{"type":"object","properties":{}}'
-									onChange={(event) =>
-										field.handleChange(event.currentTarget.value)
-									}
-									error={
-										!field.state.meta.isValid
-											? field.state.meta.errors
-													.map((error) => error?.message)
-													.join(", ")
-											: undefined
-									}
-								/>
-							)}
-						</entitySchemaForm.AppField>
+						<EntitySchemaPropertiesBuilder
+							form={entitySchemaForm}
+							isLoading={props.isLoading}
+						/>
 
 						<Group justify="flex-end" gap="md">
 							<Button
