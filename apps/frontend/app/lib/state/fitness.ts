@@ -84,11 +84,11 @@ export type InProgressWorkout = {
 	caloriesBurnt?: number;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
+	currentAction: FitnessAction;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
 	durations: Array<WorkoutDuration>;
 	timerDrawerLot: "timer" | "stopwatch";
-	currentActionOrCompleted: FitnessAction;
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -121,7 +121,7 @@ export const getDefaultWorkout = (
 		exercises: [],
 		timerDrawerLot: "timer",
 		startTime: date.toISOString(),
-		currentActionOrCompleted: fitnessEntity,
+		currentAction: fitnessEntity,
 		durations: [{ from: date.toISOString() }],
 		name: `${getTimeOfDay(date.hour())} Workout`,
 	};
@@ -429,7 +429,7 @@ export const addExerciseToWorkout = async (
 	navigate(
 		withFragment(
 			$path("/fitness/:action", {
-				action: currentWorkout.currentActionOrCompleted,
+				action: currentWorkout.currentAction,
 			}),
 			idxOfNextExercise.toString(),
 		),

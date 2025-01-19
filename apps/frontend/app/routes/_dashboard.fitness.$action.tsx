@@ -2331,7 +2331,7 @@ const SetDisplay = (props: {
 														draft.exercises[props.exerciseIdx];
 													const currentSet = currentExercise.sets[props.setIdx];
 													currentSet.confirmedAt = newConfirmed
-														? currentWorkout.currentActionOrCompleted ===
+														? currentWorkout.currentAction ===
 															FitnessAction.UpdateWorkout
 															? true
 															: dayjsLib().toISOString()

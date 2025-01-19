@@ -199,6 +199,6 @@ export const useGetWatchProviders = (mediaLot: MediaLot) => {
 
 export const useIsFitnessActionActive = () => {
 	const [currentWorkout] = useCurrentWorkout();
-	const action = currentWorkout?.currentActionOrCompleted;
+	const action = currentWorkout?.currentAction;
 	return action !== undefined;
 };
