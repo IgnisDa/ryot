@@ -39,11 +39,11 @@ import type { useCoreDetails } from "../hooks";
 export type ExerciseSet = {
 	lot: SetLot;
 	rpe?: number | null;
-	confirmedAt: string | null;
 	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
 	displayRestTimeTrigger?: boolean;
+	confirmedAt: string | boolean | null;
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 
@@ -235,9 +235,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 					statistic: set.statistic,
 					restTime: set.restTimer?.duration,
 					restTimerStartedAt: set.restTimerStartedAt,
-					confirmedAt: set.confirmedAt
-						? new Date(set.confirmedAt).toISOString()
-						: null,
+					confirmedAt:
+						set.confirmedAt && isString(set.confirmedAt)
+							? new Date(set.confirmedAt).toISOString()
+							: null,
 				});
 			}
 		if (!isCreatingTemplate && sets.length === 0) continue;

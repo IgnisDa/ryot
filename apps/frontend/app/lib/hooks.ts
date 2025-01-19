@@ -17,7 +17,7 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {
-	FitnessAction,
+	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
@@ -200,8 +200,5 @@ export const useGetWatchProviders = (mediaLot: MediaLot) => {
 export const useIsFitnessActionActive = () => {
 	const [currentWorkout] = useCurrentWorkout();
 	const action = currentWorkout?.currentActionOrCompleted;
-	return (
-		action !== undefined &&
-		[FitnessAction.LogWorkout, FitnessAction.CreateTemplate].includes(action)
-	);
+	return action !== undefined;
 };

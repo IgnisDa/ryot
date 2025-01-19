@@ -2331,7 +2331,10 @@ const SetDisplay = (props: {
 														draft.exercises[props.exerciseIdx];
 													const currentSet = currentExercise.sets[props.setIdx];
 													currentSet.confirmedAt = newConfirmed
-														? dayjsLib().toISOString()
+														? currentWorkout.currentActionOrCompleted ===
+															FitnessAction.UpdateWorkout
+															? true
+															: dayjsLib().toISOString()
 														: null;
 													currentExercise.scrollMarginRemoved = true;
 													if (
