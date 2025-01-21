@@ -57,6 +57,7 @@ async-graphql = { version = "=7.0.13", features = [
     "decimal",
     "log",
     "tracing",
+    "uuid",
 ] }
 async-graphql-axum = "=7.0.13"
 async-trait = "=0.1.83"
