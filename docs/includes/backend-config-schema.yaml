@@ -109,7 +109,7 @@ frontend:
 
   # Used as the base URL when generating item links for the frontend.
   # @envvar FRONTEND_URL
-  url: "https://pro.ryot.io"
+  url: "https://app.ryot.io"
 
 # Settings related to external integrations.
 integration:

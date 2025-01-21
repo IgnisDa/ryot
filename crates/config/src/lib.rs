@@ -294,7 +294,7 @@ pub struct FrontendUmamiConfig {
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
-    #[setting(default = "https://pro.ryot.io")]
+    #[setting(default = "https://app.ryot.io")]
     pub url: String,
     /// The button label for OIDC authentication.
     #[setting(default = "Continue with OpenID Connect")]
