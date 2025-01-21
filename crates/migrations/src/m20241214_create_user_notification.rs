@@ -24,9 +24,8 @@ impl MigrationTrait for Migration {
                     .table(UserNotification::Table)
                     .col(
                         ColumnDef::new(UserNotification::Id)
-                            .uuid()
+                            .text()
                             .not_null()
-                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(ColumnDef::new(UserNotification::Lot).text().not_null())

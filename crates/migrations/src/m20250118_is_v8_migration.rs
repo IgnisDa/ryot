@@ -12,6 +12,9 @@ impl MigrationTrait for Migration {
 ALTER TABLE "application_cache" ALTER COLUMN "version" DROP NOT NULL;
 ALTER TABLE "application_cache" ALTER COLUMN "expires_at" SET NOT NULL;
 
+ALTER TABLE "user_notification" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE "user_notification" ALTER COLUMN "id" TYPE text;
+
 UPDATE "user_notification" SET "lot" = 'queued' WHERE "lot" = 'immediate';
 
 UPDATE
