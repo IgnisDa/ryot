@@ -2737,7 +2737,7 @@ ORDER BY RANDOM() LIMIT 10;
             if notifications.is_empty() {
                 continue;
             }
-            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
+            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
             let msg = notifications
                 .into_iter()
                 .map(|n| n.message)
