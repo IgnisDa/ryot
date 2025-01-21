@@ -9,7 +9,7 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{Days, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
@@ -2778,6 +2778,17 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn queue_notifications_for_outdated_metadata_still_in_progress(&self) -> Result<()> {
+        let threshold = Utc::now() - Duration::days(7);
+        let seen_items = Seen::find()
+            .filter(seen::Column::State.eq(SeenState::InProgress))
+            .filter(seen::Column::LastUpdatedOn.lte(threshold))
+            .all(&self.0.db)
+            .await?;
+        for item in seen_items {}
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2834,6 +2845,8 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
+        self.queue_notifications_for_outdated_metadata_still_in_progress()
+            .await?;
         Ok(true)
     }
 }
