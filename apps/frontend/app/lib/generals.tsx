@@ -399,6 +399,12 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
+const userQueryKeys = createQueryKeys("user", {
+	userPendingNotifications: () => ({
+		queryKey: ["userPendingNotifications"],
+	}),
+});
+
 const analyticsQueryKeys = createQueryKeys("analytics", {
 	user: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["user", input],
@@ -406,6 +412,7 @@ const analyticsQueryKeys = createQueryKeys("analytics", {
 });
 
 export const queryFactory = mergeQueryKeys(
+	userQueryKeys,
 	mediaQueryKeys,
 	fitnessQueryKeys,
 	analyticsQueryKeys,
