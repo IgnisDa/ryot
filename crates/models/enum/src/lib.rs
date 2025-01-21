@@ -104,6 +104,7 @@ pub enum UserLot {
 )]
 pub enum UserNotificationLot {
     Queued,
+    Display,
 }
 
 #[derive(
