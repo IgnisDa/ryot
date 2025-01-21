@@ -15,6 +15,7 @@ pub struct Model {
     pub message: String,
     #[graphql(skip)]
     pub user_id: String,
+    pub created_on: DateTimeUtc,
     #[graphql(skip)]
     pub lot: UserNotificationLot,
     #[graphql(skip)]
