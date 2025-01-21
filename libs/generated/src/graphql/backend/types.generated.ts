@@ -1862,6 +1862,8 @@ export type QueryRoot = {
   userMetadataRecommendations: Array<Scalars['String']['output']>;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
+  /** Get all pending display notifications for the currently logged in user. */
+  userPendingNotifications: Array<UserNotification>;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
   /** Get upcoming calendar events for the given filter. */
@@ -2760,6 +2762,13 @@ export type UserMetadataGroupDetails = {
   collections: Array<Collection>;
   recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
+};
+
+export type UserNotification = {
+  __typename?: 'UserNotification';
+  createdOn: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  message: Scalars['String']['output'];
 };
 
 export enum UserNotificationContent {

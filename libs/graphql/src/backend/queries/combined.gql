@@ -478,3 +478,11 @@ query UserAnalyticsParameters {
 		startDate
 	}
 }
+
+query UserPendingNotifications {
+	userPendingNotifications {
+		id
+		message
+		createdOn
+	}
+}

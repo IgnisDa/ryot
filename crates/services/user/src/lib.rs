@@ -9,7 +9,7 @@ use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
     prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
-    user,
+    user, user_notification,
 };
 use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
@@ -18,9 +18,11 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::create_or_update_collection;
+use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
 use enum_meta::Meta;
-use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
+use enum_models::{
+    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
+};
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
 use media_models::{
@@ -689,6 +691,16 @@ impl UserService {
             .all(&self.0.db)
             .await?;
         Ok(integrations)
+    }
+
+    pub async fn user_pending_notifications(
+        &self,
+        user_id: &String,
+    ) -> Result<Vec<user_notification::Model>> {
+        let notifications =
+            get_pending_notifications_for_user(user_id, UserNotificationLot::Display, &self.0)
+                .await?;
+        Ok(notifications)
     }
 
     pub async fn user_notification_platforms(

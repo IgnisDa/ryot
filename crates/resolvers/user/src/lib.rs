@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user};
+use database_models::{access_link, integration, notification_platform, user, user_notification};
 use dependent_models::{UserDetailsResult, UserMetadataRecommendationsResponse};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
@@ -63,6 +63,16 @@ impl UserQuery {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(&user_id).await
+    }
+
+    /// Get all pending display notifications for the currently logged in user.
+    async fn user_pending_notifications(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<user_notification::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.user_pending_notifications(&user_id).await
     }
 
     /// Get all the notification platforms for the currently logged in user.
