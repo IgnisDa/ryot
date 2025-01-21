@@ -2786,7 +2786,24 @@ ORDER BY RANDOM() LIMIT 10;
                 .filter(seen::Column::LastUpdatedOn.lte(threshold))
                 .all(&self.0.db)
                 .await?;
-            for item in seen_items {}
+            for seen_item in seen_items {
+                let Some(metadata) = seen_item.find_related(Metadata).one(&self.0.db).await? else {
+                    continue;
+                };
+                create_notification_for_user(
+                    &seen_item.user_id,
+                    &(
+                        format!(
+                            "{} ({}) has been kept {} for too long",
+                            metadata.title, metadata.lot, seen_item.state
+                        ),
+                        UserNotificationContent::OutdatedSeenEntries,
+                    ),
+                    UserNotificationLot::Display,
+                    &self.0,
+                )
+                .await?;
+            }
         }
         Ok(())
     }
@@ -2824,6 +2841,10 @@ ORDER BY RANDOM() LIMIT 10;
         self.regenerate_user_summaries().await.trace_ok();
         ryot_log!(trace, "Syncing integrations data to owned collection");
         self.sync_integrations_data_to_owned_collection()
+            .await
+            .trace_ok();
+        ryot_log!(trace, "Queueing notifications for outdated seen entries");
+        self.queue_notifications_for_outdated_seen_entries()
             .await
             .trace_ok();
         ryot_log!(trace, "Removing useless data");
