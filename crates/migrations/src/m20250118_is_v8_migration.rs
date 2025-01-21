@@ -13,6 +13,19 @@ ALTER TABLE "application_cache" ALTER COLUMN "version" DROP NOT NULL;
 ALTER TABLE "application_cache" ALTER COLUMN "expires_at" SET NOT NULL;
 
 UPDATE "user_notification" SET "lot" = 'queued' WHERE "lot" = 'immediate';
+
+UPDATE
+  "user"
+SET
+  preferences = JSONB_SET(
+    preferences,
+    '{notifications,to_send}',
+    (preferences -> 'notifications' -> 'to_send') || '"OutdatedSeenEntries"'
+  )
+where
+  NOT (
+    preferences -> 'notifications' -> 'to_send' ? 'OutdatedSeenEntries'
+  );
         "#,
         )
         .await?;
