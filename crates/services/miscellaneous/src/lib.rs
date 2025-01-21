@@ -2800,8 +2800,11 @@ ORDER BY RANDOM() LIMIT 10;
                     &seen_item.user_id,
                     &(
                         format!(
-                            "{} ({}) has been kept {} for too long",
-                            metadata.title, metadata.lot, state
+                            "{} ({}) has been kept {} for too long. Last updated on: {}.",
+                            metadata.title,
+                            metadata.lot,
+                            state,
+                            seen_item.last_updated_on.date_naive()
                         ),
                         UserNotificationContent::OutdatedSeenEntries,
                     ),
