@@ -19,6 +19,7 @@ use common_models::{
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
+use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
@@ -2790,12 +2791,17 @@ ORDER BY RANDOM() LIMIT 10;
                 let Some(metadata) = seen_item.find_related(Metadata).one(&self.0.db).await? else {
                     continue;
                 };
+                let state = seen_item
+                    .state
+                    .to_string()
+                    .to_case(Case::Title)
+                    .to_case(Case::Lower);
                 create_notification_for_user(
                     &seen_item.user_id,
                     &(
                         format!(
                             "{} ({}) has been kept {} for too long",
-                            metadata.title, metadata.lot, seen_item.state
+                            metadata.title, metadata.lot, state
                         ),
                         UserNotificationContent::OutdatedSeenEntries,
                     ),
@@ -2868,7 +2874,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        self.queue_notifications_for_outdated_seen_entries().await?;
         Ok(true)
     }
 }
