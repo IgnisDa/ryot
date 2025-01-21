@@ -2778,14 +2778,16 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn queue_notifications_for_outdated_metadata_still_in_progress(&self) -> Result<()> {
+    async fn queue_notifications_for_outdated_seen_entries(&self) -> Result<()> {
         let threshold = Utc::now() - Duration::days(7);
-        let seen_items = Seen::find()
-            .filter(seen::Column::State.eq(SeenState::InProgress))
-            .filter(seen::Column::LastUpdatedOn.lte(threshold))
-            .all(&self.0.db)
-            .await?;
-        for item in seen_items {}
+        for state in [SeenState::InProgress, SeenState::OnAHold] {
+            let seen_items = Seen::find()
+                .filter(seen::Column::State.eq(state))
+                .filter(seen::Column::LastUpdatedOn.lte(threshold))
+                .all(&self.0.db)
+                .await?;
+            for item in seen_items {}
+        }
         Ok(())
     }
 
@@ -2845,8 +2847,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        self.queue_notifications_for_outdated_metadata_still_in_progress()
-            .await?;
+        self.queue_notifications_for_outdated_seen_entries().await?;
         Ok(true)
     }
 }
