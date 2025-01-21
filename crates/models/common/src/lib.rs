@@ -191,6 +191,7 @@ pub enum UserNotificationContent {
     ReviewPosted,
     MetadataPublished,
     NewWorkoutCreated,
+    OutdatedSeenEntries,
     MetadataStatusChanged,
     MetadataEpisodeReleased,
     PersonMetadataAssociated,
