@@ -12,6 +12,7 @@ pub enum UserNotification {
     Table,
     UserId,
     Message,
+    CreatedOn,
     IsAddressed,
 }
 
@@ -32,6 +33,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserNotification::Message).text().not_null())
                     .col(ColumnDef::new(UserNotification::UserId).text().not_null())
                     .col(ColumnDef::new(UserNotification::IsAddressed).boolean())
+                    .col(
+                        ColumnDef::new(UserNotification::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("notification_to_user_foreign_key")

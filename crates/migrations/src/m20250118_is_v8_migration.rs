@@ -14,6 +14,7 @@ ALTER TABLE "application_cache" ALTER COLUMN "expires_at" SET NOT NULL;
 
 ALTER TABLE "user_notification" ALTER COLUMN "id" DROP DEFAULT;
 ALTER TABLE "user_notification" ALTER COLUMN "id" TYPE text;
+ALTER TABLE "user_notification" ADD COLUMN IF NOT EXISTS "created_on" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 UPDATE "user_notification" SET "lot" = 'queued' WHERE "lot" = 'immediate';
 
