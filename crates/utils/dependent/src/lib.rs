@@ -2061,7 +2061,7 @@ pub async fn create_or_update_user_workout(
                         format!("New workout created - {}", data.name),
                         UserNotificationContent::NewWorkoutCreated,
                     ),
-                    UserNotificationLot::Immediate,
+                    UserNotificationLot::Queued,
                     ss,
                 )
                 .await?

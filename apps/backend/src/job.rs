@@ -36,7 +36,7 @@ pub async fn run_frequent_jobs(
         .trace_ok();
     app_services
         .miscellaneous_service
-        .send_pending_immediate_notifications()
+        .send_pending_notifications()
         .await
         .trace_ok();
     Ok(())
