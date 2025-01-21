@@ -629,10 +629,10 @@ impl HardcoverService {
                 .json(&serde_json::json!({ "query": body }))
                 .send()
                 .await
-                .unwrap()
+                .ok()?
                 .json::<Response<Editions>>()
                 .await
-                .unwrap();
+                .ok()?;
             if let Some(edition) = rsp.data.editions.first() {
                 return Some(edition.book_id.to_string());
             }
