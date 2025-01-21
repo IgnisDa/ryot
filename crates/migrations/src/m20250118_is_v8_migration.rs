@@ -11,6 +11,8 @@ impl MigrationTrait for Migration {
             r#"
 ALTER TABLE "application_cache" ALTER COLUMN "version" DROP NOT NULL;
 ALTER TABLE "application_cache" ALTER COLUMN "expires_at" SET NOT NULL;
+
+UPDATE "user_notification" SET "lot" = 'queued' WHERE "lot" = 'immediate';
         "#,
         )
         .await?;
