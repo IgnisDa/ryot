@@ -764,6 +764,12 @@ const NameAndOtherInputs = (props: {
 				onClose={() => setIsCaloriesBurntModalOpen(false)}
 			>
 				<Stack gap="xs">
+					<NumberInput
+						size="sm"
+						label="Calories burnt"
+						value={currentWorkout.caloriesBurnt}
+						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
+					/>
 					<Textarea
 						size="sm"
 						minRows={2}
@@ -771,12 +777,6 @@ const NameAndOtherInputs = (props: {
 						defaultValue={comment}
 						placeholder="Your thoughts about this workout"
 						onChange={(e) => setComment(e.currentTarget.value)}
-					/>
-					<NumberInput
-						size="sm"
-						label="Calories burnt"
-						value={currentWorkout.caloriesBurnt}
-						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
 					/>
 				</Stack>
 			</Modal>
@@ -802,7 +802,7 @@ const NameAndOtherInputs = (props: {
 								size="xs"
 								onClick={() => setIsCaloriesBurntModalOpen(true)}
 							>
-								Details
+								More Information
 							</Anchor>
 						) : null}
 					</Group>
