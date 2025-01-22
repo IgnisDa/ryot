@@ -29,7 +29,12 @@ import sum from "lodash/sum";
 import truncate from "lodash/truncate";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
-import type { ZodTypeAny, output } from "zod";
+import { z, type ZodTypeAny, type output } from "zod";
+
+export const zodBoolAsString = z
+	.string()
+	.regex(/^(true|false)$/, 'Must be a boolean string ("true" or "false")')
+	.transform((value) => value === "true");
 
 /**
  * Humanize a duration.

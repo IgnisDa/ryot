@@ -1,7 +1,7 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { createCookie } from "@remix-run/node";
-import { formatDateToNaiveDate } from "@ryot/ts-utils";
+import { formatDateToNaiveDate, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import type { Dayjs } from "dayjs";
 import { eq } from "drizzle-orm";
@@ -11,7 +11,6 @@ import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
-import { zx } from "zodix";
 import * as schema from "~/drizzle/schema.server";
 import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 
@@ -37,7 +36,7 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
-	PADDLE_SANDBOX: zx.BoolAsString.optional(),
+	PADDLE_SANDBOX: zodBoolAsString.optional(),
 });
 
 export const serverVariables = serverVariablesSchema.parse(process.env);

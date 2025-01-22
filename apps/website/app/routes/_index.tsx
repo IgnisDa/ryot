@@ -13,7 +13,12 @@ import {
 	useRouteLoaderData,
 } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	cn,
+	getActionIntent,
+	processSubmission,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -55,7 +60,7 @@ dayjs.extend(duration);
 
 const searchParamsSchema = z.object({
 	email: z.string().email().optional(),
-	contactSubmission: zx.BoolAsString.optional(),
+	contactSubmission: zodBoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
