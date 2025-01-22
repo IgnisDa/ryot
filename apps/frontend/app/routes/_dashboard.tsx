@@ -64,6 +64,7 @@ import {
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
+	MarkNotificationsAsAddressedDocument,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
@@ -87,6 +88,8 @@ import {
 	IconBrandPagekit,
 	IconCalendar,
 	IconCancel,
+	IconCheck,
+	IconChecks,
 	IconChevronLeft,
 	IconChevronRight,
 	IconChevronsLeft,
@@ -107,7 +110,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
@@ -899,8 +902,9 @@ const LinksGroup = ({
 
 const Footer = () => {
 	const coreDetails = useCoreDetails();
+	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
-	const { data: userPendingNotifications } = useQuery({
+	const userPendingNotificationsQuery = useQuery({
 		queryKey: queryFactory.user.userPendingNotifications().queryKey,
 		queryFn: async () => {
 			const { userPendingNotifications } = await clientGqlService.request(
@@ -909,13 +913,67 @@ const Footer = () => {
 			return userPendingNotifications;
 		},
 	});
+	const markUserNotificationsAsAddressedMutation = useMutation({
+		mutationFn: async (notificationIds: string[]) => {
+			await clientGqlService.request(MarkNotificationsAsAddressedDocument, {
+				notificationIds,
+			});
+		},
+		onSuccess: () => {
+			userPendingNotificationsQuery.refetch();
+		},
+	});
 
 	return (
 		<Container>
+			<Modal
+				onClose={() => setIsNotificationModalOpen(false)}
+				opened={isNotificationModalOpen}
+				withCloseButton={false}
+				centered
+			>
+				<Stack>
+					{userPendingNotificationsQuery.data?.map((n) => (
+						<Paper key={n.id} withBorder p="xs">
+							<Group wrap="nowrap">
+								<Text size="sm">{n.message}</Text>
+								<ActionIcon
+									variant="transparent"
+									onClick={() => {
+										markUserNotificationsAsAddressedMutation.mutate([n.id]);
+									}}
+								>
+									<IconCheck />
+								</ActionIcon>
+							</Group>
+						</Paper>
+					))}
+					<Button
+						ta="right"
+						variant="subtle"
+						size="compact-md"
+						rightSection={<IconChecks />}
+						onClick={() => {
+							markUserNotificationsAsAddressedMutation.mutate(
+								userPendingNotificationsQuery.data?.map((n) => n.id) || [],
+							);
+							setIsNotificationModalOpen(false);
+						}}
+					>
+						Mark all as read
+					</Button>
+				</Stack>
+			</Modal>
 			<Stack>
-				{userPendingNotifications && userPendingNotifications.length > 0 ? (
-					<Alert icon={<IconBellRinging />}>
-						You have {userPendingNotifications.length} pending notifications
+				{userPendingNotificationsQuery.data &&
+				userPendingNotificationsQuery.data.length > 0 ? (
+					<Alert
+						icon={<IconBellRinging />}
+						style={{ cursor: "pointer" }}
+						onClick={() => setIsNotificationModalOpen(true)}
+					>
+						You have {userPendingNotificationsQuery.data.length} pending
+						notifications
 					</Alert>
 				) : null}
 				<Flex gap={80} justify="center">
