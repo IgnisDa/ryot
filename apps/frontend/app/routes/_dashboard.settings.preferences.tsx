@@ -360,7 +360,7 @@ export default function Page() {
 									}}
 								/>
 							</Input.Wrapper>
-							<Stack>
+							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>
 								{Object.values(MediaLot).map((lot) => {
 									const watchProviders =
@@ -368,35 +368,33 @@ export default function Page() {
 									const existingValues =
 										watchProviders.find((wp) => wp.lot === lot)?.values || [];
 									return (
-										<Stack key={lot} gap={4}>
-											<Text>{changeCase(lot)}</Text>
-											<TagsInput
-												disabled={!!isEditDisabled}
-												defaultValue={existingValues}
-												placeholder="Enter more providers"
-												onChange={(val) => {
-													if (val) {
-														const newWatchProviders =
-															Array.from(watchProviders);
-														let existingMediaLot = newWatchProviders.find(
-															(wp) => wp.lot === lot,
-														);
-														if (!existingMediaLot) {
-															existingMediaLot = {
-																values: val,
-																lot: lot as MediaLot,
-															};
-															newWatchProviders.push(existingMediaLot);
-														} else {
-															existingMediaLot.values = val;
-														}
-														updatePreference((draft) => {
-															draft.general.watchProviders = newWatchProviders;
-														});
+										<TagsInput
+											key={lot}
+											label={changeCase(lot)}
+											disabled={!!isEditDisabled}
+											defaultValue={existingValues}
+											placeholder="Enter more providers"
+											onChange={(val) => {
+												if (val) {
+													const newWatchProviders = Array.from(watchProviders);
+													let existingMediaLot = newWatchProviders.find(
+														(wp) => wp.lot === lot,
+													);
+													if (!existingMediaLot) {
+														existingMediaLot = {
+															values: val,
+															lot: lot as MediaLot,
+														};
+														newWatchProviders.push(existingMediaLot);
+													} else {
+														existingMediaLot.values = val;
 													}
-												}}
-											/>
-										</Stack>
+													updatePreference((draft) => {
+														draft.general.watchProviders = newWatchProviders;
+													});
+												}
+											}}
+										/>
 									);
 								})}
 							</Stack>
