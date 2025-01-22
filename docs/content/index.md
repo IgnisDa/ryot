@@ -7,25 +7,25 @@ services:
   ryot-db:
     image: postgres:16-alpine # at-least version 15 is required
     restart: unless-stopped
+    container_name: ryot-db
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
       - TZ=Europe/Amsterdam
-    container_name: ryot-db
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
 
   ryot:
     image: ignisda/ryot:v8 # or ghcr.io/ignisda/ryot:v8
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
-      - TZ=Europe/Amsterdam
-      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
-    ports:
-      - "8000:8000"
     pull_policy: always
     container_name: ryot
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Europe/Amsterdam
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
 
 volumes:
   postgres_storage:
