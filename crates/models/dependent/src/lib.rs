@@ -28,7 +28,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
@@ -440,12 +440,6 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct UserActivityPerformedCacheValue {
-    pub last_activity_on: DateTimeUtc,
-}
-
-#[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
@@ -474,7 +468,6 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
-    UserActivityPerformed(UserActivityPerformedCacheValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }

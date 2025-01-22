@@ -4,11 +4,10 @@ use application_utils::{
     get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
 };
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, HpApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::{Timelike, Utc};
 use common_models::{
-    ApplicationCacheKey, BackendError, DailyUserActivityHourRecord,
-    DailyUserActivityHourRecordEntity, IdAndNamedObject, UserLevelCacheKey,
+    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -19,10 +18,7 @@ use database_models::{
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::{
-    ApplicationCacheValue, UserActivityPerformedCacheValue, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
-};
+use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
 use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
@@ -290,21 +286,14 @@ pub async fn check_token(
 }
 
 #[inline]
-pub async fn update_user_activity_performed_cache(
+pub async fn deploy_job_to_mark_user_last_activity(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .set_key(
-            ApplicationCacheKey::UserActivityPerformed(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            }),
-            ApplicationCacheValue::UserActivityPerformed(UserActivityPerformedCacheValue {
-                last_activity_on: Utc::now(),
-            }),
-        )
-        .await?;
+    ss.perform_application_job(ApplicationJob::Lp(
+        LpApplicationJob::UpdateUserLastActivityPerformed(user_id.to_owned(), Utc::now()),
+    ))
+    .await?;
     Ok(())
 }
 

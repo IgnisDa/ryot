@@ -179,6 +179,12 @@ pub async fn perform_lp_application_job(
                 .delete_all_application_cache()
                 .await
         }
+        LpApplicationJob::UpdateUserLastActivityPerformed(user_id, timestamp) => {
+            app_services
+                .miscellaneous_service
+                .update_user_last_activity_performed(user_id, timestamp)
+                .await
+        }
     };
     status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }

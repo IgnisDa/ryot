@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use database_models::seen;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
@@ -35,6 +35,7 @@ pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
     HandleAfterMediaSeenTasks(Box<seen::Model>),
+    UpdateUserLastActivityPerformed(String, DateTime<Utc>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

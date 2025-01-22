@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use database_utils::{check_token, update_user_activity_performed_cache};
+use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
 use dependent_models::{
     MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
 };
@@ -108,7 +108,7 @@ pub trait AuthProvider {
             check_token(auth_token, self.is_mutation(), &ss).await?;
         }
         if let Some(user_id) = &auth_ctx.user_id {
-            update_user_activity_performed_cache(user_id, &ss).await?;
+            deploy_job_to_mark_user_last_activity(user_id, &ss).await?;
         }
         auth_ctx
             .user_id

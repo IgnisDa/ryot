@@ -2802,6 +2802,19 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    pub async fn update_user_last_activity_performed(
+        &self,
+        user_id: String,
+        timestamp: DateTimeUtc,
+    ) -> Result<()> {
+        User::update_many()
+            .filter(user::Column::Id.eq(user_id))
+            .col_expr(user::Column::LastActivityOn, Expr::value(timestamp))
+            .exec(&self.0.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
