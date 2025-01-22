@@ -963,7 +963,7 @@ const Footer = () => {
 		useMarkUserNotificationsAsAddressedMutation();
 
 	return (
-		<Container>
+		<>
 			<Modal
 				centered
 				withCloseButton={false}
@@ -995,42 +995,44 @@ const Footer = () => {
 					</Button>
 				</Stack>
 			</Modal>
-			<Stack>
-				{userPendingNotificationsQuery.data &&
-				userPendingNotificationsQuery.data.length > 0 ? (
-					<Alert
-						icon={<IconBellRinging />}
-						style={{ cursor: "pointer" }}
-						onClick={() => setIsNotificationModalOpen(true)}
-					>
-						You have {userPendingNotificationsQuery.data.length} pending
-						notifications
-					</Alert>
-				) : null}
-				<Flex gap={80} justify="center">
-					{!coreDetails.isServerKeyValidated ? (
-						<Anchor href={coreDetails.websiteUrl} target="_blank">
-							<Text c="red" fw="bold">
-								Ryot Pro
+			<Container>
+				<Stack>
+					{userPendingNotificationsQuery.data &&
+					userPendingNotificationsQuery.data.length > 0 ? (
+						<Alert
+							icon={<IconBellRinging />}
+							style={{ cursor: "pointer" }}
+							onClick={() => setIsNotificationModalOpen(true)}
+						>
+							You have {userPendingNotificationsQuery.data.length} pending
+							notifications
+						</Alert>
+					) : null}
+					<Flex gap={80} justify="center">
+						{!coreDetails.isServerKeyValidated ? (
+							<Anchor href={coreDetails.websiteUrl} target="_blank">
+								<Text c="red" fw="bold">
+									Ryot Pro
+								</Text>
+							</Anchor>
+						) : null}
+						<Anchor href={discordLink} target="_blank">
+							<Text c="indigo" fw="bold">
+								Discord
 							</Text>
 						</Anchor>
-					) : null}
-					<Anchor href={discordLink} target="_blank">
-						<Text c="indigo" fw="bold">
-							Discord
+						<Text c="grape" fw="bold" visibleFrom="md">
+							{coreDetails.version}
 						</Text>
-					</Anchor>
-					<Text c="grape" fw="bold" visibleFrom="md">
-						{coreDetails.version}
-					</Text>
-					<Anchor href={coreDetails.repositoryLink} target="_blank">
-						<Text c="orange" fw="bold">
-							Github
-						</Text>
-					</Anchor>
-				</Flex>
-			</Stack>
-		</Container>
+						<Anchor href={coreDetails.repositoryLink} target="_blank">
+							<Text c="orange" fw="bold">
+								Github
+							</Text>
+						</Anchor>
+					</Flex>
+				</Stack>
+			</Container>
+		</>
 	);
 };
 
