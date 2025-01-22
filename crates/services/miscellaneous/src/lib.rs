@@ -2765,6 +2765,9 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn queue_notifications_for_outdated_seen_entries(&self) -> Result<()> {
+        if !self.0.is_server_key_validated().await? {
+            return Ok(());
+        }
         let threshold = Utc::now() - Duration::days(7);
         for state in [SeenState::InProgress, SeenState::OnAHold] {
             let seen_items = Seen::find()
