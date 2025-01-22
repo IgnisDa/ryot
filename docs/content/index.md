@@ -39,12 +39,13 @@ the features of the pro version, check the [features page]({{extra.main_website_
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
 You can get a key by purchasing it from the [website]({{extra.main_website_url}}).
 
-- Once you have the key, you can set it in the `docker-compose.yml` file:
-  ```diff
-    ryot:
-      environment:
-  +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
-  ```
+Once you have the key, you can set it in the `docker-compose.yml` file:
+
+```diff
+  ryot:
+    environment:
++      - SERVER_PRO_KEY=<pro_key_issued_to_you>
+```
 
 If the key is invalid or your subscription has expired, the server will automatically start
 with the community version. Since the two versions are compatible, you can switch between
