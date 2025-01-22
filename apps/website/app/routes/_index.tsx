@@ -132,7 +132,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch (e) {
 				if (e instanceof SpamError) isSpam = true;
 			}
-			const submission = await zx.parseForm(request, contactSubmissionSchema);
+			// DEV: Conform does strict validation but the honeypot fields are not in the schema
+			const submission = contactSubmissionSchema.parse(
+				Object.fromEntries(formData.entries()),
+			);
 			await db
 				.insert(contactSubmissions)
 				.values({
