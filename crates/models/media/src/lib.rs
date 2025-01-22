@@ -1400,8 +1400,8 @@ pub struct GraphqlCalendarEvent {
     pub episode_name: Option<String>,
     pub metadata_image: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
