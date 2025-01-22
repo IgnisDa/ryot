@@ -20,8 +20,8 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
-        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
-        WorkoutTemplate,
+        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserNotification,
+        UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user_measurement, user_notification, user_to_entity, workout, workout_template,
 };
@@ -2061,7 +2061,7 @@ pub async fn create_or_update_user_workout(
                         format!("New workout created - {}", data.name),
                         UserNotificationContent::NewWorkoutCreated,
                     ),
-                    UserNotificationLot::Immediate,
+                    UserNotificationLot::Queued,
                     ss,
                 )
                 .await?
@@ -2832,6 +2832,18 @@ pub async fn metadata_list(
             )
         })
         .apply_if(
+            input.filter.clone().and_then(|f| f.date_range),
+            |outer_query, outer_value| {
+                outer_query
+                    .apply_if(outer_value.start_date, |inner_query, inner_value| {
+                        inner_query.filter(seen::Column::FinishedOn.gte(inner_value))
+                    })
+                    .apply_if(outer_value.end_date, |inner_query, inner_value| {
+                        inner_query.filter(seen::Column::FinishedOn.lte(inner_value))
+                    })
+            },
+        )
+        .apply_if(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
@@ -3238,4 +3250,22 @@ pub async fn exercises_list(
         },
         items,
     })
+}
+
+pub async fn get_pending_notifications_for_user(
+    user_id: &String,
+    lot: UserNotificationLot,
+    ss: &Arc<SupportingService>,
+) -> Result<Vec<user_notification::Model>> {
+    let notifications = UserNotification::find()
+        .filter(user_notification::Column::UserId.eq(user_id))
+        .filter(user_notification::Column::Lot.eq(lot))
+        .filter(
+            user_notification::Column::IsAddressed
+                .eq(false)
+                .or(user_notification::Column::IsAddressed.is_null()),
+        )
+        .all(&ss.db)
+        .await?;
+    Ok(notifications)
 }

@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::{m20230410_create_metadata::Metadata, m20230501_create_metadata_group::MetadataGroup};
+use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -50,65 +50,6 @@ pub enum MetadataGroupToPerson {
     Index,
     PersonId,
     MetadataGroupId,
-}
-
-// FIXME: Remove this function and move it to the main function.
-pub async fn create_metadata_group_to_person_table(
-    manager: &SchemaManager<'_>,
-) -> Result<(), DbErr> {
-    manager
-        .create_table(
-            Table::create()
-                .table(MetadataGroupToPerson::Table)
-                .col(
-                    ColumnDef::new(MetadataGroupToPerson::Role)
-                        .text()
-                        .not_null(),
-                )
-                .col(
-                    ColumnDef::new(MetadataGroupToPerson::PersonId)
-                        .text()
-                        .not_null(),
-                )
-                .col(
-                    ColumnDef::new(MetadataGroupToPerson::MetadataGroupId)
-                        .text()
-                        .not_null(),
-                )
-                .col(ColumnDef::new(MetadataGroupToPerson::Index).integer())
-                .primary_key(
-                    Index::create()
-                        .name("metadata_group_to_person-primary-key")
-                        .col(MetadataGroupToPerson::MetadataGroupId)
-                        .col(MetadataGroupToPerson::PersonId)
-                        .col(MetadataGroupToPerson::Role),
-                )
-                .foreign_key(
-                    ForeignKey::create()
-                        .name("fk-metadata_group-item_person-person_id")
-                        .from(
-                            MetadataGroupToPerson::Table,
-                            MetadataGroupToPerson::PersonId,
-                        )
-                        .to(Person::Table, Person::Id)
-                        .on_delete(ForeignKeyAction::Cascade)
-                        .on_update(ForeignKeyAction::Cascade),
-                )
-                .foreign_key(
-                    ForeignKey::create()
-                        .name("fk-metadata_group-item_person-metadata_group_id")
-                        .from(
-                            MetadataGroupToPerson::Table,
-                            MetadataGroupToPerson::MetadataGroupId,
-                        )
-                        .to(MetadataGroup::Table, MetadataGroup::Id)
-                        .on_delete(ForeignKeyAction::Cascade)
-                        .on_update(ForeignKeyAction::Cascade),
-                )
-                .to_owned(),
-        )
-        .await?;
-    Ok(())
 }
 
 #[async_trait::async_trait]
@@ -201,7 +142,58 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        create_metadata_group_to_person_table(manager).await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(MetadataGroupToPerson::Table)
+                    .col(
+                        ColumnDef::new(MetadataGroupToPerson::Role)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataGroupToPerson::PersonId)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataGroupToPerson::MetadataGroupId)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(MetadataGroupToPerson::Index).integer())
+                    .primary_key(
+                        Index::create()
+                            .name("metadata_group_to_person-primary-key")
+                            .col(MetadataGroupToPerson::MetadataGroupId)
+                            .col(MetadataGroupToPerson::PersonId)
+                            .col(MetadataGroupToPerson::Role),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-metadata_group-item_person-person_id")
+                            .from(
+                                MetadataGroupToPerson::Table,
+                                MetadataGroupToPerson::PersonId,
+                            )
+                            .to(Person::Table, Person::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-metadata_group-item_person-metadata_group_id")
+                            .from(
+                                MetadataGroupToPerson::Table,
+                                MetadataGroupToPerson::MetadataGroupId,
+                            )
+                            .to(MetadataGroup::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 

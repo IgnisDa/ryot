@@ -8,8 +8,8 @@ use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, User
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
-    user,
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User, UserNotification},
+    user, user_notification,
 };
 use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
@@ -18,9 +18,11 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::create_or_update_collection;
+use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
 use enum_meta::Meta;
-use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
+use enum_models::{
+    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
+};
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
 use media_models::{
@@ -60,6 +62,7 @@ impl UserService {
     pub async fn user_metadata_recommendations(
         &self,
         user_id: &String,
+        should_refresh: Option<bool>,
     ) -> Result<UserMetadataRecommendationsResponse> {
         let cc = &self.0.cache_service;
         let metadata_recommendations_key =
@@ -67,11 +70,18 @@ impl UserService {
                 input: (),
                 user_id: user_id.to_owned(),
             });
-        if let Some(recommendations) = cc
-            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
-            .await
-        {
-            return Ok(recommendations);
+        match should_refresh {
+            Some(true) => {}
+            _ => {
+                if let Some(recommendations) = cc
+                    .get_value::<UserMetadataRecommendationsResponse>(
+                        metadata_recommendations_key.clone(),
+                    )
+                    .await
+                {
+                    return Ok(recommendations);
+                };
+            }
         };
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
@@ -118,19 +128,6 @@ impl UserService {
         )
         .await?;
         Ok(recommendations)
-    }
-
-    pub async fn refresh_user_metadata_recommendations(&self, user_id: &String) -> Result<bool> {
-        self.0
-            .cache_service
-            .expire_key(ApplicationCacheKey::UserMetadataRecommendations(
-                UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.to_owned(),
-                },
-            ))
-            .await?;
-        Ok(true)
     }
 
     pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
@@ -696,6 +693,16 @@ impl UserService {
         Ok(integrations)
     }
 
+    pub async fn user_pending_notifications(
+        &self,
+        user_id: &String,
+    ) -> Result<Vec<user_notification::Model>> {
+        let notifications =
+            get_pending_notifications_for_user(user_id, UserNotificationLot::Display, &self.0)
+                .await?;
+        Ok(notifications)
+    }
+
     pub async fn user_notification_platforms(
         &self,
         user_id: &String,
@@ -747,5 +754,19 @@ impl UserService {
             .await?
             .map(|u| u.id);
         Ok(user)
+    }
+
+    pub async fn mark_notifications_as_addressed(
+        &self,
+        user_id: String,
+        notification_ids: Vec<String>,
+    ) -> Result<bool> {
+        UserNotification::update_many()
+            .filter(user_notification::Column::UserId.eq(user_id))
+            .filter(user_notification::Column::Id.is_in(notification_ids))
+            .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+            .exec(&self.0.db)
+            .await?;
+        Ok(true)
     }
 }

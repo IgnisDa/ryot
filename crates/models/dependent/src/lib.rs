@@ -440,7 +440,6 @@ pub struct TmdbSettings {
     pub languages: Vec<TmdbLanguage>,
 }
 
-#[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),

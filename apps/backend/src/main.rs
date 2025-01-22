@@ -96,9 +96,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v6(&db).await {
-        ryot_log!(error, "Migration from v6 failed: {}", err);
-        bail!("There was an error migrating from v6.")
+    if let Err(err) = migrate_from_v7_if_applicable(&db).await {
+        ryot_log!(error, "Migration from v7 failed: {}", err);
+        bail!("There was an error migrating from v7.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
@@ -247,8 +247,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-// upgrade from v6 ONLY IF APPLICABLE
-async fn migrate_from_v6(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v7_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -259,41 +258,42 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240606_is_v6_migration'
+            WHERE version = 'm20240825_is_v7_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240817_is_last_v6_migration'
+                WHERE version = 'm20250117_is_last_v7_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v6 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v7 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
             INSERT INTO seaql_migrations (version, applied_at) VALUES
-                ('m20230409_create_extensions', 1684693316),
-                ('m20230410_create_metadata', 1684693316),
-                ('m20230413_create_person', 1684693316),
-                ('m20230417_create_user', 1684693316),
-                ('m20230419_create_seen', 1684693316),
-                ('m20230501_create_metadata_group', 1684693316),
-                ('m20230502_create_genre', 1684693316),
-                ('m20230504_create_collection', 1684693316),
-                ('m20230822_create_exercise', 1684693316),
-                ('m20230819_create_workout', 1684693316),
-                ('m20230818_create_workout_template', 1684693316),
-                ('m20230505_create_review', 1684693316),
-                ('m20230509_create_import_report', 1684693316),
-                ('m20230820_create_user_measurement', 1684693316),
-                ('m20230912_create_calendar_event', 1684693316),
-                ('m20231016_create_collection_to_entity', 1684693316),
-                ('m20231017_create_user_to_entity', 1684693316),
-                ('m20231219_create_metadata_relations', 1684693316),
-                ('m20240509_create_user_to_collection', 1717207621),
-                ('m20240531_create_queued_notification', 1717207621),
-                ('m20240607_create_integration', 1723854703),
-                ('m20240712_create_notification_platform', 1723854703),
-                ('m20240713_create_user_summary', 1723854703),
-                ('m20240714_create_access_link', 1723854703);
+                ('m20230403_create_extensions', 1684693316),
+                ('m20230404_create_user', 1684693317),
+                ('m20230410_create_metadata', 1684693318),
+                ('m20230411_create_metadata_group', 1684693319),
+                ('m20230413_create_person', 1684693320),
+                ('m20230419_create_seen', 1684693321),
+                ('m20230502_create_genre', 1684693322),
+                ('m20230504_create_collection', 1684693323),
+                ('m20230505_create_exercise', 1684693324),
+                ('m20230506_create_workout_template', 1684693325),
+                ('m20230507_create_workout', 1684693326),
+                ('m20230508_create_review', 1684693327),
+                ('m20230509_create_import_report', 1684693328),
+                ('m20230820_create_user_measurement', 1684693329),
+                ('m20230912_create_calendar_event', 1684693330),
+                ('m20231016_create_collection_to_entity', 1684693331),
+                ('m20231017_create_user_to_entity', 1684693332),
+                ('m20231219_create_metadata_relations', 1684693333),
+                ('m20240607_create_integration', 1684693334),
+                ('m20240712_create_notification_platform', 1684693335),
+                ('m20240714_create_access_link', 1684693336),
+                ('m20240827_create_daily_user_activity', 1684693337),
+                ('m20240904_create_monitored_entity', 1684693338),
+                ('m20241004_create_application_cache', 1684693339),
+                ('m20241214_create_user_notification', 1684693340);
         END IF;
     END IF;
 END $$;

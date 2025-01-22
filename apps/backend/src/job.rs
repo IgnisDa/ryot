@@ -36,7 +36,7 @@ pub async fn run_frequent_jobs(
         .trace_ok();
     app_services
         .miscellaneous_service
-        .send_pending_immediate_notifications()
+        .send_pending_notifications()
         .await
         .trace_ok();
     Ok(())
@@ -177,6 +177,12 @@ pub async fn perform_lp_application_job(
             app_services
                 .miscellaneous_service
                 .delete_all_application_cache()
+                .await
+        }
+        LpApplicationJob::UpdateUserLastActivityPerformed(user_id, timestamp) => {
+            app_services
+                .miscellaneous_service
+                .update_user_last_activity_performed(user_id, timestamp)
                 .await
         }
     };

@@ -10,13 +10,13 @@ use database_models::{
     prelude::{Exercise, ImportReport},
 };
 use dependent_utils::{
-    commit_metadata, deploy_background_job, generate_exercise_id, get_google_books_service,
-    get_hardcover_service, get_openlibrary_service, get_tmdb_non_media_service, process_import,
+    deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
+    get_openlibrary_service, get_tmdb_non_media_service, process_import,
 };
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
-use media_models::{CommitMediaInput, DeployImportJobInput, ImportOrExportMetadataItem};
+use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
@@ -118,15 +118,6 @@ impl ImporterService {
                     &get_hardcover_service(&self.0.config).await.unwrap(),
                     &get_google_books_service(&self.0.config).await.unwrap(),
                     &get_openlibrary_service(&self.0.config).await.unwrap(),
-                    |input| {
-                        commit_metadata(
-                            CommitMediaInput {
-                                unique: input,
-                                name: "Loading...".to_owned(),
-                            },
-                            &self.0,
-                        )
-                    },
                 )
                 .await
             }

@@ -5,7 +5,14 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        db.execute_unprepared(
+            r#"
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        "#,
+        )
+        .await?;
         Ok(())
     }
 

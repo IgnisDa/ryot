@@ -4,6 +4,7 @@ import {
 	Button,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -14,6 +15,7 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
@@ -58,18 +60,23 @@ import {
 	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
+	ProRequiredAlert,
 } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import {
+	ApplicationTimeRange,
 	Verb,
 	commaDelimitedString,
+	dayjsLib,
 	getLot,
+	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
+	useCoreDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -92,9 +99,10 @@ export type SearchParams = {
 
 const defaultFilters = {
 	mineCollection: undefined,
-	mineGeneralFilter: MediaGeneralFilter.All,
-	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
+	mineSortOrder: GraphqlSortOrder.Desc,
+	mineGeneralFilter: MediaGeneralFilter.All,
+	mineDateRange: ApplicationTimeRange.AllTime,
 };
 
 enum Action {
@@ -119,15 +127,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
+				collections: commaDelimitedString,
+				endDateRange: z.string().optional(),
+				startDateRange: z.string().optional(),
+				invertCollection: zx.BoolAsString.optional(),
+				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+				dateRange: z
+					.nativeEnum(ApplicationTimeRange)
+					.default(defaultFilters.mineDateRange),
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
-				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collections: commaDelimitedString,
-				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -135,13 +148,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				{
 					input: {
 						lot,
-						search: { page: query[pageQueryParam], query: query.query },
+						invertCollection: urlParse.invertCollection,
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+						search: { page: query[pageQueryParam], query: query.query },
 						filter: {
 							general: urlParse.generalFilter,
 							collections: urlParse.collections,
+							dateRange: {
+								endDate: urlParse.endDateRange,
+								startDate: urlParse.startDateRange,
+							},
 						},
-						invertCollection: urlParse.invertCollection,
 					},
 				},
 			);
@@ -183,8 +200,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				metadataSearch === false ? 0 : metadataSearch.details.total,
 				undefined,
 				{
-					search: metadataSearch,
 					url: urlParse,
+					search: metadataSearch,
 					mediaSources: metadataSourcesForLot.sources,
 				},
 			] as const;
@@ -221,6 +238,7 @@ export const meta = ({ params }: MetaArgs<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -228,21 +246,22 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const bulkEditingState = bulkEditingCollection.state;
 
+	const bulkEditingState = bulkEditingCollection.state;
+	const mediaSearch = loaderData.mediaSearch;
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection;
-	const mediaSearch = loaderData.mediaSearch;
+		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
+		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange;
 
 	return (
 		<Container>
 			<Tabs
-				variant="default"
 				mt="sm"
+				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
 					if (v)
@@ -301,9 +320,9 @@ export default function Page() {
 								<IconFilter size={24} />
 							</ActionIcon>
 							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
 								opened={filtersModalOpened}
+								cookieName={loaderData.cookieName}
+								closeFiltersModal={closeFiltersModal}
 							>
 								<FiltersModalForm />
 							</FiltersModal>
@@ -316,37 +335,43 @@ export default function Page() {
 									</Text>{" "}
 									items found
 								</Box>
-								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((item) => {
-										const becItem = {
-											entityId: item,
-											entityLot: EntityLot.Metadata,
-										};
-										const isAdded = bulkEditingCollection.isAdded(becItem);
-										return (
-											<MetadataDisplayItem
-												key={item}
-												metadataId={item}
-												rightLabelHistory
-												topRight={
-													bulkEditingState &&
-													bulkEditingState.data.action === "add" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="green"
-															onClick={() => {
-																if (isAdded) bulkEditingState.remove(becItem);
-																else bulkEditingState.add(becItem);
-															}}
-														>
-															<IconCheck size={18} />
-														</ActionIcon>
-													) : undefined
-												}
-											/>
-										);
-									})}
-								</ApplicationGrid>
+								{(loaderData.mediaList?.url.startDateRange ||
+									loaderData.mediaList?.url.endDateRange) &&
+								!coreDetails.isServerKeyValidated ? (
+									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
+								) : (
+									<ApplicationGrid>
+										{loaderData.mediaList.list.items.map((item) => {
+											const becItem = {
+												entityId: item,
+												entityLot: EntityLot.Metadata,
+											};
+											const isAdded = bulkEditingCollection.isAdded(becItem);
+											return (
+												<MetadataDisplayItem
+													key={item}
+													metadataId={item}
+													rightLabelHistory
+													topRight={
+														bulkEditingState &&
+														bulkEditingState.data.action === "add" ? (
+															<ActionIcon
+																variant={isAdded ? "filled" : "transparent"}
+																color="green"
+																onClick={() => {
+																	if (isAdded) bulkEditingState.remove(becItem);
+																	else bulkEditingState.add(becItem);
+																}}
+															>
+																<IconCheck size={18} />
+															</ActionIcon>
+														) : undefined
+													}
+												/>
+											);
+										})}
+									</ApplicationGrid>
+								)}
 							</>
 						) : (
 							<Text>You do not have any saved yet</Text>
@@ -563,18 +588,13 @@ const FiltersModalForm = () => {
 		<>
 			<Select
 				defaultValue={loaderData.mediaList.url.generalFilter}
-				data={[
-					{
-						group: "General filters",
-						items: Object.values(MediaGeneralFilter).map((o) => ({
-							value: o.toString(),
-							label: startCase(o.toLowerCase()),
-						})),
-					},
-				]}
 				onChange={(v) => {
 					if (v) setP("generalFilter", v);
 				}}
+				data={Object.values(MediaGeneralFilter).map((o) => ({
+					value: o.toString(),
+					label: startCase(o.toLowerCase()),
+				}))}
 			/>
 			<Flex gap="xs" align="center">
 				<Select
@@ -612,6 +632,51 @@ const FiltersModalForm = () => {
 				collections={loaderData.mediaList.url.collections}
 				invertCollection={loaderData.mediaList.url.invertCollection}
 			/>
+			<Divider />
+			<Stack gap="xs">
+				<Select
+					size="xs"
+					description="Finished between time range"
+					data={Object.values(ApplicationTimeRange)}
+					defaultValue={loaderData.mediaList.url.dateRange}
+					onChange={(v) => {
+						const range = v as ApplicationTimeRange;
+						const startDateRange = getStartTimeFromRange(range);
+						setP("dateRange", v);
+						if (range === ApplicationTimeRange.Custom) return;
+						setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
+						setP(
+							"endDateRange",
+							range === ApplicationTimeRange.AllTime
+								? ""
+								: dayjsLib().format("YYYY-MM-DD"),
+						);
+					}}
+				/>
+				{loaderData.mediaList.url.dateRange === ApplicationTimeRange.Custom ? (
+					<DatePickerInput
+						size="xs"
+						type="range"
+						description="Select custom dates"
+						defaultValue={
+							loaderData.mediaList.url.startDateRange &&
+							loaderData.mediaList.url.endDateRange
+								? [
+										new Date(loaderData.mediaList.url.startDateRange),
+										new Date(loaderData.mediaList.url.endDateRange),
+									]
+								: undefined
+						}
+						onChange={(v) => {
+							const start = v[0];
+							const end = v[1];
+							if (!start || !end) return;
+							setP("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
+							setP("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
+						}}
+					/>
+				) : null}
+			</Stack>
 		</>
 	);
 };

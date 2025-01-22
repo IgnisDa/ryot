@@ -294,7 +294,7 @@ pub struct FrontendUmamiConfig {
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
-    #[setting(default = "https://pro.ryot.io")]
+    #[setting(default = "https://app.ryot.io")]
     pub url: String,
     /// The button label for OIDC authentication.
     #[setting(default = "Continue with OpenID Connect")]
@@ -363,7 +363,7 @@ pub struct ServerConfig {
     pub progress_update_threshold: i64,
     /// The maximum file size in MB for user uploads.
     #[setting(default = 70)]
-    pub max_file_size: usize,
+    pub max_file_size_mb: usize,
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,

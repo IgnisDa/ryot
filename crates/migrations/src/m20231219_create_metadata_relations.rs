@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::{m20230410_create_metadata::Metadata, m20230501_create_metadata_group::MetadataGroup};
+use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

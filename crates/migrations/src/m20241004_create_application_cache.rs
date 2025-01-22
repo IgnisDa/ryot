@@ -40,13 +40,17 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(ApplicationCache::ExpiresAt).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(ApplicationCache::ExpiresAt)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ApplicationCache::Value)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ApplicationCache::Version).text().not_null())
+                    .col(ColumnDef::new(ApplicationCache::Version).text())
                     .to_owned(),
             )
             .await?;

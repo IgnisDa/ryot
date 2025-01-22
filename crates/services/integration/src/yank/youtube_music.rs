@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use application_utils::{get_current_date, get_current_time};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
@@ -11,6 +12,12 @@ use rust_decimal_macros::dec;
 use rustypipe::client::RustyPipe;
 use supporting_service::SupportingService;
 
+static THRESHOLD_MINUTES: i64 = 10;
+
+fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
+    date.and_hms_opt(23, 59, 59).unwrap()
+}
+
 // DEV: Youtube music only returns one record regardless of how many time you have listened
 // to it that day. It also does not include what time the song was listened to. So, for
 // each song listened to today, we cache the song id with `is_complete=false` and return
@@ -18,12 +25,20 @@ use supporting_service::SupportingService;
 // `is_complete=true` and return `progress=100%`. Thus the music gets marked as complete
 // and gets the correct start and end date marked. When the song appears again that day, we
 // silently ignore it since it is already in the cache as completely synced.
+//
+// Also, 10 minutes before the end of the day, we do not deploy the 35% progress since it
+// messes up with the caching mechanism which works on the current date.
 pub async fn yank_progress(
     auth_cookie: String,
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    let date = Utc::now().date_naive();
+    let date = get_current_date(&ss.timezone);
+    let current_time = get_current_time(&ss.timezone);
+    let end_of_day = get_end_of_day(date);
+    let is_within_threshold =
+        end_of_day.signed_duration_since(current_time) <= Duration::minutes(THRESHOLD_MINUTES);
+
     let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client
@@ -69,7 +84,7 @@ pub async fn yank_progress(
             continue;
         };
         let (cache_value, progress) = match items_in_cache.get(cache_key) {
-            None => (
+            None if !is_within_threshold => (
                 ApplicationCacheValue::YoutubeMusicSongListened(false),
                 dec!(35),
             ),

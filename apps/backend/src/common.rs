@@ -99,12 +99,11 @@ pub async fn create_app_services(
         EmptySubscription,
     )
     .extension(Tracing)
-    .data(db.clone())
-    .data(config.clone())
     .data(user_service.clone())
+    .data(fitness_service.clone())
     .data(importer_service.clone())
     .data(exporter_service.clone())
-    .data(fitness_service.clone())
+    .data(supporting_service.clone())
     .data(statistics_service.clone())
     .data(collection_service.clone())
     .data(file_storage_service.clone())
@@ -151,7 +150,7 @@ pub async fn create_app_services(
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
-            1024 * 1024 * config.server.max_file_size,
+            1024 * 1024 * config.server.max_file_size_mb,
         ))
         .layer(cors);
 

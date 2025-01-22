@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::m20230404_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -12,6 +12,7 @@ pub enum UserNotification {
     Table,
     UserId,
     Message,
+    CreatedOn,
     IsAddressed,
 }
 
@@ -24,15 +25,20 @@ impl MigrationTrait for Migration {
                     .table(UserNotification::Table)
                     .col(
                         ColumnDef::new(UserNotification::Id)
-                            .uuid()
+                            .text()
                             .not_null()
-                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(ColumnDef::new(UserNotification::Lot).text().not_null())
                     .col(ColumnDef::new(UserNotification::Message).text().not_null())
                     .col(ColumnDef::new(UserNotification::UserId).text().not_null())
                     .col(ColumnDef::new(UserNotification::IsAddressed).boolean())
+                    .col(
+                        ColumnDef::new(UserNotification::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("notification_to_user_foreign_key")

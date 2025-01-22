@@ -7,12 +7,12 @@ use async_trait::async_trait;
 use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use database_utils::check_token;
+use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
 use dependent_models::{
-    MetadataGroupSearchResponse, PersonDetails, PeopleSearchResponse, SearchResults,
+    MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
-use sea_orm::DatabaseConnection;
+use supporting_service::SupportingService;
 
 #[async_trait]
 pub trait MediaProvider {
@@ -103,10 +103,12 @@ pub trait AuthProvider {
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
+        let ss = ctx.data_unchecked::<Arc<SupportingService>>();
         if let Some(auth_token) = &auth_ctx.auth_token {
-            let config = ctx.data_unchecked::<Arc<config::AppConfig>>();
-            let db = ctx.data_unchecked::<DatabaseConnection>();
-            check_token(auth_token, self.is_mutation(), &config.users.jwt_secret, db).await?;
+            check_token(auth_token, self.is_mutation(), ss).await?;
+        }
+        if let Some(user_id) = &auth_ctx.user_id {
+            deploy_job_to_mark_user_last_activity(user_id, ss).await?;
         }
         auth_ctx
             .user_id

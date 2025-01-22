@@ -9,7 +9,6 @@
 
   ```bash title=".env"
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
-  APP_COMMIT_SHA=45937eded96319941d381eef9074922702b05f73
   DEFAULT_TMDB_ACCESS_TOKEN=your-tmdb-access-token
   DEFAULT_MAL_CLIENT_ID=your-mal-client-id
   TRAKT_CLIENT_ID=your-trakt-client-id

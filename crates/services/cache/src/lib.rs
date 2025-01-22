@@ -6,13 +6,13 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
-use env_utils::APP_COMMIT_SHA;
 use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
 
 pub struct CacheService {
+    version: String,
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
 }
@@ -22,6 +22,7 @@ impl CacheService {
         Self {
             config,
             db: db.clone(),
+            version: Utc::now().to_rfc2822(),
         }
     }
 }
@@ -64,15 +65,20 @@ impl CacheService {
         let now = Utc::now();
         let to_insert = items
             .into_iter()
-            .map(|(key, value)| application_cache::ActiveModel {
-                created_at: ActiveValue::Set(now),
-                key: ActiveValue::Set(key.clone()),
-                version: ActiveValue::Set(APP_COMMIT_SHA.to_owned()),
-                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
-                expires_at: ActiveValue::Set(Some(
-                    now + Duration::hours(self.get_expiry_for_key(&key)),
-                )),
-                ..Default::default()
+            .map(|(key, value)| {
+                let version = self
+                    .should_respect_version(&key)
+                    .then(|| self.version.to_owned());
+                application_cache::ActiveModel {
+                    created_at: ActiveValue::Set(now),
+                    key: ActiveValue::Set(key.clone()),
+                    version: ActiveValue::Set(version),
+                    value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                    expires_at: ActiveValue::Set(
+                        now + Duration::hours(self.get_expiry_for_key(&key)),
+                    ),
+                    ..Default::default()
+                }
             })
             .collect_vec();
         let inserted = ApplicationCache::insert_many(to_insert)
@@ -111,13 +117,14 @@ impl CacheService {
             .await?;
         let mut values = HashMap::new();
         for cache in caches {
-            let valid_by_expiry = cache.expires_at.map_or(true, |ea| ea > Utc::now());
+            let valid_by_expiry = cache.expires_at > Utc::now();
             if !valid_by_expiry {
                 continue;
             }
-            let should_respect_version = self.should_respect_version(&cache.key);
-            if should_respect_version && cache.version != APP_COMMIT_SHA {
-                continue;
+            if let Some(version) = cache.version {
+                if version != self.version {
+                    continue;
+                }
             }
             values.insert(cache.key, serde_json::from_value(cache.value)?);
         }
@@ -136,7 +143,7 @@ impl CacheService {
         let deleted = ApplicationCache::update_many()
             .filter(application_cache::Column::Key.eq(key))
             .set(application_cache::ActiveModel {
-                expires_at: ActiveValue::Set(Some(Utc::now())),
+                expires_at: ActiveValue::Set(Utc::now()),
                 ..Default::default()
             })
             .exec(&self.db)

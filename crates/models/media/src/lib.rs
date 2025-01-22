@@ -4,8 +4,8 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics, SearchInput, StoredUrl,
-    StringIdObject,
+    ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
+    SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -1302,6 +1302,7 @@ pub enum MediaGeneralFilter {
 pub struct MediaFilter {
     pub collections: Option<Vec<String>>,
     pub general: Option<MediaGeneralFilter>,
+    pub date_range: Option<ApplicationDateRange>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]

@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::m20230404_create_user::User;
 
 pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
 

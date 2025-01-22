@@ -445,6 +445,10 @@ export default function Page() {
 										}}
 										label={match(name)
 											.with(
+												UserNotificationContent.OutdatedSeenEntries,
+												() => "Media has been in progress/on hold for too long",
+											)
+											.with(
 												UserNotificationContent.MetadataEpisodeNameChanged,
 												() => "Name of an episode changes",
 											)

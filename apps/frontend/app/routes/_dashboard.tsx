@@ -2,11 +2,13 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
+	Alert,
 	Anchor,
 	AppShell,
 	Box,
 	Burger,
 	Button,
+	Card,
 	Center,
 	Checkbox,
 	Code,
@@ -47,6 +49,7 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import {
 	Form,
@@ -63,11 +66,13 @@ import {
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
+	MarkNotificationsAsAddressedDocument,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
 	UserLot,
 	type UserMetadataDetailsQuery,
+	UserPendingNotificationsDocument,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -80,10 +85,13 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconArchive,
+	IconBellRinging,
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
 	IconCancel,
+	IconCheck,
+	IconChecks,
 	IconChevronLeft,
 	IconChevronRight,
 	IconChevronsLeft,
@@ -104,13 +112,14 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
@@ -118,9 +127,12 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
+	dayjsLib,
 	getMetadataDetailsQuery,
 	getVerb,
+	queryFactory,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
@@ -755,18 +767,18 @@ export default function Layout() {
 						<Link to={$path("/")} style={{ all: "unset" }}>
 							<Group>
 								<Image
-									src={LOGO_IMAGE_URL}
 									h={40}
 									w={40}
-									radius="md"
 									darkHidden
+									radius="md"
+									src={LOGO_IMAGE_URL}
 								/>
 								<Image
-									src="/logo-light.png"
 									h={40}
 									w={40}
 									radius="md"
 									lightHidden
+									src="/logo-light.png"
 								/>
 								<Text size="xl" className={classes.logoText}>
 									Ryot
@@ -892,34 +904,155 @@ const LinksGroup = ({
 	);
 };
 
-const Footer = () => {
-	const coreDetails = useCoreDetails();
+const useUserPendingNotifications = () => {
+	const userPendingNotificationsQuery = useQuery({
+		queryKey: queryFactory.user.userPendingNotifications().queryKey,
+		queryFn: async () => {
+			const { userPendingNotifications } = await clientGqlService.request(
+				UserPendingNotificationsDocument,
+			);
+			return userPendingNotifications;
+		},
+	});
+	return userPendingNotificationsQuery;
+};
+
+const useMarkUserNotificationsAsAddressedMutation = () => {
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation = useMutation({
+		mutationFn: async (notificationIds: string[]) => {
+			await clientGqlService.request(MarkNotificationsAsAddressedDocument, {
+				notificationIds,
+			});
+		},
+		onSuccess: () => {
+			userPendingNotificationsQuery.refetch();
+		},
+	});
+	return markUserNotificationsAsAddressedMutation;
+};
+
+const DisplayNotificationContent = (props: { idx: number }) => {
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation =
+		useMarkUserNotificationsAsAddressedMutation();
+
+	const notification = userPendingNotificationsQuery.data?.[props.idx];
+	invariant(notification);
 
 	return (
-		<Stack>
-			<Flex gap={80} justify="center">
-				{!coreDetails.isServerKeyValidated ? (
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						<Text c="red" fw="bold">
-							Ryot Pro
+		<Card shadow="md">
+			<Card.Section withBorder p="xs">
+				<Text size="sm">{notification.message}</Text>
+			</Card.Section>
+			<Card.Section py={4} px="sm">
+				<Group wrap="nowrap" justify="space-between">
+					<Text size="xs" c="dimmed">
+						{dayjsLib(notification.createdOn).format("L")}
+					</Text>
+					<ActionIcon
+						size="xs"
+						variant="transparent"
+						loading={markUserNotificationsAsAddressedMutation.isPending}
+						onClick={() => {
+							markUserNotificationsAsAddressedMutation.mutate([
+								notification.id,
+							]);
+						}}
+					>
+						<IconCheck />
+					</ActionIcon>
+				</Group>
+			</Card.Section>
+		</Card>
+	);
+};
+
+const Footer = () => {
+	const coreDetails = useCoreDetails();
+	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+	const [parent] = useAutoAnimate();
+
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation =
+		useMarkUserNotificationsAsAddressedMutation();
+
+	return (
+		<>
+			<Modal
+				centered
+				opened={isNotificationModalOpen}
+				onClose={() => setIsNotificationModalOpen(false)}
+				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
+			>
+				<Stack ref={parent}>
+					{userPendingNotificationsQuery.data?.map((n, idx) => (
+						<DisplayNotificationContent idx={idx} key={n.id} />
+					))}
+					{(userPendingNotificationsQuery.data?.length || 0) > 0 ? (
+						<Button
+							ta="right"
+							variant="subtle"
+							size="compact-md"
+							rightSection={<IconChecks />}
+							onClick={() => {
+								const ids = userPendingNotificationsQuery.data?.map(
+									(n) => n.id,
+								);
+								if (!ids) return;
+								notifications.show({
+									color: "green",
+									message: "All notifications will be marked as read",
+								});
+								markUserNotificationsAsAddressedMutation.mutate(ids);
+								setIsNotificationModalOpen(false);
+							}}
+						>
+							Mark all as read
+						</Button>
+					) : (
+						<Text ta="center">No notifications</Text>
+					)}
+				</Stack>
+			</Modal>
+			<Container>
+				<Stack>
+					{userPendingNotificationsQuery.data &&
+					userPendingNotificationsQuery.data.length > 0 ? (
+						<Alert
+							icon={<IconBellRinging />}
+							style={{ cursor: "pointer" }}
+							onClick={() => setIsNotificationModalOpen(true)}
+						>
+							You have {userPendingNotificationsQuery.data.length} pending
+							notifications
+						</Alert>
+					) : null}
+					<Flex gap={80} justify="center">
+						{!coreDetails.isServerKeyValidated ? (
+							<Anchor href={coreDetails.websiteUrl} target="_blank">
+								<Text c="red" fw="bold">
+									Ryot Pro
+								</Text>
+							</Anchor>
+						) : null}
+						<Anchor href={discordLink} target="_blank">
+							<Text c="indigo" fw="bold">
+								Discord
+							</Text>
+						</Anchor>
+						<Text c="grape" fw="bold" visibleFrom="md">
+							{coreDetails.version}
 						</Text>
-					</Anchor>
-				) : null}
-				<Anchor href={discordLink} target="_blank">
-					<Text c="indigo" fw="bold">
-						Discord
-					</Text>
-				</Anchor>
-				<Text c="grape" fw="bold" visibleFrom="md">
-					{coreDetails.version}
-				</Text>
-				<Anchor href={coreDetails.repositoryLink} target="_blank">
-					<Text c="orange" fw="bold">
-						Github
-					</Text>
-				</Anchor>
-			</Flex>
-		</Stack>
+						<Anchor href={coreDetails.repositoryLink} target="_blank">
+							<Text c="orange" fw="bold">
+								Github
+							</Text>
+						</Anchor>
+					</Flex>
+				</Stack>
+			</Container>
+		</>
 	);
 };
 

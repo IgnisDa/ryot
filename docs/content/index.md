@@ -7,25 +7,25 @@ services:
   ryot-db:
     image: postgres:16-alpine # at-least version 15 is required
     restart: unless-stopped
+    container_name: ryot-db
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
       - TZ=Europe/Amsterdam
-    container_name: ryot-db
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
 
   ryot:
-    image: ignisda/ryot:v7 # or ghcr.io/ignisda/ryot:v7
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
-      - TZ=Europe/Amsterdam
-      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
-    ports:
-      - "8000:8000"
+    image: ignisda/ryot:v8 # or ghcr.io/ignisda/ryot:v8
     pull_policy: always
     container_name: ryot
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Europe/Amsterdam
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
+      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
 
 volumes:
   postgres_storage:
@@ -39,13 +39,13 @@ the features of the pro version, check the [features page]({{extra.main_website_
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
 You can get a key by purchasing it from the [website]({{extra.main_website_url}}).
 
-- Once you have the key, you can set it in the `docker-compose.yml` file:
-  ```diff
-    ryot:
-      environment:
-  +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
-  ```
-- Remove cached configuration using this [guide](./configuration.md#delete-all-cache).
+Once you have the key, you can set it in the `docker-compose.yml` file:
+
+```diff
+  ryot:
+    environment:
++      - SERVER_PRO_KEY=<pro_key_issued_to_you>
+```
 
 If the key is invalid or your subscription has expired, the server will automatically start
 with the community version. Since the two versions are compatible, you can switch between
@@ -56,11 +56,11 @@ them by simply fixing the key and restarting the server.
 Each version of Ryot is released as docker images. For example, if the latest tag is
 `v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5` and `latest`. The
 images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and
-[GitHub Container Registry](https://ghcr.io/ignisda/ryot).
+[GitHub Container Registry](https://ghcr.io/ignisda/ryot). Ryot is released on a (loosely)
+weekly basis.
 
-Ryot is released on a (loosely) weekly basis. If you prefer to live on the edge, you can
-use the `develop` docker tag which is released when changes are merged into the `main`
-branch.
+If you prefer to live on the edge, you can use the `develop` docker tag which is released
+when changes are merged into the `main` branch.
 
 ## Telemetry
 

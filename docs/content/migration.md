@@ -1,7 +1,23 @@
 # Migration
 
 All steps below are required unless otherwise stated. Please follow them in the correct
-order. Please make sure to replace `ryot` with `ryot-pro` if you are using the pro version.
+order.
+
+## From `v7.*` to `v8.*`
+
+1. Upgrade the server to `v7.16.0` to make sure all `v7` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v7.16.0"` in your docker-compose
+   file.
+
+2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v8.*`). For example you can make this
+   change: `image: "ignisda/ryot:v8"` in your docker-compose file. This will
+   automatically apply all migrations required for the new version.
+
+4. **OPTIONAL**: Login as the admin user and go to the "Miscellaneous" settings page and
+   click on the button to "Perform background tasks".
 
 ## From `v6.*` to `v7.*`
 

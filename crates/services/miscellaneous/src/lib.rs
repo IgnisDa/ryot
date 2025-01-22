@@ -9,7 +9,7 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{Days, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
@@ -19,6 +19,7 @@ use common_models::{
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
+use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
@@ -50,8 +51,8 @@ use dependent_utils::{
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
     get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
-    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
-    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
+    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
     handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
     metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
     refresh_collection_to_entity_association, remove_entity_from_collection,
@@ -2708,35 +2709,20 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn get_pending_notifications_for_user(
-        &self,
-        user_id: &String,
-        lot: UserNotificationLot,
-    ) -> Result<Vec<user_notification::Model>> {
-        let notifications = UserNotification::find()
-            .filter(user_notification::Column::UserId.eq(user_id))
-            .filter(user_notification::Column::Lot.eq(lot))
-            .filter(
-                user_notification::Column::IsAddressed
-                    .eq(false)
-                    .or(user_notification::Column::IsAddressed.is_null()),
-            )
-            .all(&self.0.db)
-            .await?;
-        Ok(notifications)
-    }
-
-    async fn send_pending_queued_notifications(&self) -> Result<()> {
+    pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = self
-                .get_pending_notifications_for_user(&user_details.id, UserNotificationLot::Queued)
-                .await?;
+            let notifications = get_pending_notifications_for_user(
+                &user_details.id,
+                UserNotificationLot::Queued,
+                &self.0,
+            )
+            .await?;
             if notifications.is_empty() {
                 continue;
             }
-            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
+            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
             let msg = notifications
                 .into_iter()
                 .map(|n| n.message)
@@ -2771,55 +2757,69 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn send_pending_immediate_notifications(&self) -> Result<()> {
-        let users = User::find().all(&self.0.db).await?;
-        for user_details in users {
-            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notifications = self
-                .get_pending_notifications_for_user(
-                    &user_details.id,
-                    UserNotificationLot::Immediate,
-                )
-                .await?;
-            let notification_ids = notifications.iter().map(|n| n.id).collect_vec();
-            let platforms = NotificationPlatform::find()
-                .filter(notification_platform::Column::UserId.eq(&user_details.id))
+    pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
+        self.0
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
+            .await?;
+        Ok(())
+    }
+
+    async fn queue_notifications_for_outdated_seen_entries(&self) -> Result<()> {
+        if !self.0.is_server_key_validated().await? {
+            return Ok(());
+        }
+        for state in [SeenState::InProgress, SeenState::OnAHold] {
+            let days = match state {
+                SeenState::InProgress => 7,
+                SeenState::OnAHold => 14,
+                _ => unreachable!(),
+            };
+            let threshold = Utc::now() - Duration::days(days);
+            let seen_items = Seen::find()
+                .filter(seen::Column::State.eq(state))
+                .filter(seen::Column::LastUpdatedOn.lte(threshold))
                 .all(&self.0.db)
                 .await?;
-            for notification in notifications {
-                for platform in platforms.iter() {
-                    if platform.is_disabled.unwrap_or_default() {
-                        ryot_log!(
-                        debug,
-                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
-                        user_details.id,
-                        platform.lot
-                    );
-                        continue;
-                    }
-                    if let Err(err) = send_notification(
-                        platform.platform_specifics.to_owned(),
-                        &self.0.config,
-                        &notification.message,
-                    )
-                    .await
-                    {
-                        ryot_log!(trace, "Error sending notification: {:?}", err);
-                    }
-                }
-            }
-            UserNotification::update_many()
-                .filter(user_notification::Column::Id.is_in(notification_ids))
-                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
-                .exec(&self.0.db)
+            for seen_item in seen_items {
+                let Some(metadata) = seen_item.find_related(Metadata).one(&self.0.db).await? else {
+                    continue;
+                };
+                let state = seen_item
+                    .state
+                    .to_string()
+                    .to_case(Case::Title)
+                    .to_case(Case::Lower);
+                create_notification_for_user(
+                    &seen_item.user_id,
+                    &(
+                        format!(
+                            "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
+                            metadata.title,
+                            metadata.lot,
+                            state,
+                            days,
+                            seen_item.last_updated_on.date_naive()
+                        ),
+                        UserNotificationContent::OutdatedSeenEntries,
+                    ),
+                    UserNotificationLot::Display,
+                    &self.0,
+                )
                 .await?;
+            }
         }
         Ok(())
     }
 
-    pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
+    pub async fn update_user_last_activity_performed(
+        &self,
+        user_id: String,
+        timestamp: DateTimeUtc,
+    ) -> Result<()> {
+        User::update_many()
+            .filter(user::Column::Id.eq(user_id))
+            .col_expr(user::Column::LastActivityOn, Expr::value(timestamp))
+            .exec(&self.0.db)
             .await?;
         Ok(())
     }
@@ -2849,8 +2849,6 @@ ORDER BY RANDOM() LIMIT 10;
         self.queue_notifications_for_released_media()
             .await
             .trace_ok();
-        ryot_log!(trace, "Sending all pending notifications");
-        self.send_pending_queued_notifications().await.trace_ok();
         ryot_log!(trace, "Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association()
             .await
@@ -2859,6 +2857,10 @@ ORDER BY RANDOM() LIMIT 10;
         self.regenerate_user_summaries().await.trace_ok();
         ryot_log!(trace, "Syncing integrations data to owned collection");
         self.sync_integrations_data_to_owned_collection()
+            .await
+            .trace_ok();
+        ryot_log!(trace, "Queueing notifications for outdated seen entries");
+        self.queue_notifications_for_outdated_seen_entries()
             .await
             .trace_ok();
         ryot_log!(trace, "Removing useless data");

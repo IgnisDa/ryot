@@ -11,11 +11,10 @@ use database_models::{
 use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{
-    commit_metadata, get_google_books_service, get_hardcover_service, get_openlibrary_service,
-    process_import,
+    get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
 };
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::{CommitMediaInput, SeenShowExtraInformation};
+use media_models::SeenShowExtraInformation;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -263,14 +262,15 @@ impl IntegrationService {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
             .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
-            if integration.is_disabled.unwrap_or_default() {
-                ryot_log!(debug, "Integration {} is disabled", integration.id);
-                continue;
-            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
@@ -281,15 +281,6 @@ impl IntegrationService {
                         &get_hardcover_service(&self.0.config).await.unwrap(),
                         &get_google_books_service(&self.0.config).await.unwrap(),
                         &get_openlibrary_service(&self.0.config).await.unwrap(),
-                        |input| {
-                            commit_metadata(
-                                CommitMediaInput {
-                                    unique: input,
-                                    name: "Loading...".to_owned(),
-                                },
-                                &self.0,
-                            )
-                        },
                     )
                     .await
                 }
@@ -354,14 +345,15 @@ impl IntegrationService {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::SyncToOwnedCollection.eq(true))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
             .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
-            if integration.is_disabled.unwrap_or_default() {
-                ryot_log!(debug, "Integration {} is disabled", integration.id);
-                continue;
-            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {

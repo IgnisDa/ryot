@@ -11,7 +11,7 @@ import type {
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -19,20 +19,17 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
-	RefreshUserMetadataRecommendationsDocument,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
-	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils";
 import { IconInfoCircle, IconRotateClockwise } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationGrid,
@@ -41,30 +38,29 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import {
-	useConfirmSubmit,
-	useCoreDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+	clientGqlService,
+	dayjsLib,
+	openConfirmationModal,
+} from "~/lib/generals";
+import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
-	const t = preferences.general.dashboard.find(
-		(de) => de.section === el,
-	)?.numElements;
-	invariant(isNumber(t));
-	return t;
-};
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const preferences = await getUserPreferences(request);
-	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
+	const getTake = (el: DashboardElementLot) => {
+		const t = preferences.general.dashboard.find(
+			(de) => de.section === el,
+		)?.numElements;
+		invariant(isNumber(t));
+		return t;
+	};
+	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(DashboardElementLot.InProgress);
 	const getRecommendations = async () => {
 		if (
 			preferences.general.dashboard.find(
@@ -76,6 +72,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				UserMetadataRecommendationsDocument,
+				{},
 			);
 		return userMetadataRecommendations;
 	};
@@ -122,24 +119,13 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-	const intent = getActionIntent(request);
-	return await match(intent)
-		.with("refreshUserMetadataRecommendations", async () => {
-			await serverGqlService.authenticatedRequest(
-				request,
-				RefreshUserMetadataRecommendationsDocument,
-			);
-			return {};
-		})
-		.run();
-};
+export const action = async (_args: ActionFunctionArgs) => {};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const submit = useConfirmSubmit();
+	const revalidator = useRevalidator();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
@@ -203,27 +189,23 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<Group justify="space-between">
 									<SectionTitle text="Recommendations" />
-									<Form
-										method="POST"
-										action={withQuery(".?index", {
-											intent: "refreshUserMetadataRecommendations",
-										})}
+									<ActionIcon
+										variant="subtle"
+										onClick={() => {
+											openConfirmationModal(
+												"Are you sure you want to refresh the recommendations?",
+												async () => {
+													await clientGqlService.request(
+														UserMetadataRecommendationsDocument,
+														{ shouldRefresh: true },
+													);
+													revalidator.revalidate();
+												},
+											);
+										}}
 									>
-										<ActionIcon
-											type="submit"
-											variant="subtle"
-											onClick={(e) => {
-												const form = e.currentTarget.form;
-												e.preventDefault();
-												openConfirmationModal(
-													"Are you sure you want to refresh the recommendations?",
-													() => submit(form),
-												);
-											}}
-										>
-											<IconRotateClockwise />
-										</ActionIcon>
-									</Form>
+										<IconRotateClockwise />
+									</ActionIcon>
 								</Group>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>

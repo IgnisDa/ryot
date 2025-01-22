@@ -1,19 +1,18 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use async_graphql::Result;
-use common_models::StringIdObject;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
-use external_utils::audiobookshelf::get_updated_metadata;
+use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    UniqueMediaIdentifier,
+    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
+    ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -27,17 +26,13 @@ use supporting_service::SupportingService;
 
 use super::{ImportFailStep, ImportFailedItem};
 
-pub async fn import<F>(
+pub async fn import(
     input: DeployUrlAndKeyImportInput,
     ss: &Arc<SupportingService>,
     hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
-) -> Result<ImportResult>
-where
-    F: Future<Output = Result<StringIdObject>>,
-{
+) -> Result<ImportResult> {
     let mut completed = vec![];
     let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
@@ -127,13 +122,19 @@ where
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                commit_metadata(UniqueMediaIdentifier {
-                                    lot,
-                                    source,
-                                    identifier: itunes_id.clone(),
-                                })
+                                commit_metadata(
+                                    CommitMediaInput {
+                                        name: "Loading...".to_owned(),
+                                        unique: UniqueMediaIdentifier {
+                                            lot,
+                                            source,
+                                            identifier: itunes_id.clone(),
+                                        },
+                                    },
+                                    ss,
+                                )
                                 .await?;
-                                let podcast = get_updated_metadata(&itunes_id, ss).await?;
+                                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
                                 if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                     get_podcast_episode_number_by_name(&p, &episode.title)
                                 }) {

@@ -1,16 +1,17 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
-use common_models::{DefaultCollection, StringIdObject};
+use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use external_utils::audiobookshelf::get_updated_metadata;
+use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+    CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    UniqueMediaIdentifier,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -29,18 +30,14 @@ fn get_http_client(access_token: &String) -> Client {
     )]))
 }
 
-pub async fn yank_progress<F>(
+pub async fn yank_progress(
     base_url: String,
     access_token: String,
     ss: &Arc<SupportingService>,
     hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-    commit_metadata: impl Fn(UniqueMediaIdentifier) -> F,
-) -> Result<ImportResult>
-where
-    F: Future<Output = async_graphql::Result<StringIdObject>>,
-{
+) -> Result<ImportResult> {
     let url = format!("{}/api", base_url);
     let client = get_http_client(&access_token);
 
@@ -59,80 +56,73 @@ where
 
     for item in resp.library_items.iter() {
         let metadata = item.media.clone().unwrap().metadata;
-        let (progress_id, identifier, lot, source, podcast_episode_number) =
-            if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
-                match &metadata.isbn {
-                    Some(isbn) => match get_identifier_from_book_isbn(
-                        isbn,
-                        hardcover_service,
-                        google_books_service,
-                        open_library_service,
-                    )
-                    .await
-                    {
-                        Some(id) => (item.id.clone(), id.0, MediaLot::Book, id.1, None),
-                        _ => {
-                            ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
-                            continue;
-                        }
-                    },
-                    _ => {
-                        ryot_log!(debug, "No ISBN found for item {:#?}", item);
-                        continue;
-                    }
-                }
-            } else if let Some(asin) = metadata.asin.clone() {
-                (
+
+        let update_information = 'ui: {
+            if let Some(asin) = metadata.asin.clone() {
+                break 'ui Some((
                     item.id.clone(),
                     asin,
                     MediaLot::AudioBook,
                     MediaSource::Audible,
                     None,
-                )
-            } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                match &item.recent_episode {
-                    Some(pe) => {
-                        let lot = MediaLot::Podcast;
-                        let source = MediaSource::Itunes;
-                        commit_metadata(UniqueMediaIdentifier {
+                ));
+            }
+            if let (Some(itunes_id), Some(pe)) = (metadata.itunes_id.clone(), &item.recent_episode)
+            {
+                let lot = MediaLot::Podcast;
+                let source = MediaSource::Itunes;
+                commit_metadata(
+                    CommitMediaInput {
+                        name: "Loading...".to_owned(),
+                        unique: UniqueMediaIdentifier {
                             lot,
                             source,
                             identifier: itunes_id.clone(),
-                        })
-                        .await
-                        .unwrap();
-                        let podcast = get_updated_metadata(&itunes_id, ss).await?;
-                        match podcast
-                            .podcast_specifics
-                            .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))
-                        {
-                            Some(episode) => (
-                                format!("{}/{}", item.id, pe.id),
-                                itunes_id,
-                                lot,
-                                source,
-                                Some(episode),
-                            ),
-                            _ => {
-                                ryot_log!(debug, "No podcast found for iTunes ID {:#?}", itunes_id);
-                                continue;
-                            }
-                        }
-                    }
-                    _ => {
-                        ryot_log!(debug, "No recent episode found for item {:?}", item);
-                        continue;
-                    }
+                        },
+                    },
+                    ss,
+                )
+                .await
+                .unwrap();
+                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
+                if let Some(episode) = podcast
+                    .podcast_specifics
+                    .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))
+                {
+                    break 'ui Some((
+                        format!("{}/{}", item.id, pe.id),
+                        itunes_id,
+                        lot,
+                        source,
+                        Some(episode),
+                    ));
                 }
-            } else {
-                ryot_log!(
-                    debug,
-                    "No ASIN, ISBN or iTunes ID found for item {:?}",
-                    item
-                );
-                continue;
             };
+            if let Some(isbn) = metadata.isbn.clone() {
+                if let Some(id) = get_identifier_from_book_isbn(
+                    &isbn,
+                    hardcover_service,
+                    google_books_service,
+                    open_library_service,
+                )
+                .await
+                {
+                    break 'ui Some((item.id.clone(), id.0, MediaLot::Book, id.1, None));
+                };
+            };
+            None
+        };
 
+        let Some((progress_id, identifier, lot, source, podcast_episode_number)) =
+            update_information
+        else {
+            ryot_log!(
+                debug,
+                "No ASIN, ISBN or iTunes ID found for item {:?}",
+                item
+            );
+            continue;
+        };
         match client
             .get(format!("{}/me/progress/{}", url, progress_id))
             .send()
@@ -153,6 +143,10 @@ where
                     if ebook_progress > progress {
                         progress = ebook_progress;
                     }
+                }
+                if progress == dec!(1) && resp.is_finished {
+                    ryot_log!(debug, "Item {:?} is finished", item);
+                    continue;
                 }
                 result
                     .completed

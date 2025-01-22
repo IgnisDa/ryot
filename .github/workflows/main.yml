@@ -146,7 +146,6 @@ jobs:
         env:
           TARGET: ${{ matrix.platform.target }}
         run: |
-          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "version=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
           echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
       - name: Extract rust toolchain
@@ -178,7 +177,6 @@ jobs:
       - name: Build
         env:
           UNKEY_API_ID: ${{ secrets.UNKEY_API_ID }}
-          APP_COMMIT_SHA: ${{ steps.build.outputs.sha }}
           APP_VERSION: ${{ steps.build.outputs.version }}
           TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}

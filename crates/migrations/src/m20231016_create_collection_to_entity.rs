@@ -2,10 +2,10 @@ use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230410_create_metadata::Metadata, m20230413_create_person::Person,
-    m20230501_create_metadata_group::MetadataGroup, m20230504_create_collection::Collection,
-    m20230818_create_workout_template::WorkoutTemplate, m20230819_create_workout::Workout,
-    m20230822_create_exercise::Exercise,
+    m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup,
+    m20230413_create_person::Person, m20230504_create_collection::Collection,
+    m20230505_create_exercise::Exercise, m20230506_create_workout_template::WorkoutTemplate,
+    m20230507_create_workout::Workout,
 };
 
 #[derive(DeriveMigrationName)]

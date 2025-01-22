@@ -997,6 +997,7 @@ export type MediaCollectionContentsResults = {
 
 export type MediaFilter = {
   collections?: InputMaybe<Array<Scalars['String']['input']>>;
+  dateRange?: InputMaybe<ApplicationDateRangeInput>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
 
@@ -1278,6 +1279,8 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
+  /** Mark user notifications as addressed. */
+  markNotificationsAsAddressed: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];
   /**
@@ -1289,8 +1292,6 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
-  /** Refresh the user metadata recommendations. */
-  refreshUserMetadataRecommendations: Scalars['Boolean']['output'];
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -1490,6 +1491,11 @@ export type MutationRootLoginUserArgs = {
 
 export type MutationRootMarkEntityAsPartialArgs = {
   input: MarkEntityAsPartialInput;
+};
+
+
+export type MutationRootMarkNotificationsAsAddressedArgs = {
+  notificationIds: Array<Scalars['String']['input']>;
 };
 
 
@@ -1863,6 +1869,8 @@ export type QueryRoot = {
   userMetadataRecommendations: Array<Scalars['String']['output']>;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
+  /** Get all pending display notifications for the currently logged in user. */
+  userPendingNotifications: Array<UserNotification>;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
   /** Get upcoming calendar events for the given filter. */
@@ -2002,6 +2010,11 @@ export type QueryRootUserMetadataDetailsArgs = {
 
 export type QueryRootUserMetadataGroupDetailsArgs = {
   metadataGroupId: Scalars['String']['input'];
+};
+
+
+export type QueryRootUserMetadataRecommendationsArgs = {
+  shouldRefresh?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -2758,6 +2771,13 @@ export type UserMetadataGroupDetails = {
   reviews: Array<ReviewItem>;
 };
 
+export type UserNotification = {
+  __typename?: 'UserNotification';
+  createdOn: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
+  message: Scalars['String']['output'];
+};
+
 export enum UserNotificationContent {
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
@@ -2768,6 +2788,7 @@ export enum UserNotificationContent {
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
   MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
   NewWorkoutCreated = 'NEW_WORKOUT_CREATED',
+  OutdatedSeenEntries = 'OUTDATED_SEEN_ENTRIES',
   PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
   PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
   ReviewPosted = 'REVIEW_POSTED'

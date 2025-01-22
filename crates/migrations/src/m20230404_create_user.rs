@@ -1,4 +1,3 @@
-// FIXME: Rename this to m20230404_create_user in the next major release
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -16,6 +15,7 @@ pub enum User {
     LastLoginOn,
     Preferences,
     OidcIssuerId,
+    LastActivityOn,
     ExtraInformation,
 }
 
@@ -41,6 +41,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::ExtraInformation).json_binary())
                     .col(ColumnDef::new(User::IsDisabled).boolean())
                     .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(User::LastActivityOn).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;

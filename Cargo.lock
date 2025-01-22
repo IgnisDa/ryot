@@ -337,6 +337,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "tracing-futures",
+ "uuid",
 ]
 
 [[package]]
@@ -1132,7 +1133,6 @@ dependencies = [
  "config",
  "database-models",
  "dependent-models",
- "env-utils",
  "itertools 0.14.0",
  "sea-orm",
  "sea-query",
@@ -3823,6 +3823,7 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
+ "convert_case",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -6811,12 +6812,11 @@ dependencies = [
  "async-trait",
  "common-models",
  "common-utils",
- "config",
  "database-models",
  "database-utils",
  "dependent-models",
  "media-models",
- "sea-orm",
+ "supporting-service",
  "tracing",
 ]
 
