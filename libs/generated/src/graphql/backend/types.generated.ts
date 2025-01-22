@@ -720,11 +720,10 @@ export type GraphqlCalendarEvent = {
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
   calendarEventId: Scalars['String']['output'];
   date: Scalars['NaiveDate']['output'];
-  episodeName?: Maybe<Scalars['String']['output']>;
   metadataId: Scalars['String']['output'];
   metadataImage?: Maybe<Scalars['String']['output']>;
   metadataLot: MediaLot;
-  metadataTitle: Scalars['String']['output'];
+  metadataText: Scalars['String']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };

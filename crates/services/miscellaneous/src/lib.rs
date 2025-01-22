@@ -789,6 +789,8 @@ ORDER BY RANDOM() LIMIT 10;
             )
             .order_by(Alias::new("date"), Order::Asc)
             .to_owned();
+        let user_preferences = user_by_id(&user_id, &self.0).await?.preferences;
+        let show_spoilers_in_calendar = user_preferences.general.show_spoilers_in_calendar;
         let all_events = CalEvent::find_by_statement(self.get_db_stmt(stmt))
             .all(&self.0.db)
             .await?;
@@ -798,18 +800,19 @@ ORDER BY RANDOM() LIMIT 10;
                 date: evt.date,
                 metadata_lot: evt.m_lot,
                 calendar_event_id: evt.id,
-                metadata_title: evt.m_title,
+                metadata_text: evt.m_title,
                 metadata_id: evt.metadata_id,
                 ..Default::default()
             };
             let mut image = None;
-            let mut title = None;
 
             if let Some(s) = evt.metadata_show_extra_information {
                 if let Some(sh) = evt.m_show_specifics {
                     if let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode) {
                         image = ep.poster_images.first().cloned();
-                        title = Some(ep.name.clone());
+                        if show_spoilers_in_calendar {
+                            calc.metadata_text = ep.name.clone();
+                        }
                     }
                 }
                 calc.show_extra_information = Some(s);
@@ -817,7 +820,9 @@ ORDER BY RANDOM() LIMIT 10;
                 if let Some(po) = evt.m_podcast_specifics {
                     if let Some(ep) = get_podcast_episode_by_number(&po, p.episode) {
                         image = ep.thumbnail.clone();
-                        title = Some(ep.title.clone());
+                        if show_spoilers_in_calendar {
+                            calc.metadata_text = ep.title.clone();
+                        }
                     }
                 };
                 calc.podcast_extra_information = Some(p);
@@ -830,7 +835,6 @@ ORDER BY RANDOM() LIMIT 10;
                     first_metadata_image_as_url(&evt.m_images, &self.0.file_storage_service).await
             }
             calc.metadata_image = image;
-            calc.episode_name = title;
             events.push(calc);
         }
         Ok(events)
