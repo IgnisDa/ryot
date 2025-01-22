@@ -45,7 +45,6 @@ You can get a key by purchasing it from the [website]({{extra.main_website_url}}
       environment:
   +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
   ```
-- Remove cached configuration using this [guide](./configuration.md#delete-all-cache).
 
 If the key is invalid or your subscription has expired, the server will automatically start
 with the community version. Since the two versions are compatible, you can switch between
