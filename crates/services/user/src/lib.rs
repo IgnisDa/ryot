@@ -8,7 +8,7 @@ use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, User
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User, UserNotification},
     user, user_notification,
 };
 use database_utils::{
@@ -754,5 +754,19 @@ impl UserService {
             .await?
             .map(|u| u.id);
         Ok(user)
+    }
+
+    pub async fn mark_notifications_as_addressed(
+        &self,
+        user_id: String,
+        notification_ids: Vec<String>,
+    ) -> Result<bool> {
+        UserNotification::update_many()
+            .filter(user_notification::Column::UserId.eq(user_id))
+            .filter(user_notification::Column::Id.is_in(notification_ids))
+            .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
+            .exec(&self.0.db)
+            .await?;
+        Ok(true)
     }
 }

@@ -284,4 +284,17 @@ impl UserMutation {
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
     }
+
+    /// Mark user notifications as addressed.
+    async fn mark_notifications_as_addressed(
+        &self,
+        gql_ctx: &Context<'_>,
+        notification_ids: Vec<String>,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .mark_notifications_as_addressed(user_id, notification_ids)
+            .await
+    }
 }

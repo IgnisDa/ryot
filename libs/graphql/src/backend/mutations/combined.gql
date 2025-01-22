@@ -266,3 +266,7 @@ mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
 mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
 	markEntityAsPartial(input: $input)
 }
+
+mutation MarkNotificationsAsAddressed($notificationIds: [String!]!) {
+	markNotificationsAsAddressed(notificationIds: $notificationIds)
+}

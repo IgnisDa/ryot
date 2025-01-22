@@ -1279,6 +1279,8 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
+  /** Mark user notifications as addressed. */
+  markNotificationsAsAddressed: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];
   /**
@@ -1489,6 +1491,11 @@ export type MutationRootLoginUserArgs = {
 
 export type MutationRootMarkEntityAsPartialArgs = {
   input: MarkEntityAsPartialInput;
+};
+
+
+export type MutationRootMarkNotificationsAsAddressedArgs = {
+  notificationIds: Array<Scalars['String']['input']>;
 };
 
 
