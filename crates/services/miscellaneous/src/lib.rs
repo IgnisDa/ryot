@@ -2862,9 +2862,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        self.queue_notifications_for_outdated_seen_entries()
-            .await
-            .trace_ok();
         Ok(true)
     }
 }
