@@ -8,6 +8,7 @@ import {
 	Box,
 	Burger,
 	Button,
+	Card,
 	Center,
 	Checkbox,
 	Code,
@@ -127,6 +128,7 @@ import {
 	Verb,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
+	dayjsLib,
 	getMetadataDetailsQuery,
 	getVerb,
 	queryFactory,
@@ -937,26 +939,35 @@ const DisplayNotificationContent = (props: { idx: number }) => {
 	const n = userPendingNotificationsQuery.data?.[props.idx];
 
 	return n ? (
-		<Paper withBorder p="xs">
-			<Group wrap="nowrap">
+		<Card shadow="md">
+			<Card.Section withBorder p="xs">
 				<Text size="sm">{n.message}</Text>
-				<ActionIcon
-					variant="transparent"
-					loading={markUserNotificationsAsAddressedMutation.isPending}
-					onClick={() => {
-						markUserNotificationsAsAddressedMutation.mutate([n.id]);
-					}}
-				>
-					<IconCheck />
-				</ActionIcon>
-			</Group>
-		</Paper>
+			</Card.Section>
+			<Card.Section py={4} px="sm">
+				<Group wrap="nowrap" justify="space-between">
+					<Text size="xs" c="dimmed">
+						{dayjsLib(n.createdOn).format("L")}
+					</Text>
+					<ActionIcon
+						size="xs"
+						variant="transparent"
+						loading={markUserNotificationsAsAddressedMutation.isPending}
+						onClick={() => {
+							markUserNotificationsAsAddressedMutation.mutate([n.id]);
+						}}
+					>
+						<IconCheck />
+					</ActionIcon>
+				</Group>
+			</Card.Section>
+		</Card>
 	) : null;
 };
 
 const Footer = () => {
 	const coreDetails = useCoreDetails();
 	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+	const [parent] = useAutoAnimate();
 
 	const userPendingNotificationsQuery = useUserPendingNotifications();
 	const markUserNotificationsAsAddressedMutation =
@@ -970,7 +981,7 @@ const Footer = () => {
 				opened={isNotificationModalOpen}
 				onClose={() => setIsNotificationModalOpen(false)}
 			>
-				<Stack>
+				<Stack ref={parent}>
 					{userPendingNotificationsQuery.data?.map((n, idx) => (
 						<DisplayNotificationContent idx={idx} key={n.id} />
 					))}
@@ -979,15 +990,14 @@ const Footer = () => {
 						variant="subtle"
 						size="compact-md"
 						rightSection={<IconChecks />}
-						loading={markUserNotificationsAsAddressedMutation.isPending}
-						onClick={async () => {
+						onClick={() => {
 							const ids = userPendingNotificationsQuery.data?.map((n) => n.id);
 							if (!ids) return;
-							await markUserNotificationsAsAddressedMutation.mutateAsync(ids);
 							notifications.show({
 								color: "green",
-								message: "All notifications have been marked as read.",
+								message: "All notifications will be marked as read",
 							});
+							markUserNotificationsAsAddressedMutation.mutate(ids);
 							setIsNotificationModalOpen(false);
 						}}
 					>
