@@ -282,6 +282,7 @@ export default function Page() {
 										"disableReviews",
 										"disableWatchProviders",
 										"persistQueries",
+										"showSpoilersInCalendar",
 									] as const
 								).map((name) => (
 									<Switch
@@ -315,7 +316,13 @@ export default function Page() {
 											)
 											.with(
 												"persistQueries",
-												() => "Persist queries in the URL",
+												() =>
+													"Persist queries in the URL so that you look at the same data next time you visit it",
+											)
+											.with(
+												"showSpoilersInCalendar",
+												() =>
+													"Show episode title in calendar and upcoming section which might contain spoilers",
 											)
 											.exhaustive()}
 									/>
