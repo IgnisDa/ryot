@@ -320,46 +320,53 @@ export default function Page() {
 											.exhaustive()}
 									/>
 								))}
-								<Select
-									size="xs"
-									disabled={!!isEditDisabled}
-									label="Scale used for rating in reviews"
-									defaultValue={userPreferences.general.reviewScale}
-									data={Object.values(UserReviewScale).map((c) => ({
-										value: c,
-										label: startCase(snakeCase(c)),
-									}))}
-									onChange={(val) => {
-										if (val) {
-											updatePreference((draft) => {
-												draft.general.reviewScale = val as UserReviewScale;
-											});
-										}
-									}}
-								/>
 							</SimpleGrid>
-							<Input.Wrapper
-								label="Grid packing"
-								description="Display size for library user interface elements"
-							>
-								<SegmentedControl
-									mt="xs"
-									fullWidth
-									disabled={!!isEditDisabled}
-									defaultValue={userPreferences.general.gridPacking}
-									data={Object.values(GridPacking).map((c) => ({
-										value: c,
-										label: startCase(snakeCase(c)),
-									}))}
-									onChange={(val) => {
-										if (val) {
-											updatePreference((draft) => {
-												draft.general.gridPacking = val as GridPacking;
-											});
-										}
-									}}
-								/>
-							</Input.Wrapper>
+							<Stack gap="xs">
+								<Input.Wrapper
+									label="Review scale"
+									description="Scale you want to use for reviews"
+								>
+									<SegmentedControl
+										mt="xs"
+										fullWidth
+										disabled={!!isEditDisabled}
+										defaultValue={userPreferences.general.reviewScale}
+										data={Object.values(UserReviewScale).map((c) => ({
+											value: c,
+											label: startCase(snakeCase(c)),
+										}))}
+										onChange={(val) => {
+											if (val) {
+												updatePreference((draft) => {
+													draft.general.reviewScale = val as UserReviewScale;
+												});
+											}
+										}}
+									/>
+								</Input.Wrapper>
+								<Input.Wrapper
+									label="Grid packing"
+									description="Display size for library user interface elements"
+								>
+									<SegmentedControl
+										mt="xs"
+										fullWidth
+										disabled={!!isEditDisabled}
+										defaultValue={userPreferences.general.gridPacking}
+										data={Object.values(GridPacking).map((c) => ({
+											value: c,
+											label: startCase(snakeCase(c)),
+										}))}
+										onChange={(val) => {
+											if (val) {
+												updatePreference((draft) => {
+													draft.general.gridPacking = val as GridPacking;
+												});
+											}
+										}}
+									/>
+								</Input.Wrapper>
+							</Stack>
 							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>
 								{Object.values(MediaLot).map((lot) => {
