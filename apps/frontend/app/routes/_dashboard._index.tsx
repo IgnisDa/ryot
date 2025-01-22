@@ -247,7 +247,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 
 	return (
 		<MetadataDisplayItem
-			altName={um.episodeName || um.metadataTitle}
+			altName={um.metadataText}
 			metadataId={um.metadataId}
 			noLeftLabel
 			rightLabel={`${match(um.metadataLot)

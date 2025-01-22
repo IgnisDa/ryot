@@ -132,8 +132,8 @@ const CalendarEvent = (props: {
 				{props.data.events.map((calEvent) => (
 					<MetadataDisplayItem
 						key={calEvent.calendarEventId}
+						altName={calEvent.metadataText}
 						metadataId={calEvent.metadataId}
-						altName={calEvent.episodeName || calEvent.metadataTitle}
 						rightLabel={`${match(calEvent.metadataLot)
 							.with(
 								MediaLot.Show,
