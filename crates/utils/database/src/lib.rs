@@ -5,9 +5,10 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob};
-use chrono::Timelike;
+use chrono::{Timelike, Utc};
 use common_models::{
-    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
+    ApplicationCacheKey, BackendError, DailyUserActivityHourRecord,
+    DailyUserActivityHourRecordEntity, IdAndNamedObject, UserLevelCacheKey,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -18,7 +19,10 @@ use database_models::{
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
+use dependent_models::{
+    ApplicationCacheValue, UserActivityPerformedCacheValue, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
+};
 use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
@@ -263,15 +267,14 @@ pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
 pub async fn check_token(
     token: &str,
     is_mutation: bool,
-    jwt_secret: &str,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let claims = user_claims_from_token(token, jwt_secret)?;
+    let claims = user_claims_from_token(token, &ss.config.users.jwt_secret)?;
     let Some(access_link) = claims.access_link else {
         return Ok(true);
     };
     let access_link = AccessLink::find_by_id(access_link.id)
-        .one(db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
     if access_link.is_revoked.unwrap_or_default() {
@@ -284,6 +287,25 @@ pub async fn check_token(
         return Ok(true);
     }
     Ok(true)
+}
+
+#[inline]
+pub async fn update_user_activity_performed_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .set_key(
+            ApplicationCacheKey::UserActivityPerformed(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            }),
+            ApplicationCacheValue::UserActivityPerformed(UserActivityPerformedCacheValue {
+                last_activity_on: Utc::now(),
+            }),
+        )
+        .await?;
+    Ok(())
 }
 
 pub async fn item_reviews(
