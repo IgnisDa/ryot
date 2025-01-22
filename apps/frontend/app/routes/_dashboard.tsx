@@ -48,6 +48,7 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import {
 	Form,
@@ -983,6 +984,10 @@ const Footer = () => {
 							const ids = userPendingNotificationsQuery.data?.map((n) => n.id);
 							if (!ids) return;
 							await markUserNotificationsAsAddressedMutation.mutateAsync(ids);
+							notifications.show({
+								color: "green",
+								message: "All notifications have been marked as read.",
+							});
 							setIsNotificationModalOpen(false);
 						}}
 					>
