@@ -132,7 +132,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch (e) {
 				if (e instanceof SpamError) isSpam = true;
 			}
-			// DEV: Conform does strict validation but the honeypot fields are not in the schema
+			// DEV: https://github.com/edmundhung/conform/issues/854
 			const submission = contactSubmissionSchema.parse(
 				Object.fromEntries(formData.entries()),
 			);
