@@ -46,7 +46,8 @@ impl CacheService {
                 self.config.server.progress_update_threshold
             }
 
-            ApplicationCacheKey::YoutubeMusicSongListened { .. } => 24,
+            ApplicationCacheKey::YoutubeMusicSongListened { .. }
+            | ApplicationCacheKey::UserActivityPerformed { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings

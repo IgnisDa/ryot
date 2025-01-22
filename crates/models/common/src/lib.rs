@@ -356,6 +356,7 @@ pub enum ApplicationCacheKey {
     TmdbSettings,
     ListennotesSettings,
     UserCollectionsList(UserLevelCacheKey<()>),
+    UserActivityPerformed(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
