@@ -900,10 +900,7 @@ const LinksGroup = ({
 	);
 };
 
-const Footer = () => {
-	const coreDetails = useCoreDetails();
-	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-
+const useUserPendingNotifications = () => {
 	const userPendingNotificationsQuery = useQuery({
 		queryKey: queryFactory.user.userPendingNotifications().queryKey,
 		queryFn: async () => {
@@ -913,6 +910,11 @@ const Footer = () => {
 			return userPendingNotifications;
 		},
 	});
+	return userPendingNotificationsQuery;
+};
+
+const useMarkUserNotificationsAsAddressedMutation = () => {
+	const userPendingNotificationsQuery = useUserPendingNotifications();
 	const markUserNotificationsAsAddressedMutation = useMutation({
 		mutationFn: async (notificationIds: string[]) => {
 			await clientGqlService.request(MarkNotificationsAsAddressedDocument, {
@@ -923,6 +925,41 @@ const Footer = () => {
 			userPendingNotificationsQuery.refetch();
 		},
 	});
+	return markUserNotificationsAsAddressedMutation;
+};
+
+const DisplayNotificationContent = (props: { idx: number }) => {
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation =
+		useMarkUserNotificationsAsAddressedMutation();
+
+	const n = userPendingNotificationsQuery.data?.[props.idx];
+
+	return n ? (
+		<Paper withBorder p="xs">
+			<Group wrap="nowrap">
+				<Text size="sm">{n.message}</Text>
+				<ActionIcon
+					variant="transparent"
+					loading={markUserNotificationsAsAddressedMutation.isPending}
+					onClick={() => {
+						markUserNotificationsAsAddressedMutation.mutate([n.id]);
+					}}
+				>
+					<IconCheck />
+				</ActionIcon>
+			</Group>
+		</Paper>
+	) : null;
+};
+
+const Footer = () => {
+	const coreDetails = useCoreDetails();
+	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation =
+		useMarkUserNotificationsAsAddressedMutation();
 
 	return (
 		<Container>
@@ -933,30 +970,19 @@ const Footer = () => {
 				centered
 			>
 				<Stack>
-					{userPendingNotificationsQuery.data?.map((n) => (
-						<Paper key={n.id} withBorder p="xs">
-							<Group wrap="nowrap">
-								<Text size="sm">{n.message}</Text>
-								<ActionIcon
-									variant="transparent"
-									onClick={() => {
-										markUserNotificationsAsAddressedMutation.mutate([n.id]);
-									}}
-								>
-									<IconCheck />
-								</ActionIcon>
-							</Group>
-						</Paper>
+					{userPendingNotificationsQuery.data?.map((n, idx) => (
+						<DisplayNotificationContent idx={idx} key={n.id} />
 					))}
 					<Button
 						ta="right"
 						variant="subtle"
 						size="compact-md"
 						rightSection={<IconChecks />}
-						onClick={() => {
-							markUserNotificationsAsAddressedMutation.mutate(
-								userPendingNotificationsQuery.data?.map((n) => n.id) || [],
-							);
+						loading={markUserNotificationsAsAddressedMutation.isPending}
+						onClick={async () => {
+							const ids = userPendingNotificationsQuery.data?.map((n) => n.id);
+							if (!ids) return;
+							await markUserNotificationsAsAddressedMutation.mutateAsync(ids);
 							setIsNotificationModalOpen(false);
 						}}
 					>
