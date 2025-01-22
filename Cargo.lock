@@ -6812,12 +6812,10 @@ dependencies = [
  "async-trait",
  "common-models",
  "common-utils",
- "config",
  "database-models",
  "database-utils",
  "dependent-models",
  "media-models",
- "sea-orm",
  "supporting-service",
  "tracing",
 ]
