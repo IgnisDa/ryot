@@ -965,10 +965,10 @@ const Footer = () => {
 	return (
 		<Container>
 			<Modal
-				onClose={() => setIsNotificationModalOpen(false)}
-				opened={isNotificationModalOpen}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				opened={isNotificationModalOpen}
+				onClose={() => setIsNotificationModalOpen(false)}
 			>
 				<Stack>
 					{userPendingNotificationsQuery.data?.map((n, idx) => (
