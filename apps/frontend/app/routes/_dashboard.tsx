@@ -2,6 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
+	Alert,
 	Anchor,
 	AppShell,
 	Box,
@@ -68,6 +69,7 @@ import {
 	type UserCollectionsListQuery,
 	UserLot,
 	type UserMetadataDetailsQuery,
+	UserPendingNotificationsDocument,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -80,6 +82,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconArchive,
+	IconBellRinging,
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
@@ -118,9 +121,11 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	getMetadataDetailsQuery,
 	getVerb,
+	queryFactory,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
@@ -895,31 +900,48 @@ const LinksGroup = ({
 const Footer = () => {
 	const coreDetails = useCoreDetails();
 
+	const { data: userPendingNotifications } = useQuery({
+		queryKey: queryFactory.user.userPendingNotifications().queryKey,
+		queryFn: async () => {
+			const { userPendingNotifications } = await clientGqlService.request(
+				UserPendingNotificationsDocument,
+			);
+			return userPendingNotifications;
+		},
+	});
+
 	return (
-		<Stack>
-			<Flex gap={80} justify="center">
-				{!coreDetails.isServerKeyValidated ? (
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						<Text c="red" fw="bold">
-							Ryot Pro
+		<Container>
+			<Stack>
+				{userPendingNotifications && userPendingNotifications.length > 0 ? (
+					<Alert icon={<IconBellRinging />}>
+						You have {userPendingNotifications.length} pending notifications
+					</Alert>
+				) : null}
+				<Flex gap={80} justify="center">
+					{!coreDetails.isServerKeyValidated ? (
+						<Anchor href={coreDetails.websiteUrl} target="_blank">
+							<Text c="red" fw="bold">
+								Ryot Pro
+							</Text>
+						</Anchor>
+					) : null}
+					<Anchor href={discordLink} target="_blank">
+						<Text c="indigo" fw="bold">
+							Discord
 						</Text>
 					</Anchor>
-				) : null}
-				<Anchor href={discordLink} target="_blank">
-					<Text c="indigo" fw="bold">
-						Discord
+					<Text c="grape" fw="bold" visibleFrom="md">
+						{coreDetails.version}
 					</Text>
-				</Anchor>
-				<Text c="grape" fw="bold" visibleFrom="md">
-					{coreDetails.version}
-				</Text>
-				<Anchor href={coreDetails.repositoryLink} target="_blank">
-					<Text c="orange" fw="bold">
-						Github
-					</Text>
-				</Anchor>
-			</Flex>
-		</Stack>
+					<Anchor href={coreDetails.repositoryLink} target="_blank">
+						<Text c="orange" fw="bold">
+							Github
+						</Text>
+					</Anchor>
+				</Flex>
+			</Stack>
+		</Container>
 	);
 };
 
