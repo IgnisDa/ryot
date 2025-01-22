@@ -981,9 +981,9 @@ const Footer = () => {
 		<>
 			<Modal
 				centered
-				withCloseButton={false}
 				opened={isNotificationModalOpen}
 				onClose={() => setIsNotificationModalOpen(false)}
+				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
 			>
 				<Stack ref={parent}>
 					{userPendingNotificationsQuery.data?.map((n, idx) => (
