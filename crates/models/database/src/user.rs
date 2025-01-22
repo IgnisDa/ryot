@@ -28,6 +28,8 @@ pub struct Model {
     pub is_disabled: Option<bool>,
     pub preferences: UserPreferences,
     #[graphql(skip)]
+    pub last_activity_on: Option<DateTimeUtc>,
+    #[graphql(skip)]
     pub extra_information: Option<UserExtraInformation>,
 }
 
