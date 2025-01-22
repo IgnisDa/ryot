@@ -2768,8 +2768,13 @@ ORDER BY RANDOM() LIMIT 10;
         if !self.0.is_server_key_validated().await? {
             return Ok(());
         }
-        let threshold = Utc::now() - Duration::days(7);
         for state in [SeenState::InProgress, SeenState::OnAHold] {
+            let days = match state {
+                SeenState::InProgress => 7,
+                SeenState::OnAHold => 14,
+                _ => unreachable!(),
+            };
+            let threshold = Utc::now() - Duration::days(days);
             let seen_items = Seen::find()
                 .filter(seen::Column::State.eq(state))
                 .filter(seen::Column::LastUpdatedOn.lte(threshold))
@@ -2788,10 +2793,11 @@ ORDER BY RANDOM() LIMIT 10;
                     &seen_item.user_id,
                     &(
                         format!(
-                            "{} ({}) has been kept {} for too long. Last updated on: {}.",
+                            "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
                             metadata.title,
                             metadata.lot,
                             state,
+                            days,
                             seen_item.last_updated_on.date_naive()
                         ),
                         UserNotificationContent::OutdatedSeenEntries,
