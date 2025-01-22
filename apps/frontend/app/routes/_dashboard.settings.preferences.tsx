@@ -282,6 +282,7 @@ export default function Page() {
 										"disableReviews",
 										"disableWatchProviders",
 										"persistQueries",
+										"showSpoilersInCalendar",
 									] as const
 								).map((name) => (
 									<Switch
@@ -315,52 +316,65 @@ export default function Page() {
 											)
 											.with(
 												"persistQueries",
-												() => "Persist queries in the URL",
+												() =>
+													"Persist queries in the URL so that you look at the same data next time you visit it",
+											)
+											.with(
+												"showSpoilersInCalendar",
+												() =>
+													"Show episode title in calendar and upcoming section which might contain spoilers",
 											)
 											.exhaustive()}
 									/>
 								))}
-								<Select
-									size="xs"
-									disabled={!!isEditDisabled}
-									label="Scale used for rating in reviews"
-									defaultValue={userPreferences.general.reviewScale}
-									data={Object.values(UserReviewScale).map((c) => ({
-										value: c,
-										label: startCase(snakeCase(c)),
-									}))}
-									onChange={(val) => {
-										if (val) {
-											updatePreference((draft) => {
-												draft.general.reviewScale = val as UserReviewScale;
-											});
-										}
-									}}
-								/>
 							</SimpleGrid>
-							<Input.Wrapper
-								label="Grid packing"
-								description="Display size for library user interface elements"
-							>
-								<SegmentedControl
-									mt="xs"
-									fullWidth
-									disabled={!!isEditDisabled}
-									defaultValue={userPreferences.general.gridPacking}
-									data={Object.values(GridPacking).map((c) => ({
-										value: c,
-										label: startCase(snakeCase(c)),
-									}))}
-									onChange={(val) => {
-										if (val) {
-											updatePreference((draft) => {
-												draft.general.gridPacking = val as GridPacking;
-											});
-										}
-									}}
-								/>
-							</Input.Wrapper>
-							<Stack>
+							<Stack gap="xs">
+								<Input.Wrapper
+									label="Review scale"
+									description="Scale you want to use for reviews"
+								>
+									<SegmentedControl
+										mt="xs"
+										fullWidth
+										disabled={!!isEditDisabled}
+										defaultValue={userPreferences.general.reviewScale}
+										data={Object.values(UserReviewScale).map((c) => ({
+											value: c,
+											label: startCase(snakeCase(c)),
+										}))}
+										onChange={(val) => {
+											if (val) {
+												updatePreference((draft) => {
+													draft.general.reviewScale = val as UserReviewScale;
+												});
+											}
+										}}
+									/>
+								</Input.Wrapper>
+								<Input.Wrapper
+									label="Grid packing"
+									description="Display size for library user interface elements"
+								>
+									<SegmentedControl
+										mt="xs"
+										fullWidth
+										disabled={!!isEditDisabled}
+										defaultValue={userPreferences.general.gridPacking}
+										data={Object.values(GridPacking).map((c) => ({
+											value: c,
+											label: startCase(snakeCase(c)),
+										}))}
+										onChange={(val) => {
+											if (val) {
+												updatePreference((draft) => {
+													draft.general.gridPacking = val as GridPacking;
+												});
+											}
+										}}
+									/>
+								</Input.Wrapper>
+							</Stack>
+							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>
 								{Object.values(MediaLot).map((lot) => {
 									const watchProviders =
@@ -368,35 +382,33 @@ export default function Page() {
 									const existingValues =
 										watchProviders.find((wp) => wp.lot === lot)?.values || [];
 									return (
-										<Stack key={lot} gap={4}>
-											<Text>{changeCase(lot)}</Text>
-											<TagsInput
-												disabled={!!isEditDisabled}
-												defaultValue={existingValues}
-												placeholder="Enter more providers"
-												onChange={(val) => {
-													if (val) {
-														const newWatchProviders =
-															Array.from(watchProviders);
-														let existingMediaLot = newWatchProviders.find(
-															(wp) => wp.lot === lot,
-														);
-														if (!existingMediaLot) {
-															existingMediaLot = {
-																values: val,
-																lot: lot as MediaLot,
-															};
-															newWatchProviders.push(existingMediaLot);
-														} else {
-															existingMediaLot.values = val;
-														}
-														updatePreference((draft) => {
-															draft.general.watchProviders = newWatchProviders;
-														});
+										<TagsInput
+											key={lot}
+											label={changeCase(lot)}
+											disabled={!!isEditDisabled}
+											defaultValue={existingValues}
+											placeholder="Enter more providers"
+											onChange={(val) => {
+												if (val) {
+													const newWatchProviders = Array.from(watchProviders);
+													let existingMediaLot = newWatchProviders.find(
+														(wp) => wp.lot === lot,
+													);
+													if (!existingMediaLot) {
+														existingMediaLot = {
+															values: val,
+															lot: lot as MediaLot,
+														};
+														newWatchProviders.push(existingMediaLot);
+													} else {
+														existingMediaLot.values = val;
 													}
-												}}
-											/>
-										</Stack>
+													updatePreference((draft) => {
+														draft.general.watchProviders = newWatchProviders;
+													});
+												}
+											}}
+										/>
 									);
 								})}
 							</Stack>

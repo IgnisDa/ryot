@@ -11,7 +11,6 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
-	type CalendarEventPartFragment,
 	MediaLot,
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
@@ -130,32 +129,25 @@ const CalendarEvent = (props: {
 				</Stack>
 			</Group>
 			<ApplicationGrid>
-				{props.data.events.map((evt) => (
-					<DisplayCalendarEvent key={evt.calendarEventId} calEvent={evt} />
+				{props.data.events.map((calEvent) => (
+					<MetadataDisplayItem
+						key={calEvent.calendarEventId}
+						altName={calEvent.metadataText}
+						metadataId={calEvent.metadataId}
+						rightLabel={`${match(calEvent.metadataLot)
+							.with(
+								MediaLot.Show,
+								() =>
+									`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
+							)
+							.with(
+								MediaLot.Podcast,
+								() => `EP-${calEvent.podcastExtraInformation?.episode}`,
+							)
+							.otherwise(() => "")}`}
+					/>
 				))}
 			</ApplicationGrid>
 		</Fragment>
-	);
-};
-
-const DisplayCalendarEvent = ({
-	calEvent,
-}: { calEvent: CalendarEventPartFragment }) => {
-	return (
-		<MetadataDisplayItem
-			metadataId={calEvent.metadataId}
-			altName={calEvent.episodeName || calEvent.metadataTitle}
-			rightLabel={`${match(calEvent.metadataLot)
-				.with(
-					MediaLot.Show,
-					() =>
-						`S${calEvent.showExtraInformation?.season}-E${calEvent.showExtraInformation?.episode}`,
-				)
-				.with(
-					MediaLot.Podcast,
-					() => `EP-${calEvent.podcastExtraInformation?.episode}`,
-				)
-				.otherwise(() => "")}`}
-		/>
 	);
 };

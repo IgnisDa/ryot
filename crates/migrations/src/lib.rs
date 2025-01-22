@@ -27,6 +27,7 @@ mod m20240904_create_monitored_entity;
 mod m20241004_create_application_cache;
 mod m20241214_create_user_notification;
 mod m20250118_is_v8_migration;
+mod m20250122_changes_for_issue_1188;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -75,6 +76,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20241004_create_application_cache::Migration),
             Box::new(m20241214_create_user_notification::Migration),
             Box::new(m20250118_is_v8_migration::Migration),
+            Box::new(m20250122_changes_for_issue_1188::Migration),
         ]
     }
 }

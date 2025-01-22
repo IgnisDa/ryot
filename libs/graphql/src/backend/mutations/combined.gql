@@ -1,272 +1,272 @@
 mutation RegisterUser($input: RegisterUserInput!) {
-	registerUser(input: $input) {
-		__typename
-		... on RegisterError {
-			error
-		}
-		... on StringIdObject {
-			id
-		}
-	}
+  registerUser(input: $input) {
+    __typename
+    ... on RegisterError {
+      error
+    }
+    ... on StringIdObject {
+      id
+    }
+  }
 }
 
 mutation LoginUser($input: AuthUserInput!) {
-	loginUser(input: $input) {
-		__typename
-		... on LoginError {
-			error
-		}
-		... on LoginResponse {
-			apiKey
-		}
-	}
+  loginUser(input: $input) {
+    __typename
+    ... on LoginError {
+      error
+    }
+    ... on LoginResponse {
+      apiKey
+    }
+  }
 }
 
 mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
-	addEntityToCollection(input: $input)
+  addEntityToCollection(input: $input)
 }
 
 mutation CommitMetadata($input: CommitMediaInput!) {
-	commitMetadata(input: $input) {
-		id
-	}
+  commitMetadata(input: $input) {
+    id
+  }
 }
 
 mutation CommitMetadataGroup($input: CommitMediaInput!) {
-	commitMetadataGroup(input: $input) {
-		id
-	}
+  commitMetadataGroup(input: $input) {
+    id
+  }
 }
 
 mutation CommitPerson($input: CommitPersonInput!) {
-	commitPerson(input: $input) {
-		id
-	}
+  commitPerson(input: $input) {
+    id
+  }
 }
 
 mutation CreateCustomExercise($input: ExerciseInput!) {
-	createCustomExercise(input: $input)
+  createCustomExercise(input: $input)
 }
 
 mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
-	updateCustomExercise(input: $input)
+  updateCustomExercise(input: $input)
 }
 
 mutation UpdateUserIntegration($input: UpdateUserIntegrationInput!) {
-	updateUserIntegration(input: $input)
+  updateUserIntegration(input: $input)
 }
 
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
-	createCustomMetadata(input: $input) {
-		id
-	}
+  createCustomMetadata(input: $input) {
+    id
+  }
 }
 
 mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
-	updateCustomMetadata(input: $input)
+  updateCustomMetadata(input: $input)
 }
 
 mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
-	createOrUpdateCollection(input: $input) {
-		id
-	}
+  createOrUpdateCollection(input: $input) {
+    id
+  }
 }
 
 mutation CreateReviewComment($input: CreateReviewCommentInput!) {
-	createReviewComment(input: $input)
+  createReviewComment(input: $input)
 }
 
 mutation CreateUserMeasurement($input: UserMeasurementInput!) {
-	createUserMeasurement(input: $input)
+  createUserMeasurement(input: $input)
 }
 
 mutation CreateUserNotificationPlatform(
-	$input: CreateUserNotificationPlatformInput!
+  $input: CreateUserNotificationPlatformInput!
 ) {
-	createUserNotificationPlatform(input: $input)
+  createUserNotificationPlatform(input: $input)
 }
 
 mutation CreateUserIntegration($input: CreateUserIntegrationInput!) {
-	createUserIntegration(input: $input) {
-		id
-	}
+  createUserIntegration(input: $input) {
+    id
+  }
 }
 
 mutation CreateOrUpdateUserWorkout($input: UserWorkoutInput!) {
-	createOrUpdateUserWorkout(input: $input)
+  createOrUpdateUserWorkout(input: $input)
 }
 
 mutation CreateOrUpdateUserWorkoutTemplate($input: UserWorkoutInput!) {
-	createOrUpdateUserWorkoutTemplate(input: $input)
+  createOrUpdateUserWorkoutTemplate(input: $input)
 }
 
 mutation DeleteCollection($collectionName: String!) {
-	deleteCollection(collectionName: $collectionName)
+  deleteCollection(collectionName: $collectionName)
 }
 
 mutation DeleteReview($reviewId: String!) {
-	deleteReview(reviewId: $reviewId)
+  deleteReview(reviewId: $reviewId)
 }
 
 mutation DeleteS3Object($key: String!) {
-	deleteS3Object(key: $key)
+  deleteS3Object(key: $key)
 }
 
 mutation DeleteSeenItem($seenId: String!) {
-	deleteSeenItem(seenId: $seenId) {
-		id
-	}
+  deleteSeenItem(seenId: $seenId) {
+    id
+  }
 }
 
 mutation DeleteUser($toDeleteUserId: String!) {
-	deleteUser(toDeleteUserId: $toDeleteUserId)
+  deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
 mutation DeleteUserIntegration($integrationId: String!) {
-	deleteUserIntegration(integrationId: $integrationId)
+  deleteUserIntegration(integrationId: $integrationId)
 }
 
 mutation DeleteUserMeasurement($timestamp: DateTime!) {
-	deleteUserMeasurement(timestamp: $timestamp)
+  deleteUserMeasurement(timestamp: $timestamp)
 }
 
 mutation DeleteUserNotificationPlatform($notificationId: String!) {
-	deleteUserNotificationPlatform(notificationId: $notificationId)
+  deleteUserNotificationPlatform(notificationId: $notificationId)
 }
 
 mutation DeleteUserWorkout($workoutId: String!) {
-	deleteUserWorkout(workoutId: $workoutId)
+  deleteUserWorkout(workoutId: $workoutId)
 }
 
 mutation DeleteUserWorkoutTemplate($workoutTemplateId: String!) {
-	deleteUserWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
+  deleteUserWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
 }
 
 mutation DeployBackgroundJob($jobName: BackgroundJob!) {
-	deployBackgroundJob(jobName: $jobName)
+  deployBackgroundJob(jobName: $jobName)
 }
 
 mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {
-	deployBulkProgressUpdate(input: $input)
+  deployBulkProgressUpdate(input: $input)
 }
 
 mutation DeployExportJob {
-	deployExportJob
+  deployExportJob
 }
 
 mutation DeployImportJob($input: DeployImportJobInput!) {
-	deployImportJob(input: $input)
+  deployImportJob(input: $input)
 }
 
 mutation DeployUpdateMetadataJob($metadataId: String!) {
-	deployUpdateMetadataJob(metadataId: $metadataId)
+  deployUpdateMetadataJob(metadataId: $metadataId)
 }
 
 mutation DeployUpdatePersonJob($personId: String!) {
-	deployUpdatePersonJob(personId: $personId)
+  deployUpdatePersonJob(personId: $personId)
 }
 
 mutation DeployUpdateMetadataGroupJob($metadataGroupId: String!) {
-	deployUpdateMetadataGroupJob(metadataGroupId: $metadataGroupId)
+  deployUpdateMetadataGroupJob(metadataGroupId: $metadataGroupId)
 }
 
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
-	updateSeenItem(input: $input)
+  updateSeenItem(input: $input)
 }
 
 mutation UpdateUserNotificationPlatform(
-	$input: UpdateUserNotificationPlatformInput!
+  $input: UpdateUserNotificationPlatformInput!
 ) {
-	updateUserNotificationPlatform(input: $input)
+  updateUserNotificationPlatform(input: $input)
 }
 
 mutation UpdateUserWorkoutAttributes(
-	$input: UpdateUserWorkoutAttributesInput!
+  $input: UpdateUserWorkoutAttributesInput!
 ) {
-	updateUserWorkoutAttributes(input: $input)
+  updateUserWorkoutAttributes(input: $input)
 }
 
 mutation GenerateAuthToken {
-	generateAuthToken
+  generateAuthToken
 }
 
 mutation MergeMetadata($mergeFrom: String!, $mergeInto: String!) {
-	mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+  mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
 mutation DisassociateMetadata($metadataId: String!) {
-	disassociateMetadata(metadataId: $metadataId)
+  disassociateMetadata(metadataId: $metadataId)
 }
 
 mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
-	createOrUpdateReview(input: $input) {
-		id
-	}
+  createOrUpdateReview(input: $input) {
+    id
+  }
 }
 
 mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
-	presignedPutS3Url(input: $input) {
-		key
-		uploadUrl
-	}
+  presignedPutS3Url(input: $input) {
+    key
+    uploadUrl
+  }
 }
 
 mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {
-	removeEntityFromCollection(input: $input) {
-		id
-	}
+  removeEntityFromCollection(input: $input) {
+    id
+  }
 }
 
 mutation TestUserNotificationPlatforms {
-	testUserNotificationPlatforms
+  testUserNotificationPlatforms
 }
 
 mutation UpdateUser($input: UpdateUserInput!) {
-	updateUser(input: $input) {
-		id
-	}
+  updateUser(input: $input) {
+    id
+  }
 }
 
 mutation UpdateUserPreference($input: UserPreferencesInput!) {
-	updateUserPreference(input: $input)
+  updateUserPreference(input: $input)
 }
 
 mutation CreateAccessLink($input: CreateAccessLinkInput!) {
-	createAccessLink(input: $input) {
-		id
-	}
+  createAccessLink(input: $input) {
+    id
+  }
 }
 
 mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
-	processAccessLink(input: $input) {
-		__typename
-		... on ProcessAccessLinkError {
-			error
-		}
-		... on ProcessAccessLinkResponse {
-			apiKey
-			redirectTo
-			tokenValidForDays
-		}
-	}
+  processAccessLink(input: $input) {
+    __typename
+    ... on ProcessAccessLinkError {
+      error
+    }
+    ... on ProcessAccessLinkResponse {
+      apiKey
+      redirectTo
+      tokenValidForDays
+    }
+  }
 }
 
 mutation RevokeAccessLink($accessLinkId: String!) {
-	revokeAccessLink(accessLinkId: $accessLinkId)
+  revokeAccessLink(accessLinkId: $accessLinkId)
 }
 
 mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
-	updateUserExerciseSettings(input: $input)
+  updateUserExerciseSettings(input: $input)
 }
 
 mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
-	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+  mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
 mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
-	markEntityAsPartial(input: $input)
+  markEntityAsPartial(input: $input)
 }
 
 mutation MarkNotificationsAsAddressed($notificationIds: [String!]!) {
-	markNotificationsAsAddressed(notificationIds: $notificationIds)
+  markNotificationsAsAddressed(notificationIds: $notificationIds)
 }
