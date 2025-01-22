@@ -119,6 +119,7 @@ import { type FC, type FormEvent, type ReactNode, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
@@ -936,24 +937,27 @@ const DisplayNotificationContent = (props: { idx: number }) => {
 	const markUserNotificationsAsAddressedMutation =
 		useMarkUserNotificationsAsAddressedMutation();
 
-	const n = userPendingNotificationsQuery.data?.[props.idx];
+	const notification = userPendingNotificationsQuery.data?.[props.idx];
+	invariant(notification);
 
-	return n ? (
+	return (
 		<Card shadow="md">
 			<Card.Section withBorder p="xs">
-				<Text size="sm">{n.message}</Text>
+				<Text size="sm">{notification.message}</Text>
 			</Card.Section>
 			<Card.Section py={4} px="sm">
 				<Group wrap="nowrap" justify="space-between">
 					<Text size="xs" c="dimmed">
-						{dayjsLib(n.createdOn).format("L")}
+						{dayjsLib(notification.createdOn).format("L")}
 					</Text>
 					<ActionIcon
 						size="xs"
 						variant="transparent"
 						loading={markUserNotificationsAsAddressedMutation.isPending}
 						onClick={() => {
-							markUserNotificationsAsAddressedMutation.mutate([n.id]);
+							markUserNotificationsAsAddressedMutation.mutate([
+								notification.id,
+							]);
 						}}
 					>
 						<IconCheck />
@@ -961,7 +965,7 @@ const DisplayNotificationContent = (props: { idx: number }) => {
 				</Group>
 			</Card.Section>
 		</Card>
-	) : null;
+	);
 };
 
 const Footer = () => {
