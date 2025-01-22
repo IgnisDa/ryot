@@ -2523,6 +2523,7 @@ export type UserGeneralPreferences = {
   gridPacking: GridPacking;
   persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
+  showSpoilersInCalendar: Scalars['Boolean']['output'];
   watchProviders: Array<UserGeneralWatchProvider>;
 };
 
@@ -2537,6 +2538,7 @@ export type UserGeneralPreferencesInput = {
   gridPacking: GridPacking;
   persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
+  showSpoilersInCalendar: Scalars['Boolean']['input'];
   watchProviders: Array<UserGeneralWatchProviderInput>;
 };
 

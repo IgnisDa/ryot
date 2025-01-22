@@ -17,6 +17,7 @@ query UserDetails {
 					disableReviews
 					disableIntegrations
 					disableWatchProviders
+					showSpoilersInCalendar
 					disableNavigationAnimation
 					dashboard {
 						hidden

@@ -431,14 +431,6 @@ pub struct UserGeneralPreferences {
     pub disable_reviews: bool,
     #[educe(Default = true)]
     pub persist_queries: bool,
-    #[educe(Default(expression = vec![UserGeneralWatchProvider {
-        lot: MediaLot::Movie,
-        values: MOVIE_WATCH_PROVIDERS
-            .into_iter()
-            .map(|s| s.to_owned())
-            .collect(),
-    }]))]
-    pub watch_providers: Vec<UserGeneralWatchProvider>,
     #[educe(Default = GridPacking::Dense)]
     pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]
@@ -448,7 +440,17 @@ pub struct UserGeneralPreferences {
     #[educe(Default = false)]
     pub disable_integrations: bool,
     #[educe(Default = false)]
+    pub show_spoilers_in_calendar: bool,
+    #[educe(Default = false)]
     pub disable_navigation_animation: bool,
+    #[educe(Default(expression = vec![UserGeneralWatchProvider {
+        lot: MediaLot::Movie,
+        values: MOVIE_WATCH_PROVIDERS
+            .into_iter()
+            .map(|s| s.to_owned())
+            .collect(),
+    }]))]
+    pub watch_providers: Vec<UserGeneralWatchProvider>,
     #[educe(Default(expression = vec![
         UserGeneralDashboardElement {
             num_elements: Some(8),
