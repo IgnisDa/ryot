@@ -986,9 +986,13 @@ const Footer = () => {
 				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
 			>
 				<Stack ref={parent}>
-					{userPendingNotificationsQuery.data?.map((n, idx) => (
-						<DisplayNotificationContent idx={idx} key={n.id} />
-					))}
+					{userPendingNotificationsQuery.data ? (
+						userPendingNotificationsQuery.data.map((n, idx) => (
+							<DisplayNotificationContent idx={idx} key={n.id} />
+						))
+					) : (
+						<Text>No notifications</Text>
+					)}
 					<Button
 						ta="right"
 						variant="subtle"
