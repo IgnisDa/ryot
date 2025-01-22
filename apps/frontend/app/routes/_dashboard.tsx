@@ -986,31 +986,33 @@ const Footer = () => {
 				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
 			>
 				<Stack ref={parent}>
-					{userPendingNotificationsQuery.data ? (
-						userPendingNotificationsQuery.data.map((n, idx) => (
-							<DisplayNotificationContent idx={idx} key={n.id} />
-						))
+					{userPendingNotificationsQuery.data?.map((n, idx) => (
+						<DisplayNotificationContent idx={idx} key={n.id} />
+					))}
+					{(userPendingNotificationsQuery.data?.length || 0) > 0 ? (
+						<Button
+							ta="right"
+							variant="subtle"
+							size="compact-md"
+							rightSection={<IconChecks />}
+							onClick={() => {
+								const ids = userPendingNotificationsQuery.data?.map(
+									(n) => n.id,
+								);
+								if (!ids) return;
+								notifications.show({
+									color: "green",
+									message: "All notifications will be marked as read",
+								});
+								markUserNotificationsAsAddressedMutation.mutate(ids);
+								setIsNotificationModalOpen(false);
+							}}
+						>
+							Mark all as read
+						</Button>
 					) : (
-						<Text>No notifications</Text>
+						<Text ta="center">No notifications</Text>
 					)}
-					<Button
-						ta="right"
-						variant="subtle"
-						size="compact-md"
-						rightSection={<IconChecks />}
-						onClick={() => {
-							const ids = userPendingNotificationsQuery.data?.map((n) => n.id);
-							if (!ids) return;
-							notifications.show({
-								color: "green",
-								message: "All notifications will be marked as read",
-							});
-							markUserNotificationsAsAddressedMutation.mutate(ids);
-							setIsNotificationModalOpen(false);
-						}}
-					>
-						Mark all as read
-					</Button>
 				</Stack>
 			</Modal>
 			<Container>
