@@ -297,8 +297,9 @@ impl IntegrationService {
                 IntegrationProvider::YoutubeMusic => {
                     server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
                     yank::youtube_music::yank_progress(
-                        specifics.youtube_music_auth_cookie.unwrap(),
                         user_id,
+                        specifics.youtube_music_timezone.unwrap(),
+                        specifics.youtube_music_auth_cookie.unwrap(),
                         &self.0,
                     )
                     .await

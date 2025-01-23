@@ -2,7 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use application_utils::{get_current_date, get_current_time};
-use chrono::{Duration, NaiveDate, NaiveDateTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
+use chrono_tz::Tz;
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
@@ -18,6 +19,14 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
     date.and_hms_opt(23, 59, 59).unwrap()
 }
 
+fn get_offset(timezone: &String) -> i16 {
+    let utc_now = Utc::now();
+    let parsed = timezone.parse::<Tz>().unwrap();
+    let local_time = utc_now.with_timezone(&parsed);
+    let offset = local_time.offset().fix().local_minus_utc() / 60;
+    offset.try_into().unwrap()
+}
+
 // DEV: Youtube music only returns one record regardless of how many time you have listened
 // to it that day. It also does not include what time the song was listened to. So, for
 // each song listened to today, we cache the song id with `is_complete=false` and return
@@ -29,8 +38,9 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
 // Also, 10 minutes before the end of the day, we do not deploy the 35% progress since it
 // messes up with the caching mechanism which works on the current date.
 pub async fn yank_progress(
-    auth_cookie: String,
     user_id: &String,
+    timezone: String,
+    auth_cookie: String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let date = get_current_date(&ss.timezone);
@@ -39,7 +49,11 @@ pub async fn yank_progress(
     let is_within_threshold =
         end_of_day.signed_duration_since(current_time) <= Duration::minutes(THRESHOLD_MINUTES);
 
-    let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
+    let client = RustyPipe::builder()
+        .storage_dir(TEMP_DIR)
+        .timezone(&timezone, get_offset(&timezone))
+        .build()
+        .unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client
         .query()

@@ -851,13 +851,13 @@ pub struct PersonStateChanges {
 #[graphql(input_name = "IntegrationSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
 pub struct IntegrationProviderSpecifics {
-    pub plex_yank_base_url: Option<String>,
     pub plex_yank_token: Option<String>,
+    pub plex_yank_base_url: Option<String>,
 
     pub plex_sink_username: Option<String>,
 
-    pub audiobookshelf_base_url: Option<String>,
     pub audiobookshelf_token: Option<String>,
+    pub audiobookshelf_base_url: Option<String>,
 
     pub komga_base_url: Option<String>,
     pub komga_username: Option<String>,
@@ -870,9 +870,9 @@ pub struct IntegrationProviderSpecifics {
     pub radarr_root_folder_path: Option<String>,
     pub radarr_sync_collection_ids: Option<Vec<String>>,
 
-    pub sonarr_base_url: Option<String>,
-    pub sonarr_api_key: Option<String>,
     pub sonarr_profile_id: Option<i32>,
+    pub sonarr_api_key: Option<String>,
+    pub sonarr_base_url: Option<String>,
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 
@@ -880,6 +880,7 @@ pub struct IntegrationProviderSpecifics {
     pub jellyfin_push_username: Option<String>,
     pub jellyfin_push_password: Option<String>,
 
+    pub youtube_music_timezone: Option<String>,
     pub youtube_music_auth_cookie: Option<String>,
 }
 
