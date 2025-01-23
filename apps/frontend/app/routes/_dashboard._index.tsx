@@ -29,6 +29,7 @@ import {
 	IconInfoCircle,
 	IconRotateClockwise,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { ClientOnly } from "remix-utils/client-only";
@@ -139,6 +140,14 @@ export default function Page() {
 		"false",
 	);
 
+	const refreshUserMetadataRecommendationsMutation = useMutation({
+		onSuccess: revalidator.revalidate,
+		mutationFn: async () =>
+			clientGqlService.request(UserMetadataRecommendationsDocument, {
+				shouldRefresh: true,
+			}),
+	});
+
 	const isDashboardEmpty =
 		loaderData.userUpcomingCalendarEvents.length +
 			loaderData.inProgressCollectionContents.results.items.length +
@@ -203,41 +212,39 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.Recommendations, false], ([v, _]) =>
-							loaderData.userRecommendations.length > 0 ? (
-								<Section key={v} lot={v}>
-									<Group justify="space-between">
-										<SectionTitle text="Recommendations" />
-										<ActionIcon
-											variant="subtle"
-											onClick={() => {
-												openConfirmationModal(
-													"Are you sure you want to refresh the recommendations?",
-													async () => {
-														await clientGqlService.request(
-															UserMetadataRecommendationsDocument,
-															{ shouldRefresh: true },
-														);
-														revalidator.revalidate();
-													},
-												);
-											}}
-										>
-											<IconRotateClockwise />
-										</ActionIcon>
-									</Group>
-									{coreDetails.isServerKeyValidated ? (
-										<ApplicationGrid>
-											{loaderData.userRecommendations.map((lm) => (
-												<MetadataDisplayItem key={lm} metadataId={lm} />
-											))}
-										</ApplicationGrid>
-									) : (
-										<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
-									)}
-								</Section>
-							) : null,
-						)
+						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<Group justify="space-between">
+									<SectionTitle text="Recommendations" />
+									<ActionIcon
+										variant="subtle"
+										loading={
+											refreshUserMetadataRecommendationsMutation.isPending
+										}
+										onClick={() => {
+											openConfirmationModal(
+												"Are you sure you want to refresh the recommendations?",
+												refreshUserMetadataRecommendationsMutation.mutate,
+											);
+										}}
+									>
+										<IconRotateClockwise />
+									</ActionIcon>
+								</Group>
+								{coreDetails.isServerKeyValidated ? (
+									<ApplicationGrid>
+										{loaderData.userRecommendations.map((lm) => (
+											<MetadataDisplayItem key={lm} metadataId={lm} />
+										))}
+									</ApplicationGrid>
+								) : (
+									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								)}
+								{loaderData.userRecommendations.length === 0 ? (
+									<Text c="dimmed">No recommendations available</Text>
+								) : null}
+							</Section>
+						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) =>
 							latestUserSummary ? (
 								<Section key={v} lot={v}>
