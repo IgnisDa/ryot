@@ -533,6 +533,7 @@ const CreateIntegrationModal = (props: {
 							<>
 								<Select
 									required
+									searchable
 									label="Timezone"
 									name="providerSpecifics.youtubeMusicTimezone"
 									data={Intl.supportedValuesOf("timeZone")}
