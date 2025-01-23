@@ -19,11 +19,12 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
     date.and_hms_opt(23, 59, 59).unwrap()
 }
 
-fn get_offset(timezone: &String) -> i32 {
+fn get_offset(timezone: &String) -> i16 {
     let utc_now = Utc::now();
     let parsed = timezone.parse::<Tz>().unwrap();
     let local_time = utc_now.with_timezone(&parsed);
-    local_time.offset().fix().local_minus_utc() / 60
+    let offset = local_time.offset().fix().local_minus_utc() / 60;
+    offset.try_into().unwrap()
 }
 
 // DEV: Youtube music only returns one record regardless of how many time you have listened
@@ -50,7 +51,7 @@ pub async fn yank_progress(
 
     let client = RustyPipe::builder()
         .storage_dir(TEMP_DIR)
-        .timezone(&timezone, get_offset(&timezone).try_into().unwrap())
+        .timezone(&timezone, get_offset(&timezone))
         .build()
         .unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
