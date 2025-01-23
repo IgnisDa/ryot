@@ -71,12 +71,12 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
-	commaDelimitedString,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -132,7 +132,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				collections: commaDelimitedString,
+				collections: zodCommaDelimitedString,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
 				invertCollection: zodBoolAsString.optional(),

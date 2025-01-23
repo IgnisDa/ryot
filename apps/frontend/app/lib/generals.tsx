@@ -57,17 +57,17 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
-export const commaDelimitedString = z
+export const zodCommaDelimitedString = z
 	.string()
 	.optional()
 	.transform((v) => (isString(v) ? v.split(",") : undefined));
 
-export const emptyNumberString = z
+export const zodEmptyNumberString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
 
-export const emptyDecimalString = z
+export const zodEmptyDecimalString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
 	.nullable();

@@ -55,9 +55,9 @@ import { zx } from "zodix";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
-	commaDelimitedString,
 	dayjsLib,
 	openConfirmationModal,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -195,12 +195,12 @@ const createSchema = z.object({
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
 			radarrRootFolderPath: z.string().optional(),
-			radarrSyncCollectionIds: commaDelimitedString,
+			radarrSyncCollectionIds: zodCommaDelimitedString,
 			sonarrBaseUrl: z.string().optional(),
 			sonarrApiKey: z.string().optional(),
 			sonarrProfileId: z.number().optional(),
 			sonarrRootFolderPath: z.string().optional(),
-			sonarrSyncCollectionIds: commaDelimitedString,
+			sonarrSyncCollectionIds: zodCommaDelimitedString,
 			jellyfinPushBaseUrl: z.string().optional(),
 			jellyfinPushUsername: z.string().optional(),
 			jellyfinPushPassword: z.string().optional(),

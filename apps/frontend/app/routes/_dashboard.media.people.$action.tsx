@@ -48,7 +48,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
+import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -90,7 +90,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				collections: commaDelimitedString,
+				collections: zodCommaDelimitedString,
 				invertCollection: zodBoolAsString.optional(),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z

@@ -31,11 +31,11 @@ import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
 	FRONTEND_AUTH_COOKIE_NAME,
-	emptyDecimalString,
-	emptyNumberString,
 	pageQueryParam,
 	redirectToQueryParam,
 	toastKey,
+	zodEmptyDecimalString,
+	zodEmptyNumberString,
 } from "~/lib/generals";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
@@ -155,12 +155,12 @@ export const combineHeaders = (
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
 export const MetadataSpecificsSchema = z.object({
-	showSeasonNumber: emptyNumberString,
-	showEpisodeNumber: emptyNumberString,
-	podcastEpisodeNumber: emptyNumberString,
-	animeEpisodeNumber: emptyNumberString,
-	mangaChapterNumber: emptyDecimalString,
-	mangaVolumeNumber: emptyNumberString,
+	showSeasonNumber: zodEmptyNumberString,
+	showEpisodeNumber: zodEmptyNumberString,
+	podcastEpisodeNumber: zodEmptyNumberString,
+	animeEpisodeNumber: zodEmptyNumberString,
+	mangaChapterNumber: zodEmptyDecimalString,
+	mangaVolumeNumber: zodEmptyNumberString,
 });
 
 export const getDecodedJwt = (request: Request) => {

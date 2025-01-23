@@ -73,11 +73,11 @@ import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
-	commaDelimitedString,
 	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryClient,
 	queryFactory,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -178,7 +178,7 @@ const createOrUpdateSchema = z.object({
 	name: z.string(),
 	updateId: z.string().optional(),
 	description: z.string().optional(),
-	collaborators: commaDelimitedString,
+	collaborators: zodCommaDelimitedString,
 	informationTemplate: z
 		.array(
 			z.object({
