@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -96,12 +96,16 @@ impl UserService {
         if enabled.is_empty() {
             return Ok(Vec::new());
         }
+        let started_at = Instant::now();
         let mut recommendations = HashSet::new();
-        for i in 0..20 {
-            if recommendations.len() >= limit.try_into().unwrap() {
+        for i in 0.. {
+            let now = Instant::now();
+            if recommendations.len() >= limit.try_into().unwrap()
+                || now.duration_since(started_at).as_secs() > 5
+            {
                 break;
             }
-            ryot_log!(debug, "({}) Loop recommendation for user: {}", i, user_id);
+            ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
             let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
             let rec = Metadata::find()
                 .select_only()
