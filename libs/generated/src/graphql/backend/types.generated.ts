@@ -949,6 +949,7 @@ export type IntegrationSourceSpecificsInput = {
   sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
+  youtubeMusicTimezone?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LoginError = {

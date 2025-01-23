@@ -3396,6 +3396,7 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "chrono",
+ "chrono-tz",
  "common-models",
  "common-utils",
  "database-models",
@@ -5215,8 +5216,7 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 [[package]]
 name = "rustypipe"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4281f0dfe516d0e4165fd31f229eb2f1f06ab79a3bb700f0782300a0870518a5"
+source = "git+https://codeberg.org/ThetaDev/rustypipe.git?rev=a72029ea5428351d#a72029ea5428351d8f1ae82e255a93c1cc195a98"
 dependencies = [
  "data-encoding",
  "fancy-regex",
