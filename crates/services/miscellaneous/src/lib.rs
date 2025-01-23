@@ -2586,56 +2586,62 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn remove_useless_data(&self) -> Result<()> {
-        let mut metadata_stream = Metadata::find()
+        let all_metadata = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataId.is_null())
             .into_tuple::<String>()
-            .stream(&self.0.db)
+            .all(&self.0.db)
             .await?;
-        while let Some(meta) = metadata_stream.try_next().await? {
-            ryot_log!(debug, "Removing metadata id = {:#?}", meta);
-            Metadata::delete_by_id(meta).exec(&self.0.db).await?;
-        }
-        let mut people_stream = Person::find()
+        ryot_log!(debug, "Deleting {} metadata items", all_metadata.len());
+        Metadata::delete_many()
+            .filter(metadata::Column::Id.is_in(all_metadata))
+            .exec(&self.0.db)
+            .await?;
+        let all_people = Person::find()
             .select_only()
             .column(person::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::PersonId.is_null())
             .into_tuple::<String>()
-            .stream(&self.0.db)
+            .all(&self.0.db)
             .await?;
-        while let Some(person) = people_stream.try_next().await? {
-            ryot_log!(debug, "Removing person id = {:#?}", person);
-            Person::delete_by_id(person).exec(&self.0.db).await?;
-        }
-        let mut metadata_group_stream = MetadataGroup::find()
+        ryot_log!(debug, "Deleting {} people", all_people.len());
+        Person::delete_many()
+            .filter(person::Column::Id.is_in(all_people))
+            .exec(&self.0.db)
+            .await?;
+        let all_metadata_groups = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataGroupId.is_null())
             .into_tuple::<String>()
-            .stream(&self.0.db)
+            .all(&self.0.db)
             .await?;
-        while let Some(meta_group) = metadata_group_stream.try_next().await? {
-            ryot_log!(debug, "Removing metadata group id = {:#?}", meta_group);
-            MetadataGroup::delete_by_id(meta_group)
-                .exec(&self.0.db)
-                .await?;
-        }
-        let mut genre_stream = Genre::find()
+        ryot_log!(
+            debug,
+            "Deleting {} metadata groups",
+            all_metadata_groups.len()
+        );
+        MetadataGroup::delete_many()
+            .filter(metadata_group::Column::Id.is_in(all_metadata_groups))
+            .exec(&self.0.db)
+            .await?;
+        let all_genre = Genre::find()
             .select_only()
             .column(genre::Column::Id)
             .left_join(MetadataToGenre)
             .filter(metadata_to_genre::Column::MetadataId.is_null())
             .into_tuple::<String>()
-            .stream(&self.0.db)
+            .all(&self.0.db)
             .await?;
-        while let Some(genre) = genre_stream.try_next().await? {
-            ryot_log!(debug, "Removing genre id = {:#?}", genre);
-            Genre::delete_by_id(genre).exec(&self.0.db).await?;
-        }
+        ryot_log!(debug, "Deleting {} genres", all_genre.len());
+        Genre::delete_many()
+            .filter(genre::Column::Id.is_in(all_genre))
+            .exec(&self.0.db)
+            .await?;
         ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
             .filter(user_notification::Column::IsAddressed.eq(true))
@@ -2716,7 +2722,6 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.0.db).await?;
         for user_details in users {
-            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
             let notifications = get_pending_notifications_for_user(
                 &user_details.id,
                 UserNotificationLot::Queued,
@@ -2726,6 +2731,7 @@ ORDER BY RANDOM() LIMIT 10;
             if notifications.is_empty() {
                 continue;
             }
+            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
             let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
             let msg = notifications
                 .into_iter()
