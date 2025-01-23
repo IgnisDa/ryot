@@ -29,8 +29,9 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
 // Also, 10 minutes before the end of the day, we do not deploy the 35% progress since it
 // messes up with the caching mechanism which works on the current date.
 pub async fn yank_progress(
-    auth_cookie: String,
     user_id: &String,
+    timezone: String,
+    auth_cookie: String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
     let date = get_current_date(&ss.timezone);
@@ -41,7 +42,7 @@ pub async fn yank_progress(
 
     let client = RustyPipe::builder()
         .storage_dir(TEMP_DIR)
-        .timezone("Asia/Kolkata", 330)
+        .timezone(timezone, 330)
         .build()
         .unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
