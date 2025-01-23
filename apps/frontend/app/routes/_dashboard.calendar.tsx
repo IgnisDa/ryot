@@ -40,6 +40,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	// TODO: Use inbuilt parseQuery
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);
 	const [{ userCalendarEvents }] = await Promise.all([

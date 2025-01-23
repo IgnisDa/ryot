@@ -2402,11 +2402,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
-    pub async fn delete_all_application_cache(&self) -> Result<()> {
-        ApplicationCache::delete_many().exec(&self.0.db).await?;
-        Ok(())
-    }
-
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await
     }
