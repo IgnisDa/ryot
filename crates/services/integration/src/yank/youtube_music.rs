@@ -2,7 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use application_utils::{get_current_date, get_current_time};
-use chrono::{Duration, NaiveDate, NaiveDateTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
+use chrono_tz::Tz;
 use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
 use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
@@ -16,6 +17,13 @@ static THRESHOLD_MINUTES: i64 = 10;
 
 fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
     date.and_hms_opt(23, 59, 59).unwrap()
+}
+
+fn get_offset(timezone: &String) -> i32 {
+    let utc_now = Utc::now();
+    let parsed = timezone.parse::<Tz>().unwrap();
+    let local_time = utc_now.with_timezone(&parsed);
+    local_time.offset().fix().local_minus_utc() / 60
 }
 
 // DEV: Youtube music only returns one record regardless of how many time you have listened
@@ -42,7 +50,7 @@ pub async fn yank_progress(
 
     let client = RustyPipe::builder()
         .storage_dir(TEMP_DIR)
-        .timezone(timezone, 330)
+        .timezone(&timezone, get_offset(&timezone).try_into().unwrap())
         .build()
         .unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
