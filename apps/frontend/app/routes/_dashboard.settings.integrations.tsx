@@ -38,7 +38,12 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getActionIntent,
+	processSubmission,
+	zodCheckboxAsString,
+} from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -51,7 +56,6 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
@@ -179,7 +183,7 @@ const createSchema = z.object({
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	provider: z.nativeEnum(IntegrationProvider),
-	syncToOwnedCollection: zx.CheckboxAsString.optional(),
+	syncToOwnedCollection: zodCheckboxAsString.optional(),
 	providerSpecifics: z
 		.object({
 			plexYankBaseUrl: z.string().optional(),
@@ -218,8 +222,8 @@ const updateSchema = z.object({
 	integrationId: z.string(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
-	isDisabled: zx.CheckboxAsString.optional(),
-	syncToOwnedCollection: zx.CheckboxAsString.optional(),
+	isDisabled: zodCheckboxAsString.optional(),
+	syncToOwnedCollection: zodCheckboxAsString.optional(),
 });
 
 export default function Page() {

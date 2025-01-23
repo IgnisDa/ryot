@@ -38,6 +38,7 @@ import {
 	getActionIntent,
 	processSubmission,
 	truncate,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
 	IconPencil,
@@ -171,9 +172,9 @@ const deleteSchema = z.object({ toDeleteUserId: z.string() });
 const updateUserSchema = z.object({
 	userId: z.string(),
 	adminAccessToken: z.string(),
-	isDisabled: zx.CheckboxAsString.optional(),
-	lot: z.nativeEnum(UserLot).optional(),
 	password: z.string().optional(),
+	lot: z.nativeEnum(UserLot).optional(),
+	isDisabled: zodCheckboxAsString.optional(),
 });
 
 export default function Page() {

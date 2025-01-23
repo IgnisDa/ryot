@@ -33,12 +33,12 @@ import {
 	processSubmission,
 	set,
 	zodBoolAsString,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	MetadataIdSchema,
@@ -538,7 +538,7 @@ const reviewSchema = z
 		entityId: z.string().optional(),
 		reviewId: z.string().optional(),
 		shouldDelete: zodBoolAsString.optional(),
-		isSpoiler: zx.CheckboxAsString.optional(),
+		isSpoiler: zodCheckboxAsString.optional(),
 		entityLot: z.nativeEnum(EntityLot).optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
 	})
@@ -559,9 +559,9 @@ const progressUpdateSchema = z
 		providerWatchedOn: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
 		showAllEpisodesBefore: zodBoolAsString.optional(),
-		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaAllChaptersOrVolumesBefore: zx.CheckboxAsString.optional(),
+		animeAllEpisodesBefore: zodCheckboxAsString.optional(),
+		podcastAllEpisodesBefore: zodCheckboxAsString.optional(),
+		mangaAllChaptersOrVolumesBefore: zodCheckboxAsString.optional(),
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);

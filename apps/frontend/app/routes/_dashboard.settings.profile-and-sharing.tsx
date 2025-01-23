@@ -42,6 +42,7 @@ import {
 	isNumber,
 	isString,
 	processSubmission,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
 	IconEye,
@@ -166,7 +167,7 @@ const createAccessLinkFormSchema = z.object({
 	expiresOn: z.string().optional(),
 	redirectTo: z.string().optional(),
 	maximumUses: zx.IntAsString.optional(),
-	isMutationAllowed: zx.CheckboxAsString.optional(),
+	isMutationAllowed: zodCheckboxAsString.optional(),
 });
 
 export default function Page() {

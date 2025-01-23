@@ -36,6 +36,11 @@ export const zodBoolAsString = z
 	.regex(/^(true|false)$/, 'Must be a boolean string ("true" or "false")')
 	.transform((value) => value === "true");
 
+export const zodCheckboxAsString = z
+	.literal("on")
+	.optional()
+	.transform((value) => value === "on");
+
 /**
  * Humanize a duration.
  */
