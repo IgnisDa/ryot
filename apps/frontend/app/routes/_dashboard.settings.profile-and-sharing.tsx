@@ -43,6 +43,7 @@ import {
 	isString,
 	processSubmission,
 	zodCheckboxAsString,
+	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconEye,
@@ -54,7 +55,6 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	applicationBaseUrl,
 	dayjsLib,
@@ -166,7 +166,7 @@ const createAccessLinkFormSchema = z.object({
 	name: z.string(),
 	expiresOn: z.string().optional(),
 	redirectTo: z.string().optional(),
-	maximumUses: zx.IntAsString.optional(),
+	maximumUses: zodIntAsString.optional(),
 	isMutationAllowed: zodCheckboxAsString.optional(),
 });
 

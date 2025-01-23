@@ -20,7 +20,12 @@ import {
 	GenreDetailsDocument,
 	GenresListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, isString, truncate } from "@ryot/ts-utils";
+import {
+	getInitials,
+	isString,
+	truncate,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { $path } from "remix-routes";
 import { z } from "zod";
@@ -51,8 +56,8 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

@@ -10,6 +10,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { zodIntAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
@@ -24,7 +25,7 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.default("1"),
+	[pageQueryParam]: zodIntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

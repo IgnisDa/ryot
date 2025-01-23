@@ -24,7 +24,7 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { startCase, zodIntAsString } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -64,15 +64,15 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional(),
-	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
+	defaultTab: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.optional(),
+	entityLot: z.nativeEnum(EntityLot).optional(),
+	metadataLot: z.nativeEnum(MediaLot).optional(),
+	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFiltersValue.order),
 	sortBy: z
 		.nativeEnum(CollectionContentsSortBy)
 		.default(defaultFiltersValue.sort),
-	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFiltersValue.order),
-	entityLot: z.nativeEnum(EntityLot).optional(),
-	metadataLot: z.nativeEnum(MediaLot).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

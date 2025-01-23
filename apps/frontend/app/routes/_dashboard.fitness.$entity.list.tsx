@@ -26,7 +26,12 @@ import {
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	humanizeDuration,
+	truncate,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconChevronDown,
 	IconChevronUp,
@@ -75,8 +80,8 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

@@ -31,6 +31,7 @@ import {
 	isString,
 	startCase,
 	zodBoolAsString,
+	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconCheck,
@@ -83,7 +84,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
 	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		[pageQueryParam]: zx.IntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {

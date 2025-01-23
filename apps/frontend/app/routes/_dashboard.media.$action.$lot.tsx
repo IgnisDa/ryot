@@ -41,6 +41,7 @@ import {
 	snakeCase,
 	startCase,
 	zodBoolAsString,
+	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconBoxMultiple,
@@ -127,7 +128,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		[pageQueryParam]: zx.IntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {

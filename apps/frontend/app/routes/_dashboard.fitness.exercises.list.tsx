@@ -50,6 +50,7 @@ import {
 	processSubmission,
 	snakeCase,
 	startCase,
+	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -105,16 +106,16 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
-	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
+	collection: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
+	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	collection: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

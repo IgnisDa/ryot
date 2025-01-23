@@ -26,7 +26,12 @@ import {
 	type PeopleSearchQuery,
 	PersonAndMetadataGroupsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase, zodBoolAsString } from "@ryot/ts-utils";
+import {
+	changeCase,
+	startCase,
+	zodBoolAsString,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -85,7 +90,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		[pageQueryParam]: zx.IntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
