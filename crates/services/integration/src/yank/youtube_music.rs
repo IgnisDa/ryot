@@ -39,7 +39,11 @@ pub async fn yank_progress(
     let is_within_threshold =
         end_of_day.signed_duration_since(current_time) <= Duration::minutes(THRESHOLD_MINUTES);
 
-    let client = RustyPipe::builder().storage_dir(TEMP_DIR).build().unwrap();
+    let client = RustyPipe::builder()
+        .storage_dir(TEMP_DIR)
+        .timezone("Asia/Kolkata", 330)
+        .build()
+        .unwrap();
     client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client
         .query()
