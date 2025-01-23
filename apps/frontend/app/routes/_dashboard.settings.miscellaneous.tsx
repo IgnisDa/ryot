@@ -97,15 +97,6 @@ const getJobDetails = (job: BackgroundJob) =>
 				] as const,
 		)
 		.with(
-			BackgroundJob.DeleteAllApplicationCache,
-			() =>
-				[
-					"Delete all cache",
-					"Delete all application caches. Use this if you updated a critical configuration parameter and can not see the changes reflected in the UI.",
-					true,
-				] as const,
-		)
-		.with(
 			BackgroundJob.CalculateUserActivitiesAndSummary,
 			() =>
 				[
