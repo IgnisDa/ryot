@@ -52,18 +52,17 @@ anyhow = "=1.0.95"
 apalis = { version = "=0.6.2", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.6.2"
 argon2 = "=0.6.0-pre.1"
-async-graphql = { version = "=7.0.13", features = [
+async-graphql = { version = "=7.0.14", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
     "uuid",
 ] }
-async-graphql-axum = "=7.0.13"
+async-graphql-axum = "=7.0.14"
 async-trait = "=0.1.83"
 aws-sdk-s3 = { version = "=1.67.0", features = ["behavior-version-latest"] }
-# TODO: Update when https://github.com/async-graphql/async-graphql/pull/1653 is merged
-axum = { version = "=0.7.9", features = ["macros", "multipart"] }
+axum = { version = "=0.8.1", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.39"
 chrono-tz = "=0.10.0"
