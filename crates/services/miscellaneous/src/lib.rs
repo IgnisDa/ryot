@@ -2586,7 +2586,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn remove_useless_data(&self) -> Result<()> {
-        let all_metadata = Metadata::find()
+        let metadata_to_delete = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .left_join(UserToEntity)
@@ -2594,12 +2594,16 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} metadata items", all_metadata.len());
+        ryot_log!(
+            debug,
+            "Deleting {} metadata items",
+            metadata_to_delete.len()
+        );
         Metadata::delete_many()
-            .filter(metadata::Column::Id.is_in(all_metadata))
+            .filter(metadata::Column::Id.is_in(metadata_to_delete))
             .exec(&self.0.db)
             .await?;
-        let all_people = Person::find()
+        let people_to_delete = Person::find()
             .select_only()
             .column(person::Column::Id)
             .left_join(UserToEntity)
@@ -2607,12 +2611,12 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} people", all_people.len());
+        ryot_log!(debug, "Deleting {} people", people_to_delete.len());
         Person::delete_many()
-            .filter(person::Column::Id.is_in(all_people))
+            .filter(person::Column::Id.is_in(people_to_delete))
             .exec(&self.0.db)
             .await?;
-        let all_metadata_groups = MetadataGroup::find()
+        let metadata_groups_to_delete = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .left_join(UserToEntity)
@@ -2623,13 +2627,13 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(
             debug,
             "Deleting {} metadata groups",
-            all_metadata_groups.len()
+            metadata_groups_to_delete.len()
         );
         MetadataGroup::delete_many()
-            .filter(metadata_group::Column::Id.is_in(all_metadata_groups))
+            .filter(metadata_group::Column::Id.is_in(metadata_groups_to_delete))
             .exec(&self.0.db)
             .await?;
-        let all_genre = Genre::find()
+        let genre_to_delete = Genre::find()
             .select_only()
             .column(genre::Column::Id)
             .left_join(MetadataToGenre)
@@ -2637,9 +2641,9 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} genres", all_genre.len());
+        ryot_log!(debug, "Deleting {} genres", genre_to_delete.len());
         Genre::delete_many()
-            .filter(genre::Column::Id.is_in(all_genre))
+            .filter(genre::Column::Id.is_in(genre_to_delete))
             .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleting all addressed user notifications");
