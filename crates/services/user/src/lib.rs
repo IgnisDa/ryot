@@ -97,10 +97,11 @@ impl UserService {
             return Ok(Vec::new());
         }
         let mut recommendations = HashSet::new();
-        loop {
+        for i in 0..10 {
             if recommendations.len() >= limit.try_into().unwrap() {
                 break;
             }
+            ryot_log!(debug, "Generating recommendation in loop: {}", i);
             let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
             let rec = Metadata::find()
                 .select_only()
