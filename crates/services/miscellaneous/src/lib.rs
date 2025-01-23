@@ -2838,6 +2838,20 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    pub async fn mark_old_display_user_notifications_as_addressed(&self) -> Result<()> {
+        let threshold = Utc::now() - Duration::days(1);
+        UserNotification::update_many()
+            .filter(user_notification::Column::CreatedOn.lt(threshold))
+            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Display))
+            .col_expr(
+                user_notification::Column::IsAddressed,
+                Expr::val(true).into(),
+            )
+            .exec(&self.0.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2887,10 +2901,12 @@ ORDER BY RANDOM() LIMIT 10;
         self.update_claimed_recommendations_and_download_new_ones()
             .await
             .trace_ok();
-        // DEV: Invalid access tokens are revoked before being deleted, so we call this
-        // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
+        ryot_log!(trace, "Marking old display notifications as addressed");
+        self.mark_old_display_user_notifications_as_addressed()
+            .await
+            .trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())
