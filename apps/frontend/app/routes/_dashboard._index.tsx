@@ -24,7 +24,11 @@ import {
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
-import { IconInfoCircle, IconRotateClockwise } from "@tabler/icons-react";
+import {
+	IconBackpack,
+	IconInfoCircle,
+	IconRotateClockwise,
+} from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { ClientOnly } from "remix-utils/client-only";
@@ -135,6 +139,13 @@ export default function Page() {
 		"false",
 	);
 
+	const isDashboardEmpty =
+		loaderData.userUpcomingCalendarEvents.length +
+			loaderData.inProgressCollectionContents.results.items.length +
+			loaderData.userRecommendations.length +
+			Number(Boolean(latestUserSummary)) ===
+		0;
+
 	return (
 		<Container>
 			<Stack gap={32}>
@@ -152,6 +163,13 @@ export default function Page() {
 						) : null
 					}
 				</ClientOnly>
+				{isDashboardEmpty ? (
+					<Alert icon={<IconBackpack />}>
+						Start by marking a few movies as watched by: clicking on the Media
+						section in the sidebar, selecting Movie, opening the search tab and
+						then typing your favorite movie!
+					</Alert>
+				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
@@ -185,39 +203,41 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<Group justify="space-between">
-									<SectionTitle text="Recommendations" />
-									<ActionIcon
-										variant="subtle"
-										onClick={() => {
-											openConfirmationModal(
-												"Are you sure you want to refresh the recommendations?",
-												async () => {
-													await clientGqlService.request(
-														UserMetadataRecommendationsDocument,
-														{ shouldRefresh: true },
-													);
-													revalidator.revalidate();
-												},
-											);
-										}}
-									>
-										<IconRotateClockwise />
-									</ActionIcon>
-								</Group>
-								{coreDetails.isServerKeyValidated ? (
-									<ApplicationGrid>
-										{loaderData.userRecommendations.map((lm) => (
-											<MetadataDisplayItem key={lm} metadataId={lm} />
-										))}
-									</ApplicationGrid>
-								) : (
-									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
-								)}
-							</Section>
-						))
+						.with([DashboardElementLot.Recommendations, false], ([v, _]) =>
+							loaderData.userRecommendations.length > 0 ? (
+								<Section key={v} lot={v}>
+									<Group justify="space-between">
+										<SectionTitle text="Recommendations" />
+										<ActionIcon
+											variant="subtle"
+											onClick={() => {
+												openConfirmationModal(
+													"Are you sure you want to refresh the recommendations?",
+													async () => {
+														await clientGqlService.request(
+															UserMetadataRecommendationsDocument,
+															{ shouldRefresh: true },
+														);
+														revalidator.revalidate();
+													},
+												);
+											}}
+										>
+											<IconRotateClockwise />
+										</ActionIcon>
+									</Group>
+									{coreDetails.isServerKeyValidated ? (
+										<ApplicationGrid>
+											{loaderData.userRecommendations.map((lm) => (
+												<MetadataDisplayItem key={lm} metadataId={lm} />
+											))}
+										</ApplicationGrid>
+									) : (
+										<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+									)}
+								</Section>
+							) : null,
+						)
 						.with([DashboardElementLot.Summary, false], ([v, _]) =>
 							latestUserSummary ? (
 								<Section key={v} lot={v}>
