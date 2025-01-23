@@ -3,6 +3,7 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
+import { zodBoolAsString } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
@@ -17,7 +18,7 @@ import {
 const paramsSchema = z.object({ accessLinkId: z.string() });
 
 const searchParamsSchema = z.object({
-	isAccountDefault: zx.BoolAsString.optional(),
+	isAccountDefault: zodBoolAsString.optional(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 

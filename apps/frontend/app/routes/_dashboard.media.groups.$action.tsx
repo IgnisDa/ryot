@@ -26,7 +26,12 @@ import {
 	MetadataGroupsListDocument,
 	PersonAndMetadataGroupsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isString, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	isString,
+	startCase,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -83,12 +88,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
+				collections: commaDelimitedString,
+				invertCollection: zodBoolAsString.optional(),
+				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
 					.default(defaultFilters.sortBy),
-				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				collections: commaDelimitedString,
-				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataGroupsList } =
 				await serverGqlService.authenticatedRequest(

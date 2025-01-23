@@ -36,7 +36,12 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	snakeCase,
+	startCase,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBoxMultiple,
 	IconCheck,
@@ -130,7 +135,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				collections: commaDelimitedString,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				invertCollection: zx.BoolAsString.optional(),
+				invertCollection: zodBoolAsString.optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
 					.nativeEnum(ApplicationTimeRange)

@@ -32,7 +32,12 @@ import {
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getActionIntent,
+	processSubmission,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import {
 	IconPlayerPause,
 	IconPlayerPlay,
@@ -43,7 +48,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
@@ -137,7 +141,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
 	notificationId: z.string(),
-	isDisabled: zx.BoolAsString.optional(),
+	isDisabled: zodBoolAsString.optional(),
 });
 
 export default function Page() {

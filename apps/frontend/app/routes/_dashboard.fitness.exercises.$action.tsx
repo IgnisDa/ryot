@@ -35,6 +35,7 @@ import {
 	getActionIntent,
 	processSubmission,
 	startCase,
+	zodBoolAsString,
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
@@ -157,7 +158,7 @@ const schema = z.object({
 	images: optionalStringArray,
 	instructions: optionalString,
 	lot: z.nativeEnum(ExerciseLot),
-	shouldDelete: zx.BoolAsString.optional(),
+	shouldDelete: zodBoolAsString.optional(),
 	level: z.nativeEnum(ExerciseLevel),
 	force: z.nativeEnum(ExerciseForce).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
