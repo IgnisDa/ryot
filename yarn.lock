@@ -5992,7 +5992,7 @@ __metadata:
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
-    "@tabler/icons-react": "npm:3.29.0"
+    "@tabler/icons-react": "npm:3.17.0"
     "@tanstack/react-query": "npm:5.64.2"
     "@tanstack/react-query-devtools": "npm:5.64.2"
     "@types/cookie": "npm:1.0.0"
@@ -6129,7 +6129,7 @@ __metadata:
     "@ryot/graphql": "workspace:*"
     "@ryot/transactional": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
-    "@tabler/icons-react": "npm:3.29.0"
+    "@tabler/icons-react": "npm:3.17.0"
     "@tailwindcss/typography": "npm:0.5.16"
     "@tailwindcss/vite": "npm:4.0.0"
     "@types/crypto-js": "npm:4.2.2"
@@ -6212,21 +6212,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tabler/icons-react@npm:3.29.0":
-  version: 3.29.0
-  resolution: "@tabler/icons-react@npm:3.29.0"
+"@tabler/icons-react@npm:3.17.0":
+  version: 3.17.0
+  resolution: "@tabler/icons-react@npm:3.17.0"
   dependencies:
-    "@tabler/icons": "npm:3.29.0"
+    "@tabler/icons": "npm:3.17.0"
   peerDependencies:
     react: ">= 16"
-  checksum: 10/4c25ba0334812368d3925cd80dc699af1e746f13c80cbb47d0d1a6763b75c025287c6799964f765ba73328a2ff0254a8bebd251bf53b010c6050ca5eb09ad3a9
+  checksum: 10/41b85f424202ae7ef95969c689688f96192066f9587e253817d392695be19d9b65a673947ef580a0912784735281d96686ce3e3c95885f13ba21e18a461baca4
   languageName: node
   linkType: hard
 
-"@tabler/icons@npm:3.29.0":
-  version: 3.29.0
-  resolution: "@tabler/icons@npm:3.29.0"
-  checksum: 10/738b532aa7ea0d8ea6b50b3aad33d43edcbc801484f5c5bf23510176f28cb5193a414c1a8979c528531f4076ae5b620b0dcff6a404665b2563c42b7d418aaad0
+"@tabler/icons@npm:3.17.0":
+  version: 3.17.0
+  resolution: "@tabler/icons@npm:3.17.0"
+  checksum: 10/b566234a4c4bde5c91f55411066dc7abfc3f102eb447951e17e96f3d7849f07eca5edb7ecc809e2e683134a66b0dcb5ab7d7936c099af4633addf83bc633236b
   languageName: node
   linkType: hard
 

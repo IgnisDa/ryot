@@ -22,7 +22,7 @@
 		"@ryot/graphql": "workspace:*",
 		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"@tabler/icons-react": "3.29.0",
+		"@tabler/icons-react": "3.17.0",
 		"@tailwindcss/vite": "4.0.0",
 		"@unkey/api": "0.32.0",
 		"class-variance-authority": "0.7.1",
