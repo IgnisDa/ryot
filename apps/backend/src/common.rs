@@ -122,8 +122,10 @@ pub async fn create_app_services(
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes =
-        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
+    let webhook_routes = Router::new().route(
+        "/integrations/{integration_slug}",
+        post(integration_webhook),
+    );
 
     join_all(
         [
