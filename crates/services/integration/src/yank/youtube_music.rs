@@ -19,7 +19,7 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
     date.and_hms_opt(23, 59, 59).unwrap()
 }
 
-fn get_offset(timezone: &String) -> i16 {
+fn get_offset(timezone: &str) -> i16 {
     let utc_now = Utc::now();
     let parsed = timezone.parse::<Tz>().unwrap();
     let local_time = utc_now.with_timezone(&parsed);
