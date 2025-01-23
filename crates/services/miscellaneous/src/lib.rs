@@ -2896,11 +2896,13 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(trace, "Putting entities in partial state");
         self.put_entities_in_partial_state().await.trace_ok();
         // DEV: This is called after removing useless data so that recommendations are not
-        // delete right after they are downloaded.
+        // deleted right after they are downloaded.
         ryot_log!(trace, "Downloading recommendations for users");
         self.update_claimed_recommendations_and_download_new_ones()
             .await
             .trace_ok();
+        // DEV: Invalid access tokens are revoked before being deleted, so we call this
+        // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
         ryot_log!(trace, "Marking old display notifications as addressed");
