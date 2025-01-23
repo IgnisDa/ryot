@@ -204,6 +204,7 @@ const createSchema = z.object({
 			jellyfinPushBaseUrl: z.string().optional(),
 			jellyfinPushUsername: z.string().optional(),
 			jellyfinPushPassword: z.string().optional(),
+			youtubeMusicTimezone: z.string().optional(),
 			youtubeMusicAuthCookie: z.string().optional(),
 		})
 		.optional(),
@@ -530,6 +531,15 @@ const CreateIntegrationModal = (props: {
 						))
 						.with(IntegrationProvider.YoutubeMusic, () => (
 							<>
+								<Select
+									required
+									label="Timezone"
+									name="providerSpecifics.youtubeMusicTimezone"
+									data={Intl.supportedValuesOf("timeZone")}
+									defaultValue={
+										Intl.DateTimeFormat().resolvedOptions().timeZone
+									}
+								/>
 								<TextInput
 									required
 									label="Auth Cookie"
