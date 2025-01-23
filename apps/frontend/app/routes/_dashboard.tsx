@@ -362,6 +362,10 @@ export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
+	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+	const userPendingNotificationsQuery = useUserPendingNotifications();
+	const markUserNotificationsAsAddressedMutation =
+		useMarkUserNotificationsAsAddressedMutation();
 	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -538,6 +542,42 @@ export default function Layout() {
 					</Form>
 				</Affix>
 			) : null}
+			<Modal
+				centered
+				opened={isNotificationModalOpen}
+				onClose={() => setIsNotificationModalOpen(false)}
+				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
+			>
+				<Stack ref={parent}>
+					{userPendingNotificationsQuery.data?.map((n, idx) => (
+						<DisplayNotificationContent idx={idx} key={n.id} />
+					))}
+					{(userPendingNotificationsQuery.data?.length || 0) > 0 ? (
+						<Button
+							ta="right"
+							variant="subtle"
+							size="compact-md"
+							rightSection={<IconChecks />}
+							onClick={() => {
+								const ids = userPendingNotificationsQuery.data?.map(
+									(n) => n.id,
+								);
+								if (!ids) return;
+								notifications.show({
+									color: "green",
+									message: "All notifications will be marked as read",
+								});
+								markUserNotificationsAsAddressedMutation.mutate(ids);
+								setIsNotificationModalOpen(false);
+							}}
+						>
+							Mark all as read
+						</Button>
+					) : (
+						<Text ta="center">No notifications</Text>
+					)}
+				</Stack>
+			</Modal>
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}
 				opened={metadataToUpdate !== null}
@@ -794,15 +834,28 @@ export default function Layout() {
 					<AppShell.Main py={{ sm: "xl" }}>
 						<Box
 							mt="md"
-							style={{ flexGrow: 1 }}
 							pb={40}
 							mih="90%"
+							style={{ flexGrow: 1 }}
 							ref={
 								loaderData.userPreferences.general.disableNavigationAnimation
 									? undefined
 									: parent
 							}
 						>
+							{userPendingNotificationsQuery.data &&
+							userPendingNotificationsQuery.data.length > 0 ? (
+								<Container mb="md">
+									<Alert
+										icon={<IconBellRinging />}
+										style={{ cursor: "pointer" }}
+										onClick={() => setIsNotificationModalOpen(true)}
+									>
+										You have {userPendingNotificationsQuery.data.length} pending
+										notifications
+									</Alert>
+								</Container>
+							) : null}
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
@@ -970,89 +1023,30 @@ const DisplayNotificationContent = (props: { idx: number }) => {
 
 const Footer = () => {
 	const coreDetails = useCoreDetails();
-	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-	const [parent] = useAutoAnimate();
-
-	const userPendingNotificationsQuery = useUserPendingNotifications();
-	const markUserNotificationsAsAddressedMutation =
-		useMarkUserNotificationsAsAddressedMutation();
 
 	return (
-		<>
-			<Modal
-				centered
-				opened={isNotificationModalOpen}
-				onClose={() => setIsNotificationModalOpen(false)}
-				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
-			>
-				<Stack ref={parent}>
-					{userPendingNotificationsQuery.data?.map((n, idx) => (
-						<DisplayNotificationContent idx={idx} key={n.id} />
-					))}
-					{(userPendingNotificationsQuery.data?.length || 0) > 0 ? (
-						<Button
-							ta="right"
-							variant="subtle"
-							size="compact-md"
-							rightSection={<IconChecks />}
-							onClick={() => {
-								const ids = userPendingNotificationsQuery.data?.map(
-									(n) => n.id,
-								);
-								if (!ids) return;
-								notifications.show({
-									color: "green",
-									message: "All notifications will be marked as read",
-								});
-								markUserNotificationsAsAddressedMutation.mutate(ids);
-								setIsNotificationModalOpen(false);
-							}}
-						>
-							Mark all as read
-						</Button>
-					) : (
-						<Text ta="center">No notifications</Text>
-					)}
-				</Stack>
-			</Modal>
-			<Container>
-				<Stack>
-					{userPendingNotificationsQuery.data &&
-					userPendingNotificationsQuery.data.length > 0 ? (
-						<Alert
-							icon={<IconBellRinging />}
-							style={{ cursor: "pointer" }}
-							onClick={() => setIsNotificationModalOpen(true)}
-						>
-							You have {userPendingNotificationsQuery.data.length} pending
-							notifications
-						</Alert>
-					) : null}
-					<Flex gap={80} justify="center">
-						{!coreDetails.isServerKeyValidated ? (
-							<Anchor href={coreDetails.websiteUrl} target="_blank">
-								<Text c="red" fw="bold">
-									Ryot Pro
-								</Text>
-							</Anchor>
-						) : null}
-						<Anchor href={discordLink} target="_blank">
-							<Text c="indigo" fw="bold">
-								Discord
-							</Text>
-						</Anchor>
-						<Text c="grape" fw="bold" visibleFrom="md">
-							{coreDetails.version}
-						</Text>
-						<Anchor href={coreDetails.repositoryLink} target="_blank">
-							<Text c="orange" fw="bold">
-								Github
-							</Text>
-						</Anchor>
-					</Flex>
-				</Stack>
-			</Container>
-		</>
+		<Flex gap={80} justify="center">
+			{!coreDetails.isServerKeyValidated ? (
+				<Anchor href={coreDetails.websiteUrl} target="_blank">
+					<Text c="red" fw="bold">
+						Ryot Pro
+					</Text>
+				</Anchor>
+			) : null}
+			<Anchor href={discordLink} target="_blank">
+				<Text c="indigo" fw="bold">
+					Discord
+				</Text>
+			</Anchor>
+			<Text c="grape" fw="bold" visibleFrom="md">
+				{coreDetails.version}
+			</Text>
+			<Anchor href={coreDetails.repositoryLink} target="_blank">
+				<Text c="orange" fw="bold">
+					Github
+				</Text>
+			</Anchor>
+		</Flex>
 	);
 };
 
