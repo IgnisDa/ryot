@@ -26,7 +26,12 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	processSubmission,
+	startCase,
+	zodNumAsString,
+} from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
@@ -193,8 +198,8 @@ const registerSchema = z
 const loginSchema = z.object({
 	username: z.string(),
 	password: z.string(),
+	tokenValidForDays: zodNumAsString,
 	[redirectToQueryParam]: z.string().optional(),
-	tokenValidForDays: zx.NumAsString,
 });
 
 export default function Page() {

@@ -46,6 +46,11 @@ export const zodIntAsString = z
 	.regex(/^-?\d+$/, "Must be an integer string")
 	.transform((val) => Number.parseInt(val, 10));
 
+export const zodNumAsString = z
+	.string()
+	.regex(/^-?\d*\.?\d+$/, "Must be a number string")
+	.transform(Number);
+
 /**
  * Humanize a duration.
  */
