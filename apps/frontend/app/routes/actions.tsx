@@ -32,12 +32,13 @@ import {
 	omitBy,
 	processSubmission,
 	set,
+	zodBoolAsString,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	MetadataIdSchema,
@@ -508,18 +509,18 @@ const commitPersonSchema = z.object({
 	name: z.string(),
 	identifier: z.string(),
 	source: z.nativeEnum(MediaSource),
-	isTmdbCompany: zx.BoolAsString.optional(),
-	isAnilistStudio: zx.BoolAsString.optional(),
-	isHardcoverPublisher: zx.BoolAsString.optional(),
+	isTmdbCompany: zodBoolAsString.optional(),
+	isAnilistStudio: zodBoolAsString.optional(),
+	isHardcoverPublisher: zodBoolAsString.optional(),
 });
 
 const reviewCommentSchema = z.object({
 	reviewId: z.string(),
-	commentId: z.string().optional(),
 	text: z.string().optional(),
-	decrementLikes: zx.BoolAsString.optional(),
-	incrementLikes: zx.BoolAsString.optional(),
-	shouldDelete: zx.BoolAsString.optional(),
+	commentId: z.string().optional(),
+	shouldDelete: zodBoolAsString.optional(),
+	decrementLikes: zodBoolAsString.optional(),
+	incrementLikes: zodBoolAsString.optional(),
 });
 
 const changeCollectionToEntitySchema = z.object({
@@ -532,14 +533,14 @@ const changeCollectionToEntitySchema = z.object({
 
 const reviewSchema = z
 	.object({
-		shouldDelete: zx.BoolAsString.optional(),
-		rating: z.string().optional(),
 		text: z.string().optional(),
-		visibility: z.nativeEnum(Visibility).optional(),
-		isSpoiler: zx.CheckboxAsString.optional(),
+		rating: z.string().optional(),
 		entityId: z.string().optional(),
-		entityLot: z.nativeEnum(EntityLot).optional(),
 		reviewId: z.string().optional(),
+		shouldDelete: zodBoolAsString.optional(),
+		isSpoiler: zodCheckboxAsString.optional(),
+		entityLot: z.nativeEnum(EntityLot).optional(),
+		visibility: z.nativeEnum(Visibility).optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -553,14 +554,14 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 
 const progressUpdateSchema = z
 	.object({
-		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
-		[redirectToQueryParam]: z.string().optional(),
-		showAllEpisodesBefore: zx.BoolAsString.optional(),
-		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaAllChaptersOrVolumesBefore: zx.CheckboxAsString.optional(),
+		metadataLot: z.nativeEnum(MediaLot),
 		providerWatchedOn: z.string().optional(),
+		[redirectToQueryParam]: z.string().optional(),
+		showAllEpisodesBefore: zodBoolAsString.optional(),
+		animeAllEpisodesBefore: zodCheckboxAsString.optional(),
+		podcastAllEpisodesBefore: zodCheckboxAsString.optional(),
+		mangaAllChaptersOrVolumesBefore: zodCheckboxAsString.optional(),
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);

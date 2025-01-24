@@ -76,7 +76,7 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
 - ✅ PWA enabled
-- ✅ Documented GraphQL API
+- ✅ [Documented](https://app.ryot.io/backend/graphql) GraphQL API
 - ✅ Easy to understand UI
 - ✅ Lightning fast (written in Rust BTW)
 - ✅ Free and open-source

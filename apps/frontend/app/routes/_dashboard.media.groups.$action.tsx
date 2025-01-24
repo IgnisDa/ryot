@@ -26,7 +26,15 @@ import {
 	MetadataGroupsListDocument,
 	PersonAndMetadataGroupsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isString, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	isString,
+	parseParameters,
+	parseSearchQuery,
+	startCase,
+	zodBoolAsString,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -40,7 +48,6 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	CollectionsFilter,
@@ -49,7 +56,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
+import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -74,32 +81,37 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
-	const query = zx.parseQuery(request, {
+	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zx.IntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
+	const query = parseSearchQuery(request, schema);
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
-			const urlParse = zx.parseQuery(request, {
+			const listSchema = z.object({
+				collections: zodCommaDelimitedString,
+				invertCollection: zodBoolAsString.optional(),
+				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
 					.default(defaultFilters.sortBy),
-				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				collections: commaDelimitedString,
-				invertCollection: zx.BoolAsString.optional(),
 			});
+			const urlParse = parseSearchQuery(request, listSchema);
 			const { metadataGroupsList } =
 				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupsListDocument,
 					{
 						input: {
-							search: { page: query[pageQueryParam], query: query.query },
-							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-							filter: { collections: urlParse.collections },
 							invertCollection: urlParse.invertCollection,
+							filter: { collections: urlParse.collections },
+							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+							search: { page: query[pageQueryParam], query: query.query },
 						},
 					},
 				);
@@ -110,9 +122,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = zx.parseQuery(request, {
+			const searchSchema = z.object({
 				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 			});
+			const urlParse = parseSearchQuery(request, searchSchema);
 			const coreDetails = await getCoreDetails();
 			const lot = coreDetails.metadataGroupSourceLotMappings.find(
 				(m) => m.source === urlParse.source,

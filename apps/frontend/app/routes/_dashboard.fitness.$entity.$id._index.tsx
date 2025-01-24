@@ -34,6 +34,7 @@ import {
 	changeCase,
 	getActionIntent,
 	humanizeDuration,
+	parseParameters,
 	processSubmission,
 } from "@ryot/ts-utils";
 import {
@@ -58,7 +59,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DisplayCollection } from "~/components/common";
 import {
 	ExerciseHistory,
@@ -88,10 +88,10 @@ import {
 } from "~/lib/utilities.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { id: entityId, entity } = zx.parseParams(params, {
-		id: z.string(),
-		entity: z.nativeEnum(FitnessEntity),
-	});
+	const { id: entityId, entity } = parseParameters(
+		params,
+		z.object({ id: z.string(), entity: z.nativeEnum(FitnessEntity) }),
+	);
 	const resp = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const [{ userWorkoutDetails }] = await Promise.all([

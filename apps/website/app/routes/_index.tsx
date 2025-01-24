@@ -13,7 +13,13 @@ import {
 	useRouteLoaderData,
 } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { cn, getActionIntent, processSubmission } from "@ryot/ts-utils";
+import {
+	cn,
+	getActionIntent,
+	parseSearchQuery,
+	processSubmission,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -29,7 +35,6 @@ import { SpamError } from "remix-utils/honeypot/server";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
@@ -55,13 +60,13 @@ dayjs.extend(duration);
 
 const searchParamsSchema = z.object({
 	email: z.string().email().optional(),
-	contactSubmission: zx.BoolAsString.optional(),
+	contactSubmission: zodBoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	return { prices, query };
 };
 
@@ -127,7 +132,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch (e) {
 				if (e instanceof SpamError) isSpam = true;
 			}
-			const submission = await zx.parseForm(request, contactSubmissionSchema);
+			// DEV: https://github.com/edmundhung/conform/issues/854
+			const submission = contactSubmissionSchema.parse(
+				Object.fromEntries(formData.entries()),
+			);
 			await db
 				.insert(contactSubmissions)
 				.values({

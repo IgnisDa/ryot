@@ -41,6 +41,7 @@ import {
 	cn,
 	isBoolean,
 	isNumber,
+	parseSearchQuery,
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
@@ -55,7 +56,6 @@ import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";
 import {
 	useCoreDetails,
@@ -70,7 +70,7 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchSchema);
+	const query = parseSearchQuery(request, searchSchema);
 	return { query };
 };
 

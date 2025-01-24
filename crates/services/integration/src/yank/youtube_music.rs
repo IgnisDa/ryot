@@ -19,7 +19,7 @@ fn get_end_of_day(date: NaiveDate) -> NaiveDateTime {
     date.and_hms_opt(23, 59, 59).unwrap()
 }
 
-fn get_offset(timezone: &String) -> i16 {
+fn get_offset(timezone: &str) -> i16 {
     let utc_now = Utc::now();
     let parsed = timezone.parse::<Tz>().unwrap();
     let local_time = utc_now.with_timezone(&parsed);
@@ -62,13 +62,9 @@ pub async fn yank_progress(
         .await
         .unwrap();
     let songs_listened_to_today = music_history.items.into_iter().rev().filter_map(|history| {
-        history.playback_date.and_then(|d| {
-            let yt_date =
-                NaiveDate::from_ymd_opt(d.year(), d.month() as u32, d.day().into()).unwrap();
-            match yt_date == date {
-                false => None,
-                true => Some((history.item.id, history.item.name)),
-            }
+        history.playback_date_txt.and_then(|d| match d.as_str() {
+            "Today" => Some((history.item.id, history.item.name)),
+            _ => None,
         })
     });
     let cache_keys = songs_listened_to_today

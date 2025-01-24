@@ -33,8 +33,11 @@ import {
 import {
 	cloneDeep,
 	getActionIntent,
+	parseParameters,
+	parseSearchQuery,
 	processSubmission,
 	startCase,
+	zodBoolAsString,
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
@@ -43,7 +46,6 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { getExerciseDetailsPath } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
@@ -62,8 +64,11 @@ enum Action {
 }
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
@@ -157,7 +162,7 @@ const schema = z.object({
 	images: optionalStringArray,
 	instructions: optionalString,
 	lot: z.nativeEnum(ExerciseLot),
-	shouldDelete: zx.BoolAsString.optional(),
+	shouldDelete: zodBoolAsString.optional(),
 	level: z.nativeEnum(ExerciseLevel),
 	force: z.nativeEnum(ExerciseForce).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),

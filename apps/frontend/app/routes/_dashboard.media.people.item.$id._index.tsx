@@ -18,7 +18,7 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils";
+import { parseParameters, parseSearchQuery, sum } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -31,7 +31,6 @@ import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	DisplayCollection,
 	MediaDetailsLayout,
@@ -56,8 +55,11 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { id: personId } = zx.parseParams(params, { id: z.string() });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const { id: personId } = parseParameters(
+		params,
+		z.object({ id: z.string() }),
+	);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
 		serverGqlService.request(PersonDetailsDocument, { personId }),
 		serverGqlService.authenticatedRequest(request, UserPersonDetailsDocument, {

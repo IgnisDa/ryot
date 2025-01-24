@@ -22,7 +22,12 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	parseSearchQuery,
+	processSubmission,
+	startCase,
+} from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -34,7 +39,6 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	TimeSpan,
 	dayjsLib,
@@ -67,7 +71,7 @@ const defaultTimeSpan = TimeSpan.Last30Days;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const now = dayjsLib();
 	const startTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
 	const [{ userMeasurementsList }] = await Promise.all([

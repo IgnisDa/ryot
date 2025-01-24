@@ -36,8 +36,10 @@ import {
 import {
 	changeCase,
 	getActionIntent,
+	parseSearchQuery,
 	processSubmission,
 	truncate,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
 	IconPencil,
@@ -52,7 +54,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { openConfirmationModal } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
@@ -75,7 +76,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {
 			query: query.query,
@@ -171,9 +172,9 @@ const deleteSchema = z.object({ toDeleteUserId: z.string() });
 const updateUserSchema = z.object({
 	userId: z.string(),
 	adminAccessToken: z.string(),
-	isDisabled: zx.CheckboxAsString.optional(),
-	lot: z.nativeEnum(UserLot).optional(),
 	password: z.string().optional(),
+	lot: z.nativeEnum(UserLot).optional(),
+	isDisabled: zodCheckboxAsString.optional(),
 });
 
 export default function Page() {

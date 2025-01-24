@@ -63,8 +63,7 @@
 		"ufo": "1.5.4",
 		"usehooks-ts": "3.1.0",
 		"uuid": "11.0.5",
-		"zod": "3.24.1",
-		"zodix": "0.4.4"
+		"zod": "3.24.1"
 	},
 	"devDependencies": {
 		"@bitprojects/umami-logger-typescript": "1.0.10",

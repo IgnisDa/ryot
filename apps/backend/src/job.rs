@@ -173,12 +173,6 @@ pub async fn perform_lp_application_job(
                 .handle_on_seen_complete(id)
                 .await
         }
-        LpApplicationJob::DeleteAllApplicationCache => {
-            app_services
-                .miscellaneous_service
-                .delete_all_application_cache()
-                .await
-        }
         LpApplicationJob::UpdateUserLastActivityPerformed(user_id, timestamp) => {
             app_services
                 .miscellaneous_service

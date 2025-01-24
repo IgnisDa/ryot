@@ -26,7 +26,14 @@ import {
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	humanizeDuration,
+	parseParameters,
+	parseSearchQuery,
+	truncate,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconChevronDown,
 	IconChevronUp,
@@ -42,7 +49,6 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import {
 	displayDistanceWithUnit,
@@ -75,19 +81,20 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { entity } = zx.parseParams(params, {
-		entity: z.nativeEnum(FitnessEntity),
-	});
+	const { entity } = parseParameters(
+		params,
+		z.object({ entity: z.nativeEnum(FitnessEntity) }),
+	);
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(

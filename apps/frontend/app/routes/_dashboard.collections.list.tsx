@@ -53,6 +53,7 @@ import {
 	isString,
 	processSubmission,
 	truncate,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
 	IconEdit,
@@ -68,16 +69,15 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
-	commaDelimitedString,
 	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryClient,
 	queryFactory,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -178,15 +178,15 @@ const createOrUpdateSchema = z.object({
 	name: z.string(),
 	updateId: z.string().optional(),
 	description: z.string().optional(),
-	collaborators: commaDelimitedString,
+	collaborators: zodCommaDelimitedString,
 	informationTemplate: z
 		.array(
 			z.object({
 				name: z.string(),
 				description: z.string(),
-				lot: z.nativeEnum(CollectionExtraInformationLot),
 				defaultValue: z.string().optional(),
-				required: zx.CheckboxAsString.optional(),
+				required: zodCheckboxAsString.optional(),
+				lot: z.nativeEnum(CollectionExtraInformationLot),
 			}),
 		)
 		.optional(),

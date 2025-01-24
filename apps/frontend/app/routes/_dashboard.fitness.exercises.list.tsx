@@ -47,9 +47,11 @@ import {
 import {
 	getActionIntent,
 	isNumber,
+	parseSearchQuery,
 	processSubmission,
 	snakeCase,
 	startCase,
+	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -63,7 +65,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import {
 	dayjsLib,
@@ -105,16 +106,16 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
-	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
+	collection: z.string().optional(),
+	[pageQueryParam]: zodIntAsString.optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
+	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
+	muscle: z.nativeEnum(ExerciseMuscle).optional(),
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
-	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	collection: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -122,7 +123,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [{ exercisesList }] = await Promise.all([

@@ -133,7 +133,6 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     SyncIntegrationsData,
     PerformBackgroundTasks,
-    DeleteAllApplicationCache,
     CalculateUserActivitiesAndSummary,
 }
 

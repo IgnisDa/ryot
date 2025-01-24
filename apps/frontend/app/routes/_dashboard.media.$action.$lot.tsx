@@ -36,7 +36,15 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	changeCase,
+	parseParameters,
+	parseSearchQuery,
+	snakeCase,
+	startCase,
+	zodBoolAsString,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBoxMultiple,
 	IconCheck,
@@ -53,7 +61,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	BaseMediaDisplayItem,
@@ -66,12 +73,12 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
-	commaDelimitedString,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -111,26 +118,30 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { action, lot } = zx.parseParams(params, {
-		action: z.nativeEnum(Action),
-		lot: z.string().transform((v) => getLot(v) as MediaLot),
-	});
+	const { action, lot } = parseParameters(
+		params,
+		z.object({
+			action: z.nativeEnum(Action),
+			lot: z.string().transform((v) => getLot(v) as MediaLot),
+		}),
+	);
 	const cookieName = await getEnhancedCookieName(
 		`media.${action}.${lot}`,
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, {
+	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zx.IntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
+	const query = parseSearchQuery(request, schema);
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
-			const urlParse = zx.parseQuery(request, {
-				collections: commaDelimitedString,
+			const listSchema = z.object({
+				collections: zodCommaDelimitedString,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				invertCollection: zx.BoolAsString.optional(),
+				invertCollection: zodBoolAsString.optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
 					.nativeEnum(ApplicationTimeRange)
@@ -142,6 +153,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 			});
+			const urlParse = parseSearchQuery(request, listSchema);
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
 				MetadataListDocument,
@@ -174,11 +186,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				(m) => m.lot === lot,
 			);
 			if (!metadataSourcesForLot) throw new Error("Mapping not found");
-			const urlParse = zx.parseQuery(request, {
+			const searchSchema = z.object({
 				source: z
 					.nativeEnum(MediaSource)
 					.default(metadataSourcesForLot.sources[0]),
 			});
+			const urlParse = parseSearchQuery(request, searchSchema);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
 			try {
 				const response = await serverGqlService.authenticatedRequest(
@@ -187,8 +200,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					{
 						input: {
 							lot,
-							search: { page: query[pageQueryParam], query: query.query },
 							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
 						},
 					},
 				);

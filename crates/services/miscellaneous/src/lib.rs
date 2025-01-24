@@ -17,7 +17,8 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_DELETE_CHUNK_SIZE,
+    ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -107,8 +108,6 @@ use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::DashboardElementLot;
 use uuid::Uuid;
-
-static ENTITY_UPDATE_CHUNK_SIZE: usize = 5;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -1735,7 +1734,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             m_map
         );
-        let chunks = m_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let chunks = m_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -1756,7 +1755,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             p_map
         );
-        let chunks = p_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let chunks = p_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -2402,11 +2401,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(notifications)
     }
 
-    pub async fn delete_all_application_cache(&self) -> Result<()> {
-        ApplicationCache::delete_many().exec(&self.0.db).await?;
-        Ok(())
-    }
-
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await
     }
@@ -2586,7 +2580,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn remove_useless_data(&self) -> Result<()> {
-        let all_metadata = Metadata::find()
+        let metadata_to_delete = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .left_join(UserToEntity)
@@ -2594,12 +2588,14 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} metadata items", all_metadata.len());
-        Metadata::delete_many()
-            .filter(metadata::Column::Id.is_in(all_metadata))
-            .exec(&self.0.db)
-            .await?;
-        let all_people = Person::find()
+        for chunk in metadata_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} metadata items", chunk.len());
+            Metadata::delete_many()
+                .filter(metadata::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
+        let people_to_delete = Person::find()
             .select_only()
             .column(person::Column::Id)
             .left_join(UserToEntity)
@@ -2607,12 +2603,14 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} people", all_people.len());
-        Person::delete_many()
-            .filter(person::Column::Id.is_in(all_people))
-            .exec(&self.0.db)
-            .await?;
-        let all_metadata_groups = MetadataGroup::find()
+        for chunk in people_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} people", chunk.len());
+            Person::delete_many()
+                .filter(person::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
+        let metadata_groups_to_delete = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .left_join(UserToEntity)
@@ -2620,16 +2618,14 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(
-            debug,
-            "Deleting {} metadata groups",
-            all_metadata_groups.len()
-        );
-        MetadataGroup::delete_many()
-            .filter(metadata_group::Column::Id.is_in(all_metadata_groups))
-            .exec(&self.0.db)
-            .await?;
-        let all_genre = Genre::find()
+        for chunk in metadata_groups_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
+            MetadataGroup::delete_many()
+                .filter(metadata_group::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
+        let genre_to_delete = Genre::find()
             .select_only()
             .column(genre::Column::Id)
             .left_join(MetadataToGenre)
@@ -2637,11 +2633,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} genres", all_genre.len());
-        Genre::delete_many()
-            .filter(genre::Column::Id.is_in(all_genre))
-            .exec(&self.0.db)
-            .await?;
+        for chunk in genre_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} genres", chunk.len());
+            Genre::delete_many()
+                .filter(genre::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
         ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
             .filter(user_notification::Column::IsAddressed.eq(true))
@@ -2834,6 +2832,20 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    pub async fn mark_old_display_user_notifications_as_addressed(&self) -> Result<()> {
+        let threshold = Utc::now() - Duration::days(1);
+        UserNotification::update_many()
+            .filter(user_notification::Column::CreatedOn.lt(threshold))
+            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Display))
+            .col_expr(
+                user_notification::Column::IsAddressed,
+                Expr::val(true).into(),
+            )
+            .exec(&self.0.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2878,7 +2890,7 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(trace, "Putting entities in partial state");
         self.put_entities_in_partial_state().await.trace_ok();
         // DEV: This is called after removing useless data so that recommendations are not
-        // delete right after they are downloaded.
+        // deleted right after they are downloaded.
         ryot_log!(trace, "Downloading recommendations for users");
         self.update_claimed_recommendations_and_download_new_ones()
             .await
@@ -2887,6 +2899,10 @@ ORDER BY RANDOM() LIMIT 10;
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
+        ryot_log!(trace, "Marking old display notifications as addressed");
+        self.mark_old_display_user_notifications_as_addressed()
+            .await
+            .trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())

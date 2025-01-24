@@ -3,10 +3,14 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
+import {
+	parseParameters,
+	parseSearchQuery,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
-import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
@@ -14,16 +18,17 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-const paramsSchema = z.object({ accessLinkId: z.string() });
-
 const searchParamsSchema = z.object({
-	isAccountDefault: zx.BoolAsString.optional(),
+	isAccountDefault: zodBoolAsString.optional(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
-	const routeParams = zx.parseParams(params, paramsSchema);
+	const routeParams = parseParameters(
+		params,
+		z.object({ accessLinkId: z.string() }),
+	);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: ProcessAccessLinkInput = {};
 	if (query.isAccountDefault) input.username = routeParams.accessLinkId;
 	else input.id = routeParams.accessLinkId;
@@ -32,14 +37,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ input },
 	);
 	if (processAccessLink.__typename === "ProcessAccessLinkResponse") {
-		const queryParams = zx.parseQuery(request, searchParamsSchema);
 		const headers = await getCookiesForApplication(
 			processAccessLink.apiKey,
 			processAccessLink.tokenValidForDays,
 		);
 		return redirect(
 			safeRedirect(
-				queryParams[redirectToQueryParam] ||
+				query[redirectToQueryParam] ||
 					processAccessLink.redirectTo ||
 					$path("/"),
 			),

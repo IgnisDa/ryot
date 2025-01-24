@@ -1,4 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
+import type { Params } from "react-router";
 import { type ClassValue, clsx } from "clsx";
 import dayjs, { type Dayjs } from "dayjs";
 import {
@@ -29,7 +30,27 @@ import sum from "lodash/sum";
 import truncate from "lodash/truncate";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
-import type { ZodTypeAny, output } from "zod";
+import { z, type ZodTypeAny, type output } from "zod";
+
+export const zodBoolAsString = z
+	.string()
+	.regex(/^(true|false)$/, 'Must be a boolean string ("true" or "false")')
+	.transform((value) => value === "true");
+
+export const zodCheckboxAsString = z
+	.literal("on")
+	.optional()
+	.transform((value) => value === "on");
+
+export const zodIntAsString = z
+	.string()
+	.regex(/^-?\d+$/, "Must be an integer string")
+	.transform((val) => Number.parseInt(val, 10));
+
+export const zodNumAsString = z
+	.string()
+	.regex(/^-?\d*\.?\d+$/, "Must be a number string")
+	.transform(Number);
 
 /**
  * Humanize a duration.
@@ -91,6 +112,24 @@ export const getActionIntent = (request: Request) => {
 	const intent = url.searchParams.get("intent");
 	invariant(intent);
 	return intent;
+};
+
+export const parseSearchQuery = <Schema extends ZodTypeAny>(
+	request: Request,
+	schema: Schema,
+): output<Schema> => {
+	const entries = Object.fromEntries(
+		new URL(request.url).searchParams.entries(),
+	);
+	return schema.parse(entries);
+};
+
+export const parseParameters = <Schema extends ZodTypeAny>(
+	params: Params,
+	schema: Schema,
+): output<Schema> => {
+	const parsed = schema.parse(params);
+	return parsed;
 };
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
