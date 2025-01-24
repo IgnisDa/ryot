@@ -29,6 +29,7 @@ import {
 import {
 	changeCase,
 	isString,
+	parseParameters,
 	parseSearchQuery,
 	startCase,
 	zodBoolAsString,
@@ -47,7 +48,6 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	CollectionsFilter,
@@ -81,7 +81,10 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
 	const schema = z.object({
 		query: z.string().optional(),

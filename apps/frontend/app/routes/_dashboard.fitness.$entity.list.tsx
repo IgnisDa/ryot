@@ -29,6 +29,7 @@ import {
 import {
 	changeCase,
 	humanizeDuration,
+	parseParameters,
 	parseSearchQuery,
 	truncate,
 	zodIntAsString,
@@ -48,7 +49,6 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import {
 	displayDistanceWithUnit,
@@ -88,9 +88,10 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { entity } = zx.parseParams(params, {
-		entity: z.nativeEnum(FitnessEntity),
-	});
+	const { entity } = parseParameters(
+		params,
+		z.object({ entity: z.nativeEnum(FitnessEntity) }),
+	);
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);

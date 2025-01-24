@@ -31,6 +31,7 @@ import {
 import {
 	camelCase,
 	changeCase,
+	parseParameters,
 	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
@@ -39,7 +40,6 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
 import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
@@ -56,7 +56,10 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)

@@ -3,11 +3,14 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import {
+	parseParameters,
+	parseSearchQuery,
+	zodBoolAsString,
+} from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
-import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
@@ -15,15 +18,16 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-const paramsSchema = z.object({ accessLinkId: z.string() });
-
 const searchParamsSchema = z.object({
 	isAccountDefault: zodBoolAsString.optional(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const routeParams = zx.parseParams(params, paramsSchema);
+	const routeParams = parseParameters(
+		params,
+		z.object({ accessLinkId: z.string() }),
+	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: ProcessAccessLinkInput = {};
 	if (query.isAccountDefault) input.username = routeParams.accessLinkId;

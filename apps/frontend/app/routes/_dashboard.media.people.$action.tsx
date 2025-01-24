@@ -28,6 +28,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	parseParameters,
 	parseSearchQuery,
 	startCase,
 	zodBoolAsString,
@@ -45,7 +46,6 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	CollectionsFilter,
@@ -86,7 +86,10 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
 	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({

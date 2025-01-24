@@ -33,6 +33,7 @@ import {
 import {
 	cloneDeep,
 	getActionIntent,
+	parseParameters,
 	parseSearchQuery,
 	processSubmission,
 	startCase,
@@ -45,7 +46,6 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { getExerciseDetailsPath } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
@@ -64,7 +64,10 @@ enum Action {
 }
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(Action) }),
+	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)

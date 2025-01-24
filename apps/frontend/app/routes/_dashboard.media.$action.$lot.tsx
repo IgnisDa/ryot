@@ -38,6 +38,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	parseParameters,
 	parseSearchQuery,
 	snakeCase,
 	startCase,
@@ -60,7 +61,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	BaseMediaDisplayItem,
@@ -118,10 +118,13 @@ enum Action {
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { action, lot } = zx.parseParams(params, {
-		action: z.nativeEnum(Action),
-		lot: z.string().transform((v) => getLot(v) as MediaLot),
-	});
+	const { action, lot } = parseParameters(
+		params,
+		z.object({
+			action: z.nativeEnum(Action),
+			lot: z.string().transform((v) => getLot(v) as MediaLot),
+		}),
+	);
 	const cookieName = await getEnhancedCookieName(
 		`media.${action}.${lot}`,
 		request,

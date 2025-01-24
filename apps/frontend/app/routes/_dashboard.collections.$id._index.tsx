@@ -24,7 +24,12 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery, startCase, zodIntAsString } from "@ryot/ts-utils";
+import {
+	parseParameters,
+	parseSearchQuery,
+	startCase,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -37,7 +42,6 @@ import {
 import { useState } from "react";
 import { $path } from "remix-routes";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	DebouncedSearchInput,
@@ -78,7 +82,10 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { id: collectionId } = zx.parseParams(params, { id: z.string() });
+	const { id: collectionId } = parseParameters(
+		params,
+		z.object({ id: z.string() }),
+	);
 	const cookieName = await getEnhancedCookieName(
 		`collections.details.${collectionId}`,
 		request,

@@ -64,6 +64,7 @@ import {
 	isInteger,
 	isNumber,
 	isString,
+	parseParameters,
 	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
@@ -97,7 +98,6 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	DisplayCollection,
 	DisplayThreePointReview,
@@ -153,7 +153,10 @@ const searchParamsSchema = z
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const { id: metadataId } = zx.parseParams(params, { id: z.string() });
+	const { id: metadataId } = parseParameters(
+		params,
+		z.object({ id: z.string() }),
+	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
 		serverGqlService.request(MetadataDetailsDocument, { metadataId }),

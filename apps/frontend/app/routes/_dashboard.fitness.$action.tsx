@@ -61,6 +61,7 @@ import {
 	isEqual,
 	isNumber,
 	isString,
+	parseParameters,
 	snakeCase,
 	sortBy,
 	startCase,
@@ -102,7 +103,6 @@ import { match } from "ts-pattern";
 import { useInterval, useOnClickOutside } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	DisplaySetStatistics,
 	ExerciseHistory,
@@ -154,9 +154,10 @@ import {
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-	const { action } = zx.parseParams(params, {
-		action: z.nativeEnum(FitnessAction),
-	});
+	const { action } = parseParameters(
+		params,
+		z.object({ action: z.nativeEnum(FitnessAction) }),
+	);
 	return {
 		action,
 		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,

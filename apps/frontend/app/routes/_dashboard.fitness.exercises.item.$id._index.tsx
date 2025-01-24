@@ -44,6 +44,7 @@ import {
 import {
 	changeCase,
 	isNumber,
+	parseParameters,
 	parseSearchQuery,
 	snakeCase,
 	sortBy,
@@ -71,7 +72,6 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { zx } from "zodix";
 import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
 import {
 	ExerciseHistory,
@@ -108,10 +108,11 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-const paramsSchema = { id: z.string() };
-
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
-	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
+	const { id: exerciseId } = parseParameters(
+		params,
+		z.object({ id: z.string() }),
+	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
