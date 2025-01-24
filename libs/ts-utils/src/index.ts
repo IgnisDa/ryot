@@ -113,6 +113,16 @@ export const getActionIntent = (request: Request) => {
 	return intent;
 };
 
+export const parseRequestSearchQuery = <Schema extends ZodTypeAny>(
+	request: Request,
+	schema: Schema,
+): output<Schema> => {
+	const entries = Object.fromEntries(
+		new URL(request.url).searchParams.entries(),
+	);
+	return schema.parse(entries);
+};
+
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 export {

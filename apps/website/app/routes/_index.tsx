@@ -16,6 +16,7 @@ import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import {
 	cn,
 	getActionIntent,
+	parseRequestSearchQuery,
 	processSubmission,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
@@ -34,7 +35,6 @@ import { SpamError } from "remix-utils/honeypot/server";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
@@ -66,7 +66,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	return { prices, query };
 };
 
