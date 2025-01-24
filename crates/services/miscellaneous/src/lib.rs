@@ -17,7 +17,8 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, ENTITY_UPDATE_CHUNK_SIZE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -107,8 +108,6 @@ use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::DashboardElementLot;
 use uuid::Uuid;
-
-static ENTITY_UPDATE_CHUNK_SIZE: usize = 5;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
