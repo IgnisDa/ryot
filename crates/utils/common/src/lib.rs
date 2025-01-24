@@ -10,6 +10,7 @@ use tokio::time::{sleep, Duration};
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
 pub static ENTITY_BULK_UPDATE_CHUNK_SIZE: usize = 5;
+pub static ENTITY_BULK_DELETE_CHUNK_SIZE: usize = 2000;
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,

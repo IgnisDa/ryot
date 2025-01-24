@@ -17,8 +17,8 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_DELETE_CHUNK_SIZE,
+    ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -2588,15 +2588,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(
-            debug,
-            "Deleting {} metadata items",
-            metadata_to_delete.len()
-        );
-        Metadata::delete_many()
-            .filter(metadata::Column::Id.is_in(metadata_to_delete))
-            .exec(&self.0.db)
-            .await?;
+        for chunk in metadata_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} metadata items", chunk.len());
+            Metadata::delete_many()
+                .filter(metadata::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
         let people_to_delete = Person::find()
             .select_only()
             .column(person::Column::Id)
@@ -2605,11 +2603,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} people", people_to_delete.len());
-        Person::delete_many()
-            .filter(person::Column::Id.is_in(people_to_delete))
-            .exec(&self.0.db)
-            .await?;
+        for chunk in people_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} people", chunk.len());
+            Person::delete_many()
+                .filter(person::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
         let metadata_groups_to_delete = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
@@ -2618,15 +2618,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(
-            debug,
-            "Deleting {} metadata groups",
-            metadata_groups_to_delete.len()
-        );
-        MetadataGroup::delete_many()
-            .filter(metadata_group::Column::Id.is_in(metadata_groups_to_delete))
-            .exec(&self.0.db)
-            .await?;
+        for chunk in metadata_groups_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
+            MetadataGroup::delete_many()
+                .filter(metadata_group::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
         let genre_to_delete = Genre::find()
             .select_only()
             .column(genre::Column::Id)
@@ -2635,11 +2633,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        ryot_log!(debug, "Deleting {} genres", genre_to_delete.len());
-        Genre::delete_many()
-            .filter(genre::Column::Id.is_in(genre_to_delete))
-            .exec(&self.0.db)
-            .await?;
+        for chunk in genre_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+            ryot_log!(debug, "Deleting {} genres", chunk.len());
+            Genre::delete_many()
+                .filter(genre::Column::Id.is_in(chunk))
+                .exec(&self.0.db)
+                .await?;
+        }
         ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
             .filter(user_notification::Column::IsAddressed.eq(true))
