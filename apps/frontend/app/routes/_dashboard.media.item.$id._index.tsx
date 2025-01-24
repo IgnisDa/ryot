@@ -64,7 +64,7 @@ import {
 	isInteger,
 	isNumber,
 	isString,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
 import {
@@ -154,7 +154,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: metadataId } = zx.parseParams(params, { id: z.string() });
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
 		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
 		serverGqlService.authenticatedRequest(

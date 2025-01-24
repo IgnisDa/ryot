@@ -29,7 +29,7 @@ import {
 import {
 	changeCase,
 	isString,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	startCase,
 	zodBoolAsString,
 	zodIntAsString,
@@ -87,7 +87,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
-	const query = parseRequestSearchQuery(request, schema);
+	const query = parseSearchQuery(request, schema);
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
@@ -98,7 +98,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
 					.default(defaultFilters.sortBy),
 			});
-			const urlParse = parseRequestSearchQuery(request, listSchema);
+			const urlParse = parseSearchQuery(request, listSchema);
 			const { metadataGroupsList } =
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -122,7 +122,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			const searchSchema = z.object({
 				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 			});
-			const urlParse = parseRequestSearchQuery(request, searchSchema);
+			const urlParse = parseSearchQuery(request, searchSchema);
 			const coreDetails = await getCoreDetails();
 			const lot = coreDetails.metadataGroupSourceLotMappings.find(
 				(m) => m.source === urlParse.source,

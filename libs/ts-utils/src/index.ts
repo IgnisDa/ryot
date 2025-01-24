@@ -113,7 +113,7 @@ export const getActionIntent = (request: Request) => {
 	return intent;
 };
 
-export const parseRequestSearchQuery = <Schema extends ZodTypeAny>(
+export const parseSearchQuery = <Schema extends ZodTypeAny>(
 	request: Request,
 	schema: Schema,
 ): output<Schema> => {

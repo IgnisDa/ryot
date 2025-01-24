@@ -36,7 +36,7 @@ import {
 import {
 	changeCase,
 	getActionIntent,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 	truncate,
 	zodCheckboxAsString,
@@ -76,7 +76,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {
 			query: query.query,

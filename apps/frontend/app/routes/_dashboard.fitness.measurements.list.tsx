@@ -24,7 +24,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 	startCase,
 } from "@ryot/ts-utils";
@@ -71,7 +71,7 @@ const defaultTimeSpan = TimeSpan.Last30Days;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const now = dayjsLib();
 	const startTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
 	const [{ userMeasurementsList }] = await Promise.all([

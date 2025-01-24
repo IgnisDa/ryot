@@ -3,7 +3,7 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseRequestSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
@@ -24,7 +24,7 @@ const searchParamsSchema = z.object({
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const routeParams = zx.parseParams(params, paramsSchema);
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: ProcessAccessLinkInput = {};
 	if (query.isAccountDefault) input.username = routeParams.accessLinkId;
 	else input.id = routeParams.accessLinkId;

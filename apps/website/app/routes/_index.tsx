@@ -16,7 +16,7 @@ import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import {
 	cn,
 	getActionIntent,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
@@ -66,7 +66,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	return { prices, query };
 };
 

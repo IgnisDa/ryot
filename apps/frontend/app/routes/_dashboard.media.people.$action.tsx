@@ -28,7 +28,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	startCase,
 	zodBoolAsString,
 	zodIntAsString,
@@ -93,7 +93,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
-	const query = parseRequestSearchQuery(request, schema);
+	const query = parseSearchQuery(request, schema);
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
@@ -104,7 +104,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
 					.default(defaultFilters.sortBy),
 			});
-			const urlParse = parseRequestSearchQuery(request, listSchema);
+			const urlParse = parseSearchQuery(request, listSchema);
 			const { peopleList } = await serverGqlService.authenticatedRequest(
 				request,
 				PeopleListDocument,
@@ -124,7 +124,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = parseRequestSearchQuery(request, searchSchema);
+			const urlParse = parseSearchQuery(request, searchSchema);
 			const { peopleSearch } = await serverGqlService.authenticatedRequest(
 				request,
 				PeopleSearchDocument,

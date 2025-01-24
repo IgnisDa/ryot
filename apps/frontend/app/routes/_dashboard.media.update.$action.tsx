@@ -31,7 +31,7 @@ import {
 import {
 	camelCase,
 	changeCase,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
@@ -57,7 +57,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Edit, async () => {

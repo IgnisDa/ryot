@@ -23,7 +23,7 @@ import {
 import {
 	getInitials,
 	isString,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	truncate,
 	zodIntAsString,
 } from "@ryot/ts-utils";
@@ -65,7 +65,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
 			input: { page: query[pageQueryParam], query: query.query },

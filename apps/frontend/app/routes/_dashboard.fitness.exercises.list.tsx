@@ -47,7 +47,7 @@ import {
 import {
 	getActionIntent,
 	isNumber,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 	snakeCase,
 	startCase,
@@ -123,7 +123,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [{ exercisesList }] = await Promise.all([

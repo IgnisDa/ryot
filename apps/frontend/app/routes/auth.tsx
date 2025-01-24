@@ -28,7 +28,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	processSubmission,
 	startCase,
 	zodNumAsString,
@@ -57,7 +57,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = parseRequestSearchQuery(request, searchParamsSchema);
+	const query = parseSearchQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
 		throw await redirectWithToast(

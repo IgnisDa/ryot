@@ -38,7 +38,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	snakeCase,
 	startCase,
 	zodBoolAsString,
@@ -131,7 +131,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
-	const query = parseRequestSearchQuery(request, schema);
+	const query = parseSearchQuery(request, schema);
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
@@ -150,7 +150,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 			});
-			const urlParse = parseRequestSearchQuery(request, listSchema);
+			const urlParse = parseSearchQuery(request, listSchema);
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
 				MetadataListDocument,
@@ -188,7 +188,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(MediaSource)
 					.default(metadataSourcesForLot.sources[0]),
 			});
-			const urlParse = parseRequestSearchQuery(request, searchSchema);
+			const urlParse = parseSearchQuery(request, searchSchema);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
 			try {
 				const response = await serverGqlService.authenticatedRequest(

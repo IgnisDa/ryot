@@ -41,7 +41,7 @@ import {
 	cn,
 	isBoolean,
 	isNumber,
-	parseRequestSearchQuery,
+	parseSearchQuery,
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
@@ -70,7 +70,7 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = parseRequestSearchQuery(request, searchSchema);
+	const query = parseSearchQuery(request, searchSchema);
 	return { query };
 };
 
