@@ -17,7 +17,7 @@ use common_models::{
     UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, ENTITY_UPDATE_CHUNK_SIZE, PAGE_SIZE,
+    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE,
     SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
@@ -1734,7 +1734,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             m_map
         );
-        let chunks = m_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let chunks = m_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -1755,7 +1755,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             p_map
         );
-        let chunks = p_map.keys().chunks(ENTITY_UPDATE_CHUNK_SIZE);
+        let chunks = p_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
