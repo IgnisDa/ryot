@@ -1,4 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
+import type { Params } from "react-router";
 import { type ClassValue, clsx } from "clsx";
 import dayjs, { type Dayjs } from "dayjs";
 import {
@@ -121,6 +122,14 @@ export const parseSearchQuery = <Schema extends ZodTypeAny>(
 		new URL(request.url).searchParams.entries(),
 	);
 	return schema.parse(entries);
+};
+
+export const parseParameters = <Schema extends ZodTypeAny>(
+	params: Params,
+	schema: Schema,
+): output<Schema> => {
+	const parsed = schema.parse(params);
+	return parsed;
 };
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
