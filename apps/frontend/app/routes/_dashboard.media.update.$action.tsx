@@ -28,7 +28,12 @@ import {
 	MetadataDetailsDocument,
 	UpdateCustomMetadataDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { camelCase, changeCase, processSubmission } from "@ryot/ts-utils";
+import {
+	camelCase,
+	changeCase,
+	parseRequestSearchQuery,
+	processSubmission,
+} from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -52,7 +57,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Edit, async () => {

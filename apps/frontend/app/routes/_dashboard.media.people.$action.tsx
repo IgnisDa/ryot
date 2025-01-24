@@ -28,6 +28,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	parseRequestSearchQuery,
 	startCase,
 	zodBoolAsString,
 	zodIntAsString,
@@ -77,7 +78,7 @@ enum Action {
 	Search = "search",
 }
 
-const searchUrlSchema = z.object({
+const searchSchema = z.object({
 	isTmdbCompany: zodBoolAsString.optional(),
 	isAnilistStudio: zodBoolAsString.optional(),
 	isHardcoverPublisher: zodBoolAsString.optional(),
@@ -88,13 +89,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, {
+	const schema = z.object({
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
+	const query = parseRequestSearchQuery(request, schema);
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
-			const urlParse = zx.parseQuery(request, {
+			const listSchema = z.object({
 				collections: zodCommaDelimitedString,
 				invertCollection: zodBoolAsString.optional(),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
@@ -102,6 +104,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
 					.default(defaultFilters.sortBy),
 			});
+			const urlParse = parseRequestSearchQuery(request, listSchema);
 			const { peopleList } = await serverGqlService.authenticatedRequest(
 				request,
 				PeopleListDocument,
@@ -121,7 +124,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = zx.parseQuery(request, searchUrlSchema);
+			const urlParse = parseRequestSearchQuery(request, searchSchema);
 			const { peopleSearch } = await serverGqlService.authenticatedRequest(
 				request,
 				PeopleSearchDocument,
@@ -397,7 +400,7 @@ const PersonSearchItem = (props: {
 const commitPerson = async (
 	name: string,
 	identifier: string,
-	additionalData: z.infer<typeof searchUrlSchema>,
+	additionalData: z.infer<typeof searchSchema>,
 ) => {
 	const data = new FormData();
 	data.append("identifier", identifier);

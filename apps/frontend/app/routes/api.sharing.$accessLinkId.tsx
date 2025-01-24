@@ -3,7 +3,7 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { zodBoolAsString } from "@ryot/ts-utils";
+import { parseRequestSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
@@ -23,8 +23,8 @@ const searchParamsSchema = z.object({
 });
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
 	const routeParams = zx.parseParams(params, paramsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const input: ProcessAccessLinkInput = {};
 	if (query.isAccountDefault) input.username = routeParams.accessLinkId;
 	else input.id = routeParams.accessLinkId;
@@ -33,14 +33,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ input },
 	);
 	if (processAccessLink.__typename === "ProcessAccessLinkResponse") {
-		const queryParams = zx.parseQuery(request, searchParamsSchema);
 		const headers = await getCookiesForApplication(
 			processAccessLink.apiKey,
 			processAccessLink.tokenValidForDays,
 		);
 		return redirect(
 			safeRedirect(
-				queryParams[redirectToQueryParam] ||
+				query[redirectToQueryParam] ||
 					processAccessLink.redirectTo ||
 					$path("/"),
 			),

@@ -29,6 +29,7 @@ import {
 import {
 	changeCase,
 	humanizeDuration,
+	parseRequestSearchQuery,
 	truncate,
 	zodIntAsString,
 } from "@ryot/ts-utils";
@@ -92,7 +93,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	});
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(

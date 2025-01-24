@@ -18,7 +18,7 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils";
+import { parseRequestSearchQuery, sum } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -57,7 +57,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: personId } = zx.parseParams(params, { id: z.string() });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
 		serverGqlService.request(PersonDetailsDocument, { personId }),
 		serverGqlService.authenticatedRequest(request, UserPersonDetailsDocument, {

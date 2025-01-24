@@ -10,7 +10,7 @@ import {
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { zodIntAsString } from "@ryot/ts-utils";
+import { parseRequestSearchQuery, zodIntAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
@@ -34,7 +34,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: genreId } = zx.parseParams(params, { id: z.string() });
 	const cookieName = await getEnhancedCookieName(`genre.${genreId}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query[pageQueryParam] },

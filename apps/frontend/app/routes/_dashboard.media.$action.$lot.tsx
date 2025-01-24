@@ -38,6 +38,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	parseRequestSearchQuery,
 	snakeCase,
 	startCase,
 	zodBoolAsString,
@@ -126,13 +127,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, {
+	const schema = z.object({
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
+	const query = parseRequestSearchQuery(request, schema);
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
-			const urlParse = zx.parseQuery(request, {
+			const listSchema = z.object({
 				collections: zodCommaDelimitedString,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
@@ -148,6 +150,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 			});
+			const urlParse = parseRequestSearchQuery(request, listSchema);
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
 				MetadataListDocument,
@@ -180,11 +183,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				(m) => m.lot === lot,
 			);
 			if (!metadataSourcesForLot) throw new Error("Mapping not found");
-			const urlParse = zx.parseQuery(request, {
+			const searchSchema = z.object({
 				source: z
 					.nativeEnum(MediaSource)
 					.default(metadataSourcesForLot.sources[0]),
 			});
+			const urlParse = parseRequestSearchQuery(request, searchSchema);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
 			try {
 				const response = await serverGqlService.authenticatedRequest(
@@ -193,8 +197,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					{
 						input: {
 							lot,
-							search: { page: query[pageQueryParam], query: query.query },
 							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
 						},
 					},
 				);

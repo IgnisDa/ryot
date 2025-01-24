@@ -28,6 +28,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
+	parseRequestSearchQuery,
 	processSubmission,
 	startCase,
 	zodNumAsString,
@@ -38,7 +39,6 @@ import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
@@ -57,7 +57,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
 		throw await redirectWithToast(

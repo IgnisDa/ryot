@@ -23,13 +23,13 @@ import {
 import {
 	getInitials,
 	isString,
+	parseRequestSearchQuery,
 	truncate,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { $path } from "remix-routes";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	DebouncedSearchInput,
@@ -65,7 +65,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
 			input: { page: query[pageQueryParam], query: query.query },

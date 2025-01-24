@@ -15,12 +15,11 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils";
+import { parseRequestSearchQuery, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
@@ -40,7 +39,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);
 	const [{ userCalendarEvents }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserCalendarEventsDocument, {

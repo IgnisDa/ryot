@@ -33,6 +33,7 @@ import {
 import {
 	cloneDeep,
 	getActionIntent,
+	parseRequestSearchQuery,
 	processSubmission,
 	startCase,
 	zodBoolAsString,
@@ -64,7 +65,7 @@ enum Action {
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {

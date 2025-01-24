@@ -6,9 +6,9 @@ import {
 	RegisterUserDocument,
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { parseRequestSearchQuery } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { z } from "zod";
-import { zx } from "zodix";
 import {
 	getCookiesForApplication,
 	getCoreDetails,
@@ -21,7 +21,7 @@ const searchParamsSchema = z.object({ code: z.string() });
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const input = zx.parseQuery(request, searchParamsSchema);
+	const input = parseRequestSearchQuery(request, searchParamsSchema);
 	const { getOidcToken } = await serverGqlService.request(
 		GetOidcTokenDocument,
 		input,

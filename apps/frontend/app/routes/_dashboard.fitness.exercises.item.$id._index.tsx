@@ -44,6 +44,7 @@ import {
 import {
 	changeCase,
 	isNumber,
+	parseRequestSearchQuery,
 	snakeCase,
 	sortBy,
 	startCase,
@@ -111,7 +112,7 @@ const paramsSchema = { id: z.string() };
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
 		serverGqlService.authenticatedRequest(

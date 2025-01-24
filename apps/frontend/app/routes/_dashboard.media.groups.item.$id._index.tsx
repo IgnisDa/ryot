@@ -17,6 +17,7 @@ import {
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { parseRequestSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -49,7 +50,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: metadataGroupId } = zx.parseParams(params, { id: z.string() });
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
 			serverGqlService.request(MetadataGroupDetailsDocument, {

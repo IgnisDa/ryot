@@ -24,7 +24,11 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase, zodIntAsString } from "@ryot/ts-utils";
+import {
+	parseRequestSearchQuery,
+	startCase,
+	zodIntAsString,
+} from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -84,7 +88,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = zx.parseQuery(request, searchParamsSchema);
+	const query = parseRequestSearchQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
