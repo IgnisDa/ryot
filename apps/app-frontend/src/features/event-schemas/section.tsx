@@ -103,7 +103,10 @@ function CreateEventSchemaModal(props: {
 							</Text>
 						)}
 
-						<eventSchemaForm.AppField name="name">
+						<eventSchemaForm.AppField
+							name="name"
+							listeners={eventSchemaForm.nameFieldListeners}
+						>
 							{(field) => (
 								<field.TextField
 									required
