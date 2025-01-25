@@ -150,7 +150,7 @@ This means:
 
 Users will add properties to their schemas after creating entities. The rule for v1: **only additive, non-breaking changes are allowed through the UI.** Users can add new optional properties. They cannot delete properties that have data, change a property's type, or make an existing optional property required. This sidesteps schema migration entirely — existing entities simply don't have the new field yet, and that's fine because it's optional.
 
-Power users who understand the implications can make breaking changes through the API or raw database access, but the UI protects against accidental data loss.
+Power users who understand the implications can make breaking changes through raw database access, but the UI protects against accidental data loss.
 
 ### Entity list pages are pre-built saved views
 
