@@ -1,4 +1,5 @@
 import {
+	Anchor,
 	Button,
 	Center,
 	Group,
@@ -9,6 +10,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { Link } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
@@ -36,6 +38,7 @@ function getErrorMessage(error: unknown) {
 
 function EntityList(props: {
 	entities: ReturnType<typeof useEntitiesQuery>["entities"];
+	facetSlug: string;
 	eventSchemas: ReturnType<typeof useEventSchemasQuery>["eventSchemas"];
 	eventSchemasError: boolean;
 	eventSchemasLoading: boolean;
@@ -58,6 +61,14 @@ function EntityList(props: {
 									{new Date(entity.createdAt).toLocaleDateString()}
 								</Text>
 							</Stack>
+							<Link
+								to="/tracking/$facetSlug/entities/$entityId"
+								params={{ entityId: entity.id, facetSlug: props.facetSlug }}
+							>
+								<Anchor component="span" size="sm">
+									View details
+								</Anchor>
+							</Link>
 						</Group>
 
 						<EntityEventsSection
@@ -158,7 +169,10 @@ function CreateEntityModal(props: {
 	);
 }
 
-export function EntitiesSection(props: { entitySchema: AppEntitySchema }) {
+export function EntitiesSection(props: {
+	entitySchema: AppEntitySchema;
+	facetSlug: string;
+}) {
 	const [opened, { close, open }] = useDisclosure(false);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
@@ -260,6 +274,7 @@ export function EntitiesSection(props: { entitySchema: AppEntitySchema }) {
 				) : (
 					<EntityList
 						entities={viewState.entities}
+						facetSlug={props.facetSlug}
 						eventSchemas={eventSchemasQuery.eventSchemas}
 						eventSchemasError={eventSchemasQuery.isError}
 						eventSchemasLoading={eventSchemasQuery.isLoading}

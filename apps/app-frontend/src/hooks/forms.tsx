@@ -13,16 +13,22 @@ type TextFieldProps = {
 	type?: HTMLInputTypeAttribute;
 };
 
+export function normalizeNumberInputValue(value: number | string) {
+	if (typeof value === "number") return value;
+	if (value.trim() === "") return value;
+	if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+
+	return value;
+}
+
 function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
 
 	return (
 		<div>
-			<Text component="label" htmlFor={props.id} size="sm" fw={500}>
-				{props.label}
-			</Text>
 			<TextInput
 				id={props.id}
+				label={props.label}
 				required={props.required}
 				disabled={props.disabled}
 				value={field.state.value}
@@ -53,15 +59,13 @@ type NumberFieldProps = {
 };
 
 function NumberField(props: NumberFieldProps) {
-	const field = useFieldContext<number>();
+	const field = useFieldContext<number | string>();
 
 	return (
 		<div>
-			<Text component="label" htmlFor={props.id} size="sm" fw={500}>
-				{props.label}
-			</Text>
 			<NumberInput
 				id={props.id}
+				label={props.label}
 				required={props.required}
 				disabled={props.disabled}
 				value={field.state.value}
@@ -69,7 +73,9 @@ function NumberField(props: NumberFieldProps) {
 				className={props.className}
 				placeholder={props.placeholder}
 				error={!field.state.meta.isValid}
-				onChange={(value) => field.handleChange(value as number)}
+				onChange={(value) =>
+					field.handleChange(normalizeNumberInputValue(value))
+				}
 			/>
 			{!field.state.meta.isValid && (
 				<Text c="red" size="xs">
@@ -82,6 +88,7 @@ function NumberField(props: NumberFieldProps) {
 
 type CheckboxFieldProps = {
 	label: string;
+	required?: boolean;
 	disabled?: boolean;
 };
 
@@ -92,6 +99,7 @@ function CheckboxField(props: CheckboxFieldProps) {
 		<div>
 			<Checkbox
 				label={props.label}
+				required={props.required}
 				disabled={props.disabled}
 				onBlur={field.handleBlur}
 				checked={field.state.value}
