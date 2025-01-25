@@ -2,6 +2,11 @@ import { z } from "@hono/zod-openapi";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { appPropertyPrimitiveTypes } from "@ryot/ts-utils";
 
+const propertySchemaMessage = "Properties must contain at least one property";
+
+const createPropertySchemaMessage = (label: string) =>
+	`${label} must contain at least one property`;
+
 const propertyDefinitionFlags = {
 	nullable: z.literal(true).optional(),
 	required: z.literal(true).optional(),
@@ -54,12 +59,16 @@ export const createPropertySchemaObjectSchema = (message: string) =>
 		.record(z.string(), propertyDefinitionSchema)
 		.refine((value) => Object.keys(value).length > 0, { message });
 
+export const createPropertySchemaInputSchema = createPropertySchemaObjectSchema;
+
+export const createLabeledPropertySchemas = (label: string) => {
+	const message = createPropertySchemaMessage(label);
+	const schema = createPropertySchemaObjectSchema(message);
+
+	return { schema };
+};
+
 export const propertySchemaObjectSchema: z.ZodType<AppSchema> =
-	createPropertySchemaObjectSchema(
-		"Properties must contain at least one property",
-	).openapi("AppSchema");
+	createPropertySchemaObjectSchema(propertySchemaMessage).openapi("AppSchema");
 
 export const propertySchemaInputSchema = propertySchemaObjectSchema;
-
-export const createPropertySchemaInputSchema = (message: string) =>
-	createPropertySchemaObjectSchema(message);

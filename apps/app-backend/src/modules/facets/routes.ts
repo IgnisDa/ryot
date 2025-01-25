@@ -38,6 +38,17 @@ import {
 	resolveFacetSlug,
 } from "./service";
 
+const ERROR_FACET_NOT_FOUND = "Facet not found";
+const ERROR_FACET_SLUG_EXISTS = "Facet slug already exists";
+const ERROR_MISSING_FIELDS = "At least one field must be provided";
+
+async function refreshUpdatedFacet(userId: string, facetId: string) {
+	const facets = await listFacetsByUser(userId);
+	const foundFacet = facets.find((facet) => facet.id === facetId);
+	if (!foundFacet) return { error: ERROR_FACET_NOT_FOUND };
+	return { data: foundFacet };
+}
+
 const listFacetsRoute = createAuthRoute(
 	createRoute({
 		path: "/list",
@@ -117,7 +128,8 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() => resolveFacetSlug({ name: body.name, slug: body.slug }),
 			"Facet slug is required",
 		);
-		if ("body" in slugResult) return c.json(slugResult.body, slugResult.status);
+		if ("error" in slugResult)
+			return c.json(createValidationErrorResult(slugResult.error).body, 400);
 
 		const slug = slugResult.data;
 
@@ -127,7 +139,7 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 		if (existingFacet)
 			return c.json(
-				createValidationErrorResult("Facet slug already exists").body,
+				createValidationErrorResult(ERROR_FACET_SLUG_EXISTS).body,
 				400,
 			);
 
@@ -159,8 +171,7 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		if (!hasFacetConfigUpdate) {
 			if (enabled === undefined)
 				return c.json(
-					createValidationErrorResult("At least one field must be provided")
-						.body,
+					createValidationErrorResult(ERROR_MISSING_FIELDS).body,
 					400,
 				);
 
@@ -169,7 +180,10 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				facetId: params.facetId,
 			});
 			if (!visibleFacet)
-				return c.json(createNotFoundErrorResult("Facet not found").body, 404);
+				return c.json(
+					createNotFoundErrorResult(ERROR_FACET_NOT_FOUND).body,
+					404,
+				);
 
 			await setFacetEnabledForUser({
 				enabled,
@@ -177,13 +191,11 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				facetId: params.facetId,
 			});
 
-			const facets = await listFacetsByUser(user.id);
-			const foundFacet = facets.find((facet) => facet.id === params.facetId);
+			const refreshResult = await refreshUpdatedFacet(user.id, params.facetId);
+			if ("error" in refreshResult)
+				return c.json(createNotFoundErrorResult(refreshResult.error).body, 404);
 
-			if (!foundFacet)
-				return c.json(createNotFoundErrorResult("Facet not found").body, 404);
-
-			return c.json(successResponse(foundFacet), 200);
+			return c.json(successResponse(refreshResult.data), 200);
 		}
 
 		const ownedFacet = await getOwnedFacetById({
@@ -191,14 +203,14 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			facetId: params.facetId,
 		});
 		if (!ownedFacet)
-			return c.json(createNotFoundErrorResult("Facet not found").body, 404);
+			return c.json(createNotFoundErrorResult(ERROR_FACET_NOT_FOUND).body, 404);
 
 		const patchResult = resolveValidationResult(
 			() => resolveFacetPatch({ current: ownedFacet, input: body }),
 			"Facet slug is required",
 		);
-		if ("body" in patchResult)
-			return c.json(patchResult.body, patchResult.status);
+		if ("error" in patchResult)
+			return c.json(createValidationErrorResult(patchResult.error).body, 400);
 
 		const patch = patchResult.data;
 
@@ -209,7 +221,7 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 		if (conflictingFacet)
 			return c.json(
-				createValidationErrorResult("Facet slug already exists").body,
+				createValidationErrorResult(ERROR_FACET_SLUG_EXISTS).body,
 				400,
 			);
 
@@ -224,11 +236,6 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 
 		if (!hasEnabledUpdate) return c.json(successResponse(updatedFacet), 200);
-		if (enabled === undefined)
-			return c.json(
-				createValidationErrorResult("At least one field must be provided").body,
-				400,
-			);
 
 		await setFacetEnabledForUser({
 			enabled,
@@ -236,13 +243,11 @@ export const facetsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			facetId: params.facetId,
 		});
 
-		const facets = await listFacetsByUser(user.id);
-		const foundFacet = facets.find((facet) => facet.id === params.facetId);
+		const refreshResult = await refreshUpdatedFacet(user.id, params.facetId);
+		if ("error" in refreshResult)
+			return c.json(createNotFoundErrorResult(refreshResult.error).body, 404);
 
-		if (!foundFacet)
-			return c.json(createNotFoundErrorResult("Facet not found").body, 404);
-
-		return c.json(successResponse(foundFacet), 200);
+		return c.json(successResponse(refreshResult.data), 200);
 	})
 	.openapi(reorderFacetsRoute, async (c) => {
 		const user = c.get("user");
