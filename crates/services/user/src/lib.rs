@@ -470,6 +470,9 @@ impl UserService {
             ));
         }
         let mut db_integration: integration::ActiveModel = db_integration.into();
+        if let Some(n) = input.name {
+            db_integration.name = ActiveValue::Set(Some(n));
+        }
         if let Some(s) = input.minimum_progress {
             db_integration.minimum_progress = ActiveValue::Set(Some(s));
         }
@@ -514,6 +517,7 @@ impl UserService {
         };
         let to_insert = integration::ActiveModel {
             lot: ActiveValue::Set(lot),
+            name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
             provider: ActiveValue::Set(input.provider),
             minimum_progress: ActiveValue::Set(input.minimum_progress),

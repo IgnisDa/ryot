@@ -1009,15 +1009,17 @@ pub struct UpdateCustomMetadataInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserIntegrationInput {
+    pub name: Option<String>,
     pub provider: IntegrationProvider,
-    pub provider_specifics: Option<IntegrationProviderSpecifics>,
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
     pub sync_to_owned_collection: Option<bool>,
+    pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct UpdateUserIntegrationInput {
+    pub name: Option<String>,
     pub integration_id: String,
     pub is_disabled: Option<bool>,
     pub minimum_progress: Option<Decimal>,
