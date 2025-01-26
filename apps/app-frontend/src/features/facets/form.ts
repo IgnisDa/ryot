@@ -61,11 +61,14 @@ export function toCreateFacetPayload(
 		slug: input.slug.trim(),
 	};
 
-	if (input.icon) payload.icon = input.icon.trim();
+	const trimmedIcon = input.icon.trim();
+	if (trimmedIcon !== "") payload.icon = trimmedIcon;
 
-	if (input.description) payload.description = input.description.trim();
+	const trimmedDescription = input.description.trim();
+	if (trimmedDescription !== "") payload.description = trimmedDescription;
 
-	if (input.accentColor) payload.accentColor = input.accentColor.trim();
+	const trimmedAccentColor = input.accentColor.trim();
+	if (trimmedAccentColor !== "") payload.accentColor = trimmedAccentColor;
 
 	return payload;
 }

@@ -72,9 +72,22 @@ describe("toTrackingNavItems", () => {
 		expect(items).toHaveLength(1);
 		expect(items[0]).toEqual({
 			facetId: "1",
-			label: "Media",
 			enabled: true,
+			label: "Media",
+			icon: undefined,
+			isBuiltin: false,
 			facetSlug: "media",
 		});
+	});
+
+	it("preserves builtin flag for edit gating", () => {
+		const builtInFacet = facet("1", "Media", "media", 1, true);
+		builtInFacet.isBuiltin = true;
+		const facets = [builtInFacet];
+
+		const items = toTrackingNavItems(facets);
+
+		expect(items).toHaveLength(1);
+		expect(items[0]?.isBuiltin).toBe(true);
 	});
 });
