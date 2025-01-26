@@ -2866,10 +2866,11 @@ pub async fn metadata_list(
             })),
         })
         .apply_if(input.sort.map(|s| s.by), |query, v| match v {
+            MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+            MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
             MediaSortBy::LastUpdated => query
                 .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
                 .group_by(user_to_entity::Column::LastUpdatedOn),
-            MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
             MediaSortBy::ReleaseDate => query.order_by_with_nulls(
                 metadata::Column::PublishYear,
                 order_by,
@@ -2880,9 +2881,6 @@ pub async fn metadata_list(
                 order_by,
                 NullOrdering::Last,
             ),
-            MediaSortBy::TimesConsumed => {
-                query.order_by_with_nulls(seen::Column::Id.count(), order_by, NullOrdering::Last)
-            }
             MediaSortBy::UserRating => query.order_by_with_nulls(
                 Expr::col(Alias::new(avg_rating_col)),
                 order_by,
