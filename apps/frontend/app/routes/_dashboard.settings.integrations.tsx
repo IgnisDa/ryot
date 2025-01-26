@@ -451,8 +451,8 @@ const CreateIntegrationModal = (props: {
 						label="Select a provider"
 						onChange={(e) => setProvider(e as IntegrationProvider)}
 						data={Object.values(IntegrationProvider).map((is) => ({
-							label: changeCase(is),
 							value: is,
+							label: changeCase(is),
 						}))}
 					/>
 					<TextInput name="name" label="Name" />
