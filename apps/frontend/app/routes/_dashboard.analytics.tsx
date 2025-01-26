@@ -112,6 +112,8 @@ const useTimeSpanSettings = () => {
 
 	const startDate =
 		timeSpanSettings.startDate ||
+		(timeSpanSettings.range === "All Time" &&
+			loaderData.userAnalyticsParameters.startDate) ||
 		formatDateToNaiveDate(
 			getStartTimeFromRange(timeSpanSettings.range) || new Date(),
 		);
