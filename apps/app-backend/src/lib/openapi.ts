@@ -1,6 +1,6 @@
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
-import { requireAuth } from "~/auth/middleware";
+import { requireAuth } from "~/lib/auth/middleware";
 
 export const ERROR_CODES = {
 	TIMEOUT: "timeout",
