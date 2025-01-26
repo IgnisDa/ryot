@@ -7,12 +7,12 @@ import {
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
-import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
-import { getSandboxService } from "~/sandbox";
+import { getSandboxService } from "~/lib/sandbox";
 import {
 	getAppConfigValue,
 	getUserConfigValue,
-} from "~/sandbox/host-functions";
+} from "~/lib/sandbox/host-functions";
+import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
 
 const runSandboxSchema = z.object({
 	code: nonEmptyStringSchema.max(20_000),
