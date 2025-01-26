@@ -43,16 +43,16 @@ const supabaseTheme = createTheme({
 	defaultRadius: "lg",
 	colors: {
 		dark: [
-			"#F8F9FA",
-			"#8B92A3",
-			"#6C7589",
-			"#2E3648",
-			"#1A1F2C",
-			"#161B26",
-			"#0E1117",
-			"#0A0D14",
-			"#060810",
-			"#000000",
+			"#EDEDED",
+			"#B0B0B0",
+			"#808080",
+			"#404040",
+			"#1E1E1E",
+			"#171717",
+			"#121212",
+			"#0E0E0E",
+			"#0A0A0A",
+			"#050505",
 		],
 		green: [
 			"#E6FCF5",
@@ -78,6 +78,18 @@ const supabaseTheme = createTheme({
 			"#1E40AF",
 			"#1E3A8A",
 		],
+		cyan: [
+			"#ECFEFF",
+			"#CFFAFE",
+			"#A5F3FC",
+			"#67E8F9",
+			"#22D3EE",
+			"#06B6D4",
+			"#0891B2",
+			"#0E7490",
+			"#155E75",
+			"#164E63",
+		],
 	},
 });
 
@@ -86,11 +98,11 @@ function SupabaseTheme() {
 
 	return (
 		<MantineProvider theme={supabaseTheme} forceColorScheme={colorScheme}>
-			<Flex h="100vh" bg="dark.6">
+			<Flex h="100vh" bg="dark.8">
 				<Box
 					w={280}
-					bg="dark.4"
-					style={{ borderRight: "1px solid var(--mantine-color-dark-3)" }}
+					bg="dark.9"
+					style={{ borderRight: "1px solid rgba(255, 255, 255, 0.06)" }}
 				>
 					<Stack gap={0} h="100%">
 						<Box p="md">
@@ -317,8 +329,12 @@ function SupabaseTheme() {
 									size="md"
 									styles={{
 										root: {
+											transition: "all 0.2s ease",
 											"&:hover": {
 												backgroundColor: "var(--mantine-color-green-6)",
+												transform: "translateY(-1px)",
+												boxShadow:
+													"0 8px 16px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.3)",
 											},
 										},
 									}}
@@ -329,36 +345,58 @@ function SupabaseTheme() {
 						</Group>
 
 						<Grid mb="xl">
-							{stats.map((stat) => (
-								<Grid.Col key={stat.label} span={3}>
-									<Card
-										p="lg"
-										bg="dark.4"
-										radius="lg"
-										style={{ border: "1px solid var(--mantine-color-dark-3)" }}
-									>
-										<Stack gap={6}>
-											<Text size="xs" c="dark.1" tt="uppercase" fw={600}>
-												{stat.label}
-											</Text>
-											<Text size="2rem" fw={700} c="dark.0" lh={1}>
-												{stat.value}
-											</Text>
-											{stat.change && (
-												<Group gap={4}>
-													<TrendingUp
-														size={14}
-														color="var(--mantine-color-green-5)"
-													/>
-													<Text size="xs" c="green.5" fw={500}>
-														{stat.change}
-													</Text>
-												</Group>
-											)}
-										</Stack>
-									</Card>
-								</Grid.Col>
-							))}
+							{stats.map((stat, idx) => {
+								const borderColors = ["green.5", "blue.5", "cyan.5", "green.6"];
+								return (
+									<Grid.Col key={stat.label} span={3}>
+										<Card
+											p="lg"
+											bg="dark.7"
+											radius="lg"
+											style={{
+												border: "1px solid rgba(255, 255, 255, 0.08)",
+												borderBottom: `3px solid var(--mantine-color-${borderColors[idx % borderColors.length]})`,
+												transition: "all 0.2s ease",
+											}}
+											styles={{
+												root: {
+													"&:hover": {
+														transform: "translateY(-2px)",
+														boxShadow:
+															"0 8px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.15)",
+													},
+												},
+											}}
+										>
+											<Stack gap={6}>
+												<Text
+													size="xs"
+													c="dark.1"
+													tt="uppercase"
+													fw={600}
+													style={{ letterSpacing: "0.5px" }}
+												>
+													{stat.label}
+												</Text>
+												<Text size="2rem" fw={700} c="dark.0" lh={1}>
+													{stat.value}
+												</Text>
+												{stat.change && (
+													<Group gap={4}>
+														<TrendingUp
+															size={14}
+															color="var(--mantine-color-green-5)"
+														/>
+														<Text size="xs" c="green.5" fw={500}>
+															{stat.change}
+														</Text>
+													</Group>
+												)}
+											</Stack>
+										</Card>
+									</Grid.Col>
+								);
+							})}
 						</Grid>
 
 						<Title order={2} size="h3" c="dark.0" fw={600} mb="md">
@@ -369,16 +407,22 @@ function SupabaseTheme() {
 								<Grid.Col key={entity.id} span={4}>
 									<Card
 										p={0}
-										bg="dark.4"
+										bg="dark.7"
 										radius="lg"
 										style={{
-											border: "1px solid var(--mantine-color-dark-3)",
+											border: "1px solid rgba(255, 255, 255, 0.08)",
 											cursor: "pointer",
-											transition: "all 0.2s",
+											transition: "all 0.25s ease",
 											overflow: "hidden",
-											"&:hover": {
-												borderColor: "var(--mantine-color-green-5)",
-												transform: "translateY(-2px)",
+										}}
+										styles={{
+											root: {
+												"&:hover": {
+													transform: "translateY(-4px)",
+													boxShadow:
+														"0 12px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(16, 185, 129, 0.2)",
+													border: "1px solid rgba(16, 185, 129, 0.3)",
+												},
 											},
 										}}
 									>
