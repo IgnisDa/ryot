@@ -180,6 +180,7 @@ const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
+	name: z.string().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	provider: z.nativeEnum(IntegrationProvider),
@@ -454,6 +455,7 @@ const CreateIntegrationModal = (props: {
 							value: is,
 						}))}
 					/>
+					<TextInput name="name" label="Name" />
 					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
