@@ -2792,7 +2792,6 @@ pub async fn metadata_list(
             avg_rating_col,
         )
         .group_by(metadata::Column::Id)
-        .group_by(user_to_entity::Column::MediaReason)
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .apply_if(input.lot, |query, v| {
             query.filter(metadata::Column::Lot.eq(v))
