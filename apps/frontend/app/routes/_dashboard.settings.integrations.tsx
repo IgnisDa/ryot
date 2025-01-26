@@ -220,6 +220,7 @@ const deleteSchema = z.object({
 
 const updateSchema = z.object({
 	integrationId: z.string(),
+	name: z.string().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zodCheckboxAsString.optional(),
@@ -693,6 +694,11 @@ const UpdateIntegrationModal = (props: {
 						defaultValue={props.updateIntegrationData.id}
 					/>
 					<Stack>
+						<TextInput
+							name="name"
+							label="Name"
+							defaultValue={props.updateIntegrationData.name || undefined}
+						/>
 						{!NO_PROGRESS_ADJUSTMENT.includes(
 							props.updateIntegrationData.provider,
 						) ? (
