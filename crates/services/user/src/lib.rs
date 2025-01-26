@@ -697,6 +697,7 @@ impl UserService {
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
+            .order_by_desc(integration::Column::CreatedOn)
             .all(&self.0.db)
             .await?;
         Ok(integrations)
