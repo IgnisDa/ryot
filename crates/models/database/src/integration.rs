@@ -14,16 +14,17 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip_input)]
     pub id: String,
-    pub minimum_progress: Option<Decimal>,
-    pub maximum_progress: Option<Decimal>,
     #[graphql(skip)]
     pub user_id: String,
     pub lot: IntegrationLot,
-    pub provider: IntegrationProvider,
-    pub sync_to_owned_collection: Option<bool>,
-    pub is_disabled: Option<bool>,
     #[graphql(skip_input)]
+    pub name: Option<String>,
     pub created_on: DateTimeUtc,
+    pub is_disabled: Option<bool>,
+    pub provider: IntegrationProvider,
+    pub minimum_progress: Option<Decimal>,
+    pub maximum_progress: Option<Decimal>,
+    pub sync_to_owned_collection: Option<bool>,
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
