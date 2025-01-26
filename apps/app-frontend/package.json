@@ -28,6 +28,7 @@
 		"class-variance-authority": "0.7.1",
 		"hono": "4.12.1",
 		"lucide-react": "0.575.0",
+		"radix-ui": "1.4.3",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
 		"tailwind-merge": "3.5.0",
