@@ -1136,10 +1136,10 @@ pub struct GenreDetailsInput {
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum CollectionContentsSortBy {
+    Date,
     Title,
     #[default]
     LastUpdatedOn,
-    Date,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
