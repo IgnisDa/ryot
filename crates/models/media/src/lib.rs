@@ -1138,6 +1138,7 @@ pub struct GenreDetailsInput {
 pub enum CollectionContentsSortBy {
     Date,
     Title,
+    Random,
     #[default]
     LastUpdatedOn,
 }

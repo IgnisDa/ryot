@@ -230,20 +230,21 @@ impl CollectionService {
                 })
                 .order_by(
                     match sort.by {
+                        CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                         CollectionContentsSortBy::LastUpdatedOn => {
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
+                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
+                                .into(),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
+                        ])),
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
                             Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
                             Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
                                 .into(),
                             Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
                             Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
-                        ])),
-                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
                         ])),
                     },
                     graphql_to_db_order(sort.order),

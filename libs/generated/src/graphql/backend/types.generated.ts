@@ -154,6 +154,7 @@ export type CollectionContentsInput = {
 export enum CollectionContentsSortBy {
   Date = 'DATE',
   LastUpdatedOn = 'LAST_UPDATED_ON',
+  Random = 'RANDOM',
   Title = 'TITLE'
 }
 
