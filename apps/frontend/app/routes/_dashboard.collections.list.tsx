@@ -510,7 +510,7 @@ const CreateOrUpdateModal = (props: {
 		>
 			<Stack>
 				<Title order={3}>
-					{props.toUpdateCollection ? "Update" : "Create"} collection
+					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
 				</Title>
 				<TextInput
 					label="Name"
