@@ -1263,12 +1263,13 @@ pub enum GraphqlSortOrder {
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortBy {
-    LastUpdated,
     Title,
-    #[default]
-    ReleaseDate,
     LastSeen,
     UserRating,
+    #[default]
+    ReleaseDate,
+    LastUpdated,
+    TimesConsumed,
     ProviderRating,
 }
 
