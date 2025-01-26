@@ -180,6 +180,7 @@ const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
+	name: z.string().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	provider: z.nativeEnum(IntegrationProvider),
@@ -220,6 +221,7 @@ const deleteSchema = z.object({
 
 const updateSchema = z.object({
 	integrationId: z.string(),
+	name: z.string().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zodCheckboxAsString.optional(),
@@ -344,7 +346,8 @@ const DisplayIntegration = (props: {
 					<Box>
 						<Group gap={4}>
 							<Text size="sm" fw="bold">
-								{changeCase(props.integration.provider)}
+								{props.integration.name ||
+									changeCase(props.integration.provider)}
 							</Text>
 							{props.integration.isDisabled ? (
 								<Text size="xs">(Paused)</Text>
@@ -448,10 +451,11 @@ const CreateIntegrationModal = (props: {
 						label="Select a provider"
 						onChange={(e) => setProvider(e as IntegrationProvider)}
 						data={Object.values(IntegrationProvider).map((is) => ({
-							label: changeCase(is),
 							value: is,
+							label: changeCase(is),
 						}))}
 					/>
+					<TextInput name="name" label="Name" />
 					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
@@ -692,6 +696,11 @@ const UpdateIntegrationModal = (props: {
 						defaultValue={props.updateIntegrationData.id}
 					/>
 					<Stack>
+						<TextInput
+							name="name"
+							label="Name"
+							defaultValue={props.updateIntegrationData.name || undefined}
+						/>
 						{!NO_PROGRESS_ADJUSTMENT.includes(
 							props.updateIntegrationData.provider,
 						) ? (

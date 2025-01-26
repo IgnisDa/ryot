@@ -7,18 +7,19 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum Integration {
-    Table,
     Id,
     Lot,
+    Name,
+    Table,
+    UserId,
     Provider,
     CreatedOn,
-    LastTriggeredOn,
-    ProviderSpecifics,
-    UserId,
-    SyncToOwnedCollection,
+    IsDisabled,
     MinimumProgress,
     MaximumProgress,
-    IsDisabled,
+    LastTriggeredOn,
+    ProviderSpecifics,
+    SyncToOwnedCollection,
 }
 
 #[async_trait::async_trait]
@@ -49,6 +50,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::MaximumProgress).decimal())
                     .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
+                    .col(ColumnDef::new(Integration::Name).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")

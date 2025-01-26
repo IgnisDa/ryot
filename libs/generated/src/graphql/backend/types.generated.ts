@@ -305,6 +305,7 @@ export type CreateReviewCommentInput = {
 export type CreateUserIntegrationInput = {
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
   provider: IntegrationProvider;
   providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
   syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
@@ -899,6 +900,7 @@ export type Integration = {
   lot: IntegrationLot;
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
   provider: IntegrationProvider;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
 };
@@ -2309,6 +2311,7 @@ export type UpdateUserIntegrationInput = {
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
   syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
