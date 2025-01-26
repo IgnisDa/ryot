@@ -19,13 +19,13 @@ export interface SandboxResult {
 }
 
 export type ApiSuccess<T> = {
-	success: true;
 	data: T;
+	success: true;
 };
 
 export type ApiFailure = {
-	success: false;
 	error: string;
+	success: false;
 };
 
 export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
