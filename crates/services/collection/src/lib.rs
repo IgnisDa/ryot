@@ -17,7 +17,8 @@ use database_models::{
 };
 use database_utils::{ilike_sql, item_reviews};
 use dependent_models::{
-    ApplicationCacheValue, CollectionContents, SearchResults, UserCollectionsListResponse,
+    ApplicationCacheValue, CollectionContents, CollectionContentsResponse, SearchResults,
+    UserCollectionsListResponse,
 };
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
@@ -151,7 +152,7 @@ impl CollectionService {
     pub async fn collection_contents(
         &self,
         input: CollectionContentsInput,
-    ) -> Result<CollectionContents> {
+    ) -> Result<CollectionContentsResponse> {
         let take = input
             .search
             .clone()

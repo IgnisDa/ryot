@@ -22,7 +22,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
     pub entity_id: String,
     pub entity_lot: EntityLot,
@@ -888,7 +888,7 @@ pub struct IntegrationProviderSpecifics {
     pub youtube_music_auth_cookie: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
     pub is_spoiler: bool,
@@ -1138,7 +1138,7 @@ pub struct GenreDetailsInput {
     pub page: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum CollectionContentsSortBy {
     Date,
     Title,
@@ -1147,13 +1147,13 @@ pub enum CollectionContentsSortBy {
     LastUpdatedOn,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
     pub entity_lot: Option<EntityLot>,
     pub metadata_lot: Option<MediaLot>,
 }
 
-#[derive(Debug, InputObject)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject)]
 pub struct CollectionContentsInput {
     pub collection_id: String,
     pub search: Option<SearchInput>,
@@ -1259,11 +1259,11 @@ pub struct GraphqlMetadataDetails {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum GraphqlSortOrder {
-    Desc,
     #[default]
     Asc,
+    Desc,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -1285,15 +1285,15 @@ pub enum PersonAndMetadataGroupsSortBy {
     MediaItems,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
 #[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 pub struct SortInput<T: InputType + Default> {
     #[graphql(default)]
-    pub order: GraphqlSortOrder,
-    #[graphql(default)]
     pub by: T,
+    #[graphql(default)]
+    pub order: GraphqlSortOrder,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
@@ -1503,6 +1503,7 @@ pub enum ApplicationCacheKey {
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
+    UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }

@@ -161,12 +161,12 @@ pub enum UserDetailsResult {
     Error(UserDetailsError),
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
+    pub user: user::Model,
+    pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,
     pub results: SearchResults<EntityWithLot>,
-    pub reviews: Vec<ReviewItem>,
-    pub user: user::Model,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -459,6 +459,7 @@ pub struct EmptyCacheValue {
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type CollectionContentsResponse = CollectionContents;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
@@ -479,6 +480,7 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    UserCollectionContents(CollectionContentsResponse),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }

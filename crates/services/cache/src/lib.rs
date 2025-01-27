@@ -38,7 +38,8 @@ impl CacheService {
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
-            ApplicationCacheKey::UserAnalytics { .. } => 2,
+            ApplicationCacheKey::UserAnalytics { .. }
+            | ApplicationCacheKey::UserCollectionContents { .. } => 2,
 
             ApplicationCacheKey::UserCollectionsList { .. }
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
