@@ -4,7 +4,6 @@ import {
 	Alert,
 	Anchor,
 	Avatar,
-	Box,
 	Center,
 	Checkbox,
 	Container,
@@ -65,7 +64,11 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput, FiltersModal } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
+	FiltersModal,
+} from "~/components/common";
 import {
 	dayjsLib,
 	getExerciseDetailsPath,
@@ -277,22 +280,22 @@ export default function Page() {
 						) : null}
 						{loaderData.userExercisesList.response.details.total > 0 ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{loaderData.userExercisesList.response.details.total}
-									</Text>{" "}
-									items found
-									{allowAddingExerciseToWorkout ? (
-										<>
-											{" "}
-											and{" "}
-											<Text display="inline" fw="bold">
-												{selectedExercises.length}
-											</Text>{" "}
-											selected
-										</>
-									) : null}
-								</Box>
+								<DisplayListDetailsAndRefresh
+									cacheId={loaderData.userExercisesList.cacheId}
+									total={loaderData.userExercisesList.response.details.total}
+									rightSection={
+										allowAddingExerciseToWorkout ? (
+											<>
+												{" "}
+												and{" "}
+												<Text display="inline" fw="bold">
+													{selectedExercises.length}
+												</Text>{" "}
+												selected
+											</>
+										) : null
+									}
+								/>
 								<SimpleGrid cols={{ md: 2, lg: 3 }}>
 									{loaderData.userExercisesList.response.items.map(
 										(exercise) => (

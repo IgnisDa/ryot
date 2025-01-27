@@ -1324,6 +1324,7 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId: string;
+	rightSection?: ReactNode;
 }) => {
 	const submit = useConfirmSubmit();
 
@@ -1334,6 +1335,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 					{props.total}
 				</Text>{" "}
 				items found
+				{props.rightSection}
 			</Box>
 			<Form
 				replace
