@@ -7,16 +7,16 @@ use common_models::{
 };
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataListResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataListResponse, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput, MetadataListInput,
+    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput,
     MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMetadataListInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -86,14 +86,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the media items related to a user for a specific media type.
-    async fn metadata_list(
+    async fn user_metadata_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: MetadataListInput,
-    ) -> Result<CachedResponse<MetadataListResponse>> {
+        input: UserMetadataListInput,
+    ) -> Result<CachedResponse<UserMetadataListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_list(user_id, input).await
+        service.user_metadata_list(user_id, input).await
     }
 
     /// Search for a list of media for a given type.

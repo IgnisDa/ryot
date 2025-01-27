@@ -63,7 +63,7 @@ pub struct SearchResults<T: OutputType> {
     name = "CachedCollectionContentsResponse",
     params(CollectionContentsResponse)
 ))]
-#[graphql(concrete(name = "CachedMetadataListResponse", params(MetadataListResponse)))]
+#[graphql(concrete(name = "CachedMetadataListResponse", params(UserMetadataListResponse)))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
     pub cache_id: Uuid,
@@ -465,7 +465,7 @@ pub struct EmptyCacheValue {
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type MetadataListResponse = SearchResults<String>;
+pub type UserMetadataListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
@@ -479,12 +479,12 @@ pub enum ApplicationCacheValue {
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
-    MetadataList(MetadataListResponse),
     PeopleSearch(PeopleSearchResponse),
     ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
+    UserMetadataList(UserMetadataListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),

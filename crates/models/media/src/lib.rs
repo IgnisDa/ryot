@@ -1316,7 +1316,7 @@ pub struct MediaFilter {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct MetadataListInput {
+pub struct UserMetadataListInput {
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
     pub search: Option<SearchInput>,
@@ -1498,11 +1498,11 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
-    MetadataList(UserLevelCacheKey<MetadataListInput>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
+    UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),

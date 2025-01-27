@@ -1147,14 +1147,6 @@ export type MetadataGroupsListInput = {
   sort?: InputMaybe<PersonSortInput>;
 };
 
-export type MetadataListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  lot?: InputMaybe<MediaLot>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<MediaSortInput>;
-};
-
 export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
   lot: MediaLot;
@@ -1858,8 +1850,6 @@ export type QueryRoot = {
   metadataGroupSearch: MetadataGroupSearchResults;
   /** Get paginated list of metadata groups. */
   metadataGroupsList: IdResults;
-  /** Get all the media items related to a user for a specific media type. */
-  metadataList: CachedMetadataListResponse;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
@@ -1896,6 +1886,8 @@ export type QueryRoot = {
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
+  /** Get all the media items related to a user for a specific media type. */
+  userMetadataList: CachedMetadataListResponse;
   /** Get metadata recommendations for the currently logged in user. */
   userMetadataRecommendations: CachedUserMetadataRecommendationsResponse;
   /** Get all the notification platforms for the currently logged in user. */
@@ -1974,11 +1966,6 @@ export type QueryRootMetadataGroupsListArgs = {
 };
 
 
-export type QueryRootMetadataListArgs = {
-  input: MetadataListInput;
-};
-
-
 export type QueryRootMetadataPartialDetailsArgs = {
   metadataId: Scalars['String']['input'];
 };
@@ -2041,6 +2028,11 @@ export type QueryRootUserMetadataDetailsArgs = {
 
 export type QueryRootUserMetadataGroupDetailsArgs = {
   metadataGroupId: Scalars['String']['input'];
+};
+
+
+export type QueryRootUserMetadataListArgs = {
+  input: UserMetadataListInput;
 };
 
 
@@ -2798,6 +2790,14 @@ export type UserMetadataGroupDetails = {
   collections: Array<Collection>;
   recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
+};
+
+export type UserMetadataListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  lot?: InputMaybe<MediaLot>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<MediaSortInput>;
 };
 
 export type UserNotification = {

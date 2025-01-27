@@ -35,7 +35,7 @@ impl CacheService {
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::UserAnalytics { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
-            | ApplicationCacheKey::MetadataList { .. }
+            | ApplicationCacheKey::UserMetadataList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }

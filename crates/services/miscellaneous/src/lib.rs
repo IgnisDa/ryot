@@ -42,9 +42,9 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails,
-    MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse, MetadataListResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails,
+    MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
+    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserMetadataListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -55,9 +55,9 @@ use dependent_utils::{
     get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
     get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
     handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
-    metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
+    metadata_images_as_urls, people_list, post_review, progress_update,
     refresh_collection_to_entity_association, remove_entity_from_collection,
-    update_metadata_and_notify_users,
+    update_metadata_and_notify_users, user_metadata_list,
 };
 use either::Either;
 use enum_models::{
@@ -74,13 +74,13 @@ use media_models::{
     GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
     MarkEntityAsPartialInput, MediaAssociatedPersonStateChanges, MetadataCreator,
     MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
-    MetadataListInput, MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
     PartialMetadataWithoutId, PeopleListInput, PersonDetailsGroupedByRole,
     PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
     UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    UserMetadataDetailsShowSeasonProgress, UserMetadataListInput, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -891,12 +891,12 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(events)
     }
 
-    pub async fn metadata_list(
+    pub async fn user_metadata_list(
         &self,
         user_id: String,
-        input: MetadataListInput,
-    ) -> Result<CachedResponse<MetadataListResponse>> {
-        metadata_list(&user_id, input, &self.0).await
+        input: UserMetadataListInput,
+    ) -> Result<CachedResponse<UserMetadataListResponse>> {
+        user_metadata_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_bulk_progress_update(

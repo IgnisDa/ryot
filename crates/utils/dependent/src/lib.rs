@@ -31,7 +31,7 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheValue, CachedResponse, EmptyCacheValue, ImportCompletedItem, ImportResult,
-    MetadataListResponse, SearchResults,
+    SearchResults, UserMetadataListResponse,
 };
 use either::Either;
 use enum_models::{
@@ -53,12 +53,13 @@ use itertools::Itertools;
 use media_models::{
     ApplicationCacheKey, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy,
-    MetadataDetails, MetadataGroupsListInput, MetadataImage, MetadataListInput, PartialMetadata,
+    MetadataDetails, MetadataGroupsListInput, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput,
     PersonAndMetadataGroupsSortBy, ProgressUpdateError, ProgressUpdateErrorVariant,
     ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    UserMetadataListInput,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -2749,17 +2750,17 @@ pub async fn remove_entity_from_collection(
     Ok(StringIdObject { id: collect.id })
 }
 
-pub async fn metadata_list(
+pub async fn user_metadata_list(
     user_id: &String,
-    input: MetadataListInput,
+    input: UserMetadataListInput,
     ss: &Arc<SupportingService>,
-) -> Result<CachedResponse<MetadataListResponse>> {
+) -> Result<CachedResponse<UserMetadataListResponse>> {
     let cc = &ss.cache_service;
-    let key = ApplicationCacheKey::MetadataList(UserLevelCacheKey {
+    let key = ApplicationCacheKey::UserMetadataList(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
     });
-    if let Some((id, cached)) = cc.get_value::<MetadataListResponse>(key.clone()).await {
+    if let Some((id, cached)) = cc.get_value::<UserMetadataListResponse>(key.clone()).await {
         return Ok(CachedResponse {
             cache_id: id,
             response: cached,
@@ -2927,7 +2928,10 @@ pub async fn metadata_list(
         },
     };
     let cache_id = cc
-        .set_key(key, ApplicationCacheValue::MetadataList(response.clone()))
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMetadataList(response.clone()),
+        )
         .await?;
     Ok(CachedResponse { cache_id, response })
 }

@@ -353,8 +353,8 @@ query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
   }
 }
 
-query MetadataList($input: MetadataListInput!) {
-  metadataList(input: $input) {
+query UserMetadataList($input: UserMetadataListInput!) {
+  userMetadataList(input: $input) {
     cacheId
     response {
       items

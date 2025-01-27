@@ -15,8 +15,8 @@ use database_utils::{
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use dependent_utils::{
-    exercises_list, metadata_groups_list, metadata_list, people_list, user_workout_templates_list,
-    user_workouts_list,
+    exercises_list, metadata_groups_list, people_list, user_metadata_list,
+    user_workout_templates_list, user_workouts_list,
 };
 use enum_models::EntityLot;
 use fitness_models::{ExercisesListInput, UserMeasurementsListInput};
@@ -24,8 +24,8 @@ use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    ImportOrExportPersonItem, MetadataGroupsListInput, MetadataListInput, PeopleListInput,
-    ReviewItem,
+    ImportOrExportPersonItem, MetadataGroupsListInput, PeopleListInput, ReviewItem,
+    UserMetadataListInput,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -179,9 +179,9 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let related_metadata = metadata_list(
+            let related_metadata = user_metadata_list(
                 user_id,
-                MetadataListInput {
+                UserMetadataListInput {
                     search: Some(SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
