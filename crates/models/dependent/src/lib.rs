@@ -227,7 +227,6 @@ pub struct ExerciseFilters {
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParameters {
-    pub download_required: bool,
     /// All filters applicable to an exercises query.
     pub filters: ExerciseFilters,
     /// Exercise type mapped to the personal bests possible.

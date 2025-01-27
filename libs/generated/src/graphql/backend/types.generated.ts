@@ -637,7 +637,6 @@ export enum ExerciseMuscle {
 
 export type ExerciseParameters = {
   __typename?: 'ExerciseParameters';
-  downloadRequired: Scalars['Boolean']['output'];
   /** All filters applicable to an exercises query. */
   filters: ExerciseFilters;
   /** Exercise type mapped to the personal bests possible. */

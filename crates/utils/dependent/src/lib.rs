@@ -2941,6 +2941,7 @@ pub async fn user_metadata_groups_list(
     ss: &Arc<SupportingService>,
     input: UserMetadataGroupsListInput,
 ) -> Result<SearchResults<String>> {
+    // TODO: add caching
     let page: u64 = input
         .search
         .clone()
@@ -3018,6 +3019,7 @@ pub async fn user_people_list(
     input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
+    // TODO: add caching
     let page: u64 = input
         .search
         .clone()

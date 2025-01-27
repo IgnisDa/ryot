@@ -306,18 +306,17 @@ query CoreDetails {
       }
     }
     exerciseParameters {
-      downloadRequired
+      lotMapping {
+        lot
+        bests
+      }
       filters {
         type
         level
         force
+        muscle
         mechanic
         equipment
-        muscle
-      }
-      lotMapping {
-        lot
-        bests
       }
     }
   }

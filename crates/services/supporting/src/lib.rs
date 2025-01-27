@@ -10,7 +10,6 @@ use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
     METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
-use database_models::prelude::Exercise;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
@@ -25,7 +24,7 @@ use file_storage_service::FileStorageService;
 use itertools::Itertools;
 use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
-use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
+use sea_orm::{DatabaseConnection, Iterable};
 use serde::{Deserialize, Serialize};
 use unkey::{models::VerifyKeyRequest, Client};
 
@@ -134,7 +133,6 @@ impl SupportingService {
         if files_enabled && !self.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
-        let download_required = Exercise::find().count(&self.db).await? == 0;
         let core_details = CoreDetails {
             page_size: PAGE_SIZE,
             version: APP_VERSION.to_owned(),
@@ -167,7 +165,6 @@ impl SupportingService {
                 })
                 .collect(),
             exercise_parameters: ExerciseParameters {
-                download_required,
                 filters: ExerciseFilters {
                     lot: ExerciseLot::iter().collect_vec(),
                     level: ExerciseLevel::iter().collect_vec(),
