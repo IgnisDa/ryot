@@ -2754,6 +2754,14 @@ pub async fn metadata_list(
     input: MetadataListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<MetadataListResponse> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::MetadataList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((id, cached)) = cc.get_value::<MetadataListResponse>(key.clone()).await {
+        return Ok(cached);
+    }
     let preferences = user_by_id(user_id, ss).await?.preferences;
 
     let avg_rating_col = "user_average_rating";
@@ -2903,7 +2911,8 @@ pub async fn metadata_list(
     for c in paginator.fetch_page(page - 1).await? {
         items.push(c);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -2912,8 +2921,11 @@ pub async fn metadata_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let id = cc
+        .set_key(key, ApplicationCacheValue::MetadataList(response.clone()))
+        .await;
+    Ok(response)
 }
 
 pub async fn metadata_groups_list(
