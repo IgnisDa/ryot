@@ -15,11 +15,11 @@ use database_utils::{
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use dependent_utils::{
-    exercises_list, user_metadata_groups_list, user_metadata_list, user_people_list,
+    user_exercises_list, user_metadata_groups_list, user_metadata_list, user_people_list,
     user_workout_templates_list, user_workouts_list,
 };
 use enum_models::EntityLot;
-use fitness_models::{ExercisesListInput, UserMeasurementsListInput};
+use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -432,9 +432,9 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let exercises = exercises_list(
+            let exercises = user_exercises_list(
                 user_id,
-                ExercisesListInput {
+                UserExercisesListInput {
                     search: SearchInput {
                         take: Some(1000),
                         page: Some(current_page),

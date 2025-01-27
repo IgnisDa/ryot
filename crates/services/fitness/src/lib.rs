@@ -21,14 +21,14 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, exercises_list, get_focused_workout_summary,
+    db_workout_to_workout_input, get_focused_workout_summary, user_exercises_list,
     user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
-    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
+    ExerciseAttributes, ExerciseCategory, GithubExercise, GithubExerciseAttributes,
+    ProcessedExercise, UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput,
+    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
 use futures::TryStreamExt;
@@ -227,12 +227,12 @@ impl FitnessService {
         user_workouts_list(&user_id, input, &self.0).await
     }
 
-    pub async fn exercises_list(
+    pub async fn user_exercises_list(
         &self,
         user_id: String,
-        input: ExercisesListInput,
+        input: UserExercisesListInput,
     ) -> Result<SearchResults<String>> {
-        exercises_list(&user_id, input, &self.0).await
+        user_exercises_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {

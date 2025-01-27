@@ -172,8 +172,8 @@ query ExerciseDetails($exerciseId: String!) {
   }
 }
 
-query ExercisesList($input: ExercisesListInput!) {
-  exercisesList(input: $input) {
+query UserExercisesList($input: UserExercisesListInput!) {
+  userExercisesList(input: $input) {
     items
     details {
       total

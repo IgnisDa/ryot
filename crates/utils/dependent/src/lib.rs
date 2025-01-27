@@ -40,8 +40,8 @@ use enum_models::{
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
-    ExerciseBestSetRecord, ExerciseSortBy, ExercisesListInput, ProcessedExercise,
-    UserExerciseInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+    ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
+    UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
@@ -3164,9 +3164,9 @@ pub async fn user_workout_templates_list(
     })
 }
 
-pub async fn exercises_list(
+pub async fn user_exercises_list(
     user_id: &String,
-    input: ExercisesListInput,
+    input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
     let user_id = user_id.to_owned();

@@ -8,7 +8,7 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExercisesListInput, UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput,
+    UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,
     UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::FitnessService;
@@ -47,14 +47,14 @@ impl FitnessQuery {
     }
 
     /// Get a paginated list of exercises in the database.
-    async fn exercises_list(
+    async fn user_exercises_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: ExercisesListInput,
+        input: UserExercisesListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.exercises_list(user_id, input).await
+        service.user_exercises_list(user_id, input).await
     }
 
     /// Get a paginated list of workouts done by the user.

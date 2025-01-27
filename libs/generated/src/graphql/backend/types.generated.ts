@@ -661,12 +661,6 @@ export enum ExerciseSource {
   Github = 'GITHUB'
 }
 
-export type ExercisesListInput = {
-  filter?: InputMaybe<ExerciseListFilter>;
-  search: SearchInput;
-  sortBy?: InputMaybe<ExerciseSortBy>;
-};
-
 export type ExportJob = {
   __typename?: 'ExportJob';
   endedAt: Scalars['DateTime']['output'];
@@ -1814,8 +1808,6 @@ export type QueryRoot = {
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
-  /** Get a paginated list of exercises in the database. */
-  exercisesList: IdResults;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
@@ -1858,6 +1850,8 @@ export type QueryRoot = {
   userDetails: UserDetailsResult;
   /** Get information about an exercise for a user. */
   userExerciseDetails: UserExerciseDetails;
+  /** Get a paginated list of exercises in the database. */
+  userExercisesList: IdResults;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
   /** Get all the integrations for the currently logged in user. */
@@ -1904,11 +1898,6 @@ export type QueryRootCollectionContentsArgs = {
 
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
-};
-
-
-export type QueryRootExercisesListArgs = {
-  input: ExercisesListInput;
 };
 
 
@@ -1989,6 +1978,11 @@ export type QueryRootUserCollectionsListArgs = {
 
 export type QueryRootUserExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
+};
+
+
+export type QueryRootUserExercisesListArgs = {
+  input: UserExercisesListInput;
 };
 
 
@@ -2405,6 +2399,12 @@ export type UserExerciseInput = {
   exerciseId: Scalars['String']['input'];
   notes: Array<Scalars['String']['input']>;
   sets: Array<UserWorkoutSetRecord>;
+};
+
+export type UserExercisesListInput = {
+  filter?: InputMaybe<ExerciseListFilter>;
+  search: SearchInput;
+  sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
 export type UserFeaturesEnabledPreferences = {
