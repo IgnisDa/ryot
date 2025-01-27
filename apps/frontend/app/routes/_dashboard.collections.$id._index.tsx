@@ -144,8 +144,8 @@ export default function Page() {
 				<Box>
 					<Title>{details.details.name}</Title>
 					<Text size="sm">
-						{details.results.details.total} items, created by{" "}
-						{details.user.name} {dayjsLib(details.details.createdOn).fromNow()}
+						{details.totalItems} items, created by {details.user.name}{" "}
+						{dayjsLib(details.details.createdOn).fromNow()}
 					</Text>
 				</Box>
 				<Text>{details.details.description}</Text>
