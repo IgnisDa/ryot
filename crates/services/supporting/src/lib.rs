@@ -5,7 +5,7 @@ use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
-use common_models::{ApplicationCacheKey, BackendError};
+use common_models::BackendError;
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
     METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
@@ -23,6 +23,7 @@ use enum_models::{
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
 use itertools::Itertools;
+use media_models::ApplicationCacheKey;
 use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};

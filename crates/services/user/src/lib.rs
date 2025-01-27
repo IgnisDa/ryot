@@ -4,7 +4,7 @@ use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
-use common_models::{ApplicationCacheKey, DefaultCollection, StringIdObject, UserLevelCacheKey};
+use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
@@ -26,7 +26,7 @@ use enum_models::{
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
 use media_models::{
-    AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
+    ApplicationCacheKey, AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
     CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
     LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
