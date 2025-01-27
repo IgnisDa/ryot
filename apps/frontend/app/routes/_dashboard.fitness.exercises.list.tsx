@@ -149,7 +149,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		userExercisesList.details.total,
+		userExercisesList.response.details.total,
 		query[pageQueryParam],
 	);
 	return { query, totalPages, cookieName, userExercisesList };
@@ -215,7 +215,7 @@ export default function Page() {
 
 	return (
 		<Container size="md">
-			<Stack gap="xl">
+			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Exercises</Title>
 					<ActionIcon
@@ -275,11 +275,11 @@ export default function Page() {
 								You are merging exercise: {mergingExercise}
 							</Alert>
 						) : null}
-						{loaderData.userExercisesList.details.total > 0 ? (
+						{loaderData.userExercisesList.response.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{loaderData.userExercisesList.details.total}
+										{loaderData.userExercisesList.response.details.total}
 									</Text>{" "}
 									items found
 									{allowAddingExerciseToWorkout ? (
@@ -294,18 +294,20 @@ export default function Page() {
 									) : null}
 								</Box>
 								<SimpleGrid cols={{ md: 2, lg: 3 }}>
-									{loaderData.userExercisesList.items.map((exercise) => (
-										<ExerciseItemDisplay
-											key={exercise}
-											exerciseId={exercise}
-											mergingExercise={mergingExercise}
-											setMergingExercise={setMergingExercise}
-											setSelectedExercises={setSelectedExercises}
-											allowAddingExerciseToWorkout={
-												allowAddingExerciseToWorkout
-											}
-										/>
-									))}
+									{loaderData.userExercisesList.response.items.map(
+										(exercise) => (
+											<ExerciseItemDisplay
+												key={exercise}
+												exerciseId={exercise}
+												mergingExercise={mergingExercise}
+												setMergingExercise={setMergingExercise}
+												setSelectedExercises={setSelectedExercises}
+												allowAddingExerciseToWorkout={
+													allowAddingExerciseToWorkout
+												}
+											/>
+										),
+									)}
 								</SimpleGrid>
 							</>
 						) : (
