@@ -53,12 +53,12 @@ use itertools::Itertools;
 use media_models::{
     ApplicationCacheKey, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy,
-    MetadataDetails, MetadataGroupsListInput, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
-    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    MetadataDetails, MetadataImage, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UserMetadataGroupsListInput,
     UserMetadataListInput, UserPeopleListInput,
 };
 use migrations::{AliasedExercise, AliasedReview};
@@ -2936,10 +2936,10 @@ pub async fn user_metadata_list(
     Ok(CachedResponse { cache_id, response })
 }
 
-pub async fn metadata_groups_list(
+pub async fn user_metadata_groups_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
-    input: MetadataGroupsListInput,
+    input: UserMetadataGroupsListInput,
 ) -> Result<SearchResults<String>> {
     let page: u64 = input
         .search

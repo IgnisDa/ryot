@@ -1140,13 +1140,6 @@ export type MetadataGroupSourceLotMapping = {
   source: MediaSource;
 };
 
-export type MetadataGroupsListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<PersonSortInput>;
-};
-
 export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
   lot: MediaLot;
@@ -1841,8 +1834,6 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: MetadataGroupSearchResults;
-  /** Get paginated list of metadata groups. */
-  metadataGroupsList: IdResults;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
@@ -1877,6 +1868,8 @@ export type QueryRoot = {
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
+  /** Get paginated list of metadata groups. */
+  userMetadataGroupsList: IdResults;
   /** Get all the media items related to a user for a specific media type. */
   userMetadataList: CachedMetadataListResponse;
   /** Get metadata recommendations for the currently logged in user. */
@@ -1954,11 +1947,6 @@ export type QueryRootMetadataGroupSearchArgs = {
 };
 
 
-export type QueryRootMetadataGroupsListArgs = {
-  input: MetadataGroupsListInput;
-};
-
-
 export type QueryRootMetadataPartialDetailsArgs = {
   metadataId: Scalars['String']['input'];
 };
@@ -2016,6 +2004,11 @@ export type QueryRootUserMetadataDetailsArgs = {
 
 export type QueryRootUserMetadataGroupDetailsArgs = {
   metadataGroupId: Scalars['String']['input'];
+};
+
+
+export type QueryRootUserMetadataGroupsListArgs = {
+  input: UserMetadataGroupsListInput;
 };
 
 
@@ -2783,6 +2776,13 @@ export type UserMetadataGroupDetails = {
   collections: Array<Collection>;
   recentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
+};
+
+export type UserMetadataGroupsListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<PersonSortInput>;
 };
 
 export type UserMetadataListInput = {

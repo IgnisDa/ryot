@@ -54,10 +54,10 @@ use dependent_utils::{
     get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
     get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
     get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
-    metadata_images_as_urls, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
-    update_metadata_and_notify_users, user_metadata_list, user_people_list,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, refresh_collection_to_entity_association,
+    remove_entity_from_collection, update_metadata_and_notify_users, user_metadata_groups_list,
+    user_metadata_list, user_people_list,
 };
 use either::Either;
 use enum_models::{
@@ -73,14 +73,15 @@ use media_models::{
     GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
     GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
     MarkEntityAsPartialInput, MediaAssociatedPersonStateChanges, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupsListInput, MetadataImage,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
-    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataImage, MetadataPartialDetails,
+    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserMetadataListInput, UserPeopleListInput, UserUpcomingCalendarEventInput,
+    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -1824,12 +1825,12 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
-    pub async fn metadata_groups_list(
+    pub async fn user_metadata_groups_list(
         &self,
         user_id: String,
-        input: MetadataGroupsListInput,
+        input: UserMetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        metadata_groups_list(&user_id, &self.0, input).await
+        user_metadata_groups_list(&user_id, &self.0, input).await
     }
 
     pub async fn user_people_list(

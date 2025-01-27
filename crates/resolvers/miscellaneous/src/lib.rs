@@ -13,9 +13,9 @@ use dependent_models::{
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput,
-    MetadataPartialDetails, ProgressUpdateInput, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMetadataListInput, UserPeopleListInput,
+    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
     UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
@@ -118,14 +118,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get paginated list of metadata groups.
-    async fn metadata_groups_list(
+    async fn user_metadata_groups_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: MetadataGroupsListInput,
+        input: UserMetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_groups_list(user_id, input).await
+        service.user_metadata_groups_list(user_id, input).await
     }
 
     /// Get details that can be displayed to a user for a metadata group.

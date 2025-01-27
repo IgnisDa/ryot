@@ -118,13 +118,13 @@ query MetadataPartialDetails($metadataId: String!) {
   }
 }
 
-query MetadataGroupsList($input: MetadataGroupsListInput!) {
-  metadataGroupsList(input: $input) {
+query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
+  userMetadataGroupsList(input: $input) {
+    items
     details {
       total
       nextPage
     }
-    items
   }
 }
 
