@@ -132,7 +132,7 @@ export default function Page() {
 
 	const isDashboardEmpty =
 		loaderData.userUpcomingCalendarEvents.length +
-			loaderData.inProgressCollectionContents.results.items.length +
+			loaderData.inProgressCollectionContents.response.results.items.length +
 			loaderData.userMetadataRecommendations.response.length +
 			Number(Boolean(latestUserSummary)) ===
 		0;
@@ -176,12 +176,12 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
-							loaderData.inProgressCollectionContents.results.items.length >
-							0 ? (
+							loaderData.inProgressCollectionContents.response.results.items
+								.length > 0 ? (
 								<Section key={v} lot={v}>
 									<SectionTitle text="In Progress" />
 									<ApplicationGrid>
-										{loaderData.inProgressCollectionContents.results.items.map(
+										{loaderData.inProgressCollectionContents.response.results.items.map(
 											(lm) => (
 												<DisplayCollectionEntity
 													key={lm.entityId}

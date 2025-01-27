@@ -298,7 +298,7 @@ const DisplayCollection = (props: {
 				},
 			);
 			const images = [];
-			for (const content of collectionContents.results.items) {
+			for (const content of collectionContents.response.results.items) {
 				if (images.length === 5) break;
 				if (content.entityLot !== EntityLot.Metadata) continue;
 				const { image } = await queryClient.ensureQueryData(

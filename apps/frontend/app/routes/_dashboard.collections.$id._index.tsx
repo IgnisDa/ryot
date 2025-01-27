@@ -104,14 +104,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		collectionContents.results.details.total,
+		collectionContents.response.results.details.total,
 		query[pageQueryParam] || 1,
 	);
 	return { collectionId, query, collectionContents, cookieName, totalPages };
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
-	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
+	return [
+		{ title: `${data?.collectionContents.response.details.name} | Ryot` },
+	];
 };
 
 export default function Page() {
@@ -128,10 +130,11 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const details = loaderData.collectionContents.response;
 	const colDetails = {
 		id: loaderData.collectionId,
-		name: loaderData.collectionContents.details.name,
-		creatorUserId: loaderData.collectionContents.user.id,
+		name: details.details.name,
+		creatorUserId: details.user.id,
 	};
 	const state = bulkEditingCollection.state;
 
@@ -139,16 +142,13 @@ export default function Page() {
 		<Container>
 			<Stack>
 				<Box>
-					<Title>{loaderData.collectionContents.details.name}</Title>
+					<Title>{details.details.name}</Title>
 					<Text size="sm">
-						{loaderData.collectionContents.results.details.total} items, created
-						by {loaderData.collectionContents.user.name}{" "}
-						{dayjsLib(
-							loaderData.collectionContents.details.createdOn,
-						).fromNow()}
+						{details.results.details.total} items, created by{" "}
+						{details.user.name} {dayjsLib(details.details.createdOn).fromNow()}
 					</Text>
 				</Box>
-				<Text>{loaderData.collectionContents.details.description}</Text>
+				<Text>{details.details.description}</Text>
 				<Tabs value={tab} onChange={setTab}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
@@ -198,9 +198,9 @@ export default function Page() {
 									<FiltersModalForm />
 								</FiltersModal>
 							</Group>
-							{loaderData.collectionContents.results.items.length > 0 ? (
+							{details.results.items.length > 0 ? (
 								<ApplicationGrid>
-									{loaderData.collectionContents.results.items.map((lm) => {
+									{details.results.items.map((lm) => {
 										const isAdded = bulkEditingCollection.isAdded(lm);
 										return (
 											<DisplayCollectionEntity
@@ -228,7 +228,7 @@ export default function Page() {
 							) : (
 								<Text>You have not added anything this collection</Text>
 							)}
-							{loaderData.collectionContents.details ? (
+							{details.details ? (
 								<Center>
 									<Pagination
 										size="sm"
@@ -247,9 +247,9 @@ export default function Page() {
 								w="100%"
 								onClick={() => {
 									setEntityToReview({
-										entityId: loaderData.collectionId,
 										entityLot: EntityLot.Collection,
-										entityTitle: loaderData.collectionContents.details.name,
+										entityId: loaderData.collectionId,
+										entityTitle: details.details.name,
 									});
 								}}
 							>
@@ -273,9 +273,7 @@ export default function Page() {
 							<Button
 								w="100%"
 								variant="outline"
-								disabled={
-									loaderData.collectionContents.results.details.total === 0
-								}
+								disabled={details.results.details.total === 0}
 								onClick={() => {
 									bulkEditingCollection.start(colDetails, "remove");
 									setTab("contents");
@@ -287,15 +285,15 @@ export default function Page() {
 					</Tabs.Panel>
 					{!userPreferences.general.disableReviews ? (
 						<Tabs.Panel value="reviews">
-							{loaderData.collectionContents.reviews.length > 0 ? (
+							{details.reviews.length > 0 ? (
 								<Stack>
-									{loaderData.collectionContents.reviews.map((r) => (
+									{details.reviews.map((r) => (
 										<ReviewItemDisplay
-											title={loaderData.collectionContents.details.name}
 											review={r}
 											key={r.id}
-											entityId={loaderData.collectionId}
 											entityLot={EntityLot.Collection}
+											entityId={loaderData.collectionId}
+											title={details.details.name}
 										/>
 									))}
 								</Stack>

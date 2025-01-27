@@ -88,7 +88,7 @@ export const useBulkEditCollection = () => {
 											collectionId: bec.collection.id,
 										},
 									})
-									.then((r) => r.collectionContents.results.items),
+									.then((r) => r.collectionContents.response.results.items),
 							)
 							.with("add", () => {
 								const lot = Object.values(MediaLot).find((ml) =>
