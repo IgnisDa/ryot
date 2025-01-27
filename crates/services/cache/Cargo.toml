@@ -17,6 +17,7 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]
