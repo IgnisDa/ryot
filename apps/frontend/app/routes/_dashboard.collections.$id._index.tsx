@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Form, useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -31,7 +31,6 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
-	IconArrowsShuffle,
 	IconBucketDroplet,
 	IconFilter,
 	IconMessageCircle2,
@@ -42,21 +41,17 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { $path } from "remix-routes";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	ApplicationGrid,
 	DebouncedSearchInput,
 	DisplayCollectionEntity,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useConfirmSubmit,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
@@ -126,7 +121,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
-	const submit = useConfirmSubmit();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
@@ -205,36 +199,10 @@ export default function Page() {
 									<FiltersModalForm />
 								</FiltersModal>
 							</Group>
-							<Group justify="space-between">
-								<Box>
-									<Text display="inline" fw="bold">
-										{details.results.details.total}
-									</Text>{" "}
-									items found
-								</Box>
-								<Form
-									replace
-									method="POST"
-									onSubmit={(e) => submit(e)}
-									action={withQuery($path("/actions"), {
-										intent: "expireCacheKey",
-									})}
-								>
-									<input
-										type="hidden"
-										name="cacheId"
-										value={loaderData.collectionContents.cacheId}
-									/>
-									<Button
-										size="xs"
-										type="submit"
-										variant="subtle"
-										leftSection={<IconArrowsShuffle size={20} />}
-									>
-										Refresh
-									</Button>
-								</Form>
-							</Group>
+							<DisplayListDetailsAndRefresh
+								total={details.results.details.total}
+								cacheId={loaderData.collectionContents.cacheId}
+							/>
 							{details.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{details.results.items.map((lm) => {

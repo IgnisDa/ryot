@@ -59,6 +59,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
+	IconArrowsShuffle,
 	IconBarbell,
 	IconCheck,
 	IconEdit,
@@ -1317,5 +1318,41 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
+	);
+};
+
+export const DisplayListDetailsAndRefresh = (props: {
+	total: number;
+	cacheId: string;
+}) => {
+	const submit = useConfirmSubmit();
+
+	return (
+		<Group justify="space-between">
+			<Box>
+				<Text display="inline" fw="bold">
+					{props.total}
+				</Text>{" "}
+				items found
+			</Box>
+			<Form
+				replace
+				method="POST"
+				onSubmit={(e) => submit(e)}
+				action={withQuery($path("/actions"), {
+					intent: "expireCacheKey",
+				})}
+			>
+				<input type="hidden" name="cacheId" value={props.cacheId} />
+				<Button
+					size="xs"
+					type="submit"
+					variant="subtle"
+					leftSection={<IconArrowsShuffle size={20} />}
+				>
+					Refresh
+				</Button>
+			</Form>
+		</Group>
 	);
 };
