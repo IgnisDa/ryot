@@ -174,10 +174,13 @@ query ExerciseDetails($exerciseId: String!) {
 
 query UserExercisesList($input: UserExercisesListInput!) {
   userExercisesList(input: $input) {
-    items
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
   }
 }

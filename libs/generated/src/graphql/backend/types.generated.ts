@@ -1852,7 +1852,7 @@ export type QueryRoot = {
   /** Get information about an exercise for a user. */
   userExerciseDetails: UserExerciseDetails;
   /** Get a paginated list of exercises in the database. */
-  userExercisesList: IdResults;
+  userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
   /** Get all the integrations for the currently logged in user. */

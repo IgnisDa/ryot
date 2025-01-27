@@ -16,8 +16,8 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{
-    SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
-    UserWorkoutDetails, UserWorkoutTemplateDetails,
+    CachedResponse, SearchResults, UpdateCustomExerciseInput, UserExerciseDetails,
+    UserExercisesListResponse, UserWorkoutDetails, UserWorkoutTemplateDetails,
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
@@ -231,7 +231,7 @@ impl FitnessService {
         &self,
         user_id: String,
         input: UserExercisesListInput,
-    ) -> Result<UserExercisesListResponse> {
+    ) -> Result<CachedResponse<UserExercisesListResponse>> {
         user_exercises_list(&user_id, input, &self.0).await
     }
 

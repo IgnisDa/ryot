@@ -445,7 +445,7 @@ impl ExporterService {
                 &self.0,
             )
             .await?;
-            for exercise_id in exercises.items {
+            for exercise_id in exercises.response.items {
                 let reviews =
                     item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, &self.0)
                         .await?
@@ -473,7 +473,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = exercises.details.next_page {
+            if let Some(next_page) = exercises.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;

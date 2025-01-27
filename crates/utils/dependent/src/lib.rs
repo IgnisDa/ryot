@@ -3168,14 +3168,14 @@ pub async fn user_exercises_list(
     user_id: &String,
     input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
-) -> Result<UserExercisesListResponse> {
+) -> Result<CachedResponse<UserExercisesListResponse>> {
     let cc = &ss.cache_service;
     let key = ApplicationCacheKey::UserExercisesList(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
     });
-    if let Some((id, response)) = cc.get_value(key.clone()).await {
-        return Ok(response);
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
     }
     let user_id = user_id.to_owned();
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
@@ -3274,13 +3274,13 @@ pub async fn user_exercises_list(
             },
         },
     };
-    let id = cc
+    let cache_id = cc
         .set_key(
             key,
             ApplicationCacheValue::UserExercisesList(response.clone()),
         )
         .await?;
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn get_pending_notifications_for_user(
