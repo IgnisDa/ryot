@@ -167,6 +167,7 @@ pub enum UserDetailsResult {
 
 #[derive(Debug, SimpleObject, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
+    pub total_items: u64,
     pub user: user::Model,
     pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,

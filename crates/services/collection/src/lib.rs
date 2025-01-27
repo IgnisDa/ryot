@@ -288,11 +288,16 @@ impl CollectionService {
             &self.0,
         )
         .await?;
+        let total_items = CollectionToEntity::find()
+            .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
+            .count(&self.0.db)
+            .await?;
         let response = CollectionContents {
             user,
             reviews,
             results,
             details,
+            total_items,
         };
         let cache_id = cc
             .set_key(

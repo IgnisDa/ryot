@@ -236,12 +236,18 @@ query CollectionContents($input: CollectionContentsInput!) {
   collectionContents(input: $input) {
     cacheId
     response {
+      totalItems
       user {
         id
         name
       }
       reviews {
         ...ReviewItemPart
+      }
+      details {
+        name
+        createdOn
+        description
       }
       results {
         details {
@@ -252,11 +258,6 @@ query CollectionContents($input: CollectionContentsInput!) {
           entityId
           entityLot
         }
-      }
-      details {
-        name
-        createdOn
-        description
       }
     }
   }

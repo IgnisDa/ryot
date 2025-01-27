@@ -149,6 +149,7 @@ export type CollectionContents = {
   details: Collection;
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
+  totalItems: Scalars['Int']['output'];
   user: User;
 };
 
