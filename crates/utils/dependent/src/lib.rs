@@ -54,12 +54,12 @@ use media_models::{
     ApplicationCacheKey, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy,
     MetadataDetails, MetadataGroupsListInput, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput,
-    PersonAndMetadataGroupsSortBy, ProgressUpdateError, ProgressUpdateErrorVariant,
-    ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
-    UserMetadataListInput,
+    UserMetadataListInput, UserPeopleListInput,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -3013,9 +3013,9 @@ pub async fn metadata_groups_list(
     })
 }
 
-pub async fn people_list(
+pub async fn user_people_list(
     user_id: &String,
-    input: PeopleListInput,
+    input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
     let page: u64 = input

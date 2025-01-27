@@ -14,8 +14,8 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
     GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput,
-    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserMetadataListInput,
+    MetadataPartialDetails, ProgressUpdateInput, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMetadataListInput, UserPeopleListInput,
     UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
@@ -186,14 +186,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get paginated list of people.
-    async fn people_list(
+    async fn user_people_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: PeopleListInput,
+        input: UserPeopleListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.people_list(user_id, input).await
+        service.user_people_list(user_id, input).await
     }
 
     /// Search for a list of people from a given source.

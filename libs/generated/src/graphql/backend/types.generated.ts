@@ -1640,13 +1640,6 @@ export type PasswordUserInput = {
   username: Scalars['String']['input'];
 };
 
-export type PeopleListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<PersonSortInput>;
-};
-
 export type PeopleSearchInput = {
   search: SearchInput;
   source: MediaSource;
@@ -1854,8 +1847,6 @@ export type QueryRoot = {
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
   metadataSearch: MetadataSearchResults;
-  /** Get paginated list of people. */
-  peopleList: IdResults;
   /** Search for a list of people from a given source. */
   peopleSearch: PeopleSearchResults;
   /** Get details about a creator present in the database. */
@@ -1894,6 +1885,8 @@ export type QueryRoot = {
   userNotificationPlatforms: Array<NotificationPlatform>;
   /** Get all pending display notifications for the currently logged in user. */
   userPendingNotifications: Array<UserNotification>;
+  /** Get paginated list of people. */
+  userPeopleList: IdResults;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
   /** Get upcoming calendar events for the given filter. */
@@ -1976,11 +1969,6 @@ export type QueryRootMetadataSearchArgs = {
 };
 
 
-export type QueryRootPeopleListArgs = {
-  input: PeopleListInput;
-};
-
-
 export type QueryRootPeopleSearchArgs = {
   input: PeopleSearchInput;
 };
@@ -2033,6 +2021,11 @@ export type QueryRootUserMetadataGroupDetailsArgs = {
 
 export type QueryRootUserMetadataListArgs = {
   input: UserMetadataListInput;
+};
+
+
+export type QueryRootUserPeopleListArgs = {
+  input: UserPeopleListInput;
 };
 
 
@@ -2843,6 +2836,13 @@ export type UserOthersFeaturesEnabledPreferences = {
 export type UserOthersFeaturesEnabledPreferencesInput = {
   calendar: Scalars['Boolean']['input'];
   collections: Scalars['Boolean']['input'];
+};
+
+export type UserPeopleListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<PersonSortInput>;
 };
 
 export type UserPersonDetails = {

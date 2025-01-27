@@ -128,13 +128,13 @@ query MetadataGroupsList($input: MetadataGroupsListInput!) {
   }
 }
 
-query PeopleList($input: PeopleListInput!) {
-  peopleList(input: $input) {
+query UserPeopleList($input: UserPeopleListInput!) {
+  userPeopleList(input: $input) {
+    items
     details {
       total
       nextPage
     }
-    items
   }
 }
 

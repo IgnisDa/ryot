@@ -1325,7 +1325,7 @@ pub struct UserMetadataListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct PeopleListInput {
+pub struct UserPeopleListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
