@@ -73,7 +73,7 @@ impl UserService {
         match should_refresh {
             Some(true) => {}
             _ => {
-                if let Some(recommendations) = cc
+                if let Some((_id, recommendations)) = cc
                     .get_value::<UserMetadataRecommendationsResponse>(
                         metadata_recommendations_key.clone(),
                     )

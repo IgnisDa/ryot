@@ -1283,7 +1283,7 @@ async fn get_settings(
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
         .await;
-    let tmdb_settings = if let Some(setting) = maybe_settings {
+    let tmdb_settings = if let Some((_id, setting)) = maybe_settings {
         setting
     } else {
         #[derive(Debug, Serialize, Deserialize, Clone)]

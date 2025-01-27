@@ -127,7 +127,7 @@ impl SupportingService {
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
         let cc = &self.cache_service;
-        if let Some(cached) = cc.get_value(ApplicationCacheKey::CoreDetails).await {
+        if let Some((_id, cached)) = cc.get_value(ApplicationCacheKey::CoreDetails).await {
             return Ok(cached);
         }
         let mut files_enabled = self.config.file_storage.is_enabled();

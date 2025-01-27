@@ -86,7 +86,10 @@ pub async fn yank_progress(
         .cache_service
         .get_values(cache_keys.values().cloned().collect())
         .await
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(k, v)| (k, v.value))
+        .collect::<HashMap<_, _>>();
     let mut result = ImportResult::default();
     let mut items_to_cache = vec![];
     for (song_id, name) in songs_listened_to_today {

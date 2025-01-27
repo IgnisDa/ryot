@@ -5,7 +5,7 @@ use chrono::{Duration, Utc};
 use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
-use dependent_models::ApplicationCacheValue;
+use dependent_models::{ApplicationCacheValue, GetCacheKeyResponse};
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -109,7 +109,7 @@ impl CacheService {
     pub async fn get_values(
         &self,
         keys: Vec<ApplicationCacheKey>,
-    ) -> Result<HashMap<ApplicationCacheKey, ApplicationCacheValue>> {
+    ) -> Result<HashMap<ApplicationCacheKey, GetCacheKeyResponse>> {
         let caches = ApplicationCache::find()
             .filter(application_cache::Column::Key.is_in(keys))
             .all(&self.db)
@@ -125,17 +125,28 @@ impl CacheService {
                     continue;
                 }
             }
-            values.insert(cache.key, serde_json::from_value(cache.value)?);
+            values.insert(
+                cache.key,
+                GetCacheKeyResponse {
+                    id: cache.id,
+                    value: serde_json::from_value(cache.value)?,
+                },
+            );
         }
         Ok(values)
     }
 
-    pub async fn get_value<T: DeserializeOwned>(&self, key: ApplicationCacheKey) -> Option<T> {
+    pub async fn get_value<T: DeserializeOwned>(
+        &self,
+        key: ApplicationCacheKey,
+    ) -> Option<(Uuid, T)> {
         let caches = self.get_values(vec![key.clone()]).await.ok()?;
-        let db_value = serde_json::to_value(caches.get(&key)?).ok()?;
-        db_value
+        let value = caches.get(&key)?;
+        let db_value = serde_json::to_value(&value.value).ok()?;
+        let db_value = db_value
             .get(key.to_string())
-            .and_then(|v| serde_json::from_value::<T>(v.to_owned()).ok())
+            .and_then(|v| serde_json::from_value::<T>(v.to_owned()).ok())?;
+        Some((value.id, db_value))
     }
 
     pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {

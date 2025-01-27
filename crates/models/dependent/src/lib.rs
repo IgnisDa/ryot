@@ -478,3 +478,8 @@ pub enum ApplicationCacheValue {
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }
+
+pub struct GetCacheKeyResponse {
+    pub id: Uuid,
+    pub value: ApplicationCacheValue,
+}

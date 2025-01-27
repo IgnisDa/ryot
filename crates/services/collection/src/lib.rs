@@ -54,7 +54,7 @@ impl CollectionService {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![

@@ -1334,7 +1334,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1364,7 +1364,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1399,7 +1399,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();

@@ -179,7 +179,7 @@ impl ListennotesService {
         let maybe_settings = cc
             .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await;
-        let genres = if let Some(value) = maybe_settings {
+        let genres = if let Some((_id, value)) = maybe_settings {
             value
         } else {
             #[derive(Debug, Serialize, Deserialize, Default)]

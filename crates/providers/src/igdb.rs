@@ -539,7 +539,7 @@ impl IgdbService {
         let maybe_settings = cc
             .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
             .await;
-        let access_token = if let Some(value) = maybe_settings {
+        let access_token = if let Some((_id, value)) = maybe_settings {
             value
         } else {
             let access_token = self.get_access_token().await;
