@@ -653,6 +653,7 @@ export type ExerciseParametersLotMapping = {
 export enum ExerciseSortBy {
   LastPerformed = 'LAST_PERFORMED',
   Name = 'NAME',
+  Random = 'RANDOM',
   TimesPerformed = 'TIMES_PERFORMED'
 }
 

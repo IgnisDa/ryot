@@ -3179,6 +3179,7 @@ pub async fn user_exercises_list(
             // DEV: This is just a small hack to reduce duplicated code. We
             // are ordering by name for the other `sort_by` anyway.
             ExerciseSortBy::Name => Expr::val("1"),
+            ExerciseSortBy::Random => Expr::expr(Func::random()),
             ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
                 Expr::col((
                     etu.clone(),

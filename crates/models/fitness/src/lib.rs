@@ -667,6 +667,7 @@ pub struct ExerciseListFilter {
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum ExerciseSortBy {
     Name,
+    Random,
     #[default]
     LastPerformed,
     TimesPerformed,
