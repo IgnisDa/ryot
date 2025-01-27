@@ -3152,6 +3152,7 @@ pub async fn user_workout_templates_list(
     } = paginator.num_items_and_pages().await?;
     let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
     Ok(SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3160,7 +3161,6 @@ pub async fn user_workout_templates_list(
                 None
             },
         },
-        items,
     })
 }
 
@@ -3169,6 +3169,14 @@ pub async fn user_exercises_list(
     input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<UserExercisesListResponse> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserExercisesList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((id, response)) = cc.get_value(key.clone()).await {
+        return Ok(response);
+    }
     let user_id = user_id.to_owned();
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let page = input.search.page.unwrap_or(1);
@@ -3255,7 +3263,8 @@ pub async fn user_exercises_list(
     for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
         items.push(ex);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3264,8 +3273,14 @@ pub async fn user_exercises_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserExercisesList(response.clone()),
+        )
+        .await?;
+    Ok(response)
 }
 
 pub async fn get_pending_notifications_for_user(
