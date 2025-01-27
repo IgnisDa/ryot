@@ -151,8 +151,21 @@ impl CollectionService {
 
     pub async fn collection_contents(
         &self,
+        user_id: &String,
         input: CollectionContentsInput,
     ) -> Result<CollectionContentsResponse> {
+        let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        });
+        if let Some((id, cached)) = self
+            .0
+            .cache_service
+            .get_value::<CollectionContentsResponse>(key.clone())
+            .await
+        {
+            return Ok(cached);
+        }
         let take = input
             .search
             .clone()
@@ -166,7 +179,7 @@ impl CollectionService {
             .one(&self.0.db)
             .await
             .unwrap();
-        let Some(collection) = maybe_collection else {
+        let Some(details) = maybe_collection else {
             return Err(Error::new("Collection not found".to_owned()));
         };
         let paginator = CollectionToEntity::find()
@@ -175,7 +188,7 @@ impl CollectionService {
             .left_join(Person)
             .left_join(Exercise)
             .left_join(Workout)
-            .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
+            .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
             .apply_if(search.query, |query, v| {
                 query.filter(
                     Condition::any()
@@ -264,25 +277,30 @@ impl CollectionService {
             },
             items,
         };
-        let user = collection
-            .find_related(User)
-            .one(&self.0.db)
-            .await?
-            .unwrap();
+        let user = details.find_related(User).one(&self.0.db).await?.unwrap();
         let reviews = item_reviews(
-            &collection.user_id,
+            &details.user_id,
             &input.collection_id,
             EntityLot::Collection,
             true,
             &self.0,
         )
         .await?;
-        Ok(CollectionContents {
-            details: collection,
+        let response = CollectionContents {
+            user,
             reviews,
             results,
-            user,
-        })
+            details,
+        };
+        let id = self
+            .0
+            .cache_service
+            .set_key(
+                key,
+                ApplicationCacheValue::UserCollectionContents(response.clone()),
+            )
+            .await?;
+        Ok(response)
     }
 
     pub async fn create_or_update_collection(

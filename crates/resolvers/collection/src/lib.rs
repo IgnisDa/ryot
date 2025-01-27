@@ -32,7 +32,8 @@ impl CollectionQuery {
         input: CollectionContentsInput,
     ) -> Result<CollectionContentsResponse> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
-        service.collection_contents(input).await
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.collection_contents(&user_id, input).await
     }
 }
 
