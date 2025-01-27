@@ -113,6 +113,12 @@ export type BookSpecificsInput = {
   pages?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type CachedCollectionContentsResponse = {
+  __typename?: 'CachedCollectionContentsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: CollectionContents;
+};
+
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1817,7 +1823,7 @@ export type ProviderLanguageInformation = {
 export type QueryRoot = {
   __typename?: 'QueryRoot';
   /** Get the contents of a collection and respect visibility. */
-  collectionContents: CollectionContents;
+  collectionContents: CachedCollectionContentsResponse;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
   /** Get details about an exercise. */

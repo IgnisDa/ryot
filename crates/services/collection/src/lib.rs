@@ -17,8 +17,8 @@ use database_models::{
 };
 use database_utils::{ilike_sql, item_reviews};
 use dependent_models::{
-    ApplicationCacheValue, CollectionContents, CollectionContentsResponse, SearchResults,
-    UserCollectionsListResponse,
+    ApplicationCacheValue, CachedResponse, CollectionContents, CollectionContentsResponse,
+    SearchResults, UserCollectionsListResponse,
 };
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
@@ -153,7 +153,7 @@ impl CollectionService {
         &self,
         user_id: &String,
         input: CollectionContentsInput,
-    ) -> Result<CollectionContentsResponse> {
+    ) -> Result<CachedResponse<CollectionContentsResponse>> {
         let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
@@ -164,7 +164,10 @@ impl CollectionService {
             .get_value::<CollectionContentsResponse>(key.clone())
             .await
         {
-            return Ok(cached);
+            return Ok(CachedResponse {
+                cache_id: id,
+                response: cached,
+            });
         }
         let take = input
             .search
@@ -292,7 +295,7 @@ impl CollectionService {
             results,
             details,
         };
-        let id = self
+        let cache_id = self
             .0
             .cache_service
             .set_key(
@@ -300,7 +303,7 @@ impl CollectionService {
                 ApplicationCacheValue::UserCollectionContents(response.clone()),
             )
             .await?;
-        Ok(response)
+        Ok(CachedResponse { response, cache_id })
     }
 
     pub async fn create_or_update_collection(
