@@ -132,8 +132,8 @@ export default function Page() {
 	] = useDisclosure(false);
 	const details = loaderData.collectionContents.response;
 	const colDetails = {
-		id: loaderData.collectionId,
 		name: details.details.name,
+		id: loaderData.collectionId,
 		creatorUserId: details.user.id,
 	};
 	const state = bulkEditingCollection.state;
@@ -198,6 +198,12 @@ export default function Page() {
 									<FiltersModalForm />
 								</FiltersModal>
 							</Group>
+							<Box>
+								<Text display="inline" fw="bold">
+									{details.results.details.total}
+								</Text>{" "}
+								items found
+							</Box>
 							{details.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{details.results.items.map((lm) => {
