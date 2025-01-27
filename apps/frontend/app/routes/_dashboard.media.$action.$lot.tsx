@@ -32,9 +32,9 @@ import {
 	type MediaLot,
 	MediaSortBy,
 	MediaSource,
-	MetadataListDocument,
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
+	UserMetadataListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -155,9 +155,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.mineGeneralFilter),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
-			const { metadataList } = await serverGqlService.authenticatedRequest(
+			const { userMetadataList } = await serverGqlService.authenticatedRequest(
 				request,
-				MetadataListDocument,
+				UserMetadataListDocument,
 				{
 					input: {
 						lot,
@@ -176,8 +176,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 			);
 			return [
-				metadataList.response.details.total,
-				{ list: metadataList, url: urlParse },
+				userMetadataList.response.details.total,
+				{ list: userMetadataList, url: urlParse },
 				undefined,
 			] as const;
 		})
