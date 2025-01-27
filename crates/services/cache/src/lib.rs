@@ -6,6 +6,7 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{ApplicationCacheValue, GetCacheKeyResponse};
+use either::Either;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -149,9 +150,12 @@ impl CacheService {
         Some((value.id, db_value))
     }
 
-    pub async fn expire_key(&self, key: ApplicationCacheKey) -> Result<bool> {
+    pub async fn expire_key(&self, by: Either<ApplicationCacheKey, Uuid>) -> Result<bool> {
         let deleted = ApplicationCache::update_many()
-            .filter(application_cache::Column::Key.eq(key))
+            .filter(match by {
+                Either::Right(id) => application_cache::Column::Id.eq(id),
+                Either::Left(key) => application_cache::Column::Key.eq(key),
+            })
             .set(application_cache::ActiveModel {
                 expires_at: ActiveValue::Set(Utc::now()),
                 ..Default::default()
