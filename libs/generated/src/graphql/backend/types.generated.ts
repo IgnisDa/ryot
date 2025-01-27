@@ -18,6 +18,7 @@ export type Scalars = {
   JSONObject: { input: any; output: any; }
   NaiveDate: { input: string; output: string; }
   NaiveDateTime: { input: any; output: any; }
+  UUID: { input: string; output: string; }
 };
 
 export type AccessLink = {
@@ -110,6 +111,12 @@ export type BookSpecifics = {
 export type BookSpecificsInput = {
   isCompilation?: InputMaybe<Scalars['Boolean']['input']>;
   pages?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type CachedUserMetadataRecommendationsResponse = {
+  __typename?: 'CachedUserMetadataRecommendationsResponse';
+  cacheKey: Scalars['UUID']['output'];
+  response: Array<Scalars['String']['output']>;
 };
 
 export type ChangeCollectionToEntityInput = {
@@ -1869,7 +1876,7 @@ export type QueryRoot = {
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
   /** Get metadata recommendations for the currently logged in user. */
-  userMetadataRecommendations: Array<Scalars['String']['output']>;
+  userMetadataRecommendations: CachedUserMetadataRecommendationsResponse;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
   /** Get all pending display notifications for the currently logged in user. */
@@ -2013,11 +2020,6 @@ export type QueryRootUserMetadataDetailsArgs = {
 
 export type QueryRootUserMetadataGroupDetailsArgs = {
   metadataGroupId: Scalars['String']['input'];
-};
-
-
-export type QueryRootUserMetadataRecommendationsArgs = {
-  shouldRefresh?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 

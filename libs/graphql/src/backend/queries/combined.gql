@@ -86,8 +86,11 @@ query UsersList($query: String) {
   }
 }
 
-query UserMetadataRecommendations($shouldRefresh: Boolean) {
-  userMetadataRecommendations(shouldRefresh: $shouldRefresh)
+query UserMetadataRecommendations {
+  userMetadataRecommendations {
+    cacheKey
+    response
+  }
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {

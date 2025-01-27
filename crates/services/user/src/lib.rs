@@ -16,7 +16,7 @@ use database_utils::{
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, UserDetailsResult, UserMetadataRecommendationsResponse,
+    ApplicationCacheValue, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
 use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
 use enum_meta::Meta;
@@ -62,26 +62,22 @@ impl UserService {
     pub async fn user_metadata_recommendations(
         &self,
         user_id: &String,
-        should_refresh: Option<bool>,
-    ) -> Result<UserMetadataRecommendationsResponse> {
+    ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
         let cc = &self.0.cache_service;
         let metadata_recommendations_key =
             ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
                 input: (),
                 user_id: user_id.to_owned(),
             });
-        match should_refresh {
-            Some(true) => {}
-            _ => {
-                if let Some((_id, recommendations)) = cc
-                    .get_value::<UserMetadataRecommendationsResponse>(
-                        metadata_recommendations_key.clone(),
-                    )
-                    .await
-                {
-                    return Ok(recommendations);
-                };
-            }
+
+        if let Some((id, recommendations)) = cc
+            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
+            .await
+        {
+            return Ok(CachedResponse {
+                cache_key: id,
+                response: recommendations,
+            });
         };
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
@@ -93,9 +89,6 @@ impl UserService {
             .num_elements
             .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
         let enabled = preferences.features_enabled.media.specific;
-        if enabled.is_empty() {
-            return Ok(Vec::new());
-        }
         let started_at = Instant::now();
         let mut recommendations = HashSet::new();
         for i in 0.. {
@@ -127,12 +120,16 @@ impl UserService {
         }
         let mut recommendations = recommendations.into_iter().collect_vec();
         recommendations.shuffle(&mut rand::rng());
-        cc.set_key(
-            metadata_recommendations_key,
-            ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
-        )
-        .await?;
-        Ok(recommendations)
+        let id = cc
+            .set_key(
+                metadata_recommendations_key,
+                ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
+            )
+            .await?;
+        Ok(CachedResponse {
+            cache_key: id,
+            response: recommendations,
+        })
     }
 
     pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {

@@ -55,6 +55,10 @@ pub struct SearchResults<T: OutputType> {
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(
+    name = "CachedUserMetadataRecommendationsResponse",
+    params(UserMetadataRecommendationsResponse)
+))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
     pub cache_key: Uuid,
