@@ -1329,7 +1329,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	const submit = useConfirmSubmit();
 
 	return (
-		<Group justify="space-between">
+		<Group justify="space-between" wrap="nowrap">
 			<Box>
 				<Text display="inline" fw="bold">
 					{props.total}
