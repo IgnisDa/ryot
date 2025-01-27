@@ -32,6 +32,7 @@ use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
+use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -51,6 +52,12 @@ use strum::Display;
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
+}
+
+#[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+pub struct CachedResponse<T: OutputType> {
+    pub response: T,
+    pub cache_key: Uuid,
 }
 
 /// Details about a specific exercise item that needs to be exported.
