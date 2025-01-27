@@ -8,14 +8,13 @@ use common_models::{
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
 use dependent_models::{
-    ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
+    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
     FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
     UserFitnessAnalytics,
 };
 use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
-use media_models::ApplicationCacheKey;
 use sea_orm::{
     prelude::{Date, Expr},
     sea_query::{Alias, Func, NullOrdering},

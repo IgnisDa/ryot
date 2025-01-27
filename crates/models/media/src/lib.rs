@@ -4,10 +4,8 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, MetadataGroupSearchInput,
-    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput,
-    PersonSourceSpecifics, ProgressUpdateCacheInput, SearchInput, StoredUrl, StringIdObject,
-    UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
+    ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
+    SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -16,9 +14,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{
-    prelude::DateTimeUtc, strum::Display, EnumIter, FromJsonQueryResult, FromQueryResult,
-};
+use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -1485,27 +1481,4 @@ pub struct ProcessAccessLinkResponse {
 pub enum ProcessAccessLinkResult {
     Ok(ProcessAccessLinkResponse),
     Error(ProcessAccessLinkError),
-}
-
-#[skip_serializing_none]
-#[derive(
-    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
-)]
-pub enum ApplicationCacheKey {
-    CoreDetails,
-    IgdbSettings,
-    TmdbSettings,
-    ListennotesSettings,
-    UserCollectionsList(UserLevelCacheKey<()>),
-    UserAnalyticsParameters(UserLevelCacheKey<()>),
-    UserMetadataRecommendations(UserLevelCacheKey<()>),
-    PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
-    UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
-    MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
-    UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
-    MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
-    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
-    UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
-    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
-    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }

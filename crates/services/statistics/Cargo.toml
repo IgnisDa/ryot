@@ -12,7 +12,6 @@ dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 hashbag = { workspace = true }
 itertools = { workspace = true }
-media-models = { path = "../../models/media" }
 sea-orm = { workspace = true }
 supporting-service = { path = "../supporting" }
 tokio = { workspace = true }

@@ -16,7 +16,8 @@ use database_utils::{
     revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserDetailsResult,
+    UserMetadataRecommendationsResponse,
 };
 use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
 use enum_meta::Meta;
@@ -26,7 +27,7 @@ use enum_models::{
 use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
 use media_models::{
-    ApplicationCacheKey, AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
+    AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
     CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
     LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,

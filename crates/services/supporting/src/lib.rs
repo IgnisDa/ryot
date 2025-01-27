@@ -12,7 +12,7 @@ use common_utils::{
 };
 use database_models::prelude::Exercise;
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
     ProviderLanguageInformation,
 };
@@ -23,7 +23,6 @@ use enum_models::{
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
 use itertools::Itertools;
-use media_models::ApplicationCacheKey;
 use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
 use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};

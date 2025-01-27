@@ -11,7 +11,6 @@ config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 either = { workspace = true }
-media-models = { path = "../../models/media" }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }

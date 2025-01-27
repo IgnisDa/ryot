@@ -4,7 +4,9 @@ use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, PersonSourceSpecifics, SearchDetails,
+    DailyUserActivityHourRecord, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
+    MetadataSearchInput, PeopleSearchInput, PersonSourceSpecifics, ProgressUpdateCacheInput,
+    SearchDetails, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -19,12 +21,13 @@ use enum_models::{
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
-    GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
+    CollectionContentsInput, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
+    GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
     MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
     PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserMetadataListInput,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -460,6 +463,29 @@ pub struct TmdbSettings {
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
+}
+
+#[skip_serializing_none]
+#[derive(
+    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+)]
+pub enum ApplicationCacheKey {
+    CoreDetails,
+    IgdbSettings,
+    TmdbSettings,
+    ListennotesSettings,
+    UserCollectionsList(UserLevelCacheKey<()>),
+    UserAnalyticsParameters(UserLevelCacheKey<()>),
+    UserMetadataRecommendations(UserLevelCacheKey<()>),
+    PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
+    UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
+    MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
+    UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
+    MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
+    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
+    UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
+    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
+    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
 
 pub type IgdbSettings = String;

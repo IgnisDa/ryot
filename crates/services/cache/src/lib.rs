@@ -4,9 +4,8 @@ use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
-use dependent_models::{ApplicationCacheValue, GetCacheKeyResponse};
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, GetCacheKeyResponse};
 use either::Either;
-use media_models::ApplicationCacheKey;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -72,8 +71,8 @@ impl CacheService {
                 .then(|| self.version.to_owned());
             let to_insert = application_cache::ActiveModel {
                 created_at: ActiveValue::Set(now),
-                key: ActiveValue::Set(key.clone()),
                 version: ActiveValue::Set(version),
+                key: ActiveValue::Set(serde_json::to_value(&key).unwrap()),
                 value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
                 expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
                 ..Default::default()
@@ -128,7 +127,7 @@ impl CacheService {
                 }
             }
             values.insert(
-                cache.key,
+                serde_json::from_value(cache.key).unwrap(),
                 GetCacheKeyResponse {
                     id: cache.id,
                     value: serde_json::from_value(cache.value)?,

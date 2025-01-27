@@ -8,16 +8,15 @@ use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails,
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, MetadataPersonRelated,
-    PeopleSearchResponse, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse,
+    MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    ApplicationCacheKey, CommitMediaInput, MetadataDetails, MetadataGroupSearchItem,
-    MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics,
+    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
