@@ -30,7 +30,7 @@ use database_utils::{
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult,
+    ApplicationCacheValue, CachedResponse, EmptyCacheValue, ImportCompletedItem, ImportResult,
     MetadataListResponse, SearchResults,
 };
 use either::Either;
@@ -2753,14 +2753,17 @@ pub async fn metadata_list(
     user_id: &String,
     input: MetadataListInput,
     ss: &Arc<SupportingService>,
-) -> Result<MetadataListResponse> {
+) -> Result<CachedResponse<MetadataListResponse>> {
     let cc = &ss.cache_service;
     let key = ApplicationCacheKey::MetadataList(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
     });
     if let Some((id, cached)) = cc.get_value::<MetadataListResponse>(key.clone()).await {
-        return Ok(cached);
+        return Ok(CachedResponse {
+            cache_id: id,
+            response: cached,
+        });
     }
     let preferences = user_by_id(user_id, ss).await?.preferences;
 
@@ -2922,10 +2925,10 @@ pub async fn metadata_list(
             },
         },
     };
-    let id = cc
+    let cache_id = cc
         .set_key(key, ApplicationCacheValue::MetadataList(response.clone()))
-        .await;
-    Ok(response)
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn metadata_groups_list(

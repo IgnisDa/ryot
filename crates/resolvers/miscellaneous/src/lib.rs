@@ -6,7 +6,7 @@ use common_models::{
     StringIdObject,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataListResponse, MetadataSearchResponse,
     PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
     UserPersonDetails,
@@ -90,7 +90,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataListInput,
-    ) -> Result<MetadataListResponse> {
+    ) -> Result<CachedResponse<MetadataListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await

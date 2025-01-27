@@ -63,6 +63,7 @@ pub struct SearchResults<T: OutputType> {
     name = "CachedCollectionContentsResponse",
     params(CollectionContentsResponse)
 ))]
+#[graphql(concrete(name = "CachedMetadataListResponse", params(MetadataListResponse)))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
     pub cache_id: Uuid,

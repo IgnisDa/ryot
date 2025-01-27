@@ -355,11 +355,14 @@ query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 
 query MetadataList($input: MetadataListInput!) {
   metadataList(input: $input) {
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 

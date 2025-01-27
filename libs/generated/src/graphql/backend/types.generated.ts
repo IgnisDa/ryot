@@ -119,6 +119,12 @@ export type CachedCollectionContentsResponse = {
   response: CollectionContents;
 };
 
+export type CachedMetadataListResponse = {
+  __typename?: 'CachedMetadataListResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: IdResults;
+};
+
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1852,7 +1858,7 @@ export type QueryRoot = {
   /** Get paginated list of metadata groups. */
   metadataGroupsList: IdResults;
   /** Get all the media items related to a user for a specific media type. */
-  metadataList: IdResults;
+  metadataList: CachedMetadataListResponse;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */

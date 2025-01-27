@@ -41,8 +41,8 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
-    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataListResponse,
+    ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails,
+    MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse, MetadataListResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
     UserMetadataGroupDetails, UserPersonDetails,
 };
@@ -895,7 +895,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: MetadataListInput,
-    ) -> Result<MetadataListResponse> {
+    ) -> Result<CachedResponse<MetadataListResponse>> {
         metadata_list(&user_id, input, &self.0).await
     }
 
