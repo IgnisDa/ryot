@@ -42,9 +42,9 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
-    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataListResponse,
+    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -895,7 +895,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: MetadataListInput,
-    ) -> Result<SearchResults<String>> {
+    ) -> Result<MetadataListResponse> {
         metadata_list(&user_id, input, &self.0).await
     }
 

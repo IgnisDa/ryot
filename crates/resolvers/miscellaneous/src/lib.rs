@@ -7,8 +7,9 @@ use common_models::{
 };
 use dependent_models::{
     CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    MetadataGroupSearchResponse, MetadataListResponse, MetadataSearchResponse,
+    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
@@ -89,7 +90,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataListInput,
-    ) -> Result<SearchResults<String>> {
+    ) -> Result<MetadataListResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await

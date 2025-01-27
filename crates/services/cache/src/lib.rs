@@ -33,13 +33,13 @@ impl CacheService {
         match key {
             ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::PeopleSearch { .. }
+            | ApplicationCacheKey::UserAnalytics { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
+            | ApplicationCacheKey::MetadataList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
-
-            ApplicationCacheKey::UserAnalytics { .. }
-            | ApplicationCacheKey::UserCollectionContents { .. } => 2,
 
             ApplicationCacheKey::UserCollectionsList { .. }
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,

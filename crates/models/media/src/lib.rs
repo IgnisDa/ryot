@@ -1266,7 +1266,7 @@ pub enum GraphqlSortOrder {
     Desc,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortBy {
     Title,
     LastSeen,
@@ -1296,7 +1296,7 @@ pub struct SortInput<T: InputType + Default> {
     pub order: GraphqlSortOrder,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaGeneralFilter {
     #[default]
     All,
@@ -1307,14 +1307,14 @@ pub enum MediaGeneralFilter {
     Unfinished,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
     pub collections: Option<Vec<String>>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MetadataListInput {
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
@@ -1497,6 +1497,7 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
+    MetadataList(UserLevelCacheKey<MetadataListInput>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),

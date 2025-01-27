@@ -30,7 +30,8 @@ use database_utils::{
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult, SearchResults,
+    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult,
+    MetadataListResponse, SearchResults,
 };
 use either::Either;
 use enum_models::{
@@ -2752,7 +2753,7 @@ pub async fn metadata_list(
     user_id: &String,
     input: MetadataListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<MetadataListResponse> {
     let preferences = user_by_id(user_id, ss).await?.preferences;
 
     let avg_rating_col = "user_average_rating";

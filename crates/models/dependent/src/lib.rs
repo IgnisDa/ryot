@@ -464,6 +464,7 @@ pub struct EmptyCacheValue {
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type MetadataListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
@@ -477,6 +478,7 @@ pub enum ApplicationCacheValue {
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
+    MetadataList(MetadataListResponse),
     PeopleSearch(PeopleSearchResponse),
     ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
