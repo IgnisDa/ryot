@@ -32,6 +32,7 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult, SearchResults,
 };
+use either::Either;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
@@ -2648,7 +2649,7 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    ss.cache_service.expire_key(cache_key).await?;
+    ss.cache_service.expire_key(Either::Left(cache_key)).await?;
     Ok(())
 }
 

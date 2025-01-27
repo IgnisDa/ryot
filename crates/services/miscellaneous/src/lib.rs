@@ -59,6 +59,7 @@ use dependent_utils::{
     refresh_collection_to_entity_association, remove_entity_from_collection,
     update_metadata_and_notify_users,
 };
+use either::Either;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
     UserToMediaReason,
@@ -1516,7 +1517,7 @@ ORDER BY RANDOM() LIMIT 10;
                 provider_watched_on: si.provider_watched_on.clone(),
             },
         });
-        self.0.cache_service.expire_key(cache).await?;
+        self.0.cache_service.expire_key(Either::Left(cache)).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
