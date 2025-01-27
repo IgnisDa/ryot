@@ -154,13 +154,12 @@ impl CollectionService {
         user_id: &String,
         input: CollectionContentsInput,
     ) -> Result<CachedResponse<CollectionContentsResponse>> {
+        let cc = &self.0.cache_service;
         let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some((id, cached)) = self
-            .0
-            .cache_service
+        if let Some((id, cached)) = cc
             .get_value::<CollectionContentsResponse>(key.clone())
             .await
         {
@@ -295,12 +294,10 @@ impl CollectionService {
             results,
             details,
         };
-        let cache_id = self
-            .0
-            .cache_service
+        let cache_id = cc
             .set_key(
                 key,
-                ApplicationCacheValue::UserCollectionContents(response.clone()),
+                ApplicationCacheValue::UserCollectionContents(Box::new(response.clone())),
             )
             .await?;
         Ok(CachedResponse { response, cache_id })

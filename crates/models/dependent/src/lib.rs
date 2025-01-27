@@ -484,7 +484,7 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
-    UserCollectionContents(CollectionContentsResponse),
+    UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }
