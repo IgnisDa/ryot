@@ -23,8 +23,8 @@ import {
 	MediaSource,
 	MetadataGroupSearchDocument,
 	type MetadataGroupSearchQuery,
-	MetadataGroupsListDocument,
 	PersonAndMetadataGroupsSortBy,
+	UserMetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -102,10 +102,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.sortBy),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
-			const { metadataGroupsList } =
+			const { userMetadataGroupsList } =
 				await serverGqlService.authenticatedRequest(
 					request,
-					MetadataGroupsListDocument,
+					UserMetadataGroupsListDocument,
 					{
 						input: {
 							invertCollection: urlParse.invertCollection,
@@ -116,8 +116,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					},
 				);
 			return [
-				metadataGroupsList.details.total,
-				{ list: metadataGroupsList, url: urlParse },
+				userMetadataGroupsList.details.total,
+				{ list: userMetadataGroupsList, url: urlParse },
 				undefined,
 			] as const;
 		})

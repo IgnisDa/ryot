@@ -4,9 +4,9 @@ import {
 	CollectionContentsDocument,
 	EntityLot,
 	MediaLot,
-	MetadataGroupsListDocument,
-	PeopleListDocument,
+	UserMetadataGroupsListDocument,
 	UserMetadataListDocument,
+	UserPeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -109,11 +109,11 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(PeopleListDocument, {
+										.request(UserPeopleListDocument, {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.peopleList.items.map((p) => ({
+											r.userPeopleList.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.Person,
 											})),
@@ -124,11 +124,11 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(MetadataGroupsListDocument, {
+										.request(UserMetadataGroupsListDocument, {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.metadataGroupsList.items.map((p) => ({
+											r.userMetadataGroupsList.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.MetadataGroup,
 											})),
