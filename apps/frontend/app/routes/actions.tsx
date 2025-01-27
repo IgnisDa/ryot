@@ -16,6 +16,7 @@ import {
 	DeleteS3ObjectDocument,
 	DeployBulkProgressUpdateDocument,
 	EntityLot,
+	ExpireCacheKeyDocument,
 	MarkEntityAsPartialDocument,
 	MediaLot,
 	MediaSource,
@@ -490,6 +491,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				}),
 			);
 		})
+		.with("expireCacheKey", async () => {
+			const submission = processSubmission(formData, expireCacheKeySchema);
+			await serverGqlService.request(ExpireCacheKeyDocument, {
+				cacheId: submission.cacheId,
+			});
+		})
 		.run();
 	if (redirectTo) {
 		headers.append("Location", redirectTo.toString());
@@ -590,4 +597,8 @@ const bulkCollectionAction = z.object({
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
+});
+
+const expireCacheKeySchema = z.object({
+	cacheId: z.string().uuid(),
 });

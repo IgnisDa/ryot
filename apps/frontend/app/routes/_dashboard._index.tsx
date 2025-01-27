@@ -11,7 +11,7 @@ import type {
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { useLoaderData, useRevalidator } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -29,12 +29,13 @@ import {
 	IconInfoCircle,
 	IconRotateClockwise,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
+import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationGrid,
@@ -43,12 +44,12 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
+import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import {
-	clientGqlService,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/generals";
-import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
+	useConfirmSubmit,
+	useCoreDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
@@ -66,21 +67,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	};
 	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const getRecommendations = async () => {
-		if (
-			preferences.general.dashboard.find(
-				(de) => de.section === DashboardElementLot.Recommendations,
-			)?.hidden
-		)
-			return [];
-		const { userMetadataRecommendations } =
-			await serverGqlService.authenticatedRequest(
-				request,
-				UserMetadataRecommendationsDocument,
-				{},
-			);
-		return userMetadataRecommendations;
-	};
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
@@ -88,7 +74,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	invariant(foundInProgressCollection);
 	const [
 		{ collectionContents: inProgressCollectionContents },
-		userRecommendations,
+		{ userMetadataRecommendations },
 		{ userUpcomingCalendarEvents },
 		{ userAnalytics },
 	] = await Promise.all([
@@ -99,7 +85,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				collectionId: foundInProgressCollection.id,
 			},
 		}),
-		getRecommendations(),
+		serverGqlService.authenticatedRequest(
+			request,
+			UserMetadataRecommendationsDocument,
+			{},
+		),
 		serverGqlService.authenticatedRequest(
 			request,
 			UserUpcomingCalendarEventsDocument,
@@ -115,8 +105,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return {
 		userAnalytics,
 		userUpcomingCalendarEvents,
+		userMetadataRecommendations,
 		inProgressCollectionContents,
-		userRecommendations,
 	};
 };
 
@@ -130,7 +120,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const revalidator = useRevalidator();
+	const submit = useConfirmSubmit();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
@@ -140,18 +130,10 @@ export default function Page() {
 		"false",
 	);
 
-	const refreshUserMetadataRecommendationsMutation = useMutation({
-		onSuccess: revalidator.revalidate,
-		mutationFn: async () =>
-			clientGqlService.request(UserMetadataRecommendationsDocument, {
-				shouldRefresh: true,
-			}),
-	});
-
 	const isDashboardEmpty =
 		loaderData.userUpcomingCalendarEvents.length +
 			loaderData.inProgressCollectionContents.results.items.length +
-			loaderData.userRecommendations.length +
+			loaderData.userMetadataRecommendations.response.length +
 			Number(Boolean(latestUserSummary)) ===
 		0;
 
@@ -216,31 +198,49 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<Group justify="space-between">
 									<SectionTitle text="Recommendations" />
-									<ActionIcon
-										variant="subtle"
-										loading={
-											refreshUserMetadataRecommendationsMutation.isPending
-										}
-										onClick={() => {
-											openConfirmationModal(
-												"Are you sure you want to refresh the recommendations?",
-												refreshUserMetadataRecommendationsMutation.mutate,
-											);
-										}}
+									<Form
+										replace
+										method="POST"
+										action={withQuery($path("/actions"), {
+											intent: "expireCacheKey",
+										})}
 									>
-										<IconRotateClockwise />
-									</ActionIcon>
+										<input
+											type="hidden"
+											name="cacheId"
+											value={loaderData.userMetadataRecommendations.cacheId}
+										/>
+										<ActionIcon
+											type="submit"
+											variant="subtle"
+											onClick={(e) => {
+												const form = e.currentTarget.form;
+												if (form) {
+													e.preventDefault();
+													openConfirmationModal(
+														"Are you sure you want to refresh the recommendations?",
+														() => submit(form),
+													);
+												}
+											}}
+										>
+											<IconRotateClockwise />
+										</ActionIcon>
+									</Form>
 								</Group>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
-										{loaderData.userRecommendations.map((lm) => (
-											<MetadataDisplayItem key={lm} metadataId={lm} />
-										))}
+										{loaderData.userMetadataRecommendations.response.map(
+											(lm) => (
+												<MetadataDisplayItem key={lm} metadataId={lm} />
+											),
+										)}
 									</ApplicationGrid>
 								) : (
 									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 								)}
-								{loaderData.userRecommendations.length === 0 ? (
+								{loaderData.userMetadataRecommendations.response.length ===
+								0 ? (
 									<Text c="dimmed">No recommendations available</Text>
 								) : null}
 							</Section>
