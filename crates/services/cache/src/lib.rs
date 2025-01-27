@@ -6,10 +6,10 @@ use common_models::ApplicationCacheKey;
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::ApplicationCacheValue;
-use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
+use uuid::Uuid;
 
 pub struct CacheService {
     version: String,
@@ -61,50 +61,49 @@ impl CacheService {
     pub async fn set_keys(
         &self,
         items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
-    ) -> Result<()> {
+    ) -> Result<HashMap<ApplicationCacheKey, Uuid>> {
         let now = Utc::now();
-        let to_insert = items
-            .into_iter()
-            .map(|(key, value)| {
-                let version = self
-                    .should_respect_version(&key)
-                    .then(|| self.version.to_owned());
-                application_cache::ActiveModel {
-                    created_at: ActiveValue::Set(now),
-                    key: ActiveValue::Set(key.clone()),
-                    version: ActiveValue::Set(version),
-                    value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
-                    expires_at: ActiveValue::Set(
-                        now + Duration::hours(self.get_expiry_for_key(&key)),
-                    ),
-                    ..Default::default()
-                }
-            })
-            .collect_vec();
-        let inserted = ApplicationCache::insert_many(to_insert)
-            .on_conflict(
-                OnConflict::column(application_cache::Column::Key)
-                    .update_columns([
-                        application_cache::Column::Value,
-                        application_cache::Column::Version,
-                        application_cache::Column::ExpiresAt,
-                        application_cache::Column::CreatedAt,
-                    ])
-                    .to_owned(),
-            )
-            .exec(&self.db)
-            .await?;
-        let insert_id = inserted.last_insert_id;
-        ryot_log!(debug, "Inserted application cache with id = {insert_id:?}");
-        Ok(())
+        let mut response = HashMap::new();
+        for (key, value) in items {
+            let version = self
+                .should_respect_version(&key)
+                .then(|| self.version.to_owned());
+            let to_insert = application_cache::ActiveModel {
+                created_at: ActiveValue::Set(now),
+                key: ActiveValue::Set(key.clone()),
+                version: ActiveValue::Set(version),
+                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
+                ..Default::default()
+            };
+            let inserted = ApplicationCache::insert(to_insert)
+                .on_conflict(
+                    OnConflict::column(application_cache::Column::Key)
+                        .update_columns([
+                            application_cache::Column::Value,
+                            application_cache::Column::Version,
+                            application_cache::Column::ExpiresAt,
+                            application_cache::Column::CreatedAt,
+                        ])
+                        .to_owned(),
+                )
+                .exec(&self.db)
+                .await?;
+            let insert_id = inserted.last_insert_id;
+            response.insert(key, insert_id);
+        }
+        ryot_log!(debug, "Inserted application caches: {response:?}");
+        Ok(response)
     }
 
     pub async fn set_key(
         &self,
         key: ApplicationCacheKey,
         value: ApplicationCacheValue,
-    ) -> Result<()> {
-        self.set_keys(vec![(key, value)]).await
+    ) -> Result<Uuid> {
+        let response = self.set_keys(vec![(key.clone(), value)]).await?;
+        let uuid = response.get(&key).unwrap().to_owned();
+        Ok(uuid)
     }
 
     pub async fn get_values(
