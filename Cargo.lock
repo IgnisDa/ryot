@@ -3814,6 +3814,7 @@ dependencies = [
  "media-models",
  "miscellaneous-service",
  "traits",
+ "uuid",
 ]
 
 [[package]]

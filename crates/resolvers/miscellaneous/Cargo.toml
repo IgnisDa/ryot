@@ -10,3 +10,4 @@ dependent-models = { path = "../../models/dependent" }
 media-models = { path = "../../models/media" }
 miscellaneous-service = { path = "../../services/miscellaneous" }
 traits = { path = "../../traits" }
+uuid = { workspace = true }

@@ -61,7 +61,7 @@ pub struct SearchResults<T: OutputType> {
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
-    pub cache_key: Uuid,
+    pub cache_id: Uuid,
 }
 
 /// Details about a specific exercise item that needs to be exported.

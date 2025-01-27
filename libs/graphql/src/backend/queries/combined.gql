@@ -88,7 +88,7 @@ query UsersList($query: String) {
 
 query UserMetadataRecommendations {
   userMetadataRecommendations {
-    cacheKey
+    cacheId
     response
   }
 }

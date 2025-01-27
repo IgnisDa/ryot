@@ -19,6 +19,7 @@ use media_models::{
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
+use uuid::Uuid;
 
 #[derive(Default)]
 pub struct MiscellaneousQuery;
@@ -425,6 +426,12 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.mark_entity_as_partial(&user_id, input).await
+    }
+
+    /// Expire a cache key by its ID
+    async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.expire_cache_key(cache_id).await
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.

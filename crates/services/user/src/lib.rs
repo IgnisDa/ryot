@@ -75,7 +75,7 @@ impl UserService {
             .await
         {
             return Ok(CachedResponse {
-                cache_key: id,
+                cache_id: id,
                 response: recommendations,
             });
         };
@@ -127,7 +127,7 @@ impl UserService {
             )
             .await?;
         Ok(CachedResponse {
-            cache_key: id,
+            cache_id: id,
             response: recommendations,
         })
     }

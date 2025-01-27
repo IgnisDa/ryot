@@ -115,7 +115,7 @@ export type BookSpecificsInput = {
 
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
-  cacheKey: Scalars['UUID']['output'];
+  cacheId: Scalars['UUID']['output'];
   response: Array<Scalars['String']['output']>;
 };
 
@@ -1283,6 +1283,8 @@ export type MutationRoot = {
    * collections for the user.
    */
   disassociateMetadata: Scalars['Boolean']['output'];
+  /** Expire a cache key by its ID */
+  expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
@@ -1491,6 +1493,11 @@ export type MutationRootDeployUpdatePersonJobArgs = {
 
 export type MutationRootDisassociateMetadataArgs = {
   metadataId: Scalars['String']['input'];
+};
+
+
+export type MutationRootExpireCacheKeyArgs = {
+  cacheId: Scalars['UUID']['input'];
 };
 
 

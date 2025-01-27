@@ -925,6 +925,13 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
+        self.0
+            .cache_service
+            .expire_key(Either::Right(cache_id))
+            .await
+    }
+
     pub async fn deploy_background_job(
         &self,
         user_id: &String,
