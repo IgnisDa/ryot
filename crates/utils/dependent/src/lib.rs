@@ -2879,6 +2879,7 @@ pub async fn metadata_list(
         })
         .apply_if(input.sort.map(|s| s.by), |query, v| match v {
             MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+            MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
             MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
             MediaSortBy::LastUpdated => query
                 .order_by(user_to_entity::Column::LastUpdatedOn, order_by)

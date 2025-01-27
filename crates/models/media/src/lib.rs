@@ -1269,6 +1269,7 @@ pub enum GraphqlSortOrder {
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortBy {
     Title,
+    Random,
     LastSeen,
     UserRating,
     #[default]

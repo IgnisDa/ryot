@@ -1050,6 +1050,7 @@ export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
   LastUpdated = 'LAST_UPDATED',
   ProviderRating = 'PROVIDER_RATING',
+  Random = 'RANDOM',
   ReleaseDate = 'RELEASE_DATE',
   TimesConsumed = 'TIMES_CONSUMED',
   Title = 'TITLE',
