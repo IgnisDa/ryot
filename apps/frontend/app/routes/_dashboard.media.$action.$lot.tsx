@@ -66,6 +66,7 @@ import {
 	BaseMediaDisplayItem,
 	CollectionsFilter,
 	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 	ProRequiredAlert,
 } from "~/components/common";
@@ -342,12 +343,10 @@ export default function Page() {
 						</Group>
 						{loaderData.mediaList.list.response.details.total > 0 ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{loaderData.mediaList.list.response.details.total}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									cacheId={loaderData.mediaList.list.cacheId}
+									total={loaderData.mediaList.list.response.details.total}
+								/>
 								{(loaderData.mediaList?.url.startDateRange ||
 									loaderData.mediaList?.url.endDateRange) &&
 								!coreDetails.isServerKeyValidated ? (
