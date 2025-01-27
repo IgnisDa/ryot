@@ -18,7 +18,9 @@ use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };
-use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
+use fitness_models::{
+    UserExercisesListInput, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+};
 use importer_models::ImportFailedItem;
 use media_models::{
     CollectionContentsInput, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
@@ -58,15 +60,15 @@ pub struct SearchResults<T: OutputType> {
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(
-    name = "CachedUserMetadataRecommendationsResponse",
-    params(UserMetadataRecommendationsResponse)
-))]
+#[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
 #[graphql(concrete(
     name = "CachedCollectionContentsResponse",
     params(CollectionContentsResponse)
 ))]
-#[graphql(concrete(name = "CachedMetadataListResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(
+    name = "CachedUserMetadataRecommendationsResponse",
+    params(UserMetadataRecommendationsResponse)
+))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
     pub cache_id: Uuid,
@@ -481,6 +483,7 @@ pub enum ApplicationCacheKey {
     UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
+    UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
@@ -494,6 +497,7 @@ pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserMetadataListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
+pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
@@ -511,6 +515,7 @@ pub enum ApplicationCacheValue {
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserMetadataList(UserMetadataListResponse),
+    UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),

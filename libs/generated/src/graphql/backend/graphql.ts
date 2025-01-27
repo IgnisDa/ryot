@@ -147,7 +147,7 @@ export type CachedCollectionContentsResponse = {
   response: CollectionContents;
 };
 
-export type CachedMetadataListResponse = {
+export type CachedSearchIdResponse = {
   cacheId: Scalars['UUID']['output'];
   response: IdResults;
 };
@@ -1819,7 +1819,7 @@ export type QueryRoot = {
   /** Get paginated list of metadata groups. */
   userMetadataGroupsList: IdResults;
   /** Get all the media items related to a user for a specific media type. */
-  userMetadataList: CachedMetadataListResponse;
+  userMetadataList: CachedSearchIdResponse;
   /** Get metadata recommendations for the currently logged in user. */
   userMetadataRecommendations: CachedUserMetadataRecommendationsResponse;
   /** Get all the notification platforms for the currently logged in user. */

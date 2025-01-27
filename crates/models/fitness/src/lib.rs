@@ -652,7 +652,7 @@ pub struct UserWorkoutInput {
     pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone)]
 pub struct ExerciseListFilter {
     #[graphql(name = "type")]
     pub lot: Option<ExerciseLot>,
@@ -664,7 +664,7 @@ pub struct ExerciseListFilter {
     pub collection: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum ExerciseSortBy {
     Name,
     Random,
@@ -673,7 +673,7 @@ pub enum ExerciseSortBy {
     TimesPerformed,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserExercisesListInput {
     pub search: SearchInput,
     pub sort_by: Option<ExerciseSortBy>,

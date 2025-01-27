@@ -31,7 +31,8 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ImportCompletedItem, ImportResult, SearchResults, UserMetadataListResponse,
+    ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
+    UserMetadataListResponse,
 };
 use either::Either;
 use enum_models::{
@@ -3167,7 +3168,7 @@ pub async fn user_exercises_list(
     user_id: &String,
     input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<UserExercisesListResponse> {
     let user_id = user_id.to_owned();
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let page = input.search.page.unwrap_or(1);
