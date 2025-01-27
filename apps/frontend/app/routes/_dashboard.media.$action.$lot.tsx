@@ -175,7 +175,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 			);
 			return [
-				metadataList.details.total,
+				metadataList.response.details.total,
 				{ list: metadataList, url: urlParse },
 				undefined,
 			] as const;
@@ -340,11 +340,11 @@ export default function Page() {
 								<FiltersModalForm />
 							</FiltersModal>
 						</Group>
-						{loaderData.mediaList.list.details.total > 0 ? (
+						{loaderData.mediaList.list.response.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{loaderData.mediaList.list.details.total}
+										{loaderData.mediaList.list.response.details.total}
 									</Text>{" "}
 									items found
 								</Box>
@@ -354,7 +354,7 @@ export default function Page() {
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : (
 									<ApplicationGrid>
-										{loaderData.mediaList.list.items.map((item) => {
+										{loaderData.mediaList.list.response.items.map((item) => {
 											const becItem = {
 												entityId: item,
 												entityLot: EntityLot.Metadata,
