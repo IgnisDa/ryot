@@ -41,8 +41,8 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSortBy,
-	ExercisesListDocument,
 	MergeExerciseDocument,
+	UserExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
@@ -126,10 +126,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
-	const [{ exercisesList }] = await Promise.all([
+	const [{ userExercisesList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request.clone(),
-			ExercisesListDocument,
+			UserExercisesListDocument,
 			{
 				input: {
 					search: { page: query[pageQueryParam], query: query.query },
@@ -149,10 +149,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		exercisesList.details.total,
+		userExercisesList.details.total,
 		query[pageQueryParam],
 	);
-	return { query, totalPages, cookieName, exercisesList };
+	return { query, totalPages, cookieName, userExercisesList };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -275,11 +275,11 @@ export default function Page() {
 								You are merging exercise: {mergingExercise}
 							</Alert>
 						) : null}
-						{loaderData.exercisesList.details.total > 0 ? (
+						{loaderData.userExercisesList.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{loaderData.exercisesList.details.total}
+										{loaderData.userExercisesList.details.total}
 									</Text>{" "}
 									items found
 									{allowAddingExerciseToWorkout ? (
@@ -294,7 +294,7 @@ export default function Page() {
 									) : null}
 								</Box>
 								<SimpleGrid cols={{ md: 2, lg: 3 }}>
-									{loaderData.exercisesList.items.map((exercise) => (
+									{loaderData.userExercisesList.items.map((exercise) => (
 										<ExerciseItemDisplay
 											key={exercise}
 											exerciseId={exercise}
