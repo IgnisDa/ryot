@@ -383,9 +383,9 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 	currentPage: number,
 ) => {
 	const coreDetails = await getCoreDetails();
-	const { searchParams } = new URL(request.url);
 	const totalPages = Math.ceil(totalResults / coreDetails.pageSize);
 	if (currentPage > totalPages && currentPage !== 1) {
+		const { searchParams } = new URL(request.url);
 		searchParams.set(pageQueryParam, "1");
 		throw redirect(`?${searchParams.toString()}`);
 	}
