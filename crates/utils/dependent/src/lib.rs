@@ -34,7 +34,7 @@ use dependent_models::{
     ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy,
+    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
 };
 use either::Either;
 use enum_models::{
@@ -3171,7 +3171,7 @@ pub async fn user_workout_templates_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
     input: UserTemplatesOrWorkoutsListInput,
-) -> Result<SearchResults<String>> {
+) -> Result<UserWorkoutsListResponse> {
     let page = input.search.page.unwrap_or(1);
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = WorkoutTemplate::find()

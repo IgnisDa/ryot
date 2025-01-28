@@ -36,6 +36,7 @@ impl CacheService {
             | ApplicationCacheKey::UserPeopleList { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::UserMetadataList { .. }
+            | ApplicationCacheKey::UserWorkoutsList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
             | ApplicationCacheKey::UserMetadataGroupsList { .. }

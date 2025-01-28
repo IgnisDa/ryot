@@ -550,6 +550,7 @@ pub enum ApplicationCacheKey {
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
+    UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
@@ -559,6 +560,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
+pub type UserWorkoutsListResponse = SearchResults<String>;
 pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
@@ -580,6 +582,7 @@ pub enum ApplicationCacheValue {
     UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
+    UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
     UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
