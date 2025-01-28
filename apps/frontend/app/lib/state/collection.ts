@@ -113,7 +113,7 @@ export const useBulkEditCollection = () => {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.userPeopleList.items.map((p) => ({
+											r.userPeopleList.response.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.Person,
 											})),

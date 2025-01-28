@@ -121,7 +121,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 			);
 			return [
-				userPeopleList.details.total,
+				userPeopleList.response.details.total,
 				{ list: userPeopleList, url: urlParse },
 				undefined,
 			] as const;
@@ -286,13 +286,13 @@ export default function Page() {
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.list.list.details.total}
+								{loaderData.list.list.response.details.total}
 							</Text>{" "}
 							items found
 						</Box>
-						{loaderData.list.list.details.total > 0 ? (
+						{loaderData.list.list.response.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.list.list.items.map((person) => {
+								{loaderData.list.list.response.items.map((person) => {
 									const becItem = {
 										entityId: person,
 										entityLot: EntityLot.Person,
