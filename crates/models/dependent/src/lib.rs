@@ -567,6 +567,7 @@ pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
+pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
