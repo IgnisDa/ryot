@@ -44,8 +44,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
     GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataGroupsListResponse, UserMetadataListResponse,
-    UserPeopleListResponse, UserPersonDetails,
+    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -80,8 +81,7 @@ use media_models::{
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
     UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserMetadataGroupsListInput, UserMetadataListInput,
-    UserPeopleListInput, UserUpcomingCalendarEventInput,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,

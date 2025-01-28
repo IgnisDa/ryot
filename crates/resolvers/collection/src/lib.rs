@@ -3,8 +3,11 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use collection_service::CollectionService;
 use common_models::{ChangeCollectionToEntityInput, StringIdObject};
-use dependent_models::{CachedResponse, CollectionContentsResponse, UserCollectionsListResponse};
-use media_models::{CollectionContentsInput, CreateOrUpdateCollectionInput};
+use dependent_models::{
+    CachedResponse, CollectionContentsInput, CollectionContentsResponse,
+    UserCollectionsListResponse,
+};
+use media_models::CreateOrUpdateCollectionInput;
 use traits::AuthProvider;
 
 #[derive(Default)]

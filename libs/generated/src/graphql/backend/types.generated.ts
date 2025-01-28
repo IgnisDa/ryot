@@ -2043,7 +2043,7 @@ export type QueryRootUserWorkoutTemplatesListArgs = {
 
 
 export type QueryRootUserWorkoutsListArgs = {
-  input: SearchInput;
+  input: UserWorkoutsListInput;
 };
 
 
@@ -2980,6 +2980,21 @@ export type UserWorkoutTemplateDetails = {
   __typename?: 'UserWorkoutTemplateDetails';
   collections: Array<Collection>;
   details: WorkoutTemplate;
+};
+
+export type UserWorkoutsListInput = {
+  search: SearchInput;
+  sort?: InputMaybe<UserWorkoutsListSortInput>;
+};
+
+export enum UserWorkoutsListSortBy {
+  Random = 'RANDOM',
+  Time = 'TIME'
+}
+
+export type UserWorkoutsListSortInput = {
+  by?: UserWorkoutsListSortBy;
+  order?: GraphqlSortOrder;
 };
 
 export type VideoGameSpecifics = {

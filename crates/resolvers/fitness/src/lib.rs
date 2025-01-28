@@ -6,6 +6,7 @@ use database_models::{exercise, user_measurement};
 use dependent_models::{
     CachedResponse, SearchResults, UpdateCustomExerciseInput, UserExerciseDetails,
     UserExercisesListResponse, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    UserWorkoutsListInput,
 };
 use fitness_models::{
     UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,
@@ -61,7 +62,7 @@ impl FitnessQuery {
     async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: UserWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;

@@ -18,7 +18,8 @@ use database_models::{
 use database_utils::{ilike_sql, item_reviews};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsResponse, SearchResults, UserCollectionsListResponse,
+    CollectionContentsInput, CollectionContentsResponse, SearchResults,
+    UserCollectionsListResponse,
 };
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
@@ -26,8 +27,7 @@ use dependent_utils::{
 };
 use enum_models::EntityLot;
 use media_models::{
-    CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
-    CreateOrUpdateCollectionInput, EntityWithLot,
+    CollectionContentsSortBy, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,

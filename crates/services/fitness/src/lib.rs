@@ -18,6 +18,7 @@ use database_utils::{
 use dependent_models::{
     CachedResponse, SearchResults, UpdateCustomExerciseInput, UserExerciseDetails,
     UserExercisesListResponse, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    UserWorkoutsListInput,
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
@@ -222,7 +223,7 @@ impl FitnessService {
     pub async fn user_workouts_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: UserWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
         user_workouts_list(&user_id, input, &self.0).await
     }

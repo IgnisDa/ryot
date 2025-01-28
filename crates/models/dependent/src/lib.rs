@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use async_graphql::{InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, InputType, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
     DailyUserActivityHourRecord, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
     MetadataSearchInput, PeopleSearchInput, PersonSourceSpecifics, ProgressUpdateCacheInput,
-    SearchDetails, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
+    SearchDetails, SearchInput, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -23,13 +23,14 @@ use fitness_models::{
 };
 use importer_models::ImportFailedItem;
 use media_models::{
-    CollectionContentsInput, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
-    GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
-    ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
-    MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
+    CollectionContentsFilter, CollectionContentsSortBy, CollectionItem,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
+    GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
+    ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
+    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -57,6 +58,18 @@ use uuid::Uuid;
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
+#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+#[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
+#[graphql(concrete(name = "UserWorkoutsListSortInput", params(UserWorkoutsListSortBy)))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
+pub struct SortInput<T: InputType + Default> {
+    #[graphql(default)]
+    pub by: T,
+    #[graphql(default)]
+    pub order: GraphqlSortOrder,
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -231,6 +244,52 @@ pub struct ExerciseParameters {
     pub filters: ExerciseFilters,
     /// Exercise type mapped to the personal bests possible.
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject)]
+pub struct CollectionContentsInput {
+    pub collection_id: String,
+    pub search: Option<SearchInput>,
+    pub filter: Option<CollectionContentsFilter>,
+    pub sort: Option<SortInput<CollectionContentsSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserMetadataListInput {
+    pub lot: Option<MediaLot>,
+    pub filter: Option<MediaFilter>,
+    pub search: Option<SearchInput>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<MediaSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserPeopleListInput {
+    pub search: Option<SearchInput>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserMetadataGroupsListInput {
+    pub search: Option<SearchInput>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
+}
+
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum UserWorkoutsListSortBy {
+    #[default]
+    Time,
+    Random,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserWorkoutsListInput {
+    pub search: SearchInput,
+    pub sort: Option<SortInput<UserWorkoutsListSortBy>>,
 }
 
 #[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]

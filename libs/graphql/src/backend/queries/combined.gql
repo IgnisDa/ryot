@@ -452,7 +452,7 @@ query UserWorkoutDetails($workoutId: String!) {
   }
 }
 
-query UserWorkoutsList($input: SearchInput!) {
+query UserWorkoutsList($input: UserWorkoutsListInput!) {
   userWorkoutsList(input: $input) {
     details {
       total

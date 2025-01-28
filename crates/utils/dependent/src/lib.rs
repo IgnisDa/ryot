@@ -32,7 +32,9 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
     ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
-    UserMetadataGroupsListResponse, UserMetadataListResponse, UserPeopleListResponse,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserWorkoutsListInput,
+    UserWorkoutsListSortBy,
 };
 use either::Either;
 use enum_models::{
@@ -59,7 +61,6 @@ use media_models::{
     ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
-    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -3125,19 +3126,27 @@ pub async fn user_people_list(
 
 pub async fn user_workouts_list(
     user_id: &String,
-    input: SearchInput,
+    input: UserWorkoutsListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
-    let page = input.page.unwrap_or(1);
-    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let page = input.search.page.unwrap_or(1);
+    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = Workout::find()
         .select_only()
         .column(workout::Column::Id)
         .filter(workout::Column::UserId.eq(user_id))
-        .apply_if(input.query, |query, v| {
+        .apply_if(input.search.query, |query, v| {
             query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
         })
-        .order_by_desc(workout::Column::EndTime)
+        .apply_if(input.sort, |query, v| {
+            query.order_by(
+                match v.by {
+                    UserWorkoutsListSortBy::Random => Expr::expr(Func::random()),
+                    UserWorkoutsListSortBy::Time => Expr::col(workout::Column::EndTime),
+                },
+                graphql_to_db_order(v.order),
+            )
+        })
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {

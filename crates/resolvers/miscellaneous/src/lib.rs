@@ -8,15 +8,15 @@ use common_models::{
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListResponse,
-    UserMetadataListResponse, UserPeopleListResponse, UserPersonDetails,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
     GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
     UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
     UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
