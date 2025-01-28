@@ -182,9 +182,9 @@ export default function Page() {
 					</ActionIcon>
 				</Flex>
 				<DebouncedSearchInput
-					placeholder={`Search for ${loaderData.entity}`}
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
+					placeholder={`Search for ${loaderData.entity}`}
 				/>
 				{loaderData.itemList.items.length > 0 ? (
 					<Stack gap="xs">
