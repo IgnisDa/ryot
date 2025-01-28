@@ -38,6 +38,7 @@ impl CacheService {
             | ApplicationCacheKey::UserMetadataList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::UserMetadataGroupsList { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,

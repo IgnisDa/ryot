@@ -32,7 +32,7 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
     ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
-    UserMetadataListResponse, UserPeopleListResponse,
+    UserMetadataGroupsListResponse, UserMetadataListResponse, UserPeopleListResponse,
 };
 use either::Either;
 use enum_models::{
@@ -2940,8 +2940,7 @@ pub async fn user_metadata_groups_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
     input: UserMetadataGroupsListInput,
-) -> Result<SearchResults<String>> {
-    // TODO: add caching
+) -> Result<UserMetadataGroupsListResponse> {
     let page: u64 = input
         .search
         .clone()

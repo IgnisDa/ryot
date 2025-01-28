@@ -29,7 +29,7 @@ use media_models::{
     MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
     PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserMetadataListInput, UserPeopleListInput,
+    UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -488,6 +488,7 @@ pub enum ApplicationCacheKey {
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
+    UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
 
@@ -501,6 +502,7 @@ pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
+pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
@@ -521,6 +523,7 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
