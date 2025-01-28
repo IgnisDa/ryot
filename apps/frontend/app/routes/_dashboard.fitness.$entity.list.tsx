@@ -111,10 +111,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: UserTemplatesOrWorkoutsListInput = {
 		sort: { by: query.sortBy, order: query.orderBy },
-		search: {
-			query: query.query,
-			page: query[pageQueryParam],
-		},
+		search: { query: query.query, page: query[pageQueryParam] },
 	};
 	const displayData = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
