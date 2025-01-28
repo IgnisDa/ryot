@@ -1874,7 +1874,7 @@ export type QueryRoot = {
   /** Get all pending display notifications for the currently logged in user. */
   userPendingNotifications: Array<UserNotification>;
   /** Get paginated list of people. */
-  userPeopleList: IdResults;
+  userPeopleList: CachedSearchIdResponse;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
   /** Get upcoming calendar events for the given filter. */

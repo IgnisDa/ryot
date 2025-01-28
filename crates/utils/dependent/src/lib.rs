@@ -3033,14 +3033,14 @@ pub async fn user_people_list(
     user_id: &String,
     input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
-) -> Result<UserPeopleListResponse> {
+) -> Result<CachedResponse<UserPeopleListResponse>> {
     let cc = &ss.cache_service;
     let key = ApplicationCacheKey::UserPeopleList(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.clone(),
     });
-    if let Some((id, cached)) = cc.get_value::<UserPeopleListResponse>(key.clone()).await {
-        return Ok(cached);
+    if let Some((cache_id, response)) = cc.get_value::<UserPeopleListResponse>(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
     }
     let page: u64 = input
         .search
@@ -3117,10 +3117,10 @@ pub async fn user_people_list(
             },
         },
     };
-    let id = cc
+    let cache_id = cc
         .set_key(key, ApplicationCacheValue::UserPeopleList(response.clone()))
         .await?;
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_workouts_list(

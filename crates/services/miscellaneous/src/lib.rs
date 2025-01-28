@@ -1837,7 +1837,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: UserPeopleListInput,
-    ) -> Result<UserPeopleListResponse> {
+    ) -> Result<CachedResponse<UserPeopleListResponse>> {
         user_people_list(&user_id, input, &self.0).await
     }
 

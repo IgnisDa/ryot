@@ -341,7 +341,7 @@ impl ExporterService {
             )
             .await?;
             ryot_log!(debug, "Exporting people list page: {current_page}");
-            for rm in related_people.items.iter() {
+            for rm in related_people.response.items.iter() {
                 let p = Person::find_by_id(rm)
                     .one(&self.0.db)
                     .await?
@@ -367,7 +367,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = related_people.details.next_page {
+            if let Some(next_page) = related_people.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
