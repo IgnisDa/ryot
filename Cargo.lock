@@ -2357,7 +2357,6 @@ name = "fitness-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common-models",
  "database-models",
  "dependent-models",
  "fitness-models",

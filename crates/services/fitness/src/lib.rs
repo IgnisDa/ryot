@@ -3,7 +3,7 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
-use common_models::{SearchInput, StoredUrl};
+use common_models::StoredUrl;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
@@ -17,8 +17,8 @@ use database_utils::{
 };
 use dependent_models::{
     CachedResponse, SearchResults, UpdateCustomExerciseInput, UserExerciseDetails,
-    UserExercisesListResponse, UserWorkoutDetails, UserWorkoutTemplateDetails,
-    UserWorkoutsListInput,
+    UserExercisesListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
@@ -51,9 +51,9 @@ impl FitnessService {
     pub async fn user_workout_templates_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
-        user_workout_templates_list(&user_id, input, &self.0).await
+        user_workout_templates_list(&user_id, &self.0, input).await
     }
 
     pub async fn user_workout_template_details(
@@ -223,7 +223,7 @@ impl FitnessService {
     pub async fn user_workouts_list(
         &self,
         user_id: String,
-        input: UserWorkoutsListInput,
+        input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
         user_workouts_list(&user_id, input, &self.0).await
     }

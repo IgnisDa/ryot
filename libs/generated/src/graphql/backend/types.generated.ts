@@ -2038,12 +2038,12 @@ export type QueryRootUserWorkoutTemplateDetailsArgs = {
 
 
 export type QueryRootUserWorkoutTemplatesListArgs = {
-  input: SearchInput;
+  input: UserTemplatesOrWorkoutsListInput;
 };
 
 
 export type QueryRootUserWorkoutsListArgs = {
-  input: UserWorkoutsListInput;
+  input: UserTemplatesOrWorkoutsListInput;
 };
 
 
@@ -2874,6 +2874,16 @@ export enum UserReviewScale {
   ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
 
+export type UserTemplatesOrWorkoutsListInput = {
+  search: SearchInput;
+  sort?: InputMaybe<UserWorkoutsListSortInput>;
+};
+
+export enum UserTemplatesOrWorkoutsListSortBy {
+  Random = 'RANDOM',
+  Time = 'TIME'
+}
+
 export type UserToEntity = {
   __typename?: 'UserToEntity';
   collectionId?: Maybe<Scalars['String']['output']>;
@@ -2982,18 +2992,8 @@ export type UserWorkoutTemplateDetails = {
   details: WorkoutTemplate;
 };
 
-export type UserWorkoutsListInput = {
-  search: SearchInput;
-  sort?: InputMaybe<UserWorkoutsListSortInput>;
-};
-
-export enum UserWorkoutsListSortBy {
-  Random = 'RANDOM',
-  Time = 'TIME'
-}
-
 export type UserWorkoutsListSortInput = {
-  by?: UserWorkoutsListSortBy;
+  by?: UserTemplatesOrWorkoutsListSortBy;
   order?: GraphqlSortOrder;
 };
 

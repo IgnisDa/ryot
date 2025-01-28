@@ -63,7 +63,10 @@ pub struct SearchResults<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
-#[graphql(concrete(name = "UserWorkoutsListSortInput", params(UserWorkoutsListSortBy)))]
+#[graphql(concrete(
+    name = "UserWorkoutsListSortInput",
+    params(UserTemplatesOrWorkoutsListSortBy)
+))]
 #[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 pub struct SortInput<T: InputType + Default> {
     #[graphql(default)]
@@ -280,16 +283,16 @@ pub struct UserMetadataGroupsListInput {
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum UserWorkoutsListSortBy {
+pub enum UserTemplatesOrWorkoutsListSortBy {
     #[default]
     Time,
     Random,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct UserWorkoutsListInput {
+pub struct UserTemplatesOrWorkoutsListInput {
     pub search: SearchInput,
-    pub sort: Option<SortInput<UserWorkoutsListSortBy>>,
+    pub sort: Option<SortInput<UserTemplatesOrWorkoutsListSortBy>>,
 }
 
 #[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]

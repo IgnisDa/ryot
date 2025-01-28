@@ -6,8 +6,8 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
-    StoredUrl, StringIdObject, UserLevelCacheKey, UserNotificationContent,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
+    StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
@@ -33,8 +33,8 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
     ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserWorkoutsListInput,
-    UserWorkoutsListSortBy,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy,
 };
 use either::Either;
 use enum_models::{
@@ -3126,7 +3126,7 @@ pub async fn user_people_list(
 
 pub async fn user_workouts_list(
     user_id: &String,
-    input: UserWorkoutsListInput,
+    input: UserTemplatesOrWorkoutsListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
     let page = input.search.page.unwrap_or(1);
@@ -3141,8 +3141,8 @@ pub async fn user_workouts_list(
         .apply_if(input.sort, |query, v| {
             query.order_by(
                 match v.by {
-                    UserWorkoutsListSortBy::Random => Expr::expr(Func::random()),
-                    UserWorkoutsListSortBy::Time => Expr::col(workout::Column::EndTime),
+                    UserTemplatesOrWorkoutsListSortBy::Random => Expr::expr(Func::random()),
+                    UserTemplatesOrWorkoutsListSortBy::Time => Expr::col(workout::Column::EndTime),
                 },
                 graphql_to_db_order(v.order),
             )
@@ -3169,19 +3169,29 @@ pub async fn user_workouts_list(
 
 pub async fn user_workout_templates_list(
     user_id: &String,
-    input: SearchInput,
     ss: &Arc<SupportingService>,
+    input: UserTemplatesOrWorkoutsListInput,
 ) -> Result<SearchResults<String>> {
-    let page = input.page.unwrap_or(1);
-    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    let page = input.search.page.unwrap_or(1);
+    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = WorkoutTemplate::find()
         .select_only()
         .column(workout_template::Column::Id)
         .filter(workout_template::Column::UserId.eq(user_id))
-        .apply_if(input.query, |query, v| {
+        .apply_if(input.search.query, |query, v| {
             query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
         })
-        .order_by_desc(workout_template::Column::CreatedOn)
+        .apply_if(input.sort, |query, v| {
+            query.order_by(
+                match v.by {
+                    UserTemplatesOrWorkoutsListSortBy::Random => Expr::expr(Func::random()),
+                    UserTemplatesOrWorkoutsListSortBy::Time => {
+                        Expr::col(workout_template::Column::CreatedOn)
+                    }
+                },
+                graphql_to_db_order(v.order),
+            )
+        })
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {

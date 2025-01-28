@@ -15,7 +15,7 @@ use database_utils::{
 };
 use dependent_models::{
     ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem, UserMetadataGroupsListInput,
-    UserMetadataListInput, UserPeopleListInput, UserWorkoutsListInput,
+    UserMetadataListInput, UserPeopleListInput, UserTemplatesOrWorkoutsListInput,
 };
 use dependent_utils::{
     user_exercises_list, user_metadata_groups_list, user_metadata_list, user_people_list,
@@ -387,7 +387,7 @@ impl ExporterService {
         loop {
             let workout_ids = user_workouts_list(
                 user_id,
-                UserWorkoutsListInput {
+                UserTemplatesOrWorkoutsListInput {
                     search: SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
@@ -496,12 +496,15 @@ impl ExporterService {
         loop {
             let workout_template_ids = user_workout_templates_list(
                 user_id,
-                SearchInput {
-                    take: Some(1000),
-                    page: Some(current_page),
+                &self.0,
+                UserTemplatesOrWorkoutsListInput {
+                    search: SearchInput {
+                        take: Some(1000),
+                        page: Some(current_page),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
-                &self.0,
             )
             .await?;
             ryot_log!(

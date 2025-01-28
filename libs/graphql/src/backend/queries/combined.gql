@@ -452,13 +452,13 @@ query UserWorkoutDetails($workoutId: String!) {
   }
 }
 
-query UserWorkoutsList($input: UserWorkoutsListInput!) {
+query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
   userWorkoutsList(input: $input) {
+    items
     details {
       total
       nextPage
     }
-    items
   }
 }
 
@@ -481,13 +481,13 @@ query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
   }
 }
 
-query UserWorkoutTemplatesList($input: SearchInput!) {
+query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
   userWorkoutTemplatesList(input: $input) {
+    items
     details {
       total
       nextPage
     }
-    items
   }
 }
 

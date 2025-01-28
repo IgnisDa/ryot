@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::SearchInput;
 use database_models::{exercise, user_measurement};
 use dependent_models::{
     CachedResponse, SearchResults, UpdateCustomExerciseInput, UserExerciseDetails,
-    UserExercisesListResponse, UserWorkoutDetails, UserWorkoutTemplateDetails,
-    UserWorkoutsListInput,
+    UserExercisesListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
 };
 use fitness_models::{
     UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,
@@ -27,7 +26,7 @@ impl FitnessQuery {
     async fn user_workout_templates_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
@@ -62,7 +61,7 @@ impl FitnessQuery {
     async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: UserWorkoutsListInput,
+        input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
