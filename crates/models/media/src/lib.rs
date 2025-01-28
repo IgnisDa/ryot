@@ -1275,7 +1275,7 @@ pub enum MediaSortBy {
     ProviderRating,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum PersonAndMetadataGroupsSortBy {
     #[default]
     Name,
@@ -1320,7 +1320,7 @@ pub struct UserMetadataListInput {
     pub sort: Option<SortInput<MediaSortBy>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserPeopleListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,

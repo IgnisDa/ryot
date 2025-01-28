@@ -33,6 +33,7 @@ impl CacheService {
             ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::UserAnalytics { .. }
+            | ApplicationCacheKey::UserPeopleList { .. }
             | ApplicationCacheKey::MetadataSearch { .. }
             | ApplicationCacheKey::UserMetadataList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }

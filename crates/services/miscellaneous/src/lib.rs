@@ -44,7 +44,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
     GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataListResponse, UserPersonDetails,
+    UserMetadataGroupDetails, UserMetadataListResponse, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -1836,7 +1836,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: UserPeopleListInput,
-    ) -> Result<SearchResults<String>> {
+    ) -> Result<UserPeopleListResponse> {
         user_people_list(&user_id, input, &self.0).await
     }
 
