@@ -100,7 +100,14 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
-				{ input: { page: query[pageQueryParam], query: query.query } },
+				{
+					input: {
+						search: {
+							query: query.query,
+							page: query[pageQueryParam],
+						},
+					},
+				},
 			);
 			return {
 				items: userWorkoutsList.items,
