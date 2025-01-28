@@ -34,7 +34,7 @@ use dependent_models::{
     ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy,
+    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
 use either::Either;
@@ -3129,7 +3129,15 @@ pub async fn user_workouts_list(
     user_id: &String,
     input: UserTemplatesOrWorkoutsListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<CachedResponse<UserWorkoutsListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserWorkoutsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
     let page = input.search.page.unwrap_or(1);
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = Workout::find()
@@ -3155,7 +3163,8 @@ pub async fn user_workouts_list(
         number_of_pages,
     } = paginator.num_items_and_pages().await?;
     let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3164,8 +3173,14 @@ pub async fn user_workouts_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserWorkoutsList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_workout_templates_list(

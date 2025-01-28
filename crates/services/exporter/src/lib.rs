@@ -399,7 +399,7 @@ impl ExporterService {
             )
             .await?;
             ryot_log!(debug, "Exporting workouts list page: {current_page}");
-            for workout_id in workout_ids.items {
+            for workout_id in workout_ids.response.items {
                 let details = user_workout_details(user_id, workout_id, &self.0).await?;
                 let exp = ImportOrExportWorkoutItem {
                     details: details.details,
@@ -407,7 +407,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = workout_ids.details.next_page {
+            if let Some(next_page) = workout_ids.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;

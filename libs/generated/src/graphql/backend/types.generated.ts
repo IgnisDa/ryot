@@ -1886,7 +1886,7 @@ export type QueryRoot = {
   /** Get a paginated list of templates created by the user. */
   userWorkoutTemplatesList: IdResults;
   /** Get a paginated list of workouts done by the user. */
-  userWorkoutsList: IdResults;
+  userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
   usersList: Array<User>;
 };

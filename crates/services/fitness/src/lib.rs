@@ -224,7 +224,7 @@ impl FitnessService {
         &self,
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
-    ) -> Result<UserWorkoutsListResponse> {
+    ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
         user_workouts_list(&user_id, input, &self.0).await
     }
 
