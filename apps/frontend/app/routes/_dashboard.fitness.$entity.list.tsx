@@ -49,7 +49,10 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { DebouncedSearchInput } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
+} from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
@@ -185,6 +188,10 @@ export default function Page() {
 				/>
 				{loaderData.itemList.items.length > 0 ? (
 					<Stack gap="xs">
+						<DisplayListDetailsAndRefresh
+							cacheId={"abcd"}
+							total={loaderData.itemList.details.total}
+						/>
 						{loaderData.itemList.items.map((entityId, index) => (
 							<DisplayFitnessEntity
 								index={index}
@@ -273,7 +280,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 	return (
 		<>
 			{props.index !== 0 ? <Divider /> : null}
-			<Stack gap="xs" ref={parent} px={{ base: "xs", md: "md" }}>
+			<Stack gap="xs" ref={parent} px={{ base: 4 }}>
 				<Group wrap="nowrap" justify="space-between">
 					<Box>
 						<Group wrap="nowrap">
