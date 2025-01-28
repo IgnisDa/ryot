@@ -116,7 +116,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					},
 				);
 			return [
-				userMetadataGroupsList.details.total,
+				userMetadataGroupsList.response.details.total,
 				{ list: userMetadataGroupsList, url: urlParse },
 				undefined,
 			] as const;
@@ -261,13 +261,13 @@ export default function Page() {
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.list.list.details.total}
+								{loaderData.list.list.response.details.total}
 							</Text>{" "}
 							items found
 						</Box>
-						{loaderData.list.list.details.total > 0 ? (
+						{loaderData.list.list.response.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.list.list.items.map((gr) => {
+								{loaderData.list.list.response.items.map((gr) => {
 									const becItem = {
 										entityId: gr,
 										entityLot: EntityLot.MetadataGroup,

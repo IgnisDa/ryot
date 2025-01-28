@@ -128,7 +128,7 @@ export const useBulkEditCollection = () => {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.userMetadataGroupsList.items.map((p) => ({
+											r.userMetadataGroupsList.response.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.MetadataGroup,
 											})),
