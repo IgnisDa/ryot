@@ -116,7 +116,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 			page: query[pageQueryParam],
 		},
 	};
-	const itemList = await match(entity)
+	const displayData = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -124,8 +124,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 				{ input },
 			);
 			return {
-				items: userWorkoutsList.items,
-				details: userWorkoutsList.details,
+				cacheId: userWorkoutsList.cacheId,
+				items: userWorkoutsList.response.items,
+				details: userWorkoutsList.response.details,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -136,17 +137,18 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 					{ input },
 				);
 			return {
-				items: userWorkoutTemplatesList.items,
-				details: userWorkoutTemplatesList.details,
+				cacheId: userWorkoutTemplatesList.cacheId,
+				items: userWorkoutTemplatesList.response.items,
+				details: userWorkoutTemplatesList.response.details,
 			};
 		})
 		.exhaustive();
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		itemList.details.total,
+		displayData.details.total,
 		query[pageQueryParam],
 	);
-	return { query, entity, itemList, cookieName, totalPages };
+	return { query, entity, displayData, cookieName, totalPages };
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
@@ -212,13 +214,13 @@ export default function Page() {
 						<FiltersModalForm />
 					</FiltersModal>
 				</Group>
-				{loaderData.itemList.items.length > 0 ? (
+				{loaderData.displayData.items.length > 0 ? (
 					<Stack gap="xs">
 						<DisplayListDetailsAndRefresh
-							cacheId={"abcd"}
-							total={loaderData.itemList.details.total}
+							cacheId={loaderData.displayData.cacheId}
+							total={loaderData.displayData.details.total}
 						/>
-						{loaderData.itemList.items.map((entityId, index) => (
+						{loaderData.displayData.items.map((entityId, index) => (
 							<DisplayFitnessEntity
 								index={index}
 								key={entityId}
