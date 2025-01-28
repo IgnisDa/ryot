@@ -2941,6 +2941,14 @@ pub async fn user_metadata_groups_list(
     ss: &Arc<SupportingService>,
     input: UserMetadataGroupsListInput,
 ) -> Result<UserMetadataGroupsListResponse> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserMetadataGroupsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((id, cached)) = cc.get_value(key.clone()).await {
+        return Ok(cached);
+    }
     let page: u64 = input
         .search
         .clone()
@@ -3001,7 +3009,8 @@ pub async fn user_metadata_groups_list(
     for c in paginator.fetch_page(page - 1).await? {
         items.push(c);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -3010,8 +3019,14 @@ pub async fn user_metadata_groups_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMetadataGroupsList(response.clone()),
+        )
+        .await?;
+    Ok(response)
 }
 
 pub async fn user_people_list(

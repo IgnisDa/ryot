@@ -1669,7 +1669,8 @@ export type Person = {
 
 export enum PersonAndMetadataGroupsSortBy {
   MediaItems = 'MEDIA_ITEMS',
-  Name = 'NAME'
+  Name = 'NAME',
+  Random = 'RANDOM'
 }
 
 export type PersonDetailsGroupedByRole = {
