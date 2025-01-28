@@ -2950,13 +2950,14 @@ pub async fn user_metadata_groups_list(
         .try_into()
         .unwrap();
     let alias = "parts";
-    let media_items_col = Expr::col(Alias::new(alias));
+    let metadata_group_parts_col = Expr::col(Alias::new(alias));
     let (order_by, sort_order) = match input.sort {
-        None => (media_items_col, Order::Desc),
+        None => (metadata_group_parts_col, Order::Desc),
         Some(ord) => (
             match ord.by {
+                PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
+                PersonAndMetadataGroupsSortBy::MediaItems => metadata_group_parts_col,
                 PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
-                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
             },
             graphql_to_db_order(ord.order),
         ),
@@ -3040,8 +3041,9 @@ pub async fn user_people_list(
         None => (media_items_col, Order::Desc),
         Some(ord) => (
             match ord.by {
-                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
                 PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+                PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
             },
             graphql_to_db_order(ord.order),
         ),

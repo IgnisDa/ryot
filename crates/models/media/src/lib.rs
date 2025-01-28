@@ -1279,6 +1279,7 @@ pub enum MediaSortBy {
 pub enum PersonAndMetadataGroupsSortBy {
     #[default]
     Name,
+    Random,
     MediaItems,
 }
 
