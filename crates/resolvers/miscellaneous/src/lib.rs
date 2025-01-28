@@ -123,7 +123,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserMetadataGroupsListInput,
-    ) -> Result<UserMetadataGroupsListResponse> {
+    ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_metadata_groups_list(user_id, input).await

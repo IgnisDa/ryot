@@ -120,10 +120,13 @@ query MetadataPartialDetails($metadataId: String!) {
 
 query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
   userMetadataGroupsList(input: $input) {
-    items
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
   }
 }

@@ -1864,7 +1864,7 @@ export type QueryRoot = {
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
   /** Get paginated list of metadata groups. */
-  userMetadataGroupsList: IdResults;
+  userMetadataGroupsList: CachedSearchIdResponse;
   /** Get all the media items related to a user for a specific media type. */
   userMetadataList: CachedSearchIdResponse;
   /** Get metadata recommendations for the currently logged in user. */

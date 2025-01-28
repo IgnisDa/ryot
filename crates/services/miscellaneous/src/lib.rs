@@ -1829,7 +1829,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         user_id: String,
         input: UserMetadataGroupsListInput,
-    ) -> Result<UserMetadataGroupsListResponse> {
+    ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
         user_metadata_groups_list(&user_id, &self.0, input).await
     }
 

@@ -2940,14 +2940,14 @@ pub async fn user_metadata_groups_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
     input: UserMetadataGroupsListInput,
-) -> Result<UserMetadataGroupsListResponse> {
+) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
     let cc = &ss.cache_service;
     let key = ApplicationCacheKey::UserMetadataGroupsList(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
     });
-    if let Some((id, cached)) = cc.get_value(key.clone()).await {
-        return Ok(cached);
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
     }
     let page: u64 = input
         .search
@@ -3020,13 +3020,13 @@ pub async fn user_metadata_groups_list(
             },
         },
     };
-    let id = cc
+    let cache_id = cc
         .set_key(
             key,
             ApplicationCacheValue::UserMetadataGroupsList(response.clone()),
         )
         .await?;
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_people_list(
