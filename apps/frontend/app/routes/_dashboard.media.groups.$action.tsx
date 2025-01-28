@@ -52,6 +52,7 @@ import {
 	ApplicationGrid,
 	CollectionsFilter,
 	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
@@ -213,7 +214,6 @@ export default function Page() {
 						</Tabs.Tab>
 					</Tabs.List>
 				</Tabs>
-
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for groups"
@@ -256,15 +256,12 @@ export default function Page() {
 						</>
 					) : null}
 				</Group>
-
 				{loaderData.list ? (
 					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.list.list.response.details.total}
-							</Text>{" "}
-							items found
-						</Box>
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.list.list.cacheId}
+							total={loaderData.list.list.response.details.total}
+						/>
 						{loaderData.list.list.response.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.list.list.response.items.map((gr) => {
