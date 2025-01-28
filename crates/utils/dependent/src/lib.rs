@@ -3187,7 +3187,15 @@ pub async fn user_workout_templates_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
     input: UserTemplatesOrWorkoutsListInput,
-) -> Result<UserWorkoutsTemplatesListResponse> {
+) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserWorkoutTemplatesList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
     let page = input.search.page.unwrap_or(1);
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = WorkoutTemplate::find()
@@ -3215,7 +3223,7 @@ pub async fn user_workout_templates_list(
         number_of_pages,
     } = paginator.num_items_and_pages().await?;
     let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-    Ok(SearchResults {
+    let response = SearchResults {
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
@@ -3225,7 +3233,14 @@ pub async fn user_workout_templates_list(
                 None
             },
         },
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserWorkoutTemplatesList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_exercises_list(

@@ -552,6 +552,7 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
+    UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
 
@@ -592,6 +593,7 @@ pub enum ApplicationCacheValue {
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
+    UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }
 

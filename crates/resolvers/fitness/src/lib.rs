@@ -27,7 +27,7 @@ impl FitnessQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserTemplatesOrWorkoutsListInput,
-    ) -> Result<UserWorkoutsTemplatesListResponse> {
+    ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workout_templates_list(user_id, input).await

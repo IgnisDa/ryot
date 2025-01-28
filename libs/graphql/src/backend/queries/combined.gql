@@ -486,10 +486,13 @@ query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 
 query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
   userWorkoutTemplatesList(input: $input) {
-    items
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
   }
 }

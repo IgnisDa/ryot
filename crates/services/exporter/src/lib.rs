@@ -511,7 +511,7 @@ impl ExporterService {
                 debug,
                 "Exporting workout templates list page: {current_page}"
             );
-            for workout_template_id in workout_template_ids.items {
+            for workout_template_id in workout_template_ids.response.items {
                 let details =
                     user_workout_template_details(&self.0.db, user_id, workout_template_id).await?;
                 let exp = ImportOrExportWorkoutTemplateItem {
@@ -520,7 +520,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = workout_template_ids.details.next_page {
+            if let Some(next_page) = workout_template_ids.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
