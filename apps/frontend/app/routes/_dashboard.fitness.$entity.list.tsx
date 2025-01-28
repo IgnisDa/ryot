@@ -95,19 +95,20 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
+	const input = {
+		input: {
+			search: {
+				query: query.query,
+				page: query[pageQueryParam],
+			},
+		},
+	};
 	const itemList = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
-				{
-					input: {
-						search: {
-							query: query.query,
-							page: query[pageQueryParam],
-						},
-					},
-				},
+				input,
 			);
 			return {
 				items: userWorkoutsList.items,
@@ -119,7 +120,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					UserWorkoutTemplatesListDocument,
-					{ input: { page: query.page, query: query.query } },
+					input,
 				);
 			return {
 				items: userWorkoutTemplatesList.items,
