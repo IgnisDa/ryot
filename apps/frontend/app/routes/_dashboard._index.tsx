@@ -120,7 +120,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
-	const submit = useConfirmSubmit();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
@@ -179,7 +178,11 @@ export default function Page() {
 							loaderData.inProgressCollectionContents.response.results.items
 								.length > 0 ? (
 								<Section key={v} lot={v}>
-									<SectionTitle text="In Progress" />
+									<SectionTitleWithRefreshIcon
+										bypassConfirm
+										text="In Progress"
+										cacheId={loaderData.inProgressCollectionContents.cacheId}
+									/>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.response.results.items.map(
 											(lm) => (
@@ -196,38 +199,10 @@ export default function Page() {
 						)
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<Group justify="space-between">
-									<SectionTitle text="Recommendations" />
-									<Form
-										replace
-										method="POST"
-										action={withQuery($path("/actions"), {
-											intent: "expireCacheKey",
-										})}
-									>
-										<input
-											type="hidden"
-											name="cacheId"
-											value={loaderData.userMetadataRecommendations.cacheId}
-										/>
-										<ActionIcon
-											type="submit"
-											variant="subtle"
-											onClick={(e) => {
-												const form = e.currentTarget.form;
-												if (form) {
-													e.preventDefault();
-													openConfirmationModal(
-														"Are you sure you want to refresh the recommendations?",
-														() => submit(form),
-													);
-												}
-											}}
-										>
-											<IconRotateClockwise />
-										</ActionIcon>
-									</Form>
-								</Group>
+								<SectionTitleWithRefreshIcon
+									text="Recommendations"
+									cacheId={loaderData.userMetadataRecommendations.cacheId}
+								/>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
 										{loaderData.userMetadataRecommendations.response.map(
@@ -261,6 +236,46 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const SectionTitleWithRefreshIcon = (props: {
+	text: string;
+	cacheId: string;
+	bypassConfirm?: true;
+}) => {
+	const submit = useConfirmSubmit();
+
+	return (
+		<Group justify="space-between">
+			<SectionTitle text={props.text} />
+			<Form
+				replace
+				method="POST"
+				action={withQuery($path("/actions"), {
+					intent: "expireCacheKey",
+				})}
+			>
+				<input type="hidden" name="cacheId" value={props.cacheId} />
+				<ActionIcon
+					type="submit"
+					variant="subtle"
+					onClick={(e) => {
+						if (props.bypassConfirm) return;
+						const form = e.currentTarget.form;
+						if (form) {
+							e.preventDefault();
+							openConfirmationModal(
+								"Are you sure you want to refresh the recommendations?",
+								() => submit(form),
+							);
+						}
+					}}
+				>
+					<IconRotateClockwise />
+				</ActionIcon>
+			</Form>
+		</Group>
+	);
+};
 
 const SectionTitle = (props: { text: string }) => (
 	<Text fz={{ base: "h2", md: "h1" }} fw="bold">
