@@ -3019,6 +3019,14 @@ pub async fn user_people_list(
     input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<UserPeopleListResponse> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserPeopleList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.clone(),
+    });
+    if let Some((id, cached)) = cc.get_value::<UserPeopleListResponse>(key.clone()).await {
+        return Ok(cached);
+    }
     let page: u64 = input
         .search
         .clone()
@@ -3078,11 +3086,12 @@ pub async fn user_people_list(
         number_of_items,
         number_of_pages,
     } = creators_paginator.num_items_and_pages().await?;
-    let mut creators = vec![];
+    let mut items = vec![];
     for cr in creators_paginator.fetch_page(page - 1).await? {
-        creators.push(cr);
+        items.push(cr);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -3091,8 +3100,11 @@ pub async fn user_people_list(
                 None
             },
         },
-        items: creators,
-    })
+    };
+    let id = cc
+        .set_key(key, ApplicationCacheValue::UserPeopleList(response.clone()))
+        .await?;
+    Ok(response)
 }
 
 pub async fn user_workouts_list(
