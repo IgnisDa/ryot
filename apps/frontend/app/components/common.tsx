@@ -36,6 +36,7 @@ import {
 	Form,
 	Link,
 	useFetcher,
+	useLocation,
 	useNavigate,
 	useRevalidator,
 } from "@remix-run/react";
@@ -96,6 +97,7 @@ import {
 	getMetadataIcon,
 	getSurroundingElements,
 	openConfirmationModal,
+	redirectToQueryParam,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -1365,12 +1367,16 @@ export const ExpireCacheKeyButton = (props: {
 	confirmationText?: string;
 }) => {
 	const submit = useConfirmSubmit();
+	const location = useLocation();
 
 	return (
 		<Form
 			replace
 			method="POST"
-			action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
+			action={withQuery($path("/actions"), {
+				intent: "expireCacheKey",
+				[redirectToQueryParam]: location.pathname,
+			})}
 		>
 			<input type="hidden" name="cacheId" value={props.cacheId} />
 			<ActionIcon

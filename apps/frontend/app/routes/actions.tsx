@@ -60,8 +60,11 @@ export const loader = async () => redirect($path("/"));
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
+	const { searchParams } = new URL(request.url);
 	const redirectToForm = formData.get(redirectToQueryParam);
-	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
+	const redirectToSearchParams = searchParams.get(redirectToQueryParam);
+	let redirectTo =
+		redirectToForm?.toString() || redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
 	let status = undefined;

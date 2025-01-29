@@ -191,12 +191,17 @@ export const getUserPreferences = async (request: Request) => {
 	return userDetails.preferences;
 };
 
-export const getUserCollectionsList = async (request: Request) => {
+export const getUserCollectionsListRaw = async (request: Request) => {
 	const { userCollectionsList } = await serverGqlService.authenticatedRequest(
 		request,
 		UserCollectionsListDocument,
 		{},
 	);
+	return userCollectionsList;
+};
+
+export const getUserCollectionsList = async (request: Request) => {
+	const userCollectionsList = await getUserCollectionsListRaw(request);
 	return userCollectionsList.response;
 };
 
