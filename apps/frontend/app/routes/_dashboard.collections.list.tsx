@@ -69,7 +69,11 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	ExpireCacheKeyButton,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
@@ -89,6 +93,7 @@ import {
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
+	getUserCollectionsListRaw,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -96,10 +101,11 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const [{ usersList }] = await Promise.all([
+	const [{ usersList }, userCollectionsList] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
+		getUserCollectionsListRaw(request),
 	]);
-	return { usersList, cookieName };
+	return { usersList, cookieName, userCollectionsList };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -223,25 +229,30 @@ export default function Page() {
 	return (
 		<Container size="sm">
 			<Stack>
-				<Flex align="center" gap="md">
-					<Title>Your collections</Title>
-					<ActionIcon
-						color="green"
-						variant="outline"
-						onClick={() => setToUpdateCollection({})}
-					>
-						<IconPlus size={20} />
-					</ActionIcon>
-					<Modal
-						centered
-						size="lg"
-						withCloseButton={false}
-						opened={toUpdateCollection !== null}
-						onClose={() => setToUpdateCollection(null)}
-					>
-						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
-					</Modal>
-				</Flex>
+				<Group justify="space-between" wrap="nowrap">
+					<Flex align="center" gap="md">
+						<Title>Your collections</Title>
+						<ActionIcon
+							color="green"
+							variant="outline"
+							onClick={() => setToUpdateCollection({})}
+						>
+							<IconPlus size={20} />
+						</ActionIcon>
+						<Modal
+							centered
+							size="lg"
+							withCloseButton={false}
+							opened={toUpdateCollection !== null}
+							onClose={() => setToUpdateCollection(null)}
+						>
+							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
+						</Modal>
+					</Flex>
+					<ExpireCacheKeyButton
+						cacheId={loaderData.userCollectionsList.cacheId}
+					/>
+				</Group>
 				<DebouncedSearchInput
 					initialValue={query}
 					enhancedQueryParams={loaderData.cookieName}

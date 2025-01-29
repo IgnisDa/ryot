@@ -60,8 +60,9 @@ export const loader = async () => redirect($path("/"));
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
-	const redirectToForm = formData.get(redirectToQueryParam);
-	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
+	const { searchParams } = new URL(request.url);
+	const redirectToSearchParams = searchParams.get(redirectToQueryParam);
+	let redirectTo = redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
 	let status = undefined;
@@ -420,7 +421,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						: "Progress updated successfully",
 				}),
 			);
-			redirectTo = submission[redirectToQueryParam];
 		})
 		.with("individualProgressUpdate", async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
@@ -564,7 +564,6 @@ const progressUpdateSchema = z
 		date: z.string().optional(),
 		metadataLot: z.nativeEnum(MediaLot),
 		providerWatchedOn: z.string().optional(),
-		[redirectToQueryParam]: z.string().optional(),
 		showAllEpisodesBefore: zodBoolAsString.optional(),
 		animeAllEpisodesBefore: zodCheckboxAsString.optional(),
 		podcastAllEpisodesBefore: zodCheckboxAsString.optional(),

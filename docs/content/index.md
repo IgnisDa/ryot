@@ -60,7 +60,8 @@ images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/r
 weekly basis.
 
 If you prefer to live on the edge, you can use the `develop` docker tag which is released
-when changes are merged into the `main` branch.
+when changes are merged into the `main` branch. Please note that this tag often has major
+bugs and results in data loss. Only use this tag if you know what you are doing.
 
 ## Telemetry
 

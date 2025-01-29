@@ -1,5 +1,4 @@
 import { EventName } from "@paddle/paddle-node-sdk";
-import type { ActionFunctionArgs } from "@remix-run/node";
 import {
 	RegisterUserDocument,
 	UpdateUserDocument,
@@ -23,6 +22,7 @@ import {
 	serverGqlService,
 	serverVariables,
 } from "~/lib/config.server";
+import type { Route } from "./+types/paddle-webhook";
 
 const getRenewOnFromPlanType = (planType: TPlanTypes) =>
 	match(planType)
@@ -31,7 +31,7 @@ const getRenewOnFromPlanType = (planType: TPlanTypes) =>
 		.with("monthly", () => dayjs().add(1, "month"))
 		.exhaustive();
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
 	if (!paddleSignature) return Response.json({ error: "No paddle signature" });
 

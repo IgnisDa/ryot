@@ -1,8 +1,9 @@
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import type { MetaArgs } from "react-router";
+import type { Route } from "./+types/terms";
 
 const email = "ignisda2001@gmail.com";
 
-export const loader = (_args: LoaderFunctionArgs) => {
+export const loader = (_args: Route.LoaderArgs) => {
 	return {};
 };
 

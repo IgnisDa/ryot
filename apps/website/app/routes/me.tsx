@@ -3,12 +3,6 @@ import {
 	type Paddle,
 	initializePaddle,
 } from "@paddle/paddle-js";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, redirect, useLoaderData } from "@remix-run/react";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import {
 	changeCase,
@@ -19,6 +13,7 @@ import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
+import { Form, type MetaArgs, redirect, useLoaderData } from "react-router";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -38,8 +33,9 @@ import {
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { startUrl } from "~/lib/utils";
+import type { Route } from "./+types/me";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerFromCookie(request);
 	if (!customerDetails) return redirect(startUrl);
 	return {
@@ -54,7 +50,7 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "My account | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {

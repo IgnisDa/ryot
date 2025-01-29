@@ -1,17 +1,10 @@
-import {
-	ActionIcon,
-	Alert,
-	Container,
-	Group,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Alert, Container, Group, Stack, Text } from "@mantine/core";
 import type {
 	ActionFunctionArgs,
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -24,32 +17,23 @@ import {
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
-import {
-	IconBackpack,
-	IconInfoCircle,
-	IconRotateClockwise,
-} from "@tabler/icons-react";
+import { IconBackpack, IconInfoCircle } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationGrid,
 	DisplaySummarySection,
+	ExpireCacheKeyButton,
 	ProRequiredAlert,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
-import {
-	useConfirmSubmit,
-	useCoreDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { dayjsLib } from "~/lib/generals";
+import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
@@ -179,7 +163,6 @@ export default function Page() {
 								.length > 0 ? (
 								<Section key={v} lot={v}>
 									<SectionTitleWithRefreshIcon
-										bypassConfirm
 										text="In Progress"
 										cacheId={loaderData.inProgressCollectionContents.cacheId}
 									/>
@@ -202,6 +185,7 @@ export default function Page() {
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
 									cacheId={loaderData.userMetadataRecommendations.cacheId}
+									confirmationText="Are you sure you want to refresh the recommendations?"
 								/>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
@@ -240,39 +224,15 @@ export default function Page() {
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
 	cacheId: string;
-	bypassConfirm?: true;
+	confirmationText?: string;
 }) => {
-	const submit = useConfirmSubmit();
-
 	return (
 		<Group justify="space-between">
 			<SectionTitle text={props.text} />
-			<Form
-				replace
-				method="POST"
-				action={withQuery($path("/actions"), {
-					intent: "expireCacheKey",
-				})}
-			>
-				<input type="hidden" name="cacheId" value={props.cacheId} />
-				<ActionIcon
-					type="submit"
-					variant="subtle"
-					onClick={(e) => {
-						if (props.bypassConfirm) return;
-						const form = e.currentTarget.form;
-						if (form) {
-							e.preventDefault();
-							openConfirmationModal(
-								"Are you sure you want to refresh the recommendations?",
-								() => submit(form),
-							);
-						}
-					}}
-				>
-					<IconRotateClockwise />
-				</ActionIcon>
-			</Form>
+			<ExpireCacheKeyButton
+				cacheId={props.cacheId}
+				confirmationText={props.confirmationText}
+			/>
 		</Group>
 	);
 };

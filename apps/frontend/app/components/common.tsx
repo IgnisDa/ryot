@@ -36,6 +36,7 @@ import {
 	Form,
 	Link,
 	useFetcher,
+	useLocation,
 	useNavigate,
 	useRevalidator,
 } from "@remix-run/react";
@@ -70,6 +71,7 @@ import {
 	IconMoodHappy,
 	IconMoodSad,
 	IconRefresh,
+	IconRotateClockwise,
 	IconScaleOutline,
 	IconSearch,
 	IconServer,
@@ -95,6 +97,7 @@ import {
 	getMetadataIcon,
 	getSurroundingElements,
 	openConfirmationModal,
+	redirectToQueryParam,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -1356,5 +1359,40 @@ export const DisplayListDetailsAndRefresh = (props: {
 				</Button>
 			</Form>
 		</Group>
+	);
+};
+
+export const ExpireCacheKeyButton = (props: {
+	cacheId: string;
+	confirmationText?: string;
+}) => {
+	const submit = useConfirmSubmit();
+	const location = useLocation();
+
+	return (
+		<Form
+			replace
+			method="POST"
+			action={withQuery($path("/actions"), {
+				intent: "expireCacheKey",
+				[redirectToQueryParam]: location.pathname,
+			})}
+		>
+			<input type="hidden" name="cacheId" value={props.cacheId} />
+			<ActionIcon
+				type="submit"
+				variant="subtle"
+				onClick={(e) => {
+					if (!props.confirmationText) return;
+					const form = e.currentTarget.form;
+					if (form) {
+						e.preventDefault();
+						openConfirmationModal(props.confirmationText, () => submit(form));
+					}
+				}}
+			>
+				<IconRotateClockwise />
+			</ActionIcon>
+		</Form>
 	);
 };

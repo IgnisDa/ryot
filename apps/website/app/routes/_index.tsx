@@ -1,17 +1,5 @@
 import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	data,
-	redirect,
-} from "@remix-run/node";
-import {
-	Form,
-	Link,
-	useLoaderData,
-	useRouteLoaderData,
-} from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import {
 	cn,
@@ -29,9 +17,17 @@ import {
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import { $path } from "remix-routes";
+import {
+	Form,
+	Link,
+	data,
+	redirect,
+	useLoaderData,
+	useRouteLoaderData,
+} from "react-router";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
@@ -55,6 +51,7 @@ import {
 } from "~/lib/config.server";
 import { startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
+import type { Route } from "./+types/_index";
 
 dayjs.extend(duration);
 
@@ -65,7 +62,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { prices, query };
 };
@@ -82,7 +79,7 @@ const generateOtp = (length: number) => {
 	return otp.toString().padStart(length, "0");
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

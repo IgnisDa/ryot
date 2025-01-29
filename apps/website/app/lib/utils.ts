@@ -1,4 +1,4 @@
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 
 export const startUrl = withFragment($path("/"), "start-here");

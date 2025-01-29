@@ -1,6 +1,5 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
-import { createCookie } from "@remix-run/node";
 import { formatDateToNaiveDate, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import type { Dayjs } from "dayjs";
@@ -9,6 +8,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
+import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";

@@ -1,4 +1,3 @@
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { cn, snakeCase } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
@@ -34,14 +33,16 @@ import {
 	LucideVibrate,
 	LucideWatch,
 } from "lucide-react";
+import type { MetaArgs } from "react-router";
 import {
 	Carousel,
 	CarouselContent,
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { logoUrl } from "~/lib/utils";
+import type { Route } from "./+types/features";
 
-export const loader = (_args: LoaderFunctionArgs) => {
+export const loader = (_args: Route.LoaderArgs) => {
 	return {};
 };
 
