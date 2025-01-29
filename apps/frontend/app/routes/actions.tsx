@@ -61,10 +61,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	const { searchParams } = new URL(request.url);
-	const redirectToForm = formData.get(redirectToQueryParam);
 	const redirectToSearchParams = searchParams.get(redirectToQueryParam);
-	let redirectTo =
-		redirectToForm?.toString() || redirectToSearchParams || undefined;
+	let redirectTo = redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
 	let status = undefined;
@@ -423,7 +421,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						: "Progress updated successfully",
 				}),
 			);
-			redirectTo = submission[redirectToQueryParam];
 		})
 		.with("individualProgressUpdate", async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
@@ -567,7 +564,6 @@ const progressUpdateSchema = z
 		date: z.string().optional(),
 		metadataLot: z.nativeEnum(MediaLot),
 		providerWatchedOn: z.string().optional(),
-		[redirectToQueryParam]: z.string().optional(),
 		showAllEpisodesBefore: zodBoolAsString.optional(),
 		animeAllEpisodesBefore: zodCheckboxAsString.optional(),
 		podcastAllEpisodesBefore: zodCheckboxAsString.optional(),
