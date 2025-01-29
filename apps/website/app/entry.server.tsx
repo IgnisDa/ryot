@@ -3,8 +3,11 @@ import { createReadableStreamFromReadable } from "@react-router/node";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
-import type { AppLoadContext, EntryContext } from "react-router";
-import { ServerRouter } from "react-router";
+import {
+	type AppLoadContext,
+	type EntryContext,
+	ServerRouter,
+} from "react-router";
 import { db } from "./lib/config.server";
 
 migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {

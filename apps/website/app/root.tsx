@@ -1,7 +1,10 @@
 import {
 	Link,
 	Links,
+	type LinksFunction,
+	type LoaderFunctionArgs,
 	Meta,
+	type MetaFunction,
 	Outlet,
 	Scripts,
 	ScrollRestoration,
@@ -11,11 +14,6 @@ import {
 } from "react-router";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
-import type {
-	LinksFunction,
-	LoaderFunctionArgs,
-	MetaFunction,
-} from "react-router";
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
