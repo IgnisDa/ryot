@@ -25,9 +25,9 @@ import {
 	useLoaderData,
 	useRouteLoaderData,
 } from "react-router";
-import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";

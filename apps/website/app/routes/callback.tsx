@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
 import {

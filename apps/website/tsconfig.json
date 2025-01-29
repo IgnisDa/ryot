@@ -26,12 +26,7 @@
 		"types": ["@react-router/node", "vite/client"],
 		"skipLibCheck": true,
 		"noEmit": true,
-		"outDir": "../../.moon/cache/types/apps/website",
-		"plugins": [
-			{
-				"name": "typescript-remix-routes-plugin"
-			}
-		]
+		"outDir": "../../.moon/cache/types/apps/website"
 	},
 	"references": [
 		{
