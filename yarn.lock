@@ -4485,6 +4485,39 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@oslojs/asn1@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@oslojs/asn1@npm:1.0.0"
+  dependencies:
+    "@oslojs/binary": "npm:1.0.0"
+  checksum: 10/2f10519a0fd3163cd5cbce8f611b9ae542fcbf176915c9a343aa86a8e36621ff4a74083a63765dd95c82a9899aefbe0ea533e757686fc6bf97f4edd1fa1867d2
+  languageName: node
+  linkType: hard
+
+"@oslojs/binary@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@oslojs/binary@npm:1.0.0"
+  checksum: 10/f53aed66591512f5837b9091fae71df3076101db6b58d7095d6177a2f0e3548a5ed0b31063936c25749700b0f3b0139f71283ec7d34d7b56b1dc2b9884c3b323
+  languageName: node
+  linkType: hard
+
+"@oslojs/crypto@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@oslojs/crypto@npm:1.0.1"
+  dependencies:
+    "@oslojs/asn1": "npm:1.0.0"
+    "@oslojs/binary": "npm:1.0.0"
+  checksum: 10/912822f906f1fa31fadecbe7a3ea2ab44aeea0eefaa8c619d9a43921f083c224053e23aaddda5209067ff5212fe4627955cb60648e0f6ef13091e556bf4e85bb
+  languageName: node
+  linkType: hard
+
+"@oslojs/encoding@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@oslojs/encoding@npm:1.1.0"
+  checksum: 10/9122ad5fa5c3557c1205825b11ea51facbaf08153a47c349c6b1a613b6797e9b22f290d31f5b6faaa45ece39a2437ecdb866815c73beb182e2b203d1f2201e98
+  languageName: node
+  linkType: hard
+
 "@paddle/paddle-js@npm:1.3.3":
   version: 1.3.3
   resolution: "@paddle/paddle-js@npm:1.3.3"
@@ -6607,6 +6640,8 @@ __metadata:
   dependencies:
     "@conform-to/zod": "npm:1.2.2"
     "@isaacs/ttlcache": "npm:1.4.1"
+    "@oslojs/crypto": "npm:1.0.1"
+    "@oslojs/encoding": "npm:1.1.0"
     "@paddle/paddle-js": "npm:1.3.3"
     "@paddle/paddle-node-sdk": "npm:2.5.0"
     "@radix-ui/react-label": "npm:2.1.1"
@@ -6624,7 +6659,6 @@ __metadata:
     "@tabler/icons-react": "npm:3.17.0"
     "@tailwindcss/typography": "npm:0.5.16"
     "@tailwindcss/vite": "npm:4.0.0"
-    "@types/crypto-js": "npm:4.2.2"
     "@types/lodash": "npm:4.17.15"
     "@types/nodemailer": "npm:6.4.17"
     "@types/react": "npm:18.3.18"
@@ -6633,7 +6667,6 @@ __metadata:
     autoprefixer: "npm:10.4.20"
     class-variance-authority: "npm:0.7.1"
     clsx: "npm:2.1.1"
-    crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.13"
     drizzle-kit: "npm:0.30.3"
     drizzle-orm: "npm:0.38.4"
