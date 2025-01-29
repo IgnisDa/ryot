@@ -29,25 +29,28 @@ query UserExports {
 
 query UserCollectionsList($name: String) {
   userCollectionsList(name: $name) {
-    id
-    name
-    count
-    isDefault
-    description
-    creator {
+    cacheId
+    response {
       id
       name
-    }
-    collaborators {
-      id
-      name
-    }
-    informationTemplate {
-      lot
-      name
-      required
+      count
+      isDefault
       description
-      defaultValue
+      creator {
+        id
+        name
+      }
+      collaborators {
+        id
+        name
+      }
+      informationTemplate {
+        lot
+        name
+        required
+        description
+        defaultValue
+      }
     }
   }
 }

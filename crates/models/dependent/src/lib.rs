@@ -78,6 +78,10 @@ pub struct SortInput<T: InputType + Default> {
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
 #[graphql(concrete(
+    name = "CachedCollectionsListResponse",
+    params(UserCollectionsListResponse)
+))]
+#[graphql(concrete(
     name = "CachedCollectionContentsResponse",
     params(CollectionContentsResponse)
 ))]

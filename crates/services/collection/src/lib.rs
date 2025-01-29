@@ -22,8 +22,7 @@ use dependent_models::{
     UserCollectionsListResponse,
 };
 use dependent_utils::{
-    add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
-    remove_entity_from_collection,
+    add_entity_to_collection, create_or_update_collection, remove_entity_from_collection,
 };
 use enum_models::EntityLot;
 use media_models::{
@@ -49,14 +48,14 @@ impl CollectionService {
         &self,
         user_id: &String,
         name: Option<String>,
-    ) -> Result<UserCollectionsListResponse> {
+    ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
-            return Ok(cached);
+        if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
+            return Ok(CachedResponse { cache_id, response });
         }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![
             (
@@ -141,12 +140,13 @@ impl CollectionService {
             .all(&self.0.db)
             .await
             .unwrap();
-        cc.set_key(
-            cache_key,
-            ApplicationCacheValue::UserCollectionsList(response.clone()),
-        )
-        .await?;
-        Ok(response)
+        let cache_id = cc
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::UserCollectionsList(response.clone()),
+            )
+            .await?;
+        Ok(CachedResponse { cache_id, response })
     }
 
     pub async fn collection_contents(
@@ -329,7 +329,6 @@ impl CollectionService {
             return Ok(false);
         };
         let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
-        expire_user_collections_list_cache(&user_id, &self.0).await?;
         Ok(resp.is_ok())
     }
 

@@ -119,6 +119,12 @@ export type CachedCollectionContentsResponse = {
   response: CollectionContents;
 };
 
+export type CachedCollectionsListResponse = {
+  __typename?: 'CachedCollectionsListResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<CollectionItem>;
+};
+
 export type CachedSearchIdResponse = {
   __typename?: 'CachedSearchIdResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1846,7 +1852,7 @@ export type QueryRoot = {
   /** Get calendar events for a user between a given date range. */
   userCalendarEvents: Array<GroupedCalendarEvent>;
   /** Get all collections for the currently logged in user. */
-  userCollectionsList: Array<CollectionItem>;
+  userCollectionsList: CachedCollectionsListResponse;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
   /** Get information about an exercise for a user. */

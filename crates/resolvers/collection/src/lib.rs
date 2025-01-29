@@ -22,7 +22,7 @@ impl CollectionQuery {
         &self,
         gql_ctx: &Context<'_>,
         name: Option<String>,
-    ) -> Result<UserCollectionsListResponse> {
+    ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_collections_list(&user_id, name).await
