@@ -1767,7 +1767,8 @@ const ReviewEntityForm = ({
 	);
 };
 
-type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+type Collection =
+	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 const AddEntityToCollectionForm = ({
 	closeAddEntityToCollectionModal,

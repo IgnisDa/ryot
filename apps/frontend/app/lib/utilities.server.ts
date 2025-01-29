@@ -197,7 +197,7 @@ export const getUserCollectionsList = async (request: Request) => {
 		UserCollectionsListDocument,
 		{},
 	);
-	return userCollectionsList;
+	return userCollectionsList.response;
 };
 
 export const uploadFileAndGetKey = async (

@@ -266,7 +266,8 @@ export default function Page() {
 	);
 }
 
-type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+type Collection =
+	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 const IMAGES_CONTAINER_WIDTH = 250;
 
