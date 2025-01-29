@@ -266,7 +266,8 @@ export default function Page() {
 	);
 }
 
-type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+type Collection =
+	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 const IMAGES_CONTAINER_WIDTH = 250;
 
@@ -298,7 +299,7 @@ const DisplayCollection = (props: {
 				},
 			);
 			const images = [];
-			for (const content of collectionContents.results.items) {
+			for (const content of collectionContents.response.results.items) {
 				if (images.length === 5) break;
 				if (content.entityLot !== EntityLot.Metadata) continue;
 				const { image } = await queryClient.ensureQueryData(

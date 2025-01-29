@@ -29,25 +29,28 @@ query UserExports {
 
 query UserCollectionsList($name: String) {
   userCollectionsList(name: $name) {
-    id
-    name
-    count
-    isDefault
-    description
-    creator {
+    cacheId
+    response {
       id
       name
-    }
-    collaborators {
-      id
-      name
-    }
-    informationTemplate {
-      lot
-      name
-      required
+      count
+      isDefault
       description
-      defaultValue
+      creator {
+        id
+        name
+      }
+      collaborators {
+        id
+        name
+      }
+      informationTemplate {
+        lot
+        name
+        required
+        description
+        defaultValue
+      }
     }
   }
 }
@@ -86,8 +89,11 @@ query UsersList($query: String) {
   }
 }
 
-query UserMetadataRecommendations($shouldRefresh: Boolean) {
-  userMetadataRecommendations(shouldRefresh: $shouldRefresh)
+query UserMetadataRecommendations {
+  userMetadataRecommendations {
+    cacheId
+    response
+  }
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
@@ -115,23 +121,29 @@ query MetadataPartialDetails($metadataId: String!) {
   }
 }
 
-query MetadataGroupsList($input: MetadataGroupsListInput!) {
-  metadataGroupsList(input: $input) {
-    details {
-      total
-      nextPage
+query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
+  userMetadataGroupsList(input: $input) {
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 
-query PeopleList($input: PeopleListInput!) {
-  peopleList(input: $input) {
-    details {
-      total
-      nextPage
+query UserPeopleList($input: UserPeopleListInput!) {
+  userPeopleList(input: $input) {
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 
@@ -169,12 +181,15 @@ query ExerciseDetails($exerciseId: String!) {
   }
 }
 
-query ExercisesList($input: ExercisesListInput!) {
-  exercisesList(input: $input) {
-    items
-    details {
-      total
-      nextPage
+query UserExercisesList($input: UserExercisesListInput!) {
+  userExercisesList(input: $input) {
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
   }
 }
@@ -231,27 +246,31 @@ query GenreDetails($input: GenreDetailsInput!) {
 
 query CollectionContents($input: CollectionContentsInput!) {
   collectionContents(input: $input) {
-    user {
-      id
-      name
-    }
-    reviews {
-      ...ReviewItemPart
-    }
-    results {
+    cacheId
+    response {
+      totalItems
+      user {
+        id
+        name
+      }
+      reviews {
+        ...ReviewItemPart
+      }
       details {
-        total
-        nextPage
+        name
+        createdOn
+        description
       }
-      items {
-        entityId
-        entityLot
+      results {
+        details {
+          total
+          nextPage
+        }
+        items {
+          entityId
+          entityLot
+        }
       }
-    }
-    details {
-      name
-      description
-      createdOn
     }
   }
 }
@@ -296,18 +315,17 @@ query CoreDetails {
       }
     }
     exerciseParameters {
-      downloadRequired
+      lotMapping {
+        lot
+        bests
+      }
       filters {
         type
         level
         force
+        muscle
         mechanic
         equipment
-        muscle
-      }
-      lotMapping {
-        lot
-        bests
       }
     }
   }
@@ -346,13 +364,16 @@ query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
   }
 }
 
-query MetadataList($input: MetadataListInput!) {
-  metadataList(input: $input) {
-    details {
-      total
-      nextPage
+query UserMetadataList($input: UserMetadataListInput!) {
+  userMetadataList(input: $input) {
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 
@@ -434,13 +455,16 @@ query UserWorkoutDetails($workoutId: String!) {
   }
 }
 
-query UserWorkoutsList($input: SearchInput!) {
+query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
   userWorkoutsList(input: $input) {
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 
@@ -463,13 +487,16 @@ query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
   }
 }
 
-query UserWorkoutTemplatesList($input: SearchInput!) {
+query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
   userWorkoutTemplatesList(input: $input) {
-    details {
-      total
-      nextPage
+    cacheId
+    response {
+      items
+      details {
+        total
+        nextPage
+      }
     }
-    items
   }
 }
 

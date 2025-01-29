@@ -11,10 +11,10 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
-    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
-    ProgressUpdateCacheInput, SearchDetails, SearchInput, StoredUrl, StringIdObject,
-    UserLevelCacheKey, UserNotificationContent,
+    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
+    MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
+    SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
+    UserNotificationContent,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_DELETE_CHUNK_SIZE,
@@ -41,9 +41,11 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
-    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
+    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
+    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
+    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserPersonDetails,
 };
 use dependent_utils::{
@@ -54,11 +56,12 @@ use dependent_utils::{
     get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
     get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
     get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_groups_list,
-    metadata_images_as_urls, metadata_list, people_list, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
-    update_metadata_and_notify_users,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, refresh_collection_to_entity_association,
+    remove_entity_from_collection, update_metadata_and_notify_users, user_metadata_groups_list,
+    user_metadata_list, user_people_list,
 };
+use either::Either;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
     UserToMediaReason,
@@ -72,9 +75,8 @@ use media_models::{
     GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
     MediaAssociatedPersonStateChanges, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupsListInput, MetadataImage, MetadataListInput,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataWithoutId, PeopleListInput, PersonDetailsGroupedByRole,
+    MetadataFreeCreator, MetadataImage, MetadataPartialDetails, MetadataVideo, MetadataVideoSource,
+    PartialMetadata, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
     PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
     ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
@@ -890,12 +892,12 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(events)
     }
 
-    pub async fn metadata_list(
+    pub async fn user_metadata_list(
         &self,
         user_id: String,
-        input: MetadataListInput,
-    ) -> Result<SearchResults<String>> {
-        metadata_list(&user_id, input, &self.0).await
+        input: UserMetadataListInput,
+    ) -> Result<CachedResponse<UserMetadataListResponse>> {
+        user_metadata_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_bulk_progress_update(
@@ -922,6 +924,13 @@ ORDER BY RANDOM() LIMIT 10;
                 .trace_ok();
         }
         Ok(())
+    }
+
+    pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
+        self.0
+            .cache_service
+            .expire_key(Either::Right(cache_id))
+            .await
     }
 
     pub async fn deploy_background_job(
@@ -1334,7 +1343,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1364,7 +1373,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1399,7 +1408,7 @@ ORDER BY RANDOM() LIMIT 10;
             input: input.clone(),
             user_id: user_id.clone(),
         });
-        if let Some(results) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
             return Ok(results);
         }
         let query = input.search.query.unwrap_or_default();
@@ -1516,7 +1525,7 @@ ORDER BY RANDOM() LIMIT 10;
                 provider_watched_on: si.provider_watched_on.clone(),
             },
         });
-        self.0.cache_service.expire_key(cache).await?;
+        self.0.cache_service.expire_key(Either::Left(cache)).await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
@@ -1816,20 +1825,20 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
-    pub async fn metadata_groups_list(
+    pub async fn user_metadata_groups_list(
         &self,
         user_id: String,
-        input: MetadataGroupsListInput,
-    ) -> Result<SearchResults<String>> {
-        metadata_groups_list(&user_id, &self.0, input).await
+        input: UserMetadataGroupsListInput,
+    ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
+        user_metadata_groups_list(&user_id, &self.0, input).await
     }
 
-    pub async fn people_list(
+    pub async fn user_people_list(
         &self,
         user_id: String,
-        input: PeopleListInput,
-    ) -> Result<SearchResults<String>> {
-        people_list(&user_id, input, &self.0).await
+        input: UserPeopleListInput,
+    ) -> Result<CachedResponse<UserPeopleListResponse>> {
+        user_people_list(&user_id, input, &self.0).await
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {

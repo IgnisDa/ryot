@@ -7,13 +7,11 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{
-    ApplicationCacheKey, IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl,
-};
+use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
+    ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
     PeopleSearchResponse, PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
 };
 use enum_models::{MediaLot, MediaSource};
@@ -1283,7 +1281,7 @@ async fn get_settings(
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
         .await;
-    let tmdb_settings = if let Some(setting) = maybe_settings {
+    let tmdb_settings = if let Some((_id, setting)) = maybe_settings {
         setting
     } else {
         #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
-use common_models::{SearchInput, StoredUrl};
+use common_models::StoredUrl;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
@@ -16,19 +16,20 @@ use database_utils::{
     user_workout_template_details,
 };
 use dependent_models::{
-    SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
+    CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
+    UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, exercises_list, get_focused_workout_summary,
+    db_workout_to_workout_input, get_focused_workout_summary, user_exercises_list,
     user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
-    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
+    ExerciseAttributes, ExerciseCategory, GithubExercise, GithubExerciseAttributes,
+    ProcessedExercise, UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput,
+    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
     UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
 use futures::TryStreamExt;
@@ -50,9 +51,9 @@ impl FitnessService {
     pub async fn user_workout_templates_list(
         &self,
         user_id: String,
-        input: SearchInput,
-    ) -> Result<SearchResults<String>> {
-        user_workout_templates_list(&user_id, input, &self.0).await
+        input: UserTemplatesOrWorkoutsListInput,
+    ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
+        user_workout_templates_list(&user_id, &self.0, input).await
     }
 
     pub async fn user_workout_template_details(
@@ -222,17 +223,17 @@ impl FitnessService {
     pub async fn user_workouts_list(
         &self,
         user_id: String,
-        input: SearchInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserTemplatesOrWorkoutsListInput,
+    ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
         user_workouts_list(&user_id, input, &self.0).await
     }
 
-    pub async fn exercises_list(
+    pub async fn user_exercises_list(
         &self,
         user_id: String,
-        input: ExercisesListInput,
-    ) -> Result<SearchResults<String>> {
-        exercises_list(&user_id, input, &self.0).await
+        input: UserExercisesListInput,
+    ) -> Result<CachedResponse<UserExercisesListResponse>> {
+        user_exercises_list(&user_id, input, &self.0).await
     }
 
     pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {

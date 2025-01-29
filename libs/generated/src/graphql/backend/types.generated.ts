@@ -18,6 +18,7 @@ export type Scalars = {
   JSONObject: { input: any; output: any; }
   NaiveDate: { input: string; output: string; }
   NaiveDateTime: { input: any; output: any; }
+  UUID: { input: string; output: string; }
 };
 
 export type AccessLink = {
@@ -112,6 +113,30 @@ export type BookSpecificsInput = {
   pages?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type CachedCollectionContentsResponse = {
+  __typename?: 'CachedCollectionContentsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: CollectionContents;
+};
+
+export type CachedCollectionsListResponse = {
+  __typename?: 'CachedCollectionsListResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<CollectionItem>;
+};
+
+export type CachedSearchIdResponse = {
+  __typename?: 'CachedSearchIdResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: IdResults;
+};
+
+export type CachedUserMetadataRecommendationsResponse = {
+  __typename?: 'CachedUserMetadataRecommendationsResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<Scalars['String']['output']>;
+};
+
 export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
@@ -136,6 +161,7 @@ export type CollectionContents = {
   details: Collection;
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
+  totalItems: Scalars['Int']['output'];
   user: User;
 };
 
@@ -154,6 +180,7 @@ export type CollectionContentsInput = {
 export enum CollectionContentsSortBy {
   Date = 'DATE',
   LastUpdatedOn = 'LAST_UPDATED_ON',
+  Random = 'RANDOM',
   Title = 'TITLE'
 }
 
@@ -616,7 +643,6 @@ export enum ExerciseMuscle {
 
 export type ExerciseParameters = {
   __typename?: 'ExerciseParameters';
-  downloadRequired: Scalars['Boolean']['output'];
   /** All filters applicable to an exercises query. */
   filters: ExerciseFilters;
   /** Exercise type mapped to the personal bests possible. */
@@ -632,6 +658,7 @@ export type ExerciseParametersLotMapping = {
 export enum ExerciseSortBy {
   LastPerformed = 'LAST_PERFORMED',
   Name = 'NAME',
+  Random = 'RANDOM',
   TimesPerformed = 'TIMES_PERFORMED'
 }
 
@@ -639,12 +666,6 @@ export enum ExerciseSource {
   Custom = 'CUSTOM',
   Github = 'GITHUB'
 }
-
-export type ExercisesListInput = {
-  filter?: InputMaybe<ExerciseListFilter>;
-  search: SearchInput;
-  sortBy?: InputMaybe<ExerciseSortBy>;
-};
 
 export type ExportJob = {
   __typename?: 'ExportJob';
@@ -1029,6 +1050,7 @@ export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
   LastUpdated = 'LAST_UPDATED',
   ProviderRating = 'PROVIDER_RATING',
+  Random = 'RANDOM',
   ReleaseDate = 'RELEASE_DATE',
   TimesConsumed = 'TIMES_CONSUMED',
   Title = 'TITLE',
@@ -1116,21 +1138,6 @@ export type MetadataGroupSourceLotMapping = {
   __typename?: 'MetadataGroupSourceLotMapping';
   lot: MediaLot;
   source: MediaSource;
-};
-
-export type MetadataGroupsListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<PersonSortInput>;
-};
-
-export type MetadataListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  lot?: InputMaybe<MediaLot>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<MediaSortInput>;
 };
 
 export type MetadataLotSourceMappings = {
@@ -1275,6 +1282,8 @@ export type MutationRoot = {
    * collections for the user.
    */
   disassociateMetadata: Scalars['Boolean']['output'];
+  /** Expire a cache key by its ID */
+  expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
@@ -1486,6 +1495,11 @@ export type MutationRootDisassociateMetadataArgs = {
 };
 
 
+export type MutationRootExpireCacheKeyArgs = {
+  cacheId: Scalars['UUID']['input'];
+};
+
+
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
 };
@@ -1619,13 +1633,6 @@ export type PasswordUserInput = {
   username: Scalars['String']['input'];
 };
 
-export type PeopleListInput = {
-  filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search?: InputMaybe<SearchInput>;
-  sort?: InputMaybe<PersonSortInput>;
-};
-
 export type PeopleSearchInput = {
   search: SearchInput;
   source: MediaSource;
@@ -1668,7 +1675,8 @@ export type Person = {
 
 export enum PersonAndMetadataGroupsSortBy {
   MediaItems = 'MEDIA_ITEMS',
-  Name = 'NAME'
+  Name = 'NAME',
+  Random = 'RANDOM'
 }
 
 export type PersonDetailsGroupedByRole = {
@@ -1802,13 +1810,11 @@ export type ProviderLanguageInformation = {
 export type QueryRoot = {
   __typename?: 'QueryRoot';
   /** Get the contents of a collection and respect visibility. */
-  collectionContents: CollectionContents;
+  collectionContents: CachedCollectionContentsResponse;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
-  /** Get a paginated list of exercises in the database. */
-  exercisesList: IdResults;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
   /** Get paginated list of genres. */
@@ -1827,16 +1833,10 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: MetadataGroupSearchResults;
-  /** Get paginated list of metadata groups. */
-  metadataGroupsList: IdResults;
-  /** Get all the media items related to a user for a specific media type. */
-  metadataList: IdResults;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
   metadataSearch: MetadataSearchResults;
-  /** Get paginated list of people. */
-  peopleList: IdResults;
   /** Search for a list of people from a given source. */
   peopleSearch: PeopleSearchResults;
   /** Get details about a creator present in the database. */
@@ -1852,11 +1852,13 @@ export type QueryRoot = {
   /** Get calendar events for a user between a given date range. */
   userCalendarEvents: Array<GroupedCalendarEvent>;
   /** Get all collections for the currently logged in user. */
-  userCollectionsList: Array<CollectionItem>;
+  userCollectionsList: CachedCollectionsListResponse;
   /** Get details about the currently logged in user. */
   userDetails: UserDetailsResult;
   /** Get information about an exercise for a user. */
   userExerciseDetails: UserExerciseDetails;
+  /** Get a paginated list of exercises in the database. */
+  userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
   /** Get all the integrations for the currently logged in user. */
@@ -1867,12 +1869,18 @@ export type QueryRoot = {
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */
   userMetadataGroupDetails: UserMetadataGroupDetails;
+  /** Get paginated list of metadata groups. */
+  userMetadataGroupsList: CachedSearchIdResponse;
+  /** Get all the media items related to a user for a specific media type. */
+  userMetadataList: CachedSearchIdResponse;
   /** Get metadata recommendations for the currently logged in user. */
-  userMetadataRecommendations: Array<Scalars['String']['output']>;
+  userMetadataRecommendations: CachedUserMetadataRecommendationsResponse;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
   /** Get all pending display notifications for the currently logged in user. */
   userPendingNotifications: Array<UserNotification>;
+  /** Get paginated list of people. */
+  userPeopleList: CachedSearchIdResponse;
   /** Get details that can be displayed to a user for a creator. */
   userPersonDetails: UserPersonDetails;
   /** Get upcoming calendar events for the given filter. */
@@ -1882,9 +1890,9 @@ export type QueryRoot = {
   /** Get information about a workout template. */
   userWorkoutTemplateDetails: UserWorkoutTemplateDetails;
   /** Get a paginated list of templates created by the user. */
-  userWorkoutTemplatesList: IdResults;
+  userWorkoutTemplatesList: CachedSearchIdResponse;
   /** Get a paginated list of workouts done by the user. */
-  userWorkoutsList: IdResults;
+  userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
   usersList: Array<User>;
 };
@@ -1897,11 +1905,6 @@ export type QueryRootCollectionContentsArgs = {
 
 export type QueryRootExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
-};
-
-
-export type QueryRootExercisesListArgs = {
-  input: ExercisesListInput;
 };
 
 
@@ -1940,16 +1943,6 @@ export type QueryRootMetadataGroupSearchArgs = {
 };
 
 
-export type QueryRootMetadataGroupsListArgs = {
-  input: MetadataGroupsListInput;
-};
-
-
-export type QueryRootMetadataListArgs = {
-  input: MetadataListInput;
-};
-
-
 export type QueryRootMetadataPartialDetailsArgs = {
   metadataId: Scalars['String']['input'];
 };
@@ -1957,11 +1950,6 @@ export type QueryRootMetadataPartialDetailsArgs = {
 
 export type QueryRootMetadataSearchArgs = {
   input: MetadataSearchInput;
-};
-
-
-export type QueryRootPeopleListArgs = {
-  input: PeopleListInput;
 };
 
 
@@ -2000,6 +1988,11 @@ export type QueryRootUserExerciseDetailsArgs = {
 };
 
 
+export type QueryRootUserExercisesListArgs = {
+  input: UserExercisesListInput;
+};
+
+
 export type QueryRootUserMeasurementsListArgs = {
   input: UserMeasurementsListInput;
 };
@@ -2015,8 +2008,18 @@ export type QueryRootUserMetadataGroupDetailsArgs = {
 };
 
 
-export type QueryRootUserMetadataRecommendationsArgs = {
-  shouldRefresh?: InputMaybe<Scalars['Boolean']['input']>;
+export type QueryRootUserMetadataGroupsListArgs = {
+  input: UserMetadataGroupsListInput;
+};
+
+
+export type QueryRootUserMetadataListArgs = {
+  input: UserMetadataListInput;
+};
+
+
+export type QueryRootUserPeopleListArgs = {
+  input: UserPeopleListInput;
 };
 
 
@@ -2041,12 +2044,12 @@ export type QueryRootUserWorkoutTemplateDetailsArgs = {
 
 
 export type QueryRootUserWorkoutTemplatesListArgs = {
-  input: SearchInput;
+  input: UserTemplatesOrWorkoutsListInput;
 };
 
 
 export type QueryRootUserWorkoutsListArgs = {
-  input: SearchInput;
+  input: UserTemplatesOrWorkoutsListInput;
 };
 
 
@@ -2403,6 +2406,12 @@ export type UserExerciseInput = {
   exerciseId: Scalars['String']['input'];
   notes: Array<Scalars['String']['input']>;
   sets: Array<UserWorkoutSetRecord>;
+};
+
+export type UserExercisesListInput = {
+  filter?: InputMaybe<ExerciseListFilter>;
+  search: SearchInput;
+  sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
 export type UserFeaturesEnabledPreferences = {
@@ -2776,6 +2785,21 @@ export type UserMetadataGroupDetails = {
   reviews: Array<ReviewItem>;
 };
 
+export type UserMetadataGroupsListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<PersonSortInput>;
+};
+
+export type UserMetadataListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  lot?: InputMaybe<MediaLot>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<MediaSortInput>;
+};
+
 export type UserNotification = {
   __typename?: 'UserNotification';
   createdOn: Scalars['DateTime']['output'];
@@ -2821,6 +2845,13 @@ export type UserOthersFeaturesEnabledPreferencesInput = {
   collections: Scalars['Boolean']['input'];
 };
 
+export type UserPeopleListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
+  search?: InputMaybe<SearchInput>;
+  sort?: InputMaybe<PersonSortInput>;
+};
+
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   collections: Array<Collection>;
@@ -2847,6 +2878,16 @@ export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
   OutOfHundred = 'OUT_OF_HUNDRED',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
+}
+
+export type UserTemplatesOrWorkoutsListInput = {
+  search: SearchInput;
+  sort?: InputMaybe<UserWorkoutsListSortInput>;
+};
+
+export enum UserTemplatesOrWorkoutsListSortBy {
+  Random = 'RANDOM',
+  Time = 'TIME'
 }
 
 export type UserToEntity = {
@@ -2955,6 +2996,11 @@ export type UserWorkoutTemplateDetails = {
   __typename?: 'UserWorkoutTemplateDetails';
   collections: Array<Collection>;
   details: WorkoutTemplate;
+};
+
+export type UserWorkoutsListSortInput = {
+  by?: UserTemplatesOrWorkoutsListSortBy;
+  order?: GraphqlSortOrder;
 };
 
 export type VideoGameSpecifics = {

@@ -15,6 +15,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
+either = { workspace = true }
 enum-models = { path = "../../models/enum" }
 futures = { workspace = true }
 itertools = { workspace = true }

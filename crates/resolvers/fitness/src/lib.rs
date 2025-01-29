@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::SearchInput;
 use database_models::{exercise, user_measurement};
 use dependent_models::{
-    SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
+    CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
+    UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
 };
 use fitness_models::{
-    ExercisesListInput, UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput,
+    UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,
     UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::FitnessService;
@@ -26,8 +26,8 @@ impl FitnessQuery {
     async fn user_workout_templates_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserTemplatesOrWorkoutsListInput,
+    ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workout_templates_list(user_id, input).await
@@ -47,22 +47,22 @@ impl FitnessQuery {
     }
 
     /// Get a paginated list of exercises in the database.
-    async fn exercises_list(
+    async fn user_exercises_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: ExercisesListInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserExercisesListInput,
+    ) -> Result<CachedResponse<UserExercisesListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.exercises_list(user_id, input).await
+        service.user_exercises_list(user_id, input).await
     }
 
     /// Get a paginated list of workouts done by the user.
     async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserTemplatesOrWorkoutsListInput,
+    ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workouts_list(user_id, input).await

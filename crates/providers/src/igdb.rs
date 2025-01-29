@@ -4,14 +4,12 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{
-    ApplicationCacheKey, IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl,
-};
+use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::{ryot_log, PAGE_SIZE};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse, MetadataPersonRelated,
-    PeopleSearchResponse, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse,
+    MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -539,7 +537,7 @@ impl IgdbService {
         let maybe_settings = cc
             .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
             .await;
-        let access_token = if let Some(value) = maybe_settings {
+        let access_token = if let Some((_id, value)) = maybe_settings {
             value
         } else {
             let access_token = self.get_access_token().await;

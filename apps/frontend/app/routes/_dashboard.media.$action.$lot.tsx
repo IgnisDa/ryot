@@ -32,9 +32,9 @@ import {
 	type MediaLot,
 	MediaSortBy,
 	MediaSource,
-	MetadataListDocument,
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
+	UserMetadataListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -66,6 +66,7 @@ import {
 	BaseMediaDisplayItem,
 	CollectionsFilter,
 	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 	ProRequiredAlert,
 } from "~/components/common";
@@ -154,9 +155,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.mineGeneralFilter),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
-			const { metadataList } = await serverGqlService.authenticatedRequest(
+			const { userMetadataList } = await serverGqlService.authenticatedRequest(
 				request,
-				MetadataListDocument,
+				UserMetadataListDocument,
 				{
 					input: {
 						lot,
@@ -175,8 +176,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 			);
 			return [
-				metadataList.details.total,
-				{ list: metadataList, url: urlParse },
+				userMetadataList.response.details.total,
+				{ list: userMetadataList, url: urlParse },
 				undefined,
 			] as const;
 		})
@@ -340,21 +341,19 @@ export default function Page() {
 								<FiltersModalForm />
 							</FiltersModal>
 						</Group>
-						{loaderData.mediaList.list.details.total > 0 ? (
+						{loaderData.mediaList.list.response.details.total > 0 ? (
 							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{loaderData.mediaList.list.details.total}
-									</Text>{" "}
-									items found
-								</Box>
+								<DisplayListDetailsAndRefresh
+									cacheId={loaderData.mediaList.list.cacheId}
+									total={loaderData.mediaList.list.response.details.total}
+								/>
 								{(loaderData.mediaList?.url.startDateRange ||
 									loaderData.mediaList?.url.endDateRange) &&
 								!coreDetails.isServerKeyValidated ? (
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 								) : (
 									<ApplicationGrid>
-										{loaderData.mediaList.list.items.map((item) => {
+										{loaderData.mediaList.list.response.items.map((item) => {
 											const becItem = {
 												entityId: item,
 												entityLot: EntityLot.Metadata,

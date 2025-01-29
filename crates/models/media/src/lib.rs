@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
-    SearchInput, StoredUrl, StringIdObject,
+    StoredUrl, StringIdObject,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -18,7 +18,7 @@ use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResu
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
     pub entity_id: String,
     pub entity_lot: EntityLot,
@@ -884,7 +884,7 @@ pub struct IntegrationProviderSpecifics {
     pub youtube_music_auth_cookie: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
     pub is_spoiler: bool,
@@ -1134,26 +1134,19 @@ pub struct GenreDetailsInput {
     pub page: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum CollectionContentsSortBy {
+    Date,
     Title,
+    Random,
     #[default]
     LastUpdatedOn,
-    Date,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject, Default)]
 pub struct CollectionContentsFilter {
     pub entity_lot: Option<EntityLot>,
     pub metadata_lot: Option<MediaLot>,
-}
-
-#[derive(Debug, InputObject)]
-pub struct CollectionContentsInput {
-    pub collection_id: String,
-    pub search: Option<SearchInput>,
-    pub filter: Option<CollectionContentsFilter>,
-    pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
 #[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
@@ -1254,16 +1247,17 @@ pub struct GraphqlMetadataDetails {
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum GraphqlSortOrder {
-    Desc,
     #[default]
     Asc,
+    Desc,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum MediaSortBy {
     Title,
+    Random,
     LastSeen,
     UserRating,
     #[default]
@@ -1273,25 +1267,15 @@ pub enum MediaSortBy {
     ProviderRating,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum PersonAndMetadataGroupsSortBy {
     #[default]
     Name,
+    Random,
     MediaItems,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
-#[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
-#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
-pub struct SortInput<T: InputType + Default> {
-    #[graphql(default)]
-    pub order: GraphqlSortOrder,
-    #[graphql(default)]
-    pub by: T,
-}
-
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaGeneralFilter {
     #[default]
     All,
@@ -1302,36 +1286,11 @@ pub enum MediaGeneralFilter {
     Unfinished,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
     pub collections: Option<Vec<String>>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct MetadataListInput {
-    pub lot: Option<MediaLot>,
-    pub filter: Option<MediaFilter>,
-    pub search: Option<SearchInput>,
-    pub invert_collection: Option<bool>,
-    pub sort: Option<SortInput<MediaSortBy>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct PeopleListInput {
-    pub search: Option<SearchInput>,
-    pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
-    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-pub struct MetadataGroupsListInput {
-    pub search: Option<SearchInput>,
-    pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
-    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

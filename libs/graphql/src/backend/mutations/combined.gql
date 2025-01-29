@@ -270,3 +270,7 @@ mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
 mutation MarkNotificationsAsAddressed($notificationIds: [String!]!) {
   markNotificationsAsAddressed(notificationIds: $notificationIds)
 }
+
+mutation ExpireCacheKey($cacheId: UUID!) {
+  expireCacheKey(cacheId: $cacheId)
+}

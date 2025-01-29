@@ -23,8 +23,8 @@ import {
 	MediaSource,
 	MetadataGroupSearchDocument,
 	type MetadataGroupSearchQuery,
-	MetadataGroupsListDocument,
 	PersonAndMetadataGroupsSortBy,
+	UserMetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -52,6 +52,7 @@ import {
 	ApplicationGrid,
 	CollectionsFilter,
 	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
@@ -102,10 +103,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.sortBy),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
-			const { metadataGroupsList } =
+			const { userMetadataGroupsList } =
 				await serverGqlService.authenticatedRequest(
 					request,
-					MetadataGroupsListDocument,
+					UserMetadataGroupsListDocument,
 					{
 						input: {
 							invertCollection: urlParse.invertCollection,
@@ -116,8 +117,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					},
 				);
 			return [
-				metadataGroupsList.details.total,
-				{ list: metadataGroupsList, url: urlParse },
+				userMetadataGroupsList.response.details.total,
+				{ list: userMetadataGroupsList, url: urlParse },
 				undefined,
 			] as const;
 		})
@@ -213,7 +214,6 @@ export default function Page() {
 						</Tabs.Tab>
 					</Tabs.List>
 				</Tabs>
-
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for groups"
@@ -256,18 +256,15 @@ export default function Page() {
 						</>
 					) : null}
 				</Group>
-
 				{loaderData.list ? (
 					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.list.list.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.list.list.details.total > 0 ? (
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.list.list.cacheId}
+							total={loaderData.list.list.response.details.total}
+						/>
+						{loaderData.list.list.response.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.list.list.items.map((gr) => {
+								{loaderData.list.list.response.items.map((gr) => {
 									const becItem = {
 										entityId: gr,
 										entityLot: EntityLot.MetadataGroup,

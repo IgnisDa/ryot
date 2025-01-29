@@ -13,19 +13,21 @@ use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
-use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
+use dependent_models::{
+    ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem, UserMetadataGroupsListInput,
+    UserMetadataListInput, UserPeopleListInput, UserTemplatesOrWorkoutsListInput,
+};
 use dependent_utils::{
-    exercises_list, metadata_groups_list, metadata_list, people_list, user_workout_templates_list,
-    user_workouts_list,
+    user_exercises_list, user_metadata_groups_list, user_metadata_list, user_people_list,
+    user_workout_templates_list, user_workouts_list,
 };
 use enum_models::EntityLot;
-use fitness_models::{ExercisesListInput, UserMeasurementsListInput};
+use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use itertools::Itertools;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    ImportOrExportPersonItem, MetadataGroupsListInput, MetadataListInput, PeopleListInput,
-    ReviewItem,
+    ImportOrExportPersonItem, ReviewItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -179,9 +181,9 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let related_metadata = metadata_list(
+            let related_metadata = user_metadata_list(
                 user_id,
-                MetadataListInput {
+                UserMetadataListInput {
                     search: Some(SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
@@ -193,7 +195,7 @@ impl ExporterService {
             )
             .await?;
             ryot_log!(debug, "Exporting metadata list page: {current_page}");
-            for rm in related_metadata.items.iter() {
+            for rm in related_metadata.response.items.iter() {
                 let m = Metadata::find_by_id(rm)
                     .one(&self.0.db)
                     .await?
@@ -254,7 +256,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = related_metadata.details.next_page {
+            if let Some(next_page) = related_metadata.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
@@ -270,10 +272,10 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let related_metadata = metadata_groups_list(
+            let related_metadata = user_metadata_groups_list(
                 user_id,
                 &self.0,
-                MetadataGroupsListInput {
+                UserMetadataGroupsListInput {
                     search: Some(SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
@@ -284,7 +286,7 @@ impl ExporterService {
             )
             .await?;
             ryot_log!(debug, "Exporting metadata groups list page: {current_page}");
-            for rm in related_metadata.items.iter() {
+            for rm in related_metadata.response.items.iter() {
                 let m = MetadataGroup::find_by_id(rm)
                     .one(&self.0.db)
                     .await?
@@ -311,7 +313,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = related_metadata.details.next_page {
+            if let Some(next_page) = related_metadata.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
@@ -327,9 +329,9 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let related_people = people_list(
+            let related_people = user_people_list(
                 user_id,
-                PeopleListInput {
+                UserPeopleListInput {
                     search: Some(SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
@@ -341,7 +343,7 @@ impl ExporterService {
             )
             .await?;
             ryot_log!(debug, "Exporting people list page: {current_page}");
-            for rm in related_people.items.iter() {
+            for rm in related_people.response.items.iter() {
                 let p = Person::find_by_id(rm)
                     .one(&self.0.db)
                     .await?
@@ -367,7 +369,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = related_people.details.next_page {
+            if let Some(next_page) = related_people.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
@@ -385,16 +387,19 @@ impl ExporterService {
         loop {
             let workout_ids = user_workouts_list(
                 user_id,
-                SearchInput {
-                    take: Some(1000),
-                    page: Some(current_page),
+                UserTemplatesOrWorkoutsListInput {
+                    search: SearchInput {
+                        take: Some(1000),
+                        page: Some(current_page),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
                 &self.0,
             )
             .await?;
             ryot_log!(debug, "Exporting workouts list page: {current_page}");
-            for workout_id in workout_ids.items {
+            for workout_id in workout_ids.response.items {
                 let details = user_workout_details(user_id, workout_id, &self.0).await?;
                 let exp = ImportOrExportWorkoutItem {
                     details: details.details,
@@ -402,7 +407,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = workout_ids.details.next_page {
+            if let Some(next_page) = workout_ids.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
@@ -432,9 +437,9 @@ impl ExporterService {
     ) -> Result<()> {
         let mut current_page = 1;
         loop {
-            let exercises = exercises_list(
+            let exercises = user_exercises_list(
                 user_id,
-                ExercisesListInput {
+                UserExercisesListInput {
                     search: SearchInput {
                         take: Some(1000),
                         page: Some(current_page),
@@ -445,7 +450,7 @@ impl ExporterService {
                 &self.0,
             )
             .await?;
-            for exercise_id in exercises.items {
+            for exercise_id in exercises.response.items {
                 let reviews =
                     item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, &self.0)
                         .await?
@@ -473,7 +478,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = exercises.details.next_page {
+            if let Some(next_page) = exercises.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;
@@ -491,19 +496,22 @@ impl ExporterService {
         loop {
             let workout_template_ids = user_workout_templates_list(
                 user_id,
-                SearchInput {
-                    take: Some(1000),
-                    page: Some(current_page),
+                &self.0,
+                UserTemplatesOrWorkoutsListInput {
+                    search: SearchInput {
+                        take: Some(1000),
+                        page: Some(current_page),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
-                &self.0,
             )
             .await?;
             ryot_log!(
                 debug,
                 "Exporting workout templates list page: {current_page}"
             );
-            for workout_template_id in workout_template_ids.items {
+            for workout_template_id in workout_template_ids.response.items {
                 let details =
                     user_workout_template_details(&self.0.db, user_id, workout_template_id).await?;
                 let exp = ImportOrExportWorkoutTemplateItem {
@@ -512,7 +520,7 @@ impl ExporterService {
                 };
                 writer.serialize_value(&exp).unwrap();
             }
-            if let Some(next_page) = workout_template_ids.details.next_page {
+            if let Some(next_page) = workout_template_ids.response.details.next_page {
                 current_page = next_page;
             } else {
                 break;

@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use async_graphql::{InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, InputType, OutputType, SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, PersonSourceSpecifics, SearchDetails,
+    DailyUserActivityHourRecord, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
+    MetadataSearchInput, PeopleSearchInput, PersonSourceSpecifics, ProgressUpdateCacheInput,
+    SearchDetails, SearchInput, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -16,13 +18,17 @@ use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };
-use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
+use fitness_models::{
+    UserExercisesListInput, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem,
-    GraphqlMediaAssets, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
-    ImportOrExportMetadataItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
-    MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
+    CollectionContentsFilter, CollectionContentsSortBy, CollectionItem,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
+    GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
+    ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
+    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
@@ -32,6 +38,7 @@ use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
+use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -51,6 +58,40 @@ use strum::Display;
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
+#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+#[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
+#[graphql(concrete(
+    name = "UserWorkoutsListSortInput",
+    params(UserTemplatesOrWorkoutsListSortBy)
+))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
+pub struct SortInput<T: InputType + Default> {
+    #[graphql(default)]
+    pub by: T,
+    #[graphql(default)]
+    pub order: GraphqlSortOrder,
+}
+
+#[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(
+    name = "CachedCollectionsListResponse",
+    params(UserCollectionsListResponse)
+))]
+#[graphql(concrete(
+    name = "CachedCollectionContentsResponse",
+    params(CollectionContentsResponse)
+))]
+#[graphql(concrete(
+    name = "CachedUserMetadataRecommendationsResponse",
+    params(UserMetadataRecommendationsResponse)
+))]
+pub struct CachedResponse<T: OutputType> {
+    pub response: T,
+    pub cache_id: Uuid,
 }
 
 /// Details about a specific exercise item that needs to be exported.
@@ -150,12 +191,13 @@ pub enum UserDetailsResult {
     Error(UserDetailsError),
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, SimpleObject, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
+    pub total_items: u64,
+    pub user: user::Model,
+    pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,
     pub results: SearchResults<EntityWithLot>,
-    pub reviews: Vec<ReviewItem>,
-    pub user: user::Model,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -205,11 +247,56 @@ pub struct ExerciseFilters {
 
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParameters {
-    pub download_required: bool,
     /// All filters applicable to an exercises query.
     pub filters: ExerciseFilters,
     /// Exercise type mapped to the personal bests possible.
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject)]
+pub struct CollectionContentsInput {
+    pub collection_id: String,
+    pub search: Option<SearchInput>,
+    pub filter: Option<CollectionContentsFilter>,
+    pub sort: Option<SortInput<CollectionContentsSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserMetadataListInput {
+    pub lot: Option<MediaLot>,
+    pub filter: Option<MediaFilter>,
+    pub search: Option<SearchInput>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<MediaSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserPeopleListInput {
+    pub search: Option<SearchInput>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserMetadataGroupsListInput {
+    pub search: Option<SearchInput>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
+}
+
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum UserTemplatesOrWorkoutsListSortBy {
+    #[default]
+    Time,
+    Random,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserTemplatesOrWorkoutsListInput {
+    pub search: SearchInput,
+    pub sort: Option<SortInput<UserTemplatesOrWorkoutsListSortBy>>,
 }
 
 #[derive(PartialEq, Eq, Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -445,12 +532,47 @@ pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+#[skip_serializing_none]
+#[derive(
+    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+)]
+pub enum ApplicationCacheKey {
+    CoreDetails,
+    IgdbSettings,
+    TmdbSettings,
+    ListennotesSettings,
+    UserCollectionsList(UserLevelCacheKey<()>),
+    UserAnalyticsParameters(UserLevelCacheKey<()>),
+    UserMetadataRecommendations(UserLevelCacheKey<()>),
+    PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
+    UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
+    MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
+    UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
+    UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
+    UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
+    MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
+    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
+    UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
+    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
+    UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
+    UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
+    UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
+    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
+}
+
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type UserPeopleListResponse = SearchResults<String>;
+pub type CollectionContentsResponse = CollectionContents;
+pub type UserWorkoutsListResponse = SearchResults<String>;
+pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
+pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
+pub type UserMetadataGroupsListResponse = SearchResults<String>;
+pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
@@ -463,11 +585,23 @@ pub enum ApplicationCacheValue {
     PeopleSearch(PeopleSearchResponse),
     ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
+    UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
+    UserWorkoutsList(UserWorkoutsListResponse),
+    UserMetadataList(UserMetadataListResponse),
+    UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    UserMetadataGroupsList(UserMetadataGroupsListResponse),
+    UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
+    UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
+}
+
+pub struct GetCacheKeyResponse {
+    pub id: Uuid,
+    pub value: ApplicationCacheValue,
 }

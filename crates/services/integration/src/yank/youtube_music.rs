@@ -4,9 +4,11 @@ use anyhow::Result;
 use application_utils::{get_current_date, get_current_time};
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
-use common_models::{ApplicationCacheKey, UserLevelCacheKey, YoutubeMusicSongListened};
+use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
 use common_utils::TEMP_DIR;
-use dependent_models::{ApplicationCacheValue, ImportCompletedItem, ImportResult};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportResult,
+};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
@@ -86,7 +88,10 @@ pub async fn yank_progress(
         .cache_service
         .get_values(cache_keys.values().cloned().collect())
         .await
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(k, v)| (k, v.value))
+        .collect::<HashMap<_, _>>();
     let mut result = ImportResult::default();
     let mut items_to_cache = vec![];
     for (song_id, name) in songs_listened_to_today {

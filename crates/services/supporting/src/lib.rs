@@ -5,14 +5,13 @@ use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
-use common_models::{ApplicationCacheKey, BackendError};
+use common_models::BackendError;
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
     METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
-use database_models::prelude::Exercise;
 use dependent_models::{
-    ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
     ProviderLanguageInformation,
 };
@@ -25,7 +24,7 @@ use file_storage_service::FileStorageService;
 use itertools::Itertools;
 use openidconnect::core::CoreClient;
 use rustypipe::param::{Language, LANGUAGES};
-use sea_orm::{DatabaseConnection, EntityTrait, Iterable, PaginatorTrait};
+use sea_orm::{DatabaseConnection, Iterable};
 use serde::{Deserialize, Serialize};
 use unkey::{models::VerifyKeyRequest, Client};
 
@@ -127,14 +126,13 @@ impl SupportingService {
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
         let cc = &self.cache_service;
-        if let Some(cached) = cc.get_value(ApplicationCacheKey::CoreDetails).await {
+        if let Some((_id, cached)) = cc.get_value(ApplicationCacheKey::CoreDetails).await {
             return Ok(cached);
         }
         let mut files_enabled = self.config.file_storage.is_enabled();
         if files_enabled && !self.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
-        let download_required = Exercise::find().count(&self.db).await? == 0;
         let core_details = CoreDetails {
             page_size: PAGE_SIZE,
             version: APP_VERSION.to_owned(),
@@ -167,7 +165,6 @@ impl SupportingService {
                 })
                 .collect(),
             exercise_parameters: ExerciseParameters {
-                download_required,
                 filters: ExerciseFilters {
                     lot: ExerciseLot::iter().collect_vec(),
                     level: ExerciseLevel::iter().collect_vec(),

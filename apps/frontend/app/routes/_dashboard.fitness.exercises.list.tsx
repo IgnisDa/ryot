@@ -2,9 +2,7 @@ import {
 	ActionIcon,
 	Affix,
 	Alert,
-	Anchor,
 	Avatar,
-	Box,
 	Center,
 	Checkbox,
 	Container,
@@ -41,8 +39,8 @@ import {
 	ExerciseMechanic,
 	ExerciseMuscle,
 	ExerciseSortBy,
-	ExercisesListDocument,
 	MergeExerciseDocument,
+	UserExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
@@ -65,7 +63,11 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput, FiltersModal } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
+	FiltersModal,
+} from "~/components/common";
 import {
 	dayjsLib,
 	getExerciseDetailsPath,
@@ -126,10 +128,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
-	const [{ exercisesList }] = await Promise.all([
+	const [{ userExercisesList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request.clone(),
-			ExercisesListDocument,
+			UserExercisesListDocument,
 			{
 				input: {
 					search: { page: query[pageQueryParam], query: query.query },
@@ -149,10 +151,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		exercisesList.details.total,
+		userExercisesList.response.details.total,
 		query[pageQueryParam],
 	);
-	return { query, totalPages, cookieName, exercisesList };
+	return { query, totalPages, cookieName, userExercisesList };
 };
 
 export const meta = (_args: MetaArgs<typeof loader>) => {
@@ -188,7 +190,6 @@ type SelectExercise = { name: string; lot: ExerciseLot };
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
-	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -215,7 +216,7 @@ export default function Page() {
 
 	return (
 		<Container size="md">
-			<Stack gap="xl">
+			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Exercises</Title>
 					<ActionIcon
@@ -227,100 +228,83 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				{coreDetails.exerciseParameters.downloadRequired ? (
-					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
-						Please deploy a job to download the exercise dataset from the{" "}
-						<Anchor
-							size="sm"
-							component={Link}
-							to={$path("/settings/miscellaneous")}
-						>
-							miscellaneous settings
-						</Anchor>
-						.
+				<Group wrap="nowrap">
+					<DebouncedSearchInput
+						initialValue={loaderData.query.query}
+						enhancedQueryParams={loaderData.cookieName}
+						placeholder="Search for exercises by name or instructions"
+					/>
+					<ActionIcon
+						onClick={openFiltersModal}
+						color={isFilterChanged ? "blue" : "gray"}
+					>
+						<IconFilter size={24} />
+					</ActionIcon>
+					<FiltersModal
+						closeFiltersModal={closeFiltersModal}
+						cookieName={loaderData.cookieName}
+						opened={filtersModalOpened}
+					>
+						<FiltersModalForm />
+					</FiltersModal>
+				</Group>
+				{currentWorkout?.replacingExerciseIdx ? (
+					<Alert icon={<IconAlertCircle />}>
+						You are replacing exercise:{" "}
+						{
+							currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
+								.exerciseId
+						}
 					</Alert>
-				) : (
+				) : null}
+				{mergingExercise ? (
+					<Alert icon={<IconAlertCircle />}>
+						You are merging exercise: {mergingExercise}
+					</Alert>
+				) : null}
+				{loaderData.userExercisesList.response.details.total > 0 ? (
 					<>
-						<Group wrap="nowrap">
-							<DebouncedSearchInput
-								initialValue={loaderData.query.query}
-								enhancedQueryParams={loaderData.cookieName}
-								placeholder="Search for exercises by name or instructions"
-							/>
-							<ActionIcon
-								onClick={openFiltersModal}
-								color={isFilterChanged ? "blue" : "gray"}
-							>
-								<IconFilter size={24} />
-							</ActionIcon>
-							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
-								opened={filtersModalOpened}
-							>
-								<FiltersModalForm />
-							</FiltersModal>
-						</Group>
-						{currentWorkout?.replacingExerciseIdx ? (
-							<Alert icon={<IconAlertCircle />}>
-								You are replacing exercise:{" "}
-								{
-									currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
-										.exerciseId
-								}
-							</Alert>
-						) : null}
-						{mergingExercise ? (
-							<Alert icon={<IconAlertCircle />}>
-								You are merging exercise: {mergingExercise}
-							</Alert>
-						) : null}
-						{loaderData.exercisesList.details.total > 0 ? (
-							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{loaderData.exercisesList.details.total}
-									</Text>{" "}
-									items found
-									{allowAddingExerciseToWorkout ? (
-										<>
-											{" "}
-											and{" "}
-											<Text display="inline" fw="bold">
-												{selectedExercises.length}
-											</Text>{" "}
-											selected
-										</>
-									) : null}
-								</Box>
-								<SimpleGrid cols={{ md: 2, lg: 3 }}>
-									{loaderData.exercisesList.items.map((exercise) => (
-										<ExerciseItemDisplay
-											key={exercise}
-											exerciseId={exercise}
-											mergingExercise={mergingExercise}
-											setMergingExercise={setMergingExercise}
-											setSelectedExercises={setSelectedExercises}
-											allowAddingExerciseToWorkout={
-												allowAddingExerciseToWorkout
-											}
-										/>
-									))}
-								</SimpleGrid>
-							</>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								value={loaderData.query[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={loaderData.totalPages}
-							/>
-						</Center>
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.userExercisesList.cacheId}
+							total={loaderData.userExercisesList.response.details.total}
+							rightSection={
+								allowAddingExerciseToWorkout ? (
+									<>
+										{" "}
+										and{" "}
+										<Text display="inline" fw="bold">
+											{selectedExercises.length}
+										</Text>{" "}
+										selected
+									</>
+								) : null
+							}
+						/>
+						<SimpleGrid cols={{ md: 2, lg: 3 }}>
+							{loaderData.userExercisesList.response.items.map((exercise) => (
+								<ExerciseItemDisplay
+									key={exercise}
+									exerciseId={exercise}
+									mergingExercise={mergingExercise}
+									setMergingExercise={setMergingExercise}
+									setSelectedExercises={setSelectedExercises}
+									allowAddingExerciseToWorkout={allowAddingExerciseToWorkout}
+								/>
+							))}
+						</SimpleGrid>
 					</>
+				) : (
+					<Text>No information to display</Text>
 				)}
+				<Center>
+					<Pagination
+						size="sm"
+						value={loaderData.query[pageQueryParam]}
+						onChange={(v) => setP(pageQueryParam, v.toString())}
+						total={loaderData.totalPages}
+					/>
+				</Center>
+				``
 			</Stack>
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>

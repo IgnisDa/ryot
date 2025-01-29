@@ -5,9 +5,9 @@ use async_graphql::{Enum, Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, SearchInput,
-    StoredUrl, StringIdObject, UserLevelCacheKey, UserNotificationContent,
+    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
+    StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
@@ -30,16 +30,22 @@ use database_utils::{
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheValue, EmptyCacheValue, ImportCompletedItem, ImportResult, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
+    ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
+    UserWorkoutsTemplatesListResponse,
 };
+use either::Either;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
-    ExerciseBestSetRecord, ExerciseSortBy, ExercisesListInput, ProcessedExercise,
-    UserExerciseInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+    ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
+    UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
     UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
@@ -50,9 +56,8 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails,
-    MetadataGroupsListInput, MetadataImage, MetadataListInput, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput,
+    ImportOrExportItemRating, MediaGeneralFilter, MediaSortBy, MetadataDetails, MetadataImage,
+    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
     PersonAndMetadataGroupsSortBy, ProgressUpdateError, ProgressUpdateErrorVariant,
     ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
@@ -2648,7 +2653,7 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    ss.cache_service.expire_key(cache_key).await?;
+    ss.cache_service.expire_key(Either::Left(cache_key)).await?;
     Ok(())
 }
 
@@ -2747,11 +2752,22 @@ pub async fn remove_entity_from_collection(
     Ok(StringIdObject { id: collect.id })
 }
 
-pub async fn metadata_list(
+pub async fn user_metadata_list(
     user_id: &String,
-    input: MetadataListInput,
+    input: UserMetadataListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<CachedResponse<UserMetadataListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserMetadataList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((id, cached)) = cc.get_value::<UserMetadataListResponse>(key.clone()).await {
+        return Ok(CachedResponse {
+            cache_id: id,
+            response: cached,
+        });
+    }
     let preferences = user_by_id(user_id, ss).await?.preferences;
 
     let avg_rating_col = "user_average_rating";
@@ -2866,6 +2882,7 @@ pub async fn metadata_list(
         })
         .apply_if(input.sort.map(|s| s.by), |query, v| match v {
             MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+            MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
             MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
             MediaSortBy::LastUpdated => query
                 .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
@@ -2901,7 +2918,8 @@ pub async fn metadata_list(
     for c in paginator.fetch_page(page - 1).await? {
         items.push(c);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -2910,15 +2928,29 @@ pub async fn metadata_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMetadataList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
-pub async fn metadata_groups_list(
+pub async fn user_metadata_groups_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
-    input: MetadataGroupsListInput,
-) -> Result<SearchResults<String>> {
+    input: UserMetadataGroupsListInput,
+) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserMetadataGroupsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
     let page: u64 = input
         .search
         .clone()
@@ -2927,13 +2959,14 @@ pub async fn metadata_groups_list(
         .try_into()
         .unwrap();
     let alias = "parts";
-    let media_items_col = Expr::col(Alias::new(alias));
+    let metadata_group_parts_col = Expr::col(Alias::new(alias));
     let (order_by, sort_order) = match input.sort {
-        None => (media_items_col, Order::Desc),
+        None => (metadata_group_parts_col, Order::Desc),
         Some(ord) => (
             match ord.by {
+                PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
+                PersonAndMetadataGroupsSortBy::MediaItems => metadata_group_parts_col,
                 PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
-                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
             },
             graphql_to_db_order(ord.order),
         ),
@@ -2978,7 +3011,8 @@ pub async fn metadata_groups_list(
     for c in paginator.fetch_page(page - 1).await? {
         items.push(c);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -2987,15 +3021,29 @@ pub async fn metadata_groups_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMetadataGroupsList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
-pub async fn people_list(
+pub async fn user_people_list(
     user_id: &String,
-    input: PeopleListInput,
+    input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<CachedResponse<UserPeopleListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserPeopleList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.clone(),
+    });
+    if let Some((cache_id, response)) = cc.get_value::<UserPeopleListResponse>(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
     let page: u64 = input
         .search
         .clone()
@@ -3009,8 +3057,9 @@ pub async fn people_list(
         None => (media_items_col, Order::Desc),
         Some(ord) => (
             match ord.by {
-                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
                 PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
+                PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
+                PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
             },
             graphql_to_db_order(ord.order),
         ),
@@ -3055,11 +3104,12 @@ pub async fn people_list(
         number_of_items,
         number_of_pages,
     } = creators_paginator.num_items_and_pages().await?;
-    let mut creators = vec![];
+    let mut items = vec![];
     for cr in creators_paginator.fetch_page(page - 1).await? {
-        creators.push(cr);
+        items.push(cr);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages {
@@ -3068,25 +3118,44 @@ pub async fn people_list(
                 None
             },
         },
-        items: creators,
-    })
+    };
+    let cache_id = cc
+        .set_key(key, ApplicationCacheValue::UserPeopleList(response.clone()))
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_workouts_list(
     user_id: &String,
-    input: SearchInput,
+    input: UserTemplatesOrWorkoutsListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
-    let page = input.page.unwrap_or(1);
-    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+) -> Result<CachedResponse<UserWorkoutsListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserWorkoutsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+    let page = input.search.page.unwrap_or(1);
+    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = Workout::find()
         .select_only()
         .column(workout::Column::Id)
         .filter(workout::Column::UserId.eq(user_id))
-        .apply_if(input.query, |query, v| {
+        .apply_if(input.search.query, |query, v| {
             query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
         })
-        .order_by_desc(workout::Column::EndTime)
+        .apply_if(input.sort, |query, v| {
+            query.order_by(
+                match v.by {
+                    UserTemplatesOrWorkoutsListSortBy::Random => Expr::expr(Func::random()),
+                    UserTemplatesOrWorkoutsListSortBy::Time => Expr::col(workout::Column::EndTime),
+                },
+                graphql_to_db_order(v.order),
+            )
+        })
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
@@ -3094,7 +3163,8 @@ pub async fn user_workouts_list(
         number_of_pages,
     } = paginator.num_items_and_pages().await?;
     let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3103,25 +3173,49 @@ pub async fn user_workouts_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserWorkoutsList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_workout_templates_list(
     user_id: &String,
-    input: SearchInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
-    let page = input.page.unwrap_or(1);
-    let take = input.take.unwrap_or(PAGE_SIZE as u64);
+    input: UserTemplatesOrWorkoutsListInput,
+) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserWorkoutTemplatesList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+    let page = input.search.page.unwrap_or(1);
+    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let paginator = WorkoutTemplate::find()
         .select_only()
         .column(workout_template::Column::Id)
         .filter(workout_template::Column::UserId.eq(user_id))
-        .apply_if(input.query, |query, v| {
+        .apply_if(input.search.query, |query, v| {
             query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
         })
-        .order_by_desc(workout_template::Column::CreatedOn)
+        .apply_if(input.sort, |query, v| {
+            query.order_by(
+                match v.by {
+                    UserTemplatesOrWorkoutsListSortBy::Random => Expr::expr(Func::random()),
+                    UserTemplatesOrWorkoutsListSortBy::Time => {
+                        Expr::col(workout_template::Column::CreatedOn)
+                    }
+                },
+                graphql_to_db_order(v.order),
+            )
+        })
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
@@ -3129,7 +3223,8 @@ pub async fn user_workout_templates_list(
         number_of_pages,
     } = paginator.num_items_and_pages().await?;
     let items = paginator.fetch_page((page - 1).try_into().unwrap()).await?;
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3138,15 +3233,29 @@ pub async fn user_workout_templates_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserWorkoutTemplatesList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
-pub async fn exercises_list(
+pub async fn user_exercises_list(
     user_id: &String,
-    input: ExercisesListInput,
+    input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
-) -> Result<SearchResults<String>> {
+) -> Result<CachedResponse<UserExercisesListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserExercisesList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
     let user_id = user_id.to_owned();
     let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
     let page = input.search.page.unwrap_or(1);
@@ -3158,6 +3267,7 @@ pub async fn exercises_list(
             // DEV: This is just a small hack to reduce duplicated code. We
             // are ordering by name for the other `sort_by` anyway.
             ExerciseSortBy::Name => Expr::val("1"),
+            ExerciseSortBy::Random => Expr::expr(Func::random()),
             ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
                 Expr::col((
                     etu.clone(),
@@ -3232,7 +3342,8 @@ pub async fn exercises_list(
     for ex in paginator.fetch_page((page - 1).try_into().unwrap()).await? {
         items.push(ex);
     }
-    Ok(SearchResults {
+    let response = SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
             next_page: if page < number_of_pages.try_into().unwrap() {
@@ -3241,8 +3352,14 @@ pub async fn exercises_list(
                 None
             },
         },
-        items,
-    })
+    };
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserExercisesList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn get_pending_notifications_for_user(

@@ -83,6 +83,7 @@ educe = { version = "=0.6.0", features = [
     "Default",
     "full",
 ], default-features = false }
+either = "=1.13.0"
 enum_meta = "=0.7.0"
 eventsource-stream = "=0.2.3"
 flate2 = "=1.0.35"
@@ -110,7 +111,7 @@ rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.13"
 # TODO: Update when https://codeberg.org/ThetaDev/rustypipe/issues/25 is merged
-rustypipe = { git = "https://codeberg.org/ThetaDev/rustypipe.git", rev = "a72029ea5428351d" }
+rustypipe = { git = "https://codeberg.org/ThetaDev/rustypipe.git", rev = "19e1428679" }
 schematic = { version = "=0.17.8", features = [
     "config",
     "env",

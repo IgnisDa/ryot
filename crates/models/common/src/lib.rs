@@ -344,24 +344,3 @@ pub struct YoutubeMusicSongListened {
     pub id: String,
     pub listened_on: NaiveDate,
 }
-
-#[skip_serializing_none]
-#[derive(
-    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
-)]
-pub enum ApplicationCacheKey {
-    CoreDetails,
-    IgdbSettings,
-    TmdbSettings,
-    ListennotesSettings,
-    UserCollectionsList(UserLevelCacheKey<()>),
-    UserAnalyticsParameters(UserLevelCacheKey<()>),
-    UserMetadataRecommendations(UserLevelCacheKey<()>),
-    PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
-    UserAnalytics(UserLevelCacheKey<UserAnalyticsInput>),
-    MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
-    MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
-    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
-    YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
-    MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
-}

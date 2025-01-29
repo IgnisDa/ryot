@@ -4,9 +4,9 @@ import {
 	CollectionContentsDocument,
 	EntityLot,
 	MediaLot,
-	MetadataGroupsListDocument,
-	MetadataListDocument,
-	PeopleListDocument,
+	UserMetadataGroupsListDocument,
+	UserMetadataListDocument,
+	UserPeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -88,7 +88,7 @@ export const useBulkEditCollection = () => {
 											collectionId: bec.collection.id,
 										},
 									})
-									.then((r) => r.collectionContents.results.items),
+									.then((r) => r.collectionContents.response.results.items),
 							)
 							.with("add", () => {
 								const lot = Object.values(MediaLot).find((ml) =>
@@ -96,9 +96,9 @@ export const useBulkEditCollection = () => {
 								);
 								if (lot)
 									return clientGqlService
-										.request(MetadataListDocument, { input: { lot, take } })
+										.request(UserMetadataListDocument, { input: { lot, take } })
 										.then((r) =>
-											r.metadataList.items.map((m) => ({
+											r.userMetadataList.response.items.map((m) => ({
 												entityId: m,
 												entityLot: EntityLot.Metadata,
 											})),
@@ -109,11 +109,11 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(PeopleListDocument, {
+										.request(UserPeopleListDocument, {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.peopleList.items.map((p) => ({
+											r.userPeopleList.response.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.Person,
 											})),
@@ -124,11 +124,11 @@ export const useBulkEditCollection = () => {
 									)
 								)
 									return clientGqlService
-										.request(MetadataGroupsListDocument, {
+										.request(UserMetadataGroupsListDocument, {
 											input: { search: { take } },
 										})
 										.then((r) =>
-											r.metadataGroupsList.items.map((p) => ({
+											r.userMetadataGroupsList.response.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.MetadataGroup,
 											})),

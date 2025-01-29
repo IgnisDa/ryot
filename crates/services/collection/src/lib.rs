@@ -3,8 +3,8 @@ use std::sync::Arc;
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{
-    ApplicationCacheKey, ChangeCollectionToEntityInput, DefaultCollection, SearchDetails,
-    StringIdObject, UserLevelCacheKey,
+    ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
+    UserLevelCacheKey,
 };
 use common_utils::PAGE_SIZE;
 use database_models::{
@@ -17,16 +17,16 @@ use database_models::{
 };
 use database_utils::{ilike_sql, item_reviews};
 use dependent_models::{
-    ApplicationCacheValue, CollectionContents, SearchResults, UserCollectionsListResponse,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
+    CollectionContentsInput, CollectionContentsResponse, SearchResults,
+    UserCollectionsListResponse,
 };
 use dependent_utils::{
-    add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
-    remove_entity_from_collection,
+    add_entity_to_collection, create_or_update_collection, remove_entity_from_collection,
 };
 use enum_models::EntityLot;
 use media_models::{
-    CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
-    CreateOrUpdateCollectionInput, EntityWithLot,
+    CollectionContentsSortBy, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
@@ -48,14 +48,14 @@ impl CollectionService {
         &self,
         user_id: &String,
         name: Option<String>,
-    ) -> Result<UserCollectionsListResponse> {
+    ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await {
-            return Ok(cached);
+        if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
+            return Ok(CachedResponse { cache_id, response });
         }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![
             (
@@ -140,18 +140,34 @@ impl CollectionService {
             .all(&self.0.db)
             .await
             .unwrap();
-        cc.set_key(
-            cache_key,
-            ApplicationCacheValue::UserCollectionsList(response.clone()),
-        )
-        .await?;
-        Ok(response)
+        let cache_id = cc
+            .set_key(
+                cache_key,
+                ApplicationCacheValue::UserCollectionsList(response.clone()),
+            )
+            .await?;
+        Ok(CachedResponse { cache_id, response })
     }
 
     pub async fn collection_contents(
         &self,
+        user_id: &String,
         input: CollectionContentsInput,
-    ) -> Result<CollectionContents> {
+    ) -> Result<CachedResponse<CollectionContentsResponse>> {
+        let cc = &self.0.cache_service;
+        let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
+            input: input.clone(),
+            user_id: user_id.to_owned(),
+        });
+        if let Some((id, cached)) = cc
+            .get_value::<CollectionContentsResponse>(key.clone())
+            .await
+        {
+            return Ok(CachedResponse {
+                cache_id: id,
+                response: cached,
+            });
+        }
         let take = input
             .search
             .clone()
@@ -165,134 +181,131 @@ impl CollectionService {
             .one(&self.0.db)
             .await
             .unwrap();
-        let Some(collection) = maybe_collection else {
+        let Some(details) = maybe_collection else {
             return Err(Error::new("Collection not found".to_owned()));
         };
-        let results = if take != 0 {
-            let paginator = CollectionToEntity::find()
-                .left_join(Metadata)
-                .left_join(MetadataGroup)
-                .left_join(Person)
-                .left_join(Exercise)
-                .left_join(Workout)
-                .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-                .apply_if(search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((
-                                    AliasedMetadataGroup::Table,
-                                    AliasedMetadataGroup::Title,
-                                ))
+        let paginator = CollectionToEntity::find()
+            .left_join(Metadata)
+            .left_join(MetadataGroup)
+            .left_join(Person)
+            .left_join(Exercise)
+            .left_join(Workout)
+            .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
+            .apply_if(search.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
                                 .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
-                })
-                .apply_if(filter.metadata_lot, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
-                    )
-                })
-                .apply_if(filter.entity_lot, |query, v| {
-                    let f = match v {
-                        EntityLot::Metadata => {
-                            collection_to_entity::Column::MetadataId.is_not_null()
-                        }
-                        EntityLot::MetadataGroup => {
-                            collection_to_entity::Column::MetadataGroupId.is_not_null()
-                        }
-                        EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
-                        EntityLot::Exercise => {
-                            collection_to_entity::Column::ExerciseId.is_not_null()
-                        }
-                        EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
-                        EntityLot::WorkoutTemplate => {
-                            collection_to_entity::Column::WorkoutTemplateId.is_not_null()
-                        }
-                        EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                            unreachable!()
-                        }
-                    };
-                    query.filter(f)
-                })
-                .order_by(
-                    match sort.by {
-                        CollectionContentsSortBy::LastUpdatedOn => {
-                            Expr::col(collection_to_entity::Column::LastUpdatedOn)
-                        }
-                        CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
+                        )
+                        .add(
                             Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
-                        ])),
-                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
-                        ])),
-                    },
-                    graphql_to_db_order(sort.order),
+                                .ilike(ilike_sql(&v)),
+                        )
+                        .add(
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Name))
+                                .ilike(ilike_sql(&v)),
+                        )
+                        .add(
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id))
+                                .ilike(ilike_sql(&v)),
+                        ),
                 )
-                .paginate(&self.0.db, take);
-            let mut items = vec![];
-            let ItemsAndPagesNumber {
-                number_of_items,
-                number_of_pages,
-            } = paginator.num_items_and_pages().await?;
-            for cte in paginator.fetch_page(page - 1).await? {
-                items.push(EntityWithLot {
-                    entity_id: cte.entity_id,
-                    entity_lot: cte.entity_lot,
-                });
-            }
-            SearchResults {
-                details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
-                    next_page: if page < number_of_pages {
-                        Some((page + 1).try_into().unwrap())
-                    } else {
-                        None
-                    },
+            })
+            .apply_if(filter.metadata_lot, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
+                )
+            })
+            .apply_if(filter.entity_lot, |query, v| {
+                let f = match v {
+                    EntityLot::Metadata => collection_to_entity::Column::MetadataId.is_not_null(),
+                    EntityLot::MetadataGroup => {
+                        collection_to_entity::Column::MetadataGroupId.is_not_null()
+                    }
+                    EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
+                    EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
+                    EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
+                    EntityLot::WorkoutTemplate => {
+                        collection_to_entity::Column::WorkoutTemplateId.is_not_null()
+                    }
+                    EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                        unreachable!()
+                    }
+                };
+                query.filter(f)
+            })
+            .order_by(
+                match sort.by {
+                    CollectionContentsSortBy::Random => Expr::expr(Func::random()),
+                    CollectionContentsSortBy::LastUpdatedOn => {
+                        Expr::col(collection_to_entity::Column::LastUpdatedOn)
+                    }
+                    CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate)).into(),
+                        Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
+                    ])),
+                    CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
+                        Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
+                            .into(),
+                        Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
+                        Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
+                    ])),
                 },
-                items,
-            }
-        } else {
-            SearchResults::default()
+                graphql_to_db_order(sort.order),
+            )
+            .paginate(&self.0.db, take);
+        let mut items = vec![];
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        for cte in paginator.fetch_page(page - 1).await? {
+            items.push(EntityWithLot {
+                entity_id: cte.entity_id,
+                entity_lot: cte.entity_lot,
+            });
+        }
+        let results = SearchResults {
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+            items,
         };
-        let user = collection
-            .find_related(User)
-            .one(&self.0.db)
-            .await?
-            .unwrap();
+        let user = details.find_related(User).one(&self.0.db).await?.unwrap();
         let reviews = item_reviews(
-            &collection.user_id,
+            &details.user_id,
             &input.collection_id,
             EntityLot::Collection,
             true,
             &self.0,
         )
         .await?;
-        Ok(CollectionContents {
-            details: collection,
+        let total_items = CollectionToEntity::find()
+            .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
+            .count(&self.0.db)
+            .await?;
+        let response = CollectionContents {
+            user,
             reviews,
             results,
-            user,
-        })
+            details,
+            total_items,
+        };
+        let cache_id = cc
+            .set_key(
+                key,
+                ApplicationCacheValue::UserCollectionContents(Box::new(response.clone())),
+            )
+            .await?;
+        Ok(CachedResponse { response, cache_id })
     }
 
     pub async fn create_or_update_collection(
@@ -316,7 +329,6 @@ impl CollectionService {
             return Ok(false);
         };
         let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
-        expire_user_collections_list_cache(&user_id, &self.0).await?;
         Ok(resp.is_ok())
     }
 

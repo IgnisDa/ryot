@@ -2,13 +2,13 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
-    ApplicationCacheKey, ApplicationDateRange, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, UserAnalyticsInput, UserLevelCacheKey,
+    ApplicationDateRange, DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord,
+    UserAnalyticsInput, UserLevelCacheKey,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use database_utils::calculate_user_activities_and_summary;
 use dependent_models::{
-    ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
+    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
     FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
     UserFitnessAnalytics,
 };
@@ -43,7 +43,7 @@ impl StatisticsService {
             input: (),
             user_id: user_id.to_owned(),
         });
-        if let Some(cached) = cc.get_value(cache_key.clone()).await {
+        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
             return Ok(cached);
         }
         let get_date = |ordering: Order| {
@@ -285,7 +285,7 @@ impl StatisticsService {
             user_id: user_id.to_owned(),
         });
         let cc = &self.0.cache_service;
-        if let Some(cached) = cc.get_value::<UserAnalytics>(cache_key.clone()).await {
+        if let Some((_id, cached)) = cc.get_value::<UserAnalytics>(cache_key.clone()).await {
             return Ok(cached);
         }
         #[derive(Debug, DerivePartialModel, FromQueryResult)]

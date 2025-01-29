@@ -21,10 +21,10 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaSource,
-	PeopleListDocument,
 	PeopleSearchDocument,
 	type PeopleSearchQuery,
 	PersonAndMetadataGroupsSortBy,
+	UserPeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -50,6 +50,7 @@ import {
 	ApplicationGrid,
 	CollectionsFilter,
 	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
@@ -97,7 +98,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, peopleList, peopleSearch] = await match(action)
+	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
 				collections: zodCommaDelimitedString,
@@ -108,9 +109,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 					.default(defaultFilters.sortBy),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
-			const { peopleList } = await serverGqlService.authenticatedRequest(
+			const { userPeopleList } = await serverGqlService.authenticatedRequest(
 				request,
-				PeopleListDocument,
+				UserPeopleListDocument,
 				{
 					input: {
 						invertCollection: urlParse.invertCollection,
@@ -121,8 +122,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				},
 			);
 			return [
-				peopleList.details.total,
-				{ list: peopleList, url: urlParse },
+				userPeopleList.response.details.total,
+				{ list: userPeopleList, url: urlParse },
 				undefined,
 			] as const;
 		})
@@ -156,12 +157,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		query[pageQueryParam],
 	);
 	return {
+		list,
 		query,
 		action,
-		peopleList,
+		search,
 		totalPages,
 		cookieName,
-		peopleSearch,
 		[pageQueryParam]: query[pageQueryParam],
 	};
 };
@@ -225,9 +226,8 @@ export default function Page() {
 							<ActionIcon
 								onClick={openFiltersModal}
 								color={
-									loaderData.peopleList?.url.orderBy !==
-										defaultFilters.orderBy ||
-									loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
+									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
+									loaderData.list?.url.sortBy !== defaultFilters.sortBy
 										? "blue"
 										: "gray"
 								}
@@ -247,34 +247,34 @@ export default function Page() {
 						<>
 							<Select
 								onChange={(v) => setP("source", v)}
-								defaultValue={loaderData.peopleSearch?.url.source}
+								defaultValue={loaderData.search?.url.source}
 								data={coreDetails.peopleSearchSources.map((o) => ({
 									value: o.toString(),
 									label: startCase(o.toLowerCase()),
 								}))}
 							/>
-							{loaderData.peopleSearch?.url.source === MediaSource.Tmdb ? (
+							{loaderData.search?.url.source === MediaSource.Tmdb ? (
 								<Checkbox
 									label="Company"
-									checked={loaderData.peopleSearch?.url.isTmdbCompany}
+									checked={loaderData.search?.url.isTmdbCompany}
 									onChange={(e) =>
 										setP("isTmdbCompany", String(e.target.checked))
 									}
 								/>
 							) : null}
-							{loaderData.peopleSearch?.url.source === MediaSource.Anilist ? (
+							{loaderData.search?.url.source === MediaSource.Anilist ? (
 								<Checkbox
 									label="Studio"
-									checked={loaderData.peopleSearch?.url.isAnilistStudio}
+									checked={loaderData.search?.url.isAnilistStudio}
 									onChange={(e) =>
 										setP("isAnilistStudio", String(e.target.checked))
 									}
 								/>
 							) : null}
-							{loaderData.peopleSearch?.url.source === MediaSource.Hardcover ? (
+							{loaderData.search?.url.source === MediaSource.Hardcover ? (
 								<Checkbox
 									label="Publisher"
-									checked={loaderData.peopleSearch?.url.isHardcoverPublisher}
+									checked={loaderData.search?.url.isHardcoverPublisher}
 									onChange={(e) =>
 										setP("isHardcoverPublisher", String(e.target.checked))
 									}
@@ -283,17 +283,15 @@ export default function Page() {
 						</>
 					) : null}
 				</Group>
-				{loaderData.peopleList ? (
+				{loaderData.list ? (
 					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.peopleList.list.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.peopleList.list.details.total > 0 ? (
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.list.list.cacheId}
+							total={loaderData.list.list.response.details.total}
+						/>
+						{loaderData.list.list.response.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleList.list.items.map((person) => {
+								{loaderData.list.list.response.items.map((person) => {
 									const becItem = {
 										entityId: person,
 										entityLot: EntityLot.Person,
@@ -335,17 +333,17 @@ export default function Page() {
 						</Center>
 					</>
 				) : null}
-				{loaderData.peopleSearch ? (
+				{loaderData.search ? (
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.peopleSearch.search.details.total}
+								{loaderData.search.search.details.total}
 							</Text>{" "}
 							items found
 						</Box>
-						{loaderData.peopleSearch.search.details.total > 0 ? (
+						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleSearch.search.items.map((person) => (
+								{loaderData.search.search.items.map((person) => (
 									<PersonSearchItem item={person} key={person.identifier} />
 								))}
 							</ApplicationGrid>
@@ -385,12 +383,12 @@ const PersonSearchItem = (props: {
 				) : null,
 			}}
 			onImageClickBehavior={async () => {
-				if (loaderData.peopleSearch) {
+				if (loaderData.search) {
 					setIsLoading(true);
 					const id = await commitPerson(
 						props.item.name,
 						props.item.identifier,
-						loaderData.peopleSearch.url,
+						loaderData.search.url,
 					);
 					setIsLoading(false);
 					return navigate($path("/media/people/item/:id", { id }));
@@ -430,7 +428,7 @@ const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
-	if (!loaderData.peopleList) return null;
+	if (!loaderData.list) return null;
 
 	return (
 		<>
@@ -441,17 +439,17 @@ const FiltersModalForm = () => {
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
 					}))}
-					defaultValue={loaderData.peopleList.url.sortBy}
+					defaultValue={loaderData.list.url.sortBy}
 					onChange={(v) => setP("sortBy", v)}
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
+						if (loaderData.list?.url.orderBy === GraphqlSortOrder.Asc)
 							setP("orderBy", GraphqlSortOrder.Desc);
 						else setP("orderBy", GraphqlSortOrder.Asc);
 					}}
 				>
-					{loaderData.peopleList.url.orderBy === GraphqlSortOrder.Asc ? (
+					{loaderData.list.url.orderBy === GraphqlSortOrder.Asc ? (
 						<IconSortAscending />
 					) : (
 						<IconSortDescending />
@@ -460,8 +458,8 @@ const FiltersModalForm = () => {
 			</Flex>
 			<CollectionsFilter
 				cookieName={loaderData.cookieName}
-				collections={loaderData.peopleList.url.collections}
-				invertCollection={loaderData.peopleList.url.invertCollection}
+				collections={loaderData.list.url.collections}
+				invertCollection={loaderData.list.url.invertCollection}
 			/>
 		</>
 	);

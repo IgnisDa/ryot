@@ -13,7 +13,6 @@ chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
-database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 env-utils = { path = "../../utils/env" }

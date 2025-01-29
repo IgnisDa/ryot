@@ -6,19 +6,22 @@ use common_models::{
     StringIdObject,
 };
 use dependent_models::{
-    CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataGroupsListInput, MetadataListInput,
-    MetadataPartialDetails, PeopleListInput, ProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
+use uuid::Uuid;
 
 #[derive(Default)]
 pub struct MiscellaneousQuery;
@@ -84,14 +87,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the media items related to a user for a specific media type.
-    async fn metadata_list(
+    async fn user_metadata_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: MetadataListInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserMetadataListInput,
+    ) -> Result<CachedResponse<UserMetadataListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_list(user_id, input).await
+        service.user_metadata_list(user_id, input).await
     }
 
     /// Search for a list of media for a given type.
@@ -116,14 +119,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get paginated list of metadata groups.
-    async fn metadata_groups_list(
+    async fn user_metadata_groups_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: MetadataGroupsListInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserMetadataGroupsListInput,
+    ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_groups_list(user_id, input).await
+        service.user_metadata_groups_list(user_id, input).await
     }
 
     /// Get details that can be displayed to a user for a metadata group.
@@ -184,14 +187,14 @@ impl MiscellaneousQuery {
     }
 
     /// Get paginated list of people.
-    async fn people_list(
+    async fn user_people_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: PeopleListInput,
-    ) -> Result<SearchResults<String>> {
+        input: UserPeopleListInput,
+    ) -> Result<CachedResponse<UserPeopleListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.people_list(user_id, input).await
+        service.user_people_list(user_id, input).await
     }
 
     /// Search for a list of people from a given source.
@@ -425,6 +428,12 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.mark_entity_as_partial(&user_id, input).await
+    }
+
+    /// Expire a cache key by its ID
+    async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.expire_cache_key(cache_id).await
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.

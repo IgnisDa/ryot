@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Pagination,
+	Select,
 	Skeleton,
 	Stack,
 	Text,
@@ -20,6 +21,9 @@ import { notifications } from "@mantine/notifications";
 import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
+	GraphqlSortOrder,
+	type UserTemplatesOrWorkoutsListInput,
+	UserTemplatesOrWorkoutsListSortBy,
 	UserWorkoutDetailsDocument,
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
@@ -31,6 +35,7 @@ import {
 	humanizeDuration,
 	parseParameters,
 	parseSearchQuery,
+	startCase,
 	truncate,
 	zodIntAsString,
 } from "@ryot/ts-utils";
@@ -38,8 +43,11 @@ import {
 	IconChevronDown,
 	IconChevronUp,
 	IconClock,
+	IconFilter,
 	IconPlus,
 	IconRoad,
+	IconSortAscending,
+	IconSortDescending,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
@@ -49,7 +57,11 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { DebouncedSearchInput } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	DisplayListDetailsAndRefresh,
+	FiltersModal,
+} from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
@@ -80,9 +92,18 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+const defaultFilters = {
+	orderBy: GraphqlSortOrder.Desc,
+	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
+};
+
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
 	[pageQueryParam]: zodIntAsString.default("1"),
+	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+	sortBy: z
+		.nativeEnum(UserTemplatesOrWorkoutsListSortBy)
+		.default(defaultFilters.sortBy),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -95,16 +116,21 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const itemList = await match(entity)
+	const input: UserTemplatesOrWorkoutsListInput = {
+		sort: { by: query.sortBy, order: query.orderBy },
+		search: { query: query.query, page: query[pageQueryParam] },
+	};
+	const displayData = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
-				{ input: { page: query[pageQueryParam], query: query.query } },
+				{ input },
 			);
 			return {
-				items: userWorkoutsList.items,
-				details: userWorkoutsList.details,
+				cacheId: userWorkoutsList.cacheId,
+				items: userWorkoutsList.response.items,
+				details: userWorkoutsList.response.details,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -112,20 +138,21 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					UserWorkoutTemplatesListDocument,
-					{ input: { page: query.page, query: query.query } },
+					{ input },
 				);
 			return {
-				items: userWorkoutTemplatesList.items,
-				details: userWorkoutTemplatesList.details,
+				cacheId: userWorkoutTemplatesList.cacheId,
+				items: userWorkoutTemplatesList.response.items,
+				details: userWorkoutTemplatesList.response.details,
 			};
 		})
 		.exhaustive();
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
-		itemList.details.total,
+		displayData.details.total,
 		query[pageQueryParam],
 	);
-	return { query, entity, itemList, cookieName, totalPages };
+	return { query, entity, displayData, cookieName, totalPages };
 };
 
 export const meta = ({ data }: MetaArgs<typeof loader>) => {
@@ -137,6 +164,13 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
+	const isFilterChanged =
+		loaderData.query.sortBy !== defaultFilters.sortBy ||
+		loaderData.query.orderBy !== defaultFilters.orderBy;
 
 	return (
 		<Container size="xs">
@@ -170,14 +204,33 @@ export default function Page() {
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
-				<DebouncedSearchInput
-					placeholder={`Search for ${loaderData.entity}`}
-					initialValue={loaderData.query.query}
-					enhancedQueryParams={loaderData.cookieName}
-				/>
-				{loaderData.itemList.items.length > 0 ? (
+				<Group wrap="nowrap">
+					<DebouncedSearchInput
+						initialValue={loaderData.query.query}
+						enhancedQueryParams={loaderData.cookieName}
+						placeholder={`Search for ${loaderData.entity}`}
+					/>
+					<ActionIcon
+						onClick={openFiltersModal}
+						color={isFilterChanged ? "blue" : "gray"}
+					>
+						<IconFilter size={24} />
+					</ActionIcon>
+					<FiltersModal
+						opened={filtersModalOpened}
+						cookieName={loaderData.cookieName}
+						closeFiltersModal={closeFiltersModal}
+					>
+						<FiltersModalForm />
+					</FiltersModal>
+				</Group>
+				{loaderData.displayData.items.length > 0 ? (
 					<Stack gap="xs">
-						{loaderData.itemList.items.map((entityId, index) => (
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.displayData.cacheId}
+							total={loaderData.displayData.details.total}
+						/>
+						{loaderData.displayData.items.map((entityId, index) => (
 							<DisplayFitnessEntity
 								index={index}
 								key={entityId}
@@ -265,7 +318,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 	return (
 		<>
 			{props.index !== 0 ? <Divider /> : null}
-			<Stack gap="xs" ref={parent} px={{ base: "xs", md: "md" }}>
+			<Stack gap="xs" ref={parent} px={{ base: 4 }}>
 				<Group wrap="nowrap" justify="space-between">
 					<Box>
 						<Group wrap="nowrap">
@@ -397,5 +450,39 @@ const ExerciseDisplay = (props: {
 			</Text>
 			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>
+	);
+};
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+
+	return (
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					defaultValue={loaderData.query.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+					data={Object.values(UserTemplatesOrWorkoutsListSortBy).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+		</>
 	);
 };
