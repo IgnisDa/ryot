@@ -92,11 +92,18 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+const defaultFilters = {
+	orderBy: GraphqlSortOrder.Desc,
+	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
+};
+
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
 	[pageQueryParam]: zodIntAsString.default("1"),
-	orderBy: z.nativeEnum(GraphqlSortOrder).optional(),
-	sortBy: z.nativeEnum(UserTemplatesOrWorkoutsListSortBy).optional(),
+	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+	sortBy: z
+		.nativeEnum(UserTemplatesOrWorkoutsListSortBy)
+		.default(defaultFilters.sortBy),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -161,6 +168,9 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const isFilterChanged =
+		loaderData.query.sortBy !== defaultFilters.sortBy ||
+		loaderData.query.orderBy !== defaultFilters.orderBy;
 
 	return (
 		<Container size="xs">
@@ -200,7 +210,10 @@ export default function Page() {
 						enhancedQueryParams={loaderData.cookieName}
 						placeholder={`Search for ${loaderData.entity}`}
 					/>
-					<ActionIcon onClick={openFiltersModal}>
+					<ActionIcon
+						onClick={openFiltersModal}
+						color={isFilterChanged ? "blue" : "gray"}
+					>
 						<IconFilter size={24} />
 					</ActionIcon>
 					<FiltersModal
@@ -449,10 +462,8 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
+					defaultValue={loaderData.query.sortBy}
 					onChange={(v) => setP("sortBy", v)}
-					defaultValue={
-						loaderData.query.sortBy || UserTemplatesOrWorkoutsListSortBy.Time
-					}
 					data={Object.values(UserTemplatesOrWorkoutsListSortBy).map((o) => ({
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
