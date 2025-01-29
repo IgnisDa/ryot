@@ -179,7 +179,6 @@ export default function Page() {
 								.length > 0 ? (
 								<Section key={v} lot={v}>
 									<SectionTitleWithRefreshIcon
-										bypassConfirm
 										text="In Progress"
 										cacheId={loaderData.inProgressCollectionContents.cacheId}
 									/>
@@ -202,6 +201,7 @@ export default function Page() {
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
 									cacheId={loaderData.userMetadataRecommendations.cacheId}
+									confirmationText="Are you sure you want to refresh the recommendations?"
 								/>
 								{coreDetails.isServerKeyValidated ? (
 									<ApplicationGrid>
@@ -240,7 +240,7 @@ export default function Page() {
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
 	cacheId: string;
-	bypassConfirm?: true;
+	confirmationText?: string;
 }) => {
 	const submit = useConfirmSubmit();
 
@@ -250,23 +250,18 @@ const SectionTitleWithRefreshIcon = (props: {
 			<Form
 				replace
 				method="POST"
-				action={withQuery($path("/actions"), {
-					intent: "expireCacheKey",
-				})}
+				action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
 			>
 				<input type="hidden" name="cacheId" value={props.cacheId} />
 				<ActionIcon
 					type="submit"
 					variant="subtle"
 					onClick={(e) => {
-						if (props.bypassConfirm) return;
+						if (!props.confirmationText) return;
 						const form = e.currentTarget.form;
 						if (form) {
 							e.preventDefault();
-							openConfirmationModal(
-								"Are you sure you want to refresh the recommendations?",
-								() => submit(form),
-							);
+							openConfirmationModal(props.confirmationText, () => submit(form));
 						}
 					}}
 				>
