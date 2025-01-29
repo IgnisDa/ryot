@@ -237,37 +237,49 @@ export default function Page() {
 	);
 }
 
-const SectionTitleWithRefreshIcon = (props: {
-	text: string;
+const ExpireCacheKeyButton = (props: {
 	cacheId: string;
 	confirmationText?: string;
 }) => {
 	const submit = useConfirmSubmit();
 
 	return (
+		<Form
+			replace
+			method="POST"
+			action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
+		>
+			<input type="hidden" name="cacheId" value={props.cacheId} />
+			<ActionIcon
+				type="submit"
+				variant="subtle"
+				onClick={(e) => {
+					if (!props.confirmationText) return;
+					const form = e.currentTarget.form;
+					if (form) {
+						e.preventDefault();
+						openConfirmationModal(props.confirmationText, () => submit(form));
+					}
+				}}
+			>
+				<IconRotateClockwise />
+			</ActionIcon>
+		</Form>
+	);
+};
+
+const SectionTitleWithRefreshIcon = (props: {
+	text: string;
+	cacheId: string;
+	confirmationText?: string;
+}) => {
+	return (
 		<Group justify="space-between">
 			<SectionTitle text={props.text} />
-			<Form
-				replace
-				method="POST"
-				action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
-			>
-				<input type="hidden" name="cacheId" value={props.cacheId} />
-				<ActionIcon
-					type="submit"
-					variant="subtle"
-					onClick={(e) => {
-						if (!props.confirmationText) return;
-						const form = e.currentTarget.form;
-						if (form) {
-							e.preventDefault();
-							openConfirmationModal(props.confirmationText, () => submit(form));
-						}
-					}}
-				>
-					<IconRotateClockwise />
-				</ActionIcon>
-			</Form>
+			<ExpireCacheKeyButton
+				cacheId={props.cacheId}
+				confirmationText={props.confirmationText}
+			/>
 		</Group>
 	);
 };
