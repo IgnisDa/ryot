@@ -6555,7 +6555,7 @@ __metadata:
     recharts: "npm:2.15.1"
     remix-development-tools: "npm:4.7.7"
     remix-routes: "npm:1.7.7"
-    remix-utils: "npm:7.7.0"
+    remix-utils: "npm:8.1.0"
     tailwind-merge: "npm:2.6.0"
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.4"
@@ -15805,44 +15805,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"remix-utils@npm:7.7.0":
-  version: 7.7.0
-  resolution: "remix-utils@npm:7.7.0"
-  dependencies:
-    type-fest: "npm:^4.18.1"
-  peerDependencies:
-    "@remix-run/cloudflare": ^2.0.0
-    "@remix-run/node": ^2.0.0
-    "@remix-run/react": ^2.0.0
-    "@remix-run/router": ^1.7.2
-    crypto-js: ^4.1.1
-    intl-parse-accept-language: ^1.0.0
-    is-ip: ^5.0.1
-    react: ^18.0.0
-    zod: ^3.22.4
-  peerDependenciesMeta:
-    "@remix-run/cloudflare":
-      optional: true
-    "@remix-run/node":
-      optional: true
-    "@remix-run/react":
-      optional: true
-    "@remix-run/router":
-      optional: true
-    crypto-js:
-      optional: true
-    intl-parse-accept-language:
-      optional: true
-    is-ip:
-      optional: true
-    react:
-      optional: true
-    zod:
-      optional: true
-  checksum: 10/eba6331e68dc5440222f803f6b70e05068a9141f57f5a733b34d2451f1e14f03199dc4d376e46dc2a71e742ad11c4e3283b856ad09a6ea453ca0ce7506453384
-  languageName: node
-  linkType: hard
-
 "remix-utils@npm:8.1.0":
   version: 8.1.0
   resolution: "remix-utils@npm:8.1.0"
@@ -17354,13 +17316,6 @@ __metadata:
   version: 0.8.1
   resolution: "type-fest@npm:0.8.1"
   checksum: 10/fd4a91bfb706aeeb0d326ebd2e9a8ea5263979e5dec8d16c3e469a5bd3a946e014a062ef76c02e3086d3d1c7209a56a20a4caafd0e9f9a5c2ab975084ea3d388
-  languageName: node
-  linkType: hard
-
-"type-fest@npm:^4.18.1":
-  version: 4.31.0
-  resolution: "type-fest@npm:4.31.0"
-  checksum: 10/e7e849845bf33e1237c3ff0d5ed00a251a807e3321ffe75278dd56a7d3c385badfe09180057c2d0b93cf7429432b8e7061b6ccf4cc468720d8f69073d2b1bed2
   languageName: node
   linkType: hard
 
