@@ -29,4 +29,4 @@ COPY --from=website-builder --chown=ryot:ryot /app/apps/website/node_modules ./n
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/package.json ./package.json
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/build ./build
 COPY --chown=ryot:ryot apps/website/app/drizzle/migrations app/drizzle/migrations
-CMD npx remix-serve ./build/server/index.js
+CMD npx react-router-serve ./build/server/index.js

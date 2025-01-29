@@ -1,5 +1,5 @@
-import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { eq } from "drizzle-orm";
+import { redirect } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
@@ -9,8 +9,9 @@ import {
 	oauthClient,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import type { Route } from "./+types/callback";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const client = await oauthClient();
 	const params = client.callbackParams(request.url);
 	const tokenSet = await client.callback(OAUTH_CALLBACK_URL, params, {

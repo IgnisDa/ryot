@@ -1,7 +1,7 @@
-import { Link } from "@remix-run/react";
 import { changeCase } from "@ryot/ts-utils";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { $path } from "remix-routes";
 import type { TPrices } from "../config.server";
 import { Button } from "./ui/button";

@@ -8,14 +8,14 @@ import {
 	isRouteErrorResponse,
 	useLoaderData,
 	useRouteError,
-} from "@remix-run/react";
+} from "react-router";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
 import type {
 	LinksFunction,
 	LoaderFunctionArgs,
 	MetaFunction,
-} from "@remix-run/node";
+} from "react-router";
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";

@@ -13,6 +13,7 @@
 .env
 .moon/cache
 .moon/docker
+.react-router
 .next/
 .pnp.*
 Thumbs.db
