@@ -45,8 +45,9 @@ pub async fn yank_progress(
     auth_cookie: String,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResult> {
-    let date = get_current_date(&ss.timezone);
-    let current_time = get_current_time(&ss.timezone);
+    let timezone_internal: chrono_tz::Tz = timezone.parse().unwrap();
+    let date = get_current_date(&timezone_internal);
+    let current_time = get_current_time(&timezone_internal);
     let end_of_day = get_end_of_day(date);
     let is_within_threshold =
         end_of_day.signed_duration_since(current_time) <= Duration::minutes(THRESHOLD_MINUTES);
