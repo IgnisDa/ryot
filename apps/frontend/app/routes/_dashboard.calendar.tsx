@@ -8,8 +8,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	MediaLot,
 	UserCalendarEventsDocument,
@@ -17,6 +15,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";

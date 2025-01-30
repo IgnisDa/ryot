@@ -31,12 +31,6 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
@@ -93,6 +87,12 @@ import {
 	useRef,
 	useState,
 } from "react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";

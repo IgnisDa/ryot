@@ -50,19 +50,6 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	NavLink,
-	Outlet,
-	isRouteErrorResponse,
-	useLoaderData,
-	useLocation,
-	useNavigate,
-	useRevalidator,
-	useRouteError,
-} from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -116,6 +103,19 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import type { LoaderFunctionArgs } from "react-router";
+import {
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	isRouteErrorResponse,
+	useLoaderData,
+	useLocation,
+	useNavigate,
+	useRevalidator,
+	useRouteError,
+} from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";

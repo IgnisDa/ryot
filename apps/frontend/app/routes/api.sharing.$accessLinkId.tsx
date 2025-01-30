@@ -1,4 +1,3 @@
-import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
@@ -8,6 +7,7 @@ import {
 	parseSearchQuery,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
+import { type LoaderFunctionArgs, redirect } from "react-router";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";

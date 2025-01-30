@@ -1,5 +1,5 @@
 {
-	"include": ["env.d.ts", "**/*.ts", "**/*.tsx"],
+	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
 	"compilerOptions": {
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
 		"isolatedModules": true,
@@ -21,6 +21,8 @@
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
 			"~/*": ["./app/*"]
 		},
+		"rootDirs": [".", "./.react-router/types"],
+		"types": ["@react-router/node", "vite/client"],
 		"skipLibCheck": true,
 		"noEmit": true,
 		"outDir": "../../.moon/cache/types/apps/frontend",

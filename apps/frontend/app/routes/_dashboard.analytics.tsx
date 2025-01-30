@@ -18,8 +18,6 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	DailyUserActivitiesResponseGroupedBy,
 	UserAnalyticsDocument,
@@ -57,6 +55,8 @@ import html2canvas from "html2canvas";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { type ComponentType, type ReactNode, useRef, useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";

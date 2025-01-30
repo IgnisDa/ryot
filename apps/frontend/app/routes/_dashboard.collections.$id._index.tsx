@@ -15,8 +15,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -40,6 +38,8 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import {

@@ -17,13 +17,6 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
 import {
 	EntityLot,
 	GraphqlSortOrder,
@@ -57,6 +50,8 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";

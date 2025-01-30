@@ -12,14 +12,6 @@ import {
 } from "@mantine/core";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	data,
-	redirect,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import {
 	CreateCustomExerciseDocument,
 	ExerciseDetailsDocument,
 	ExerciseEquipment,
@@ -41,6 +33,14 @@ import {
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
+	data,
+	redirect,
+} from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

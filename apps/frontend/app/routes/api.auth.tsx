@@ -1,4 +1,3 @@
-import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	GetOidcTokenDocument,
 	LoginUserDocument,
@@ -7,6 +6,7 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
+import { type LoaderFunctionArgs, redirect } from "react-router";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import {

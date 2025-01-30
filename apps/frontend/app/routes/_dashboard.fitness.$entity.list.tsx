@@ -18,8 +18,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	type UserTemplatesOrWorkoutsListInput,
@@ -53,6 +51,8 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

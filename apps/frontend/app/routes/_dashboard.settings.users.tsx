@@ -18,13 +18,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	redirect,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
@@ -49,6 +42,13 @@ import {
 } from "@tabler/icons-react";
 import { nanoid } from "nanoid";
 import { forwardRef, useState } from "react";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
+	redirect,
+} from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";

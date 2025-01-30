@@ -23,18 +23,6 @@ import {
 } from "@mantine/core";
 import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import {
-	Form,
-	Link,
-	useLoaderData,
-	useNavigation,
-	useSearchParams,
-} from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -64,6 +52,18 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import {
+	Form,
+	Link,
+	useLoaderData,
+	useNavigation,
+	useSearchParams,
+} from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";

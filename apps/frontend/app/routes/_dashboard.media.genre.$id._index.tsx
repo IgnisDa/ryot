@@ -7,14 +7,14 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import {
 	parseParameters,
 	parseSearchQuery,
 	zodIntAsString,
 } from "@ryot/ts-utils";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";

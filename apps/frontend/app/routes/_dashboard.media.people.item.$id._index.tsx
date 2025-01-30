@@ -10,8 +10,6 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
@@ -28,6 +26,8 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";

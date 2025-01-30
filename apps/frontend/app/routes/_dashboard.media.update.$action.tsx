@@ -16,13 +16,6 @@ import {
 } from "@mantine/core";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	redirect,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import {
 	CreateCustomMetadataDocument,
 	MediaLot,
 	MetadataDetailsDocument,
@@ -36,6 +29,13 @@ import {
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
+	redirect,
+} from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

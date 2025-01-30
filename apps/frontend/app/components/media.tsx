@@ -12,7 +12,6 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { Form, Link } from "@remix-run/react";
 import {
 	EntityLot,
 	PersonDetailsDocument,
@@ -32,6 +31,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { Form, Link } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

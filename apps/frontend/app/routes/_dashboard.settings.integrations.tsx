@@ -22,12 +22,6 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
@@ -53,6 +47,12 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import { Form, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

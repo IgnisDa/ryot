@@ -1,10 +1,4 @@
 import { Alert, Container, Group, Stack, Text } from "@mantine/core";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -20,6 +14,12 @@ import { isNumber } from "@ryot/ts-utils";
 import { IconBackpack, IconInfoCircle } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import { useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

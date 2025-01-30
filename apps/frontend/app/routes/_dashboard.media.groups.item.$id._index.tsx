@@ -9,8 +9,6 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	DeployUpdateMetadataGroupJobDocument,
 	EntityLot,
@@ -24,6 +22,8 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
 	DisplayCollection,

@@ -14,8 +14,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
 import {
 	GenreDetailsDocument,
 	GenresListDocument,
@@ -28,6 +26,8 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import {

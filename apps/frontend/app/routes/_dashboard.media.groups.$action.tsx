@@ -14,8 +14,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	GraphqlSortOrder,
@@ -44,6 +42,8 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

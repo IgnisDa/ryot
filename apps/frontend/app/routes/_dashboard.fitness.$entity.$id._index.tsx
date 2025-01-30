@@ -16,12 +16,6 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
 	DeleteUserWorkoutTemplateDocument,
@@ -55,6 +49,12 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

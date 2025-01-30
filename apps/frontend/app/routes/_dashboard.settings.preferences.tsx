@@ -24,8 +24,6 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
 	DashboardElementLot,
 	GridPacking,
@@ -54,6 +52,8 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { useLoaderData, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";

@@ -11,14 +11,6 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	data,
-	redirect,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
-import {
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
@@ -34,6 +26,14 @@ import {
 	zodNumAsString,
 } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
+	data,
+	redirect,
+} from "react-router";
+import { Form, Link, useLoaderData, useSearchParams } from "react-router";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";

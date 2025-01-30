@@ -12,12 +12,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
@@ -35,6 +29,12 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "react-router";
+import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";

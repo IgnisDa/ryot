@@ -26,13 +26,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
@@ -65,6 +58,8 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
+import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
