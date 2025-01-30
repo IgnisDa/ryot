@@ -306,9 +306,10 @@ impl IntegrationService {
                 }
                 _ => continue,
             };
-            if let Ok(update) = response {
-                progress_updates.push((integration, update));
-            }
+            match response {
+                Ok(update) => progress_updates.push((integration, update)),
+                Err(e) => ryot_log!(warn, "Error yanking integrations data: {:?}", e),
+            };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
             self.integration_progress_update(integration, progress_updates)

@@ -54,15 +54,9 @@ pub async fn yank_progress(
     let client = RustyPipe::builder()
         .storage_dir(TEMP_DIR)
         .timezone(&timezone, get_offset(&timezone))
-        .build()
-        .unwrap();
+        .build()?;
     client.user_auth_set_cookie(auth_cookie).await?;
-    let music_history = client
-        .query()
-        .authenticated()
-        .music_history()
-        .await
-        .unwrap();
+    let music_history = client.query().authenticated().music_history().await?;
     let songs_listened_to_today = music_history.items.into_iter().rev().filter_map(|history| {
         history.playback_date_txt.and_then(|d| match d.as_str() {
             "Today" => Some((history.item.id, history.item.name)),
