@@ -27,7 +27,6 @@ fileGroups:
   remix:
     - "app/**/*"
     - "public/**/*"
-    - "env.d.ts"
     - "remix.config.*"
 
 tasks:
