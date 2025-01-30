@@ -21,6 +21,8 @@
 		"@mantine/hooks": "7.16.2",
 		"@mantine/modals": "7.16.2",
 		"@mantine/notifications": "7.16.2",
+		"@mjackson/file-storage": "0.5.0",
+		"@mjackson/form-data-parser": "0.7.0",
 		"@remix-pwa/sw": "3.0.10",
 		"@remix-pwa/worker-runtime": "2.1.4",
 		"@remix-run/node": "2.15.2",

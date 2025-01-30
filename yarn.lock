@@ -4312,6 +4312,49 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mjackson/file-storage@npm:0.5.0":
+  version: 0.5.0
+  resolution: "@mjackson/file-storage@npm:0.5.0"
+  dependencies:
+    "@mjackson/lazy-file": "npm:^3.3.1"
+  checksum: 10/dc7607455c8a25356ecc12588377f10f7bfd871c4f7ba17b3e6a623c67a41163ce50724202890396c11ab9162bba345ada4b9b5b7bb504a10644c55382a48d04
+  languageName: node
+  linkType: hard
+
+"@mjackson/form-data-parser@npm:0.7.0":
+  version: 0.7.0
+  resolution: "@mjackson/form-data-parser@npm:0.7.0"
+  dependencies:
+    "@mjackson/multipart-parser": "npm:^0.8.0"
+  checksum: 10/ac9206ca6d92d75c6423309f2077b8974763b2e9c57555a6d8ab679f82538aec6b5e69ca0679ebfd2cd2461db3f3601a3226eb5ee235bf7e18d003d748df2e2b
+  languageName: node
+  linkType: hard
+
+"@mjackson/headers@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@mjackson/headers@npm:0.9.0"
+  checksum: 10/2d8a148cbcd75cfdded12cc90d824d0391acccb6b9851c2e4f0f351a588e394760bf8c9ecd66e1f518385df67898a6ae62bcd316f48214e346bf0c7ca657462e
+  languageName: node
+  linkType: hard
+
+"@mjackson/lazy-file@npm:^3.3.1":
+  version: 3.3.1
+  resolution: "@mjackson/lazy-file@npm:3.3.1"
+  dependencies:
+    mrmime: "npm:^2.0.0"
+  checksum: 10/abae14bcc04aa88eda5620ed5ba40cc04d357ebde8ef8ece943260365267966de2871397a5916f128845d84fc899e06d66654885f356f45b7fac3691ac4a0f7b
+  languageName: node
+  linkType: hard
+
+"@mjackson/multipart-parser@npm:^0.8.0":
+  version: 0.8.1
+  resolution: "@mjackson/multipart-parser@npm:0.8.1"
+  dependencies:
+    "@mjackson/headers": "npm:^0.9.0"
+  checksum: 10/fa82ad817711343d63e89e3157370a5d8155e1ba16a244ee7873691dc5e2dee131312324093206e199a8b96a8c5de4e86c50b567b67582b3831b5697fbed999f
+  languageName: node
+  linkType: hard
+
 "@mjackson/node-fetch-server@npm:^0.2.0":
   version: 0.2.0
   resolution: "@mjackson/node-fetch-server@npm:0.2.0"
@@ -6507,6 +6550,8 @@ __metadata:
     "@mantine/hooks": "npm:7.16.2"
     "@mantine/modals": "npm:7.16.2"
     "@mantine/notifications": "npm:7.16.2"
+    "@mjackson/file-storage": "npm:0.5.0"
+    "@mjackson/form-data-parser": "npm:0.7.0"
     "@remix-pwa/dev": "npm:3.1.0"
     "@remix-pwa/sw": "npm:3.0.10"
     "@remix-pwa/worker-runtime": "npm:2.1.4"
@@ -13844,6 +13889,13 @@ __metadata:
   version: 1.0.1
   resolution: "mrmime@npm:1.0.1"
   checksum: 10/a157e833ffe76648ab2107319deeff024b80b136ec66c60fae9d339009a1bb72c57ec1feecfd6a905dfd3df29e2299e850bff84b69cad790cc9bd9ab075834d1
+  languageName: node
+  linkType: hard
+
+"mrmime@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "mrmime@npm:2.0.0"
+  checksum: 10/8d95f714ea200c6cf3e3777cbc6168be04b05ac510090a9b41eef5ec081efeb1d1de3e535ffb9c9689fffcc42f59864fd52a500e84a677274f070adeea615c45
   languageName: node
   linkType: hard
 
