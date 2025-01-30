@@ -1,6 +1,6 @@
 import { reactRouter } from "@react-router/dev/vite";
 import { remixPWA } from "@remix-pwa/dev";
-import { remixDevTools } from "remix-development-tools";
+import { reactRouterDevTools } from "react-router-devtools";
 import { remixRoutes } from "remix-routes/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -13,7 +13,7 @@ export default defineConfig({
 		host: process.env.FRONTEND_HOST,
 	},
 	plugins: [
-		remixDevTools(),
+		reactRouterDevTools(),
 		reactRouter(),
 		remixRoutes(),
 		tsconfigPaths(),
