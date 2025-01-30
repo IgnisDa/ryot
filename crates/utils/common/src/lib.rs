@@ -27,9 +27,9 @@ pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 #[cfg(not(debug_assertions))]
-pub const TEMP_DIR: &str = "tmp";
+pub const TEMPORARY_DIRECTORY: &str = "tmp";
 #[cfg(debug_assertions)]
-pub const TEMP_DIR: &str = "/tmp";
+pub const TEMPORARY_DIRECTORY: &str = "/tmp";
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";

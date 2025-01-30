@@ -8,7 +8,7 @@ use axum::{
     response::{Html, IntoResponse},
     Extension, Json,
 };
-use common_utils::{ryot_log, TEMP_DIR};
+use common_utils::{ryot_log, TEMPORARY_DIRECTORY};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
 use serde_json::json;
@@ -40,7 +40,7 @@ pub async fn upload_file(
             .unwrap_or_else(|| "file.png".to_string());
         let data = file.bytes().await.unwrap();
         let name = format!("{}-{}", nanoid!(), name);
-        let path = PathBuf::new().join(TEMP_DIR).join(name);
+        let path = PathBuf::new().join(TEMPORARY_DIRECTORY).join(name);
         write(&path, data).unwrap();
         res.push(path.canonicalize().unwrap());
     }
