@@ -21,11 +21,11 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	unstable_parseMultipartFormData,
+import { parseFormData } from "@mjackson/form-data-parser";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -55,8 +55,11 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
-import { temporaryFileUploadHandler } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	temporaryFileUploadHandler,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ importReports }, { userExports }] = await Promise.all([
@@ -71,7 +74,7 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await unstable_parseMultipartFormData(
+	const formData = await parseFormData(
 		request.clone(),
 		temporaryFileUploadHandler,
 	);

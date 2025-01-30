@@ -1,4 +1,5 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
+import type { FileUpload } from "@mjackson/form-data-parser";
 import {
 	createCookie,
 	createCookieSessionStorage,
@@ -240,23 +241,18 @@ const asyncIterableToFile = async (
 	return new File(blob, filename);
 };
 
-export const temporaryFileUploadHandler = unstable_composeUploadHandlers(
-	async (params) => {
-		if (params.filename && params.data) {
-			const formData = new FormData();
-			const file = await asyncIterableToFile(params.data, params.filename);
-			formData.append("files[]", file, params.filename);
-			const resp = await fetch(`${API_URL}/upload`, {
-				method: "POST",
-				body: formData,
-			});
-			const data = await resp.json();
-			return data[0];
-		}
-		return undefined;
-	},
-	unstable_createMemoryUploadHandler(),
-);
+export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
+	const asyncIterable = await fileUpload.bytes();
+	const file = new File([asyncIterable], fileUpload.name);
+	const formData = new FormData();
+	formData.append("files[]", file, fileUpload.name);
+	const resp = await fetch(`${API_URL}/upload`, {
+		method: "POST",
+		body: formData,
+	});
+	const data = await resp.json();
+	return data[0];
+};
 
 export const s3FileUploader = (prefix: string) =>
 	unstable_composeUploadHandlers(async (params) => {
