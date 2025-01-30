@@ -17,8 +17,8 @@ use common_models::{
     UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_DELETE_CHUNK_SIZE,
-    ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_APPLICATION_UPDATE_CHUNK_SIZE,
+    ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -1743,7 +1743,9 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             m_map
         );
-        let chunks = m_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
+        let chunks = m_map
+            .keys()
+            .chunks(ENTITY_BULK_APPLICATION_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -1764,7 +1766,9 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             p_map
         );
-        let chunks = p_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
+        let chunks = p_map
+            .keys()
+            .chunks(ENTITY_BULK_APPLICATION_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -2597,7 +2601,7 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in metadata_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in metadata_to_delete.chunks(ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} metadata items", chunk.len());
             Metadata::delete_many()
                 .filter(metadata::Column::Id.is_in(chunk))
@@ -2612,7 +2616,7 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in people_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in people_to_delete.chunks(ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} people", chunk.len());
             Person::delete_many()
                 .filter(person::Column::Id.is_in(chunk))
@@ -2627,7 +2631,9 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in metadata_groups_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in
+            metadata_groups_to_delete.chunks(ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE)
+        {
             ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
             MetadataGroup::delete_many()
                 .filter(metadata_group::Column::Id.is_in(chunk))
@@ -2642,7 +2648,7 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in genre_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in genre_to_delete.chunks(ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} genres", chunk.len());
             Genre::delete_many()
                 .filter(genre::Column::Id.is_in(chunk))
