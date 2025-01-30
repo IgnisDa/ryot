@@ -291,6 +291,7 @@ query CoreDetails {
     fileStorageEnabled
     peopleSearchSources
     isServerKeyValidated
+    temporaryDirectoryPath
     metadataGroupSourceLotMappings {
       lot
       source

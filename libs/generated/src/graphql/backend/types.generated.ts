@@ -257,6 +257,7 @@ export type CoreDetails = {
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
+  temporaryDirectoryPath: Scalars['String']['output'];
   tokenValidForDays: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];

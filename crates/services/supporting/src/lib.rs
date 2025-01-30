@@ -9,6 +9,7 @@ use common_models::BackendError;
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
     METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
+    TEMP_DIR,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -138,9 +139,10 @@ impl SupportingService {
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             frontend: self.config.frontend.clone(),
-            website_url: "https://ryot.io".to_owned(),
             oidc_enabled: self.oidc_client.is_some(),
+            website_url: "https://ryot.io".to_owned(),
             docs_link: "https://docs.ryot.io".to_owned(),
+            temporary_directory_path: TEMP_DIR.to_owned(),
             backend_errors: BackendError::iter().collect(),
             disable_telemetry: self.config.disable_telemetry,
             smtp_enabled: self.config.server.smtp.is_enabled(),
