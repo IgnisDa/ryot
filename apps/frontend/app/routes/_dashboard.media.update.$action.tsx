@@ -14,12 +14,12 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
+import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
 	type MetaArgs,
 	redirect,
-	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -41,7 +41,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { useCoreDetails } from "~/lib/hooks";
-import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
+import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
 enum Action {
 	Create = "create",
@@ -81,8 +81,8 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const uploaders = s3FileUploader("metadata");
-	const formData = await unstable_parseMultipartFormData(request, uploaders);
+	const uploader = createS3FileUploader("metadata");
+	const formData = await parseFormData(request, uploader);
 	const submission = processSubmission(formData, schema);
 	// biome-ignore lint/suspicious/noExplicitAny: required here
 	const input: any = {

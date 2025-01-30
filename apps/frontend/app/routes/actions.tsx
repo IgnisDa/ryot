@@ -1,9 +1,6 @@
 import { setTimeout } from "node:timers/promises";
-import {
-	type ActionFunctionArgs,
-	redirect,
-	unstable_parseMultipartFormData,
-} from "@remix-run/node";
+import { parseFormData } from "@mjackson/form-data-parser";
+import { type ActionFunctionArgs, redirect } from "@remix-run/node";
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
@@ -45,10 +42,10 @@ import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
+	createS3FileUploader,
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
-	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -86,8 +83,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			returnData = { commitMedia: commitMetadata };
 		})
 		.with("uploadWorkoutAsset", async () => {
-			const uploader = s3FileUploader("workouts");
-			const formData = await unstable_parseMultipartFormData(request, uploader);
+			const uploader = createS3FileUploader("workouts");
+			const formData = await parseFormData(request, uploader);
 			const fileKey = formData.get("file");
 			returnData = { key: fileKey };
 		})

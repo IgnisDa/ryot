@@ -4,8 +4,6 @@ import {
 	createCookie,
 	createCookieSessionStorage,
 	redirect,
-	unstable_composeUploadHandlers,
-	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
 	BackendError,
@@ -232,15 +230,6 @@ export const getPresignedGetUrl = async (key: string) => {
 	return getPresignedS3Url;
 };
 
-const asyncIterableToFile = async (
-	asyncIterable: AsyncIterable<Uint8Array>,
-	filename: string,
-) => {
-	const blob = [];
-	for await (const chunk of asyncIterable) blob.push(chunk);
-	return new File(blob, filename);
-};
-
 export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const asyncIterable = await fileUpload.bytes();
 	const file = new File([asyncIterable], fileUpload.name);
@@ -254,20 +243,19 @@ export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	return data[0];
 };
 
-export const s3FileUploader = (prefix: string) =>
-	unstable_composeUploadHandlers(async (params) => {
-		if (params.filename && params.data) {
-			const file = await asyncIterableToFile(params.data, params.filename);
-			const key = await uploadFileAndGetKey(
-				file.name,
-				prefix,
-				file.type,
-				await file.arrayBuffer(),
-			);
-			return key;
-		}
-		return undefined;
-	}, unstable_createMemoryUploadHandler());
+export const createS3FileUploader = (prefix: string) => {
+	return async (fileUpload: FileUpload) => {
+		const asyncIterable = await fileUpload.bytes();
+		const file = new File([asyncIterable], fileUpload.name);
+		const key = await uploadFileAndGetKey(
+			file.name,
+			prefix,
+			file.type,
+			await file.arrayBuffer(),
+		);
+		return key;
+	};
+};
 
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {

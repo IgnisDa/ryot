@@ -10,13 +10,13 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
+import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
 	type MetaArgs,
 	data,
 	redirect,
-	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
@@ -49,8 +49,8 @@ import { z } from "zod";
 import { getExerciseDetailsPath } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
+	createS3FileUploader,
 	createToastHeaders,
-	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -89,11 +89,8 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const uploader = s3FileUploader("exercises");
-	const formData = await unstable_parseMultipartFormData(
-		request.clone(),
-		uploader,
-	);
+	const uploader = createS3FileUploader("exercises");
+	const formData = await parseFormData(request.clone(), uploader);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as Array<ExerciseMuscle>)
