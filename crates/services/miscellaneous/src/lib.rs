@@ -2694,7 +2694,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .into_tuple::<String>()
                 .all(db)
                 .await?;
-            for chunk in ids_to_update.chunks(100) {
+            for chunk in ids_to_update.chunks(ENTITY_BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
                 ryot_log!(debug, "Entities to update: {:?}", chunk);
                 updater
                     .clone()
