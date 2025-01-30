@@ -2606,7 +2606,8 @@ ORDER BY RANDOM() LIMIT 10;
             Metadata::delete_many()
                 .filter(metadata::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let people_to_delete = Person::find()
             .select_only()
@@ -2621,7 +2622,8 @@ ORDER BY RANDOM() LIMIT 10;
             Person::delete_many()
                 .filter(person::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let metadata_groups_to_delete = MetadataGroup::find()
             .select_only()
@@ -2638,7 +2640,8 @@ ORDER BY RANDOM() LIMIT 10;
             MetadataGroup::delete_many()
                 .filter(metadata_group::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let genre_to_delete = Genre::find()
             .select_only()
@@ -2653,23 +2656,27 @@ ORDER BY RANDOM() LIMIT 10;
             Genre::delete_many()
                 .filter(genre::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
             .filter(user_notification::Column::IsAddressed.eq(true))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         ryot_log!(debug, "Deleting expired application caches");
         ApplicationCache::delete_many()
             .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         Ok(())
     }
 
