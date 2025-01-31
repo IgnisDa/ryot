@@ -5,11 +5,12 @@ use application_utils::{get_current_date, get_current_time};
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
 use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
-use common_utils::TEMPORARY_DIRECTORY;
+use common_utils::{ryot_log, TEMPORARY_DIRECTORY};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportResult,
 };
 use enum_models::{MediaLot, MediaSource};
+use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
 use rust_decimal_macros::dec;
 use rustypipe::client::RustyPipe;
@@ -58,14 +59,21 @@ pub async fn yank_progress(
         .build()?;
     client.user_auth_set_cookie(auth_cookie).await?;
     let music_history = client.query().authenticated().music_history().await?;
-    let songs_listened_to_today = music_history.items.into_iter().rev().filter_map(|history| {
-        history.playback_date_txt.and_then(|d| match d.as_str() {
-            "Today" => Some((history.item.id, history.item.name)),
-            _ => None,
+    let songs_listened_to_today = music_history
+        .items
+        .into_iter()
+        .rev()
+        .filter_map(|history| {
+            history.playback_date_txt.and_then(|d| match d.as_str() {
+                "Today" => Some((history.item.id, history.item.name)),
+                _ => None,
+            })
         })
-    });
+        .collect_vec();
+    ryot_log!(debug, "Songs listened today: {:?}", songs_listened_to_today);
     let cache_keys = songs_listened_to_today
         .clone()
+        .iter()
         .map(|(id, _)| {
             (
                 id.clone(),
