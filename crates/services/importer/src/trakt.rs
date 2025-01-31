@@ -96,21 +96,24 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         });
     }
 
-    for l in lists.iter() {
-        for i in l.items.iter() {
-            match process_item(i) {
+    for typ in ["movies", "shows"] {
+        let rsp = client
+            .get(format!("{}/collection/{}", url, typ))
+            .send()
+            .await
+            .unwrap();
+        let items = rsp.json::<Vec<ListItemResponse>>().await.unwrap();
+        for item in items.iter() {
+            match process_item(item) {
                 Ok(mut d) => {
-                    d.collections.push(l.name.to_case(Case::Title));
-                    completed.push(d)
+                    d.collections.push("Owned".to_string());
+                    completed.push(d);
                 }
-                Err(d) => failed.push(d),
+                Err(e) => failed.push(e),
             }
         }
-    }
-
-    for type_ in ["movies", "shows"] {
         let rsp = client
-            .get(format!("{}/ratings/{}", url, type_))
+            .get(format!("{}/ratings/{}", url, typ))
             .send()
             .await
             .unwrap();
@@ -130,11 +133,19 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         }),
                         ..Default::default()
                     });
-                    if let Some(a) = completed.iter_mut().find(|i| i.source_id == d.source_id) {
-                        a.reviews = d.reviews;
-                    } else {
-                        completed.push(d)
-                    }
+                    completed.push(d)
+                }
+                Err(d) => failed.push(d),
+            }
+        }
+    }
+
+    for l in lists.iter() {
+        for i in l.items.iter() {
+            match process_item(i) {
+                Ok(mut d) => {
+                    d.collections.push(l.name.to_case(Case::Title));
+                    completed.push(d)
                 }
                 Err(d) => failed.push(d),
             }
@@ -198,14 +209,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = completed
-                    .iter_mut()
-                    .find(|i| i.identifier == d.identifier && i.lot == d.lot)
-                {
-                    a.seen_history.extend(d.seen_history);
-                } else {
-                    completed.push(d)
-                }
+                completed.push(d);
             }
             Err(d) => failed.push(d),
         }
