@@ -54,7 +54,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Link, useLoaderData, useNavigate, useSubmit } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

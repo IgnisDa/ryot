@@ -34,8 +34,8 @@ import {
 	useLoaderData,
 	useSearchParams,
 } from "react-router";
-import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

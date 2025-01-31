@@ -1,7 +1,7 @@
 import { reactRouter } from "@react-router/dev/vite";
 import { remixPWA } from "@remix-pwa/dev";
 import { reactRouterDevTools } from "react-router-devtools";
-import { remixRoutes } from "remix-routes/vite";
+import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -15,7 +15,7 @@ export default defineConfig({
 	plugins: [
 		reactRouterDevTools(),
 		reactRouter(),
-		remixRoutes(),
+		safeRoutes(),
 		tsconfigPaths(),
 		remixPWA(),
 	],

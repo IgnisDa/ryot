@@ -39,7 +39,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { Form, Link, useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

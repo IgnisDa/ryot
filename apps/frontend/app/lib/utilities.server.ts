@@ -23,7 +23,7 @@ import {
 	createCookieSessionStorage,
 	redirect,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";

@@ -41,7 +41,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { BaseMediaDisplayItem } from "~/components/common";

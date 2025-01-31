@@ -37,7 +37,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 

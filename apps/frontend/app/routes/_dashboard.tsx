@@ -116,8 +116,8 @@ import {
 	useRouteError,
 } from "react-router";
 import { Fragment } from "react/jsx-runtime";
-import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";

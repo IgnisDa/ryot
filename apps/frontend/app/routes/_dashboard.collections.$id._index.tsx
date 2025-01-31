@@ -39,7 +39,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { z } from "zod";
 import {
 	ApplicationGrid,

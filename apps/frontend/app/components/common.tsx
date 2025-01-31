@@ -84,7 +84,7 @@ import {
 	useNavigate,
 	useRevalidator,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

@@ -51,7 +51,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";

@@ -60,7 +60,7 @@ import {
 	useSearchParams,
 } from "react-router";
 import { Virtuoso } from "react-virtuoso";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

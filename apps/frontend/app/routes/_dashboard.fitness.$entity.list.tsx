@@ -52,7 +52,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { Link, useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";

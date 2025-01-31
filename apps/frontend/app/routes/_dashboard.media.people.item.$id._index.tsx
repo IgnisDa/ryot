@@ -27,7 +27,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {

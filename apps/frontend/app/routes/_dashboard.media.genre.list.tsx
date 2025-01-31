@@ -27,7 +27,7 @@ import {
 } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import { z } from "zod";
 import {
 	ApplicationGrid,

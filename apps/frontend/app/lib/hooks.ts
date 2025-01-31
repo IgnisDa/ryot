@@ -13,7 +13,7 @@ import {
 	useSearchParams,
 	useSubmit,
 } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {

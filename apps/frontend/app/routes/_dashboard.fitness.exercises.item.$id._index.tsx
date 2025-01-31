@@ -60,7 +60,7 @@ import { produce } from "immer";
 import { Fragment, useState } from "react";
 import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";

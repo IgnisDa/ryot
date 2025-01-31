@@ -34,7 +34,7 @@ import {
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { Form, data, redirect, useLoaderData } from "react-router";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
