@@ -18,7 +18,6 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure, useInViewport } from "@mantine/hooks";
-import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
 	SetLot,
@@ -41,7 +40,8 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType, ReactNode } from "react";
-import { $path } from "remix-routes";
+import { Link } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { BaseMediaDisplayItem } from "~/components/common";

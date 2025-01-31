@@ -12,12 +12,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
@@ -35,6 +29,7 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
+import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
@@ -59,6 +54,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.fitness.measurements.list";
 
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
@@ -68,7 +64,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const defaultTimeSpan = TimeSpan.Last30Days;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
@@ -89,11 +85,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { query, userMeasurementsList, cookieName };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

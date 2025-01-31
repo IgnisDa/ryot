@@ -18,8 +18,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	type UserTemplatesOrWorkoutsListInput,
@@ -53,7 +51,8 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { $path } from "remix-routes";
+import { Link, useLoaderData } from "react-router";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -91,6 +90,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.fitness.$entity.list";
 
 const defaultFilters = {
 	orderBy: GraphqlSortOrder.Desc,
@@ -108,7 +108,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { entity } = parseParameters(
 		params,
 		z.object({ entity: z.nativeEnum(FitnessEntity) }),
@@ -155,7 +155,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	return { query, entity, displayData, cookieName, totalPages };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(data?.entity || "")} | Ryot` }];
 };
 

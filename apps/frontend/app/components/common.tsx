@@ -33,14 +33,6 @@ import {
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import {
-	Form,
-	Link,
-	useFetcher,
-	useLocation,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
-import {
 	EntityLot,
 	GridPacking,
 	MediaLot,
@@ -84,7 +76,15 @@ import clsx from "clsx";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
-import { $path } from "remix-routes";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useLocation,
+	useNavigate,
+	useRevalidator,
+} from "react-router";
+import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

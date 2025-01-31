@@ -18,8 +18,6 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	DailyUserActivitiesResponseGroupedBy,
 	UserAnalyticsDocument,
@@ -57,6 +55,7 @@ import html2canvas from "html2canvas";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { type ComponentType, type ReactNode, useRef, useState } from "react";
+import { useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
@@ -83,6 +82,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.analytics";
 
 export type TimeSpanSettings = {
 	endDate?: string;
@@ -90,7 +90,7 @@ export type TimeSpanSettings = {
 	range: ApplicationTimeRange;
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const { userAnalyticsParameters } =
 		await serverGqlService.authenticatedRequest(
 			request,
@@ -99,7 +99,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { userAnalyticsParameters };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Analytics | Ryot" }];
 };
 

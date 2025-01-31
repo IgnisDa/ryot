@@ -21,13 +21,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	unstable_parseMultipartFormData,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
@@ -44,7 +38,8 @@ import {
 import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
-import { $path } from "remix-routes";
+import { Form, useLoaderData } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
@@ -55,10 +50,14 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
-import { temporaryFileUploadHandler } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	serverGqlService,
+	temporaryFileUploadHandler,
+} from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ importReports }, { userExports }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
 		serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
@@ -66,12 +65,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { importReports, userExports };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await unstable_parseMultipartFormData(
+export const action = async ({ request }: Route.ActionArgs) => {
+	const formData = await parseFormData(
 		request.clone(),
 		temporaryFileUploadHandler,
 	);

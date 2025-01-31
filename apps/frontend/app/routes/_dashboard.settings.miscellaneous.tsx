@@ -7,14 +7,13 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { ActionFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Form, data } from "@remix-run/react";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
+import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { openConfirmationModal } from "~/lib/generals";
@@ -24,12 +23,13 @@ import {
 	useUserDetails,
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 
-export const meta = (_args: MetaArgs) => {
+export const meta = () => {
 	return [{ title: "Miscellaneous settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
 	await serverGqlService.authenticatedRequest(

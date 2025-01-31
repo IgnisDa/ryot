@@ -26,13 +26,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
@@ -65,8 +58,9 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { Fragment, useState } from "react";
+import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
-import { $path } from "remix-routes";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
@@ -101,6 +95,7 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -108,7 +103,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { id: exerciseId } = parseParameters(
 		params,
 		z.object({ id: z.string() }),
@@ -125,7 +120,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	return { query, exerciseId, exerciseDetails, userExerciseDetails };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
 };
 

@@ -1,11 +1,5 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
-import {
-	createCookie,
-	createCookieSessionStorage,
-	redirect,
-	unstable_composeUploadHandlers,
-	unstable_createMemoryUploadHandler,
-} from "@remix-run/node";
+import type { FileUpload } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
@@ -24,7 +18,12 @@ import {
 } from "graphql-request";
 import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
-import { $path } from "remix-routes";
+import {
+	createCookie,
+	createCookieSessionStorage,
+	redirect,
+} from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
@@ -231,47 +230,35 @@ export const getPresignedGetUrl = async (key: string) => {
 	return getPresignedS3Url;
 };
 
-const asyncIterableToFile = async (
-	asyncIterable: AsyncIterable<Uint8Array>,
-	filename: string,
-) => {
-	const blob = [];
-	for await (const chunk of asyncIterable) blob.push(chunk);
-	return new File(blob, filename);
+const fileUploadToFile = async (fileUpload: FileUpload) => {
+	const bytes = await fileUpload.bytes();
+	return new File([bytes], fileUpload.name);
 };
 
-export const temporaryFileUploadHandler = unstable_composeUploadHandlers(
-	async (params) => {
-		if (params.filename && params.data) {
-			const formData = new FormData();
-			const file = await asyncIterableToFile(params.data, params.filename);
-			formData.append("files[]", file, params.filename);
-			const resp = await fetch(`${API_URL}/upload`, {
-				method: "POST",
-				body: formData,
-			});
-			const data = await resp.json();
-			return data[0];
-		}
-		return undefined;
-	},
-	unstable_createMemoryUploadHandler(),
-);
+export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
+	const file = await fileUploadToFile(fileUpload);
+	const formData = new FormData();
+	formData.append("files[]", file, fileUpload.name);
+	const resp = await fetch(`${API_URL}/upload`, {
+		method: "POST",
+		body: formData,
+	});
+	const data = await resp.json();
+	return data[0];
+};
 
-export const s3FileUploader = (prefix: string) =>
-	unstable_composeUploadHandlers(async (params) => {
-		if (params.filename && params.data) {
-			const file = await asyncIterableToFile(params.data, params.filename);
-			const key = await uploadFileAndGetKey(
-				file.name,
-				prefix,
-				file.type,
-				await file.arrayBuffer(),
-			);
-			return key;
-		}
-		return undefined;
-	}, unstable_createMemoryUploadHandler());
+export const createS3FileUploader = (prefix: string) => {
+	return async (fileUpload: FileUpload) => {
+		const file = await fileUploadToFile(fileUpload);
+		const key = await uploadFileAndGetKey(
+			file.name,
+			prefix,
+			file.type,
+			await file.arrayBuffer(),
+		);
+		return key;
+	};
+};
 
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {

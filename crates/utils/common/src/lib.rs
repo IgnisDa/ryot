@@ -9,8 +9,8 @@ use tokio::time::{sleep, Duration};
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
-pub static ENTITY_BULK_UPDATE_CHUNK_SIZE: usize = 5;
-pub static ENTITY_BULK_DELETE_CHUNK_SIZE: usize = 2000;
+pub static BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
+pub static BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
@@ -27,9 +27,9 @@ pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 #[cfg(not(debug_assertions))]
-pub const TEMP_DIR: &str = "tmp";
+pub const TEMPORARY_DIRECTORY: &str = "tmp";
 #[cfg(debug_assertions)]
-pub const TEMP_DIR: &str = "/tmp";
+pub const TEMPORARY_DIRECTORY: &str = "/tmp";
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";

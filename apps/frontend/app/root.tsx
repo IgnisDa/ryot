@@ -14,23 +14,21 @@ import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import { ModalsProvider } from "@mantine/modals";
-import {
-	type LinksFunction,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	data,
-} from "@remix-run/node";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	Links,
+	type LinksFunction,
+	type LoaderFunctionArgs,
 	Meta,
+	type MetaFunction,
 	Outlet,
 	Scripts,
 	ScrollRestoration,
+	data,
 	useLoaderData,
 	useNavigation,
-} from "@remix-run/react";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+} from "react-router";
 import "mantine-datatable/styles.layer.css";
 import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";

@@ -1,9 +1,5 @@
 import { setTimeout } from "node:timers/promises";
-import {
-	type ActionFunctionArgs,
-	redirect,
-	unstable_parseMultipartFormData,
-} from "@remix-run/node";
+import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	AddEntityToCollectionDocument,
 	CommitMetadataDocument,
@@ -36,7 +32,8 @@ import {
 	zodBoolAsString,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
-import { $path } from "remix-routes";
+import { redirect } from "react-router";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -45,19 +42,20 @@ import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
+	createS3FileUploader,
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
-	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/actions";
 
 const sleepForHalfSecond = async (request: Request) =>
 	await setTimeout(500, void 0, { signal: request.signal });
 
 export const loader = async () => redirect($path("/"));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	const { searchParams } = new URL(request.url);
@@ -86,8 +84,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			returnData = { commitMedia: commitMetadata };
 		})
 		.with("uploadWorkoutAsset", async () => {
-			const uploader = s3FileUploader("workouts");
-			const formData = await unstable_parseMultipartFormData(request, uploader);
+			const uploader = createS3FileUploader("workouts");
+			const formData = await parseFormData(request, uploader);
 			const fileKey = formData.get("file");
 			returnData = { key: fileKey };
 		})

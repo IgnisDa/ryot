@@ -17,8 +17,8 @@ use common_models::{
     UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, ENTITY_BULK_DELETE_CHUNK_SIZE,
-    ENTITY_BULK_UPDATE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    get_first_and_last_day_of_month, ryot_log, BULK_APPLICATION_UPDATE_CHUNK_SIZE,
+    BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -1743,7 +1743,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             m_map
         );
-        let chunks = m_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
+        let chunks = m_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -1764,7 +1764,7 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             p_map
         );
-        let chunks = p_map.keys().chunks(ENTITY_BULK_UPDATE_CHUNK_SIZE);
+        let chunks = p_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
         let items = chunks
             .into_iter()
             .map(|chunk| chunk.into_iter().collect_vec())
@@ -2597,12 +2597,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in metadata_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in metadata_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} metadata items", chunk.len());
             Metadata::delete_many()
                 .filter(metadata::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let people_to_delete = Person::find()
             .select_only()
@@ -2612,12 +2613,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in people_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in people_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} people", chunk.len());
             Person::delete_many()
                 .filter(person::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let metadata_groups_to_delete = MetadataGroup::find()
             .select_only()
@@ -2627,12 +2629,13 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in metadata_groups_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in metadata_groups_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
             MetadataGroup::delete_many()
                 .filter(metadata_group::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         let genre_to_delete = Genre::find()
             .select_only()
@@ -2642,28 +2645,32 @@ ORDER BY RANDOM() LIMIT 10;
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for chunk in genre_to_delete.chunks(ENTITY_BULK_DELETE_CHUNK_SIZE) {
+        for chunk in genre_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
             ryot_log!(debug, "Deleting {} genres", chunk.len());
             Genre::delete_many()
                 .filter(genre::Column::Id.is_in(chunk))
                 .exec(&self.0.db)
-                .await?;
+                .await
+                .trace_ok();
         }
         ryot_log!(debug, "Deleting all addressed user notifications");
         UserNotification::delete_many()
             .filter(user_notification::Column::IsAddressed.eq(true))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         ryot_log!(debug, "Deleting expired application caches");
         ApplicationCache::delete_many()
             .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
             .exec(&self.0.db)
-            .await?;
+            .await
+            .trace_ok();
         Ok(())
     }
 
@@ -2688,7 +2695,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .into_tuple::<String>()
                 .all(db)
                 .await?;
-            for chunk in ids_to_update.chunks(100) {
+            for chunk in ids_to_update.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
                 ryot_log!(debug, "Entities to update: {:?}", chunk);
                 updater
                     .clone()

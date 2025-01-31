@@ -1,13 +1,6 @@
-import type { MetaArgs } from "react-router";
-import type { Route } from "./+types/terms";
-
 const email = "ignisda2001@gmail.com";
 
-export const loader = (_args: Route.LoaderArgs) => {
-	return {};
-};
-
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
 };
 

@@ -1,5 +1,4 @@
 import { notifications } from "@mantine/notifications";
-import { useLocation, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	EntityLot,
@@ -11,7 +10,8 @@ import {
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
-import { $path } from "remix-routes";
+import { useLocation, useNavigate } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { clientGqlService } from "../generals";
 

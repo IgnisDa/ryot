@@ -24,8 +24,6 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
 	DashboardElementLot,
 	GridPacking,
@@ -54,6 +52,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
+import { useLoaderData, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";
@@ -64,17 +63,18 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import classes from "~/styles/preferences.module.css";
+import type { Route } from "./+types/_dashboard.settings.preferences";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchSchema);
 	return { query };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Preference | Ryot" }];
 };
 

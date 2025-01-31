@@ -44,8 +44,6 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
@@ -96,8 +94,9 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { $path } from "remix-routes";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useInterval, useOnClickOutside } from "usehooks-ts";
@@ -150,10 +149,11 @@ import {
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
+import type { Route } from "./+types/_dashboard.fitness.$action";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
 		z.object({ action: z.nativeEnum(FitnessAction) }),
@@ -165,7 +165,7 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
 };
 

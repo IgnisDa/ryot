@@ -13,7 +13,7 @@ use apalis::{
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
-use common_utils::{ryot_log, PROJECT_NAME, TEMP_DIR};
+use common_utils::{ryot_log, PROJECT_NAME, TEMPORARY_DIRECTORY};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use logs_wheel::LogFileInitializer;
@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 
-    let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
+    let config_dump_path = PathBuf::new().join(TEMPORARY_DIRECTORY).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
@@ -227,7 +227,7 @@ async fn main() -> Result<()> {
 }
 
 fn init_tracing() -> Result<()> {
-    let tmp_dir = PathBuf::new().join(TEMP_DIR);
+    let tmp_dir = PathBuf::new().join(TEMPORARY_DIRECTORY);
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
         max_n_old_files: 2,

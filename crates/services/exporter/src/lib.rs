@@ -4,7 +4,7 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::{ExportJob, SearchInput};
-use common_utils::{ryot_log, TEMP_DIR};
+use common_utils::{ryot_log, TEMPORARY_DIRECTORY};
 use database_models::{
     prelude::{Exercise, Metadata, MetadataGroup, Person, Seen},
     seen,
@@ -110,7 +110,7 @@ impl ExporterService {
             ));
         }
         let started_at = Utc::now();
-        let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
+        let export_path = PathBuf::from(TEMPORARY_DIRECTORY).join(format!("ryot-export-{}.json", nanoid!()));
         let file = std::fs::File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();

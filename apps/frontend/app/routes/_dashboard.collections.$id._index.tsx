@@ -15,8 +15,6 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -40,7 +38,8 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { $path } from "remix-routes";
+import { useLoaderData, useNavigate } from "react-router";
+import { $path } from "safe-routes";
 import { z } from "zod";
 import {
 	ApplicationGrid,
@@ -60,6 +59,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.collections.$id._index";
 
 const DEFAULT_TAB = "contents";
 
@@ -82,7 +82,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: collectionId } = parseParameters(
 		params,
 		z.object({ id: z.string() }),
@@ -111,7 +111,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return { collectionId, query, collectionContents, cookieName, totalPages };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [
 		{ title: `${data?.collectionContents.response.details.name} | Ryot` },
 	];

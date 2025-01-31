@@ -50,19 +50,6 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	NavLink,
-	Outlet,
-	isRouteErrorResponse,
-	useLoaderData,
-	useLocation,
-	useNavigate,
-	useRevalidator,
-	useRouteError,
-} from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -116,9 +103,21 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import {
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	isRouteErrorResponse,
+	useLoaderData,
+	useLocation,
+	useNavigate,
+	useRevalidator,
+	useRouteError,
+} from "react-router";
 import { Fragment } from "react/jsx-runtime";
-import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
+import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -165,11 +164,12 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
+import type { Route } from "./+types/_dashboard";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, coreDetails] = await Promise.all([
 		getUserPreferences(request),

@@ -17,13 +17,6 @@ import {
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import {
-	Link,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "@remix-run/react";
 import {
 	EntityLot,
 	GraphqlSortOrder,
@@ -57,7 +50,8 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { $path } from "remix-routes";
+import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
@@ -100,6 +94,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.$action.$lot";
 
 export type SearchParams = {
 	query?: string;
@@ -118,7 +113,7 @@ enum Action {
 	Search = "search",
 }
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action, lot } = parseParameters(
 		params,
 		z.object({
@@ -240,7 +235,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ params }: MetaArgs<typeof loader>) => {
+export const meta = ({ params }: Route.MetaArgs) => {
 	return [
 		{
 			title: `${changeCase(params.action || "")} ${changeCase(

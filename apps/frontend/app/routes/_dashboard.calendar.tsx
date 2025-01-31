@@ -8,8 +8,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
 import {
 	MediaLot,
 	UserCalendarEventsDocument,
@@ -17,6 +15,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { useLoaderData } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -29,6 +28,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.calendar";
 
 const searchParamsSchema = z.object({
 	date: z.coerce.date().optional(),
@@ -36,7 +36,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
@@ -49,7 +49,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { userCalendarEvents, cookieName, query };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Calendar | Ryot" }];
 };
 

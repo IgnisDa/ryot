@@ -1,4 +1,3 @@
-import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	GetOidcTokenDocument,
 	LoginUserDocument,
@@ -7,7 +6,8 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
-import { $path } from "remix-routes";
+import { redirect } from "react-router";
+import { $path } from "safe-routes";
 import { z } from "zod";
 import {
 	getCookiesForApplication,
@@ -15,12 +15,13 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/api.auth";
 
 const searchParamsSchema = z.object({ code: z.string() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const input = parseSearchQuery(request, searchParamsSchema);
 	const { getOidcToken } = await serverGqlService.request(
 		GetOidcTokenDocument,
