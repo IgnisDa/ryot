@@ -38,11 +38,6 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { Form, Link, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -51,8 +46,9 @@ import { z } from "zod";
 import { dayjsLib, openConfirmationModal } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.notifications";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
@@ -63,11 +59,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { userNotificationPlatforms };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Notification Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

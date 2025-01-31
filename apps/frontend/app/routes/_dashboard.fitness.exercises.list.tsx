@@ -53,11 +53,6 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { Link, useLoaderData, useNavigate, useSubmit } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -95,6 +90,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
 const defaultFiltersValue = {
 	muscle: undefined,
@@ -122,7 +118,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
@@ -157,11 +153,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { query, totalPages, cookieName, userExercisesList };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Exercises | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

@@ -7,7 +7,7 @@ import {
 	parseSearchQuery,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
-import { type LoaderFunctionArgs, redirect } from "react-router";
+import { redirect } from "react-router";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
@@ -17,13 +17,14 @@ import {
 	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/api.sharing.$accessLinkId";
 
 const searchParamsSchema = z.object({
 	isAccountDefault: zodBoolAsString.optional(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const routeParams = parseParameters(
 		params,
 		z.object({ accessLinkId: z.string() }),

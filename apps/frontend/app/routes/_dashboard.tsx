@@ -103,7 +103,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
-import type { LoaderFunctionArgs } from "react-router";
 import {
 	Form,
 	Link,
@@ -165,11 +164,12 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
+import type { Route } from "./+types/_dashboard";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, coreDetails] = await Promise.all([
 		getUserPreferences(request),

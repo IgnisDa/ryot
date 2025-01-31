@@ -42,12 +42,7 @@ import {
 } from "@tabler/icons-react";
 import { nanoid } from "nanoid";
 import { forwardRef, useState } from "react";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	redirect,
-} from "react-router";
+import { data, redirect } from "react-router";
 import { Form, useLoaderData } from "react-router";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "remix-routes";
@@ -64,6 +59,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.users";
 
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
@@ -71,7 +67,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
@@ -85,11 +81,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { usersList, query, cookieName };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
@@ -100,7 +96,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				DeleteUserDocument,
 				submission,
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: deleteUser ? "success" : "error",
 					message: deleteUser
@@ -127,7 +123,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				},
 			);
 			const success = registerUser.__typename === "StringIdObject";
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: success ? "success" : "error",
 					message: success
@@ -151,7 +147,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
 				input: submission,
 			});
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "User updated successfully",

@@ -52,7 +52,6 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { useLoaderData, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -64,17 +63,18 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import classes from "~/styles/preferences.module.css";
+import type { Route } from "./+types/_dashboard.settings.preferences";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchSchema);
 	return { query };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Preference | Ryot" }];
 };
 

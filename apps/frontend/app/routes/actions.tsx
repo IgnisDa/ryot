@@ -32,7 +32,7 @@ import {
 	zodBoolAsString,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
-import { type ActionFunctionArgs, redirect } from "react-router";
+import { redirect } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -48,13 +48,14 @@ import {
 	getLogoutCookies,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/actions";
 
 const sleepForHalfSecond = async (request: Request) =>
 	await setTimeout(500, void 0, { signal: request.signal });
 
 export const loader = async () => redirect($path("/"));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	const { searchParams } = new URL(request.url);

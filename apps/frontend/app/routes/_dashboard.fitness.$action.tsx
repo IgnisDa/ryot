@@ -94,7 +94,6 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
@@ -150,10 +149,11 @@ import {
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
+import type { Route } from "./+types/_dashboard.fitness.$action";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
 		z.object({ action: z.nativeEnum(FitnessAction) }),
@@ -165,7 +165,7 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
 };
 

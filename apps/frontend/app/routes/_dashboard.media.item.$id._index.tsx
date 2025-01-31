@@ -87,11 +87,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "remix-routes";
@@ -143,6 +138,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { MetadataSpecificsSchema } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.item.$id._index";
 
 const JUST_WATCH_URL = "https://www.justwatch.com";
 
@@ -152,7 +148,7 @@ const searchParamsSchema = z
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: metadataId } = parseParameters(
 		params,
 		z.object({ id: z.string() }),
@@ -173,11 +169,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return { query, metadataId, metadataDetails, userMetadataDetails };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

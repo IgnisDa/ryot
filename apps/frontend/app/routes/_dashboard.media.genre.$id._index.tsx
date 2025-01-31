@@ -13,7 +13,6 @@ import {
 	parseSearchQuery,
 	zodIntAsString,
 } from "@ryot/ts-utils";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
@@ -26,6 +25,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.genre.$id._index";
 
 const searchParamsSchema = z.object({
 	[pageQueryParam]: zodIntAsString.default("1"),
@@ -33,7 +33,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: genreId } = parseParameters(params, z.object({ id: z.string() }));
 	const cookieName = await getEnhancedCookieName(`genre.${genreId}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
@@ -51,7 +51,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return { query, genreDetails, cookieName, totalPages };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${data?.genreDetails.details.name} | Ryot` }];
 };
 

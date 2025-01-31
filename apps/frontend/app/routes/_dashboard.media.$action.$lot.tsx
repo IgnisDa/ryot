@@ -50,7 +50,6 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -95,6 +94,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.$action.$lot";
 
 export type SearchParams = {
 	query?: string;
@@ -113,7 +113,7 @@ enum Action {
 	Search = "search",
 }
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action, lot } = parseParameters(
 		params,
 		z.object({
@@ -235,7 +235,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ params }: MetaArgs<typeof loader>) => {
+export const meta = ({ params }: Route.MetaArgs) => {
 	return [
 		{
 			title: `${changeCase(params.action || "")} ${changeCase(

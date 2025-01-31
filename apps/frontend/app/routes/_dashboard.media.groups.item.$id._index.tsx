@@ -22,7 +22,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
@@ -40,6 +39,7 @@ import { clientGqlService } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -47,7 +47,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: metadataGroupId } = parseParameters(
 		params,
 		z.object({ id: z.string() }),
@@ -76,7 +76,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${data?.metadataGroupDetails.details.title} | Ryot` }];
 };
 

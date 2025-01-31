@@ -47,12 +47,7 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
-import { Form, useActionData, useLoaderData } from "react-router";
+import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -69,6 +64,7 @@ import {
 	useUserCollections,
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.integrations";
 
 const PRO_INTEGRATIONS = [
 	IntegrationProvider.JellyfinPush,
@@ -93,7 +89,7 @@ const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 const NO_PROGRESS_ADJUSTMENT = [...PUSH_INTEGRATIONS];
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
@@ -104,11 +100,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { userIntegrations };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Integration Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
@@ -155,15 +151,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				UpdateUserIntegrationDocument,
 				{ input: submission },
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Integration updated successfully",
-					}),
-				},
-			);
+			return data({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Integration updated successfully",
+				}),
+			});
 		})
 		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
@@ -171,7 +164,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				GenerateAuthTokenDocument,
 				{},
 			);
-			return Response.json({ status: "success", generateAuthToken } as const);
+			return data({ status: "success", generateAuthToken } as const);
 		})
 		.run();
 };

@@ -29,12 +29,7 @@ import {
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	redirect,
-} from "react-router";
+import { redirect } from "react-router";
 import { Form, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -42,6 +37,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { useCoreDetails } from "~/lib/hooks";
 import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
 	Create = "create",
@@ -55,7 +51,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
@@ -76,11 +72,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	return { query, action, details };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Create Media | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const uploader = createS3FileUploader("metadata");
 	const formData = await parseFormData(request, uploader);
 	const submission = processSubmission(formData, schema);

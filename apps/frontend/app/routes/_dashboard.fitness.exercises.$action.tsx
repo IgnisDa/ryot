@@ -33,13 +33,7 @@ import {
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	data,
-	redirect,
-} from "react-router";
+import { data, redirect } from "react-router";
 import { Form, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -53,6 +47,7 @@ import {
 	createToastHeaders,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.fitness.exercises.$action";
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
@@ -63,7 +58,7 @@ enum Action {
 	Update = "update",
 }
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
@@ -84,11 +79,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	return { action, details };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Create Exercise | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const uploader = createS3FileUploader("exercises");
 	const formData = await parseFormData(request.clone(), uploader);
 	const submission = processSubmission(formData, schema);

@@ -26,13 +26,7 @@ import {
 	zodNumAsString,
 } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaArgs,
-	data,
-	redirect,
-} from "react-router";
+import { data, redirect } from "react-router";
 import { Form, Link, useLoaderData, useSearchParams } from "react-router";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
@@ -48,6 +42,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/auth";
 
 const searchParamsSchema = z.object({
 	intent: z.enum(["login", "register"]).optional(),
@@ -56,7 +51,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
@@ -84,11 +79,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => [
-	{ title: "Authentication | Ryot" },
-];
+export const meta = () => [{ title: "Authentication | Ryot" }];
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

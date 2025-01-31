@@ -38,11 +38,6 @@ import {
 import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { filesize } from "filesize";
 import { useState } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { Form, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -60,8 +55,9 @@ import {
 	serverGqlService,
 	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ importReports }, { userExports }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
 		serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
@@ -69,11 +65,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { importReports, userExports };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await parseFormData(
 		request.clone(),
 		temporaryFileUploadHandler,

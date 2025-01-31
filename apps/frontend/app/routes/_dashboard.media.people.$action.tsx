@@ -41,7 +41,6 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -64,6 +63,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.people.$action";
 
 export type SearchParams = {
 	query?: string;
@@ -86,7 +86,7 @@ const searchSchema = z.object({
 	source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 });
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
@@ -167,7 +167,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = ({ params }: MetaArgs<typeof loader>) => {
+export const meta = ({ params }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
 };
 

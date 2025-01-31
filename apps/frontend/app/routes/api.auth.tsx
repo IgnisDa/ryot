@@ -6,7 +6,7 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
-import { type LoaderFunctionArgs, redirect } from "react-router";
+import { redirect } from "react-router";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import {
@@ -15,12 +15,13 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/api.auth";
 
 const searchParamsSchema = z.object({ code: z.string() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const input = parseSearchQuery(request, searchParamsSchema);
 	const { getOidcToken } = await serverGqlService.request(
 		GetOidcTokenDocument,

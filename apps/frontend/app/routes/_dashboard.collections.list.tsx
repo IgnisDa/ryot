@@ -52,11 +52,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import {
 	Form,
 	Link,
@@ -97,8 +92,9 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.collections.list";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ usersList }, userCollectionsList] = await Promise.all([
@@ -108,11 +104,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { usersList, cookieName, userCollectionsList };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

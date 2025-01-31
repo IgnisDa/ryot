@@ -45,11 +45,6 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { Form, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -71,8 +66,9 @@ import {
 	getDecodedJwt,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);
 	const [{ userAccessLinks }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
@@ -80,11 +76,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { userAccessLinks, activeAccessLinkId: decodedJwt?.access_link?.id };
 };
 
-export const meta = (_args: MetaArgs) => {
+export const meta = () => {
 	return [{ title: "Profile and Sharing | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.formData();
 	const intent = getActionIntent(request);
 	return await match(intent)

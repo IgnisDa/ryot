@@ -26,7 +26,6 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { useLocalStorage } from "usehooks-ts";
@@ -47,6 +46,7 @@ import { clientGqlService, getMetadataGroupDetailsQuery } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -54,7 +54,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: personId } = parseParameters(
 		params,
 		z.object({ id: z.string() }),
@@ -73,7 +73,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	return { query, personId, userPersonDetails, personDetails };
 };
 
-export const meta = ({ data }: MetaArgs<typeof loader>) => {
+export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 

@@ -14,11 +14,6 @@ import { isNumber } from "@ryot/ts-utils";
 import { IconBackpack, IconInfoCircle } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import type {
-	ActionFunctionArgs,
-	LoaderFunctionArgs,
-	MetaArgs,
-} from "react-router";
 import { useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
@@ -39,8 +34,9 @@ import {
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard._index";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
 	const getTake = (el: DashboardElementLot) => {
 		const t = preferences.general.dashboard.find(
@@ -94,11 +90,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	};
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Home | Ryot" }];
 };
-
-export const action = async (_args: ActionFunctionArgs) => {};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

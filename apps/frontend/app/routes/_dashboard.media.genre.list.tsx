@@ -26,7 +26,6 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { Link, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import { z } from "zod";
@@ -54,6 +53,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import type { Route } from "./+types/_dashboard.media.genre.list";
 
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
@@ -62,7 +62,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
@@ -79,7 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	return { query, genresList, cookieName, totalPages };
 };
 
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Genres | Ryot" }];
 };
 
