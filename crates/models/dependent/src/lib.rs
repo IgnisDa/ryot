@@ -335,7 +335,6 @@ pub struct CoreDetails {
     pub token_valid_for_days: i32,
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
-    pub temporary_directory_path: String,
     pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
     pub people_search_sources: Vec<MediaSource>,

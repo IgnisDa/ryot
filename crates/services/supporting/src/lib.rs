@@ -9,7 +9,6 @@ use common_models::BackendError;
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
     METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
-    TEMPORARY_DIRECTORY,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -147,7 +146,6 @@ impl SupportingService {
             smtp_enabled: self.config.server.smtp.is_enabled(),
             signup_allowed: self.config.users.allow_registration,
             people_search_sources: PEOPLE_SEARCH_SOURCES.to_vec(),
-            temporary_directory_path: TEMPORARY_DIRECTORY.to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
