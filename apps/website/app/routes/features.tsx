@@ -33,20 +33,14 @@ import {
 	LucideVibrate,
 	LucideWatch,
 } from "lucide-react";
-import type { MetaArgs } from "react-router";
 import {
 	Carousel,
 	CarouselContent,
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
 import { logoUrl } from "~/lib/utils";
-import type { Route } from "./+types/features";
 
-export const loader = (_args: Route.LoaderArgs) => {
-	return {};
-};
-
-export const meta = (_args: MetaArgs<typeof loader>) => {
+export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
