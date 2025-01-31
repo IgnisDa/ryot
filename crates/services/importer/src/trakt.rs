@@ -96,9 +96,24 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         });
     }
 
-    for type_ in ["movies", "shows"] {
+    for typ in ["movies", "shows"] {
         let rsp = client
-            .get(format!("{}/ratings/{}", url, type_))
+            .get(format!("{}/collection/{}", url, typ))
+            .send()
+            .await
+            .unwrap();
+        let items = rsp.json::<Vec<ListItemResponse>>().await.unwrap();
+        for item in items.iter() {
+            match process_item(item) {
+                Ok(mut d) => {
+                    d.collections.push("Owned".to_string());
+                    completed.push(d);
+                }
+                Err(e) => failed.push(e),
+            }
+        }
+        let rsp = client
+            .get(format!("{}/ratings/{}", url, typ))
             .send()
             .await
             .unwrap();
