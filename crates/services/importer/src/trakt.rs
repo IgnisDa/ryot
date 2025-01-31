@@ -209,14 +209,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = completed
-                    .iter_mut()
-                    .find(|i| i.identifier == d.identifier && i.lot == d.lot)
-                {
-                    a.seen_history.extend(d.seen_history);
-                } else {
-                    completed.push(d)
-                }
+                completed.push(d);
             }
             Err(d) => failed.push(d),
         }
