@@ -17,17 +17,15 @@ import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
+	Links,
 	type LinksFunction,
 	type LoaderFunctionArgs,
-	type MetaFunction,
-	data,
-} from "react-router";
-import {
-	Links,
 	Meta,
+	type MetaFunction,
 	Outlet,
 	Scripts,
 	ScrollRestoration,
+	data,
 	useLoaderData,
 	useNavigation,
 } from "react-router";

@@ -29,8 +29,7 @@ import {
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
-import { redirect } from "react-router";
-import { Form, useLoaderData } from "react-router";
+import { Form, redirect, useLoaderData } from "react-router";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
