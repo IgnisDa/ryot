@@ -264,7 +264,7 @@ export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		sameSite: "lax",
 		path: "/",
-		secrets: (process.env.SESSION_SECRET || "").split(","),
+		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 		name: toastKey,
 	},
 });
