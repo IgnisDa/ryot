@@ -43,7 +43,10 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
             .await?;
-        for (idx, item) in items.media_container.metadata.into_iter().enumerate() {
+        let Some(metadata) = items.media_container.metadata else {
+            continue;
+        };
+        for (idx, item) in metadata.into_iter().enumerate() {
             ryot_log!(debug, "Processing item {}", idx + 1);
             let gu_ids = item.guid.unwrap_or_default();
             let Some(tmdb_id) = gu_ids

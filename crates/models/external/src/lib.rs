@@ -109,7 +109,7 @@ pub mod plex {
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "PascalCase")]
     pub struct PlexMetadata {
-        pub metadata: Vec<PlexMetadataItem>,
+        pub metadata: Option<Vec<PlexMetadataItem>>,
     }
 
     #[derive(Debug, Deserialize, Serialize)]

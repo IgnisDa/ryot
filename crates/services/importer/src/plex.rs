@@ -49,8 +49,17 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await?
             .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
             .await?;
-        let total = items.media_container.metadata.len();
-        for (idx, item) in items.media_container.metadata.into_iter().enumerate() {
+        let Some(metadata) = items.media_container.metadata else {
+            failed_items.push(ImportFailedItem {
+                lot: Some(lot),
+                step: ImportFailStep::ItemDetailsFromSource,
+                identifier: format!("{} ({}) - {}", dir.title, lot, dir.key),
+                error: Some("No metadata found".to_string()),
+            });
+            continue;
+        };
+        let total = metadata.len();
+        for (idx, item) in metadata.into_iter().enumerate() {
             let Some(_lv) = item.last_viewed_at else {
                 continue;
             };
@@ -102,7 +111,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         identifier: tmdb_id.to_string(),
                         ..Default::default()
                     };
-                    for leaf in leaves.media_container.metadata {
+                    let Some(leafs) = leaves.media_container.metadata else {
+                        continue;
+                    };
+                    for leaf in leafs {
                         if leaf.last_viewed_at.is_some() {
                             item.seen_history.push(ImportOrExportMetadataItemSeen {
                                 show_episode_number: leaf.index,
