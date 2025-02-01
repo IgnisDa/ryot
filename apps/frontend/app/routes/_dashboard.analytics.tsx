@@ -608,6 +608,7 @@ const StatItem = (props: {
 };
 
 const StatisticsCard = () => {
+	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 
 	const displayDuration = (duration: number) => {
@@ -637,7 +638,9 @@ const StatisticsCard = () => {
 						/>
 						<StatItem
 							label={
-								fitness.workoutCaloriesBurnt > 0 ? "Calories Burnt" : "Reps"
+								fitness.workoutCaloriesBurnt > 0
+									? `${userPreferences.fitness.logging.caloriesBurntUnit}`
+									: "Reps"
 							}
 							icon={fitness.workoutCaloriesBurnt > 0 ? IconFlame : IconRepeat}
 							tooltipLabel={

@@ -129,6 +129,8 @@ pub struct UserFitnessFeaturesEnabledPreferences {
 #[educe(Default)]
 pub struct UserFitnessLoggingPreferences {
     pub mute_sounds: bool,
+    #[educe(Default = "kcal")]
+    pub calories_burnt_unit: String,
     pub prompt_for_rest_timer: bool,
     #[educe(Default = true)]
     pub show_details_while_editing: bool,

@@ -31,16 +31,17 @@ query UserDetails {
           }
         }
         fitness {
-          logging {
-            muteSounds
-            promptForRestTimer
-            showDetailsWhileEditing
-          }
           exercises {
             unitSystem
             setRestTimers {
               ...SetRestTimersPart
             }
+          }
+          logging {
+            muteSounds
+            caloriesBurntUnit
+            promptForRestTimer
+            showDetailsWhileEditing
           }
           measurements {
             custom {

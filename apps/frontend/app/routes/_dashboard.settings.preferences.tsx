@@ -20,6 +20,7 @@ import {
 	Tabs,
 	TagsInput,
 	Text,
+	TextInput,
 	Title,
 	rem,
 } from "@mantine/core";
@@ -649,6 +650,21 @@ export default function Page() {
 									/>
 								);
 							})}
+							<TextInput
+								size="xs"
+								label="Calories burnt unit"
+								disabled={!!isEditDisabled}
+								description="The unit to use for tracking calories burnt"
+								defaultValue={userPreferences.fitness.logging.caloriesBurntUnit}
+								onChange={(val) => {
+									if (val) {
+										updatePreference((draft) => {
+											draft.fitness.logging.caloriesBurntUnit =
+												val.target.value;
+										});
+									}
+								}}
+							/>
 							<Divider />
 							<Input.Wrapper label="The default measurements you want to keep track of">
 								<SimpleGrid cols={2} mt="xs">
