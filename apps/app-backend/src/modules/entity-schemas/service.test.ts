@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	isEntitySchemaPropertiesShape,
-	isEntitySchemaPropertiesString,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaCreateInput,
 	resolveEntitySchemaFacetId,
@@ -21,16 +19,21 @@ describe("resolveEntitySchemaName", () => {
 });
 
 describe("parseEntitySchemaPropertiesSchema", () => {
-	it("accepts minimal object schema", () => {
+	it("accepts flat properties map (new format)", () => {
 		expect(
-			parseEntitySchemaPropertiesSchema('{"type":"object","properties":{}}'),
-		).toEqual({ type: "object", properties: {} });
+			parseEntitySchemaPropertiesSchema(
+				'{"title":{"type":"string"},"pages":{"type":"integer"}}',
+			),
+		).toEqual({
+			title: { type: "string" },
+			pages: { type: "integer" },
+		});
 	});
 
-	it("accepts already-parsed object schema", () => {
+	it("accepts already-parsed properties map", () => {
 		const schema = {
-			type: "object" as const,
-			properties: { title: { type: "string" } },
+			title: { type: "string" as const },
+			pages: { type: "integer" as const, nullable: true as const },
 		};
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
@@ -50,26 +53,67 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 		}
 	});
 
-	it("rejects missing properties", () => {
-		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"type":"object"}'),
-		).toThrow(
-			"Entity schema properties schema must define an object properties map",
+	it("rejects empty properties map", () => {
+		expect(() => parseEntitySchemaPropertiesSchema("{}")).toThrow(
+			"Entity schema properties must contain at least one property",
 		);
 	});
 
-	it("rejects already-parsed object input with invalid properties", () => {
+	it("rejects property without type field", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema({ type: "object", properties: null }),
+			parseEntitySchemaPropertiesSchema('{"title":{"required":true}}'),
+		).toThrow('Property "title" must have a type field');
+	});
+
+	it("rejects property with invalid type", () => {
+		expect(() =>
+			parseEntitySchemaPropertiesSchema('{"title":{"type":"invalid"}}'),
+		).toThrow('Property "title" has invalid type "invalid"');
+	});
+
+	it("rejects array property without items", () => {
+		expect(() =>
+			parseEntitySchemaPropertiesSchema('{"tags":{"type":"array"}}'),
+		).toThrow('Property "tags" with type "array" must have an items field');
+	});
+
+	it("rejects object property without properties", () => {
+		expect(() =>
+			parseEntitySchemaPropertiesSchema('{"metadata":{"type":"object"}}'),
 		).toThrow(
-			"Entity schema properties schema must define an object properties map",
+			'Property "metadata" with type "object" must have a properties field',
 		);
 	});
 
-	it("rejects non-object type", () => {
-		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"type":"string","properties":{}}'),
-		).toThrow('Entity schema properties schema must have type "object"');
+	it("accepts complex nested structure", () => {
+		const schema = {
+			people: {
+				type: "array" as const,
+				items: {
+					type: "object" as const,
+					properties: {
+						role: { type: "string" as const },
+						identifier: { type: "string" as const },
+					},
+				},
+			},
+		};
+
+		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
+	});
+
+	it("validates recursively nested arrays", () => {
+		const schema = {
+			matrix: {
+				type: "array" as const,
+				items: {
+					type: "array" as const,
+					items: { type: "number" as const },
+				},
+			},
+		};
+
+		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
 });
 
@@ -79,12 +123,12 @@ describe("resolveEntitySchemaCreateInput", () => {
 			resolveEntitySchemaCreateInput({
 				name: "  Book Details  ",
 				slug: "  My_Custom Schema  ",
-				propertiesSchema: '{"type":"object","properties":{}}',
+				propertiesSchema: '{"title":{"type":"string"}}',
 			}),
 		).toEqual({
 			name: "Book Details",
 			slug: "my-custom-schema",
-			propertiesSchema: { type: "object", properties: {} },
+			propertiesSchema: { title: { type: "string" } },
 		});
 	});
 });
@@ -98,37 +142,5 @@ describe("resolveEntitySchemaFacetId", () => {
 		expect(() => resolveEntitySchemaFacetId("   ")).toThrow(
 			"Facet id is required",
 		);
-	});
-});
-
-describe("entity schema schemas", () => {
-	it("rejects properties schema objects with extra top-level keys", () => {
-		expect(
-			isEntitySchemaPropertiesShape({
-				extra: true,
-				type: "object",
-				properties: {},
-			}),
-		).toBeFalse();
-	});
-
-	it("accepts the canonical object properties schema shape", () => {
-		expect(
-			isEntitySchemaPropertiesShape({ type: "object", properties: {} }),
-		).toBeTrue();
-	});
-
-	it("rejects string properties schema values that do not parse to the canonical shape", () => {
-		expect(
-			isEntitySchemaPropertiesString(
-				'{"type":"object","properties":{},"extra":true}',
-			),
-		).toBeFalse();
-	});
-
-	it("accepts string properties schema values that parse to the canonical shape", () => {
-		expect(
-			isEntitySchemaPropertiesString('{"type":"object","properties":{}}'),
-		).toBeTrue();
 	});
 });
