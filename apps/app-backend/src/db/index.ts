@@ -1,3 +1,5 @@
+export * as schema from "./schema";
+
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
