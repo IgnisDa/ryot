@@ -1,4 +1,3 @@
-import AuthClientProvider from "@/hooks/auth";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
@@ -9,6 +8,7 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import AuthClientProvider from "@/hooks/auth";
 import ReactQueryProvider from "../hooks/react-query";
 import appCss from "../styles.css?url";
 
