@@ -611,8 +611,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         name: string;
-                        facetId: string;
                         slug?: string;
+                        facetId: string;
                         propertiesSchema: string | {
                             /** @enum {string} */
                             type: "object";
