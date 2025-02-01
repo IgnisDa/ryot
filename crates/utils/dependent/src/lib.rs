@@ -352,7 +352,6 @@ pub async fn change_metadata_associations(
         .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
         .exec(&ss.db)
         .await?;
-    println!("People: {:?}", people);
     for (index, creator) in people.into_iter().enumerate() {
         associate_person_with_metadata(metadata_id, creator, index, &ss.db)
             .await
