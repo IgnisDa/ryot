@@ -8,8 +8,8 @@ const config = defineConfig({
 	server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
 	plugins: [
 		devtools(),
+		tanstackStart({ spa: { enabled: true } }),
 		tsconfigPaths({ projects: ["./tsconfig.json"] }),
-		tanstackStart(),
 		viteReact({ babel: { plugins: ["babel-plugin-react-compiler"] } }),
 	],
 });
