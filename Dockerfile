@@ -4,7 +4,7 @@ WORKDIR /app
 FROM base AS prepare
 RUN bun install --global turbo@2.8.10
 COPY . .
-RUN turbo prune @ryot/app-frontend --docker
+RUN turbo prune @ryot/app-frontend @ryot/app-backend --docker
 
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
@@ -16,6 +16,7 @@ COPY --from=prepare /app/out/json/ .
 # See: https://github.com/oven-sh/bun/issues/12919
 RUN bun install --ignore-scripts
 COPY --from=prepare /app/out/full/ .
+COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 RUN bun run --filter @ryot/app-backend build
 RUN bun run --filter @ryot/app-frontend build
 
