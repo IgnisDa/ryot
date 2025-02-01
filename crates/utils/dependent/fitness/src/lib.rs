@@ -5,8 +5,8 @@ use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityTo
 use common_utils::{get_first_max_index_by, ryot_log};
 use database_models::{
     exercise,
-    prelude::{Exercise, UserMeasurement, UserToEntity, Workout},
-    user_measurement, user_to_entity, workout,
+    prelude::{Exercise, UserMeasurement, UserToEntity, Workout, WorkoutTemplate},
+    user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::schedule_user_for_workout_revision;
 use dependent_collection_utils::add_entities_to_collection;
@@ -14,7 +14,8 @@ use dependent_models::UpdateCustomExerciseInput;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_utility_utils::{
     expire_user_exercises_list_cache, expire_user_measurements_list_cache,
-    expire_user_workout_details_cache, expire_user_workouts_list_cache,
+    expire_user_workout_details_cache, expire_user_workout_template_details_cache,
+    expire_user_workout_templates_list_cache, expire_user_workouts_list_cache,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -35,7 +36,7 @@ use nanoid::nanoid;
 use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter, prelude::DateTimeUtc,
+    QueryFilter, prelude::DateTimeUtc, sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
 
@@ -363,6 +364,139 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .collect(),
         ..Default::default()
     }
+}
+
+pub fn db_workout_template_to_workout_input(
+    workout_template: workout_template::Model,
+) -> UserWorkoutInput {
+    UserWorkoutInput {
+        name: workout_template.name,
+        assets: workout_template.information.assets,
+        comment: workout_template.information.comment,
+        supersets: workout_template.information.supersets,
+        update_workout_template_id: Some(workout_template.id),
+        exercises: workout_template
+            .information
+            .exercises
+            .into_iter()
+            .map(|e| UserExerciseInput {
+                notes: e.notes,
+                assets: e.assets,
+                exercise_id: e.id,
+                unit_system: e.unit_system,
+                sets: e
+                    .sets
+                    .into_iter()
+                    .map(|s| UserWorkoutSetRecord {
+                        lot: s.lot,
+                        rpe: s.rpe,
+                        note: s.note,
+                        rest_time: s.rest_time,
+                        statistic: s.statistic,
+                        confirmed_at: s.confirmed_at,
+                        rest_timer_started_at: s.rest_timer_started_at,
+                    })
+                    .collect(),
+            })
+            .collect(),
+        ..Default::default()
+    }
+}
+
+pub async fn upsert_workout_template(
+    user_id: &String,
+    input: UserWorkoutInput,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let mut summary = WorkoutSummary::default();
+    let mut information = WorkoutInformation {
+        assets: input.assets,
+        comment: input.comment,
+        supersets: input.supersets,
+        ..Default::default()
+    };
+
+    let exercise_ids: Vec<String> = input
+        .exercises
+        .iter()
+        .map(|e| e.exercise_id.clone())
+        .collect();
+    let db_exercises = Exercise::find()
+        .filter(exercise::Column::Id.is_in(exercise_ids))
+        .all(&ss.db)
+        .await?;
+    let exercise_map: HashMap<String, &exercise::Model> =
+        db_exercises.iter().map(|e| (e.id.clone(), e)).collect();
+
+    for exercise in input.exercises {
+        let db_ex = exercise_map.get(&exercise.exercise_id).ok_or_else(|| {
+            anyhow!(format!(
+                "Exercise with ID {} not found",
+                exercise.exercise_id
+            ))
+        })?;
+
+        summary.exercises.push(WorkoutSummaryExercise {
+            num_sets: exercise.sets.len(),
+            id: exercise.exercise_id.clone(),
+            ..Default::default()
+        });
+        information.exercises.push(ProcessedExercise {
+            lot: db_ex.lot,
+            notes: exercise.notes,
+            assets: exercise.assets,
+            id: exercise.exercise_id,
+            unit_system: exercise.unit_system,
+            sets: exercise
+                .sets
+                .into_iter()
+                .map(|s| WorkoutSetRecord {
+                    lot: s.lot,
+                    rpe: s.rpe,
+                    note: s.note,
+                    rest_time: s.rest_time,
+                    statistic: s.statistic,
+                    confirmed_at: s.confirmed_at,
+                    rest_timer_started_at: s.rest_timer_started_at,
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        });
+    }
+
+    let processed_exercises = information.exercises.clone();
+    summary.focused =
+        get_focused_workout_summary_with_exercises(&processed_exercises, &db_exercises)?;
+    let template_id = match &input.update_workout_template_id {
+        Some(id) => id.clone(),
+        None => format!("wktpl_{}", nanoid!(12)),
+    };
+    let template = workout_template::ActiveModel {
+        id: ActiveValue::Set(template_id),
+        name: ActiveValue::Set(input.name),
+        summary: ActiveValue::Set(summary),
+        user_id: ActiveValue::Set(user_id.clone()),
+        information: ActiveValue::Set(information),
+        ..Default::default()
+    };
+    let template = WorkoutTemplate::insert(template)
+        .on_conflict(
+            OnConflict::column(workout_template::Column::Id)
+                .update_columns([
+                    workout_template::Column::Name,
+                    workout_template::Column::Summary,
+                    workout_template::Column::Information,
+                ])
+                .to_owned(),
+        )
+        .exec_with_returning(&ss.db)
+        .await?;
+    try_join!(
+        expire_user_workout_templates_list_cache(user_id, ss),
+        expire_user_workout_template_details_cache(user_id, &template.id, ss)
+    )?;
+    Ok(template.id)
 }
 
 /// Create a workout in the database and also update user and exercise associations.
