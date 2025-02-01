@@ -548,7 +548,7 @@ export default function Page() {
 									Number(loaderData.caloriesBurnt) > 0 ? (
 										<DisplayStat
 											icon={<IconFlame size={16} />}
-											data={`${loaderData.caloriesBurnt} calories`}
+											data={`${loaderData.caloriesBurnt} ${userPreferences.fitness.logging.caloriesBurntUnit}`}
 										/>
 									) : null}
 								</>

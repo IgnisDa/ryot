@@ -718,6 +718,7 @@ const NameAndOtherInputs = (props: {
 	openAssetsModal: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
 
@@ -767,8 +768,8 @@ const NameAndOtherInputs = (props: {
 				<Stack gap="xs">
 					<NumberInput
 						size="sm"
-						label="Calories burnt"
 						value={currentWorkout.caloriesBurnt}
+						label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
 						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
 					/>
 					<Textarea
