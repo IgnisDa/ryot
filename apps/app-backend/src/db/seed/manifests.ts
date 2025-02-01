@@ -1,11 +1,11 @@
 import { FacetMode } from "~/db/schema";
-import { animePropertiesJsonSchema } from "~/lib/zod/anime";
+import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
 import {
 	bookPropertiesJsonSchema,
 	progressEventPropertiesJsonSchema,
 	readEventPropertiesJsonSchema,
-} from "~/lib/zod/book";
-import { mangaPropertiesJsonSchema } from "~/lib/zod/manga";
+} from "~/lib/zod/media/book";
+import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
 import anilistAnimeDetailsScriptCode from "~/sandbox/scripts/anilist-anime-details-source.txt";
 import anilistAnimeSearchScriptCode from "~/sandbox/scripts/anilist-anime-search-source.txt";
 import anilistMangaDetailsScriptCode from "~/sandbox/scripts/anilist-manga-details-source.txt";
