@@ -651,6 +651,7 @@ export default function Page() {
 								);
 							})}
 							<TextInput
+								size="xs"
 								label="Calories burnt unit"
 								disabled={!!isEditDisabled}
 								description="The unit to use for tracking calories burnt"
