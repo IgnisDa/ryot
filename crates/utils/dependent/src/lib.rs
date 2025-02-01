@@ -782,8 +782,9 @@ pub async fn commit_person(
     match Person::find()
         .filter(person::Column::Source.eq(input.source))
         .filter(person::Column::Identifier.eq(&input.identifier))
-        .apply_if(input.source_specifics.clone(), |query, v| {
-            query.filter(person::Column::SourceSpecifics.eq(v))
+        .filter(match input.source_specifics.clone() {
+            None => person::Column::SourceSpecifics.is_null(),
+            Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
         })
         .one(db)
         .await?

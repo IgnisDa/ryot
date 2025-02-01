@@ -193,9 +193,12 @@ export default function Page() {
 						required
 						name="lot"
 						label="Type"
-						data={Object.values(ExerciseLot)}
 						defaultValue={loaderData.details?.lot}
 						readOnly={loaderData.action === Action.Update}
+						data={Object.values(ExerciseLot).map((l) => ({
+							value: l,
+							label: startCase(l.toLowerCase()),
+						}))}
 					/>
 					<Group wrap="nowrap">
 						<Select

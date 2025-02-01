@@ -2867,7 +2867,7 @@ ORDER BY RANDOM() LIMIT 10;
 
         ryot_log!(trace, "Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
-        ryot_log!(trace, "Checking for updates for media in Watchlist");
+        ryot_log!(trace, "Checking for updates for monitored media");
         self.update_monitored_metadata_and_queue_notifications()
             .await
             .trace_ok();
