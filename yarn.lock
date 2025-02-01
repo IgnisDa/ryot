@@ -3150,7 +3150,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphql-codegen/client-preset@npm:4.6.0, @graphql-codegen/client-preset@npm:^4.6.0":
+"@graphql-codegen/client-preset@npm:4.6.1":
+  version: 4.6.1
+  resolution: "@graphql-codegen/client-preset@npm:4.6.1"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.20.2"
+    "@babel/template": "npm:^7.20.7"
+    "@graphql-codegen/add": "npm:^5.0.3"
+    "@graphql-codegen/gql-tag-operations": "npm:4.0.14"
+    "@graphql-codegen/plugin-helpers": "npm:^5.1.0"
+    "@graphql-codegen/typed-document-node": "npm:^5.0.13"
+    "@graphql-codegen/typescript": "npm:^4.1.3"
+    "@graphql-codegen/typescript-operations": "npm:^4.4.1"
+    "@graphql-codegen/visitor-plugin-common": "npm:^5.6.1"
+    "@graphql-tools/documents": "npm:^1.0.0"
+    "@graphql-tools/utils": "npm:^10.0.0"
+    "@graphql-typed-document-node/core": "npm:3.2.0"
+    tslib: "npm:~2.6.0"
+  peerDependencies:
+    graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
+  checksum: 10/636ea35f687f34af510fa8c0ec17eb587e01e9ae3de84457c1508346de8a1cc44b2dfb3fa058b8f8ab88359e666de36e18d7849a834944726f71c123a6207ed9
+  languageName: node
+  linkType: hard
+
+"@graphql-codegen/client-preset@npm:^4.6.0":
   version: 4.6.0
   resolution: "@graphql-codegen/client-preset@npm:4.6.0"
   dependencies:
@@ -3199,6 +3222,21 @@ __metadata:
   peerDependencies:
     graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
   checksum: 10/78634cf9d0434434e4651a32d920f59ba3aab7f3e38c2218241f79df92fdcfaecd274af5df63d7d0496ced5b34855b7fc1d69d8ede0210ac8fb53a3daf833d74
+  languageName: node
+  linkType: hard
+
+"@graphql-codegen/gql-tag-operations@npm:4.0.14":
+  version: 4.0.14
+  resolution: "@graphql-codegen/gql-tag-operations@npm:4.0.14"
+  dependencies:
+    "@graphql-codegen/plugin-helpers": "npm:^5.1.0"
+    "@graphql-codegen/visitor-plugin-common": "npm:5.6.1"
+    "@graphql-tools/utils": "npm:^10.0.0"
+    auto-bind: "npm:~4.0.0"
+    tslib: "npm:~2.6.0"
+  peerDependencies:
+    graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
+  checksum: 10/07f0e958f93eb9ae206584787227d0608dc678822d05d3819e06898889e0d14991a7ad8b7d5e758b55f4ee2269492672520a8abe3e73f9c66f0a244ae77a1f00
   languageName: node
   linkType: hard
 
@@ -5590,9 +5628,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-router/dev@npm:7.1.4":
-  version: 7.1.4
-  resolution: "@react-router/dev@npm:7.1.4"
+"@react-router/dev@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@react-router/dev@npm:7.1.5"
   dependencies:
     "@babel/core": "npm:^7.21.8"
     "@babel/generator": "npm:^7.21.5"
@@ -5603,7 +5641,7 @@ __metadata:
     "@babel/traverse": "npm:^7.23.2"
     "@babel/types": "npm:^7.22.5"
     "@npmcli/package-json": "npm:^4.0.1"
-    "@react-router/node": "npm:7.1.4"
+    "@react-router/node": "npm:7.1.5"
     arg: "npm:^5.0.1"
     babel-dead-code-elimination: "npm:^1.0.6"
     chokidar: "npm:^4.0.0"
@@ -5624,8 +5662,8 @@ __metadata:
     valibot: "npm:^0.41.0"
     vite-node: "npm:3.0.0-beta.2"
   peerDependencies:
-    "@react-router/serve": ^7.1.4
-    react-router: ^7.1.4
+    "@react-router/serve": ^7.1.5
+    react-router: ^7.1.5
     typescript: ^5.1.0
     vite: ^5.1.0 || ^6.0.0
     wrangler: ^3.28.2
@@ -5638,75 +5676,75 @@ __metadata:
       optional: true
   bin:
     react-router: bin.js
-  checksum: 10/eef1dbe4661314803bd9ea5d15cc28c2980b8d7c5a7b1d4af784e3fe5273f917ca6cbd881aef779ca91a07d31986d5c4fb712fbbbbf0aad83429bd1bee2caf92
+  checksum: 10/651bb041c7ff2f5268601b65e7ceffe48cac89bdb1fb07d4c5340e3cfb46ac18fa5a02c0a20615de3c4d0239c90091e51b00c9f73632da64d5c9bb2a73b196c8
   languageName: node
   linkType: hard
 
-"@react-router/express@npm:7.1.4":
-  version: 7.1.4
-  resolution: "@react-router/express@npm:7.1.4"
+"@react-router/express@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@react-router/express@npm:7.1.5"
   dependencies:
-    "@react-router/node": "npm:7.1.4"
+    "@react-router/node": "npm:7.1.5"
   peerDependencies:
     express: ^4.17.1
-    react-router: 7.1.4
+    react-router: 7.1.5
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/5494bb7e32af8e850ef9506f281983fe5410e0eed408a6ff70c232dc81b9d0bf5cebc800cd19b84412657803c1dd8f19fc1856b308cef55b1348cad253df0682
+  checksum: 10/861cbf520177347bfa4036c4dfc8fe69d780a8715e82b0892a9db98d22c809a15295792fddba660f614af247cffcb5554ce57be2953c4e125467440c82651a59
   languageName: node
   linkType: hard
 
-"@react-router/fs-routes@npm:7.1.4":
-  version: 7.1.4
-  resolution: "@react-router/fs-routes@npm:7.1.4"
+"@react-router/fs-routes@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@react-router/fs-routes@npm:7.1.5"
   dependencies:
     minimatch: "npm:^9.0.0"
   peerDependencies:
-    "@react-router/dev": ^7.1.4
+    "@react-router/dev": ^7.1.5
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/f8220ee949a5067142175f43119e61c6012713ea427b7eeb978567984f5db001e37006791b05ec5d24a91479d5955b0a771e723d0f1f2e0f50ef37ba9baa087a
+  checksum: 10/35f4b42741346941ae32e4a1de9f2304d5a35b685db864e49a8b8f000d54f6b2b20fb4bfb34b5ce7c385b3fc6d6aa709b0baca40b6852ae4d44e89668fd661a9
   languageName: node
   linkType: hard
 
-"@react-router/node@npm:7.1.4":
-  version: 7.1.4
-  resolution: "@react-router/node@npm:7.1.4"
+"@react-router/node@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@react-router/node@npm:7.1.5"
   dependencies:
     "@mjackson/node-fetch-server": "npm:^0.2.0"
     source-map-support: "npm:^0.5.21"
     stream-slice: "npm:^0.1.2"
     undici: "npm:^6.19.2"
   peerDependencies:
-    react-router: 7.1.4
+    react-router: 7.1.5
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/0af0a03bdb3ba300fb06d265b797959579ff33902228126430760ec7b55ea9ff14c59fc63a46c553cc0a2ca7b2d80cfef498d94242d7d502dbd0ce65031e601e
+  checksum: 10/0593b0bcd2ceb3d50a1e63d1cdbf6f12f0a42a1c976a7abdc6e20fc714058712aac552cc8356b8f62a74151c75d813839f7521abe514a005efb7840e1a612df0
   languageName: node
   linkType: hard
 
-"@react-router/serve@npm:7.1.4":
-  version: 7.1.4
-  resolution: "@react-router/serve@npm:7.1.4"
+"@react-router/serve@npm:7.1.5":
+  version: 7.1.5
+  resolution: "@react-router/serve@npm:7.1.5"
   dependencies:
-    "@react-router/express": "npm:7.1.4"
-    "@react-router/node": "npm:7.1.4"
+    "@react-router/express": "npm:7.1.5"
+    "@react-router/node": "npm:7.1.5"
     compression: "npm:^1.7.4"
     express: "npm:^4.19.2"
     get-port: "npm:5.1.1"
     morgan: "npm:^1.10.0"
     source-map-support: "npm:^0.5.21"
   peerDependencies:
-    react-router: 7.1.4
+    react-router: 7.1.5
   bin:
     react-router-serve: bin.js
-  checksum: 10/8f57a9f7e754afec06af18ed61646ee42b3e6a29be372bcbce4b6ab24f5e4da2977ff02b0930cf8a9e4a77bed4fc8643a3c0e7bf6c471e8dffe370ea4618a306
+  checksum: 10/a9b67b7f7185fdbab1bc92823595ca03e0171ab750c36a157f78c677c305a0e90e38a66923525ee00abd8e2ad4c5c6bb658d583ad301617487557dc7117782af
   languageName: node
   linkType: hard
 
@@ -6134,10 +6172,10 @@ __metadata:
     "@mantine/notifications": "npm:7.16.2"
     "@mjackson/file-storage": "npm:0.5.0"
     "@mjackson/form-data-parser": "npm:0.7.0"
-    "@react-router/dev": "npm:7.1.4"
-    "@react-router/fs-routes": "npm:7.1.4"
-    "@react-router/node": "npm:7.1.4"
-    "@react-router/serve": "npm:7.1.4"
+    "@react-router/dev": "npm:7.1.5"
+    "@react-router/fs-routes": "npm:7.1.5"
+    "@react-router/node": "npm:7.1.5"
+    "@react-router/serve": "npm:7.1.5"
     "@remix-pwa/dev": "npm:3.1.0"
     "@remix-pwa/sw": "npm:3.0.10"
     "@remix-pwa/worker-runtime": "npm:2.1.4"
@@ -6168,7 +6206,7 @@ __metadata:
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.1.1"
     isbot: "npm:5.1.22"
-    jotai: "npm:2.11.2"
+    jotai: "npm:2.11.3"
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
     mantine-datatable: "npm:7.15.1"
@@ -6178,12 +6216,12 @@ __metadata:
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
-    react-router: "npm:7.1.4"
+    react-router: "npm:7.1.5"
     react-router-devtools: "npm:1.1.0"
     react-virtuoso: "npm:4.12.3"
     recharts: "npm:2.15.1"
     remix-utils: "npm:8.1.0"
-    safe-routes: "npm:1.0.3"
+    safe-routes: "npm:1.0.4"
     tailwind-merge: "npm:3.0.1"
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.4"
@@ -6204,7 +6242,7 @@ __metadata:
   resolution: "@ryot/generated@workspace:libs/generated"
   dependencies:
     "@graphql-codegen/cli": "npm:5.0.4"
-    "@graphql-codegen/client-preset": "npm:4.6.0"
+    "@graphql-codegen/client-preset": "npm:4.6.1"
     "@graphql-typed-document-node/core": "npm:3.2.0"
     graphql: "npm:16.10.0"
   languageName: unknown
@@ -6254,7 +6292,7 @@ __metadata:
     dayjs: "npm:1.11.13"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
-    react-router: "npm:7.1.4"
+    react-router: "npm:7.1.5"
     tailwind-merge: "npm:3.0.1"
     tiny-invariant: "npm:1.3.3"
     zod: "npm:3.24.1"
@@ -6275,17 +6313,17 @@ __metadata:
     "@radix-ui/react-slot": "npm:1.1.1"
     "@radix-ui/react-tooltip": "npm:1.1.7"
     "@react-email/components": "npm:0.0.32"
-    "@react-router/dev": "npm:7.1.4"
-    "@react-router/fs-routes": "npm:7.1.4"
-    "@react-router/node": "npm:7.1.4"
-    "@react-router/serve": "npm:7.1.4"
+    "@react-router/dev": "npm:7.1.5"
+    "@react-router/fs-routes": "npm:7.1.5"
+    "@react-router/node": "npm:7.1.5"
+    "@react-router/serve": "npm:7.1.5"
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/transactional": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.17.0"
     "@tailwindcss/typography": "npm:0.5.16"
-    "@tailwindcss/vite": "npm:4.0.1"
+    "@tailwindcss/vite": "npm:4.0.2"
     "@types/lodash": "npm:4.17.15"
     "@types/nodemailer": "npm:6.4.17"
     "@types/react": "npm:18.3.18"
@@ -6313,12 +6351,12 @@ __metadata:
     postgres: "npm:3.4.5"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
-    react-router: "npm:7.1.4"
+    react-router: "npm:7.1.5"
     remix-utils: "npm:8.1.0"
-    safe-routes: "npm:1.0.3"
-    sonner: "npm:1.7.3"
+    safe-routes: "npm:1.0.4"
+    sonner: "npm:1.7.4"
     tailwind-merge: "npm:3.0.1"
-    tailwindcss: "npm:4.0.1"
+    tailwindcss: "npm:4.0.2"
     tailwindcss-animate: "npm:1.0.7"
     tiny-invariant: "npm:1.3.3"
     ts-pattern: "npm:5.6.2"
@@ -6381,109 +6419,109 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tailwindcss/node@npm:^4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/node@npm:4.0.1"
+"@tailwindcss/node@npm:^4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/node@npm:4.0.2"
   dependencies:
     enhanced-resolve: "npm:^5.18.0"
     jiti: "npm:^2.4.2"
-    tailwindcss: "npm:4.0.1"
-  checksum: 10/6229394ae09d0229dc0b28a999c5a27935a6bf55d844fbeef9880ef1214d048170d67c96d9fcdc4990e80287a825bf03c45a78301b2dec147481bd4b24882846
+    tailwindcss: "npm:4.0.2"
+  checksum: 10/5d985fb956bf7c8d4b61b9854844208bf9a514949e1280a0de35e5cca2f8c8425ee679bea21152e09c0ea40293deafb81684d146e3cf5e382a57f0792d628cee
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-android-arm64@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-android-arm64@npm:4.0.1"
+"@tailwindcss/oxide-android-arm64@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-android-arm64@npm:4.0.2"
   conditions: os=android & cpu=arm64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-darwin-arm64@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-darwin-arm64@npm:4.0.1"
+"@tailwindcss/oxide-darwin-arm64@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-darwin-arm64@npm:4.0.2"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-darwin-x64@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-darwin-x64@npm:4.0.1"
+"@tailwindcss/oxide-darwin-x64@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-darwin-x64@npm:4.0.2"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-freebsd-x64@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-freebsd-x64@npm:4.0.1"
+"@tailwindcss/oxide-freebsd-x64@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-freebsd-x64@npm:4.0.2"
   conditions: os=freebsd & cpu=x64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-linux-arm-gnueabihf@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-linux-arm-gnueabihf@npm:4.0.1"
+"@tailwindcss/oxide-linux-arm-gnueabihf@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-linux-arm-gnueabihf@npm:4.0.2"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-linux-arm64-gnu@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-linux-arm64-gnu@npm:4.0.1"
+"@tailwindcss/oxide-linux-arm64-gnu@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-linux-arm64-gnu@npm:4.0.2"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-linux-arm64-musl@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-linux-arm64-musl@npm:4.0.1"
+"@tailwindcss/oxide-linux-arm64-musl@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-linux-arm64-musl@npm:4.0.2"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-linux-x64-gnu@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-linux-x64-gnu@npm:4.0.1"
+"@tailwindcss/oxide-linux-x64-gnu@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-linux-x64-gnu@npm:4.0.2"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-linux-x64-musl@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-linux-x64-musl@npm:4.0.1"
+"@tailwindcss/oxide-linux-x64-musl@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-linux-x64-musl@npm:4.0.2"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-win32-arm64-msvc@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-win32-arm64-msvc@npm:4.0.1"
+"@tailwindcss/oxide-win32-arm64-msvc@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-win32-arm64-msvc@npm:4.0.2"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide-win32-x64-msvc@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide-win32-x64-msvc@npm:4.0.1"
+"@tailwindcss/oxide-win32-x64-msvc@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide-win32-x64-msvc@npm:4.0.2"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"@tailwindcss/oxide@npm:^4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/oxide@npm:4.0.1"
+"@tailwindcss/oxide@npm:^4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/oxide@npm:4.0.2"
   dependencies:
-    "@tailwindcss/oxide-android-arm64": "npm:4.0.1"
-    "@tailwindcss/oxide-darwin-arm64": "npm:4.0.1"
-    "@tailwindcss/oxide-darwin-x64": "npm:4.0.1"
-    "@tailwindcss/oxide-freebsd-x64": "npm:4.0.1"
-    "@tailwindcss/oxide-linux-arm-gnueabihf": "npm:4.0.1"
-    "@tailwindcss/oxide-linux-arm64-gnu": "npm:4.0.1"
-    "@tailwindcss/oxide-linux-arm64-musl": "npm:4.0.1"
-    "@tailwindcss/oxide-linux-x64-gnu": "npm:4.0.1"
-    "@tailwindcss/oxide-linux-x64-musl": "npm:4.0.1"
-    "@tailwindcss/oxide-win32-arm64-msvc": "npm:4.0.1"
-    "@tailwindcss/oxide-win32-x64-msvc": "npm:4.0.1"
+    "@tailwindcss/oxide-android-arm64": "npm:4.0.2"
+    "@tailwindcss/oxide-darwin-arm64": "npm:4.0.2"
+    "@tailwindcss/oxide-darwin-x64": "npm:4.0.2"
+    "@tailwindcss/oxide-freebsd-x64": "npm:4.0.2"
+    "@tailwindcss/oxide-linux-arm-gnueabihf": "npm:4.0.2"
+    "@tailwindcss/oxide-linux-arm64-gnu": "npm:4.0.2"
+    "@tailwindcss/oxide-linux-arm64-musl": "npm:4.0.2"
+    "@tailwindcss/oxide-linux-x64-gnu": "npm:4.0.2"
+    "@tailwindcss/oxide-linux-x64-musl": "npm:4.0.2"
+    "@tailwindcss/oxide-win32-arm64-msvc": "npm:4.0.2"
+    "@tailwindcss/oxide-win32-x64-msvc": "npm:4.0.2"
   dependenciesMeta:
     "@tailwindcss/oxide-android-arm64":
       optional: true
@@ -6507,7 +6545,7 @@ __metadata:
       optional: true
     "@tailwindcss/oxide-win32-x64-msvc":
       optional: true
-  checksum: 10/375ae782a7798d987760d4c7af34525a7e95b4475b24d792544a78ecd6dd30a08937c8e12668476edb2dd43db7617185a8d9d3b4fa04834b655547eded21a714
+  checksum: 10/841539f2ca35ffb2fa5d20d81765bf1ad1f6a3d7564e97ad318d8305f5597ff2f4bebdf925d94b918cb8ac6ed0b06c8b61365c3ebe4a488b62027de25c194246
   languageName: node
   linkType: hard
 
@@ -6525,17 +6563,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tailwindcss/vite@npm:4.0.1":
-  version: 4.0.1
-  resolution: "@tailwindcss/vite@npm:4.0.1"
+"@tailwindcss/vite@npm:4.0.2":
+  version: 4.0.2
+  resolution: "@tailwindcss/vite@npm:4.0.2"
   dependencies:
-    "@tailwindcss/node": "npm:^4.0.1"
-    "@tailwindcss/oxide": "npm:^4.0.1"
+    "@tailwindcss/node": "npm:^4.0.2"
+    "@tailwindcss/oxide": "npm:^4.0.2"
     lightningcss: "npm:^1.29.1"
-    tailwindcss: "npm:4.0.1"
+    tailwindcss: "npm:4.0.2"
   peerDependencies:
     vite: ^5.2.0 || ^6
-  checksum: 10/acb89e8b86afffc2c195db97b3b43fbf4b97a3099aeaa28033dd19223a64f05ca9c5780b7c6d98a406d9782e471e6c7308b51d7105d65b8228d5c721a507a145
+  checksum: 10/37864f33de7d74f8097741650fe9aea39571f105b89aa147fd75c1029bfda378dfdab2193f6d9b03011bb572272724071cfb4dd83e1bb68551cd04436394e1cc
   languageName: node
   linkType: hard
 
@@ -11019,9 +11057,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jotai@npm:2.11.2":
-  version: 2.11.2
-  resolution: "jotai@npm:2.11.2"
+"jotai@npm:2.11.3":
+  version: 2.11.3
+  resolution: "jotai@npm:2.11.3"
   peerDependencies:
     "@types/react": ">=17.0.0"
     react: ">=17.0.0"
@@ -11030,7 +11068,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10/f0cb19ea5ddb851743a7198e58228ed45406b067986e826cd6b270a3f393a76ba6f47063c11b130aa48c1e869fef3f9a157dc2fa6246c46699e181e5db730192
+  checksum: 10/72c75a2768e072589b298b1726166cdad28e3f3bf0c47761d4576eaf6f3e88e4126ef3b1782530d536099a17c7b96e3aeee4b19e6fffb737c21aef71747ad998
   languageName: node
   linkType: hard
 
@@ -13285,9 +13323,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router@npm:7.1.4":
-  version: 7.1.4
-  resolution: "react-router@npm:7.1.4"
+"react-router@npm:7.1.5":
+  version: 7.1.5
+  resolution: "react-router@npm:7.1.5"
   dependencies:
     "@types/cookie": "npm:^0.6.0"
     cookie: "npm:^1.0.1"
@@ -13299,7 +13337,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/e1d2bb629d7957d5e60c718d3ca33458c2498089134a66a84cac1b49898aa2ca35a6d3e28ab7d7d1c6864ab50f56ddef15cbcd13c360ff9fbe727ae5fc82bfda
+  checksum: 10/3802ff0e0419aa53c1824b1ad2ebac6facb918306c67ff64ed86b5cbc49197c15f077b84e425f57beb24dd01cd5818a100da5269b8e160deee62b06fda008b56
   languageName: node
   linkType: hard
 
@@ -13864,9 +13902,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"safe-routes@npm:1.0.3":
-  version: 1.0.3
-  resolution: "safe-routes@npm:1.0.3"
+"safe-routes@npm:1.0.4":
+  version: 1.0.4
+  resolution: "safe-routes@npm:1.0.4"
   dependencies:
     "@rollup/plugin-replace": "npm:^6.0.1"
     meow: "npm:13.2.0"
@@ -13875,7 +13913,7 @@ __metadata:
     vite-node: "npm:^2.1.5"
   bin:
     safe-routes: dist/cli.js
-  checksum: 10/fd7a6e4b2da16267d6178ababe005be20410a73e5c2a0ef175ef969722ece402d953ee76024e843890625cca315dffa0d0d37b876362b3331a33a926fec47156
+  checksum: 10/7f585316a939bc847fb43d68f234d4285465e502817f0ba43c01dd78bdf883460e0f17d124fb2755bd66608a52ab8928a7d100255a0de52c1803d543c99e05c2
   languageName: node
   linkType: hard
 
@@ -14318,13 +14356,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sonner@npm:1.7.3":
-  version: 1.7.3
-  resolution: "sonner@npm:1.7.3"
+"sonner@npm:1.7.4":
+  version: 1.7.4
+  resolution: "sonner@npm:1.7.4"
   peerDependencies:
     react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
     react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-  checksum: 10/2494c43da8d39810f0adf38375abc764318b83d5607575dcb7bcc84183bb5206487e213849da89a1831a6aec496827072d34d63e4ee0182ca2a6a335784e9644
+  checksum: 10/454dfedb9e91276dda38455fced43d66d84875048d5bf5e223c4d95167ca6fefb4d868ecec1c3bf5c9e91896dc6407adbde92eabb37a97126af4fb0856f96e61
   languageName: node
   linkType: hard
 
@@ -14629,10 +14667,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tailwindcss@npm:4.0.1":
-  version: 4.0.1
-  resolution: "tailwindcss@npm:4.0.1"
-  checksum: 10/52cad83ef17873f00f90f7cb68d833001ed06924c43b3013f1b0497eb8778160302fc4cf5e09675c48c134dd48ce27571b4bb961f0df67ea6d7d6d368a3f807c
+"tailwindcss@npm:4.0.2":
+  version: 4.0.2
+  resolution: "tailwindcss@npm:4.0.2"
+  checksum: 10/6ed91bd0a04a34128cbcc32eeb55b6b7859f4b99a8c263c014612a2792e849b1dc118702b336d4dd7b4368757b1ec63f0e05c287978d5b22a133f6041aa3ed6a
   languageName: node
   linkType: hard
 
