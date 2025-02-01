@@ -295,6 +295,7 @@ export const useMergingExercise = () => useAtom(mergingExerciseAtom);
 export const duplicateOldWorkout = async (
 	name: string,
 	fitnessEntity: FitnessAction,
+	caloriesBurnt: number | undefined,
 	workoutInformation: WorkoutInformation,
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	userFitnessPreferences: UserFitnessPreferences,
@@ -307,11 +308,12 @@ export const duplicateOldWorkout = async (
 ) => {
 	const inProgress = getDefaultWorkout(fitnessEntity);
 	inProgress.name = name;
-	inProgress.repeatedFrom = params.repeatedFromId;
+	inProgress.caloriesBurnt = caloriesBurnt;
 	inProgress.templateId = params.templateId;
+	inProgress.repeatedFrom = params.repeatedFromId;
 	inProgress.updateWorkoutId = params.updateWorkoutId;
-	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
+	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
 			convertHistorySetToCurrentSet(

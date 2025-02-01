@@ -247,6 +247,7 @@ export default function Page() {
 		const workout = await duplicateOldWorkout(
 			loaderData.entityName,
 			params.action,
+			loaderData.caloriesBurnt ? Number(loaderData.caloriesBurnt) : undefined,
 			loaderData.information,
 			coreDetails,
 			userPreferences.fitness,
