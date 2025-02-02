@@ -2146,6 +2146,7 @@ name = "enum-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "enum_meta",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
