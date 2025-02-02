@@ -19,21 +19,18 @@ export type AppPropertyDefinition =
 	| AppObjectProperty;
 
 export type AppPrimitiveProperty = {
-	nullable?: true;
 	required?: true;
 	type: AppPropertyPrimitiveType;
 };
 
 export type AppArrayProperty = {
 	type: "array";
-	nullable?: true;
 	required?: true;
 	items: AppPropertyDefinition;
 };
 
 export type AppObjectProperty = {
 	type: "object";
-	nullable?: true;
 	required?: true;
 	properties: Record<string, AppPropertyDefinition>;
 };
@@ -50,14 +47,6 @@ export type AppObjectProperty = {
  * - `z.boolean()` → `{ type: "boolean" }`
  * - `z.array(T)` → `{ type: "array", items: {...} }`
  * - `z.object({ ... })` → `{ type: "object", properties: {...} }`
- * - `.nullable()`, `.optional()`, `.nullish()` → adds `nullable: true`
- *
- * **Semantic Note:** This conversion intentionally treats `.optional()` (undefined),
- * `.nullable()` (null), and `.nullish()` (null | undefined) identically, mapping all
- * to `nullable: true`. This is correct for the legacy app schema format, which does
- * not distinguish between null and undefined semantics. The format was designed to
- * match JSON Schema's simpler nullable model before optional/required distinctions
- * were added.
  *
  * @param schema - The Zod schema to convert
  * @returns The app schema property definition
@@ -71,8 +60,7 @@ export const toAppSchema = (schema: z.ZodType): AppPropertyDefinition => {
 				"Invalid nullable/optional wrapper: innerType is missing or invalid",
 			);
 		const innerSchema = innerType as z.ZodType;
-		const innerResult = toAppSchema(innerSchema);
-		return { ...innerResult, nullable: true };
+		return toAppSchema(innerSchema);
 	}
 
 	if (schema instanceof z.ZodString) {
@@ -130,7 +118,6 @@ export const toAppSchemaProperties = (
  * - Primitives: string, number, integer, boolean, date
  * - Arrays with recursive item conversion
  * - Objects with recursive property conversion
- * - Nullable modifier (converts to .nullish())
  *
  * @param property - The app schema property definition to convert
  * @returns A Zod schema that validates data according to the property definition
@@ -175,8 +162,6 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 				`Unsupported app schema type: ${(property as { type: string }).type}`,
 			);
 	}
-
-	if (property.nullable) schema = schema.nullish();
 
 	return schema;
 };

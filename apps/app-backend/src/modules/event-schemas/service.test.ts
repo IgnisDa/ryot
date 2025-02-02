@@ -67,8 +67,8 @@ describe("parseEventSchemaPropertiesSchema", () => {
 
 	it("accepts already-parsed properties map", () => {
 		const schema = {
+			note: { type: "string" as const },
 			progress: { type: "integer" as const },
-			note: { type: "string" as const, nullable: true as const },
 		};
 
 		expect(parseEventSchemaPropertiesSchema(schema)).toEqual(schema);
