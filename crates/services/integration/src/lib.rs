@@ -308,7 +308,7 @@ impl IntegrationService {
             };
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
-                Err(e) => ryot_log!(warn, "Error yanking integrations data: {:?}", e),
+                Err(e) => ryot_log!(debug, "Error yanking integrations data: {:?}", e),
             };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
