@@ -5279,6 +5279,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hono/node-server@npm:1.19.9":
+  version: 1.19.9
+  resolution: "@hono/node-server@npm:1.19.9"
+  peerDependencies:
+    hono: ^4
+  checksum: 10/d4915c2e736ee1e3934b5538cde92b19914dc71346340528a04e4c7219afc7367965080cd1a5291ac9cbda7b0780b89b6ca93472a9418aa105d6d1183033dc8a
+  languageName: node
+  linkType: hard
+
 "@iconify-json/simple-icons@npm:^1.2.59":
   version: 1.2.61
   resolution: "@iconify-json/simple-icons@npm:1.2.61"
@@ -7386,6 +7395,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/app-backend@workspace:apps/app-backend"
   dependencies:
+    "@hono/node-server": "npm:1.19.9"
     better-auth: "npm:1.4.18"
     dotenv: "npm:17.3.1"
     drizzle-kit: "npm:0.31.9"
