@@ -1,137 +1,51 @@
-import type { AppPropertyPrimitiveType } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils";
 import {
-	appPropertyPrimitiveTypes,
-	zodRequiredName,
-	zodRequiredSlug,
-} from "@ryot/ts-utils";
-import { z } from "zod";
+	buildDefaultPropertySchemaRow,
+	buildPropertiesSchema,
+	buildPropertySchemaFormValues,
+	type CreatePropertySchemaFormValues,
+	createPropertySchemaFormSchema,
+	defaultCreatePropertySchemaFormValues,
+	isPropertySchemaRowsValid,
+	normalizeOptionalSlug,
+	type PropertySchemaFormValues,
+	type PropertySchemaInput,
+	type PropertySchemaRow,
+	type PropertySchemaType,
+	propertySchemaTypes,
+} from "../property-schemas/form";
 
-export const entitySchemaPropertyTypes = appPropertyPrimitiveTypes;
+export const entitySchemaPropertyTypes = propertySchemaTypes;
 
-export type EntitySchemaPropertyType = AppPropertyPrimitiveType;
+export type EntitySchemaPropertyType = PropertySchemaType;
 
-interface EntitySchemaPropertyBase {
-	key: string;
-	required: boolean;
-	type: EntitySchemaPropertyType;
-}
+export type EntitySchemaPropertyRow = PropertySchemaRow;
 
-export interface EntitySchemaPropertyRow extends EntitySchemaPropertyBase {
-	id: string;
-}
+export type EntitySchemaPropertyInput = PropertySchemaInput;
 
-export interface EntitySchemaPropertyInput extends EntitySchemaPropertyBase {
-	id?: string;
-}
+export type EntitySchemaFormValues = PropertySchemaFormValues;
 
-export interface EntitySchemaFormValues {
-	name: string;
-	slug: string;
-	properties: EntitySchemaPropertyInput[];
-}
+export type CreateEntitySchemaFormValues = CreatePropertySchemaFormValues;
 
-export const defaultEntitySchemaPropertiesSchema = "{}";
+export const buildDefaultEntitySchemaPropertyRow =
+	buildDefaultPropertySchemaRow;
 
-function buildEntitySchemaPropertyRow(
-	row: EntitySchemaPropertyInput,
-): EntitySchemaPropertyRow {
-	return {
-		key: row.key,
-		type: row.type,
-		required: row.required,
-		id: row.id ?? crypto.randomUUID(),
-	};
-}
+export const isEntitySchemaPropertyRowsValid = isPropertySchemaRowsValid;
 
-export function buildDefaultEntitySchemaPropertyRow(): EntitySchemaPropertyRow {
-	return buildEntitySchemaPropertyRow({
-		key: "",
-		type: "string",
-		required: false,
-	});
-}
+export const createEntitySchemaFormSchema = createPropertySchemaFormSchema;
 
-export function isEntitySchemaPropertyRowsValid(
-	rows: EntitySchemaPropertyInput[],
-) {
-	if (rows.length === 0) return false;
+export const buildEntitySchemaFormValues = buildPropertySchemaFormValues;
 
-	const keys = rows.map((row) => row.key.trim());
+export const buildEntitySchemaPropertiesSchema = buildPropertiesSchema;
 
-	if (keys.some((key) => key.length === 0)) return false;
-
-	return new Set(keys).size === keys.length;
-}
-
-export const createEntitySchemaFormSchema = z.object({
-	name: zodRequiredName,
-	slug: zodRequiredSlug,
-	properties: z
-		.array(
-			z.object({
-				id: z.string(),
-				key: z.string(),
-				required: z.boolean(),
-				type: z.enum(entitySchemaPropertyTypes),
-			}),
-		)
-		.refine(
-			(properties) => isEntitySchemaPropertyRowsValid(properties),
-			"Properties must contain unique non-empty keys",
-		),
-});
-
-export type CreateEntitySchemaFormValues = z.infer<
-	typeof createEntitySchemaFormSchema
->;
-
-export function buildEntitySchemaFormValues(
-	values?: Partial<EntitySchemaFormValues>,
-): CreateEntitySchemaFormValues {
-	const properties = values?.properties;
-
-	return {
-		name: values?.name ?? "",
-		slug: values?.slug ?? "",
-		properties:
-			properties && properties.length > 0
-				? properties.map(buildEntitySchemaPropertyRow)
-				: [buildDefaultEntitySchemaPropertyRow()],
-	};
-}
-
-export const buildEntitySchemaPropertiesSchema = (
-	properties: EntitySchemaPropertyInput[],
-) => {
-	const propertiesMap: Record<string, unknown> = {};
-
-	for (const property of properties) {
-		const key = property.key.trim();
-		const propertyDef: Record<string, unknown> = { type: property.type };
-
-		if (property.required) propertyDef.required = true;
-
-		propertiesMap[key] = propertyDef;
-	}
-
-	return propertiesMap;
-};
-
-export const serializeEntitySchemaProperties = (
-	properties: EntitySchemaPropertyInput[],
-) => {
-	const schema = buildEntitySchemaPropertiesSchema(properties);
-	return JSON.stringify(schema);
-};
-
-export const defaultCreateEntitySchemaFormValues: CreateEntitySchemaFormValues =
-	buildEntitySchemaFormValues();
+export const defaultCreateEntitySchemaFormValues =
+	defaultCreatePropertySchemaFormValues;
 
 export interface CreateEntitySchemaPayload {
 	name: string;
-	slug: string;
+	slug?: string;
 	facetId: string;
-	propertiesSchema: string;
+	propertiesSchema: AppSchema;
 }
 
 export function toCreateEntitySchemaPayload(
@@ -139,9 +53,11 @@ export function toCreateEntitySchemaPayload(
 	facetId: string,
 ) {
 	return {
-		facetId,
 		name: input.name.trim(),
-		slug: input.slug.trim(),
-		propertiesSchema: serializeEntitySchemaProperties(input.properties),
+		facetId,
+		propertiesSchema: buildEntitySchemaPropertiesSchema(input.properties),
+		...(normalizeOptionalSlug(input.slug)
+			? { slug: normalizeOptionalSlug(input.slug) }
+			: {}),
 	};
 }

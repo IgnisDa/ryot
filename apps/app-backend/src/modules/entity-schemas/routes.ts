@@ -10,6 +10,7 @@ import {
 	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
+import { isUniqueConstraintError } from "~/lib/postgres";
 import {
 	customFacetError,
 	facetNotFoundError,
@@ -74,15 +75,6 @@ const createEntitySchemaRoute = createAuthRoute(
 
 const duplicateSlugError = "Entity schema slug already exists";
 const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
-
-const isUniqueSlugConstraintError = (error: unknown) => {
-	if (!error || typeof error !== "object") return false;
-
-	const code = "code" in error ? error.code : undefined;
-	const constraint = "constraint" in error ? error.constraint : undefined;
-
-	return code === "23505" && constraint === entitySchemaUniqueConstraint;
-};
 
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
@@ -160,7 +152,7 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 			return c.json(successResponse(createdEntitySchema), 200);
 		} catch (error) {
-			if (isUniqueSlugConstraintError(error))
+			if (isUniqueConstraintError(error, entitySchemaUniqueConstraint))
 				return c.json(
 					createValidationErrorResult(duplicateSlugError).body,
 					400,
