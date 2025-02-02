@@ -17,6 +17,7 @@ import type { AppEntity } from "#/features/entities/model";
 import { GeneratedPropertyField } from "#/features/generated-property-fields";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
+	buildEventSchemaSelectionPatch,
 	type CreateEventPayload,
 	getSelectedEventSchema,
 	getUnsupportedRequiredEventProperties,
@@ -49,9 +50,11 @@ function formatEventPropertyValue(value: unknown) {
 }
 
 function EventList(props: {
+	eventLimit?: number;
 	events: ReturnType<typeof useEventsQuery>["events"];
 }) {
-	const recentEvents = props.events.slice(0, 3);
+	const eventLimit = props.eventLimit ?? 3;
+	const recentEvents = props.events.slice(0, eventLimit);
 	const hasMoreEvents = props.events.length > recentEvents.length;
 
 	return (
@@ -112,128 +115,152 @@ function LogEventForm(props: {
 		entityId: props.entityId,
 		eventSchemas: props.eventSchemas,
 	});
-	const selectedEventSchema = getSelectedEventSchema(
-		props.eventSchemas,
-		eventForm.state.values.eventSchemaId,
-	);
 	const eventSchemaOptions = props.eventSchemas.map((eventSchema) => ({
 		value: eventSchema.id,
 		label: eventSchema.name,
 	}));
-	const unsupportedRequiredProperties = getUnsupportedRequiredEventProperties(
-		selectedEventSchema?.propertiesSchema ?? {},
-	);
-	const hasUnsupportedRequiredProperties =
-		unsupportedRequiredProperties.length > 0;
-
-	if (!selectedEventSchema)
-		return (
-			<Paper p="sm" withBorder radius="md">
-				<Text c="dimmed" size="sm">
-					No event schemas available for this entity.
-				</Text>
-			</Paper>
-		);
-
-	const propertyFields = Object.entries(selectedEventSchema.propertiesSchema)
-		.map(([propertyKey, propertyDef]) => (
-			<GeneratedPropertyField
-				form={eventForm}
-				key={propertyKey}
-				propertyKey={propertyKey}
-				propertyDef={propertyDef}
-				disabled={props.isLoading}
-			/>
-		))
-		.filter(Boolean);
 
 	return (
-		<form
-			onSubmit={(event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				void eventForm.handleSubmit();
-			}}
-		>
-			<eventForm.AppForm>
-				<Stack gap="md">
-					{props.errorMessage && (
-						<Text c="red" size="sm">
-							{props.errorMessage}
-						</Text>
-					)}
+		<eventForm.Subscribe selector={(state) => state.values.eventSchemaId}>
+			{(eventSchemaId) => {
+				const selectedEventSchema = getSelectedEventSchema(
+					props.eventSchemas,
+					eventSchemaId,
+				);
+				const unsupportedRequiredProperties =
+					getUnsupportedRequiredEventProperties(
+						selectedEventSchema?.propertiesSchema ?? {},
+					);
+				const hasUnsupportedRequiredProperties =
+					unsupportedRequiredProperties.length > 0;
 
-					{hasUnsupportedRequiredProperties && (
-						<Text c="red" size="sm">
-							{getUnsupportedRequiredPropertiesMessage(
-								unsupportedRequiredProperties,
-							)}
-						</Text>
-					)}
+				if (!selectedEventSchema)
+					return (
+						<Paper p="sm" withBorder radius="md">
+							<Text c="dimmed" size="sm">
+								No event schemas available for this entity.
+							</Text>
+						</Paper>
+					);
 
-					<eventForm.AppField name="eventSchemaId">
-						{(field) => (
-							<Select
-								required
-								label="Event schema"
-								data={eventSchemaOptions}
-								onBlur={field.handleBlur}
-								disabled={props.isLoading}
-								value={field.state.value || null}
-								onChange={(value) => {
-									const nextValue = value ?? props.eventSchemas[0]?.id ?? "";
-									field.handleChange(nextValue);
-								}}
-							/>
-						)}
-					</eventForm.AppField>
+				const propertyFields = Object.entries(
+					selectedEventSchema.propertiesSchema,
+				)
+					.map(([propertyKey, propertyDef]) => (
+						<GeneratedPropertyField
+							form={eventForm}
+							key={propertyKey}
+							propertyKey={propertyKey}
+							propertyDef={propertyDef}
+							disabled={props.isLoading}
+						/>
+					))
+					.filter(Boolean);
 
-					<eventForm.AppField name="occurredAt">
-						{(field) => (
-							<div>
-								<Text component="label" size="sm" fw={500}>
-									Occurred at
-								</Text>
-								<TextInput
-									required
-									type="datetime-local"
-									value={field.state.value}
-									onBlur={field.handleBlur}
-									disabled={props.isLoading}
-									error={!field.state.meta.isValid}
-									onChange={(event) =>
-										field.handleChange(event.currentTarget.value)
-									}
-								/>
-								{!field.state.meta.isValid && (
-									<Text c="red" size="xs">
-										{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				return (
+					<form
+						onSubmit={(event) => {
+							event.preventDefault();
+							event.stopPropagation();
+							void eventForm.handleSubmit();
+						}}
+					>
+						<eventForm.AppForm>
+							<Stack gap="md">
+								{props.errorMessage && (
+									<Text c="red" size="sm">
+										{props.errorMessage}
 									</Text>
 								)}
-							</div>
-						)}
-					</eventForm.AppField>
 
-					{propertyFields}
+								{hasUnsupportedRequiredProperties && (
+									<Text c="red" size="sm">
+										{getUnsupportedRequiredPropertiesMessage(
+											unsupportedRequiredProperties,
+										)}
+									</Text>
+								)}
 
-					<Group justify="flex-end" gap="md">
-						<Button
-							type="button"
-							variant="subtle"
-							onClick={props.onClose}
-							disabled={props.isLoading}
-						>
-							Cancel
-						</Button>
-						<eventForm.SubmitButton
-							label="Log event"
-							pendingLabel="Logging..."
-							disabled={props.isLoading || hasUnsupportedRequiredProperties}
-						/>
-					</Group>
-				</Stack>
-			</eventForm.AppForm>
-		</form>
+								<eventForm.AppField name="eventSchemaId">
+									{(field) => (
+										<Select
+											required
+											label="Event schema"
+											data={eventSchemaOptions}
+											onBlur={field.handleBlur}
+											disabled={props.isLoading}
+											value={field.state.value || null}
+											onChange={(value) => {
+												const nextValue =
+													value ?? props.eventSchemas[0]?.id ?? "";
+												const nextValues = buildEventSchemaSelectionPatch(
+													props.eventSchemas,
+													eventForm.state.values,
+													nextValue,
+												);
+												field.handleChange(nextValues.eventSchemaId);
+												eventForm.setFieldValue(
+													"properties",
+													nextValues.properties,
+												);
+											}}
+										/>
+									)}
+								</eventForm.AppField>
+
+								<eventForm.AppField name="occurredAt">
+									{(field) => (
+										<div>
+											<Text component="label" size="sm" fw={500}>
+												Occurred at
+											</Text>
+											<TextInput
+												required
+												type="datetime-local"
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												disabled={props.isLoading}
+												error={!field.state.meta.isValid}
+												onChange={(event) =>
+													field.handleChange(event.currentTarget.value)
+												}
+											/>
+											{!field.state.meta.isValid && (
+												<Text c="red" size="xs">
+													{field.state.meta.errors
+														.map((e) => e?.message)
+														.join(", ")}
+												</Text>
+											)}
+										</div>
+									)}
+								</eventForm.AppField>
+
+								{propertyFields}
+
+								<Group justify="flex-end" gap="md">
+									<Button
+										type="button"
+										variant="subtle"
+										onClick={props.onClose}
+										disabled={props.isLoading}
+									>
+										Cancel
+									</Button>
+									<eventForm.SubmitButton
+										label="Log event"
+										pendingLabel="Logging..."
+										disabled={
+											props.isLoading || hasUnsupportedRequiredProperties
+										}
+									/>
+								</Group>
+							</Stack>
+						</eventForm.AppForm>
+					</form>
+				);
+			}}
+		</eventForm.Subscribe>
 	);
 }
 
@@ -268,7 +295,10 @@ function LogEventModal(props: {
 }
 
 export function EntityEventsSection(props: {
+	title?: string;
 	entity: AppEntity;
+	eventLimit?: number;
+	description?: string;
 	eventSchemasError: boolean;
 	eventSchemasLoading: boolean;
 	eventSchemas: AppEventSchema[];
@@ -331,10 +361,10 @@ export function EntityEventsSection(props: {
 			<Group justify="space-between" align="flex-start">
 				<Stack gap={2}>
 					<Text size="sm" fw={500} c="dimmed">
-						EVENTS
+						{props.title ?? "EVENTS"}
 					</Text>
 					<Text c="dimmed" size="sm">
-						Recent logged events for this entity.
+						{props.description ?? "Recent logged events for this entity."}
 					</Text>
 				</Stack>
 				<Button
@@ -397,7 +427,7 @@ export function EntityEventsSection(props: {
 						</Stack>
 					</Paper>
 				) : (
-					<EventList events={viewState.events} />
+					<EventList events={viewState.events} eventLimit={props.eventLimit} />
 				))}
 
 			{opened && (

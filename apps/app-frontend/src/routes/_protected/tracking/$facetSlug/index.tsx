@@ -31,7 +31,7 @@ import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
 
-export const Route = createFileRoute("/_protected/tracking/$facetSlug")({
+export const Route = createFileRoute("/_protected/tracking/$facetSlug/")({
 	component: RouteComponent,
 });
 
@@ -117,7 +117,10 @@ function BuiltinFacetSchemaSection() {
 	);
 }
 
-function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
+function EntitySchemaList(props: {
+	facet: AppFacet;
+	entitySchemas: AppEntitySchema[];
+}) {
 	return (
 		<Stack gap="md">
 			{props.entitySchemas.map((entitySchema) => {
@@ -137,7 +140,10 @@ function EntitySchemaList(props: { entitySchemas: AppEntitySchema[] }) {
 								</Text>
 							</Group>
 
-							<EntitiesSection entitySchema={entitySchema} />
+							<EntitiesSection
+								entitySchema={entitySchema}
+								facetSlug={props.facet.slug}
+							/>
 
 							<EventSchemasSection entitySchema={entitySchema} />
 						</Stack>
@@ -339,7 +345,10 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			{!entitySchemasQuery.isLoading &&
 				!entitySchemasQuery.isError &&
 				viewState.type === "list" && (
-					<EntitySchemaList entitySchemas={viewState.entitySchemas} />
+					<EntitySchemaList
+						facet={props.facet}
+						entitySchemas={viewState.entitySchemas}
+					/>
 				)}
 
 			{opened && (
