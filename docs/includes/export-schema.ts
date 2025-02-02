@@ -233,13 +233,13 @@ export interface WorkoutDuration {
 }
 
 /** The different types of exercises that can be done. */
-export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
+export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration';
 
 /** The types of set (mostly characterized by exertion level). */
 export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
 
 /** The different types of personal bests that can be achieved on a set. */
-export type WorkoutSetPersonalBest = 'weight' | 'one_rm' | 'volume' | 'time' | 'pace' | 'reps';
+export type WorkoutSetPersonalBest = 'time' | 'pace' | 'reps' | 'one_rm' | 'volume' | 'weight';
 
 /** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
@@ -291,7 +291,7 @@ export interface ProcessedExercise {
 	id: string;
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration'}
 	 */
 	lot: ExerciseLot;
 	notes: string[];
@@ -324,12 +324,12 @@ export interface WorkoutSummaryExercise {
 	num_sets: number;
 }
 
-export type ExerciseEquipment = 'bands' | 'barbell' | 'body_only' | 'cable' | 'dumbbell' | 'exercise_ball' | 'ez_curl_bar' | 'foam_roll' | 'kettlebells' | 'machine' | 'medicine_ball' | 'other';
+export type ExerciseEquipment = 'bands' | 'cable' | 'other' | 'barbell' | 'machine' | 'body_only' | 'dumbbell' | 'foam_roll' | 'ez_curl_bar' | 'kettlebells' | 'exercise_ball' | 'medicine_ball';
 
 export interface WorkoutEquipmentFocusedSummary {
 	/**
 	 * @default 'barbell'
-	 * @type {'bands' | 'barbell' | 'body_only' | 'cable' | 'dumbbell' | 'exercise_ball' | 'ez_curl_bar' | 'foam_roll' | 'kettlebells' | 'machine' | 'medicine_ball' | 'other'}
+	 * @type {'bands' | 'cable' | 'other' | 'barbell' | 'machine' | 'body_only' | 'dumbbell' | 'foam_roll' | 'ez_curl_bar' | 'kettlebells' | 'exercise_ball' | 'medicine_ball'}
 	 */
 	equipment: ExerciseEquipment;
 	exercises: number[];
@@ -361,18 +361,18 @@ export interface WorkoutLotFocusedSummary {
 	exercises: number[];
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration'}
 	 */
 	lot: ExerciseLot;
 }
 
-export type ExerciseMuscle = 'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps';
+export type ExerciseMuscle = 'lats' | 'neck' | 'traps' | 'chest' | 'biceps' | 'calves' | 'glutes' | 'triceps' | 'forearms' | 'abductors' | 'adductors' | 'lower_back' | 'shoulders' | 'abdominals' | 'hamstrings' | 'middle_back' | 'quadriceps';
 
 export interface WorkoutMuscleFocusedSummary {
 	exercises: number[];
 	/**
 	 * @default 'abdominals'
-	 * @type {'abdominals' | 'abductors' | 'adductors' | 'biceps' | 'calves' | 'chest' | 'forearms' | 'glutes' | 'hamstrings' | 'lats' | 'lower_back' | 'middle_back' | 'neck' | 'quadriceps' | 'shoulders' | 'traps' | 'triceps'}
+	 * @type {'lats' | 'neck' | 'traps' | 'chest' | 'biceps' | 'calves' | 'glutes' | 'triceps' | 'forearms' | 'abductors' | 'adductors' | 'lower_back' | 'shoulders' | 'abdominals' | 'hamstrings' | 'middle_back' | 'quadriceps'}
 	 */
 	muscle: ExerciseMuscle;
 }
