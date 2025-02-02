@@ -86,6 +86,10 @@ export const getSetStatisticsTextToDisplay = (
 				: `${statistic.reps} reps`,
 			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : null,
 		])
+		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
+			`${displayDistanceWithUnit(unit, statistic.distance)} × ${statistic.reps}`,
+			`${Number(statistic.duration).toFixed(2)} min`,
+		])
 		.exhaustive();
 };
 

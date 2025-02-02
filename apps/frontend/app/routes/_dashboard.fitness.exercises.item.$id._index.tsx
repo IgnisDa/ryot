@@ -531,6 +531,10 @@ export default function Page() {
 														WorkoutSetPersonalBest.Weight,
 														() => stat?.weight,
 													)
+													.with(
+														WorkoutSetPersonalBest.Distance,
+														() => stat?.distance,
+													)
 													.exhaustive();
 												return {
 													name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
@@ -745,6 +749,9 @@ const DisplayPersonalBest = (props: {
 						displayWeightWithUnit(unitSystem, set.statistic.weight),
 					)
 					.with(WorkoutSetPersonalBest.Pace, () => `${set.statistic.pace}/min`)
+					.with(WorkoutSetPersonalBest.Distance, () =>
+						displayDistanceWithUnit(unitSystem, set.statistic.distance),
+					)
 					.exhaustive()}
 			</Text>
 			<Group>

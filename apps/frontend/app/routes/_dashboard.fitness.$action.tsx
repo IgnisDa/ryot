@@ -1466,6 +1466,12 @@ const ExerciseDisplay = (props: {
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.with(ExerciseLot.RepsAndDuration, () => [true, false, false, true])
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
+		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
+			true,
+			true,
+			false,
+			true,
+		])
 		.exhaustive();
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
@@ -2313,6 +2319,13 @@ const SetDisplay = (props: {
 													() =>
 														isString(set.statistic.reps) &&
 														isString(set.statistic.weight),
+												)
+												.with(
+													ExerciseLot.RepsAndDurationAndDistance,
+													() =>
+														isString(set.statistic.reps) &&
+														isString(set.statistic.duration) &&
+														isString(set.statistic.distance),
 												)
 												.exhaustive()
 										}
