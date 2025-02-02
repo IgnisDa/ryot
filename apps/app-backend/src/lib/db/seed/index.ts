@@ -12,7 +12,7 @@ import {
 	entitySchemaScriptLinks,
 } from "./manifests";
 
-export const seedEntitySchemas = async () => {
+export const seedInitialDatabase = async () => {
 	console.info("Seeding entity schemas...");
 
 	const facetIds = new Map<string, string>();
@@ -21,6 +21,7 @@ export const seedEntitySchemas = async () => {
 			slug: facet.slug,
 			name: facet.name,
 			mode: facet.mode,
+			icon: facet.icon,
 			description: facet.description,
 		});
 		facetIds.set(facet.slug, facetId);
