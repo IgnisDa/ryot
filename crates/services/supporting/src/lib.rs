@@ -8,7 +8,7 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
 use common_utils::{
     convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, METADATA_GROUP_SOURCE_LOT_MAPPINGS,
-    METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
+    PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -18,7 +18,7 @@ use dependent_models::{
 use enum_meta::Meta;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaSource,
+    MediaLot, MediaSource,
 };
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
@@ -158,11 +158,10 @@ impl SupportingService {
                     source: *source,
                 })
                 .collect(),
-            metadata_lot_source_mappings: METADATA_LOT_MAPPINGS
-                .iter()
-                .map(|(lot, sources)| MetadataLotSourceMappings {
-                    lot: *lot,
-                    sources: sources.to_vec(),
+            metadata_lot_source_mappings: MediaLot::iter()
+                .map(|lot| MetadataLotSourceMappings {
+                    lot,
+                    sources: lot.meta(),
                 })
                 .collect(),
             exercise_parameters: ExerciseParameters {

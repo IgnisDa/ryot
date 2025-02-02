@@ -42,6 +42,35 @@ pub enum MediaLot {
     VisualNovel,
 }
 
+meta! {
+    MediaLot, Vec<MediaSource>;
+
+    AudioBook, vec![MediaSource::Audible];
+    Book, vec![
+        MediaSource::Openlibrary,
+        MediaSource::GoogleBooks,
+        MediaSource::Hardcover,
+    ];
+    Podcast, vec![
+        MediaSource::Itunes,
+        MediaSource::Listennotes,
+    ];
+    VideoGame, vec![MediaSource::Igdb];
+    Anime, vec![
+        MediaSource::Anilist,
+        MediaSource::Mal,
+    ];
+    Manga, vec![
+        MediaSource::Anilist,
+        MediaSource::MangaUpdates,
+        MediaSource::Mal,
+    ];
+    Movie, vec![MediaSource::Tmdb];
+    Music, vec![MediaSource::YoutubeMusic];
+    Show, vec![MediaSource::Tmdb];
+    VisualNovel, vec![MediaSource::Vndb];
+}
+
 /// The different sources (or providers) from which data can be obtained from.
 #[derive(
     Eq,

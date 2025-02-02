@@ -34,35 +34,6 @@ pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
-pub const METADATA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
-    (MediaLot::AudioBook, &[MediaSource::Audible]),
-    (
-        MediaLot::Book,
-        &[
-            MediaSource::Openlibrary,
-            MediaSource::GoogleBooks,
-            MediaSource::Hardcover,
-        ],
-    ),
-    (
-        MediaLot::Podcast,
-        &[MediaSource::Itunes, MediaSource::Listennotes],
-    ),
-    (MediaLot::VideoGame, &[MediaSource::Igdb]),
-    (MediaLot::Anime, &[MediaSource::Anilist, MediaSource::Mal]),
-    (
-        MediaLot::Manga,
-        &[
-            MediaSource::Anilist,
-            MediaSource::MangaUpdates,
-            MediaSource::Mal,
-        ],
-    ),
-    (MediaLot::Movie, &[MediaSource::Tmdb]),
-    (MediaLot::Music, &[MediaSource::YoutubeMusic]),
-    (MediaLot::Show, &[MediaSource::Tmdb]),
-    (MediaLot::VisualNovel, &[MediaSource::Vndb]),
-];
 
 pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Tmdb,
