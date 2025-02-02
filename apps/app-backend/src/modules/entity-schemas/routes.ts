@@ -144,8 +144,10 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			const createdEntitySchema = await createEntitySchemaForUser({
 				facetId,
 				userId: user.id,
+				icon: entitySchemaData.icon,
 				name: entitySchemaData.name,
 				slug: entitySchemaData.slug,
+				accentColor: entitySchemaData.accentColor,
 				propertiesSchema: entitySchemaData.propertiesSchema,
 			});
 

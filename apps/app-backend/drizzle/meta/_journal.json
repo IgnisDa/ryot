@@ -8,6 +8,13 @@
 			"when": 1773233044801,
 			"tag": "0000_tearful_lethal_legion",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1773234279400,
+			"tag": "0001_great_thunderbolt_ross",
+			"breakpoints": true
 		}
 	]
 }
