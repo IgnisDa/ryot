@@ -65,6 +65,11 @@ export const getSetStatisticsTextToDisplay = (
 	unit: UserUnitSystem,
 ) => {
 	return match(lot)
+		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
+		.with(ExerciseLot.RepsAndDuration, () => [
+			`${statistic.reps} reps for ${Number(statistic.duration).toFixed(2)} min`,
+			undefined,
+		])
 		.with(ExerciseLot.DistanceAndDuration, () => [
 			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
 				statistic.duration,
@@ -75,7 +80,6 @@ export const getSetStatisticsTextToDisplay = (
 			`${Number(statistic.duration).toFixed(2)} min`,
 			undefined,
 		])
-		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
 		.with(ExerciseLot.RepsAndWeight, () => [
 			statistic.weight && statistic.weight !== "0"
 				? `${displayWeightWithUnit(unit, statistic.weight)} × ${statistic.reps}`
