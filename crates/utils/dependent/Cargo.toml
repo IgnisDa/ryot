@@ -16,6 +16,7 @@ database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 either = { workspace = true }
 enum-models = { path = "../../models/enum" }
+enum_meta = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }

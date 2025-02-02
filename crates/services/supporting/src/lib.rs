@@ -7,14 +7,15 @@ use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
 use common_utils::{
-    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, EXERCISE_LOT_MAPPINGS,
-    METADATA_GROUP_SOURCE_LOT_MAPPINGS, METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
+    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, METADATA_GROUP_SOURCE_LOT_MAPPINGS,
+    METADATA_LOT_MAPPINGS, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
     ProviderLanguageInformation,
 };
+use enum_meta::Meta;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     MediaSource,
@@ -173,11 +174,10 @@ impl SupportingService {
                     equipment: ExerciseEquipment::iter().collect_vec(),
                     muscle: ExerciseMuscle::iter().collect_vec(),
                 },
-                lot_mapping: EXERCISE_LOT_MAPPINGS
-                    .iter()
-                    .map(|(lot, pbs)| ExerciseParametersLotMapping {
-                        lot: *lot,
-                        bests: pbs.to_vec(),
+                lot_mapping: ExerciseLot::iter()
+                    .map(|lot| ExerciseParametersLotMapping {
+                        lot,
+                        bests: lot.meta(),
                     })
                     .collect(),
             },

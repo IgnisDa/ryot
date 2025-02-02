@@ -1,4 +1,5 @@
 use async_graphql::Enum;
+use enum_meta::{meta, Meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
@@ -428,6 +429,18 @@ pub enum ExerciseLot {
     RepsAndWeight,
     RepsAndDuration,
     DistanceAndDuration,
+}
+
+meta! {
+    ExerciseLot, Vec<WorkoutSetPersonalBest>;
+    Reps, vec![WorkoutSetPersonalBest::Reps];
+    Duration, vec![WorkoutSetPersonalBest::Time];
+    RepsAndDuration, vec![WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Time];
+    DistanceAndDuration, vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time];
+    RepsAndWeight, vec![
+        WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Weight,
+        WorkoutSetPersonalBest::OneRm, WorkoutSetPersonalBest::Volume,
+    ];
 }
 
 #[derive(

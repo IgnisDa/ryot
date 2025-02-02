@@ -10,8 +10,8 @@ use common_models::{
     StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -38,6 +38,7 @@ use dependent_models::{
     UserWorkoutsTemplatesListResponse,
 };
 use either::Either;
+use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
@@ -1910,11 +1911,7 @@ pub async fn create_or_update_user_workout(
             .clone()
             .unwrap_or_default()
             .personal_bests;
-        let types_of_prs = EXERCISE_LOT_MAPPINGS
-            .iter()
-            .find(|lm| lm.0 == db_ex.lot)
-            .map(|lm| lm.1)
-            .unwrap();
+        let types_of_prs = db_ex.lot.meta();
         for best_type in types_of_prs.iter() {
             let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();
             let possible_record = personal_bests

@@ -1,7 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enum_models::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
+use enum_models::{MediaLot, MediaSource};
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
@@ -34,27 +34,6 @@ pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
-pub const EXERCISE_LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
-    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
-    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
-    (
-        ExerciseLot::RepsAndDuration,
-        &[WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Time],
-    ),
-    (
-        ExerciseLot::DistanceAndDuration,
-        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
-    ),
-    (
-        ExerciseLot::RepsAndWeight,
-        &[
-            WorkoutSetPersonalBest::Weight,
-            WorkoutSetPersonalBest::OneRm,
-            WorkoutSetPersonalBest::Volume,
-            WorkoutSetPersonalBest::Reps,
-        ],
-    ),
-];
 pub const METADATA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
     (MediaLot::AudioBook, &[MediaSource::Audible]),
     (
