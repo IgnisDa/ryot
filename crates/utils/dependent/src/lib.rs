@@ -10,8 +10,8 @@ use common_models::{
     StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
-    acquire_lock, ryot_log, sleep_for_n_seconds, EXERCISE_LOT_MAPPINGS,
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -38,6 +38,7 @@ use dependent_models::{
     UserWorkoutsTemplatesListResponse,
 };
 use either::Either;
+use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
@@ -1640,22 +1641,30 @@ fn get_personal_best(
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<Decimal> {
     match pb_type {
-        WorkoutSetPersonalBest::Weight => value.statistic.weight,
-        WorkoutSetPersonalBest::Time => value.statistic.duration,
         WorkoutSetPersonalBest::Reps => value.statistic.reps,
-        WorkoutSetPersonalBest::OneRm => calculate_one_rm(value),
-        WorkoutSetPersonalBest::Volume => calculate_volume(value),
         WorkoutSetPersonalBest::Pace => calculate_pace(value),
+        WorkoutSetPersonalBest::OneRm => calculate_one_rm(value),
+        WorkoutSetPersonalBest::Time => value.statistic.duration,
+        WorkoutSetPersonalBest::Weight => value.statistic.weight,
+        WorkoutSetPersonalBest::Volume => calculate_volume(value),
+        WorkoutSetPersonalBest::Distance => value.statistic.distance,
     }
 }
 
 /// Set the invalid statistics to `None` according to the type of exercise.
 fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
-    let mut stats = WorkoutSetStatistic {
-        ..Default::default()
-    };
+    let mut stats = WorkoutSetStatistic::default();
     match exercise_lot {
-        ExerciseLot::Duration => stats.duration = value.statistic.duration,
+        ExerciseLot::Reps => {
+            stats.reps = value.statistic.reps;
+        }
+        ExerciseLot::Duration => {
+            stats.duration = value.statistic.duration;
+        }
+        ExerciseLot::RepsAndDuration => {
+            stats.reps = value.statistic.reps;
+            stats.duration = value.statistic.duration;
+        }
         ExerciseLot::DistanceAndDuration => {
             stats.distance = value.statistic.distance;
             stats.duration = value.statistic.duration;
@@ -1664,8 +1673,10 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
             stats.reps = value.statistic.reps;
             stats.weight = value.statistic.weight;
         }
-        ExerciseLot::Reps => {
+        ExerciseLot::RepsAndDurationAndDistance => {
             stats.reps = value.statistic.reps;
+            stats.duration = value.statistic.duration;
+            stats.distance = value.statistic.distance;
         }
     }
     value.statistic = stats;
@@ -1906,11 +1917,7 @@ pub async fn create_or_update_user_workout(
             .clone()
             .unwrap_or_default()
             .personal_bests;
-        let types_of_prs = EXERCISE_LOT_MAPPINGS
-            .iter()
-            .find(|lm| lm.0 == db_ex.lot)
-            .map(|lm| lm.1)
-            .unwrap();
+        let types_of_prs = db_ex.lot.meta();
         for best_type in types_of_prs.iter() {
             let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();
             let possible_record = personal_bests

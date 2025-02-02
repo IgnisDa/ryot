@@ -91,6 +91,7 @@ pub enum DefaultCollection {
 
 meta! {
     DefaultCollection, (Option<Vec<CollectionExtraInformation>>, &'static str);
+
     Watchlist, (None, "Things I want to watch in the future.");
     InProgress, (None, "Media items that I am currently watching.");
     Completed, (None, "Media items that I have completed.");
@@ -109,15 +110,15 @@ meta! {
     Reminders, (Some(
         vec![
             CollectionExtraInformation {
-                name: "Reminder".to_string(),
                 required: Some(true),
+                name: "Reminder".to_string(),
                 lot: CollectionExtraInformationLot::Date,
                 description: "When do you want to be reminded?".to_string(),
                 ..Default::default()
             },
             CollectionExtraInformation {
-                name: "Text".to_string(),
                 required: Some(true),
+                name: "Text".to_string(),
                 lot: CollectionExtraInformationLot::String,
                 description: "What do you want to be reminded about?".to_string(),
                 ..Default::default()

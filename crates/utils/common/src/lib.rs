@@ -1,7 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enum_models::{ExerciseLot, MediaLot, MediaSource, WorkoutSetPersonalBest};
+use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
@@ -34,52 +34,6 @@ pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
-pub const EXERCISE_LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
-    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
-    (
-        ExerciseLot::DistanceAndDuration,
-        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
-    ),
-    (
-        ExerciseLot::RepsAndWeight,
-        &[
-            WorkoutSetPersonalBest::Weight,
-            WorkoutSetPersonalBest::OneRm,
-            WorkoutSetPersonalBest::Volume,
-            WorkoutSetPersonalBest::Reps,
-        ],
-    ),
-    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
-];
-pub const METADATA_LOT_MAPPINGS: &[(MediaLot, &[MediaSource])] = &[
-    (MediaLot::AudioBook, &[MediaSource::Audible]),
-    (
-        MediaLot::Book,
-        &[
-            MediaSource::Openlibrary,
-            MediaSource::GoogleBooks,
-            MediaSource::Hardcover,
-        ],
-    ),
-    (
-        MediaLot::Podcast,
-        &[MediaSource::Itunes, MediaSource::Listennotes],
-    ),
-    (MediaLot::VideoGame, &[MediaSource::Igdb]),
-    (MediaLot::Anime, &[MediaSource::Anilist, MediaSource::Mal]),
-    (
-        MediaLot::Manga,
-        &[
-            MediaSource::Anilist,
-            MediaSource::MangaUpdates,
-            MediaSource::Mal,
-        ],
-    ),
-    (MediaLot::Movie, &[MediaSource::Tmdb]),
-    (MediaLot::Music, &[MediaSource::YoutubeMusic]),
-    (MediaLot::Show, &[MediaSource::Tmdb]),
-    (MediaLot::VisualNovel, &[MediaSource::Vndb]),
-];
 
 pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Tmdb,
@@ -91,13 +45,6 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Igdb,
     MediaSource::YoutubeMusic,
     MediaSource::Hardcover,
-];
-
-pub const METADATA_GROUP_SOURCE_LOT_MAPPINGS: &[(MediaSource, MediaLot)] = &[
-    (MediaSource::Tmdb, MediaLot::Movie),
-    (MediaSource::Igdb, MediaLot::VideoGame),
-    (MediaSource::Hardcover, MediaLot::Book),
-    (MediaSource::YoutubeMusic, MediaLot::Music),
 ];
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {

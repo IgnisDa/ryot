@@ -1781,6 +1781,7 @@ dependencies = [
  "dependent-models",
  "either",
  "enum-models",
+ "enum_meta",
  "file-storage-service",
  "fitness-models",
  "importer-models",
@@ -2146,6 +2147,7 @@ name = "enum-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "enum_meta",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
@@ -6351,6 +6353,7 @@ dependencies = [
  "config",
  "dependent-models",
  "enum-models",
+ "enum_meta",
  "env-utils",
  "file-storage-service",
  "isolang",

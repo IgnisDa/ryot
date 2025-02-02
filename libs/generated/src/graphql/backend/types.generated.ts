@@ -613,6 +613,8 @@ export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
   Reps = 'REPS',
+  RepsAndDuration = 'REPS_AND_DURATION',
+  RepsAndDurationAndDistance = 'REPS_AND_DURATION_AND_DISTANCE',
   RepsAndWeight = 'REPS_AND_WEIGHT'
 }
 
@@ -3127,6 +3129,7 @@ export type WorkoutOrExerciseTotals = {
 
 /** The different types of personal bests that can be achieved on a set. */
 export enum WorkoutSetPersonalBest {
+  Distance = 'DISTANCE',
   OneRm = 'ONE_RM',
   Pace = 'PACE',
   Reps = 'REPS',

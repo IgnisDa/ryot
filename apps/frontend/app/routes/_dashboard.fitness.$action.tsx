@@ -1461,10 +1461,17 @@ const ExerciseDisplay = (props: {
 
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
-		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
+		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
-		.with(ExerciseLot.Reps, () => [false, false, false, true])
+		.with(ExerciseLot.RepsAndDuration, () => [true, false, false, true])
+		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
+		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
+			true,
+			true,
+			false,
+			true,
+		])
 		.exhaustive();
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
@@ -2289,23 +2296,36 @@ const SetDisplay = (props: {
 										variant={set.confirmedAt ? "filled" : "outline"}
 										disabled={
 											!match(exercise.lot)
+												.with(ExerciseLot.Reps, () =>
+													isString(set.statistic.reps),
+												)
+												.with(ExerciseLot.Duration, () =>
+													isString(set.statistic.duration),
+												)
+												.with(
+													ExerciseLot.RepsAndDuration,
+													() =>
+														isString(set.statistic.reps) &&
+														isString(set.statistic.duration),
+												)
 												.with(
 													ExerciseLot.DistanceAndDuration,
 													() =>
 														isString(set.statistic.distance) &&
 														isString(set.statistic.duration),
 												)
-												.with(ExerciseLot.Duration, () =>
-													isString(set.statistic.duration),
-												)
-												.with(ExerciseLot.Reps, () =>
-													isString(set.statistic.reps),
-												)
 												.with(
 													ExerciseLot.RepsAndWeight,
 													() =>
 														isString(set.statistic.reps) &&
 														isString(set.statistic.weight),
+												)
+												.with(
+													ExerciseLot.RepsAndDurationAndDistance,
+													() =>
+														isString(set.statistic.reps) &&
+														isString(set.statistic.duration) &&
+														isString(set.statistic.distance),
 												)
 												.exhaustive()
 										}

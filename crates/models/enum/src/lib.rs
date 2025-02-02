@@ -1,4 +1,5 @@
 use async_graphql::Enum;
+use enum_meta::{meta, Meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
@@ -23,8 +24,8 @@ use strum::Display;
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MediaLot {
@@ -41,26 +42,55 @@ pub enum MediaLot {
     VisualNovel,
 }
 
+meta! {
+    MediaLot, Vec<MediaSource>;
+
+    AudioBook, vec![MediaSource::Audible];
+    Book, vec![
+        MediaSource::Openlibrary,
+        MediaSource::GoogleBooks,
+        MediaSource::Hardcover,
+    ];
+    Podcast, vec![
+        MediaSource::Itunes,
+        MediaSource::Listennotes,
+    ];
+    VideoGame, vec![MediaSource::Igdb];
+    Anime, vec![
+        MediaSource::Anilist,
+        MediaSource::Mal,
+    ];
+    Manga, vec![
+        MediaSource::Anilist,
+        MediaSource::MangaUpdates,
+        MediaSource::Mal,
+    ];
+    Movie, vec![MediaSource::Tmdb];
+    Music, vec![MediaSource::YoutubeMusic];
+    Show, vec![MediaSource::Tmdb];
+    VisualNovel, vec![MediaSource::Vndb];
+}
+
 /// The different sources (or providers) from which data can be obtained from.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
     Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
+    Copy,
     Enum,
-    Default,
     Hash,
+    Clone,
+    Debug,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MediaSource {
@@ -81,13 +111,32 @@ pub enum MediaSource {
     YoutubeMusic,
 }
 
+meta! {
+    MediaSource, Option<MediaLot>;
+
+    Mal, None;
+    Vndb, None;
+    Custom, None;
+    Itunes, None;
+    Anilist, None;
+    Audible, None;
+    Listennotes, None;
+    GoogleBooks, None;
+    Openlibrary, None;
+    MangaUpdates, None;
+    Tmdb, Some(MediaLot::Movie);
+    Igdb, Some(MediaLot::VideoGame);
+    Hardcover, Some(MediaLot::Book);
+    YoutubeMusic, Some(MediaLot::Music);
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum UserLot {
     Admin,
@@ -99,8 +148,8 @@ pub enum UserLot {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum UserNotificationLot {
     Queued,
@@ -108,38 +157,38 @@ pub enum UserNotificationLot {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
     Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Display,
-    Default,
-    PartialOrd,
     Ord,
     Hash,
+    Copy,
+    Enum,
+    Debug,
+    Clone,
+    Display,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    PartialOrd,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum EntityLot {
     #[default]
     Metadata,
     Person,
-    MetadataGroup,
+    Review,
+    Workout,
     Exercise,
     Collection,
-    Workout,
+    MetadataGroup,
     WorkoutTemplate,
-    Review,
     UserMeasurement,
 }
 
@@ -159,14 +208,14 @@ pub enum EntityLot {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum SeenState {
-    Completed,
     Dropped,
-    InProgress,
     OnAHold,
+    Completed,
+    InProgress,
 }
 
 #[derive(
@@ -185,8 +234,8 @@ pub enum SeenState {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum Visibility {
     #[default]
@@ -209,8 +258,8 @@ pub enum Visibility {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum ImportSource {
     Igdb,
@@ -232,70 +281,70 @@ pub enum ImportSource {
 }
 
 #[derive(
+    Eq,
+    Copy,
+    Enum,
+    Hash,
     Debug,
     Clone,
+    Default,
+    EnumIter,
+    PartialEq,
     Serialize,
-    Enum,
-    Copy,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
-    EnumIter,
-    Eq,
-    PartialEq,
-    Default,
-    ConfigEnum,
-    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMuscle {
-    #[default]
-    Abdominals,
-    Abductors,
-    Adductors,
+    Lats,
+    Neck,
+    Traps,
+    Chest,
     Biceps,
     Calves,
-    Chest,
-    Forearms,
     Glutes,
-    Hamstrings,
-    Lats,
+    Triceps,
+    Forearms,
+    Abductors,
+    Adductors,
     #[strum(serialize = "lower_back")]
     #[serde(alias = "lower back")]
     LowerBack,
+    Shoulders,
+    #[default]
+    Abdominals,
+    Hamstrings,
     #[strum(serialize = "middle_back")]
     #[serde(alias = "middle back")]
     MiddleBack,
-    Neck,
     Quadriceps,
-    Shoulders,
-    Traps,
-    Triceps,
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Enum,
+    Eq,
     Copy,
+    Enum,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
-    EnumIter,
-    Eq,
-    PartialEq,
-    Default,
-    ConfigEnum,
-    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseForce {
@@ -306,24 +355,24 @@ pub enum ExerciseForce {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Serialize,
+    Eq,
     Enum,
     Copy,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
-    EnumIter,
-    Eq,
-    PartialEq,
-    Default,
-    ConfigEnum,
-    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseLevel {
@@ -348,8 +397,8 @@ pub enum ExerciseLevel {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMechanic {
@@ -358,75 +407,105 @@ pub enum ExerciseMechanic {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Serialize,
+    Eq,
+    Hash,
     Enum,
     Copy,
+    Debug,
+    Clone,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
     Deserialize,
     DeriveActiveEnum,
-    EnumIter,
-    Eq,
-    PartialEq,
-    Default,
-    ConfigEnum,
-    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseEquipment {
     Bands,
+    Cable,
+    Other,
     #[default]
     Barbell,
+    Machine,
     BodyOnly,
-    Cable,
     Dumbbell,
-    #[serde(alias = "exercise ball")]
-    ExerciseBall,
-    #[serde(alias = "e-z curl bar")]
-    EZCurlBar,
     #[serde(alias = "foam roll")]
     FoamRoll,
+    #[serde(alias = "e-z curl bar")]
+    EZCurlBar,
     #[serde(alias = "body only")]
     Kettlebells,
-    Machine,
+    #[serde(alias = "exercise ball")]
+    ExerciseBall,
     #[serde(alias = "medicine ball")]
     MedicineBall,
-    Other,
 }
 
 /// The different types of exercises that can be done.
 #[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    DeriveActiveEnum,
     Eq,
-    PartialEq,
     Enum,
     Copy,
-    EnumIter,
-    ConfigEnum,
-    Default,
     Hash,
+    Clone,
+    Debug,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
+    Deserialize,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseLot {
-    Duration,
-    DistanceAndDuration,
     Reps,
+    Duration,
     #[default]
     RepsAndWeight,
+    RepsAndDuration,
+    DistanceAndDuration,
+    RepsAndDurationAndDistance,
+}
+
+meta! {
+    ExerciseLot, Vec<WorkoutSetPersonalBest>;
+
+    Reps, vec![WorkoutSetPersonalBest::Reps];
+    Duration, vec![WorkoutSetPersonalBest::Time];
+    RepsAndDuration, vec![
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::Time
+    ];
+    DistanceAndDuration, vec![
+        WorkoutSetPersonalBest::Pace,
+        WorkoutSetPersonalBest::Time,
+        WorkoutSetPersonalBest::Distance,
+    ];
+    RepsAndDurationAndDistance, vec![
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::Pace,
+        WorkoutSetPersonalBest::Time,
+        WorkoutSetPersonalBest::Distance,
+    ];
+    RepsAndWeight, vec![
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::OneRm,
+        WorkoutSetPersonalBest::Weight,
+        WorkoutSetPersonalBest::Volume,
+    ];
 }
 
 #[derive(
@@ -445,8 +524,8 @@ pub enum ExerciseLot {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum ExerciseSource {
     Github,
@@ -470,76 +549,77 @@ pub enum ExerciseSource {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum WorkoutSetPersonalBest {
-    #[default]
-    Weight,
-    OneRm,
-    Volume,
     Time,
     Pace,
     Reps,
+    OneRm,
+    Volume,
+    #[default]
+    Weight,
+    Distance,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 pub enum MetadataToMetadataRelation {
     Suggestion,
 }
 
 #[derive(
+    Eq,
+    Enum,
     Copy,
+    Hash,
     Clone,
     Debug,
-    Enum,
-    PartialEq,
-    Eq,
-    DeriveActiveEnum,
+    Display,
     EnumIter,
     Serialize,
+    PartialEq,
     Deserialize,
-    Hash,
-    Display,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum UserToMediaReason {
     // There is at-least one element in the seen history
     Seen,
+    Owned,
     // User has watched this media completely (mostly applies to shows, podcasts etc.)
     Finished,
     Reviewed,
-    Collection,
     Reminder,
-    Owned,
-    Monitoring,
     Watchlist,
+    Collection,
+    Monitoring,
 }
 
 #[derive(
+    Eq,
+    Enum,
     Copy,
+    Hash,
     Clone,
     Debug,
-    Enum,
-    PartialEq,
-    Eq,
-    DeriveActiveEnum,
+    Display,
     EnumIter,
     Serialize,
+    PartialEq,
     Deserialize,
-    Hash,
-    Display,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationLot {
@@ -549,23 +629,23 @@ pub enum IntegrationLot {
 }
 
 #[derive(
+    Eq,
     Copy,
+    Hash,
+    Enum,
     Clone,
     Debug,
-    Enum,
-    PartialEq,
-    Eq,
-    DeriveActiveEnum,
+    Display,
     EnumIter,
     Serialize,
+    PartialEq,
     Deserialize,
-    Hash,
-    Display,
+    DeriveActiveEnum,
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationProvider {
@@ -598,18 +678,18 @@ pub enum IntegrationProvider {
 )]
 #[sea_orm(
     rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
 )]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPlatformLot {
+    Ntfy,
+    Email,
+    Gotify,
     Apprise,
     Discord,
-    Gotify,
-    Ntfy,
-    PushBullet,
     PushOver,
-    PushSafer,
-    Email,
     Telegram,
+    PushSafer,
+    PushBullet,
 }
