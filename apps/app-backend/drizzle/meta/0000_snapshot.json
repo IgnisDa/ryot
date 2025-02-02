@@ -1,5 +1,5 @@
 {
-	"id": "7ac195e4-8adb-43f4-9e8d-333af5f868a6",
+	"id": "07ea121a-435f-4bd8-a555-e4bb88b0d236",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1081,18 +1081,6 @@
 			"name": "facet",
 			"schema": "",
 			"columns": {
-				"icon": {
-					"name": "icon",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"accent_color": {
-					"name": "accent_color",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"description": {
 					"name": "description",
 					"type": "text",
@@ -1107,6 +1095,18 @@
 				},
 				"name": {
 					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"icon": {
+					"name": "icon",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"accent_color": {
+					"name": "accent_color",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
