@@ -336,50 +336,46 @@ export default function Page() {
 								<FiltersModalForm />
 							</FiltersModal>
 						</Group>
-						{loaderData.mediaList.list.response.details.total > 0 ? (
-							<>
-								<DisplayListDetailsAndRefresh
-									cacheId={loaderData.mediaList.list.cacheId}
-									total={loaderData.mediaList.list.response.details.total}
-								/>
-								{(loaderData.mediaList?.url.startDateRange ||
-									loaderData.mediaList?.url.endDateRange) &&
-								!coreDetails.isServerKeyValidated ? (
-									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
-								) : (
-									<ApplicationGrid>
-										{loaderData.mediaList.list.response.items.map((item) => {
-											const becItem = {
-												entityId: item,
-												entityLot: EntityLot.Metadata,
-											};
-											const isAdded = bulkEditingCollection.isAdded(becItem);
-											return (
-												<MetadataDisplayItem
-													key={item}
-													metadataId={item}
-													rightLabelHistory
-													topRight={
-														bulkEditingState &&
-														bulkEditingState.data.action === "add" ? (
-															<ActionIcon
-																variant={isAdded ? "filled" : "transparent"}
-																color="green"
-																onClick={() => {
-																	if (isAdded) bulkEditingState.remove(becItem);
-																	else bulkEditingState.add(becItem);
-																}}
-															>
-																<IconCheck size={18} />
-															</ActionIcon>
-														) : undefined
-													}
-												/>
-											);
-										})}
-									</ApplicationGrid>
-								)}
-							</>
+						<DisplayListDetailsAndRefresh
+							cacheId={loaderData.mediaList.list.cacheId}
+							total={loaderData.mediaList.list.response.details.total}
+						/>
+						{(loaderData.mediaList?.url.startDateRange ||
+							loaderData.mediaList?.url.endDateRange) &&
+						!coreDetails.isServerKeyValidated ? (
+							<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
+						) : loaderData.mediaList.list.response.details.total > 0 ? (
+							<ApplicationGrid>
+								{loaderData.mediaList.list.response.items.map((item) => {
+									const becItem = {
+										entityId: item,
+										entityLot: EntityLot.Metadata,
+									};
+									const isAdded = bulkEditingCollection.isAdded(becItem);
+									return (
+										<MetadataDisplayItem
+											key={item}
+											metadataId={item}
+											rightLabelHistory
+											topRight={
+												bulkEditingState &&
+												bulkEditingState.data.action === "add" ? (
+													<ActionIcon
+														variant={isAdded ? "filled" : "transparent"}
+														color="green"
+														onClick={() => {
+															if (isAdded) bulkEditingState.remove(becItem);
+															else bulkEditingState.add(becItem);
+														}}
+													>
+														<IconCheck size={18} />
+													</ActionIcon>
+												) : undefined
+											}
+										/>
+									);
+								})}
+							</ApplicationGrid>
 						) : (
 							<Text>You do not have any saved yet</Text>
 						)}
