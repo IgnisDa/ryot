@@ -233,13 +233,13 @@ export interface WorkoutDuration {
 }
 
 /** The different types of exercises that can be done. */
-export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration';
+export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance';
 
 /** The types of set (mostly characterized by exertion level). */
 export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
 
 /** The different types of personal bests that can be achieved on a set. */
-export type WorkoutSetPersonalBest = 'time' | 'pace' | 'reps' | 'one_rm' | 'volume' | 'weight';
+export type WorkoutSetPersonalBest = 'time' | 'pace' | 'reps' | 'one_rm' | 'volume' | 'weight' | 'distance';
 
 /** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
@@ -291,7 +291,7 @@ export interface ProcessedExercise {
 	id: string;
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance'}
 	 */
 	lot: ExerciseLot;
 	notes: string[];
@@ -361,7 +361,7 @@ export interface WorkoutLotFocusedSummary {
 	exercises: number[];
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance'}
 	 */
 	lot: ExerciseLot;
 }

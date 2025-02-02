@@ -1641,12 +1641,13 @@ fn get_personal_best(
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<Decimal> {
     match pb_type {
-        WorkoutSetPersonalBest::Weight => value.statistic.weight,
-        WorkoutSetPersonalBest::Time => value.statistic.duration,
         WorkoutSetPersonalBest::Reps => value.statistic.reps,
-        WorkoutSetPersonalBest::OneRm => calculate_one_rm(value),
-        WorkoutSetPersonalBest::Volume => calculate_volume(value),
         WorkoutSetPersonalBest::Pace => calculate_pace(value),
+        WorkoutSetPersonalBest::OneRm => calculate_one_rm(value),
+        WorkoutSetPersonalBest::Time => value.statistic.duration,
+        WorkoutSetPersonalBest::Weight => value.statistic.weight,
+        WorkoutSetPersonalBest::Volume => calculate_volume(value),
+        WorkoutSetPersonalBest::Distance => value.statistic.distance,
     }
 }
 
@@ -1671,6 +1672,11 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
         ExerciseLot::RepsAndWeight => {
             stats.reps = value.statistic.reps;
             stats.weight = value.statistic.weight;
+        }
+        ExerciseLot::RepsAndDurationAndDistance => {
+            stats.reps = value.statistic.reps;
+            stats.duration = value.statistic.duration;
+            stats.distance = value.statistic.distance;
         }
     }
     value.statistic = stats;

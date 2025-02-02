@@ -429,17 +429,34 @@ pub enum ExerciseLot {
     RepsAndWeight,
     RepsAndDuration,
     DistanceAndDuration,
+    RepsAndDurationAndDistance,
 }
 
 meta! {
     ExerciseLot, Vec<WorkoutSetPersonalBest>;
+
     Reps, vec![WorkoutSetPersonalBest::Reps];
     Duration, vec![WorkoutSetPersonalBest::Time];
-    RepsAndDuration, vec![WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Time];
-    DistanceAndDuration, vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time];
+    RepsAndDuration, vec![
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::Time
+    ];
+    DistanceAndDuration, vec![
+        WorkoutSetPersonalBest::Pace,
+        WorkoutSetPersonalBest::Time,
+        WorkoutSetPersonalBest::Distance,
+    ];
+    RepsAndDurationAndDistance, vec![
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::Pace,
+        WorkoutSetPersonalBest::Time,
+        WorkoutSetPersonalBest::Distance,
+    ];
     RepsAndWeight, vec![
-        WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Weight,
-        WorkoutSetPersonalBest::OneRm, WorkoutSetPersonalBest::Volume,
+        WorkoutSetPersonalBest::Reps,
+        WorkoutSetPersonalBest::OneRm,
+        WorkoutSetPersonalBest::Weight,
+        WorkoutSetPersonalBest::Volume,
     ];
 }
 
@@ -491,6 +508,7 @@ pub enum WorkoutSetPersonalBest {
     Volume,
     #[default]
     Weight,
+    Distance,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
