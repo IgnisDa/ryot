@@ -35,9 +35,12 @@ pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("appl
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
 pub const EXERCISE_LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
-    (ExerciseLot::RepsAndDuration, &[]),
     (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
     (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
+    (
+        ExerciseLot::RepsAndDuration,
+        &[WorkoutSetPersonalBest::Reps, WorkoutSetPersonalBest::Time],
+    ),
     (
         ExerciseLot::DistanceAndDuration,
         &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
