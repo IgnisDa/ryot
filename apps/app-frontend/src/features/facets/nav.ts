@@ -11,12 +11,12 @@ export type TrackingNavItemSubItem = {
 };
 
 export type TrackingNavItem = {
+	icon: string;
 	label: string;
 	facetId: string;
 	enabled: boolean;
 	facetSlug: string;
 	isBuiltin: boolean;
-	icon?: string | null;
 	savedViews?: TrackingNavItemSubItem[];
 };
 

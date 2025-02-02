@@ -248,7 +248,7 @@ export interface paths {
                                 /** @enum {string} */
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
-                                icon?: string | null;
+                                icon: string;
                                 accentColor?: string | null;
                                 description?: string | null;
                                 sortOrder: number;
@@ -299,7 +299,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
-                        icon?: string;
+                        icon: string;
                         description?: string;
                         accentColor?: string;
                     };
@@ -322,7 +322,7 @@ export interface paths {
                                 /** @enum {string} */
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
-                                icon?: string | null;
+                                icon: string;
                                 accentColor?: string | null;
                                 description?: string | null;
                                 sortOrder: number;
@@ -386,10 +386,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        icon?: string | unknown;
                         enabled?: boolean;
                         description?: string | unknown;
                         accentColor?: string | unknown;
+                        icon?: string;
                         name?: string;
                         slug?: string;
                     };
@@ -412,7 +412,7 @@ export interface paths {
                                 /** @enum {string} */
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
-                                icon?: string | null;
+                                icon: string;
                                 accentColor?: string | null;
                                 description?: string | null;
                                 sortOrder: number;
