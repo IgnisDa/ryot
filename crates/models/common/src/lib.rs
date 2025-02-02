@@ -91,6 +91,7 @@ pub enum DefaultCollection {
 
 meta! {
     DefaultCollection, (Option<Vec<CollectionExtraInformation>>, &'static str);
+
     Watchlist, (None, "Things I want to watch in the future.");
     InProgress, (None, "Media items that I am currently watching.");
     Completed, (None, "Media items that I have completed.");
