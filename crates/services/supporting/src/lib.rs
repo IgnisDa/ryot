@@ -7,8 +7,7 @@ use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
 use common_utils::{
-    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, METADATA_GROUP_SOURCE_LOT_MAPPINGS,
-    PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
+    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -151,17 +150,17 @@ impl SupportingService {
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
             is_server_key_validated: self.get_is_server_key_validated().await,
-            metadata_group_source_lot_mappings: METADATA_GROUP_SOURCE_LOT_MAPPINGS
-                .iter()
-                .map(|(source, lot)| MetadataGroupSourceLotMapping {
-                    lot: *lot,
-                    source: *source,
-                })
-                .collect(),
             metadata_lot_source_mappings: MediaLot::iter()
                 .map(|lot| MetadataLotSourceMappings {
                     lot,
                     sources: lot.meta(),
+                })
+                .collect(),
+            metadata_group_source_lot_mappings: MediaSource::iter()
+                .flat_map(|source| {
+                    source
+                        .meta()
+                        .map(|lot| MetadataGroupSourceLotMapping { source, lot })
                 })
                 .collect(),
             exercise_parameters: ExerciseParameters {
@@ -169,9 +168,9 @@ impl SupportingService {
                     lot: ExerciseLot::iter().collect_vec(),
                     level: ExerciseLevel::iter().collect_vec(),
                     force: ExerciseForce::iter().collect_vec(),
+                    muscle: ExerciseMuscle::iter().collect_vec(),
                     mechanic: ExerciseMechanic::iter().collect_vec(),
                     equipment: ExerciseEquipment::iter().collect_vec(),
-                    muscle: ExerciseMuscle::iter().collect_vec(),
                 },
                 lot_mapping: ExerciseLot::iter()
                     .map(|lot| ExerciseParametersLotMapping {

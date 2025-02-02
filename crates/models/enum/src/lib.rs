@@ -111,6 +111,25 @@ pub enum MediaSource {
     YoutubeMusic,
 }
 
+meta! {
+    MediaSource, Option<MediaLot>;
+
+    Mal, None;
+    Vndb, None;
+    Custom, None;
+    Itunes, None;
+    Anilist, None;
+    Audible, None;
+    Listennotes, None;
+    GoogleBooks, None;
+    Openlibrary, None;
+    MangaUpdates, None;
+    Tmdb, Some(MediaLot::Movie);
+    Igdb, Some(MediaLot::VideoGame);
+    Hardcover, Some(MediaLot::Book);
+    YoutubeMusic, Some(MediaLot::Music);
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]

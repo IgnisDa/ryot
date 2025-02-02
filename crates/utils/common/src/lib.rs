@@ -1,7 +1,7 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
@@ -45,13 +45,6 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Igdb,
     MediaSource::YoutubeMusic,
     MediaSource::Hardcover,
-];
-
-pub const METADATA_GROUP_SOURCE_LOT_MAPPINGS: &[(MediaSource, MediaLot)] = &[
-    (MediaSource::Tmdb, MediaLot::Movie),
-    (MediaSource::Igdb, MediaLot::VideoGame),
-    (MediaSource::Hardcover, MediaLot::Book),
-    (MediaSource::YoutubeMusic, MediaLot::Music),
 ];
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
