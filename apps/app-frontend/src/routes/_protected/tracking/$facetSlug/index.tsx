@@ -191,7 +191,10 @@ function EntitySchemaCreateModal(props: {
 							</Text>
 						)}
 
-						<entitySchemaForm.AppField name="name">
+						<entitySchemaForm.AppField
+							name="name"
+							listeners={entitySchemaForm.nameFieldListeners}
+						>
 							{(field) => (
 								<field.TextField
 									required

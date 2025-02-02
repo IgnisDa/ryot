@@ -1,5 +1,8 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import { resolveRequiredSlug, resolveRequiredString } from "~/lib/slug";
+import {
+	type AppSchema,
+	resolveRequiredSlug,
+	resolveRequiredString,
+} from "@ryot/ts-utils";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 
 export type EventSchemaPropertiesShape = AppSchema;
