@@ -125,7 +125,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("contactSubmission", async () => {
 			let isSpam = false;
 			try {
-				honeypot.check(formData);
+				await honeypot.check(formData);
 			} catch (e) {
 				if (e instanceof SpamError) isSpam = true;
 			}

@@ -55,7 +55,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const customer = await getCustomerFromCookie(request);
 	return {
 		isLoggedIn: !!customer,
-		honeypotInputProps: honeypot.getInputProps(),
+		honeypotInputProps: await honeypot.getInputProps(),
 	};
 };
 
