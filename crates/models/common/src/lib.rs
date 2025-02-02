@@ -109,15 +109,15 @@ meta! {
     Reminders, (Some(
         vec![
             CollectionExtraInformation {
-                name: "Reminder".to_string(),
                 required: Some(true),
+                name: "Reminder".to_string(),
                 lot: CollectionExtraInformationLot::Date,
                 description: "When do you want to be reminded?".to_string(),
                 ..Default::default()
             },
             CollectionExtraInformation {
-                name: "Text".to_string(),
                 required: Some(true),
+                name: "Text".to_string(),
                 lot: CollectionExtraInformationLot::String,
                 description: "What do you want to be reminded about?".to_string(),
                 ..Default::default()
