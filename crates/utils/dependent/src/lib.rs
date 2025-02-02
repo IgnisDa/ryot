@@ -1651,11 +1651,18 @@ fn get_personal_best(
 
 /// Set the invalid statistics to `None` according to the type of exercise.
 fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
-    let mut stats = WorkoutSetStatistic {
-        ..Default::default()
-    };
+    let mut stats = WorkoutSetStatistic::default();
     match exercise_lot {
-        ExerciseLot::Duration => stats.duration = value.statistic.duration,
+        ExerciseLot::Reps => {
+            stats.reps = value.statistic.reps;
+        }
+        ExerciseLot::Duration => {
+            stats.duration = value.statistic.duration;
+        }
+        ExerciseLot::RepsAndDuration => {
+            stats.reps = value.statistic.reps;
+            stats.duration = value.statistic.duration;
+        }
         ExerciseLot::DistanceAndDuration => {
             stats.distance = value.statistic.distance;
             stats.duration = value.statistic.duration;
@@ -1663,9 +1670,6 @@ fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot) {
         ExerciseLot::RepsAndWeight => {
             stats.reps = value.statistic.reps;
             stats.weight = value.statistic.weight;
-        }
-        ExerciseLot::Reps => {
-            stats.reps = value.statistic.reps;
         }
     }
     value.statistic = stats;

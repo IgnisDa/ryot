@@ -233,7 +233,7 @@ export interface WorkoutDuration {
 }
 
 /** The different types of exercises that can be done. */
-export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration';
+export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration';
 
 /** The types of set (mostly characterized by exertion level). */
 export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
@@ -291,7 +291,7 @@ export interface ProcessedExercise {
 	id: string;
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration'}
 	 */
 	lot: ExerciseLot;
 	notes: string[];
@@ -361,7 +361,7 @@ export interface WorkoutLotFocusedSummary {
 	exercises: number[];
 	/**
 	 * @default 'reps_and_weight'
-	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'distance_and_duration'}
+	 * @type {'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration'}
 	 */
 	lot: ExerciseLot;
 }

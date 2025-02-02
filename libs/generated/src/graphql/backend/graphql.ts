@@ -623,6 +623,7 @@ export enum ExerciseLot {
   DistanceAndDuration = 'DISTANCE_AND_DURATION',
   Duration = 'DURATION',
   Reps = 'REPS',
+  RepsAndDuration = 'REPS_AND_DURATION',
   RepsAndWeight = 'REPS_AND_WEIGHT'
 }
 

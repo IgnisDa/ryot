@@ -426,6 +426,7 @@ pub enum ExerciseLot {
     Duration,
     #[default]
     RepsAndWeight,
+    RepsAndDuration,
     DistanceAndDuration,
 }
 
