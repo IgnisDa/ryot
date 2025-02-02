@@ -9,11 +9,11 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import { useCallback, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import { EntityEventsSection } from "#/features/events/section";
+import { GeneratedPropertyField } from "#/features/generated-property-fields";
 import type { CreateEntityPayload } from "./form";
 import { useEntitiesQuery, useEntityMutations } from "./hooks";
 import { getEntityListViewState } from "./model";
@@ -72,72 +72,6 @@ function EntityList(props: {
 		</Stack>
 	);
 }
-
-function renderFormField(
-	props: {
-		name: string;
-		isLoading: boolean;
-		propertyKey: string;
-		propertyDef: AppPropertyDefinition;
-	},
-	entityForm: ReturnType<typeof useCreateEntityForm>,
-) {
-	const fieldName = `properties.${props.propertyKey}` as const;
-
-	return (
-		<entityForm.AppField name={fieldName} key={props.propertyKey}>
-			{(field) => {
-				const label = props.propertyKey;
-				const required = !!props.propertyDef.required;
-
-				switch (props.propertyDef.type) {
-					case "string":
-						return (
-							<field.TextField
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-								placeholder={`Enter ${props.propertyKey}`}
-							/>
-						);
-					case "date":
-						return (
-							<field.TextField
-								type="date"
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-							/>
-						);
-					case "number":
-					case "integer":
-						return (
-							<field.NumberField
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-								placeholder={`Enter ${props.propertyKey}`}
-							/>
-						);
-					case "boolean":
-						return (
-							<field.CheckboxField label={label} disabled={props.isLoading} />
-						);
-					default:
-						return (
-							<field.TextField
-								label={label}
-								required={required}
-								disabled={props.isLoading}
-								placeholder={`Enter ${props.propertyKey}`}
-							/>
-						);
-				}
-			}}
-		</entityForm.AppField>
-	);
-}
-
 function CreateEntityModal(props: {
 	opened: boolean;
 	isLoading: boolean;
@@ -154,17 +88,16 @@ function CreateEntityModal(props: {
 
 	const propertyFields = Object.entries(
 		props.entitySchema.propertiesSchema,
-	).map(([propertyKey, propertyDef]) =>
-		renderFormField(
-			{
-				propertyKey,
-				propertyDef,
-				isLoading: props.isLoading,
-				name: props.entitySchema.name,
-			},
-			entityForm,
-		),
-	);
+	).map(([propertyKey, propertyDef]) => (
+		<GeneratedPropertyField
+			form={entityForm}
+			key={propertyKey}
+			propertyKey={propertyKey}
+			propertyDef={propertyDef}
+			disabled={props.isLoading}
+			options={{ fallback: "text" }}
+		/>
+	));
 
 	return (
 		<Modal
