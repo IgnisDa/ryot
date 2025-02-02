@@ -29,27 +29,23 @@ The rewrite introduces a **schema-driven entity system** where entity types, the
 
 These are non-negotiable. Every feature, design decision, and technical choice should be evaluated against these principles.
 
-### 1. Your data, your server, your rules
-
-Ryot is self-hosted first. Users run it on their own hardware and own their data completely. A hosted cloud option exists for convenience, but the self-hosted experience is never degraded to push people toward the cloud. Core functionality works in both deployment models; optional Pro capabilities can be license-gated on self-hosted and are fully available on cloud plans.
-
-### 2. Everything is an entity
+### 1. Everything is an entity
 
 This is the foundational data model decision. There are no special-case tables for movies, books, whiskeys, or exercises. There is one `entity` table. An entity belongs to an `entity_schema` that defines its shape. Events happen to entities. Entities relate to other entities. This uniformity is what makes cross-facet features (collections, saved views, the query builder, global search) possible without special-casing each entity type.
 
-### 3. Curated where it matters, generated where it doesn't
+### 2. Curated where it matters, generated where it doesn't
 
 Media tracking has specific UX expectations — poster grids, season/episode hierarchies, external metadata from TMDB. Fitness has its own patterns — workout session builders, progressive overload charts, rest timers. These deserve hand-crafted interfaces that feel as good as purpose-built vertical apps. User-created entity types get a schema-driven generated UI that is functional and clean but not hand-crafted. Users who create a "whiskey" tracker understand they're building something custom — their expectations are calibrated accordingly.
 
-### 4. Facets are the organizing principle
+### 3. Facets are the organizing principle
 
 A facet is a tracking domain — Media, Fitness, Whiskey, Places. Each facet owns one or more entity schemas, their event schemas, and their UI presentation. Facets can be enabled or disabled. The app adapts dynamically — a user tracking only whiskeys sees a focused single-purpose experience; a power user tracking ten things sees a rich dashboard. Media and Fitness are built-in facets that ship with the app. They are structurally identical to user-created facets — they just have hand-crafted UIs and pre-configured external data sources. No facet is assumed to exist. The sidebar, dashboard, quick actions, and every other surface are driven entirely by which facets are active.
 
-### 5. The unified data layer is sacred
+### 4. The unified data layer is sacred
 
 Facets are a UI/presentation concept. Underneath, the data model is unified. A collection doesn't care whether it contains movies, whiskeys, or places — they're all entities. The query builder doesn't care which facet an entity belongs to — it queries the same tables. Global search spans everything. This unified layer is what makes Ryot more than the sum of its parts. Never break this by introducing facet-specific data models that can't participate in cross-facet features.
 
-### 6. Privacy is a feature, not a constraint
+### 5. Privacy is a feature, not a constraint
 
 The target audience — self-hosting enthusiasts, quantified-self advocates, privacy-conscious users — chose Ryot specifically because they don't want their personal data in someone else's database. Every architectural decision should respect this. No external service calls without user awareness. No data leaves the instance unless the user explicitly configures an integration. If a social/community layer is added later, it must be strictly opt-in with granular sharing controls.
 
