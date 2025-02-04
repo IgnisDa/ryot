@@ -239,6 +239,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
         (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
         return Err(ImportFailedItem {
+            identifier: format!("{:#?}", i),
             step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item is neither a movie or a show".to_owned()),
             ..Default::default()
@@ -253,6 +254,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
             ..Default::default()
         }),
         None => Err(ImportFailedItem {
+            identifier: format!("{:#?}", i),
             step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Item does not have an associated TMDB id".to_owned()),
             ..Default::default()
