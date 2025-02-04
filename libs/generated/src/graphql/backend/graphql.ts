@@ -317,6 +317,7 @@ export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
+  isHidden?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2801,7 +2802,12 @@ export enum UserTemplatesOrWorkoutsListSortBy {
   Time = 'TIME'
 }
 
+export type UserToCollectionExtraInformation = {
+  isHidden?: Maybe<Scalars['Boolean']['output']>;
+};
+
 export type UserToEntity = {
+  collectionExtraInformation?: Maybe<UserToCollectionExtraInformation>;
   collectionId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;

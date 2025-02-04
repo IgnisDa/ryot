@@ -345,3 +345,10 @@ pub struct YoutubeMusicSongListened {
     pub id: String,
     pub listened_on: NaiveDate,
 }
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+)]
+pub struct UserToCollectionExtraInformation {
+    pub is_hidden: Option<bool>,
+}

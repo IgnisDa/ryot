@@ -27,8 +27,9 @@ pub struct EntityWithLot {
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
-    pub description: Option<String>,
+    pub is_hidden: Option<bool>,
     pub update_id: Option<String>,
+    pub description: Option<String>,
     pub collaborators: Option<Vec<String>>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
