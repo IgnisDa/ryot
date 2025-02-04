@@ -41,8 +41,13 @@ query UserCollectionsList($name: String) {
         name
       }
       collaborators {
-        id
-        name
+        extraInformation {
+          isHidden
+        }
+        collaborator {
+          id
+          name
+        }
       }
       informationTemplate {
         lot

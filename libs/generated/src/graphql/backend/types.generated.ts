@@ -216,7 +216,7 @@ export enum CollectionExtraInformationLot {
 
 export type CollectionItem = {
   __typename?: 'CollectionItem';
-  collaborators: Array<IdAndNamedObject>;
+  collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
   creator: IdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
@@ -224,6 +224,12 @@ export type CollectionItem = {
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
   isDefault: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
+};
+
+export type CollectionItemCollaboratorInformation = {
+  __typename?: 'CollectionItemCollaboratorInformation';
+  collaborator: IdAndNamedObject;
+  extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
 export type CommitMediaInput = {

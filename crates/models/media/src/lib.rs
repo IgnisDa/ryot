@@ -1150,6 +1150,14 @@ pub struct CollectionContentsFilter {
     pub metadata_lot: Option<MediaLot>,
 }
 
+#[derive(
+    Debug, Clone, SimpleObject, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize,
+)]
+pub struct CollectionItemCollaboratorInformation {
+    pub collaborator: IdAndNamedObject,
+    pub extra_information: Option<UserToCollectionExtraInformation>,
+}
+
 #[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionItem {
     pub id: String,
@@ -1158,7 +1166,7 @@ pub struct CollectionItem {
     pub is_default: bool,
     pub creator: IdAndNamedObject,
     pub description: Option<String>,
-    pub collaborators: Vec<IdAndNamedObject>,
+    pub collaborators: Vec<CollectionItemCollaboratorInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 

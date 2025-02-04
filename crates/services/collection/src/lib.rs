@@ -67,9 +67,22 @@ impl CollectionService {
                 Expr::col((AliasedUser::Table, AliasedUser::Name)),
             ),
         ]);
+        let outer_collaborator = PgFunc::json_build_object(vec![
+            (
+                Expr::val("collaborator"),
+                Expr::expr(user_jsonb_build_object.clone()),
+            ),
+            (
+                Expr::val("extra_information"),
+                Expr::col((
+                    AliasedUserToEntity::Table,
+                    AliasedUserToEntity::CollectionExtraInformation,
+                )),
+            ),
+        ]);
         let collaborators_subquery = Query::select()
             .from(UserToEntity)
-            .expr(PgFunc::json_agg(user_jsonb_build_object.clone()))
+            .expr(PgFunc::json_agg(outer_collaborator.clone()))
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
