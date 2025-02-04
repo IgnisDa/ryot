@@ -5,7 +5,7 @@ use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
-    StoredUrl, StringIdObject,
+    StoredUrl, StringIdObject, UserToCollectionExtraInformation,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -27,10 +27,10 @@ pub struct EntityWithLot {
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
-    pub is_hidden: Option<bool>,
     pub update_id: Option<String>,
     pub description: Option<String>,
     pub collaborators: Option<Vec<String>>,
+    pub extra_information: Option<UserToCollectionExtraInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 

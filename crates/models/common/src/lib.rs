@@ -347,8 +347,18 @@ pub struct YoutubeMusicSongListened {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    PartialEq,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UserToCollectionExtraInformationInput")]
 pub struct UserToCollectionExtraInformation {
     pub is_hidden: Option<bool>,
 }

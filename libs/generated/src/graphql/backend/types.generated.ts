@@ -296,8 +296,8 @@ export type CreateCustomMetadataInput = {
 export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
+  extraInformation?: InputMaybe<UserToCollectionExtraInformationInput>;
   informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
-  isHidden?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2898,6 +2898,10 @@ export enum UserTemplatesOrWorkoutsListSortBy {
 export type UserToCollectionExtraInformation = {
   __typename?: 'UserToCollectionExtraInformation';
   isHidden?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type UserToCollectionExtraInformationInput = {
+  isHidden?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type UserToEntity = {

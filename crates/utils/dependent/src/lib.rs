@@ -7,7 +7,7 @@ use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
-    StringIdObject, UserLevelCacheKey, UserNotificationContent, UserToCollectionExtraInformation,
+    StringIdObject, UserLevelCacheKey, UserNotificationContent,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
@@ -2720,10 +2720,8 @@ pub async fn create_or_update_collection(
                 .map(|c| user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c),
                     collection_id: ActiveValue::Set(Some(id.clone())),
-                    collection_extra_information: match input.is_hidden {
-                        Some(true) => ActiveValue::Set(Some(UserToCollectionExtraInformation {
-                            is_hidden: Some(true),
-                        })),
+                    collection_extra_information: match input.extra_information.clone() {
+                        Some(s) => ActiveValue::Set(Some(s)),
                         _ => Default::default(),
                     },
                     ..Default::default()
