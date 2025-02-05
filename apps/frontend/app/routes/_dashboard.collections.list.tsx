@@ -181,6 +181,9 @@ const createOrUpdateSchema = z.object({
 	updateId: z.string().optional(),
 	description: z.string().optional(),
 	collaborators: zodCommaDelimitedString,
+	extraInformation: z
+		.object({ isHidden: zodCheckboxAsString.optional() })
+		.optional(),
 	informationTemplate: z
 		.array(
 			z.object({
@@ -542,13 +545,27 @@ const CreateOrUpdateModal = (props: {
 					label={PRO_REQUIRED_MESSAGE}
 					disabled={coreDetails.isServerKeyValidated}
 				>
+					<Checkbox
+						label="Hide collection"
+						name="extraInformation.isHidden"
+						defaultChecked={
+							props.toUpdateCollection?.collaborators?.find(
+								(c) => c.collaborator.id === userDetails.id,
+							)?.extraInformation?.isHidden || undefined
+						}
+					/>
+				</Tooltip>
+				<Tooltip
+					label={PRO_REQUIRED_MESSAGE}
+					disabled={coreDetails.isServerKeyValidated}
+				>
 					<MultiSelect
 						searchable
 						name="collaborators"
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
 						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
-							(c) => c.id,
+							(c) => c.collaborator.id,
 						)}
 						data={loaderData.usersList.map((u) => ({
 							value: u.id,
