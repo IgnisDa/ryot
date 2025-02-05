@@ -52,13 +52,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
-import {
-	Form,
-	Link,
-	useLoaderData,
-	useNavigation,
-	useSearchParams,
-} from "react-router";
+import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -79,6 +73,7 @@ import {
 	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
@@ -213,18 +208,20 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput | null>(null);
-	const [params] = useSearchParams();
+	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const query = params.get("query") || undefined;
+	const showHidden = Boolean(params.get("showHidden"));
 
 	useEffect(() => {
 		if (transition.state !== "submitting") setToUpdateCollection(null);
 	}, [transition.state]);
 
 	const filteredCollections = collections
-		.filter(
-			(c) =>
-				c.collaborators.find((c) => c.collaborator.id === userDetails.id)
-					?.extraInformation?.isHidden !== true,
+		.filter((c) =>
+			showHidden
+				? true
+				: c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+						?.extraInformation?.isHidden !== true,
 		)
 		.filter((c) =>
 			query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
@@ -257,10 +254,19 @@ export default function Page() {
 						cacheId={loaderData.userCollectionsList.cacheId}
 					/>
 				</Group>
-				<DebouncedSearchInput
-					initialValue={query}
-					enhancedQueryParams={loaderData.cookieName}
-				/>
+				<Group wrap="nowrap">
+					<DebouncedSearchInput
+						initialValue={query}
+						enhancedQueryParams={loaderData.cookieName}
+					/>
+					<Checkbox
+						size="xs"
+						name="showHidden"
+						label="Show hidden"
+						defaultChecked={showHidden}
+						onChange={(e) => setP("showHidden", e.target.checked ? "yes" : "")}
+					/>
+				</Group>
 				<Virtuoso
 					style={{ height: "80vh" }}
 					data={filteredCollections}
