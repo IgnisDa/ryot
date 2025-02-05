@@ -96,10 +96,6 @@ impl CollectionService {
                 ))
                 .equals((AliasedCollection::Table, AliasedCollection::Id)),
             )
-            .and_where(
-                Expr::col((AliasedUser::Table, AliasedUser::Id))
-                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
-            )
             .to_owned();
         let count_subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
