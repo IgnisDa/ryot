@@ -144,6 +144,16 @@ export const useUserDetails = () => useDashboardLayoutData().userDetails;
 export const useUserPreferences = () => useUserDetails().preferences;
 export const useUserCollections = () =>
 	useDashboardLayoutData().userCollections;
+export const useUserCollectionsToDisplay = () => {
+	const userCollections = useUserCollections();
+	const userDetails = useUserDetails();
+	const toDisplay = userCollections.filter(
+		(c) =>
+			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+				?.extraInformation?.isHidden !== true,
+	);
+	return toDisplay;
+};
 
 export const useUserUnitSystem = () =>
 	useUserPreferences().fitness.exercises.unitSystem;

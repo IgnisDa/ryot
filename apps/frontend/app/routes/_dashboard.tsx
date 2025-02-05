@@ -141,7 +141,7 @@ import {
 	useGetWatchProviders,
 	useIsFitnessActionActive,
 	useMetadataDetails,
-	useUserCollections,
+	useUserCollectionsToDisplay,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -1776,7 +1776,7 @@ const AddEntityToCollectionForm = ({
 	closeAddEntityToCollectionModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
-	const collections = useUserCollections();
+	const collections = useUserCollectionsToDisplay();
 	const events = useApplicationEvents();
 	const submit = useConfirmSubmit();
 	const [selectedCollection, setSelectedCollection] =

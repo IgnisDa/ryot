@@ -107,7 +107,7 @@ import {
 	useFallbackImageUrl,
 	useGetMantineColors,
 	useGetRandomMantineColor,
-	useUserCollections,
+	useUserCollectionsToDisplay,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -508,8 +508,7 @@ export const CollectionsFilter = (props: {
 	collections?: string[];
 	invertCollection?: boolean;
 }) => {
-	const userDetails = useUserDetails();
-	const collections = useUserCollections();
+	const collections = useUserCollectionsToDisplay();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (
@@ -525,17 +524,10 @@ export const CollectionsFilter = (props: {
 			data={[
 				{
 					group: "My collections",
-					items: collections
-						.filter(
-							(c) =>
-								c.collaborators.find(
-									(c) => c.collaborator.id === userDetails.id,
-								)?.extraInformation?.isHidden !== true,
-						)
-						.map((c) => ({
-							label: c.name,
-							value: c.id.toString(),
-						})),
+					items: collections.map((c) => ({
+						label: c.name,
+						value: c.id.toString(),
+					})),
 				},
 			]}
 			rightSection={
