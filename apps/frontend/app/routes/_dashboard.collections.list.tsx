@@ -334,9 +334,9 @@ const DisplayCollection = (props: {
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
 		additionalDisplay.push(`${props.collection.count} items`);
-	if (props.collection.collaborators.length > 0)
+	if (props.collection.collaborators.length > 1)
 		additionalDisplay.push(
-			`${props.collection.collaborators.length} collaborators`,
+			`${props.collection.collaborators.length - 1} collaborators`,
 		);
 
 	const FallBackImage = () => (
