@@ -47,7 +47,6 @@ impl CollectionService {
     pub async fn user_collections_list(
         &self,
         user_id: &String,
-        name: Option<String>,
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
@@ -112,9 +111,6 @@ impl CollectionService {
             )
             .to_owned();
         let response = Collection::find()
-            .apply_if(name, |query, v| {
-                query.filter(collection::Column::Name.eq(v))
-            })
             .select_only()
             .column(collection::Column::Id)
             .column(collection::Column::Name)

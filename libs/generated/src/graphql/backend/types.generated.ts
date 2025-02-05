@@ -1987,11 +1987,6 @@ export type QueryRootUserCalendarEventsArgs = {
 };
 
 
-export type QueryRootUserCollectionsListArgs = {
-  name?: InputMaybe<Scalars['String']['input']>;
-};
-
-
 export type QueryRootUserExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
 };

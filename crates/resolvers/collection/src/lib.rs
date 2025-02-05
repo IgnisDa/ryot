@@ -21,11 +21,10 @@ impl CollectionQuery {
     async fn user_collections_list(
         &self,
         gql_ctx: &Context<'_>,
-        name: Option<String>,
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_collections_list(&user_id, name).await
+        service.user_collections_list(&user_id).await
     }
 
     /// Get the contents of a collection and respect visibility.

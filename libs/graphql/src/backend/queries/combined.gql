@@ -27,8 +27,8 @@ query UserExports {
   }
 }
 
-query UserCollectionsList($name: String) {
-  userCollectionsList(name: $name) {
+query UserCollectionsList {
+  userCollectionsList {
     cacheId
     response {
       id
