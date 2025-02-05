@@ -508,6 +508,7 @@ export const CollectionsFilter = (props: {
 	collections?: string[];
 	invertCollection?: boolean;
 }) => {
+	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
@@ -516,18 +517,25 @@ export const CollectionsFilter = (props: {
 			flex={1}
 			clearable
 			searchable
-			rightSectionWidth={rem(100)}
 			rightSectionPointerEvents="all"
 			defaultValue={props.collections}
 			placeholder="Select a collection"
+			rightSectionWidth={rem(100)}
 			onChange={(v) => setP("collections", v.join(","))}
 			data={[
 				{
 					group: "My collections",
-					items: collections.map((c) => ({
-						value: c.id.toString(),
-						label: c.name,
-					})),
+					items: collections
+						.filter(
+							(c) =>
+								c.collaborators.find(
+									(c) => c.collaborator.id === userDetails.id,
+								)?.extraInformation?.isHidden !== true,
+						)
+						.map((c) => ({
+							label: c.name,
+							value: c.id.toString(),
+						})),
 				},
 			]}
 			rightSection={
