@@ -208,6 +208,7 @@ type UpdateCollectionInput = {
 
 export default function Page() {
 	const transition = useNavigation();
+	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
 	const [toUpdateCollection, setToUpdateCollection] =
@@ -219,12 +220,15 @@ export default function Page() {
 		if (transition.state !== "submitting") setToUpdateCollection(null);
 	}, [transition.state]);
 
-	const filteredCollections = collections.filter((c) => {
-		let shouldReturn = true;
-		if (query)
-			shouldReturn = c.name.toLowerCase().includes(query.toLowerCase());
-		return shouldReturn;
-	});
+	const filteredCollections = collections
+		.filter(
+			(c) =>
+				c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+					?.extraInformation?.isHidden !== true,
+		)
+		.filter((c) =>
+			query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
+		);
 
 	return (
 		<Container size="sm">
