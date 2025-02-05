@@ -210,20 +210,21 @@ export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
+	const [toUpdateCollection, setToUpdateCollection] =
+		useState<UpdateCollectionInput | null>(null);
 	const [params] = useSearchParams();
 	const query = params.get("query") || undefined;
 
-	const filteredCollections = collections.filter((c) =>
-		query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
-	);
-
-	const [toUpdateCollection, setToUpdateCollection] =
-		useState<UpdateCollectionInput | null>(null);
 	useEffect(() => {
-		if (transition.state !== "submitting") {
-			setToUpdateCollection(null);
-		}
+		if (transition.state !== "submitting") setToUpdateCollection(null);
 	}, [transition.state]);
+
+	const filteredCollections = collections.filter((c) => {
+		let shouldReturn = true;
+		if (query)
+			shouldReturn = c.name.toLowerCase().includes(query.toLowerCase());
+		return shouldReturn;
+	});
 
 	return (
 		<Container size="sm">
