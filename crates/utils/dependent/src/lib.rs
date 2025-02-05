@@ -2715,20 +2715,17 @@ pub async fn create_or_update_collection(
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
-            let inserts = collaborators
-                .into_iter()
-                .map(|c| user_to_entity::ActiveModel {
+            for c in collaborators {
+                UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
                     last_updated_on: ActiveValue::Set(Utc::now()),
                     collection_id: ActiveValue::Set(Some(id.clone())),
-                    collection_extra_information: match input.extra_information.clone() {
-                        Some(s) if &c == user_id => ActiveValue::Set(Some(s)),
+                    collection_extra_information: match &c == user_id {
+                        true => ActiveValue::Set(input.extra_information.clone()),
                         _ => Default::default(),
                     },
                     ..Default::default()
                 })
-                .collect_vec();
-            UserToEntity::insert_many(inserts)
                 .on_conflict(
                     OnConflict::new()
                         .exprs([
@@ -2743,6 +2740,7 @@ pub async fn create_or_update_collection(
                 )
                 .exec_without_returning(&txn)
                 .await?;
+            }
             id
         }
     };
