@@ -265,7 +265,7 @@ export const DebouncedSearchInput = (props: {
 	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced);
+		setP(props.queryParam || "query", debounced.trim());
 	}, [debounced]);
 
 	return (
