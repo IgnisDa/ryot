@@ -73,7 +73,7 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useIsFitnessActionActive,
-	useUserCollectionsToDisplay,
+	useNonHiddenUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -331,7 +331,7 @@ export default function Page() {
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const collections = useUserCollectionsToDisplay();
+	const collections = useNonHiddenUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (

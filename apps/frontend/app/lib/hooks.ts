@@ -144,7 +144,8 @@ export const useUserDetails = () => useDashboardLayoutData().userDetails;
 export const useUserPreferences = () => useUserDetails().preferences;
 export const useUserCollections = () =>
 	useDashboardLayoutData().userCollections;
-export const useUserCollectionsToDisplay = () => {
+
+export const useNonHiddenUserCollections = () => {
 	const userCollections = useUserCollections();
 	const userDetails = useUserDetails();
 	const toDisplay = userCollections.filter(

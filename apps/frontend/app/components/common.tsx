@@ -107,7 +107,7 @@ import {
 	useFallbackImageUrl,
 	useGetMantineColors,
 	useGetRandomMantineColor,
-	useUserCollectionsToDisplay,
+	useNonHiddenUserCollections,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -508,7 +508,7 @@ export const CollectionsFilter = (props: {
 	collections?: string[];
 	invertCollection?: boolean;
 }) => {
-	const collections = useUserCollectionsToDisplay();
+	const collections = useNonHiddenUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (

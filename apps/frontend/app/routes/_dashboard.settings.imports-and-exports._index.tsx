@@ -48,7 +48,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
-	useUserCollectionsToDisplay,
+	useNonHiddenUserCollections,
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -188,7 +188,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
-	const userCollections = useUserCollectionsToDisplay();
+	const userCollections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
