@@ -559,6 +559,7 @@ const CreateOrUpdateModal = (props: {
 					<Checkbox
 						label="Hide collection"
 						name="extraInformation.isHidden"
+						disabled={!coreDetails.isServerKeyValidated}
 						defaultChecked={
 							props.toUpdateCollection?.collaborators?.find(
 								(c) => c.collaborator.id === userDetails.id,
