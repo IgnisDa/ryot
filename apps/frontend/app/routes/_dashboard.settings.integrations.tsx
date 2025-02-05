@@ -61,7 +61,7 @@ import {
 import {
 	useConfirmSubmit,
 	useCoreDetails,
-	useUserCollections,
+	useUserCollectionsToDisplay,
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.integrations";
@@ -625,7 +625,7 @@ const CreateIntegrationModal = (props: {
 };
 
 const ArrInputs = (props: { name: string }) => {
-	const collections = useUserCollections();
+	const collections = useUserCollectionsToDisplay();
 
 	return (
 		<>
