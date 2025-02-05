@@ -345,3 +345,20 @@ pub struct YoutubeMusicSongListened {
     pub id: String,
     pub listened_on: NaiveDate,
 }
+
+#[derive(
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    PartialEq,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserToCollectionExtraInformationInput")]
+pub struct UserToCollectionExtraInformation {
+    pub is_hidden: Option<bool>,
+}

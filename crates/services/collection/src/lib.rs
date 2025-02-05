@@ -47,7 +47,6 @@ impl CollectionService {
     pub async fn user_collections_list(
         &self,
         user_id: &String,
-        name: Option<String>,
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let cc = &self.0.cache_service;
         let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
@@ -67,9 +66,22 @@ impl CollectionService {
                 Expr::col((AliasedUser::Table, AliasedUser::Name)),
             ),
         ]);
+        let outer_collaborator = PgFunc::json_build_object(vec![
+            (
+                Expr::val("collaborator"),
+                Expr::expr(user_jsonb_build_object.clone()),
+            ),
+            (
+                Expr::val("extra_information"),
+                Expr::col((
+                    AliasedUserToEntity::Table,
+                    AliasedUserToEntity::CollectionExtraInformation,
+                )),
+            ),
+        ]);
         let collaborators_subquery = Query::select()
             .from(UserToEntity)
-            .expr(PgFunc::json_agg(user_jsonb_build_object.clone()))
+            .expr(PgFunc::json_agg(outer_collaborator.clone()))
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
@@ -82,10 +94,6 @@ impl CollectionService {
                     AliasedUserToEntity::CollectionId,
                 ))
                 .equals((AliasedCollection::Table, AliasedCollection::Id)),
-            )
-            .and_where(
-                Expr::col((AliasedUser::Table, AliasedUser::Id))
-                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
             )
             .to_owned();
         let count_subquery = Query::select()
@@ -103,9 +111,6 @@ impl CollectionService {
             )
             .to_owned();
         let response = Collection::find()
-            .apply_if(name, |query, v| {
-                query.filter(collection::Column::Name.eq(v))
-            })
             .select_only()
             .column(collection::Column::Id)
             .column(collection::Column::Name)

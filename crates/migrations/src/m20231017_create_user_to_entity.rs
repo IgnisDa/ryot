@@ -2,8 +2,8 @@ use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
-    m20230410_create_metadata::Metadata, m20230413_create_person::Person,
-    m20230404_create_user::User, m20230411_create_metadata_group::MetadataGroup,
+    m20230404_create_user::User, m20230410_create_metadata::Metadata,
+    m20230411_create_metadata_group::MetadataGroup, m20230413_create_person::Person,
     m20230504_create_collection::Collection, m20230505_create_exercise::Exercise,
 };
 
@@ -36,22 +36,21 @@ pub static CONSTRAINT_SQL: &str = indoc! { r#"
 /// - has reviewed it
 #[derive(Iden)]
 pub enum UserToEntity {
-    Table,
     Id,
+    Table,
     UserId,
+    PersonId,
     CreatedOn,
-    LastUpdatedOn,
-    NeedsToBeUpdated,
-    // the entities that can be associated
     MetadataId,
     ExerciseId,
-    PersonId,
-    MetadataGroupId,
-    CollectionId,
-    // specifics
-    ExerciseExtraInformation,
-    ExerciseNumTimesInteracted,
     MediaReason,
+    CollectionId,
+    LastUpdatedOn,
+    MetadataGroupId,
+    NeedsToBeUpdated,
+    ExerciseExtraInformation,
+    CollectionExtraInformation,
+    ExerciseNumTimesInteracted,
 }
 
 #[async_trait::async_trait]
@@ -91,6 +90,7 @@ impl MigrationTrait for Migration {
                             .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(UserToEntity::CollectionExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")

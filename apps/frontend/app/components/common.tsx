@@ -107,7 +107,7 @@ import {
 	useFallbackImageUrl,
 	useGetMantineColors,
 	useGetRandomMantineColor,
-	useUserCollections,
+	useNonHiddenUserCollections,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -265,7 +265,7 @@ export const DebouncedSearchInput = (props: {
 	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced);
+		setP(props.queryParam || "query", debounced.trim());
 	}, [debounced]);
 
 	return (
@@ -508,7 +508,7 @@ export const CollectionsFilter = (props: {
 	collections?: string[];
 	invertCollection?: boolean;
 }) => {
-	const collections = useUserCollections();
+	const collections = useNonHiddenUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	return (
@@ -525,8 +525,8 @@ export const CollectionsFilter = (props: {
 				{
 					group: "My collections",
 					items: collections.map((c) => ({
-						value: c.id.toString(),
 						label: c.name,
+						value: c.id.toString(),
 					})),
 				},
 			]}

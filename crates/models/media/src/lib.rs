@@ -5,7 +5,7 @@ use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
-    StoredUrl, StringIdObject,
+    StoredUrl, StringIdObject, UserToCollectionExtraInformation,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -27,9 +27,10 @@ pub struct EntityWithLot {
 #[derive(Debug, InputObject, Default, Clone, Serialize)]
 pub struct CreateOrUpdateCollectionInput {
     pub name: String,
-    pub description: Option<String>,
     pub update_id: Option<String>,
+    pub description: Option<String>,
     pub collaborators: Option<Vec<String>>,
+    pub extra_information: Option<UserToCollectionExtraInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
@@ -1149,6 +1150,14 @@ pub struct CollectionContentsFilter {
     pub metadata_lot: Option<MediaLot>,
 }
 
+#[derive(
+    Debug, Clone, SimpleObject, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize,
+)]
+pub struct CollectionItemCollaboratorInformation {
+    pub collaborator: IdAndNamedObject,
+    pub extra_information: Option<UserToCollectionExtraInformation>,
+}
+
 #[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionItem {
     pub id: String,
@@ -1157,7 +1166,7 @@ pub struct CollectionItem {
     pub is_default: bool,
     pub creator: IdAndNamedObject,
     pub description: Option<String>,
-    pub collaborators: Vec<IdAndNamedObject>,
+    pub collaborators: Vec<CollectionItemCollaboratorInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 

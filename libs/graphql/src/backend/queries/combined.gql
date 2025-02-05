@@ -27,8 +27,8 @@ query UserExports {
   }
 }
 
-query UserCollectionsList($name: String) {
-  userCollectionsList(name: $name) {
+query UserCollectionsList {
+  userCollectionsList {
     cacheId
     response {
       id
@@ -41,8 +41,13 @@ query UserCollectionsList($name: String) {
         name
       }
       collaborators {
-        id
-        name
+        extraInformation {
+          isHidden
+        }
+        collaborator {
+          id
+          name
+        }
       }
       informationTemplate {
         lot

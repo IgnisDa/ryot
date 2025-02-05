@@ -216,7 +216,7 @@ export enum CollectionExtraInformationLot {
 
 export type CollectionItem = {
   __typename?: 'CollectionItem';
-  collaborators: Array<IdAndNamedObject>;
+  collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
   creator: IdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
@@ -224,6 +224,12 @@ export type CollectionItem = {
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
   isDefault: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
+};
+
+export type CollectionItemCollaboratorInformation = {
+  __typename?: 'CollectionItemCollaboratorInformation';
+  collaborator: IdAndNamedObject;
+  extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
 export type CommitMediaInput = {
@@ -296,6 +302,7 @@ export type CreateCustomMetadataInput = {
 export type CreateOrUpdateCollectionInput = {
   collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
+  extraInformation?: InputMaybe<UserToCollectionExtraInformationInput>;
   informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
@@ -1980,11 +1987,6 @@ export type QueryRootUserCalendarEventsArgs = {
 };
 
 
-export type QueryRootUserCollectionsListArgs = {
-  name?: InputMaybe<Scalars['String']['input']>;
-};
-
-
 export type QueryRootUserExerciseDetailsArgs = {
   exerciseId: Scalars['String']['input'];
 };
@@ -2894,8 +2896,18 @@ export enum UserTemplatesOrWorkoutsListSortBy {
   Time = 'TIME'
 }
 
+export type UserToCollectionExtraInformation = {
+  __typename?: 'UserToCollectionExtraInformation';
+  isHidden?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type UserToCollectionExtraInformationInput = {
+  isHidden?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type UserToEntity = {
   __typename?: 'UserToEntity';
+  collectionExtraInformation?: Maybe<UserToCollectionExtraInformation>;
   collectionId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;

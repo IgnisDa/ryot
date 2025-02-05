@@ -2715,17 +2715,32 @@ pub async fn create_or_update_collection(
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
-            let inserts = collaborators
-                .into_iter()
-                .map(|c| user_to_entity::ActiveModel {
-                    user_id: ActiveValue::Set(c),
+            for c in collaborators {
+                UserToEntity::insert(user_to_entity::ActiveModel {
+                    user_id: ActiveValue::Set(c.clone()),
+                    last_updated_on: ActiveValue::Set(Utc::now()),
                     collection_id: ActiveValue::Set(Some(id.clone())),
+                    collection_extra_information: match &c == user_id {
+                        true => ActiveValue::Set(input.extra_information.clone()),
+                        _ => Default::default(),
+                    },
                     ..Default::default()
-                });
-            UserToEntity::insert_many(inserts)
-                .on_conflict(OnConflict::new().do_nothing().to_owned())
+                })
+                .on_conflict(
+                    OnConflict::new()
+                        .exprs([
+                            Expr::col(user_to_entity::Column::UserId),
+                            Expr::col(user_to_entity::Column::CollectionId),
+                        ])
+                        .update_columns([
+                            user_to_entity::Column::CollectionExtraInformation,
+                            user_to_entity::Column::LastUpdatedOn,
+                        ])
+                        .to_owned(),
+                )
                 .exec_without_returning(&txn)
                 .await?;
+            }
             id
         }
     };

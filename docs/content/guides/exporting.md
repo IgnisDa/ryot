@@ -6,9 +6,10 @@ configuration parameters under the
 in JSON format and always follows the schema (`CompleteExport`) described below.
 
 You can export your data from the app by going to the "Imports and Exports" settings page
-and then clicking the button under the "Export" tab.
+and then clicking the button under the "Export" tab. Once the export is complete, it will
+appear along with a button to download it.
 
-Once the export is complete, it will appear along with a button to download it.
+You can import it back using the [Generic JSON Importer](../importing.md#generic-json).
 
 ## One time file storage
 

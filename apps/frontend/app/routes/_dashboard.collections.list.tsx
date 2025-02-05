@@ -52,13 +52,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
-import {
-	Form,
-	Link,
-	useLoaderData,
-	useNavigation,
-	useSearchParams,
-} from "react-router";
+import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -79,6 +73,7 @@ import {
 	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
@@ -181,6 +176,9 @@ const createOrUpdateSchema = z.object({
 	updateId: z.string().optional(),
 	description: z.string().optional(),
 	collaborators: zodCommaDelimitedString,
+	extraInformation: z
+		.object({ isHidden: zodCheckboxAsString.optional() })
+		.optional(),
 	informationTemplate: z
 		.array(
 			z.object({
@@ -205,22 +203,29 @@ type UpdateCollectionInput = {
 
 export default function Page() {
 	const transition = useNavigation();
+	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
-	const [params] = useSearchParams();
-	const query = params.get("query") || undefined;
-
-	const filteredCollections = collections.filter((c) =>
-		query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
-	);
-
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput | null>(null);
+	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const query = params.get("query") || undefined;
+	const showHidden = Boolean(params.get("showHidden"));
+
 	useEffect(() => {
-		if (transition.state !== "submitting") {
-			setToUpdateCollection(null);
-		}
+		if (transition.state !== "submitting") setToUpdateCollection(null);
 	}, [transition.state]);
+
+	const filteredCollections = collections
+		.filter((c) =>
+			showHidden
+				? true
+				: c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+						?.extraInformation?.isHidden !== true,
+		)
+		.filter((c) =>
+			query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
+		);
 
 	return (
 		<Container size="sm">
@@ -249,10 +254,19 @@ export default function Page() {
 						cacheId={loaderData.userCollectionsList.cacheId}
 					/>
 				</Group>
-				<DebouncedSearchInput
-					initialValue={query}
-					enhancedQueryParams={loaderData.cookieName}
-				/>
+				<Group wrap="nowrap">
+					<DebouncedSearchInput
+						initialValue={query}
+						enhancedQueryParams={loaderData.cookieName}
+					/>
+					<Checkbox
+						size="xs"
+						name="showHidden"
+						label="Show hidden"
+						defaultChecked={showHidden}
+						onChange={(e) => setP("showHidden", e.target.checked ? "yes" : "")}
+					/>
+				</Group>
 				<Virtuoso
 					style={{ height: "80vh" }}
 					data={filteredCollections}
@@ -330,9 +344,9 @@ const DisplayCollection = (props: {
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
 		additionalDisplay.push(`${props.collection.count} items`);
-	if (props.collection.collaborators.length > 0)
+	if (props.collection.collaborators.length > 1)
 		additionalDisplay.push(
-			`${props.collection.collaborators.length} collaborators`,
+			`${props.collection.collaborators.length - 1} collaborators`,
 		);
 
 	const FallBackImage = () => (
@@ -542,13 +556,28 @@ const CreateOrUpdateModal = (props: {
 					label={PRO_REQUIRED_MESSAGE}
 					disabled={coreDetails.isServerKeyValidated}
 				>
+					<Checkbox
+						label="Hide collection"
+						name="extraInformation.isHidden"
+						disabled={!coreDetails.isServerKeyValidated}
+						defaultChecked={
+							props.toUpdateCollection?.collaborators?.find(
+								(c) => c.collaborator.id === userDetails.id,
+							)?.extraInformation?.isHidden || undefined
+						}
+					/>
+				</Tooltip>
+				<Tooltip
+					label={PRO_REQUIRED_MESSAGE}
+					disabled={coreDetails.isServerKeyValidated}
+				>
 					<MultiSelect
 						searchable
 						name="collaborators"
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
 						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
-							(c) => c.id,
+							(c) => c.collaborator.id,
 						)}
 						data={loaderData.usersList.map((u) => ({
 							value: u.id,
