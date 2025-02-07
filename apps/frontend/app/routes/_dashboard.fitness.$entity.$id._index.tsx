@@ -451,10 +451,11 @@ export default function Page() {
 					) : null}
 					{loaderData.repeatedWorkout ? (
 						<Box>
-							<Text c="dimmed" span>
+							<Text c="dimmed" span size="sm">
 								Repeated from{" "}
 							</Text>
 							<Anchor
+								size="sm"
 								component={Link}
 								to={$path("/fitness/:entity/:id", {
 									entity: "workouts",
@@ -463,18 +464,22 @@ export default function Page() {
 							>
 								{loaderData.repeatedWorkout.name}
 							</Anchor>
-							<Text c="dimmed" span>
+							<Text c="dimmed" span size="sm">
 								{" "}
-								on {dayjsLib(loaderData.repeatedWorkout.doneOn).format("LLL")}
+								on{" "}
+								{dayjsLib(loaderData.repeatedWorkout.doneOn).format(
+									"dddd, LLL",
+								)}
 							</Text>
 						</Box>
 					) : null}
 					{loaderData.template ? (
 						<Box>
-							<Text c="dimmed" span>
+							<Text c="dimmed" span size="sm">
 								Template used:
 							</Text>{" "}
 							<Anchor
+								size="sm"
 								component={Link}
 								to={$path("/fitness/:entity/:id", {
 									entity: "templates",
@@ -489,7 +494,9 @@ export default function Page() {
 						<Text c="dimmed" span>
 							Done on{" "}
 						</Text>
-						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
+						<Text span>
+							{dayjsLib(loaderData.startTime).format("dddd, LLL")}
+						</Text>
 						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 							{loaderData.endTime && loaderData.startTime ? (
 								<DisplayStat
