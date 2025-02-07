@@ -333,7 +333,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 								{truncate(entityInformation.name, { length: 20 })}
 							</Anchor>
 							<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-								{dayjsLib(entityInformation.timestamp).format("LL")}
+								{dayjsLib(entityInformation.timestamp).format("dddd, LL")}
 							</Text>
 						</Group>
 						<Group mt="xs">
