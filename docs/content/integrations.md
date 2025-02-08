@@ -86,6 +86,8 @@ work for all the media that have a valid TMDb ID attached to their metadata.
     if you already have the show in the Ryot database. To do this, simply add the show to
     your watchlist.
 
+### Tautulli
+
 ### Kodi
 
 The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
