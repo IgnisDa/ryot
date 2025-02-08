@@ -11,6 +11,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { redis } from "~/lib/redis";
+import { getMetricsAsText, initializeMetrics } from "./service";
 
 const healthResponseSchema = dataSchema(
 	z.object({
@@ -32,30 +33,55 @@ const healthRoute = createRoute({
 	},
 });
 
-export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
-	try {
-		await db.execute(sql`SELECT 1`);
-	} catch (error) {
-		return c.json(
-			errorResponse(
-				ERROR_CODES.HEALTH_CHECK_FAILED,
-				`Database check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-			),
-			503,
-		);
-	}
-
-	try {
-		await redis.ping();
-	} catch (error) {
-		return c.json(
-			errorResponse(
-				ERROR_CODES.HEALTH_CHECK_FAILED,
-				`Redis check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-			),
-			503,
-		);
-	}
-
-	return c.json(successResponse({ status: "healthy" as const }), 200);
+const metricsRoute = createRoute({
+	path: "/metrics",
+	method: "get",
+	tags: ["health"],
+	summary: "Export metrics in Prometheus format",
+	responses: {
+		200: {
+			description: "Prometheus metrics in text format",
+			content: {
+				"text/plain": {
+					schema: z.string(),
+				},
+			},
+		},
+	},
 });
+
+export const healthApi = new OpenAPIHono()
+	.openapi(healthRoute, async (c) => {
+		try {
+			await db.execute(sql`SELECT 1`);
+		} catch (error) {
+			return c.json(
+				errorResponse(
+					ERROR_CODES.HEALTH_CHECK_FAILED,
+					`Database check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+				503,
+			);
+		}
+
+		try {
+			await redis.ping();
+		} catch (error) {
+			return c.json(
+				errorResponse(
+					ERROR_CODES.HEALTH_CHECK_FAILED,
+					`Redis check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+				),
+				503,
+			);
+		}
+
+		return c.json(successResponse({ status: "healthy" as const }), 200);
+	})
+	.openapi(metricsRoute, async (c) => {
+		initializeMetrics();
+		const metricsText = await getMetricsAsText();
+		return c.text(metricsText, 200, {
+			"Content-Type": "text/plain; charset=utf-8",
+		});
+	});
