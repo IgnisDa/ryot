@@ -86,6 +86,7 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
 import { useQuery } from "@tanstack/react-query";
+import { useLocalStorage } from "usehooks-ts";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
@@ -234,8 +235,10 @@ export default function Page() {
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
-	const [metadataConsumedOpened, { toggle: toggleMetadataConsumed }] =
-		useDisclosure(false);
+	const [metadataConsumedOpened, setMetadataConsumedOpened] = useLocalStorage(
+		"MetadataConsumedOpened",
+		false,
+	);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
@@ -573,7 +576,12 @@ export default function Page() {
 					</Box>
 					{loaderData.metadataConsumed.length > 0 ? (
 						<Stack gap="xs">
-							<Anchor onClick={toggleMetadataConsumed} size="xs">
+							<Anchor
+								size="xs"
+								onClick={() =>
+									setMetadataConsumedOpened(!metadataConsumedOpened)
+								}
+							>
 								Consumed {loaderData.metadataConsumed.length} items during this
 								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
 							</Anchor>
