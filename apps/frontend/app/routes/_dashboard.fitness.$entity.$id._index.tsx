@@ -236,7 +236,7 @@ export default function Page() {
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
 	const [metadataConsumedOpened, setMetadataConsumedOpened] = useLocalStorage(
-		"MetadataConsumedOpened",
+		`MetadataConsumedOpened-${loaderData.entityId}`,
 		false,
 	);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
