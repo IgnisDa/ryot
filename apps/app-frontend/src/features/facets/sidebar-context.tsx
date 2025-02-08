@@ -10,11 +10,10 @@ import {
 import type { CreateFacetPayload, UpdateFacetPayload } from "./form";
 import { useFacetMutations, useFacetsQuery } from "./hooks";
 import type { AppFacet } from "./model";
-import { toTrackingNavItems } from "./nav";
-import { moveFacet } from "./reorder";
 
 interface FacetSidebarState {
 	isError: boolean;
+	facets: AppFacet[];
 	isLoading: boolean;
 	modalOpened: boolean;
 	isReordering: boolean;
@@ -22,7 +21,6 @@ interface FacetSidebarState {
 	isCustomizeMode: boolean;
 	isModalSubmitting: boolean;
 	activeFacet: AppFacet | undefined;
-	navItems: ReturnType<typeof toTrackingNavItems>;
 }
 
 interface FacetSidebarActions {
@@ -30,9 +28,9 @@ interface FacetSidebarActions {
 	closeModal: () => void;
 	openCreateModal: () => void;
 	toggleCustomizeMode: () => void;
-	toggleFacetById: (facetId: string) => Promise<void>;
 	openEditModal: (facetId: string) => void;
-	moveFacetById: (facetId: string, direction: "up" | "down") => Promise<void>;
+	toggleFacetById: (facetId: string) => Promise<void>;
+	reorderFacetIds: (facetIds: string[]) => Promise<void>;
 	submitModal: (
 		payload: CreateFacetPayload | UpdateFacetPayload,
 	) => Promise<void>;
@@ -75,10 +73,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 	const [activeFacetId, setActiveFacetId] = useState<string | null>(null);
 	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] =
 		useDisclosure(false);
-	const navItems = useMemo(
-		() => toTrackingNavItems(facetsQuery.facets),
-		[facetsQuery.facets],
-	);
 	const activeFacet = useMemo(
 		() => facetsQuery.facets.find((facet) => facet.id === activeFacetId),
 		[activeFacetId, facetsQuery.facets],
@@ -112,16 +106,11 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 		[mutations.toggle],
 	);
 
-	const moveFacetById = useCallback(
-		async (facetId: string, direction: "up" | "down") => {
-			const facetIds = facetsQuery.facets.map((facet) => facet.id);
-			const reorderedFacetIds = moveFacet(facetIds, facetId, direction);
-
-			await mutations.reorder.mutateAsync({
-				body: { facetIds: reorderedFacetIds },
-			});
+	const reorderFacetIds = useCallback(
+		async (facetIds: string[]) => {
+			await mutations.reorder.mutateAsync({ body: { facetIds } });
 		},
-		[facetsQuery.facets, mutations.reorder],
+		[mutations.reorder],
 	);
 
 	const toggleFacetById = useCallback(
@@ -175,23 +164,23 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 
 	const stateValue = useMemo(
 		() => ({
-			navItems,
 			activeFacet,
 			modalOpened,
 			isMutationBusy,
 			isCustomizeMode,
 			isModalSubmitting,
+			facets: facetsQuery.facets,
 			isError: facetsQuery.isError,
 			isLoading: facetsQuery.isLoading,
 			isReordering: mutations.reorder.isPending,
 		}),
 		[
-			navItems,
 			activeFacet,
 			modalOpened,
 			isMutationBusy,
 			isCustomizeMode,
 			isModalSubmitting,
+			facetsQuery.facets,
 			facetsQuery.isError,
 			facetsQuery.isLoading,
 			mutations.reorder.isPending,
@@ -204,7 +193,7 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			closeModal,
 			submitModal,
 			openEditModal,
-			moveFacetById,
+			reorderFacetIds,
 			openCreateModal,
 			toggleFacetById,
 			toggleCustomizeMode,
@@ -214,7 +203,7 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			closeModal,
 			submitModal,
 			openEditModal,
-			moveFacetById,
+			reorderFacetIds,
 			openCreateModal,
 			toggleFacetById,
 			toggleCustomizeMode,
