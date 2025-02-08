@@ -1,6 +1,7 @@
 import { Box, Flex } from "@mantine/core";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Sidebar } from "#/components/Sidebar";
+import { toSidebarAccount } from "#/components/sidebar-account";
 import { toSidebarData } from "#/components/sidebar-data";
 import { FacetModal } from "#/features/facets/components/facet-modal";
 import FacetSidebarProvider, {
@@ -8,6 +9,7 @@ import FacetSidebarProvider, {
 	useFacetSidebarState,
 } from "#/features/facets/sidebar-context";
 import { useSavedViewsQuery } from "#/features/saved-views/hooks";
+import { useProtectedUser } from "#/lib/hooks/use-protected-user";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,
@@ -40,6 +42,7 @@ function RouteComponent() {
 }
 
 function ProtectedSidebar() {
+	const user = useProtectedUser();
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
 	const savedViewsQuery = useSavedViewsQuery();
@@ -55,6 +58,7 @@ function ProtectedSidebar() {
 			facets={sidebarData.facets}
 			onEditFacet={actions.openEditModal}
 			isMutationBusy={state.isMutationBusy}
+			account={toSidebarAccount(user)}
 			isCustomizeMode={state.isCustomizeMode}
 			onCreateFacet={actions.openCreateModal}
 			onToggleCustomizeMode={actions.toggleCustomizeMode}
