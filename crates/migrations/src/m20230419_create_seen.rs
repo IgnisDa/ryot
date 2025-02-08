@@ -2,9 +2,7 @@ use sea_orm_migration::prelude::*;
 
 use enum_models::SeenState;
 
-use super::{m20230404_create_user::User, m20230410_create_metadata::Metadata};
-
-pub static SEEN_UPDATED_AT_GIN_IDX: &str = "seen_updated_at_gin_idx";
+use super::{m20230410_create_metadata::Metadata, m20230404_create_user::User};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -96,16 +94,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(SEEN_UPDATED_AT_GIN_IDX)
-                    .table(Seen::Table)
-                    .col(Seen::UpdatedAt)
-                    .full_text()
                     .to_owned(),
             )
             .await?;
