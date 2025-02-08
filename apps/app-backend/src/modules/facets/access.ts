@@ -3,7 +3,7 @@ export const customFacetError = "Built-in facets do not support entity schemas";
 
 type FacetScope = {
 	id: string;
-	userId: string | null;
+	userId: string;
 	isBuiltin: boolean;
 };
 
