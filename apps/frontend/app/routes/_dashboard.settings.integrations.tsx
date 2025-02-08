@@ -339,7 +339,12 @@ const DisplayIntegration = (props: {
 					<Box>
 						<Group gap={4}>
 							<Text size="sm" fw="bold">
-								{`${changeCase(props.integration.provider)} ${props.integration.name}`.trim()}
+								{[
+									changeCase(props.integration.provider),
+									props.integration.name,
+								]
+									.filter(Boolean)
+									.join(" - ")}
 							</Text>
 							{props.integration.isDisabled ? (
 								<Text size="xs">(Paused)</Text>
