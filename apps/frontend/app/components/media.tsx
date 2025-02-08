@@ -348,22 +348,22 @@ export const PersonDisplayItem = (props: {
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
+		enabled: inViewport,
 		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
 		queryFn: async () => {
 			return clientGqlService
 				.request(PersonDetailsDocument, props)
 				.then((data) => data.personDetails);
 		},
-		enabled: inViewport,
 	});
 	const { data: userPersonDetails } = useQuery({
+		enabled: inViewport,
 		queryKey: queryFactory.media.userPersonDetails(props.personId).queryKey,
 		queryFn: async () => {
 			return clientGqlService
 				.request(UserPersonDetailsDocument, props)
 				.then((data) => data.userPersonDetails);
 		},
-		enabled: inViewport,
 	});
 
 	const metadataCount =
