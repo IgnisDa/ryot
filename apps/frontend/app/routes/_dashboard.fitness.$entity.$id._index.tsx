@@ -13,6 +13,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
@@ -66,6 +67,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
+	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 } from "~/lib/generals";
 import {
@@ -83,6 +85,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
+import { useQuery } from "@tanstack/react-query";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
@@ -569,15 +572,22 @@ export default function Page() {
 						</SimpleGrid>
 					</Box>
 					{loaderData.metadataConsumed.length > 0 ? (
-						<Box>
+						<Stack gap="xs">
 							<Anchor onClick={toggleMetadataConsumed} size="xs">
 								Consumed {loaderData.metadataConsumed.length} items during this
 								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
 							</Anchor>
 							<Collapse in={metadataConsumedOpened}>
-								<Text size="xs">{loaderData.metadataConsumed.join(", ")}</Text>
+								<SimpleGrid
+									verticalSpacing="xs"
+									cols={{ base: 7, sm: 8, md: 10 }}
+								>
+									{loaderData.metadataConsumed.map((m) => (
+										<ConsumedMetadataDisplay metadataId={m} key={m} />
+									))}
+								</SimpleGrid>
 							</Collapse>
-						</Box>
+						</Stack>
 					) : null}
 					{loaderData.information.comment ? (
 						<Box>
@@ -611,6 +621,20 @@ export default function Page() {
 		</>
 	);
 }
+
+const ConsumedMetadataDisplay = (props: { metadataId: string }) => {
+	const { data: metadataDetails } = useQuery(
+		getPartialMetadataDetailsQuery(props.metadataId),
+	);
+
+	return (
+		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
+			<Tooltip label={metadataDetails?.title}>
+				<Avatar src={metadataDetails?.image} />
+			</Tooltip>
+		</Link>
+	);
+};
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (
