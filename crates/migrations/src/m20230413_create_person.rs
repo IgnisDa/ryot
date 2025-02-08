@@ -7,29 +7,34 @@ pub struct Migration;
 
 pub static METADATA_TO_PERSON_PRIMARY_KEY: &str = "pk-media-item_person";
 pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__unique_index";
+pub static PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0)) STORED"#;
+pub static PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
+pub static PERSON_ASSOCIATED_ENTITY_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0) + COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
 
 #[derive(Iden)]
 pub enum Person {
-    Table,
     Id,
-    Identifier,
-    Source,
-    CreatedOn,
-    LastUpdatedOn,
     Name,
-    Description,
-    Gender,
-    BirthDate,
-    DeathDate,
-    // The place of origin
+    Table,
     Place,
-    Website,
+    Source,
+    Gender,
     Images,
+    Website,
+    BirthDate,
+    CreatedOn,
+    DeathDate,
     IsPartial,
-    SourceSpecifics,
-    StateChanges,
     SourceUrl,
+    Identifier,
+    Description,
+    StateChanges,
+    LastUpdatedOn,
     AlternateNames,
+    SourceSpecifics,
+    AssociatedEntityCount,
+    AssociatedMetadataCount,
+    AssociatedMetadataGroupsCount,
 }
 
 #[derive(Iden)]
@@ -87,6 +92,18 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::StateChanges).json_binary())
                     .col(ColumnDef::new(Person::SourceUrl).text())
                     .col(ColumnDef::new(Person::AlternateNames).array(ColumnType::Text))
+                    .col(
+                        ColumnDef::new(Person::AssociatedMetadataCount)
+                            .integer()
+                            .not_null()
+                            .extra(PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(Person::AssociatedMetadataGroupsCount)
+                            .integer()
+                            .not_null()
+                            .extra(PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL),
+                    )
                     .to_owned(),
             )
             .await?;

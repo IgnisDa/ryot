@@ -72,7 +72,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	sortBy: PersonAndMetadataGroupsSortBy.MediaItems,
+	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 	orderBy: GraphqlSortOrder.Desc,
 };
 
