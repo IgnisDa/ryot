@@ -125,15 +125,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				};
 			}
 			return {
-				entityName: userWorkoutDetails.details.name,
-				startTime: userWorkoutDetails.details.startTime,
-				endTime: userWorkoutDetails.details.endTime,
-				duration: userWorkoutDetails.details.duration,
-				information: userWorkoutDetails.details.information,
-				summary: userWorkoutDetails.details.summary,
-				repeatedWorkout: repeatedWorkout,
 				template,
+				repeatedWorkout: repeatedWorkout,
 				collections: userWorkoutDetails.collections,
+				endTime: userWorkoutDetails.details.endTime,
+				summary: userWorkoutDetails.details.summary,
+				entityName: userWorkoutDetails.details.name,
+				duration: userWorkoutDetails.details.duration,
+				startTime: userWorkoutDetails.details.startTime,
+				information: userWorkoutDetails.details.information,
 				caloriesBurnt: userWorkoutDetails.details.caloriesBurnt,
 			};
 		})
@@ -146,15 +146,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				),
 			]);
 			return {
+				endTime: null,
+				template: null,
+				caloriesBurnt: null,
+				repeatedWorkout: null,
+				collections: userWorkoutTemplateDetails.collections,
+				summary: userWorkoutTemplateDetails.details.summary,
 				entityName: userWorkoutTemplateDetails.details.name,
 				startTime: userWorkoutTemplateDetails.details.createdOn,
-				endTime: null,
 				information: userWorkoutTemplateDetails.details.information,
-				summary: userWorkoutTemplateDetails.details.summary,
-				repeatedWorkout: null,
-				template: null,
-				collections: userWorkoutTemplateDetails.collections,
-				caloriesBurnt: null,
 			};
 		})
 		.exhaustive();
