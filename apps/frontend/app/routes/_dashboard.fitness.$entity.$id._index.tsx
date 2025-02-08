@@ -4,6 +4,7 @@ import {
 	Avatar,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Group,
 	Menu,
@@ -134,6 +135,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				duration: userWorkoutDetails.details.duration,
 				startTime: userWorkoutDetails.details.startTime,
 				information: userWorkoutDetails.details.information,
+				metadataConsumed: userWorkoutDetails.metadataConsumed,
 				caloriesBurnt: userWorkoutDetails.details.caloriesBurnt,
 			};
 		})
@@ -149,6 +151,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				endTime: null,
 				template: null,
 				caloriesBurnt: null,
+				metadataConsumed: [],
 				repeatedWorkout: null,
 				collections: userWorkoutTemplateDetails.collections,
 				summary: userWorkoutTemplateDetails.details.summary,
@@ -228,6 +231,8 @@ export default function Page() {
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
+	const [metadataConsumedOpened, { toggle: toggleMetadataConsumed }] =
+		useDisclosure(false);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
@@ -563,6 +568,17 @@ export default function Page() {
 							) : null}
 						</SimpleGrid>
 					</Box>
+					{loaderData.metadataConsumed.length > 0 ? (
+						<Box>
+							<Anchor onClick={toggleMetadataConsumed} size="xs">
+								Consumed {loaderData.metadataConsumed.length} items during this
+								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
+							</Anchor>
+							<Collapse in={metadataConsumedOpened}>
+								<Text size="xs">{loaderData.metadataConsumed.join(", ")}</Text>
+							</Collapse>
+						</Box>
+					) : null}
 					{loaderData.information.comment ? (
 						<Box>
 							<Text c="dimmed" span>
