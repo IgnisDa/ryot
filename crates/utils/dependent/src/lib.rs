@@ -2988,7 +2988,7 @@ pub async fn user_metadata_groups_list(
         Some(ord) => (
             match ord.by {
                 PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                PersonAndMetadataGroupsSortBy::MediaItems => metadata_group_parts_col,
+                PersonAndMetadataGroupsSortBy::AssociatedEntityCount => metadata_group_parts_col,
                 PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
             },
             graphql_to_db_order(ord.order),
@@ -3074,15 +3074,18 @@ pub async fn user_people_list(
         .unwrap_or(1)
         .try_into()
         .unwrap();
-    let alias = "media_count";
-    let media_items_col = Expr::col(Alias::new(alias));
     let (order_by, sort_order) = match input.sort {
-        None => (media_items_col, Order::Desc),
+        None => (
+            Expr::col(person::Column::AssociatedEntityCount),
+            Order::Desc,
+        ),
         Some(ord) => (
             match ord.by {
-                PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
                 PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
+                    Expr::col(person::Column::AssociatedEntityCount)
+                }
             },
             graphql_to_db_order(ord.order),
         ),
@@ -3107,13 +3110,6 @@ pub async fn user_people_list(
                     collection_to_entity::Column::PersonId,
                 )
             },
-        )
-        .column_as(
-            Expr::expr(Func::count(Expr::col((
-                Alias::new("metadata_to_person"),
-                metadata_to_person::Column::MetadataId,
-            )))),
-            alias,
         )
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .left_join(MetadataToPerson)
