@@ -315,6 +315,7 @@ export const savedView = pgTable(
 		name: text().notNull(),
 		queryDefinition: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
+		isBuiltin: boolean().default(false).notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
