@@ -22,6 +22,8 @@ query PersonDetails($personId: String!) {
       displayImages
       alternateNames
       associatedEntityCount
+      associatedMetadataCount
+      associatedMetadataGroupsCount
     }
   }
 }

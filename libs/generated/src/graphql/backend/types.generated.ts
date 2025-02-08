@@ -1666,6 +1666,8 @@ export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
   associatedEntityCount: Scalars['Int']['output'];
+  associatedMetadataCount: Scalars['Int']['output'];
+  associatedMetadataGroupsCount: Scalars['Int']['output'];
   birthDate?: Maybe<Scalars['NaiveDate']['output']>;
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;

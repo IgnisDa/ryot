@@ -32,10 +32,12 @@ pub struct Model {
     pub associated_entity_count: i32,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
+    pub associated_metadata_count: i32,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub images: Option<Vec<MetadataImage>>,
     pub alternate_names: Option<Vec<String>>,
+    pub associated_metadata_groups_count: i32,
     #[graphql(skip)]
     pub state_changes: Option<PersonStateChanges>,
     #[graphql(skip)]
