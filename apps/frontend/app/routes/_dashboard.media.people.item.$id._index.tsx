@@ -16,7 +16,7 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery, sum } from "@ryot/ts-utils";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -94,12 +94,10 @@ export default function Page() {
 			.at(0) || null,
 	);
 
-	const totalMetadata = sum(
-		loaderData.personDetails.associatedMetadata.map((c) => c.count),
-	);
-	const totalMetadataGroups = sum(
-		loaderData.personDetails.associatedMetadataGroups.map((c) => c.count),
-	);
+	const totalMetadata =
+		loaderData.personDetails.details.associatedMetadataCount;
+	const totalMetadataGroups =
+		loaderData.personDetails.details.associatedMetadataGroupsCount;
 	const additionalPersonDetails = [
 		totalMetadata ? `${totalMetadata} media items` : null,
 		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
