@@ -366,17 +366,6 @@ export const PersonDisplayItem = (props: {
 		},
 	});
 
-	const metadataCount =
-		personDetails?.associatedMetadata.reduce(
-			(sum, content) => sum + content.items.length,
-			0,
-		) || 0;
-	const metadataGroupCount =
-		personDetails?.associatedMetadataGroups.reduce(
-			(sum, content) => sum + content.items.length,
-			0,
-		) || 0;
-
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
@@ -391,7 +380,7 @@ export const PersonDisplayItem = (props: {
 			labels={{
 				right: props.rightLabel,
 				left: personDetails
-					? `${metadataCount + metadataGroupCount} items`
+					? `${personDetails.details.associatedEntityCount} items`
 					: undefined,
 			}}
 		/>
