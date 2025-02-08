@@ -1665,7 +1665,7 @@ export type PeopleSearchResults = {
 export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
-  associatedMetadataCount: Scalars['Int']['output'];
+  associatedEntityCount: Scalars['Int']['output'];
   birthDate?: Maybe<Scalars['NaiveDate']['output']>;
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
@@ -1684,7 +1684,7 @@ export type Person = {
 };
 
 export enum PersonAndMetadataGroupsSortBy {
-  MediaItems = 'MEDIA_ITEMS',
+  AssociatedEntityCount = 'ASSOCIATED_ENTITY_COUNT',
   Name = 'NAME',
   Random = 'RANDOM'
 }

@@ -1281,7 +1281,7 @@ pub enum PersonAndMetadataGroupsSortBy {
     #[default]
     Name,
     Random,
-    MediaItems,
+    AssociatedEntityCount,
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]

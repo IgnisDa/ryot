@@ -29,9 +29,9 @@ pub struct Model {
     pub display_images: Vec<String>,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
+    pub associated_entity_count: i32,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
-    pub associated_metadata_count: i32,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub images: Option<Vec<MetadataImage>>,
