@@ -1,13 +1,13 @@
 import { serve } from "@hono/node-server";
 import { config } from "~/lib/config";
 import { migrateDB } from "~/lib/db";
-import { initializeRedis, shutdownRedis } from "~/lib/redis";
 import {
 	initializeQueues,
 	initializeWorkers,
 	shutdownQueues,
 	shutdownWorkers,
-} from "~/queue";
+} from "~/lib/queue";
+import { initializeRedis, shutdownRedis } from "~/lib/redis";
 import { initializeSandboxService, shutdownSandboxService } from "~/sandbox";
 import { app } from "./server";
 
