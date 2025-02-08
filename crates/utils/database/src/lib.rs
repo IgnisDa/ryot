@@ -177,11 +177,10 @@ pub async fn user_workout_details(
     let collections =
         entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
     let details = e.graphql_representation(&ss.file_storage_service).await?;
-    let metadata_completed = Seen::find()
+    let metadata_consumed = Seen::find()
         .select_only()
         .column(seen::Column::MetadataId)
         .distinct()
-        .filter(seen::Column::State.eq(SeenState::Completed))
         .filter(Expr::val(details.start_time).lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
         .filter(Expr::val(details.end_time).gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
         .into_tuple::<String>()
@@ -190,7 +189,7 @@ pub async fn user_workout_details(
     Ok(UserWorkoutDetails {
         details,
         collections,
-        metadata_completed,
+        metadata_consumed,
     })
 }
 
