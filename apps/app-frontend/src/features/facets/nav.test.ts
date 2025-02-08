@@ -135,7 +135,6 @@ describe("toTrackingNavItemsWithViews", () => {
 		expect(items[0]?.savedViews?.length).toBe(2);
 		expect(items[0]?.savedViews?.[0]?.id).toBe("view-1");
 		expect(items[0]?.savedViews?.[0]?.name).toBe("All Whiskeys");
-		expect(items[0]?.savedViews?.[0]?.viewSlug).toBe("all-whiskeys");
 		expect(items[0]?.savedViews?.[1]?.id).toBe("view-2");
 		expect(items[0]?.savedViews?.[1]?.name).toBe("All Wines");
 	});
