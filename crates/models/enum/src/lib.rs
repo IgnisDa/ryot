@@ -656,6 +656,7 @@ pub enum IntegrationProvider {
     Sonarr,
     PlexSink,
     PlexYank,
+    Tautulli,
     GenericJson,
     YoutubeMusic,
     JellyfinPush,
