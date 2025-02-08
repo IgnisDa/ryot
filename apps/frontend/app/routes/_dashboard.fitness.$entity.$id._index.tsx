@@ -591,7 +591,11 @@ export default function Page() {
 									cols={{ base: 7, sm: 8, md: 10 }}
 								>
 									{loaderData.metadataConsumed.map((m) => (
-										<ConsumedMetadataDisplay metadataId={m} key={m} />
+										<ConsumedMetadataDisplay
+											key={m}
+											metadataId={m}
+											isOpened={metadataConsumedOpened}
+										/>
 									))}
 								</SimpleGrid>
 							</Collapse>
@@ -630,10 +634,14 @@ export default function Page() {
 	);
 }
 
-const ConsumedMetadataDisplay = (props: { metadataId: string }) => {
-	const { data: metadataDetails } = useQuery(
-		getPartialMetadataDetailsQuery(props.metadataId),
-	);
+const ConsumedMetadataDisplay = (props: {
+	metadataId: string;
+	isOpened: boolean;
+}) => {
+	const { data: metadataDetails } = useQuery({
+		...getPartialMetadataDetailsQuery(props.metadataId),
+		enabled: props.isOpened,
+	});
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
