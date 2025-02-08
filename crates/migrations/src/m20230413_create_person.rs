@@ -10,26 +10,25 @@ pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__uniqu
 
 #[derive(Iden)]
 pub enum Person {
-    Table,
     Id,
-    Identifier,
-    Source,
-    CreatedOn,
-    LastUpdatedOn,
     Name,
-    Description,
-    Gender,
-    BirthDate,
-    DeathDate,
-    // The place of origin
+    Table,
     Place,
-    Website,
+    Source,
+    Gender,
     Images,
+    Website,
+    BirthDate,
+    CreatedOn,
+    DeathDate,
     IsPartial,
-    SourceSpecifics,
-    StateChanges,
     SourceUrl,
+    Identifier,
+    Description,
+    StateChanges,
+    LastUpdatedOn,
     AlternateNames,
+    SourceSpecifics,
 }
 
 #[derive(Iden)]
