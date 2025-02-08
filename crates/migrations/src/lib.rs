@@ -31,6 +31,7 @@ mod m20250122_changes_for_issue_1188;
 mod m20250126_changes_for_issue_1201;
 mod m20250201_changes_for_issue_1211;
 mod m20250204_changes_for_issue_1231;
+mod m20250208_changes_for_issue_1233;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250126_changes_for_issue_1201::Migration),
             Box::new(m20250201_changes_for_issue_1211::Migration),
             Box::new(m20250204_changes_for_issue_1231::Migration),
+            Box::new(m20250208_changes_for_issue_1233::Migration),
         ]
     }
 }

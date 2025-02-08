@@ -7,6 +7,7 @@ pub struct Migration;
 
 pub static METADATA_TO_PERSON_PRIMARY_KEY: &str = "pk-media-item_person";
 pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__unique_index";
+pub static PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0)) STORED"#;
 
 #[derive(Iden)]
 pub enum Person {
@@ -29,6 +30,7 @@ pub enum Person {
     LastUpdatedOn,
     AlternateNames,
     SourceSpecifics,
+    AssociatedMetadataCount,
 }
 
 #[derive(Iden)]
@@ -86,6 +88,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::StateChanges).json_binary())
                     .col(ColumnDef::new(Person::SourceUrl).text())
                     .col(ColumnDef::new(Person::AlternateNames).array(ColumnType::Text))
+                    .col(
+                        ColumnDef::new(Person::AssociatedMetadataCount)
+                            .integer()
+                            .not_null()
+                            .extra(PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL),
+                    )
                     .to_owned(),
             )
             .await?;
