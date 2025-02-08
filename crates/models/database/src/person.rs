@@ -31,6 +31,7 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
+    pub associated_metadata_count: i32,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub images: Option<Vec<MetadataImage>>,
