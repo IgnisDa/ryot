@@ -56,13 +56,31 @@ export const buildAuthenticationFacetEntitySchemaLinks = (input: {
 };
 
 export const buildAuthenticationSavedViewInputs = (input: {
-	entitySchemas: Array<{ id: string; slug: string }>;
-	savedViews: Array<{ name: string; entitySchemaSlug: string }>;
+	facets: Array<{ id: string; slug: string }>;
+	entitySchemas: Array<{
+		id: string;
+		slug: string;
+		icon: string;
+		accentColor: string;
+	}>;
+	savedViews: Array<{
+		name: string;
+		facetSlug: string;
+		entitySchemaSlug: string;
+	}>;
 }) => {
 	return input.savedViews.map((savedView) => {
+		const facet = input.facets.find(
+			(item) => item.slug === savedView.facetSlug,
+		);
 		const entitySchema = input.entitySchemas.find(
 			(schema) => schema.slug === savedView.entitySchemaSlug,
 		);
+
+		if (!facet)
+			throw new Error(
+				`Missing built-in facet for saved view ${savedView.name}`,
+			);
 
 		if (!entitySchema)
 			throw new Error(
@@ -71,7 +89,10 @@ export const buildAuthenticationSavedViewInputs = (input: {
 
 		return {
 			isBuiltin: true,
+			facetId: facet.id,
 			name: savedView.name,
+			icon: entitySchema.icon,
+			accentColor: entitySchema.accentColor,
 			queryDefinition: {
 				entitySchemaIds: [entitySchema.id],
 			} satisfies SavedViewQueryDefinition,

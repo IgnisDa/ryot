@@ -1,43 +1,34 @@
 import { and, asc, eq } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
-import { facet, facetEntitySchema, savedView } from "~/lib/db/schema";
+import { savedView } from "~/lib/db/schema";
 import type { SavedViewQueryDefinition } from "./schemas";
 
-export const listSavedViewsForUser = async (input: { userId: string }) => {
+export const listSavedViewsForUser = async (input: {
+	userId: string;
+	facetId?: string;
+}) => {
+	const whereClauses = [eq(savedView.userId, input.userId)];
+
+	if (input.facetId) whereClauses.push(eq(savedView.facetId, input.facetId));
+
 	const rows = await db
 		.select({
 			id: savedView.id,
+			icon: savedView.icon,
 			name: savedView.name,
+			facetId: savedView.facetId,
 			isBuiltin: savedView.isBuiltin,
+			accentColor: savedView.accentColor,
 			queryDefinition: savedView.queryDefinition,
 		})
 		.from(savedView)
-		.where(eq(savedView.userId, input.userId))
+		.where(and(...whereClauses))
 		.orderBy(asc(savedView.name), asc(savedView.createdAt));
 
 	return rows.map((row) => ({
 		...row,
 		queryDefinition: row.queryDefinition as SavedViewQueryDefinition,
 	}));
-};
-
-export const listEntitySchemaIdsByFacetForUser = async (input: {
-	userId: string;
-	facetId: string;
-}) => {
-	const rows = await db
-		.select({ id: facetEntitySchema.entitySchemaId })
-		.from(facetEntitySchema)
-		.innerJoin(facet, eq(facet.id, facetEntitySchema.facetId))
-		.where(
-			and(
-				eq(facet.id, input.facetId),
-				eq(facet.userId, input.userId),
-				eq(facetEntitySchema.isDisabled, false),
-			),
-		);
-
-	return rows.map((row) => row.id);
 };
 
 export const getSavedViewByIdForUser = async (input: {
@@ -47,8 +38,11 @@ export const getSavedViewByIdForUser = async (input: {
 	const [foundView] = await db
 		.select({
 			id: savedView.id,
+			icon: savedView.icon,
 			name: savedView.name,
+			facetId: savedView.facetId,
 			isBuiltin: savedView.isBuiltin,
+			accentColor: savedView.accentColor,
 			queryDefinition: savedView.queryDefinition,
 		})
 		.from(savedView)
@@ -66,23 +60,32 @@ export const getSavedViewByIdForUser = async (input: {
 };
 
 export const createSavedViewForUser = async (input: {
+	icon: string;
 	name: string;
 	userId: string;
+	facetId?: string;
 	isBuiltin: boolean;
+	accentColor: string;
 	queryDefinition: SavedViewQueryDefinition;
 }) => {
 	const [createdView] = await db
 		.insert(savedView)
 		.values({
+			icon: input.icon,
 			name: input.name,
 			userId: input.userId,
+			facetId: input.facetId,
 			isBuiltin: input.isBuiltin,
+			accentColor: input.accentColor,
 			queryDefinition: input.queryDefinition,
 		})
 		.returning({
 			id: savedView.id,
+			icon: savedView.icon,
 			name: savedView.name,
+			facetId: savedView.facetId,
 			isBuiltin: savedView.isBuiltin,
+			accentColor: savedView.accentColor,
 			queryDefinition: savedView.queryDefinition,
 		});
 
@@ -98,8 +101,11 @@ export const createSavedViewsForUser = async (input: {
 	userId: string;
 	database?: DbClient;
 	views: Array<{
+		icon: string;
 		name: string;
+		facetId?: string;
 		isBuiltin: boolean;
+		accentColor: string;
 		queryDefinition: SavedViewQueryDefinition;
 	}>;
 }) => {
@@ -109,9 +115,12 @@ export const createSavedViewsForUser = async (input: {
 
 	await database.insert(savedView).values(
 		input.views.map((view) => ({
+			icon: view.icon,
 			name: view.name,
 			userId: input.userId,
+			facetId: view.facetId,
 			isBuiltin: view.isBuiltin,
+			accentColor: view.accentColor,
 			queryDefinition: view.queryDefinition,
 		})),
 	);
@@ -128,8 +137,11 @@ export const deleteSavedViewByIdForUser = async (input: {
 		)
 		.returning({
 			id: savedView.id,
+			icon: savedView.icon,
 			name: savedView.name,
+			facetId: savedView.facetId,
 			isBuiltin: savedView.isBuiltin,
+			accentColor: savedView.accentColor,
 			queryDefinition: savedView.queryDefinition,
 		});
 
