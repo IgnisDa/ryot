@@ -2983,6 +2983,7 @@ export type UserWorkoutDetails = {
   __typename?: 'UserWorkoutDetails';
   collections: Array<Collection>;
   details: Workout;
+  metadataCompleted: Array<Scalars['String']['output']>;
 };
 
 export type UserWorkoutInput = {
