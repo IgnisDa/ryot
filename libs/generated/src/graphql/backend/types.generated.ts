@@ -933,6 +933,7 @@ export type Integration = {
   name?: Maybe<Scalars['String']['output']>;
   provider: IntegrationProvider;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
+  triggerResult: Array<IntegrationTriggerResult>;
 };
 
 export enum IntegrationLot {
@@ -981,6 +982,12 @@ export type IntegrationSourceSpecificsInput = {
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
   youtubeMusicTimezone?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type IntegrationTriggerResult = {
+  __typename?: 'IntegrationTriggerResult';
+  triggeredAt: Scalars['DateTime']['output'];
+  wasSuccessful: Scalars['Boolean']['output'];
 };
 
 export type LoginError = {

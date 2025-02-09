@@ -72,6 +72,10 @@ query UserIntegrations {
     minimumProgress
     lastTriggeredOn
     syncToOwnedCollection
+    triggerResult {
+      triggeredAt
+      wasSuccessful
+    }
   }
 }
 

@@ -3,7 +3,7 @@
 use async_graphql::{InputObject, SimpleObject};
 use async_trait::async_trait;
 use enum_models::{IntegrationLot, IntegrationProvider};
-use media_models::IntegrationProviderSpecifics;
+use media_models::{IntegrationProviderSpecifics, IntegrationTriggerResult};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 
@@ -27,6 +27,9 @@ pub struct Model {
     pub sync_to_owned_collection: Option<bool>,
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeUtc>,
+    #[sea_orm(column_type = "Json")]
+    #[graphql(skip_input)]
+    pub trigger_result: Vec<IntegrationTriggerResult>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub provider_specifics: Option<IntegrationProviderSpecifics>,

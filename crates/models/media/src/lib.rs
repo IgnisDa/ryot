@@ -834,6 +834,14 @@ pub struct PersonStateChanges {
     pub metadata_groups_associated: HashSet<MediaAssociatedPersonStateChanges>,
 }
 
+#[derive(
+    Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, SimpleObject,
+)]
+pub struct IntegrationTriggerResult {
+    pub was_successful: bool,
+    pub triggered_at: DateTimeUtc,
+}
+
 #[skip_serializing_none]
 #[derive(
     Debug,
