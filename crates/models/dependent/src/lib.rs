@@ -135,6 +135,7 @@ pub struct CompleteExport {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
+    pub metadata_consumed: Vec<String>,
     pub collections: Vec<collection::Model>,
 }
 

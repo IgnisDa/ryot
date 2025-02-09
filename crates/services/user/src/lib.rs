@@ -578,9 +578,6 @@ impl UserService {
             NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
                 key: input.api_token.unwrap(),
             },
-            NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
-                email: input.api_token.unwrap(),
-            },
             NotificationPlatformLot::Telegram => NotificationPlatformSpecifics::Telegram {
                 bot_token: input.api_token.unwrap(),
                 chat_id: input.chat_id.unwrap(),
@@ -607,9 +604,6 @@ impl UserService {
             }
             NotificationPlatformSpecifics::PushSafer { key } => {
                 format!("Key: {}", key)
-            }
-            NotificationPlatformSpecifics::Email { email } => {
-                format!("ID: {}", email)
             }
             NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
                 format!("Chat ID: {}", chat_id)
@@ -676,7 +670,7 @@ impl UserService {
                 continue;
             }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
-            send_notification(platform.platform_specifics, &self.0.config, &msg).await?;
+            send_notification(platform.platform_specifics, &msg).await?;
         }
         Ok(true)
     }

@@ -4,6 +4,7 @@ import {
 	Avatar,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Group,
 	Menu,
@@ -12,6 +13,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
@@ -48,11 +50,13 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Form, Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollection } from "~/components/common";
 import {
@@ -65,6 +69,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
+	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 } from "~/lib/generals";
 import {
@@ -125,15 +130,16 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				};
 			}
 			return {
-				entityName: userWorkoutDetails.details.name,
-				startTime: userWorkoutDetails.details.startTime,
-				endTime: userWorkoutDetails.details.endTime,
-				duration: userWorkoutDetails.details.duration,
-				information: userWorkoutDetails.details.information,
-				summary: userWorkoutDetails.details.summary,
-				repeatedWorkout: repeatedWorkout,
 				template,
+				repeatedWorkout: repeatedWorkout,
 				collections: userWorkoutDetails.collections,
+				endTime: userWorkoutDetails.details.endTime,
+				summary: userWorkoutDetails.details.summary,
+				entityName: userWorkoutDetails.details.name,
+				duration: userWorkoutDetails.details.duration,
+				startTime: userWorkoutDetails.details.startTime,
+				information: userWorkoutDetails.details.information,
+				metadataConsumed: userWorkoutDetails.metadataConsumed,
 				caloriesBurnt: userWorkoutDetails.details.caloriesBurnt,
 			};
 		})
@@ -146,15 +152,16 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				),
 			]);
 			return {
+				endTime: null,
+				template: null,
+				caloriesBurnt: null,
+				metadataConsumed: [],
+				repeatedWorkout: null,
+				collections: userWorkoutTemplateDetails.collections,
+				summary: userWorkoutTemplateDetails.details.summary,
 				entityName: userWorkoutTemplateDetails.details.name,
 				startTime: userWorkoutTemplateDetails.details.createdOn,
-				endTime: null,
 				information: userWorkoutTemplateDetails.details.information,
-				summary: userWorkoutTemplateDetails.details.summary,
-				repeatedWorkout: null,
-				template: null,
-				collections: userWorkoutTemplateDetails.collections,
-				caloriesBurnt: null,
 			};
 		})
 		.exhaustive();
@@ -228,6 +235,10 @@ export default function Page() {
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
+	const [metadataConsumedOpened, setMetadataConsumedOpened] = useLocalStorage(
+		`MetadataConsumedOpened-${loaderData.entityId}`,
+		false,
+	);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
@@ -563,6 +574,33 @@ export default function Page() {
 							) : null}
 						</SimpleGrid>
 					</Box>
+					{loaderData.metadataConsumed.length > 0 ? (
+						<Stack gap="xs">
+							<Anchor
+								size="xs"
+								onClick={() =>
+									setMetadataConsumedOpened(!metadataConsumedOpened)
+								}
+							>
+								Consumed {loaderData.metadataConsumed.length} items during this
+								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
+							</Anchor>
+							<Collapse in={metadataConsumedOpened}>
+								<SimpleGrid
+									verticalSpacing="xs"
+									cols={{ base: 7, sm: 8, md: 10 }}
+								>
+									{loaderData.metadataConsumed.map((m) => (
+										<ConsumedMetadataDisplay
+											key={m}
+											metadataId={m}
+											isOpened={metadataConsumedOpened}
+										/>
+									))}
+								</SimpleGrid>
+							</Collapse>
+						</Stack>
+					) : null}
 					{loaderData.information.comment ? (
 						<Box>
 							<Text c="dimmed" span>
@@ -595,6 +633,24 @@ export default function Page() {
 		</>
 	);
 }
+
+const ConsumedMetadataDisplay = (props: {
+	metadataId: string;
+	isOpened: boolean;
+}) => {
+	const { data: metadataDetails } = useQuery({
+		...getPartialMetadataDetailsQuery(props.metadataId),
+		enabled: props.isOpened,
+	});
+
+	return (
+		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
+			<Tooltip label={metadataDetails?.title}>
+				<Avatar src={metadataDetails?.image} />
+			</Tooltip>
+		</Link>
+	);
+};
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (

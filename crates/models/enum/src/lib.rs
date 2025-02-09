@@ -684,7 +684,6 @@ pub enum IntegrationProvider {
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPlatformLot {
     Ntfy,
-    Email,
     Gotify,
     Apprise,
     Discord,

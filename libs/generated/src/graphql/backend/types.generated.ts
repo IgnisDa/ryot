@@ -1617,7 +1617,6 @@ export type NotificationPlatform = {
 export enum NotificationPlatformLot {
   Apprise = 'APPRISE',
   Discord = 'DISCORD',
-  Email = 'EMAIL',
   Gotify = 'GOTIFY',
   Ntfy = 'NTFY',
   PushBullet = 'PUSH_BULLET',
@@ -2983,6 +2982,7 @@ export type UserWorkoutDetails = {
   __typename?: 'UserWorkoutDetails';
   collections: Array<Collection>;
   details: Workout;
+  metadataConsumed: Array<Scalars['String']['output']>;
 };
 
 export type UserWorkoutInput = {

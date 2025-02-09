@@ -120,7 +120,7 @@ export const sendEmail = async (
 		html,
 		subject,
 		to: recipient,
-		from: '"Ryot" <no-reply@ryot.io>',
+		from: serverVariables.SERVER_SMTP_MAILBOX,
 	});
 	console.log(`Sent email to ${recipient} with subject ${subject}`);
 	return resp.messageId;

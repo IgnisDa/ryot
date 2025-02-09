@@ -84,7 +84,9 @@ export const getSetStatisticsTextToDisplay = (
 			statistic.weight && statistic.weight !== "0"
 				? `${displayWeightWithUnit(unit, statistic.weight)} × ${statistic.reps}`
 				: `${statistic.reps} reps`,
-			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : null,
+			statistic.oneRm && statistic.oneRm !== "0"
+				? `${Number(statistic.oneRm).toFixed(1)} RM`
+				: null,
 		])
 		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
 			`${displayDistanceWithUnit(unit, statistic.distance)} × ${statistic.reps}`,

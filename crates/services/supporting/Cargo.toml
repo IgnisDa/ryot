@@ -7,6 +7,7 @@ edition = "2021"
 async-graphql = { workspace = true }
 apalis = { workspace = true }
 background-models = { path = "../../models/background" }
+bon = { workspace = true }
 cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }

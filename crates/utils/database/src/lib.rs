@@ -177,9 +177,19 @@ pub async fn user_workout_details(
     let collections =
         entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
     let details = e.graphql_representation(&ss.file_storage_service).await?;
+    let metadata_consumed = Seen::find()
+        .select_only()
+        .column(seen::Column::MetadataId)
+        .distinct()
+        .filter(Expr::val(details.start_time).lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
+        .filter(Expr::val(details.end_time).gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
     Ok(UserWorkoutDetails {
         details,
         collections,
+        metadata_consumed,
     })
 }
 

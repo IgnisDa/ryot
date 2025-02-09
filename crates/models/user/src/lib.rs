@@ -529,9 +529,6 @@ pub enum NotificationPlatformSpecifics {
     PushSafer {
         key: String,
     },
-    Email {
-        email: String,
-    },
     Telegram {
         bot_token: String,
         chat_id: String,

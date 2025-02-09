@@ -438,6 +438,7 @@ query UserPersonDetails($personId: String!) {
 
 query UserWorkoutDetails($workoutId: String!) {
   userWorkoutDetails(workoutId: $workoutId) {
+    metadataConsumed
     collections {
       ...CollectionPart
     }
