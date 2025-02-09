@@ -44,7 +44,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { dayjsLib, openConfirmationModal } from "~/lib/generals";
-import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
+import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.notifications";
 
@@ -142,7 +142,6 @@ const updateSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [
 		createUserNotificationPlatformModalOpened,
 		{
@@ -252,20 +251,6 @@ export default function Page() {
 										<>
 											<TextInput label="Bot Token" required name="apiToken" />
 											<TextInput label="Chat ID" required name="chatId" />
-										</>
-									))
-									.with(NotificationPlatformLot.Email, () => (
-										<>
-											<TextInput
-												type="email"
-												label="Email ID"
-												required
-												name="apiToken"
-												disabled={!coreDetails.smtpEnabled}
-												description={
-													coreDetails.smtpEnabled ? null : "SMTP is not enabled"
-												}
-											/>
 										</>
 									))
 									.exhaustive()
