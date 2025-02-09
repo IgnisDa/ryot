@@ -1,9 +1,11 @@
 import {
 	Badge,
 	Box,
+	Burger,
 	Button,
 	Card,
 	createTheme,
+	Drawer,
 	Flex,
 	Grid,
 	Group,
@@ -15,6 +17,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	BookOpen,
@@ -97,290 +100,485 @@ const editorialTheme = createTheme({
 });
 
 function EditorialTheme() {
-	const [colorScheme, setColorScheme] = useState<"light" | "dark">("dark");
+	const [colorScheme, setColorScheme] = useState<"light" | "dark">("light");
+	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
+		useDisclosure(false);
+	const isMobile = useMediaQuery("(max-width: 768px)") ?? false;
+	const isDark = colorScheme === "dark";
+
+	const bg = isDark ? "dark.9" : "cream.0";
+	const surface = isDark ? "dark.8" : "cream.1";
+	const mainContent = isDark ? "dark.8" : "white";
+	const textPrimary = isDark ? "cream.0" : "dark.9";
+	const textSecondary = isDark ? "dark.3" : "dark.6";
+	const textMuted = isDark ? "dark.4" : "dark.5";
+	const sectionLabel = isDark ? "cream.2" : "dark.7";
+	const border = isDark
+		? "var(--mantine-color-dark-6)"
+		: "var(--mantine-color-gold-3)";
+	const doubleBorder = isDark
+		? "var(--mantine-color-gold-6)"
+		: "var(--mantine-color-gold-5)";
+	const accentText = isDark ? "gold.5" : "gold.7";
+	const headerGradient = isDark
+		? "linear-gradient(to bottom, var(--mantine-color-dark-7) 0%, var(--mantine-color-dark-8) 100%)"
+		: "linear-gradient(to bottom, #FFFBEB 0%, white 100%)";
+	const cardBg = isDark ? "dark.7" : "cream.0";
+	const entityCardBg = isDark ? "dark.8" : "white";
+	const searchInputBg = isDark ? "var(--mantine-color-dark-7)" : "white";
+	const searchInputBorder = isDark
+		? "var(--mantine-color-dark-6)"
+		: "var(--mantine-color-gold-4)";
+	const searchInputFocus = isDark
+		? "var(--mantine-color-gold-6)"
+		: "var(--mantine-color-gold-5)";
+	const sageColor = isDark ? "sage.5" : "sage.6";
+	const sageColorDark = isDark ? "sage.6" : "sage.7";
+	const goldBorder = isDark
+		? "var(--mantine-color-gold-6)"
+		: "var(--mantine-color-gold-4)";
+	const goldButton = isDark
+		? "var(--mantine-color-gold-6)"
+		: "var(--mantine-color-gold-5)";
+	const goldButtonHover = isDark
+		? "var(--mantine-color-gold-7)"
+		: "var(--mantine-color-gold-6)";
+	const eventPropertyBadgeBg = isDark
+		? "var(--mantine-color-sage-7)"
+		: "var(--mantine-color-sage-4)";
+	const eventPropertyBadgeColor = isDark
+		? "var(--mantine-color-cream-0)"
+		: "var(--mantine-color-dark-9)";
+
+	const sidebarContent = (
+		<Stack gap={0} h="100%">
+			<Box p="xl" pb="lg">
+				<Text
+					size="2.5rem"
+					fw={400}
+					c={textPrimary}
+					style={{
+						fontFamily: '"Playfair Display", serif',
+						lineHeight: 1,
+					}}
+				>
+					Ryot
+				</Text>
+				<Text
+					size="xs"
+					c={textMuted}
+					mt={8}
+					style={{
+						fontFamily: '"Lora", serif',
+						fontStyle: "italic",
+						letterSpacing: "0.5px",
+					}}
+				>
+					A Journal of Personal Tracking
+				</Text>
+			</Box>
+
+			<Box px="lg" pb="lg">
+				<TextInput
+					placeholder="Search archives..."
+					leftSection={
+						<Search
+							size={18}
+							color={
+								isDark
+									? "var(--mantine-color-gold-6)"
+									: "var(--mantine-color-gold-5)"
+							}
+						/>
+					}
+					size="md"
+					styles={{
+						input: {
+							backgroundColor: searchInputBg,
+							border: `1px solid ${searchInputBorder}`,
+							color: textPrimary,
+							fontFamily: '"Lora", serif',
+							borderRadius: "2px",
+							"&:focus": {
+								borderColor: searchInputFocus,
+								boxShadow: isDark
+									? "0 0 0 2px rgba(212, 165, 116, 0.25)"
+									: "0 0 0 2px rgba(212, 165, 116, 0.15)",
+							},
+							"&::placeholder": {
+								color: textMuted,
+								fontStyle: "italic",
+							},
+						},
+					}}
+				/>
+			</Box>
+
+			<Box h={1} bg={isDark ? "gold.6" : "gold.4"} mb="lg" />
+
+			<Stack gap={0} px="lg" style={{ flex: 1, overflowY: "auto" }}>
+				<NavLink
+					label="Home"
+					onClick={closeDrawer}
+					leftSection={
+						<Home
+							size={20}
+							color={
+								isDark
+									? "var(--mantine-color-gold-5)"
+									: "var(--mantine-color-gold-6)"
+							}
+						/>
+					}
+					color="gold.6"
+					variant="subtle"
+					styles={{
+						root: {
+							borderRadius: "2px",
+							padding: "12px 16px",
+							borderLeft: "3px solid transparent",
+							fontFamily: '"Lora", serif',
+							"&:hover": {
+								backgroundColor: isDark
+									? "rgba(212, 165, 116, 0.12)"
+									: "rgba(212, 165, 116, 0.08)",
+								borderLeftColor: isDark
+									? "var(--mantine-color-gold-6)"
+									: "var(--mantine-color-gold-5)",
+							},
+						},
+						label: { fontWeight: 500, fontSize: "15px" },
+					}}
+				/>
+
+				<Box mt="xl" mb="md">
+					<Text
+						size="sm"
+						c={sectionLabel}
+						px="md"
+						mb="md"
+						style={{
+							fontFamily: '"Playfair Display", serif',
+							fontSize: "13px",
+							letterSpacing: "1.5px",
+							textTransform: "uppercase",
+							fontWeight: 600,
+						}}
+					>
+						Collections
+					</Text>
+					<Box h={1} bg={border} mb="md" />
+				</Box>
+
+				<NavLink
+					label="Media"
+					onClick={closeDrawer}
+					leftSection={
+						<Film
+							size={20}
+							color={
+								isDark
+									? "var(--mantine-color-sage-5)"
+									: "var(--mantine-color-sage-6)"
+							}
+						/>
+					}
+					color={sageColor}
+					defaultOpened
+					styles={{
+						root: {
+							borderRadius: "2px",
+							padding: "12px 16px",
+							borderLeft: "3px solid transparent",
+							fontFamily: '"Lora", serif',
+							"&:hover": {
+								backgroundColor: isDark
+									? "rgba(124, 150, 124, 0.12)"
+									: "rgba(124, 150, 124, 0.08)",
+								borderLeftColor: isDark
+									? "var(--mantine-color-sage-6)"
+									: "var(--mantine-color-sage-5)",
+							},
+						},
+						label: { fontWeight: 500, fontSize: "15px" },
+					}}
+				>
+					<NavLink
+						label="Movies"
+						onClick={closeDrawer}
+						color={sageColorDark}
+						styles={{
+							root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
+							label: { fontWeight: 400, fontSize: "14px" },
+						}}
+					/>
+					<NavLink
+						label="Books"
+						onClick={closeDrawer}
+						color={sageColorDark}
+						styles={{
+							root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
+							label: { fontWeight: 400, fontSize: "14px" },
+						}}
+					/>
+					<NavLink
+						label="TV Shows"
+						onClick={closeDrawer}
+						color={sageColorDark}
+						styles={{
+							root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
+							label: { fontWeight: 400, fontSize: "14px" },
+						}}
+					/>
+				</NavLink>
+
+				<NavLink
+					label="Fitness"
+					onClick={closeDrawer}
+					leftSection={
+						<Dumbbell
+							size={20}
+							color={
+								isDark
+									? "var(--mantine-color-gold-5)"
+									: "var(--mantine-color-gold-6)"
+							}
+						/>
+					}
+					color="gold.6"
+					styles={{
+						root: {
+							borderRadius: "2px",
+							padding: "12px 16px",
+							borderLeft: "3px solid transparent",
+							fontFamily: '"Lora", serif',
+							"&:hover": {
+								backgroundColor: isDark
+									? "rgba(212, 165, 116, 0.12)"
+									: "rgba(212, 165, 116, 0.08)",
+								borderLeftColor: isDark
+									? "var(--mantine-color-gold-6)"
+									: "var(--mantine-color-gold-5)",
+							},
+						},
+						label: { fontWeight: 500, fontSize: "15px" },
+					}}
+				/>
+
+				<NavLink
+					label="Whiskey"
+					onClick={closeDrawer}
+					leftSection={
+						<Wine
+							size={20}
+							color={
+								isDark
+									? "var(--mantine-color-gold-6)"
+									: "var(--mantine-color-gold-7)"
+							}
+						/>
+					}
+					color={isDark ? "gold.6" : "gold.7"}
+					styles={{
+						root: {
+							borderRadius: "2px",
+							padding: "12px 16px",
+							borderLeft: "3px solid transparent",
+							fontFamily: '"Lora", serif',
+							"&:hover": {
+								backgroundColor: isDark
+									? "rgba(212, 165, 116, 0.12)"
+									: "rgba(212, 165, 116, 0.08)",
+								borderLeftColor: isDark
+									? "var(--mantine-color-gold-6)"
+									: "var(--mantine-color-gold-5)",
+							},
+						},
+						label: { fontWeight: 500, fontSize: "15px" },
+					}}
+				/>
+
+				<NavLink
+					label="Places"
+					onClick={closeDrawer}
+					leftSection={
+						<MapPin
+							size={20}
+							color={
+								isDark
+									? "var(--mantine-color-sage-5)"
+									: "var(--mantine-color-sage-6)"
+							}
+						/>
+					}
+					color={sageColor}
+					styles={{
+						root: {
+							borderRadius: "2px",
+							padding: "12px 16px",
+							borderLeft: "3px solid transparent",
+							fontFamily: '"Lora", serif',
+							"&:hover": {
+								backgroundColor: isDark
+									? "rgba(124, 150, 124, 0.12)"
+									: "rgba(124, 150, 124, 0.08)",
+								borderLeftColor: isDark
+									? "var(--mantine-color-sage-6)"
+									: "var(--mantine-color-sage-5)",
+							},
+						},
+						label: { fontWeight: 500, fontSize: "15px" },
+					}}
+				/>
+
+				<Box mt="xl" mb="md">
+					<Text
+						size="sm"
+						c={sectionLabel}
+						px="md"
+						mb="md"
+						style={{
+							fontFamily: '"Playfair Display", serif',
+							fontSize: "13px",
+							letterSpacing: "1.5px",
+							textTransform: "uppercase",
+							fontWeight: 600,
+						}}
+					>
+						Curated Views
+					</Text>
+					<Box h={1} bg={border} mb="md" />
+				</Box>
+				{savedViews.map((view) => (
+					<NavLink
+						key={view.id}
+						label={view.name}
+						onClick={closeDrawer}
+						leftSection={
+							<BookOpen
+								size={18}
+								color={
+									isDark
+										? "var(--mantine-color-gold-5)"
+										: "var(--mantine-color-gold-6)"
+								}
+							/>
+						}
+						color="gold.6"
+						styles={{
+							root: {
+								borderRadius: "2px",
+								padding: "10px 16px",
+								borderLeft: "3px solid transparent",
+								fontFamily: '"Lora", serif',
+								"&:hover": {
+									backgroundColor: isDark
+										? "rgba(212, 165, 116, 0.12)"
+										: "rgba(212, 165, 116, 0.08)",
+									borderLeftColor: isDark
+										? "var(--mantine-color-gold-6)"
+										: "var(--mantine-color-gold-5)",
+								},
+							},
+							label: {
+								fontWeight: 400,
+								fontSize: "14px",
+								fontStyle: "italic",
+							},
+						}}
+					/>
+				))}
+			</Stack>
+		</Stack>
+	);
 
 	return (
 		<MantineProvider theme={editorialTheme} forceColorScheme={colorScheme}>
-			<Flex h="100vh" bg="cream.0">
-				<Box
-					w={320}
-					bg="cream.1"
-					style={{
-						borderRight: "3px double var(--mantine-color-gold-5)",
-						boxShadow: "2px 0 8px rgba(0, 0, 0, 0.05)",
+			{isMobile && (
+				<Drawer
+					opened={drawerOpened}
+					onClose={closeDrawer}
+					size={320}
+					padding={0}
+					withCloseButton={false}
+					styles={{
+						body: {
+							height: "100%",
+							backgroundColor: surface,
+						},
+						content: {
+							backgroundColor: surface,
+						},
 					}}
 				>
-					<Stack gap={0} h="100%">
-						<Box p="xl" pb="lg">
-							<Text
-								size="2.5rem"
-								fw={400}
-								c="dark.9"
-								style={{
-									fontFamily: '"Playfair Display", serif',
-									lineHeight: 1,
-								}}
-							>
-								Ryot
-							</Text>
-							<Text
-								size="xs"
-								c="dark.5"
-								mt={8}
-								style={{
-									fontFamily: '"Lora", serif',
-									fontStyle: "italic",
-									letterSpacing: "0.5px",
-								}}
-							>
-								A Journal of Personal Tracking
-							</Text>
-						</Box>
-
-						<Box px="lg" pb="lg">
-							<TextInput
-								placeholder="Search archives..."
-								leftSection={
-									<Search size={18} color="var(--mantine-color-gold-5)" />
-								}
-								size="md"
-								styles={{
-									input: {
-										backgroundColor: "white",
-										border: "1px solid var(--mantine-color-gold-4)",
-										color: "var(--mantine-color-dark-9)",
-										fontFamily: '"Lora", serif',
-										borderRadius: "2px",
-										"&:focus": {
-											borderColor: "var(--mantine-color-gold-5)",
-											boxShadow: "0 0 0 2px rgba(212, 165, 116, 0.15)",
-										},
-										"&::placeholder": {
-											color: "var(--mantine-color-dark-4)",
-											fontStyle: "italic",
-										},
-									},
-								}}
-							/>
-						</Box>
-
-						<Box h={1} bg="gold.4" mb="lg" />
-
-						<Stack gap={0} px="lg" style={{ flex: 1, overflowY: "auto" }}>
-							<NavLink
-								label="Home"
-								leftSection={
-									<Home size={20} color="var(--mantine-color-gold-6)" />
-								}
-								color="gold.6"
-								variant="subtle"
-								styles={{
-									root: {
-										borderRadius: "2px",
-										padding: "12px 16px",
-										borderLeft: "3px solid transparent",
-										fontFamily: '"Lora", serif',
-										"&:hover": {
-											backgroundColor: "rgba(212, 165, 116, 0.08)",
-											borderLeftColor: "var(--mantine-color-gold-5)",
-										},
-									},
-									label: { fontWeight: 500, fontSize: "15px" },
-								}}
-							/>
-
-							<Box mt="xl" mb="md">
-								<Text
-									size="sm"
-									c="dark.7"
-									px="md"
-									mb="md"
-									style={{
-										fontFamily: '"Playfair Display", serif',
-										fontSize: "13px",
-										letterSpacing: "1.5px",
-										textTransform: "uppercase",
-										fontWeight: 600,
-									}}
-								>
-									Collections
-								</Text>
-								<Box h={1} bg="gold.3" mb="md" />
-							</Box>
-
-							<NavLink
-								label="Media"
-								leftSection={
-									<Film size={20} color="var(--mantine-color-sage-6)" />
-								}
-								color="sage.6"
-								defaultOpened
-								styles={{
-									root: {
-										borderRadius: "2px",
-										padding: "12px 16px",
-										borderLeft: "3px solid transparent",
-										fontFamily: '"Lora", serif',
-										"&:hover": {
-											backgroundColor: "rgba(124, 150, 124, 0.08)",
-											borderLeftColor: "var(--mantine-color-sage-5)",
-										},
-									},
-									label: { fontWeight: 500, fontSize: "15px" },
-								}}
-							>
-								<NavLink
-									label="Movies"
-									color="sage.7"
-									styles={{
-										root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
-										label: { fontWeight: 400, fontSize: "14px" },
-									}}
-								/>
-								<NavLink
-									label="Books"
-									color="sage.7"
-									styles={{
-										root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
-										label: { fontWeight: 400, fontSize: "14px" },
-									}}
-								/>
-								<NavLink
-									label="TV Shows"
-									color="sage.7"
-									styles={{
-										root: { paddingLeft: "40px", fontFamily: '"Lora", serif' },
-										label: { fontWeight: 400, fontSize: "14px" },
-									}}
-								/>
-							</NavLink>
-
-							<NavLink
-								label="Fitness"
-								leftSection={
-									<Dumbbell size={20} color="var(--mantine-color-gold-6)" />
-								}
-								color="gold.6"
-								styles={{
-									root: {
-										borderRadius: "2px",
-										padding: "12px 16px",
-										borderLeft: "3px solid transparent",
-										fontFamily: '"Lora", serif',
-										"&:hover": {
-											backgroundColor: "rgba(212, 165, 116, 0.08)",
-											borderLeftColor: "var(--mantine-color-gold-5)",
-										},
-									},
-									label: { fontWeight: 500, fontSize: "15px" },
-								}}
-							/>
-
-							<NavLink
-								label="Whiskey"
-								leftSection={
-									<Wine size={20} color="var(--mantine-color-gold-7)" />
-								}
-								color="gold.7"
-								styles={{
-									root: {
-										borderRadius: "2px",
-										padding: "12px 16px",
-										borderLeft: "3px solid transparent",
-										fontFamily: '"Lora", serif',
-										"&:hover": {
-											backgroundColor: "rgba(212, 165, 116, 0.08)",
-											borderLeftColor: "var(--mantine-color-gold-5)",
-										},
-									},
-									label: { fontWeight: 500, fontSize: "15px" },
-								}}
-							/>
-
-							<NavLink
-								label="Places"
-								leftSection={
-									<MapPin size={20} color="var(--mantine-color-sage-6)" />
-								}
-								color="sage.6"
-								styles={{
-									root: {
-										borderRadius: "2px",
-										padding: "12px 16px",
-										borderLeft: "3px solid transparent",
-										fontFamily: '"Lora", serif',
-										"&:hover": {
-											backgroundColor: "rgba(124, 150, 124, 0.08)",
-											borderLeftColor: "var(--mantine-color-sage-5)",
-										},
-									},
-									label: { fontWeight: 500, fontSize: "15px" },
-								}}
-							/>
-
-							<Box mt="xl" mb="md">
-								<Text
-									size="sm"
-									c="dark.7"
-									px="md"
-									mb="md"
-									style={{
-										fontFamily: '"Playfair Display", serif',
-										fontSize: "13px",
-										letterSpacing: "1.5px",
-										textTransform: "uppercase",
-										fontWeight: 600,
-									}}
-								>
-									Curated Views
-								</Text>
-								<Box h={1} bg="gold.3" mb="md" />
-							</Box>
-							{savedViews.map((view) => (
-								<NavLink
-									key={view.id}
-									label={view.name}
-									leftSection={
-										<BookOpen size={18} color="var(--mantine-color-gold-6)" />
-									}
-									color="gold.6"
-									styles={{
-										root: {
-											borderRadius: "2px",
-											padding: "10px 16px",
-											borderLeft: "3px solid transparent",
-											fontFamily: '"Lora", serif',
-											"&:hover": {
-												backgroundColor: "rgba(212, 165, 116, 0.08)",
-												borderLeftColor: "var(--mantine-color-gold-5)",
-											},
-										},
-										label: {
-											fontWeight: 400,
-											fontSize: "14px",
-											fontStyle: "italic",
-										},
-									}}
-								/>
-							))}
-						</Stack>
-					</Stack>
-				</Box>
-
-				<Box flex={1} style={{ overflowY: "auto", backgroundColor: "white" }}>
+					{sidebarContent}
+				</Drawer>
+			)}
+			<Flex h="100vh" bg={bg}>
+				{!isMobile && (
 					<Box
-						p="3rem"
-						pt="4rem"
+						w={320}
+						bg={surface}
 						style={{
-							borderBottom: "2px solid var(--mantine-color-gold-4)",
-							background: "linear-gradient(to bottom, #FFFBEB 0%, white 100%)",
+							borderRight: `3px double ${doubleBorder}`,
+							boxShadow: isDark
+								? "2px 0 8px rgba(0, 0, 0, 0.3)"
+								: "2px 0 8px rgba(0, 0, 0, 0.05)",
 						}}
 					>
+						{sidebarContent}
+					</Box>
+				)}
+
+				<Box
+					flex={1}
+					style={{ overflowY: "auto", backgroundColor: mainContent }}
+				>
+					<Box
+						p={isMobile ? "lg" : "3rem"}
+						pt={isMobile ? "lg" : "4rem"}
+						style={{
+							borderBottom: `2px solid ${goldBorder}`,
+							background: headerGradient,
+						}}
+					>
+						{isMobile && (
+							<Group justify="space-between" mb="lg">
+								<Burger
+									opened={drawerOpened}
+									onClick={openDrawer}
+									size="sm"
+									color={textPrimary}
+								/>
+								<Text
+									size="xl"
+									fw={400}
+									c={textPrimary}
+									style={{ fontFamily: '"Playfair Display", serif' }}
+								>
+									Ryot
+								</Text>
+								<Button
+									variant="subtle"
+									size="compact-sm"
+									p={4}
+									onClick={() =>
+										setColorScheme(colorScheme === "dark" ? "light" : "dark")
+									}
+								>
+									{isDark ? (
+										<Sun size={18} color={accentText} />
+									) : (
+										<Moon size={18} color={accentText} />
+									)}
+								</Button>
+							</Group>
+						)}
 						<Group justify="space-between" align="flex-start">
 							<Box>
 								<Text
 									size="xs"
-									c="gold.7"
+									c={accentText}
 									mb="sm"
 									style={{
 										fontFamily: '"Playfair Display", serif',
@@ -393,19 +591,19 @@ function EditorialTheme() {
 								</Text>
 								<Title
 									order={1}
-									c="dark.9"
+									c={textPrimary}
 									fw={400}
 									mb="md"
 									style={{
 										fontFamily: '"Playfair Display", serif',
-										fontSize: "3.5rem",
+										fontSize: isMobile ? "2.25rem" : "3.5rem",
 										lineHeight: 1.1,
 									}}
 								>
 									Dashboard
 								</Title>
 								<Text
-									c="dark.6"
+									c={textSecondary}
 									size="md"
 									style={{
 										fontFamily: '"Lora", serif',
@@ -418,77 +616,134 @@ function EditorialTheme() {
 									curated for your review.
 								</Text>
 							</Box>
-							<Group gap="md" mt="xl">
-								<Button
-									variant="outline"
-									color="gold.7"
-									size="md"
-									onClick={() =>
-										setColorScheme(colorScheme === "dark" ? "light" : "dark")
-									}
-									leftSection={
-										colorScheme === "dark" ? (
-											<Sun size={18} color="var(--mantine-color-gold-7)" />
-										) : (
-											<Moon size={18} color="var(--mantine-color-gold-7)" />
-										)
-									}
-									styles={{
-										root: {
-											borderRadius: "2px",
-											border: "1.5px solid var(--mantine-color-gold-5)",
-											fontFamily: '"Lora", serif',
-											fontWeight: 500,
-											transition: "all 0.2s ease",
-											"&:hover": {
-												backgroundColor: "rgba(212, 165, 116, 0.08)",
-												transform: "translateY(-1px)",
+							{!isMobile && (
+								<Group gap="md" mt="xl">
+									<Button
+										variant="outline"
+										color={isDark ? "gold.6" : "gold.7"}
+										size="md"
+										onClick={() =>
+											setColorScheme(colorScheme === "dark" ? "light" : "dark")
+										}
+										leftSection={
+											colorScheme === "dark" ? (
+												<Sun
+													size={18}
+													color={
+														isDark
+															? "var(--mantine-color-gold-5)"
+															: "var(--mantine-color-gold-7)"
+													}
+												/>
+											) : (
+												<Moon
+													size={18}
+													color={
+														isDark
+															? "var(--mantine-color-gold-5)"
+															: "var(--mantine-color-gold-7)"
+													}
+												/>
+											)
+										}
+										styles={{
+											root: {
+												borderRadius: "2px",
+												border: `1.5px solid ${isDark ? "var(--mantine-color-gold-6)" : "var(--mantine-color-gold-5)"}`,
+												fontFamily: '"Lora", serif',
+												fontWeight: 500,
+												transition: "all 0.2s ease",
+												"&:hover": {
+													backgroundColor: isDark
+														? "rgba(212, 165, 116, 0.12)"
+														: "rgba(212, 165, 116, 0.08)",
+													transform: "translateY(-1px)",
+												},
 											},
-										},
-									}}
-								>
-									{colorScheme === "dark" ? "Light" : "Dark"}
-								</Button>
-								<Button
-									variant="filled"
-									color="gold"
-									size="lg"
-									styles={{
-										root: {
-											borderRadius: "2px",
-											backgroundColor: "var(--mantine-color-gold-5)",
-											color: "var(--mantine-color-dark-9)",
-											fontFamily: '"Lora", serif',
-											fontWeight: 600,
-											border: "1.5px solid var(--mantine-color-gold-6)",
-											transition: "all 0.2s ease",
-											"&:hover": {
-												backgroundColor: "var(--mantine-color-gold-6)",
-												transform: "translateY(-1px)",
-												boxShadow: "0 4px 12px rgba(212, 165, 116, 0.3)",
+										}}
+									>
+										{colorScheme === "dark" ? "Light" : "Dark"}
+									</Button>
+									<Button
+										variant="filled"
+										color="gold"
+										size="lg"
+										styles={{
+											root: {
+												borderRadius: "2px",
+												backgroundColor: goldButton,
+												color: "var(--mantine-color-dark-9)",
+												fontFamily: '"Lora", serif',
+												fontWeight: 600,
+												border: `1.5px solid ${goldButtonHover}`,
+												transition: "all 0.2s ease",
+												"&:hover": {
+													backgroundColor: goldButtonHover,
+													transform: "translateY(-1px)",
+													boxShadow: isDark
+														? "0 4px 12px rgba(212, 165, 116, 0.4)"
+														: "0 4px 12px rgba(212, 165, 116, 0.3)",
+												},
 											},
-										},
-									}}
-								>
-									Log Activity
-								</Button>
-							</Group>
+										}}
+									>
+										Log Activity
+									</Button>
+								</Group>
+							)}
 						</Group>
+						{isMobile && (
+							<Button
+								variant="filled"
+								color="gold"
+								size="lg"
+								fullWidth
+								mt="lg"
+								styles={{
+									root: {
+										borderRadius: "2px",
+										backgroundColor: goldButton,
+										color: "var(--mantine-color-dark-9)",
+										fontFamily: '"Lora", serif',
+										fontWeight: 600,
+										border: `1.5px solid ${goldButtonHover}`,
+										transition: "all 0.2s ease",
+										"&:hover": {
+											backgroundColor: goldButtonHover,
+											boxShadow: isDark
+												? "0 4px 12px rgba(212, 165, 116, 0.4)"
+												: "0 4px 12px rgba(212, 165, 116, 0.3)",
+										},
+									},
+								}}
+							>
+								Log Activity
+							</Button>
+						)}
 					</Box>
 
-					<Box p="3rem">
+					<Box p={isMobile ? "lg" : "3rem"}>
 						<Grid mb="4rem">
 							{stats.map((stat, idx) => {
 								const accentColors = ["gold.6", "sage.6", "gold.7", "sage.7"];
+								const accentColorsDark = [
+									"gold.5",
+									"sage.5",
+									"gold.6",
+									"sage.6",
+								];
+								const currentAccent = isDark
+									? accentColorsDark[idx]
+									: accentColors[idx];
 								return (
-									<Grid.Col key={stat.label} span={3}>
+									<Grid.Col key={stat.label} span={{ base: 6, md: 3 }}>
 										<Card
 											p="xl"
-											bg="cream.0"
+											bg={cardBg}
 											radius="sm"
 											style={{
-												border: "2px solid var(--mantine-color-gold-3)",
-												borderTop: `4px solid var(--mantine-color-${accentColors[idx]})`,
+												border: `2px solid ${border}`,
+												borderTop: `4px solid var(--mantine-color-${currentAccent})`,
 												transition: "all 0.25s ease",
 												animation: `fadeIn 0.5s ease ${idx * 0.15}s backwards`,
 											}}
@@ -497,7 +752,7 @@ function EditorialTheme() {
 											<Stack gap={12}>
 												<Text
 													size="xs"
-													c={accentColors[idx]}
+													c={currentAccent}
 													tt="uppercase"
 													fw={600}
 													style={{
@@ -508,9 +763,9 @@ function EditorialTheme() {
 													{stat.label}
 												</Text>
 												<Text
-													size="3.5rem"
+													size={isMobile ? "2rem" : "3.5rem"}
 													fw={400}
-													c="dark.9"
+													c={textPrimary}
 													lh={0.9}
 													style={{ fontFamily: '"Playfair Display", serif' }}
 												>
@@ -520,11 +775,11 @@ function EditorialTheme() {
 													<Group gap={6} mt={4}>
 														<TrendingUp
 															size={16}
-															color={`var(--mantine-color-${accentColors[idx]})`}
+															color={`var(--mantine-color-${currentAccent})`}
 														/>
 														<Text
 															size="sm"
-															c={accentColors[idx]}
+															c={currentAccent}
 															fw={500}
 															style={{
 																fontFamily: '"Lora", serif',
@@ -545,27 +800,33 @@ function EditorialTheme() {
 							{`
 								@keyframes fadeIn {
 									from {
-										opacity: 0
-										transform: translateY(20px)
+										opacity: 0;
+										transform: translateY(20px);
 									}
 									to {
-										opacity: 1
-										transform: translateY(0)
+										opacity: 1;
+										transform: translateY(0);
 									}
 								}
-								.editorial-stat-card:hover {
-									transform: translateY(-4px);
-									box-shadow: 0 8px 20px rgba(212, 165, 116, 0.2);
+								@media (min-width: 769px) {
+									.editorial-stat-card:hover {
+										transform: translateY(-4px);
+										box-shadow: ${
+											isDark
+												? "0 8px 20px rgba(212, 165, 116, 0.3)"
+												: "0 8px 20px rgba(212, 165, 116, 0.2)"
+										};
+									}
 								}
 							`}
 						</style>
 
 						<Box mb="2rem" mt="4rem">
-							<Box h={2} bg="gold.4" mb="lg" />
+							<Box h={2} bg={isDark ? "gold.6" : "gold.4"} mb="lg" />
 							<Title
 								order={2}
 								size="2.5rem"
-								c="dark.9"
+								c={textPrimary}
 								fw={400}
 								mb="md"
 								style={{ fontFamily: '"Playfair Display", serif' }}
@@ -573,7 +834,7 @@ function EditorialTheme() {
 								Featured Entries
 							</Title>
 							<Text
-								c="dark.6"
+								c={textSecondary}
 								size="sm"
 								mb="xl"
 								style={{ fontFamily: '"Lora", serif', fontStyle: "italic" }}
@@ -584,13 +845,13 @@ function EditorialTheme() {
 
 						<Grid mb="4rem">
 							{entities.slice(0, 6).map((entity, idx) => (
-								<Grid.Col key={entity.id} span={4}>
+								<Grid.Col key={entity.id} span={{ base: 12, sm: 6, md: 4 }}>
 									<Card
 										p={0}
-										bg="white"
+										bg={entityCardBg}
 										radius="sm"
 										style={{
-											border: "2px solid var(--mantine-color-gold-3)",
+											border: `2px solid ${border}`,
 											cursor: "pointer",
 											transition: "all 0.3s ease",
 											overflow: "hidden",
@@ -600,7 +861,7 @@ function EditorialTheme() {
 									>
 										{entity.image && (
 											<Box
-												h={260}
+												h={isMobile ? 200 : 260}
 												style={{
 													backgroundImage: `url(${entity.image})`,
 													backgroundSize: "cover",
@@ -623,14 +884,12 @@ function EditorialTheme() {
 															styles={{
 																root: {
 																	borderRadius: "2px",
-																	backgroundColor:
-																		"var(--mantine-color-gold-5)",
+																	backgroundColor: goldButton,
 																	color: "var(--mantine-color-dark-9)",
 																	fontFamily: '"Playfair Display", serif',
 																	fontWeight: 700,
 																	fontSize: "1rem",
-																	border:
-																		"2px solid var(--mantine-color-gold-6)",
+																	border: `2px solid ${goldButtonHover}`,
 																	boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
 																},
 															}}
@@ -643,16 +902,16 @@ function EditorialTheme() {
 										)}
 										{!entity.image && (
 											<Box
-												h={260}
-												bg="cream.1"
+												h={isMobile ? 200 : 260}
+												bg={isDark ? "dark.7" : "cream.1"}
 												style={{
 													display: "grid",
 													placeItems: "center",
-													border: "2px dashed var(--mantine-color-gold-4)",
+													border: `2px dashed ${goldBorder}`,
 												}}
 											>
 												<Text
-													c="gold.6"
+													c={isDark ? "gold.5" : "gold.6"}
 													size="sm"
 													fw={500}
 													style={{
@@ -667,7 +926,7 @@ function EditorialTheme() {
 										<Box p="xl">
 											<Text
 												fw={400}
-												c="dark.9"
+												c={textPrimary}
 												size="xl"
 												mb="sm"
 												style={{ fontFamily: '"Playfair Display", serif' }}
@@ -676,7 +935,7 @@ function EditorialTheme() {
 											</Text>
 											<Text
 												size="xs"
-												c="gold.7"
+												c={accentText}
 												mb="sm"
 												fw={600}
 												tt="uppercase"
@@ -689,7 +948,7 @@ function EditorialTheme() {
 											</Text>
 											<Text
 												size="sm"
-												c="dark.6"
+												c={textSecondary}
 												style={{
 													fontFamily: '"Lora", serif',
 													fontStyle: "italic",
@@ -705,20 +964,30 @@ function EditorialTheme() {
 						</Grid>
 						<style>
 							{`
-								.editorial-entity-card:hover {
-									transform: translateY(-6px);
-									box-shadow: 0 12px 28px rgba(212, 165, 116, 0.2);
-									border-color: var(--mantine-color-gold-5);
+								@media (min-width: 769px) {
+									.editorial-entity-card:hover {
+										transform: translateY(-6px);
+										box-shadow: ${
+											isDark
+												? "0 12px 28px rgba(212, 165, 116, 0.3)"
+												: "0 12px 28px rgba(212, 165, 116, 0.2)"
+										};
+										border-color: ${
+											isDark
+												? "var(--mantine-color-gold-6)"
+												: "var(--mantine-color-gold-5)"
+										};
+									}
 								}
 							`}
 						</style>
 
 						<Box mb="2rem" mt="4rem">
-							<Box h={2} bg="gold.4" mb="lg" />
+							<Box h={2} bg={isDark ? "gold.6" : "gold.4"} mb="lg" />
 							<Title
 								order={2}
 								size="2.5rem"
-								c="dark.9"
+								c={textPrimary}
 								fw={400}
 								mb="md"
 								style={{ fontFamily: '"Playfair Display", serif' }}
@@ -726,7 +995,7 @@ function EditorialTheme() {
 								Activity Chronicle
 							</Title>
 							<Text
-								c="dark.6"
+								c={textSecondary}
 								size="sm"
 								mb="xl"
 								style={{ fontFamily: '"Lora", serif', fontStyle: "italic" }}
@@ -736,10 +1005,10 @@ function EditorialTheme() {
 						</Box>
 
 						<Paper
-							bg="cream.0"
+							bg={cardBg}
 							p="2rem"
 							radius="sm"
-							style={{ border: "2px solid var(--mantine-color-gold-3)" }}
+							style={{ border: `2px solid ${border}` }}
 						>
 							<Stack gap="lg">
 								{events.map((event) => (
@@ -747,8 +1016,8 @@ function EditorialTheme() {
 										key={event.id}
 										p="lg"
 										style={{
-											borderLeft: "3px solid var(--mantine-color-gold-5)",
-											borderBottom: "1px solid var(--mantine-color-gold-3)",
+											borderLeft: `3px solid ${isDark ? "var(--mantine-color-gold-6)" : "var(--mantine-color-gold-5)"}`,
+											borderBottom: `1px solid ${border}`,
 											paddingBottom: "1.5rem",
 										}}
 									>
@@ -757,7 +1026,7 @@ function EditorialTheme() {
 												<Group gap="sm" mb={8}>
 													<Text
 														fw={400}
-														c="dark.9"
+														c={textPrimary}
 														size="lg"
 														style={{ fontFamily: '"Playfair Display", serif' }}
 													>
@@ -770,10 +1039,13 @@ function EditorialTheme() {
 														styles={{
 															root: {
 																borderRadius: "2px",
-																backgroundColor: "rgba(212, 165, 116, 0.08)",
-																border:
-																	"1.5px solid var(--mantine-color-gold-5)",
-																color: "var(--mantine-color-gold-7)",
+																backgroundColor: isDark
+																	? "rgba(212, 165, 116, 0.12)"
+																	: "rgba(212, 165, 116, 0.08)",
+																border: `1.5px solid ${isDark ? "var(--mantine-color-gold-6)" : "var(--mantine-color-gold-5)"}`,
+																color: isDark
+																	? "var(--mantine-color-gold-5)"
+																	: "var(--mantine-color-gold-7)",
 																fontFamily: '"Lora", serif',
 																fontWeight: 600,
 															},
@@ -784,7 +1056,7 @@ function EditorialTheme() {
 												</Group>
 												<Text
 													size="sm"
-													c="dark.6"
+													c={textSecondary}
 													mb={8}
 													style={{
 														fontFamily: '"Lora", serif',
@@ -805,9 +1077,8 @@ function EditorialTheme() {
 																	styles={{
 																		root: {
 																			borderRadius: "2px",
-																			backgroundColor:
-																				"var(--mantine-color-sage-4)",
-																			color: "var(--mantine-color-dark-9)",
+																			backgroundColor: eventPropertyBadgeBg,
+																			color: eventPropertyBadgeColor,
 																			fontFamily: '"Lora", serif',
 																			fontWeight: 500,
 																		},
