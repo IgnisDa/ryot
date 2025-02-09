@@ -183,6 +183,7 @@ pub async fn user_workout_details(
         .distinct()
         .filter(Expr::val(details.start_time).lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
         .filter(Expr::val(details.end_time).gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
+        .order_by_asc(seen::Column::LastUpdatedOn)
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
