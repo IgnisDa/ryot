@@ -110,8 +110,7 @@ regex = "=1.11.1"
 rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.14"
-# TODO: Update when https://codeberg.org/ThetaDev/rustypipe/issues/25 is merged
-rustypipe = { git = "https://codeberg.org/ThetaDev/rustypipe.git", rev = "19e1428679" }
+rustypipe = { version = "0.10.0", features = ["userdata"] }
 schematic = { version = "=0.17.11", features = [
     "config",
     "env",
