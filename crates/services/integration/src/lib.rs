@@ -126,7 +126,11 @@ impl IntegrationService {
                     .trace_ok();
                 Ok("Progress updated successfully".to_owned())
             }
-            Err(e) => Err(Error::new(e.to_string())),
+            Err(e) => {
+                self.set_trigger_result(Some(e.to_string()), &integration)
+                    .await?;
+                Err(Error::new(e.to_string()))
+            }
         }
     }
 
@@ -181,37 +185,38 @@ impl IntegrationService {
                         .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
                     _ => Some(metadata.identifier.clone()),
                 };
-                if let Some(entity_id) = maybe_entity_id {
-                    let push_result = match integration.provider {
-                        IntegrationProvider::Radarr => {
-                            push::radarr::push_progress(
-                                specifics.radarr_api_key.unwrap(),
-                                specifics.radarr_profile_id.unwrap(),
-                                entity_id,
-                                specifics.radarr_base_url.unwrap(),
-                                metadata.lot,
-                                metadata.title,
-                                specifics.radarr_root_folder_path.unwrap(),
-                            )
-                            .await
-                        }
-                        IntegrationProvider::Sonarr => {
-                            push::sonarr::push_progress(
-                                specifics.sonarr_api_key.unwrap(),
-                                specifics.sonarr_profile_id.unwrap(),
-                                entity_id,
-                                specifics.sonarr_base_url.unwrap(),
-                                metadata.lot,
-                                metadata.title,
-                                specifics.sonarr_root_folder_path.unwrap(),
-                            )
-                            .await
-                        }
-                        _ => unreachable!(),
-                    };
-                    self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
-                        .await?;
-                }
+                let Some(entity_id) = maybe_entity_id else {
+                    continue;
+                };
+                let push_result = match integration.provider {
+                    IntegrationProvider::Radarr => {
+                        push::radarr::push_progress(
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            entity_id,
+                            specifics.radarr_base_url.unwrap(),
+                            metadata.lot,
+                            metadata.title,
+                            specifics.radarr_root_folder_path.unwrap(),
+                        )
+                        .await
+                    }
+                    IntegrationProvider::Sonarr => {
+                        push::sonarr::push_progress(
+                            specifics.sonarr_api_key.unwrap(),
+                            specifics.sonarr_profile_id.unwrap(),
+                            entity_id,
+                            specifics.sonarr_base_url.unwrap(),
+                            metadata.lot,
+                            metadata.title,
+                            specifics.sonarr_root_folder_path.unwrap(),
+                        )
+                        .await
+                    }
+                    _ => unreachable!(),
+                };
+                self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
+                    .await?;
             }
         }
         Ok(())
@@ -310,7 +315,10 @@ impl IntegrationService {
             };
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
-                Err(e) => ryot_log!(debug, "Error yanking integrations data: {:?}", e),
+                Err(e) => {
+                    self.set_trigger_result(Some(e.to_string()), &integration)
+                        .await?;
+                }
             };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
@@ -388,9 +396,13 @@ impl IntegrationService {
                 }
                 _ => continue,
             };
-            if let Ok(update) = response {
-                progress_updates.push((integration, update));
-            }
+            match response {
+                Ok(update) => progress_updates.push((integration, update)),
+                Err(e) => {
+                    self.set_trigger_result(Some(e.to_string()), &integration)
+                        .await?;
+                }
+            };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
             self.integration_progress_update(integration, progress_updates)
