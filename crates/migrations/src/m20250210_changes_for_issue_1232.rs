@@ -9,7 +9,11 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         if !manager.has_column("integration", "trigger_result").await? {
             db.execute_unprepared(
-                r#"ALTER TABLE "integration" ADD COLUMN "trigger_result" JSONB NOT NULL DEFAULT '[]'::JSONB"#,
+                r#"
+ALTER TABLE "integration" ADD COLUMN "trigger_result" JSONB NOT NULL DEFAULT '[]'::JSONB;
+
+UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJECT('was_successful', true, 'triggered_at', i."last_triggered_on"));
+"#,
             )
             .await?;
         }
