@@ -101,9 +101,7 @@ jobs:
       matrix:
         platform:
           - target: x86_64-unknown-linux-gnu
-            command: cargo
           - target: aarch64-unknown-linux-gnu
-            command: cross
     steps:
       - uses: actions/checkout@v4
         with:
@@ -134,7 +132,6 @@ jobs:
           restore-keys: |
             cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-
       - name: Install cross
-        if: ${{ matrix.platform.command == 'cross' }}
         uses: taiki-e/cache-cargo-install-action@caa6f48d18d42462f9c30df89e2b4f71a42b7c2c
         with:
           tool: cross
@@ -149,7 +146,7 @@ jobs:
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
           DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
         run: |
-          ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --release
+          cross build --locked --target ${{ matrix.platform.target }} --release
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -202,6 +199,7 @@ jobs:
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=semver,pattern=v{{major}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
+            type=sha
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
