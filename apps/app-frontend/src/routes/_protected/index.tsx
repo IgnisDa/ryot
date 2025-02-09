@@ -3,7 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "#/components/ui/button";
 import { useAuthClient } from "#/hooks/auth";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/_protected/")({
+	component: App,
+});
 
 function App() {
 	const authClient = useAuthClient();
