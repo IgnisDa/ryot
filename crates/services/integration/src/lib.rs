@@ -35,10 +35,11 @@ impl IntegrationService {
         integration: &integration::Model,
     ) -> Result<()> {
         let mut new_trigger_result = integration.trigger_result.clone();
-        new_trigger_result.push(IntegrationTriggerResult {
-            error,
-            finished_at: Utc::now(),
-        });
+        if new_trigger_result.len() >= 20 {
+            new_trigger_result.remove(0);
+        }
+        let finished_at = Utc::now();
+        new_trigger_result.push(IntegrationTriggerResult { error, finished_at });
         let mut integration: integration::ActiveModel = integration.clone().into();
         integration.trigger_result = ActiveValue::Set(new_trigger_result);
         integration.update(&self.0.db).await?;
