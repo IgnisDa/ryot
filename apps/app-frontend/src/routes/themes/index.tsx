@@ -23,12 +23,38 @@ function ThemeIndex() {
 						Ryot Theme Showcase
 					</Title>
 					<Text c="dimmed" size="lg">
-						Explore four bold, distinctive design aesthetics for Ryot's
+						Explore five bold, distinctive design aesthetics for Ryot's
 						interface
 					</Text>
 				</Box>
 
 				<Stack gap="md">
+					<Paper p="xl" withBorder radius="lg">
+						<Stack gap="md">
+							<Box>
+								<Text fw={700} size="xl" mb={4}>
+									Journal Theme (Recommended)
+								</Text>
+								<Text c="dimmed" size="sm">
+									The hybrid theme combining the best of all directions. Space
+									Grotesk + Outfit fonts, warm stone palette with gold accents,
+									per-facet color coding, and information-dense yet readable
+									layout. Works in both light and dark mode.
+								</Text>
+							</Box>
+							<Group>
+								<Link to="/themes/journal">
+									<Button
+										variant="gradient"
+										gradient={{ from: "#D4A574", to: "#C4963C", deg: 135 }}
+									>
+										View Journal Theme
+									</Button>
+								</Link>
+							</Group>
+						</Stack>
+					</Paper>
+
 					<Paper p="xl" withBorder radius="lg">
 						<Stack gap="md">
 							<Box>
