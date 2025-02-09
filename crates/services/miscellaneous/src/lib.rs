@@ -2766,9 +2766,7 @@ ORDER BY RANDOM() LIMIT 10;
                     );
                     continue;
                 }
-                if let Err(err) =
-                    send_notification(notification.platform_specifics, &self.0.config, &msg).await
-                {
+                if let Err(err) = send_notification(notification.platform_specifics, &msg).await {
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }

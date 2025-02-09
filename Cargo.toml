@@ -47,7 +47,6 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-askama = "=0.12.1"
 anyhow = "=1.0.95"
 apalis = { version = "=0.6.4", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.6.4"
@@ -97,7 +96,6 @@ indoc = "=2.0.5"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.14.0"
 jsonwebtoken = { version = "=9.3.0", default-features = false }
-lettre = "=0.11.11"
 logs-wheel = "=0.3.1"
 markdown = "=1.0.0-alpha.21"
 mime_guess = "=2.0.5"
