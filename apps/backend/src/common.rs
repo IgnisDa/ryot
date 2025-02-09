@@ -11,6 +11,7 @@ use axum::{
     Extension,
 };
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use bon::builder;
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -55,7 +56,7 @@ pub struct AppServices {
     pub miscellaneous_service: Arc<MiscellaneousService>,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[builder]
 pub async fn create_app_services(
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
@@ -72,18 +73,18 @@ pub async fn create_app_services(
     ));
     let cache_service = CacheService::new(&db, config.clone());
     let supporting_service = Arc::new(
-        SupportingService::new(
-            &db,
-            timezone,
-            cache_service,
-            config.clone(),
-            oidc_client,
-            file_storage_service.clone(),
-            lp_application_job,
-            mp_application_job,
-            hp_application_job,
-        )
-        .await,
+        SupportingService::builder()
+            .db(&db)
+            .timezone(timezone)
+            .config(config.clone())
+            .cache_service(cache_service)
+            .maybe_oidc_client(oidc_client)
+            .lp_application_job(lp_application_job)
+            .mp_application_job(mp_application_job)
+            .hp_application_job(hp_application_job)
+            .file_storage_service(file_storage_service.clone())
+            .build()
+            .await,
     );
     let user_service = Arc::new(UserService(supporting_service.clone()));
     let importer_service = Arc::new(ImporterService(supporting_service.clone()));

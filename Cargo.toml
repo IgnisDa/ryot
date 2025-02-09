@@ -64,6 +64,7 @@ async-trait = "=0.1.86"
 aws-sdk-s3 = { version = "=1.72.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.1", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
+bon = "=3.3.2"
 chrono = "=0.4.39"
 chrono-tz = "=0.10.1"
 compile-time = "=0.2.0"

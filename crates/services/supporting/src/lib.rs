@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use bon::bon;
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
@@ -41,8 +42,9 @@ pub struct SupportingService {
     mp_application_job: MemoryStorage<MpApplicationJob>,
 }
 
+#[bon]
 impl SupportingService {
-    #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub async fn new(
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
