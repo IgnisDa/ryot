@@ -27,6 +27,8 @@ class Scrobbler:
 
         id = video_info_tag.getDbId()
         duration = video_info_tag.getDuration()
+        if duration == 0:
+            return
         current_time = player.getTime()
         progress = (current_time / duration) * 100
 
