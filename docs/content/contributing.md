@@ -4,7 +4,6 @@
   [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
 `docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:16-alpine`
-- Run `moon r transactional:build`. This is a one-time operation.
 - Create the following environment file in the root of the repository:
 
   ```bash title=".env"
