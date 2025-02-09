@@ -14,7 +14,7 @@ use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
 };
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::SeenShowExtraInformation;
+use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -29,12 +29,18 @@ mod yank;
 pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
-    async fn set_integration_last_triggered_on(
+    async fn set_trigger_result(
         &self,
+        error: Option<String>,
         integration: &integration::Model,
     ) -> Result<()> {
+        let mut new_trigger_result = integration.trigger_result.clone();
+        new_trigger_result.push(IntegrationTriggerResult {
+            error,
+            triggered_at: Utc::now(),
+        });
         let mut integration: integration::ActiveModel = integration.clone().into();
-        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+        integration.trigger_result = ActiveValue::Set(new_trigger_result);
         integration.update(&self.0.db).await?;
         Ok(())
     }
@@ -75,14 +81,12 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0, |_| async {
+        let result = process_import(&integration.user_id, true, import, &self.0, |_| async {
             Ok(())
         })
-        .await
-        {
-            Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
-            Ok(_) => self.set_integration_last_triggered_on(&integration).await?,
-        }
+        .await;
+        self.set_trigger_result(result.err().map(|e| e.message), &integration)
+            .await?;
         Ok(())
     }
 
@@ -205,9 +209,8 @@ impl IntegrationService {
                         }
                         _ => unreachable!(),
                     };
-                    if push_result.is_ok() {
-                        self.set_integration_last_triggered_on(&integration).await?;
-                    }
+                    self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
+                        .await?;
                 }
             }
         }
@@ -247,9 +250,8 @@ impl IntegrationService {
                 }
                 _ => unreachable!(),
             };
-            if push_result.is_ok() {
-                self.set_integration_last_triggered_on(&integration).await?;
-            }
+            self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
+                .await?;
         }
         Ok(())
     }

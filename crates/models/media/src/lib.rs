@@ -838,7 +838,7 @@ pub struct PersonStateChanges {
     Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, SimpleObject,
 )]
 pub struct IntegrationTriggerResult {
-    pub was_successful: bool,
+    pub error: Option<String>,
     pub triggered_at: DateTimeUtc,
 }
 

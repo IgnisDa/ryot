@@ -25,8 +25,6 @@ pub struct Model {
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
     pub sync_to_owned_collection: Option<bool>,
-    #[graphql(skip_input)]
-    pub last_triggered_on: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip_input)]
     pub trigger_result: Vec<IntegrationTriggerResult>,

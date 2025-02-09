@@ -926,7 +926,6 @@ export type Integration = {
   createdOn: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
@@ -986,8 +985,8 @@ export type IntegrationSourceSpecificsInput = {
 
 export type IntegrationTriggerResult = {
   __typename?: 'IntegrationTriggerResult';
+  error?: Maybe<Scalars['String']['output']>;
   triggeredAt: Scalars['DateTime']['output'];
-  wasSuccessful: Scalars['Boolean']['output'];
 };
 
 export type LoginError = {

@@ -70,11 +70,10 @@ query UserIntegrations {
     isDisabled
     maximumProgress
     minimumProgress
-    lastTriggeredOn
     syncToOwnedCollection
     triggerResult {
+      error
       triggeredAt
-      wasSuccessful
     }
   }
 }
