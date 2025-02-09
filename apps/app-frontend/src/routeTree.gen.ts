@@ -11,7 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
+import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as ThemesSupabaseIndexRouteImport } from './routes/themes/supabase/index'
+import { Route as ThemesRaycastIndexRouteImport } from './routes/themes/raycast/index'
+import { Route as ThemesLinearIndexRouteImport } from './routes/themes/linear/index'
+import { Route as ThemesArcIndexRouteImport } from './routes/themes/arc/index'
 import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
 import { Route as ProtectedTrackingFacetSlugViewsViewIdRouteImport } from './routes/_protected/tracking/$facetSlug/views/$viewId'
 import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
@@ -25,10 +30,35 @@ const ProtectedRouteRoute = ProtectedRouteRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ThemesIndexRoute = ThemesIndexRouteImport.update({
+  id: '/themes/',
+  path: '/themes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ThemesSupabaseIndexRoute = ThemesSupabaseIndexRouteImport.update({
+  id: '/themes/supabase/',
+  path: '/themes/supabase/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThemesRaycastIndexRoute = ThemesRaycastIndexRouteImport.update({
+  id: '/themes/raycast/',
+  path: '/themes/raycast/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThemesLinearIndexRoute = ThemesLinearIndexRouteImport.update({
+  id: '/themes/linear/',
+  path: '/themes/linear/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThemesArcIndexRoute = ThemesArcIndexRouteImport.update({
+  id: '/themes/arc/',
+  path: '/themes/arc/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedTrackingFacetSlugIndexRoute =
   ProtectedTrackingFacetSlugIndexRouteImport.update({
@@ -52,6 +82,11 @@ const ProtectedTrackingFacetSlugEntitiesEntityIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/start': typeof StartRoute
+  '/themes/': typeof ThemesIndexRoute
+  '/themes/arc/': typeof ThemesArcIndexRoute
+  '/themes/linear/': typeof ThemesLinearIndexRoute
+  '/themes/raycast/': typeof ThemesRaycastIndexRoute
+  '/themes/supabase/': typeof ThemesSupabaseIndexRoute
   '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -59,6 +94,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
+  '/themes': typeof ThemesIndexRoute
+  '/themes/arc': typeof ThemesArcIndexRoute
+  '/themes/linear': typeof ThemesLinearIndexRoute
+  '/themes/raycast': typeof ThemesRaycastIndexRoute
+  '/themes/supabase': typeof ThemesSupabaseIndexRoute
   '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
   '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -68,6 +108,11 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
+  '/themes/': typeof ThemesIndexRoute
+  '/themes/arc/': typeof ThemesArcIndexRoute
+  '/themes/linear/': typeof ThemesLinearIndexRoute
+  '/themes/raycast/': typeof ThemesRaycastIndexRoute
+  '/themes/supabase/': typeof ThemesSupabaseIndexRoute
   '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
   '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
   '/_protected/tracking/$facetSlug/views/$viewId': typeof ProtectedTrackingFacetSlugViewsViewIdRoute
@@ -77,6 +122,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/start'
+    | '/themes/'
+    | '/themes/arc/'
+    | '/themes/linear/'
+    | '/themes/raycast/'
+    | '/themes/supabase/'
     | '/tracking/$facetSlug/'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
@@ -84,6 +134,11 @@ export interface FileRouteTypes {
   to:
     | '/start'
     | '/'
+    | '/themes'
+    | '/themes/arc'
+    | '/themes/linear'
+    | '/themes/raycast'
+    | '/themes/supabase'
     | '/tracking/$facetSlug'
     | '/tracking/$facetSlug/entities/$entityId'
     | '/tracking/$facetSlug/views/$viewId'
@@ -92,6 +147,11 @@ export interface FileRouteTypes {
     | '/_protected'
     | '/start'
     | '/_protected/'
+    | '/themes/'
+    | '/themes/arc/'
+    | '/themes/linear/'
+    | '/themes/raycast/'
+    | '/themes/supabase/'
     | '/_protected/tracking/$facetSlug/'
     | '/_protected/tracking/$facetSlug/entities/$entityId'
     | '/_protected/tracking/$facetSlug/views/$viewId'
@@ -100,6 +160,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   ProtectedRouteRoute: typeof ProtectedRouteRouteWithChildren
   StartRoute: typeof StartRoute
+  ThemesIndexRoute: typeof ThemesIndexRoute
+  ThemesArcIndexRoute: typeof ThemesArcIndexRoute
+  ThemesLinearIndexRoute: typeof ThemesLinearIndexRoute
+  ThemesRaycastIndexRoute: typeof ThemesRaycastIndexRoute
+  ThemesSupabaseIndexRoute: typeof ThemesSupabaseIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -118,12 +183,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/themes/': {
+      id: '/themes/'
+      path: '/themes'
+      fullPath: '/themes/'
+      preLoaderRoute: typeof ThemesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected/': {
       id: '/_protected/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
+    }
+    '/themes/supabase/': {
+      id: '/themes/supabase/'
+      path: '/themes/supabase'
+      fullPath: '/themes/supabase/'
+      preLoaderRoute: typeof ThemesSupabaseIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/themes/raycast/': {
+      id: '/themes/raycast/'
+      path: '/themes/raycast'
+      fullPath: '/themes/raycast/'
+      preLoaderRoute: typeof ThemesRaycastIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/themes/linear/': {
+      id: '/themes/linear/'
+      path: '/themes/linear'
+      fullPath: '/themes/linear/'
+      preLoaderRoute: typeof ThemesLinearIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/themes/arc/': {
+      id: '/themes/arc/'
+      path: '/themes/arc'
+      fullPath: '/themes/arc/'
+      preLoaderRoute: typeof ThemesArcIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_protected/tracking/$facetSlug/': {
       id: '/_protected/tracking/$facetSlug/'
@@ -172,6 +272,11 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   ProtectedRouteRoute: ProtectedRouteRouteWithChildren,
   StartRoute: StartRoute,
+  ThemesIndexRoute: ThemesIndexRoute,
+  ThemesArcIndexRoute: ThemesArcIndexRoute,
+  ThemesLinearIndexRoute: ThemesLinearIndexRoute,
+  ThemesRaycastIndexRoute: ThemesRaycastIndexRoute,
+  ThemesSupabaseIndexRoute: ThemesSupabaseIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
