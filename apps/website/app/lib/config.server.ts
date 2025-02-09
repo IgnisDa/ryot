@@ -115,7 +115,7 @@ export const sendEmail = async (
 		html,
 		subject,
 		to: recipient,
-		from: '"Ryot" <no-reply@ryot.io>',
+		from: serverVariables.SERVER_SMTP_MAILBOX,
 	});
 	return resp.messageId;
 };
