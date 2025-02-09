@@ -50,11 +50,13 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Form, Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollection } from "~/components/common";
 import {
@@ -85,8 +87,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
-import { useQuery } from "@tanstack/react-query";
-import { useLocalStorage } from "usehooks-ts";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
