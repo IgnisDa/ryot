@@ -42,13 +42,13 @@ function getErrorMessage(error: unknown) {
 	const parsed = error as {
 		message?: string;
 		error?: { message?: string };
-	}
+	};
 
 	return (
 		parsed?.error?.message ??
 		parsed?.message ??
 		"Failed to create schema. Please try again."
-	)
+	);
 }
 
 function FacetHeader(props: { facet: AppFacet }) {
@@ -70,7 +70,7 @@ function FacetHeader(props: { facet: AppFacet }) {
 				</Stack>
 			</Flex>
 		</Box>
-	)
+	);
 }
 
 function FacetMetadata(props: { facet: AppFacet }) {
@@ -94,7 +94,7 @@ function FacetMetadata(props: { facet: AppFacet }) {
 				</Box>
 			)}
 		</>
-	)
+	);
 }
 
 function BuiltinFacetSchemaSection() {
@@ -115,7 +115,7 @@ function BuiltinFacetSchemaSection() {
 				</Text>
 			</Stack>
 		</Paper>
-	)
+	);
 }
 
 function CustomFacetSchemaSection(props: { facet: AppFacet }) {
@@ -124,24 +124,24 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 	>(null);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
-	)
+	);
 
 	const entitySchemasQuery = useEntitySchemasQuery(
 		props.facet.id,
 		!props.facet.isBuiltin,
-	)
+	);
 	const entitySchemaMutations = useEntitySchemaMutations(props.facet.id);
 
 	const primaryEntitySchema = entitySchemasQuery.entitySchemas[0];
 	const eventSchemaMutations = useEventSchemaMutations(
 		primaryEntitySchema?.id ?? "",
-	)
+	);
 	const entityMutations = useEntityMutations(primaryEntitySchema?.id ?? "");
 
 	const viewState = getFacetEntitySchemaViewState({
 		facet: props.facet,
 		entitySchemas: entitySchemasQuery.entitySchemas,
-	})
+	});
 
 	const openEntitySchemaModal = useCallback(() => {
 		setCreateErrorMessage(null);
@@ -181,7 +181,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			}
 		},
 		[closeEntitySchemaModal, entitySchemaMutations.create],
-	)
+	);
 
 	const submitCreateEventSchema = useCallback(
 		async (payload: CreateEventSchemaPayload) => {
@@ -195,7 +195,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			}
 		},
 		[closeEventSchemaModal, eventSchemaMutations.create],
-	)
+	);
 
 	const submitCreateEntity = useCallback(
 		async (payload: CreateEntityPayload) => {
@@ -209,14 +209,14 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			}
 		},
 		[closeEntityModal, entityMutations.create],
-	)
+	);
 
 	if (entitySchemasQuery.isLoading)
 		return (
 			<Center py="xl">
 				<Loader size="sm" />
 			</Center>
-		)
+		);
 
 	if (entitySchemasQuery.isError)
 		return (
@@ -236,7 +236,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 					</Group>
 				</Stack>
 			</Paper>
-		)
+		);
 
 	return (
 		<Stack gap="md">
@@ -297,7 +297,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 				/>
 			)}
 		</Stack>
-	)
+	);
 }
 
 function RouteComponent() {
@@ -311,7 +311,7 @@ function RouteComponent() {
 			<Center h="100vh">
 				<Loader size="lg" />
 			</Center>
-		)
+		);
 
 	if (facetsQuery.isError)
 		return (
@@ -326,7 +326,7 @@ function RouteComponent() {
 					</Button>
 				</Stack>
 			</Container>
-		)
+		);
 
 	if (!facet)
 		return (
@@ -338,7 +338,7 @@ function RouteComponent() {
 					</Text>
 				</Stack>
 			</Container>
-		)
+		);
 
 	return (
 		<Container size="md" py={56}>
@@ -353,5 +353,5 @@ function RouteComponent() {
 				)}
 			</Stack>
 		</Container>
-	)
+	);
 }
