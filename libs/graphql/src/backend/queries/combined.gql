@@ -73,7 +73,7 @@ query UserIntegrations {
     syncToOwnedCollection
     triggerResult {
       error
-      triggeredAt
+      finishedAt
     }
   }
 }

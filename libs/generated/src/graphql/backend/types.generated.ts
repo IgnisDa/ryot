@@ -986,7 +986,7 @@ export type IntegrationSourceSpecificsInput = {
 export type IntegrationTriggerResult = {
   __typename?: 'IntegrationTriggerResult';
   error?: Maybe<Scalars['String']['output']>;
-  triggeredAt: Scalars['DateTime']['output'];
+  finishedAt: Scalars['DateTime']['output'];
 };
 
 export type LoginError = {

@@ -37,7 +37,7 @@ impl IntegrationService {
         let mut new_trigger_result = integration.trigger_result.clone();
         new_trigger_result.push(IntegrationTriggerResult {
             error,
-            triggered_at: Utc::now(),
+            finished_at: Utc::now(),
         });
         let mut integration: integration::ActiveModel = integration.clone().into();
         integration.trigger_result = ActiveValue::Set(new_trigger_result);
