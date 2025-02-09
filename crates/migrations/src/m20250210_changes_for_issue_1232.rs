@@ -17,6 +17,13 @@ UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJE
             )
             .await?;
         }
+        if manager
+            .has_column("integration", "last_triggered_on")
+            .await?
+        {
+            db.execute_unprepared(r#"ALTER TABLE "integration" DROP COLUMN "last_triggered_on";"#)
+                .await?;
+        }
         Ok(())
     }
 

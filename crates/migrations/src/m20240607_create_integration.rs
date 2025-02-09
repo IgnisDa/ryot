@@ -18,7 +18,6 @@ pub enum Integration {
     TriggerResult,
     MinimumProgress,
     MaximumProgress,
-    LastTriggeredOn,
     ProviderSpecifics,
     SyncToOwnedCollection,
 }
@@ -44,7 +43,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
                     .col(
                         ColumnDef::new(Integration::TriggerResult)
                             .json_binary()
