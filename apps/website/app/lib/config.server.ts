@@ -36,7 +36,9 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
+	SERVER_SMTP_PORT: z.string().optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
+	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 });
 
 export const serverVariables = serverVariablesSchema.parse(process.env);
@@ -100,8 +102,11 @@ export const sendEmail = async (
 	element: JSX.Element,
 ) => {
 	const client = createTransport({
-		secure: true,
 		host: serverVariables.SERVER_SMTP_SERVER,
+		secure: serverVariables.SERVER_SMTP_SECURE,
+		port: serverVariables.SERVER_SMTP_PORT
+			? Number(serverVariables.SERVER_SMTP_PORT)
+			: undefined,
 		auth: {
 			user: serverVariables.SERVER_SMTP_USER,
 			pass: serverVariables.SERVER_SMTP_PASSWORD,
@@ -117,6 +122,7 @@ export const sendEmail = async (
 		to: recipient,
 		from: '"Ryot" <no-reply@ryot.io>',
 	});
+	console.log(`Sent email to ${recipient} with subject ${subject}`);
 	return resp.messageId;
 };
 

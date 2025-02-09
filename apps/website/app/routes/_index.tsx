@@ -472,7 +472,7 @@ export default function Page() {
 	);
 }
 
-const demoLink = "https://pro.ryot.io/_s/acl_vUMPnPirkHlT";
+const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
 
 const advantages = [
 	{

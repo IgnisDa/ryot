@@ -22,6 +22,7 @@ RUN moon run website:build
 RUN moon docker prune
 
 FROM $NODE_BASE_IMAGE
+RUN apt-get update && apt-get install -y --no-install-recommends wget curl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
@@ -29,5 +30,4 @@ COPY --from=website-builder --chown=ryot:ryot /app/apps/website/node_modules ./n
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/package.json ./package.json
 COPY --from=website-builder --chown=ryot:ryot /app/apps/website/build ./build
 COPY --chown=ryot:ryot apps/website/app/drizzle/migrations app/drizzle/migrations
-RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 CMD npx react-router-serve ./build/server/index.js
