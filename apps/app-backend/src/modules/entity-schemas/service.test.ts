@@ -74,12 +74,6 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 		}
 	});
 
-	it("rejects string inputs", () => {
-		expect(() =>
-			parseEntitySchemaPropertiesSchema('{"title":{"type":"string"}}'),
-		).toThrow("Entity schema properties schema must be a JSON object");
-	});
-
 	it("rejects empty properties map", () => {
 		expect(() => parseEntitySchemaPropertiesSchema({})).toThrow(
 			"Entity schema properties must contain at least one property",

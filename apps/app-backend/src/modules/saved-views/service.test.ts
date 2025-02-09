@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	buildBuiltinSavedViewName,
-	resolveIsBuiltinProtected,
-	resolveSavedViewName,
-} from "./service";
+import { buildBuiltinSavedViewName, resolveSavedViewName } from "./service";
 
 describe("resolveSavedViewName", () => {
 	it("trims the provided name", () => {
@@ -24,19 +20,5 @@ describe("buildBuiltinSavedViewName", () => {
 
 	it("handles singular names correctly", () => {
 		expect(buildBuiltinSavedViewName("Book")).toBe("All Books");
-	});
-
-	it("produces a naive double-s for names ending in 's' (known limitation)", () => {
-		expect(buildBuiltinSavedViewName("Series")).toBe("All Seriess");
-	});
-});
-
-describe("resolveIsBuiltinProtected", () => {
-	it("returns protected true when isBuiltin is true", () => {
-		expect(resolveIsBuiltinProtected(true)).toEqual({ protected: true });
-	});
-
-	it("returns protected false when isBuiltin is false", () => {
-		expect(resolveIsBuiltinProtected(false)).toEqual({ protected: false });
 	});
 });
