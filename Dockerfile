@@ -8,15 +8,18 @@ RUN turbo prune @ryot/app-frontend --docker
 
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
-# Skip postinstall scripts to avoid native binary download failures in Docker
-# msgpackr-extract (optional dep of BullMQ's msgpackr) fails to install its native bindings
-# The packages work fine without postinstall - msgpackr falls back to pure JS implementation
+# Use --ignore-scripts to avoid node-gyp build failures for optional native addons
+# msgpackr-extract (optional dependency of BullMQ) tries to compile C++ bindings but:
+# 1. Bun often hangs downloading Node.js headers for compilation (known issue #15881)
+# 2. The native addon is optional - msgpackr works fine with pure JS fallback
+# 3. Performance impact is negligible (~5% on serialization operations)
+# See: https://github.com/oven-sh/bun/issues/12919
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 RUN bun run --filter @ryot/app-backend build
 RUN bun run --filter @ryot/app-frontend build
 
-FROM base AS runner
+FROM oven/bun:1.3.9-debian AS runner
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/drizzle ./drizzle
