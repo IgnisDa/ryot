@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 const configSchema = z.object({
-	PORT: z.string(),
 	REDIS_URL: z.string(),
 	DATABASE_URL: z.string(),
 	FRONTEND_URL: z.string(),
+	PORT: z.string().default("8000"),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
 });
 
