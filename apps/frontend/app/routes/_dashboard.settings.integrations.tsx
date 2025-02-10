@@ -362,7 +362,7 @@ const DisplayIntegration = (props: {
 		.reduce((prev, curr) => [prev, " • ", curr]);
 
 	const tableData: TableData = {
-		head: ["Triggered At", "Error (if any)"],
+		head: ["Triggered At", "Error"],
 		body: props.integration.triggerResult.map((tr) => [
 			dayjsLib(tr.finishedAt).format("lll"),
 			tr.error || "N/A",
