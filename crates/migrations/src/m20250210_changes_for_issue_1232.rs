@@ -24,6 +24,15 @@ UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJE
             db.execute_unprepared(r#"ALTER TABLE "integration" DROP COLUMN "last_triggered_on";"#)
                 .await?;
         }
+        if !manager
+            .has_column("integration", "last_finished_at")
+            .await?
+        {
+            db.execute_unprepared(
+                r#"ALTER TABLE "integration" ADD COLUMN "last_finished_at" TIMESTAMPTZ;"#,
+            )
+            .await?;
+        }
         Ok(())
     }
 
