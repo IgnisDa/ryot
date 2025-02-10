@@ -2598,17 +2598,16 @@ ORDER BY RANDOM() LIMIT 10;
             .all(&self.0.db)
             .await?;
         let mut integrations_to_disable = vec![];
-        for integration in integrations {
-            let mut first_five = integration.trigger_result.iter().take(5);
-            let are_all_errors = first_five.all(|r| r.error.is_some());
+        for int in integrations {
+            let are_all_errors = int.trigger_result.iter().take(5).all(|r| r.error.is_some());
             if are_all_errors {
-                integrations_to_disable.push(integration.id);
+                integrations_to_disable.push(int.id);
                 create_notification_for_user(
-                    &integration.user_id,
+                    &int.user_id,
                     &(
                         format!(
                             "Integration {} has been disabled due to too many errors",
-                            integration.provider
+                            int.provider
                         ),
                         UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
                     ),
