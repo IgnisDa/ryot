@@ -46,7 +46,7 @@ import {
 	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -332,20 +332,23 @@ const DisplayIntegration = (props: {
 
 	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
+	const firstRow = [
+		<Text size="sm" fw="bold" key="name">
+			{props.integration.name || changeCase(props.integration.provider)}
+		</Text>,
+		<Text size="xs" key="isPaused">
+			Paused
+		</Text>,
+	]
+		.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+		.reduce((prev, curr) => [prev, " • ", curr]);
+
 	return (
 		<Paper p="xs" withBorder>
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Group gap={4}>
-							<Text size="sm" fw="bold">
-								{props.integration.name ||
-									changeCase(props.integration.provider)}
-							</Text>
-							{props.integration.isDisabled ? (
-								<Text size="xs">(Paused)</Text>
-							) : null}
-						</Group>
+						<Group gap={4}>{firstRow}</Group>
 						<Text size="xs">
 							Created: {dayjsLib(props.integration.createdOn).fromNow()}
 						</Text>
