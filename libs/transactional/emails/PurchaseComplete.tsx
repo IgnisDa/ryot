@@ -2,7 +2,7 @@ import { Link, Text } from "@react-email/components";
 import { isString } from "@ryot/ts-utils";
 import Layout from "../components/Layout";
 
-const proLink = "https://pro.ryot.io";
+const proLink = "https://app.ryot.io";
 
 type PurchaseCompleteEmailProps = {
 	planType: string;
