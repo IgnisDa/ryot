@@ -386,6 +386,12 @@ const DisplayIntegration = (props: {
 							<Text size="xs">
 								Created: {dayjsLib(props.integration.createdOn).fromNow()}
 							</Text>
+							{props.integration.lastFinishedAt ? (
+								<Text size="xs">
+									Last finished:{" "}
+									{dayjsLib(props.integration.lastFinishedAt).fromNow()}
+								</Text>
+							) : null}
 							{props.integration.syncToOwnedCollection ? (
 								<Text size="xs">Being synced to "Owned" collection</Text>
 							) : null}
