@@ -343,13 +343,13 @@ const DisplayIntegration = (props: {
 			{props.integration.name || changeCase(props.integration.provider)}
 		</Text>,
 		props.integration.isDisabled ? (
-			<Text size="xs" key="isPaused">
+			<Text size="sm" key="isPaused">
 				Paused
 			</Text>
 		) : undefined,
 		props.integration.triggerResult.length > 0 ? (
 			<Anchor
-				size="xs"
+				size="sm"
 				key="triggerResult"
 				onClick={() => integrationTriggerResultToggle()}
 			>
