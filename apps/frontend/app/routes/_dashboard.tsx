@@ -724,20 +724,22 @@ export default function Layout() {
 								setOpened={() => {}}
 							/>
 						) : null}
-						<LinksGroup
-							label="Settings"
-							icon={IconSettings}
-							opened={openedLinkGroups?.settings || false}
-							toggle={toggleMobileNavbar}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.settings = k;
-									}),
-								)
-							}
-							links={loaderData.settingsLinks}
-						/>
+						{loaderData.isAccessLinkSession && !loaderData.isDemo ? null : (
+							<LinksGroup
+								label="Settings"
+								icon={IconSettings}
+								opened={openedLinkGroups?.settings || false}
+								toggle={toggleMobileNavbar}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.settings = k;
+										}),
+									)
+								}
+								links={loaderData.settingsLinks}
+							/>
+						)}
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
 						<Button
