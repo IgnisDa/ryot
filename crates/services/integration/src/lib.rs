@@ -19,7 +19,9 @@ use dependent_utils::{
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, QueryTrait,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
@@ -52,6 +54,28 @@ impl IntegrationService {
         integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
         integration.update(&self.0.db).await?;
         Ok(())
+    }
+
+    async fn select_integrations_to_process(
+        &self,
+        user_id: &String,
+        lot: IntegrationLot,
+        provider: Option<IntegrationProvider>,
+    ) -> Result<Vec<integration::Model>> {
+        let integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(lot))
+            .filter(integration::Column::UserId.eq(user_id))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
+            .apply_if(provider, |query, provider| {
+                query.filter(integration::Column::Provider.eq(provider))
+            })
+            .all(&self.0.db)
+            .await?;
+        Ok(integrations)
     }
 
     async fn integration_progress_update(
@@ -162,10 +186,8 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         for user_id in users {
-            let integrations = Integration::find()
-                .filter(integration::Column::UserId.eq(user_id))
-                .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-                .all(&self.0.db)
+            let integrations = self
+                .select_integrations_to_process(&user_id, IntegrationLot::Push, None)
                 .await?;
             for integration in integrations {
                 let possible_collection_ids = match integration.provider_specifics.clone() {
@@ -241,11 +263,12 @@ impl IntegrationService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(seen))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-            .filter(integration::Column::Provider.eq(IntegrationProvider::JellyfinPush))
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(
+                &seen,
+                IntegrationLot::Push,
+                Some(IntegrationProvider::JellyfinPush),
+            )
             .await?;
         for integration in integrations {
             let specifics = integration.provider_specifics.clone().unwrap();
@@ -275,15 +298,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(());
         }
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
-            .filter(
-                integration::Column::IsDisabled
-                    .is_null()
-                    .or(integration::Column::IsDisabled.eq(false)),
-            )
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(user_id, IntegrationLot::Yank, None)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
@@ -363,18 +379,14 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(false);
         }
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .filter(integration::Column::SyncToOwnedCollection.eq(true))
-            .filter(
-                integration::Column::IsDisabled
-                    .is_null()
-                    .or(integration::Column::IsDisabled.eq(false)),
-            )
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(user_id, IntegrationLot::Yank, None)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
+            if !integration.sync_to_owned_collection.unwrap_or_default() {
+                continue;
+            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
