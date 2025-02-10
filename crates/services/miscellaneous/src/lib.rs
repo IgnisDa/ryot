@@ -24,12 +24,12 @@ use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
-    notification_platform, person,
+    genre, import_report, integration, metadata, metadata_group, metadata_group_to_person,
+    metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group, metadata_to_person,
+    monitored_entity, notification_platform, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
+        ImportReport, Integration, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
         MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
         NotificationPlatform, Person, Review, Seen, User, UserNotification, UserToEntity,
     },
@@ -2588,6 +2588,44 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn mark_integrations_with_too_many_errors_as_disabled(&self) -> Result<()> {
+        let integrations = Integration::find()
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
+            .all(&self.0.db)
+            .await?;
+        let mut integrations_to_disable = vec![];
+        for int in integrations {
+            let are_all_errors = int.trigger_result.iter().take(5).all(|r| r.error.is_some());
+            if are_all_errors {
+                integrations_to_disable.push(int.id);
+                create_notification_for_user(
+                    &int.user_id,
+                    &(
+                        format!(
+                            "Integration {} has been disabled due to too many errors",
+                            int.provider
+                        ),
+                        UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
+                    ),
+                    UserNotificationLot::Display,
+                    &self.0,
+                )
+                .await
+                .trace_ok();
+            }
+        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(integrations_to_disable))
+            .col_expr(integration::Column::IsDisabled, Expr::value(true))
+            .exec(&self.0.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn remove_useless_data(&self) -> Result<()> {
         let metadata_to_delete = Metadata::find()
             .select_only()
@@ -2766,9 +2804,7 @@ ORDER BY RANDOM() LIMIT 10;
                     );
                     continue;
                 }
-                if let Err(err) =
-                    send_notification(notification.platform_specifics, &self.0.config, &msg).await
-                {
+                if let Err(err) = send_notification(notification.platform_specifics, &msg).await {
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
@@ -2899,6 +2935,13 @@ ORDER BY RANDOM() LIMIT 10;
             .trace_ok();
         ryot_log!(trace, "Queueing notifications for outdated seen entries");
         self.queue_notifications_for_outdated_seen_entries()
+            .await
+            .trace_ok();
+        ryot_log!(
+            trace,
+            "Marking integrations with too many errors as disabled"
+        );
+        self.mark_integrations_with_too_many_errors_as_disabled()
             .await
             .trace_ok();
         ryot_log!(trace, "Removing useless data");

@@ -125,7 +125,7 @@ const getJobDetails = (job: BackgroundJob) =>
 const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemo;
+	const isEditDisabled = dashboardData.isDemoInstance;
 	const submit = useConfirmSubmit();
 
 	const [title, description, isAdminOnly] = getJobDetails(props.job);

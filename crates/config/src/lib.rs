@@ -345,6 +345,9 @@ pub struct OidcConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
+    /// Whether this is a demo instance.
+    #[setting(default = false)]
+    pub is_demo_instance: bool,
     /// The mailer related settings.
     #[setting(nested)]
     pub smtp: SmtpConfig,

@@ -115,16 +115,16 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
     ryot_log!(info, "Timezone: {}", tz);
 
-    let (app_router, app_services) = create_app_services(
-        db,
-        tz,
-        s3_client,
-        config,
-        &lp_application_job_storage,
-        &mp_application_job_storage,
-        &hp_application_job_storage,
-    )
-    .await;
+    let (app_router, app_services) = create_app_services()
+        .db(db)
+        .timezone(tz)
+        .config(config)
+        .s3_client(s3_client)
+        .lp_application_job(&lp_application_job_storage)
+        .mp_application_job(&mp_application_job_storage)
+        .hp_application_job(&hp_application_job_storage)
+        .call()
+        .await;
 
     if cfg!(debug_assertions) {
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved

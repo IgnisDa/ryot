@@ -7,24 +7,19 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum AccessLink {
-    Table,
     Id,
+    Name,
+    Table,
     UserId,
     CreatedOn,
-    Name,
-    IsMutationAllowed,
-    IsAccountDefault,
-    IsDemo,
-    IssuedTokens,
-    // The maximum number of times this link can be used to generate a token
-    MaximumUses,
     ExpiresOn,
-    // If true, the link can no longer be used to generate a token
     IsRevoked,
-    // The number of times this link has been used to generate a token
     TimesUsed,
-    // Automatically redirect to this URL after generating a token
     RedirectTo,
+    MaximumUses,
+    IssuedTokens,
+    IsAccountDefault,
+    IsMutationAllowed,
 }
 
 #[async_trait::async_trait]
@@ -65,7 +60,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AccessLink::UserId).text().not_null())
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
                     .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
-                    .col(ColumnDef::new(AccessLink::IsDemo).boolean())
                     .col(ColumnDef::new(AccessLink::RedirectTo).text())
                     .foreign_key(
                         ForeignKey::create()

@@ -256,22 +256,22 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	);
 
 	const decodedCookie = getDecodedJwt(request);
-	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
-	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
+	const isAccessLinkSession = Boolean(decodedCookie?.access_link_id);
+	const isDemoInstance = coreDetails.isDemoInstance;
 
 	const shouldHaveUmami =
 		coreDetails.frontend.umami.scriptUrl &&
 		coreDetails.frontend.umami.websiteId &&
 		!coreDetails.disableTelemetry &&
-		!isDemo;
+		!isDemoInstance;
 
 	return {
-		isDemo,
 		mediaLinks,
 		userDetails,
 		coreDetails,
 		fitnessLinks,
 		settingsLinks,
+		isDemoInstance,
 		userPreferences,
 		shouldHaveUmami,
 		userCollections,
@@ -724,20 +724,23 @@ export default function Layout() {
 								setOpened={() => {}}
 							/>
 						) : null}
-						<LinksGroup
-							label="Settings"
-							icon={IconSettings}
-							opened={openedLinkGroups?.settings || false}
-							toggle={toggleMobileNavbar}
-							setOpened={(k) =>
-								setOpenedLinkGroups(
-									produce(openedLinkGroups, (draft) => {
-										if (draft) draft.settings = k;
-									}),
-								)
-							}
-							links={loaderData.settingsLinks}
-						/>
+						{loaderData.isAccessLinkSession &&
+						!loaderData.isDemoInstance ? null : (
+							<LinksGroup
+								label="Settings"
+								icon={IconSettings}
+								opened={openedLinkGroups?.settings || false}
+								toggle={toggleMobileNavbar}
+								setOpened={(k) =>
+									setOpenedLinkGroups(
+										produce(openedLinkGroups, (draft) => {
+											if (draft) draft.settings = k;
+										}),
+									)
+								}
+								links={loaderData.settingsLinks}
+							/>
+						)}
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
 						<Button

@@ -8,6 +8,8 @@ services about changes. They can be of following types:
   interval.
 - _Push_: Ryot sends data to an external service when an event occurs.
 
+If an integration fails more than 5 times in a row, it will be automatically disabled.
+
 ## Sink integrations
 
 These work via webhooks wherein an external service can inform Ryot about a change. All
@@ -15,7 +17,7 @@ webhook URLs follow this format:
 
 ```txt
 https://<instance_url>/backend/_i/<slug>
-https://pro.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
+https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ```
 
 !!! warning

@@ -177,9 +177,19 @@ pub async fn user_workout_details(
     let collections =
         entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
     let details = e.graphql_representation(&ss.file_storage_service).await?;
+    let metadata_consumed = Seen::find()
+        .select_only()
+        .column(seen::Column::MetadataId)
+        .distinct()
+        .filter(Expr::val(details.start_time).lte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
+        .filter(Expr::val(details.end_time).gte(PgFunc::any(Expr::col(seen::Column::UpdatedAt))))
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
     Ok(UserWorkoutDetails {
         details,
         collections,
+        metadata_consumed,
     })
 }
 
@@ -266,10 +276,10 @@ pub async fn check_token(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let claims = user_claims_from_token(token, &ss.config.users.jwt_secret)?;
-    let Some(access_link) = claims.access_link else {
+    let Some(access_link_id) = claims.access_link_id else {
         return Ok(true);
     };
-    let access_link = AccessLink::find_by_id(access_link.id)
+    let access_link = AccessLink::find_by_id(access_link_id)
         .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;

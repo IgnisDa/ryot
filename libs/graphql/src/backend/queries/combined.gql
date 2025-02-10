@@ -68,10 +68,14 @@ query UserIntegrations {
     provider
     createdOn
     isDisabled
+    lastFinishedAt
     maximumProgress
     minimumProgress
-    lastTriggeredOn
     syncToOwnedCollection
+    triggerResult {
+      error
+      finishedAt
+    }
   }
 }
 
@@ -156,7 +160,6 @@ query UserAccessLinks {
   userAccessLinks {
     id
     name
-    isDemo
     createdOn
     expiresOn
     timesUsed
@@ -290,6 +293,7 @@ query CoreDetails {
     oidcEnabled
     signupAllowed
     repositoryLink
+    isDemoInstance
     disableTelemetry
     tokenValidForDays
     localAuthDisabled
@@ -438,6 +442,7 @@ query UserPersonDetails($personId: String!) {
 
 query UserWorkoutDetails($workoutId: String!) {
   userWorkoutDetails(workoutId: $workoutId) {
+    metadataConsumed
     collections {
       ...CollectionPart
     }

@@ -4,7 +4,7 @@ You can specify configuration options via environment variables. Each option is 
 [below](#all-parameters) with what it does and a default (if any).
 
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
-([example](https://pro.ryot.io/backend/config)). Sensitive variables are redacted.
+([example](https://demo.ryot.io/backend/config)). Sensitive variables are redacted.
 
 ## Important parameters
 

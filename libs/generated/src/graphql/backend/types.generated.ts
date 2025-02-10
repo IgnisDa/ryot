@@ -27,7 +27,6 @@ export type AccessLink = {
   expiresOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
   isAccountDefault?: Maybe<Scalars['Boolean']['output']>;
-  isDemo?: Maybe<Scalars['Boolean']['output']>;
   isMutationAllowed?: Maybe<Scalars['Boolean']['output']>;
   isRevoked?: Maybe<Scalars['Boolean']['output']>;
   maximumUses?: Maybe<Scalars['Int']['output']>;
@@ -252,6 +251,7 @@ export type CoreDetails = {
   exerciseParameters: ExerciseParameters;
   fileStorageEnabled: Scalars['Boolean']['output'];
   frontend: FrontendConfig;
+  isDemoInstance: Scalars['Boolean']['output'];
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
   metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
@@ -926,13 +926,14 @@ export type Integration = {
   createdOn: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
+  lastFinishedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   name?: Maybe<Scalars['String']['output']>;
   provider: IntegrationProvider;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
+  triggerResult: Array<IntegrationTriggerResult>;
 };
 
 export enum IntegrationLot {
@@ -982,6 +983,12 @@ export type IntegrationSourceSpecificsInput = {
   sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   youtubeMusicAuthCookie?: InputMaybe<Scalars['String']['input']>;
   youtubeMusicTimezone?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type IntegrationTriggerResult = {
+  __typename?: 'IntegrationTriggerResult';
+  error?: Maybe<Scalars['String']['output']>;
+  finishedAt: Scalars['DateTime']['output'];
 };
 
 export type LoginError = {
@@ -1618,7 +1625,6 @@ export type NotificationPlatform = {
 export enum NotificationPlatformLot {
   Apprise = 'APPRISE',
   Discord = 'DISCORD',
-  Email = 'EMAIL',
   Gotify = 'GOTIFY',
   Ntfy = 'NTFY',
   PushBullet = 'PUSH_BULLET',
@@ -2818,6 +2824,7 @@ export type UserNotification = {
 };
 
 export enum UserNotificationContent {
+  IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
   MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
@@ -2984,6 +2991,7 @@ export type UserWorkoutDetails = {
   __typename?: 'UserWorkoutDetails';
   collections: Array<Collection>;
   details: Workout;
+  metadataConsumed: Array<Scalars['String']['output']>;
 };
 
 export type UserWorkoutInput = {

@@ -25,7 +25,7 @@ use enum_models::{
     IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
 };
 use itertools::Itertools;
-use jwt_service::{sign, AccessLinkClaims};
+use jwt_service::sign;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
     CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
@@ -221,10 +221,7 @@ impl UserService {
             link.user_id.clone(),
             &self.0.config.users.jwt_secret,
             validity,
-            Some(AccessLinkClaims {
-                id: link.id.clone(),
-                is_demo: link.is_demo,
-            }),
+            Some(link.id.clone()),
         )?;
         let mut issued_tokens = link.issued_tokens.clone();
         issued_tokens.push(api_key.clone());
@@ -578,9 +575,6 @@ impl UserService {
             NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
                 key: input.api_token.unwrap(),
             },
-            NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
-                email: input.api_token.unwrap(),
-            },
             NotificationPlatformLot::Telegram => NotificationPlatformSpecifics::Telegram {
                 bot_token: input.api_token.unwrap(),
                 chat_id: input.chat_id.unwrap(),
@@ -607,9 +601,6 @@ impl UserService {
             }
             NotificationPlatformSpecifics::PushSafer { key } => {
                 format!("Key: {}", key)
-            }
-            NotificationPlatformSpecifics::Email { email } => {
-                format!("ID: {}", email)
             }
             NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
                 format!("Chat ID: {}", chat_id)
@@ -676,7 +667,7 @@ impl UserService {
                 continue;
             }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
-            send_notification(platform.platform_specifics, &self.0.config, &msg).await?;
+            send_notification(platform.platform_specifics, &msg).await?;
         }
         Ok(true)
     }

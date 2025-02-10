@@ -54,10 +54,10 @@ them by simply fixing the key and restarting the server.
 ## Releases
 
 Each version of Ryot is released as docker images. For example, if the latest tag is
-`v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5` and `latest`. The
-images will be made available on [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and
-[GitHub Container Registry](https://ghcr.io/ignisda/ryot). Ryot is released on a (loosely)
-weekly basis.
+`v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5`, `latest` and
+`sha-e145f71`. The images will be made available on [Docker
+Hub](https://hub.docker.com/r/ignisda/ryot) and [GitHub Container
+Registry](https://ghcr.io/ignisda/ryot). Ryot is released on a (loosely) weekly basis.
 
 If you prefer to live on the edge, you can use the `develop` docker tag which is released
 when changes are merged into the `main` branch. Please note that this tag often has major

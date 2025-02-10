@@ -22,7 +22,7 @@
     <a href="https://ryot.io" target="_blank">Pro features</a> •
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://pro.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Hosted version</a>
+    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Hosted version</a>
 </p>
 
 <br/>
@@ -44,7 +44,7 @@ about the pro version [here](https://ryot.io).
 ## 💻 Demo
 
 You can use the demo account on the pro instance using [this
-link](https://pro.ryot.io/_s/acl_vUMPnPirkHlT).
+link](https://demo.ryot.io/_s/acl_vUMPnPirkHlT).
 
 **NOTE**: The data in this demo account is reset every 24 hours.
 

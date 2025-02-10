@@ -135,6 +135,7 @@ pub struct CompleteExport {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
+    pub metadata_consumed: Vec<String>,
     pub collections: Vec<collection::Model>,
 }
 
@@ -329,6 +330,7 @@ pub struct CoreDetails {
     pub smtp_enabled: bool,
     pub website_url: String,
     pub signup_allowed: bool,
+    pub is_demo_instance: bool,
     pub disable_telemetry: bool,
     pub repository_link: String,
     pub frontend: FrontendConfig,

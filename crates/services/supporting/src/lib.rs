@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use bon::bon;
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
@@ -41,8 +42,9 @@ pub struct SupportingService {
     mp_application_job: MemoryStorage<MpApplicationJob>,
 }
 
+#[bon]
 impl SupportingService {
-    #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub async fn new(
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
@@ -146,6 +148,7 @@ impl SupportingService {
             smtp_enabled: self.config.server.smtp.is_enabled(),
             signup_allowed: self.config.users.allow_registration,
             people_search_sources: PEOPLE_SEARCH_SOURCES.to_vec(),
+            is_demo_instance: self.config.server.is_demo_instance,
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
