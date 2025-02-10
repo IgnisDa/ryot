@@ -24,6 +24,7 @@ pub struct Model {
     pub provider: IntegrationProvider,
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
+    pub last_finished_at: Option<DateTimeUtc>,
     pub sync_to_owned_collection: Option<bool>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip_input)]

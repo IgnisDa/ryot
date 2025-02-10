@@ -926,6 +926,7 @@ export type Integration = {
   createdOn: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lastFinishedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;

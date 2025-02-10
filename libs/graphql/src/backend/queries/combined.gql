@@ -68,6 +68,7 @@ query UserIntegrations {
     provider
     createdOn
     isDisabled
+    lastFinishedAt
     maximumProgress
     minimumProgress
     syncToOwnedCollection
