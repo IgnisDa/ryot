@@ -2588,6 +2588,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
+    async fn mark_integrations_with_too_many_errors_as_disabled(&self) -> Result<()> {
+        Ok(())
+    }
+
     pub async fn remove_useless_data(&self) -> Result<()> {
         let metadata_to_delete = Metadata::find()
             .select_only()
@@ -2897,6 +2901,13 @@ ORDER BY RANDOM() LIMIT 10;
             .trace_ok();
         ryot_log!(trace, "Queueing notifications for outdated seen entries");
         self.queue_notifications_for_outdated_seen_entries()
+            .await
+            .trace_ok();
+        ryot_log!(
+            trace,
+            "Marking integrations with too many errors as disabled"
+        );
+        self.mark_integrations_with_too_many_errors_as_disabled()
             .await
             .trace_ok();
         ryot_log!(trace, "Removing useless data");
