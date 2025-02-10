@@ -251,6 +251,7 @@ export type CoreDetails = {
   exerciseParameters: ExerciseParameters;
   fileStorageEnabled: Scalars['Boolean']['output'];
   frontend: FrontendConfig;
+  isDemoInstance: Scalars['Boolean']['output'];
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
   metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;

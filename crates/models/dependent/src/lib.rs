@@ -330,6 +330,7 @@ pub struct CoreDetails {
     pub smtp_enabled: bool,
     pub website_url: String,
     pub signup_allowed: bool,
+    pub is_demo_instance: bool,
     pub disable_telemetry: bool,
     pub repository_link: String,
     pub frontend: FrontendConfig,
