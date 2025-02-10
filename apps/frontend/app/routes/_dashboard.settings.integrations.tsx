@@ -16,6 +16,8 @@ import {
 	Paper,
 	Select,
 	Stack,
+	Table,
+	type TableData,
 	Text,
 	TextInput,
 	Title,
@@ -46,7 +48,7 @@ import {
 	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -326,88 +328,124 @@ const DisplayIntegration = (props: {
 	setUpdateIntegrationModalData: (data: Integration | null) => void;
 }) => {
 	const [parent] = useAutoAnimate();
-	const [integrationInputOpened, { toggle: integrationInputToggle }] =
+	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
 		useDisclosure(false);
+	const [
+		integrationTriggerResultOpened,
+		{ toggle: integrationTriggerResultToggle },
+	] = useDisclosure(false);
 	const submit = useConfirmSubmit();
 
 	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
+	const firstRow = [
+		<Text size="sm" fw="bold" key="name">
+			{props.integration.name || changeCase(props.integration.provider)}
+		</Text>,
+		props.integration.isDisabled ? (
+			<Text size="sm" key="isPaused">
+				Paused
+			</Text>
+		) : undefined,
+		props.integration.triggerResult.length > 0 ? (
+			<Anchor
+				size="sm"
+				key="triggerResult"
+				onClick={() => integrationTriggerResultToggle()}
+			>
+				Show logs
+			</Anchor>
+		) : undefined,
+	]
+		.filter(Boolean)
+		.map<ReactNode>((s) => s)
+		.reduce((prev, curr) => [prev, " • ", curr]);
+
+	const tableData: TableData = {
+		head: ["Triggered At", "Error"],
+		body: props.integration.triggerResult.map((tr) => [
+			dayjsLib(tr.finishedAt).format("lll"),
+			tr.error || "N/A",
+		]),
+	};
+
 	return (
-		<Paper p="xs" withBorder>
-			<Stack ref={parent}>
-				<Flex align="center" justify="space-between">
-					<Box>
-						<Group gap={4}>
-							<Text size="sm" fw="bold">
-								{props.integration.name ||
-									changeCase(props.integration.provider)}
-							</Text>
-							{props.integration.isDisabled ? (
-								<Text size="xs">(Paused)</Text>
-							) : null}
-						</Group>
-						<Text size="xs">
-							Created: {dayjsLib(props.integration.createdOn).fromNow()}
-						</Text>
-						{props.integration.lastTriggeredOn ? (
+		<>
+			<Modal
+				withCloseButton={false}
+				opened={integrationTriggerResultOpened}
+				onClose={() => integrationTriggerResultToggle()}
+			>
+				<Table data={tableData} />
+			</Modal>
+			<Paper p="xs" withBorder>
+				<Stack ref={parent}>
+					<Flex align="center" justify="space-between">
+						<Box>
+							<Group gap={4}>{firstRow}</Group>
 							<Text size="xs">
-								Triggered:{" "}
-								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
+								Created: {dayjsLib(props.integration.createdOn).fromNow()}
 							</Text>
-						) : null}
-						{props.integration.syncToOwnedCollection ? (
-							<Text size="xs">Being synced to "Owned" collection</Text>
-						) : null}
-					</Box>
-					<Group>
-						{!NO_SHOW_URL.includes(props.integration.provider) ? (
-							<ActionIcon color="blue" onClick={integrationInputToggle}>
-								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
-							</ActionIcon>
-						) : null}
-						<ActionIcon
-							color="indigo"
-							variant="subtle"
-							onClick={() =>
-								props.setUpdateIntegrationModalData(props.integration)
-							}
-						>
-							<IconPencil />
-						</ActionIcon>
-						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
-							<input
-								type="hidden"
-								name="integrationId"
-								defaultValue={props.integration.id}
-							/>
+							{props.integration.lastFinishedAt ? (
+								<Text size="xs">
+									Last finished:{" "}
+									{dayjsLib(props.integration.lastFinishedAt).fromNow()}
+								</Text>
+							) : null}
+							{props.integration.syncToOwnedCollection ? (
+								<Text size="xs">Being synced to "Owned" collection</Text>
+							) : null}
+						</Box>
+						<Group>
+							{!NO_SHOW_URL.includes(props.integration.provider) ? (
+								<ActionIcon color="blue" onClick={integrationUrlToggle}>
+									{integrationUrlOpened ? <IconEyeClosed /> : <IconEye />}
+								</ActionIcon>
+							) : null}
 							<ActionIcon
-								type="submit"
-								color="red"
+								color="indigo"
 								variant="subtle"
-								mt={4}
-								onClick={(e) => {
-									const form = e.currentTarget.form;
-									e.preventDefault();
-									openConfirmationModal(
-										"Are you sure you want to delete this integration?",
-										() => submit(form),
-									);
-								}}
+								onClick={() =>
+									props.setUpdateIntegrationModalData(props.integration)
+								}
 							>
-								<IconTrash />
+								<IconPencil />
 							</ActionIcon>
-						</Form>
-					</Group>
-				</Flex>
-				{integrationInputOpened ? (
-					<TextInput
-						value={integrationUrl}
-						readOnly
-						onClick={(e) => e.currentTarget.select()}
-					/>
-				) : null}
-			</Stack>
-		</Paper>
+							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
+								<input
+									type="hidden"
+									name="integrationId"
+									defaultValue={props.integration.id}
+								/>
+								<ActionIcon
+									type="submit"
+									color="red"
+									variant="subtle"
+									mt={4}
+									onClick={(e) => {
+										const form = e.currentTarget.form;
+										e.preventDefault();
+										openConfirmationModal(
+											"Are you sure you want to delete this integration?",
+											() => submit(form),
+										);
+									}}
+								>
+									<IconTrash />
+								</ActionIcon>
+							</Form>
+						</Group>
+					</Flex>
+					{integrationUrlOpened ? (
+						<TextInput
+							value={integrationUrl}
+							readOnly
+							onClick={(e) => e.currentTarget.select()}
+						/>
+					) : null}
+				</Stack>
+			</Paper>
+		</>
 	);
 };
 

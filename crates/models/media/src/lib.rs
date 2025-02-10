@@ -836,6 +836,15 @@ pub struct PersonStateChanges {
 
 #[skip_serializing_none]
 #[derive(
+    Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default, SimpleObject,
+)]
+pub struct IntegrationTriggerResult {
+    pub error: Option<String>,
+    pub finished_at: DateTimeUtc,
+}
+
+#[skip_serializing_none]
+#[derive(
     Debug,
     Serialize,
     Deserialize,

@@ -15,9 +15,10 @@ pub enum Integration {
     Provider,
     CreatedOn,
     IsDisabled,
+    TriggerResult,
+    LastFinishedAt,
     MinimumProgress,
     MaximumProgress,
-    LastTriggeredOn,
     ProviderSpecifics,
     SyncToOwnedCollection,
 }
@@ -43,7 +44,13 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(Integration::TriggerResult)
+                            .json_binary()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(ColumnDef::new(Integration::LastFinishedAt).timestamp_with_time_zone())
                     .col(ColumnDef::new(Integration::ProviderSpecifics).json_binary())
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
                     .col(ColumnDef::new(Integration::MinimumProgress).decimal())

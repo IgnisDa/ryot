@@ -68,10 +68,14 @@ query UserIntegrations {
     provider
     createdOn
     isDisabled
+    lastFinishedAt
     maximumProgress
     minimumProgress
-    lastTriggeredOn
     syncToOwnedCollection
+    triggerResult {
+      error
+      finishedAt
+    }
   }
 }
 

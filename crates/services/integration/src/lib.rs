@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashSet, VecDeque},
+    sync::Arc,
+};
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -14,9 +17,12 @@ use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
 };
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::SeenShowExtraInformation;
+use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
@@ -29,14 +35,49 @@ mod yank;
 pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
-    async fn set_integration_last_triggered_on(
+    async fn set_trigger_result(
         &self,
+        error: Option<String>,
         integration: &integration::Model,
     ) -> Result<()> {
+        let finished_at = Utc::now();
+        let last_finished_at = match error {
+            Some(_) => ActiveValue::NotSet,
+            None => ActiveValue::Set(Some(finished_at)),
+        };
+        let mut new_trigger_result = VecDeque::from(integration.trigger_result.clone());
+        if new_trigger_result.len() >= 20 {
+            new_trigger_result.pop_back();
+        }
+        new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
         let mut integration: integration::ActiveModel = integration.clone().into();
-        integration.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+        integration.last_finished_at = last_finished_at;
+        integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
         integration.update(&self.0.db).await?;
         Ok(())
+    }
+
+    async fn select_integrations_to_process(
+        &self,
+        user_id: &String,
+        lot: IntegrationLot,
+        provider: Option<IntegrationProvider>,
+    ) -> Result<Vec<integration::Model>> {
+        let integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(lot))
+            .filter(integration::Column::UserId.eq(user_id))
+            .filter(
+                integration::Column::IsDisabled
+                    .is_null()
+                    .or(integration::Column::IsDisabled.eq(false)),
+            )
+            .apply_if(provider, |query, provider| {
+                query.filter(integration::Column::Provider.eq(provider))
+            })
+            .order_by_asc(integration::Column::CreatedOn)
+            .all(&self.0.db)
+            .await?;
+        Ok(integrations)
     }
 
     async fn integration_progress_update(
@@ -75,14 +116,12 @@ impl IntegrationService {
                 });
             }
         });
-        match process_import(&integration.user_id, true, import, &self.0, |_| async {
+        let result = process_import(&integration.user_id, true, import, &self.0, |_| async {
             Ok(())
         })
-        .await
-        {
-            Err(err) => ryot_log!(debug, "Error updating progress: {:?}", err),
-            Ok(_) => self.set_integration_last_triggered_on(&integration).await?,
-        }
+        .await;
+        self.set_trigger_result(result.err().map(|e| e.message), &integration)
+            .await?;
         Ok(())
     }
 
@@ -122,7 +161,11 @@ impl IntegrationService {
                     .trace_ok();
                 Ok("Progress updated successfully".to_owned())
             }
-            Err(e) => Err(Error::new(e.to_string())),
+            Err(e) => {
+                self.set_trigger_result(Some(e.to_string()), &integration)
+                    .await?;
+                Err(Error::new(e.to_string()))
+            }
         }
     }
 
@@ -145,10 +188,8 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         for user_id in users {
-            let integrations = Integration::find()
-                .filter(integration::Column::UserId.eq(user_id))
-                .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-                .all(&self.0.db)
+            let integrations = self
+                .select_integrations_to_process(&user_id, IntegrationLot::Push, None)
                 .await?;
             for integration in integrations {
                 let possible_collection_ids = match integration.provider_specifics.clone() {
@@ -177,38 +218,38 @@ impl IntegrationService {
                         .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
                     _ => Some(metadata.identifier.clone()),
                 };
-                if let Some(entity_id) = maybe_entity_id {
-                    let push_result = match integration.provider {
-                        IntegrationProvider::Radarr => {
-                            push::radarr::push_progress(
-                                specifics.radarr_api_key.unwrap(),
-                                specifics.radarr_profile_id.unwrap(),
-                                entity_id,
-                                specifics.radarr_base_url.unwrap(),
-                                metadata.lot,
-                                metadata.title,
-                                specifics.radarr_root_folder_path.unwrap(),
-                            )
-                            .await
-                        }
-                        IntegrationProvider::Sonarr => {
-                            push::sonarr::push_progress(
-                                specifics.sonarr_api_key.unwrap(),
-                                specifics.sonarr_profile_id.unwrap(),
-                                entity_id,
-                                specifics.sonarr_base_url.unwrap(),
-                                metadata.lot,
-                                metadata.title,
-                                specifics.sonarr_root_folder_path.unwrap(),
-                            )
-                            .await
-                        }
-                        _ => unreachable!(),
-                    };
-                    if push_result.is_ok() {
-                        self.set_integration_last_triggered_on(&integration).await?;
+                let Some(entity_id) = maybe_entity_id else {
+                    continue;
+                };
+                let push_result = match integration.provider {
+                    IntegrationProvider::Radarr => {
+                        push::radarr::push_progress(
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            entity_id,
+                            specifics.radarr_base_url.unwrap(),
+                            metadata.lot,
+                            metadata.title,
+                            specifics.radarr_root_folder_path.unwrap(),
+                        )
+                        .await
                     }
-                }
+                    IntegrationProvider::Sonarr => {
+                        push::sonarr::push_progress(
+                            specifics.sonarr_api_key.unwrap(),
+                            specifics.sonarr_profile_id.unwrap(),
+                            entity_id,
+                            specifics.sonarr_base_url.unwrap(),
+                            metadata.lot,
+                            metadata.title,
+                            specifics.sonarr_root_folder_path.unwrap(),
+                        )
+                        .await
+                    }
+                    _ => unreachable!(),
+                };
+                self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
+                    .await?;
             }
         }
         Ok(())
@@ -224,11 +265,12 @@ impl IntegrationService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(seen))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-            .filter(integration::Column::Provider.eq(IntegrationProvider::JellyfinPush))
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(
+                &seen,
+                IntegrationLot::Push,
+                Some(IntegrationProvider::JellyfinPush),
+            )
             .await?;
         for integration in integrations {
             let specifics = integration.provider_specifics.clone().unwrap();
@@ -247,9 +289,8 @@ impl IntegrationService {
                 }
                 _ => unreachable!(),
             };
-            if push_result.is_ok() {
-                self.set_integration_last_triggered_on(&integration).await?;
-            }
+            self.set_trigger_result(push_result.err().map(|e| e.to_string()), &integration)
+                .await?;
         }
         Ok(())
     }
@@ -259,15 +300,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(());
         }
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
-            .filter(
-                integration::Column::IsDisabled
-                    .is_null()
-                    .or(integration::Column::IsDisabled.eq(false)),
-            )
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(user_id, IntegrationLot::Yank, None)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
@@ -308,7 +342,10 @@ impl IntegrationService {
             };
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
-                Err(e) => ryot_log!(debug, "Error yanking integrations data: {:?}", e),
+                Err(e) => {
+                    self.set_trigger_result(Some(e.to_string()), &integration)
+                        .await?;
+                }
             };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
@@ -344,18 +381,14 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(false);
         }
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .filter(integration::Column::SyncToOwnedCollection.eq(true))
-            .filter(
-                integration::Column::IsDisabled
-                    .is_null()
-                    .or(integration::Column::IsDisabled.eq(false)),
-            )
-            .all(&self.0.db)
+        let integrations = self
+            .select_integrations_to_process(user_id, IntegrationLot::Yank, None)
             .await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
+            if !integration.sync_to_owned_collection.unwrap_or_default() {
+                continue;
+            }
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
@@ -386,9 +419,13 @@ impl IntegrationService {
                 }
                 _ => continue,
             };
-            if let Ok(update) = response {
-                progress_updates.push((integration, update));
-            }
+            match response {
+                Ok(update) => progress_updates.push((integration, update)),
+                Err(e) => {
+                    self.set_trigger_result(Some(e.to_string()), &integration)
+                        .await?;
+                }
+            };
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
             self.integration_progress_update(integration, progress_updates)
