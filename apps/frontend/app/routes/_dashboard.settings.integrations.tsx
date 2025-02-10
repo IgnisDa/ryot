@@ -336,10 +336,13 @@ const DisplayIntegration = (props: {
 		<Text size="sm" fw="bold" key="name">
 			{props.integration.name || changeCase(props.integration.provider)}
 		</Text>,
-		<Text size="xs" key="isPaused">
-			Paused
-		</Text>,
+		props.integration.isDisabled ? (
+			<Text size="xs" key="isPaused">
+				Paused
+			</Text>
+		) : undefined,
 	]
+		.filter(Boolean)
 		.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
 		.reduce((prev, curr) => [prev, " • ", curr]);
 
