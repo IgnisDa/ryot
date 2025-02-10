@@ -39,6 +39,23 @@ WHERE i."last_triggered_on" IS NOT NULL;
             db.execute_unprepared(r#"ALTER TABLE "integration" DROP COLUMN "last_triggered_on";"#)
                 .await?;
         }
+        db.execute_unprepared(
+            r#"
+UPDATE
+  "user"
+SET
+  preferences = JSONB_SET(
+    preferences,
+    '{notifications,to_send}',
+    (preferences -> 'notifications' -> 'to_send') || '"IntegrationDisabledDueToTooManyErrors"'
+  )
+where
+  NOT (
+    preferences -> 'notifications' -> 'to_send' ? 'IntegrationDisabledDueToTooManyErrors'
+  );
+        "#,
+        )
+        .await?;
         Ok(())
     }
 

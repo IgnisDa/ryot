@@ -201,6 +201,7 @@ pub enum UserNotificationContent {
     PersonMetadataGroupAssociated,
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
+    IntegrationDisabledDueToTooManyErrors,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

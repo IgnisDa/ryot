@@ -2823,6 +2823,7 @@ export type UserNotification = {
 };
 
 export enum UserNotificationContent {
+  IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
   MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
