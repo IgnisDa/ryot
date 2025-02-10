@@ -160,7 +160,6 @@ query UserAccessLinks {
   userAccessLinks {
     id
     name
-    isDemo
     createdOn
     expiresOn
     timesUsed

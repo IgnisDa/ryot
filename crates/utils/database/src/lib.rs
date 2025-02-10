@@ -276,10 +276,10 @@ pub async fn check_token(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let claims = user_claims_from_token(token, &ss.config.users.jwt_secret)?;
-    let Some(access_link) = claims.access_link else {
+    let Some(access_link_id) = claims.access_link_id else {
         return Ok(true);
     };
-    let access_link = AccessLink::find_by_id(access_link.id)
+    let access_link = AccessLink::find_by_id(access_link_id)
         .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;

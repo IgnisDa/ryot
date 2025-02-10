@@ -27,7 +27,6 @@ export type AccessLink = {
   expiresOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
   isAccountDefault?: Maybe<Scalars['Boolean']['output']>;
-  isDemo?: Maybe<Scalars['Boolean']['output']>;
   isMutationAllowed?: Maybe<Scalars['Boolean']['output']>;
   isRevoked?: Maybe<Scalars['Boolean']['output']>;
   maximumUses?: Maybe<Scalars['Int']['output']>;

@@ -25,7 +25,7 @@ use enum_models::{
     IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
 };
 use itertools::Itertools;
-use jwt_service::{sign, AccessLinkClaims};
+use jwt_service::sign;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
     CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
@@ -221,10 +221,7 @@ impl UserService {
             link.user_id.clone(),
             &self.0.config.users.jwt_secret,
             validity,
-            Some(AccessLinkClaims {
-                id: link.id.clone(),
-                is_demo: link.is_demo,
-            }),
+            Some(link.id.clone()),
         )?;
         let mut issued_tokens = link.issued_tokens.clone();
         issued_tokens.push(api_key.clone());
