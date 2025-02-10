@@ -256,8 +256,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	);
 
 	const decodedCookie = getDecodedJwt(request);
-	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
-	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
+	const isAccessLinkSession = Boolean(decodedCookie?.access_link_id);
+	const isDemo = coreDetails.isDemoInstance;
 
 	const shouldHaveUmami =
 		coreDetails.frontend.umami.scriptUrl &&

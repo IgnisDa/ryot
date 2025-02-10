@@ -164,10 +164,7 @@ export const MetadataSpecificsSchema = z.object({
 
 export const getDecodedJwt = (request: Request) => {
 	const token = getAuthorizationCookie(request) ?? "";
-	return jwtDecode<{
-		sub: string;
-		access_link?: { id: string; is_demo?: boolean };
-	}>(token);
+	return jwtDecode<{ sub: string; access_link_id?: string }>(token);
 };
 
 export const getCoreDetails = async () => {
