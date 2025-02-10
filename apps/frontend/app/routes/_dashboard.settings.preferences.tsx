@@ -512,6 +512,10 @@ export default function Page() {
 												UserNotificationContent.NewWorkoutCreated,
 												() => "A new workout is created",
 											)
+											.with(
+												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
+												() => "Integration disabled due to too many errors",
+											)
 											.exhaustive()}
 									/>
 								))}
