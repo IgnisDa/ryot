@@ -341,6 +341,11 @@ const DisplayIntegration = (props: {
 				Paused
 			</Text>
 		) : undefined,
+		props.integration.triggerResult.length > 0 ? (
+			<Anchor size="xs" key="triggerResult">
+				Show logs
+			</Anchor>
+		) : undefined,
 	]
 		.filter(Boolean)
 		.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
