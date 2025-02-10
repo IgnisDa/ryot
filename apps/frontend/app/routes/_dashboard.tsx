@@ -257,21 +257,21 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
 	const decodedCookie = getDecodedJwt(request);
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link_id);
-	const isDemo = coreDetails.isDemoInstance;
+	const isDemoInstance = coreDetails.isDemoInstance;
 
 	const shouldHaveUmami =
 		coreDetails.frontend.umami.scriptUrl &&
 		coreDetails.frontend.umami.websiteId &&
 		!coreDetails.disableTelemetry &&
-		!isDemo;
+		!isDemoInstance;
 
 	return {
-		isDemo,
 		mediaLinks,
 		userDetails,
 		coreDetails,
 		fitnessLinks,
 		settingsLinks,
+		isDemoInstance,
 		userPreferences,
 		shouldHaveUmami,
 		userCollections,
@@ -724,7 +724,8 @@ export default function Layout() {
 								setOpened={() => {}}
 							/>
 						) : null}
-						{loaderData.isAccessLinkSession && !loaderData.isDemo ? null : (
+						{loaderData.isAccessLinkSession &&
+						!loaderData.isDemoInstance ? null : (
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}

@@ -102,7 +102,7 @@ export default function Page() {
 		isChanged: false,
 		value: userPreferences,
 	});
-	const isEditDisabled = dashboardData.isDemo;
+	const isEditDisabled = dashboardData.isDemoInstance;
 
 	const updateUserPreferencesMutation = useMutation({
 		mutationFn: async () => {

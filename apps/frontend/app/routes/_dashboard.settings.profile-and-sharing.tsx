@@ -171,7 +171,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
 	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemo;
+	const isEditDisabled = dashboardData.isDemoInstance;
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
