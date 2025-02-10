@@ -328,6 +328,10 @@ const DisplayIntegration = (props: {
 	const [parent] = useAutoAnimate();
 	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
 		useDisclosure(false);
+	const [
+		integrationTriggerResultOpened,
+		{ toggle: integrationTriggerResultToggle },
+	] = useDisclosure(false);
 	const submit = useConfirmSubmit();
 
 	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
@@ -342,7 +346,11 @@ const DisplayIntegration = (props: {
 			</Text>
 		) : undefined,
 		props.integration.triggerResult.length > 0 ? (
-			<Anchor size="xs" key="triggerResult">
+			<Anchor
+				size="xs"
+				key="triggerResult"
+				onClick={() => integrationTriggerResultToggle()}
+			>
 				Show logs
 			</Anchor>
 		) : undefined,
@@ -353,6 +361,13 @@ const DisplayIntegration = (props: {
 
 	return (
 		<>
+			<Modal
+				withCloseButton={false}
+				opened={integrationTriggerResultOpened}
+				onClose={() => integrationTriggerResultToggle()}
+			>
+				{JSON.stringify(props.integration.triggerResult, null, 2)}
+			</Modal>
 			<Paper p="xs" withBorder>
 				<Stack ref={parent}>
 					<Flex align="center" justify="space-between">
