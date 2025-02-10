@@ -160,7 +160,6 @@ query UserAccessLinks {
   userAccessLinks {
     id
     name
-    isDemo
     createdOn
     expiresOn
     timesUsed
@@ -294,6 +293,7 @@ query CoreDetails {
     oidcEnabled
     signupAllowed
     repositoryLink
+    isDemoInstance
     disableTelemetry
     tokenValidForDays
     localAuthDisabled

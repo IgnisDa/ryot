@@ -7,36 +7,25 @@ use uuid::Uuid;
 
 #[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize)]
-pub struct AccessLinkClaims {
-    pub id: String,
-    pub is_demo: Option<bool>,
-}
-
-#[skip_serializing_none]
-#[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
-    pub sub: String,
+    pub jti: Uuid,
     pub exp: usize,
     pub iat: usize,
-    pub jti: Uuid,
-    pub access_link: Option<AccessLinkClaims>,
+    pub sub: String,
+    pub access_link_id: Option<String>,
 }
 
 impl Claims {
-    pub fn new(
-        sub: String,
-        token_valid_for_days: i32,
-        access_link: Option<AccessLinkClaims>,
-    ) -> Self {
+    pub fn new(sub: String, token_valid_for_days: i32, access_link_id: Option<String>) -> Self {
         let iat = Utc::now();
         let exp = iat + Duration::try_days(token_valid_for_days.into()).unwrap();
 
         Self {
             sub,
+            access_link_id,
+            jti: Uuid::new_v4(),
             iat: iat.timestamp().try_into().unwrap(),
             exp: exp.timestamp().try_into().unwrap(),
-            jti: Uuid::new_v4(),
-            access_link,
         }
     }
 }
@@ -45,11 +34,11 @@ pub fn sign(
     user_id: String,
     jwt_secret: &str,
     token_valid_for_days: i32,
-    access_link: Option<AccessLinkClaims>,
+    access_link_id: Option<String>,
 ) -> Result<String> {
     let tokens = encode(
         &Header::default(),
-        &Claims::new(user_id, token_valid_for_days, access_link),
+        &Claims::new(user_id, token_valid_for_days, access_link_id),
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )?;
     Ok(tokens)
