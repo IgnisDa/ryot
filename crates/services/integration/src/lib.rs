@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashSet, VecDeque},
+    sync::Arc,
+};
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -34,14 +37,14 @@ impl IntegrationService {
         error: Option<String>,
         integration: &integration::Model,
     ) -> Result<()> {
-        let mut new_trigger_result = integration.trigger_result.clone();
+        let mut new_trigger_result = VecDeque::from(integration.trigger_result.clone());
         if new_trigger_result.len() >= 20 {
-            new_trigger_result.remove(0);
+            new_trigger_result.pop_back();
         }
         let finished_at = Utc::now();
-        new_trigger_result.push(IntegrationTriggerResult { error, finished_at });
+        new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
         let mut integration: integration::ActiveModel = integration.clone().into();
-        integration.trigger_result = ActiveValue::Set(new_trigger_result);
+        integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
         integration.update(&self.0.db).await?;
         Ok(())
     }
