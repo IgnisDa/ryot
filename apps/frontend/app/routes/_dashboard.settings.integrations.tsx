@@ -16,6 +16,8 @@ import {
 	Paper,
 	Select,
 	Stack,
+	Table,
+	type TableData,
 	Text,
 	TextInput,
 	Title,
@@ -359,6 +361,14 @@ const DisplayIntegration = (props: {
 		.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
 		.reduce((prev, curr) => [prev, " • ", curr]);
 
+	const tableData: TableData = {
+		head: ["Triggered At", "Error (if any)"],
+		body: props.integration.triggerResult.map((tr) => [
+			dayjsLib(tr.finishedAt).format("lll"),
+			tr.error || "N/A",
+		]),
+	};
+
 	return (
 		<>
 			<Modal
@@ -366,7 +376,7 @@ const DisplayIntegration = (props: {
 				opened={integrationTriggerResultOpened}
 				onClose={() => integrationTriggerResultToggle()}
 			>
-				{JSON.stringify(props.integration.triggerResult, null, 2)}
+				<Table data={tableData} />
 			</Modal>
 			<Paper p="xs" withBorder>
 				<Stack ref={parent}>
