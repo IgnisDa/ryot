@@ -48,7 +48,7 @@ import {
 	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
-import { Fragment, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -358,7 +358,7 @@ const DisplayIntegration = (props: {
 		) : undefined,
 	]
 		.filter(Boolean)
-		.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+		.map<ReactNode>((s) => s)
 		.reduce((prev, curr) => [prev, " • ", curr]);
 
 	const tableData: TableData = {
