@@ -15,7 +15,7 @@ webhook URLs follow this format:
 
 ```txt
 https://<instance_url>/backend/_i/<slug>
-https://pro.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
+https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ```
 
 !!! warning
