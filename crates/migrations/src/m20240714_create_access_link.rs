@@ -10,7 +10,6 @@ pub enum AccessLink {
     Id,
     Name,
     Table,
-    IsDemo,
     UserId,
     CreatedOn,
     ExpiresOn,
@@ -61,7 +60,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AccessLink::UserId).text().not_null())
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
                     .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
-                    .col(ColumnDef::new(AccessLink::IsDemo).boolean())
                     .col(ColumnDef::new(AccessLink::RedirectTo).text())
                     .foreign_key(
                         ForeignKey::create()
