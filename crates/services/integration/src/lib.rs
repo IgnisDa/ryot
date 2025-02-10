@@ -20,7 +20,8 @@ use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -73,6 +74,7 @@ impl IntegrationService {
             .apply_if(provider, |query, provider| {
                 query.filter(integration::Column::Provider.eq(provider))
             })
+            .order_by_asc(integration::Column::CreatedOn)
             .all(&self.0.db)
             .await?;
         Ok(integrations)
