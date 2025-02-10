@@ -12,7 +12,8 @@ impl MigrationTrait for Migration {
                 r#"
 ALTER TABLE "integration" ADD COLUMN "trigger_result" JSONB NOT NULL DEFAULT '[]'::JSONB;
 
-UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJECT('finished_at', i."last_triggered_on"));
+UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJECT('finished_at', i."last_triggered_on"))
+WHERE i."last_triggered_on" IS NOT NULL;
 "#,
             )
             .await?;
@@ -25,7 +26,8 @@ UPDATE "integration" i SET "trigger_result" = JSONB_BUILD_ARRAY(JSONB_BUILD_OBJE
                 r#"
 ALTER TABLE "integration" ADD COLUMN "last_finished_at" TIMESTAMPTZ;
 
-UPDATE "integration" i SET "last_finished_at" = i."last_triggered_on";
+UPDATE "integration" i SET "last_finished_at" = i."last_triggered_on"
+WHERE i."last_triggered_on" IS NOT NULL;
                 "#,
             )
             .await?;
