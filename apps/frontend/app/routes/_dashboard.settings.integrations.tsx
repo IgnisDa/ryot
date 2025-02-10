@@ -326,7 +326,7 @@ const DisplayIntegration = (props: {
 	setUpdateIntegrationModalData: (data: Integration | null) => void;
 }) => {
 	const [parent] = useAutoAnimate();
-	const [integrationInputOpened, { toggle: integrationInputToggle }] =
+	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
 		useDisclosure(false);
 	const submit = useConfirmSubmit();
 
@@ -367,8 +367,8 @@ const DisplayIntegration = (props: {
 						</Box>
 						<Group>
 							{!NO_SHOW_URL.includes(props.integration.provider) ? (
-								<ActionIcon color="blue" onClick={integrationInputToggle}>
-									{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
+								<ActionIcon color="blue" onClick={integrationUrlToggle}>
+									{integrationUrlOpened ? <IconEyeClosed /> : <IconEye />}
 								</ActionIcon>
 							) : null}
 							<ActionIcon
@@ -405,7 +405,7 @@ const DisplayIntegration = (props: {
 							</Form>
 						</Group>
 					</Flex>
-					{integrationInputOpened ? (
+					{integrationUrlOpened ? (
 						<TextInput
 							value={integrationUrl}
 							readOnly
