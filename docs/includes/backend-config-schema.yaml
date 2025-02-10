@@ -170,6 +170,10 @@ server:
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
 
+  # Whether this is a demo instance.
+  # @envvar SERVER_IS_DEMO_INSTANCE
+  is_demo_instance: false
+
   # The maximum file size in MB for user uploads.
   # @envvar SERVER_MAX_FILE_SIZE_MB
   max_file_size_mb: 70
