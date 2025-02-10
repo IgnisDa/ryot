@@ -73,7 +73,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userAccessLinks }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
 	]);
-	return { userAccessLinks, activeAccessLinkId: decodedJwt?.access_link?.id };
+	return { userAccessLinks, activeAccessLinkId: decodedJwt?.access_link_id };
 };
 
 export const meta = () => {
@@ -360,7 +360,6 @@ const DisplayAccessLink = (props: {
 			? `Maximum uses: ${props.accessLink.maximumUses}`
 			: null,
 		props.accessLink.isMutationAllowed ? "Mutation allowed" : null,
-		props.accessLink.isDemo ? "Demo access" : null,
 	]
 		.filter(isString)
 		.join(", ");
