@@ -8,12 +8,18 @@ import {
 	type EntryContext,
 	ServerRouter,
 } from "react-router";
-import { db } from "./lib/config.server";
+import { db, serverVariables, TEMP_DIRECTORY } from "./lib/config.server";
+import { writeFileSync } from "node:fs";
 
 migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {
 	console.error("Database migrations failed", error);
 	process.exit(1);
 });
+
+writeFileSync(
+	`${TEMP_DIRECTORY}/website-config.json`,
+	JSON.stringify(serverVariables, null, 2),
+);
 
 const ABORT_DELAY = 5_000;
 

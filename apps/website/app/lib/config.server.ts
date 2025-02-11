@@ -17,6 +17,9 @@ import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
 
+export const TEMP_DIRECTORY =
+	process.env.NODE_ENV === "development" ? "/tmp" : "tmp";
+
 export const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),
 	UNKEY_API_ID: z.string(),
