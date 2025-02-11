@@ -16,7 +16,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserWorkoutDocument,
@@ -592,11 +592,7 @@ export default function Page() {
 										cols={{ base: 7, sm: 8, md: 10 }}
 									>
 										{loaderData.metadataConsumed.map((m) => (
-											<ConsumedMetadataDisplay
-												key={m}
-												metadataId={m}
-												isOpened={metadataConsumedOpened}
-											/>
+											<ConsumedMetadataDisplay key={m} metadataId={m} />
 										))}
 									</SimpleGrid>
 								) : (
@@ -640,15 +636,15 @@ export default function Page() {
 
 const ConsumedMetadataDisplay = (props: {
 	metadataId: string;
-	isOpened: boolean;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails } = useQuery({
 		...getPartialMetadataDetailsQuery(props.metadataId),
-		enabled: props.isOpened,
+		enabled: inViewport,
 	});
 
 	return (
-		<Link to={$path("/media/item/:id", { id: props.metadataId })}>
+		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
 			<Tooltip label={metadataDetails?.title}>
 				<Avatar src={metadataDetails?.image} />
 			</Tooltip>
