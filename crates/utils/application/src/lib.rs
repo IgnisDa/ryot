@@ -8,14 +8,18 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
-use common_utils::USER_AGENT_STR;
+use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR};
 use file_storage_service::FileStorageService;
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
 };
+use openidconnect::{
+    core::{CoreClient, CoreProviderMetadata},
+    reqwest, ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
-    ClientBuilder,
+    Client, ClientBuilder,
 };
 use sea_orm::Order;
 
@@ -125,4 +129,41 @@ pub fn get_podcast_episode_number_by_name(val: &PodcastSpecifics, name: &str) ->
         .iter()
         .find(|e| e.title == name)
         .map(|e| e.number)
+}
+
+
+async fn create_oidc_client(config: &config::AppConfig) -> Option<(reqwest::Client, CoreClient)> {
+    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
+        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
+            Ok(issuer_url) => {
+                let async_http_client = reqwest::ClientBuilder::new()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .unwrap();
+                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
+                    Ok(provider_metadata) => {
+                        let core_client = CoreClient::from_provider_metadata(
+                            provider_metadata,
+                            ClientId::new(config.server.oidc.client_id.clone()),
+                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                        )
+                        .set_redirect_uri(redirect_url);
+                        Some((async_http_client, core_client))
+                    }
+                    Err(e) => {
+                        ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
+                None
+            }
+        },
+        Err(e) => {
+            ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
+            None
+        }
+    }
 }

@@ -29,12 +29,6 @@ use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
-use openidconnect::{
-    core::{CoreClient, CoreProviderMetadata},
-    reqwest::async_http_client,
-    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
-};
-use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
@@ -168,37 +162,6 @@ pub async fn create_app_services(
             miscellaneous_service,
         }),
     )
-}
-
-async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
-    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
-        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
-            Ok(issuer_url) => {
-                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
-                    Ok(provider_metadata) => Some(
-                        CoreClient::from_provider_metadata(
-                            provider_metadata,
-                            ClientId::new(config.server.oidc.client_id.clone()),
-                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
-                        )
-                        .set_redirect_uri(redirect_url),
-                    ),
-                    Err(e) => {
-                        ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
-                None
-            }
-        },
-        Err(e) => {
-            ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
-            None
-        }
-    }
 }
 
 #[derive(MergedObject, Default)]
