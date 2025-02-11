@@ -58,7 +58,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection } from "~/components/common";
+import { DisplayCollection, ProRequiredAlert } from "~/components/common";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
@@ -586,18 +586,22 @@ export default function Page() {
 								workout [{metadataConsumedOpened ? "collapse" : "expand"}]
 							</Anchor>
 							<Collapse in={metadataConsumedOpened}>
-								<SimpleGrid
-									verticalSpacing="xs"
-									cols={{ base: 7, sm: 8, md: 10 }}
-								>
-									{loaderData.metadataConsumed.map((m) => (
-										<ConsumedMetadataDisplay
-											key={m}
-											metadataId={m}
-											isOpened={metadataConsumedOpened}
-										/>
-									))}
-								</SimpleGrid>
+								{coreDetails.isServerKeyValidated ? (
+									<SimpleGrid
+										verticalSpacing="xs"
+										cols={{ base: 7, sm: 8, md: 10 }}
+									>
+										{loaderData.metadataConsumed.map((m) => (
+											<ConsumedMetadataDisplay
+												key={m}
+												metadataId={m}
+												isOpened={metadataConsumedOpened}
+											/>
+										))}
+									</SimpleGrid>
+								) : (
+									<ProRequiredAlert />
+								)}
 							</Collapse>
 						</Stack>
 					) : null}
