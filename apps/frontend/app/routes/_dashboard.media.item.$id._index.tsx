@@ -1294,7 +1294,7 @@ const DisplayShowSeasonEpisodes = (props: {
 		loaderData.userMetadataDetails.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
-		<Stack h="90vh" gap="xs">
+		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
 			{season.episodes.length > 0 ? (
 				<Virtuoso
 					data={season.episodes}
