@@ -233,7 +233,6 @@ where
 {
     query.apply_if(collection_id, |query, v| {
         let unique_collections = v.into_iter().unique().collect_vec();
-        let count = unique_collections.len() as i32;
         let subquery = CollectionToEntity::find()
             .select_only()
             .column(id_column)
@@ -245,12 +244,6 @@ where
                 .eq(PgFunc::any(unique_collections)),
             )
             .filter(id_column.is_not_null())
-            .group_by(id_column)
-            .having(
-                collection_to_entity::Column::CollectionId
-                    .count()
-                    .eq(Expr::val(count)),
-            )
             .into_query();
         if invert_collection.unwrap_or_default() {
             query.filter(entity_column.not_in_subquery(subquery))
