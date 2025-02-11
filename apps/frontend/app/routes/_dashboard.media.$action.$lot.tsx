@@ -95,6 +95,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
+import invariant from "tiny-invariant";
 
 export type SearchParams = {
 	query?: string;
@@ -181,7 +182,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
 				(m) => m.lot === lot,
 			);
-			if (!metadataSourcesForLot) throw new Error("Mapping not found");
+			invariant(metadataSourcesForLot);
 			const searchSchema = z.object({
 				source: z
 					.nativeEnum(MediaSource)
