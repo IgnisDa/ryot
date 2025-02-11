@@ -221,7 +221,7 @@ pub async fn user_workout_template_details(
 
 pub fn apply_collection_filter<E, C, D>(
     query: Select<E>,
-    collection_id: Option<Vec<String>>,
+    collection_ids: Vec<String>,
     invert_collection: Option<bool>,
     entity_column: C,
     id_column: D,
@@ -231,26 +231,26 @@ where
     C: ColumnTrait,
     D: ColumnTrait,
 {
-    query.apply_if(collection_id, |query, v| {
-        let unique_collections = v.into_iter().unique().collect_vec();
-        let subquery = CollectionToEntity::find()
-            .select_only()
-            .column(id_column)
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .eq(PgFunc::any(unique_collections)),
-            )
-            .filter(id_column.is_not_null())
-            .into_query();
-        if invert_collection.unwrap_or_default() {
-            query.filter(entity_column.not_in_subquery(subquery))
-        } else {
-            query.filter(entity_column.in_subquery(subquery))
-        }
-    })
+    let unique_collections = collection_ids.into_iter().unique().collect_vec();
+    if unique_collections.is_empty() {
+        return query;
+    }
+    let subquery = CollectionToEntity::find()
+        .select_only()
+        .column(id_column)
+        .filter(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                collection_to_entity::Column::CollectionId,
+            ))
+            .eq(PgFunc::any(unique_collections)),
+        )
+        .filter(id_column.is_not_null())
+        .into_query();
+    if invert_collection.unwrap_or_default() {
+        return query.filter(entity_column.not_in_subquery(subquery));
+    }
+    query.filter(entity_column.in_subquery(subquery))
 }
 
 pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {

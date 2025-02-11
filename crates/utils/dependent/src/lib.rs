@@ -2879,7 +2879,7 @@ pub async fn user_metadata_list(
             |query, v| {
                 apply_collection_filter(
                     query,
-                    Some(v),
+                    v,
                     input.invert_collection,
                     metadata::Column::Id,
                     collection_to_entity::Column::MetadataId,
@@ -3016,7 +3016,7 @@ pub async fn user_metadata_groups_list(
             |query, v| {
                 apply_collection_filter(
                     query,
-                    Some(v),
+                    v,
                     input.invert_collection,
                     metadata_group::Column::Id,
                     collection_to_entity::Column::MetadataGroupId,
@@ -3104,7 +3104,7 @@ pub async fn user_people_list(
             |query, v| {
                 apply_collection_filter(
                     query,
-                    Some(v),
+                    v,
                     input.invert_collection,
                     person::Column::Id,
                     collection_to_entity::Column::PersonId,
