@@ -8,6 +8,7 @@ import {
 	Checkbox,
 	Container,
 	CopyButton,
+	Drawer,
 	Flex,
 	Group,
 	Modal,
@@ -338,11 +339,16 @@ const DisplayIntegration = (props: {
 
 	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
+	const integrationDisplayName = [
+		changeCase(props.integration.provider),
+		props.integration.name,
+	]
+		.filter(Boolean)
+		.join(" - ");
+
 	const firstRow = [
 		<Text size="sm" fw="bold" key="name">
-			{[changeCase(props.integration.provider), props.integration.name]
-				.filter(Boolean)
-				.join(" - ")}
+			{integrationDisplayName}
 		</Text>,
 		props.integration.isDisabled ? (
 			<Text size="sm" key="isPaused">
@@ -373,13 +379,13 @@ const DisplayIntegration = (props: {
 
 	return (
 		<>
-			<Modal
-				withCloseButton={false}
+			<Drawer
 				opened={integrationTriggerResultOpened}
+				title={`Logs for ${integrationDisplayName}`}
 				onClose={() => integrationTriggerResultToggle()}
 			>
 				<Table data={tableData} />
-			</Modal>
+			</Drawer>
 			<Paper p="xs" withBorder>
 				<Stack ref={parent}>
 					<Flex align="center" justify="space-between">
