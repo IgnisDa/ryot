@@ -233,38 +233,34 @@ where
     if collection_filters.is_empty() {
         return query;
     }
-    let mut subquery = CollectionToEntity::find()
-        .select_only()
-        .column(entity_column)
-        .filter(entity_column.is_not_null());
     let is_in = collection_filters
         .iter()
         .filter(|f| f.presence == MediaCollectionPresenceFilter::IsIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
-    if !is_in.is_empty() {
-        subquery = subquery.filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .eq(PgFunc::any(is_in)),
-        );
-    }
     let is_not_in = collection_filters
         .iter()
         .filter(|f| f.presence == MediaCollectionPresenceFilter::IsNotIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
-    if !is_not_in.is_empty() {
-        subquery = subquery.filter(
+    let subquery = CollectionToEntity::find()
+        .select_only()
+        .column(entity_column)
+        .filter(entity_column.is_not_null())
+        .filter(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                collection_to_entity::Column::CollectionId,
+            ))
+            .eq(PgFunc::any(is_in)),
+        )
+        .filter(
             Expr::col((
                 AliasedCollectionToEntity::Table,
                 collection_to_entity::Column::CollectionId,
             ))
             .ne(PgFunc::all(is_not_in)),
         );
-    }
     query.filter(id_column.in_subquery(subquery.into_query()))
 }
 
