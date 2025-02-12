@@ -518,14 +518,17 @@ export const CollectionsFilter = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
+	const [parent] = useAutoAnimate();
 	const [_p, { setP }] = useAppSearchParam(props.cookieName);
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
 	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
 
 	useDidUpdate(() => {
-		if (!coreDetails.isServerKeyValidated) return;
-		const final = filters
+		const applicableFilters = coreDetails.isServerKeyValidated
+			? filters
+			: filters.slice(0, 1);
+		const final = applicableFilters
 			.filter((f) => f.collectionId)
 			.map((a) => `${a.collectionId}:${a.presence}`)
 			.join(",");
@@ -533,7 +536,7 @@ export const CollectionsFilter = (props: {
 	}, [filters]);
 
 	return (
-		<Stack gap="sm">
+		<Stack gap="xs">
 			<Group wrap="nowrap" justify="space-between">
 				<Text size="sm" c="dimmed">
 					Collection filters
@@ -542,75 +545,73 @@ export const CollectionsFilter = (props: {
 					size="compact-xs"
 					variant="transparent"
 					leftSection={<IconPlus size={14} />}
-					onClick={() =>
+					onClick={() => {
 						filtersHandlers.append({
 							id: randomId(),
 							collectionId: "",
 							presence: MediaCollectionPresenceFilter.PresentIn,
-						})
-					}
+						});
+					}}
 				>
 					Add
 				</Button>
 			</Group>
 			{filters.length > 0 ? (
-				<>
-					<Stack gap="xs" px={{ md: "xs" }}>
-						{filters.map((f, idx) => (
-							<Group key={f.id} justify="space-between" wrap="nowrap">
-								{idx !== 0 ? (
-									<Text size="xs" c="dimmed">
-										OR
-									</Text>
-								) : null}
-								<Select
-									size="xs"
-									value={f.presence}
-									data={Object.values(MediaCollectionPresenceFilter).map(
-										(o) => ({
-											value: o,
-											label: startCase(o.toLowerCase()),
+				<Stack gap="xs" px={{ md: "xs" }} ref={parent}>
+					{filters.map((f, idx) => (
+						<Group key={f.id} justify="space-between" wrap="nowrap">
+							{idx !== 0 ? (
+								<Text size="xs" c="dimmed">
+									OR
+								</Text>
+							) : null}
+							<Select
+								size="xs"
+								value={f.presence}
+								data={Object.values(MediaCollectionPresenceFilter).map((o) => ({
+									value: o,
+									label: startCase(o.toLowerCase()),
+								}))}
+								onChange={(v) =>
+									filtersHandlers.setItem(
+										idx,
+										produce(f, (d) => {
+											d.presence = v as MediaCollectionPresenceFilter;
 										}),
-									)}
-									onChange={(v) =>
-										filtersHandlers.setItem(
-											idx,
-											produce(f, (d) => {
-												d.presence = v as MediaCollectionPresenceFilter;
-											}),
-										)
-									}
-								/>
-								<Select
-									size="xs"
-									searchable
-									value={f.collectionId}
-									placeholder="Select a collection"
-									data={collections.map((c) => ({
-										label: c.name,
-										value: c.id.toString(),
-									}))}
-									onChange={(v) =>
-										filtersHandlers.setItem(
-											idx,
-											produce(f, (d) => {
-												d.collectionId = v || "";
-											}),
-										)
-									}
-								/>
-								<ActionIcon
-									size="xs"
-									color="red"
-									onClick={() => filtersHandlers.remove(idx)}
-								>
-									<IconX />
-								</ActionIcon>
-							</Group>
-						))}
-					</Stack>
-					<ProRequiredAlert />
-				</>
+									)
+								}
+							/>
+							<Select
+								size="xs"
+								searchable
+								value={f.collectionId}
+								placeholder="Select a collection"
+								data={collections.map((c) => ({
+									label: c.name,
+									value: c.id.toString(),
+								}))}
+								onChange={(v) =>
+									filtersHandlers.setItem(
+										idx,
+										produce(f, (d) => {
+											d.collectionId = v || "";
+										}),
+									)
+								}
+							/>
+							<ActionIcon
+								size="xs"
+								color="red"
+								onClick={() => filtersHandlers.remove(idx)}
+							>
+								<IconX />
+							</ActionIcon>
+						</Group>
+					))}
+					{filters.length > 1 && !coreDetails.isServerKeyValidated ? (
+						<ProRequiredAlert tooltipLabel="Only the first filter will be applied" />
+					) : null}
+				</Stack>
 			) : null}
 		</Stack>
 	);
