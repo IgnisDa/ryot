@@ -554,16 +554,14 @@ export const CollectionsFilter = (props: {
 			</Group>
 			{filters.length > 0 ? (
 				<>
-					<Stack gap="xs" px="xs">
+					<Stack gap="xs" px={{ md: "xs" }}>
 						{filters.map((f, idx) => (
 							<Group key={f.id} justify="space-between" wrap="nowrap">
-								<ActionIcon
-									size="xs"
-									color="red"
-									onClick={() => filtersHandlers.remove(idx)}
-								>
-									<IconX />
-								</ActionIcon>
+								{idx !== 0 ? (
+									<Text size="xs" c="dimmed">
+										OR
+									</Text>
+								) : null}
 								<Select
 									size="xs"
 									value={f.presence}
@@ -584,7 +582,6 @@ export const CollectionsFilter = (props: {
 								/>
 								<Select
 									size="xs"
-									clearable
 									searchable
 									value={f.collectionId}
 									placeholder="Select a collection"
@@ -601,6 +598,13 @@ export const CollectionsFilter = (props: {
 										)
 									}
 								/>
+								<ActionIcon
+									size="xs"
+									color="red"
+									onClick={() => filtersHandlers.remove(idx)}
+								>
+									<IconX />
+								</ActionIcon>
 							</Group>
 						))}
 					</Stack>
