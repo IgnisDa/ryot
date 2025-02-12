@@ -252,14 +252,14 @@ where
                 AliasedCollectionToEntity::Table,
                 collection_to_entity::Column::CollectionId,
             ))
-            .eq(PgFunc::any(is_in)),
+            .is_in(is_in),
         )
         .filter(
             Expr::col((
                 AliasedCollectionToEntity::Table,
                 collection_to_entity::Column::CollectionId,
             ))
-            .ne(PgFunc::all(is_not_in)),
+            .is_not_in(is_not_in),
         );
     query.filter(id_column.in_subquery(subquery.into_query()))
 }
