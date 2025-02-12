@@ -6,6 +6,8 @@ import {
 import { type MantineColor, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
+	type MediaCollectionFilter,
+	type MediaCollectionPresenceFilter,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -71,6 +73,20 @@ export const zodEmptyDecimalString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
 	.nullable();
+
+export const zodCollectionFilter = zodCommaDelimitedString.transform(
+	(v) =>
+		(v || [])
+			.map((s) => {
+				const [collectionId, presence] = s.split(":");
+				if (!collectionId || !presence) return undefined;
+				return {
+					collectionId,
+					presence: presence as MediaCollectionPresenceFilter,
+				};
+			})
+			.filter(Boolean) as MediaCollectionFilter[],
+);
 
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";

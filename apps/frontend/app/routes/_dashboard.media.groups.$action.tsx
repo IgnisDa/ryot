@@ -55,7 +55,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -95,7 +95,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
+				collections: zodCollectionFilter,
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
@@ -108,7 +108,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 					UserMetadataGroupsListDocument,
 					{
 						input: {
-							filter: {},
+							filter: { collections: urlParse.collections },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 							search: { page: query[pageQueryParam], query: query.query },
 						},
@@ -425,7 +425,10 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Divider />
-			<CollectionsFilter cookieName={loaderData.cookieName} />
+			<CollectionsFilter
+				cookieName={loaderData.cookieName}
+				applied={loaderData.list.url.collections}
+			/>
 		</>
 	);
 };

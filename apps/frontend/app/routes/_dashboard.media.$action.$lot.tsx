@@ -73,7 +73,7 @@ import {
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
-	zodCommaDelimitedString,
+	zodCollectionFilter,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -134,8 +134,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
+				collections: zodCollectionFilter,
 				endDateRange: z.string().optional(),
-				collections: zodCommaDelimitedString,
 				startDateRange: z.string().optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
@@ -159,6 +159,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 						search: { page: query[pageQueryParam], query: query.query },
 						filter: {
 							general: urlParse.generalFilter,
+							collections: urlParse.collections,
 							dateRange: {
 								endDate: urlParse.endDateRange,
 								startDate: urlParse.startDateRange,
@@ -628,7 +629,10 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Divider />
-			<CollectionsFilter cookieName={loaderData.cookieName} />
+			<CollectionsFilter
+				cookieName={loaderData.cookieName}
+				applied={loaderData.mediaList.url.collections}
+			/>
 			<Divider />
 			<Stack gap="xs">
 				<Select

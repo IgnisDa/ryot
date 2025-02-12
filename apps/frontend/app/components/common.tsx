@@ -514,23 +514,14 @@ export const FiltersModal = (props: {
 
 export const CollectionsFilter = (props: {
 	cookieName: string;
+	applied: MediaCollectionFilter[];
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
-	const [params, { setP }] = useAppSearchParam(props.cookieName);
-	const appliedCollections = params.get("collections") || "";
+	const [_p, { setP }] = useAppSearchParam(props.cookieName);
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
-	>(
-		appliedCollections.split(",").map((s) => {
-			const [collectionId, presence] = s.split(":");
-			return {
-				collectionId,
-				id: randomId(),
-				presence: presence as MediaCollectionPresenceFilter,
-			};
-		}),
-	);
+	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
 
 	useDidUpdate(() => {
 		if (!coreDetails.isServerKeyValidated) return;
