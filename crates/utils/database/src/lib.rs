@@ -26,10 +26,10 @@ use itertools::Itertools;
 use jwt_service::{verify, Claims};
 use markdown::to_html as markdown_to_html;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-    MusicSpecifics, PodcastSpecifics, ReviewItem, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MediaCollectionFilter,
+    MediaCollectionPresenceFilter, MovieSpecifics, MusicSpecifics, PodcastSpecifics, ReviewItem,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
@@ -219,38 +219,53 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filter<E, C, D>(
-    query: Select<E>,
-    collection_ids: Vec<String>,
-    invert_collection: Option<bool>,
-    entity_column: C,
-    id_column: D,
-) -> Select<E>
+pub fn apply_collection_filter<C, D, E>(
+    id_column: C,
+    query: Select<D>,
+    entity_column: E,
+    collection_filters: Vec<MediaCollectionFilter>,
+) -> Select<D>
 where
-    E: EntityTrait,
     C: ColumnTrait,
-    D: ColumnTrait,
+    D: EntityTrait,
+    E: ColumnTrait,
 {
-    let unique_collections = collection_ids.into_iter().unique().collect_vec();
-    if unique_collections.is_empty() {
+    if collection_filters.is_empty() {
         return query;
     }
-    let subquery = CollectionToEntity::find()
+    let mut subquery = CollectionToEntity::find()
         .select_only()
-        .column(id_column)
-        .filter(
+        .column(entity_column)
+        .filter(entity_column.is_not_null());
+    let is_in = collection_filters
+        .iter()
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::IsIn)
+        .map(|f| f.collection_id.clone())
+        .collect_vec();
+    if !is_in.is_empty() {
+        subquery = subquery.filter(
             Expr::col((
                 AliasedCollectionToEntity::Table,
                 collection_to_entity::Column::CollectionId,
             ))
-            .eq(PgFunc::any(unique_collections)),
-        )
-        .filter(id_column.is_not_null())
-        .into_query();
-    if invert_collection.unwrap_or_default() {
-        return query.filter(entity_column.not_in_subquery(subquery));
+            .eq(PgFunc::any(is_in)),
+        );
     }
-    query.filter(entity_column.in_subquery(subquery))
+    let is_not_in = collection_filters
+        .iter()
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::IsNotIn)
+        .map(|f| f.collection_id.clone())
+        .collect_vec();
+    if !is_not_in.is_empty() {
+        subquery = subquery.filter(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                collection_to_entity::Column::CollectionId,
+            ))
+            .ne(PgFunc::all(is_not_in)),
+        );
+    }
+    query.filter(id_column.in_subquery(subquery.into_query()))
 }
 
 pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {

@@ -1033,8 +1033,18 @@ export type MediaCollectionContentsResults = {
   items: Array<EntityWithLot>;
 };
 
+export type MediaCollectionFilter = {
+  collectionId: Scalars['String']['input'];
+  presence: MediaCollectionPresenceFilter;
+};
+
+export enum MediaCollectionPresenceFilter {
+  IsIn = 'IS_IN',
+  IsNotIn = 'IS_NOT_IN'
+}
+
 export type MediaFilter = {
-  collections?: InputMaybe<Array<Scalars['String']['input']>>;
+  collections?: InputMaybe<Array<MediaCollectionFilter>>;
   dateRange?: InputMaybe<ApplicationDateRangeInput>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
@@ -2802,14 +2812,12 @@ export type UserMetadataGroupDetails = {
 
 export type UserMetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };
 
 export type UserMetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
@@ -2863,7 +2871,6 @@ export type UserOthersFeaturesEnabledPreferencesInput = {
 
 export type UserPeopleListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };

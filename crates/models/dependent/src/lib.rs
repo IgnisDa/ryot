@@ -267,7 +267,6 @@ pub struct UserMetadataListInput {
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
     pub search: Option<SearchInput>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<MediaSortBy>>,
 }
 
@@ -275,7 +274,6 @@ pub struct UserMetadataListInput {
 pub struct UserPeopleListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
@@ -283,7 +281,6 @@ pub struct UserPeopleListInput {
 pub struct UserMetadataGroupsListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
