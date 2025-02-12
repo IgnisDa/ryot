@@ -538,9 +538,10 @@ export const CollectionsFilter = (props: {
 				<Text size="sm" c="dimmed">
 					Collection filters
 				</Text>
-				<ActionIcon
-					size="xs"
-					variant="outline"
+				<Button
+					size="compact-xs"
+					variant="transparent"
+					leftSection={<IconPlus size={14} />}
 					onClick={() =>
 						filtersHandlers.append({
 							id: randomId(),
@@ -549,8 +550,8 @@ export const CollectionsFilter = (props: {
 						})
 					}
 				>
-					<IconPlus />
-				</ActionIcon>
+					Add
+				</Button>
 			</Group>
 			{filters.length > 0 ? (
 				<>
