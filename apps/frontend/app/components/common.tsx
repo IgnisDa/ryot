@@ -515,6 +515,7 @@ export const FiltersModal = (props: {
 export const CollectionsFilter = (props: {
 	cookieName: string;
 }) => {
+	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
@@ -522,6 +523,7 @@ export const CollectionsFilter = (props: {
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
 
 	useDidUpdate(() => {
+		if (!coreDetails.isServerKeyValidated) return;
 		const final = filters
 			.filter((f) => f.collectionId)
 			.map((a) => `${a.collectionId}:${a.presence}`)
@@ -599,6 +601,7 @@ export const CollectionsFilter = (props: {
 					))}
 				</Stack>
 			) : null}
+			<ProRequiredAlert />
 		</Stack>
 	);
 };
