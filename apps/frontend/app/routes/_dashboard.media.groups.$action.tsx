@@ -3,6 +3,7 @@ import {
 	Box,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -421,6 +422,7 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter cookieName={loaderData.cookieName} />
 		</>
 	);

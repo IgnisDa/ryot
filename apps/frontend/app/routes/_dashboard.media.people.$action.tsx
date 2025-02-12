@@ -4,6 +4,7 @@ import {
 	Center,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -453,6 +454,7 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter cookieName={loaderData.cookieName} />
 		</>
 	);

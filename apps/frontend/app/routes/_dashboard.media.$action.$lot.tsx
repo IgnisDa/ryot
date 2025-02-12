@@ -624,6 +624,7 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter cookieName={loaderData.cookieName} />
 			<Divider />
 			<Stack gap="xs">
