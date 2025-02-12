@@ -27,6 +27,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
@@ -71,7 +72,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	collections: undefined,
+	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 };
@@ -186,7 +187,7 @@ export default function Page() {
 	const areFiltersApplied =
 		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-		loaderData.list?.url.collections !== defaultFilters.collections;
+		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
 		<Container>

@@ -31,6 +31,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	snakeCase,
@@ -101,7 +102,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollections: undefined,
+	mineCollections: [],
 	mineSortBy: MediaSortBy.LastSeen,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
@@ -262,7 +263,10 @@ export default function Page() {
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
 		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange ||
-		loaderData.mediaList?.url.collections !== defaultFilters.mineCollections;
+		!isEqual(
+			loaderData.mediaList?.url.collections,
+			defaultFilters.mineCollections,
+		);
 
 	return (
 		<Container>
