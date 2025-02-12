@@ -1018,8 +1018,8 @@ export type MediaCollectionFilter = {
 };
 
 export enum MediaCollectionPresenceFilter {
-  IsIn = 'IS_IN',
-  IsNotIn = 'IS_NOT_IN'
+  NotPresentIn = 'NOT_PRESENT_IN',
+  PresentIn = 'PRESENT_IN'
 }
 
 export type MediaFilter = {

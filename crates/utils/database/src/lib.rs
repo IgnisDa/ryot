@@ -235,12 +235,12 @@ where
     }
     let is_in = collection_filters
         .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::IsIn)
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::PresentIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
     let is_not_in = collection_filters
         .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::IsNotIn)
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
     let subquery = CollectionToEntity::find()

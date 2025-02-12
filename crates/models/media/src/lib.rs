@@ -1307,8 +1307,8 @@ pub enum MediaGeneralFilter {
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionPresenceFilter {
     #[default]
-    IsIn,
-    IsNotIn,
+    PresentIn,
+    NotPresentIn,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
