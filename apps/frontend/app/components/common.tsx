@@ -81,6 +81,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
+import { produce } from "immer";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
@@ -134,7 +135,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
-import { produce } from "immer";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
