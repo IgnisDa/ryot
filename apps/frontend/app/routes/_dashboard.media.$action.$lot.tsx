@@ -73,6 +73,7 @@ import {
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
+	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -100,7 +101,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollection: undefined,
+	mineCollections: undefined,
 	mineSortBy: MediaSortBy.LastSeen,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
@@ -134,6 +135,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		.with(Action.List, async () => {
 			const listSchema = z.object({
 				endDateRange: z.string().optional(),
+				collections: zodCommaDelimitedString,
 				startDateRange: z.string().optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
@@ -253,12 +255,13 @@ export default function Page() {
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
-	const isFilterChanged =
+	const areFiltersApplied =
 		loaderData.mediaList?.url.generalFilter !==
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange;
+		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange ||
+		loaderData.mediaList?.url.collections !== defaultFilters.mineCollections;
 
 	return (
 		<Container>
@@ -318,7 +321,7 @@ export default function Page() {
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
-								color={isFilterChanged ? "blue" : "gray"}
+								color={areFiltersApplied ? "blue" : "gray"}
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
