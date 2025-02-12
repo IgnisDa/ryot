@@ -209,8 +209,14 @@ export default function Page() {
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput | null>(null);
 	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
+
 	const query = params.get("query") || undefined;
 	const showHidden = Boolean(params.get("showHidden"));
+	const hasHiddenCollections = collections.some(
+		(c) =>
+			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+				?.extraInformation?.isHidden,
+	);
 
 	useEffect(() => {
 		if (transition.state !== "submitting") setToUpdateCollection(null);
@@ -259,13 +265,17 @@ export default function Page() {
 						initialValue={query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
-					<Checkbox
-						size="xs"
-						name="showHidden"
-						label="Show hidden"
-						defaultChecked={showHidden}
-						onChange={(e) => setP("showHidden", e.target.checked ? "yes" : "")}
-					/>
+					{hasHiddenCollections ? (
+						<Checkbox
+							size="xs"
+							name="showHidden"
+							label="Show hidden"
+							defaultChecked={showHidden}
+							onChange={(e) =>
+								setP("showHidden", e.target.checked ? "yes" : "")
+							}
+						/>
+					) : null}
 				</Group>
 				<Virtuoso
 					style={{ height: "80vh" }}
