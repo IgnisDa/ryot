@@ -3,6 +3,7 @@ import {
 	Box,
 	Center,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -26,11 +27,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	isString,
+	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
-	zodBoolAsString,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -56,7 +56,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -72,8 +72,9 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
+	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
+	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 };
 
 enum Action {
@@ -95,8 +96,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
-				invertCollection: zodBoolAsString.optional(),
+				collections: zodCollectionFilter,
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
@@ -109,7 +109,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 					UserMetadataGroupsListDocument,
 					{
 						input: {
-							invertCollection: urlParse.invertCollection,
 							filter: { collections: urlParse.collections },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 							search: { page: query[pageQueryParam], query: query.query },
@@ -181,7 +180,12 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const bulkEditingCollection = useBulkEditCollection();
+
 	const bulkEditingState = bulkEditingCollection.state;
+	const areFiltersApplied =
+		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
+		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
+		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
 		<Container>
@@ -224,13 +228,7 @@ export default function Page() {
 						<>
 							<ActionIcon
 								onClick={openFiltersModal}
-								color={
-									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-									loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-									isString(loaderData.list?.url.collections)
-										? "blue"
-										: "gray"
-								}
+								color={areFiltersApplied ? "blue" : "gray"}
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
@@ -427,10 +425,10 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter
 				cookieName={loaderData.cookieName}
-				collections={loaderData.list.url.collections}
-				invertCollection={loaderData.list.url.invertCollection}
+				applied={loaderData.list.url.collections}
 			/>
 		</>
 	);

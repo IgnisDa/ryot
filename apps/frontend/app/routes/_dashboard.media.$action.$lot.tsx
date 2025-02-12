@@ -31,11 +31,11 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	snakeCase,
 	startCase,
-	zodBoolAsString,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -52,6 +52,7 @@ import {
 import { useState } from "react";
 import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
@@ -73,7 +74,7 @@ import {
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
-	zodCommaDelimitedString,
+	zodCollectionFilter,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -101,7 +102,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollection: undefined,
+	mineCollections: [],
 	mineSortBy: MediaSortBy.LastSeen,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
@@ -134,10 +135,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
+				collections: zodCollectionFilter,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				invertCollection: zodBoolAsString.optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
 					.nativeEnum(ApplicationTimeRange)
@@ -156,7 +156,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				{
 					input: {
 						lot,
-						invertCollection: urlParse.invertCollection,
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						search: { page: query[pageQueryParam], query: query.query },
 						filter: {
@@ -181,7 +180,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
 				(m) => m.lot === lot,
 			);
-			if (!metadataSourcesForLot) throw new Error("Mapping not found");
+			invariant(metadataSourcesForLot);
 			const searchSchema = z.object({
 				source: z
 					.nativeEnum(MediaSource)
@@ -258,13 +257,16 @@ export default function Page() {
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
-	const isFilterChanged =
+	const areFiltersApplied =
 		loaderData.mediaList?.url.generalFilter !==
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
-		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange;
+		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange ||
+		!isEqual(
+			loaderData.mediaList?.url.collections,
+			defaultFilters.mineCollections,
+		);
 
 	return (
 		<Container>
@@ -324,7 +326,7 @@ export default function Page() {
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
-								color={isFilterChanged ? "blue" : "gray"}
+								color={areFiltersApplied ? "blue" : "gray"}
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
@@ -630,10 +632,10 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter
 				cookieName={loaderData.cookieName}
-				collections={loaderData.mediaList.url.collections}
-				invertCollection={loaderData.mediaList.url.invertCollection}
+				applied={loaderData.mediaList.url.collections}
 			/>
 			<Divider />
 			<Stack gap="xs">

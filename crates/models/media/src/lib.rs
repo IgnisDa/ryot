@@ -1304,11 +1304,24 @@ pub enum MediaGeneralFilter {
     Unfinished,
 }
 
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+pub enum MediaCollectionPresenceFilter {
+    #[default]
+    PresentIn,
+    NotPresentIn,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct MediaCollectionFilter {
+    pub collection_id: String,
+    pub presence: MediaCollectionPresenceFilter,
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
-    pub collections: Option<Vec<String>>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
+    pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

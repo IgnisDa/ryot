@@ -9,7 +9,6 @@ import {
 	Box,
 	Button,
 	Center,
-	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
@@ -18,9 +17,9 @@ import {
 	Loader,
 	type MantineStyleProp,
 	Modal,
-	MultiSelect,
 	Paper,
 	RingProgress,
+	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -28,13 +27,20 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import {
+	randomId,
+	useDebouncedValue,
+	useDidUpdate,
+	useDisclosure,
+	useListState,
+} from "@mantine/hooks";
 import {
 	EntityLot,
 	GridPacking,
+	type MediaCollectionFilter,
+	MediaCollectionPresenceFilter,
 	MediaLot,
 	type MediaSource,
 	type ReviewItem,
@@ -49,6 +55,7 @@ import {
 	isNumber,
 	isString,
 	snakeCase,
+	startCase,
 } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
@@ -62,6 +69,7 @@ import {
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
+	IconPlus,
 	IconRefresh,
 	IconRotateClockwise,
 	IconScaleOutline,
@@ -73,6 +81,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
+import { produce } from "immer";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
@@ -505,39 +514,105 @@ export const FiltersModal = (props: {
 
 export const CollectionsFilter = (props: {
 	cookieName: string;
-	collections?: string[];
-	invertCollection?: boolean;
+	applied: MediaCollectionFilter[];
 }) => {
+	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
-	const [_, { setP }] = useAppSearchParam(props.cookieName);
+	const [_p, { setP }] = useAppSearchParam(props.cookieName);
+	const [filters, filtersHandlers] = useListState<
+		MediaCollectionFilter & { id: string }
+	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
+
+	useDidUpdate(() => {
+		if (!coreDetails.isServerKeyValidated) return;
+		const final = filters
+			.filter((f) => f.collectionId)
+			.map((a) => `${a.collectionId}:${a.presence}`)
+			.join(",");
+		setP("collections", final);
+	}, [filters]);
 
 	return (
-		<MultiSelect
-			flex={1}
-			clearable
-			searchable
-			rightSectionWidth={rem(100)}
-			rightSectionPointerEvents="all"
-			defaultValue={props.collections}
-			placeholder="Select a collection"
-			onChange={(v) => setP("collections", v.join(","))}
-			data={[
-				{
-					group: "My collections",
-					items: collections.map((c) => ({
-						label: c.name,
-						value: c.id.toString(),
-					})),
-				},
-			]}
-			rightSection={
-				<Checkbox
-					label="Invert"
-					checked={props.invertCollection}
-					onChange={(e) => setP("invertCollection", String(e.target.checked))}
-				/>
-			}
-		/>
+		<Stack gap="sm">
+			<Group wrap="nowrap" justify="space-between">
+				<Text size="sm" c="dimmed">
+					Collection filters
+				</Text>
+				<Button
+					size="compact-xs"
+					variant="transparent"
+					leftSection={<IconPlus size={14} />}
+					onClick={() =>
+						filtersHandlers.append({
+							id: randomId(),
+							collectionId: "",
+							presence: MediaCollectionPresenceFilter.PresentIn,
+						})
+					}
+				>
+					Add
+				</Button>
+			</Group>
+			{filters.length > 0 ? (
+				<>
+					<Stack gap="xs" px={{ md: "xs" }}>
+						{filters.map((f, idx) => (
+							<Group key={f.id} justify="space-between" wrap="nowrap">
+								{idx !== 0 ? (
+									<Text size="xs" c="dimmed">
+										OR
+									</Text>
+								) : null}
+								<Select
+									size="xs"
+									value={f.presence}
+									data={Object.values(MediaCollectionPresenceFilter).map(
+										(o) => ({
+											value: o,
+											label: startCase(o.toLowerCase()),
+										}),
+									)}
+									onChange={(v) =>
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.presence = v as MediaCollectionPresenceFilter;
+											}),
+										)
+									}
+								/>
+								<Select
+									size="xs"
+									searchable
+									value={f.collectionId}
+									placeholder="Select a collection"
+									data={collections.map((c) => ({
+										label: c.name,
+										value: c.id.toString(),
+									}))}
+									onChange={(v) =>
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.collectionId = v || "";
+											}),
+										)
+									}
+								/>
+								<ActionIcon
+									size="xs"
+									color="red"
+									onClick={() => filtersHandlers.remove(idx)}
+								>
+									<IconX />
+								</ActionIcon>
+							</Group>
+						))}
+					</Stack>
+					<ProRequiredAlert />
+				</>
+			) : null}
+		</Stack>
 	);
 };
 

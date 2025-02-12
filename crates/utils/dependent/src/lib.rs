@@ -2878,11 +2878,10 @@ pub async fn user_metadata_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     metadata::Column::Id,
+                    query,
                     collection_to_entity::Column::MetadataId,
+                    v,
                 )
             },
         )
@@ -3015,11 +3014,10 @@ pub async fn user_metadata_groups_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     metadata_group::Column::Id,
+                    query,
                     collection_to_entity::Column::MetadataGroupId,
+                    v,
                 )
             },
         )
@@ -3103,11 +3101,10 @@ pub async fn user_people_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     person::Column::Id,
+                    query,
                     collection_to_entity::Column::PersonId,
+                    v,
                 )
             },
         )

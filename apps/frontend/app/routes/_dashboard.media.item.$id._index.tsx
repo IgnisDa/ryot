@@ -8,6 +8,7 @@ import {
 	Button,
 	Container,
 	Divider,
+	Drawer,
 	Flex,
 	FocusTrap,
 	Group,
@@ -84,12 +85,14 @@ import {
 	type ReactNode,
 	type RefObject,
 	forwardRef,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "safe-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -1255,9 +1258,18 @@ const DisplayShowSeasonEpisodesModal = (props: {
 	openedShowSeason: number | undefined;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const title = useMemo(() => {
+		const showSpecifics = loaderData.metadataDetails.showSpecifics;
+		invariant(showSpecifics);
+		return isNumber(props.openedShowSeason)
+			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
+			: "";
+	}, [props.openedShowSeason]);
+
 	return (
-		<Modal
-			withCloseButton={false}
+		<Drawer
+			title={title}
 			opened={props.openedShowSeason !== undefined}
 			onClose={() => props.setOpenedShowSeason(undefined)}
 		>
@@ -1267,7 +1279,7 @@ const DisplayShowSeasonEpisodesModal = (props: {
 					setOpenedShowSeason={props.setOpenedShowSeason}
 				/>
 			) : null}
-		</Modal>
+		</Drawer>
 	);
 };
 
@@ -1282,21 +1294,24 @@ const DisplayShowSeasonEpisodes = (props: {
 		loaderData.userMetadataDetails.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
-		<Stack h={600} gap="xs">
-			<Title order={3}>{getShowSeasonDisplayName(season)}</Title>
-			<Virtuoso
-				data={season.episodes}
-				itemContent={(episodeIdx, episode) => (
-					<DisplayShowEpisode
-						episode={episode}
-						episodeIdx={episodeIdx}
-						seasonNumber={season.seasonNumber}
-						seasonIdx={props.openedShowSeason}
-						episodeProgress={seasonProgress?.episodes[episodeIdx]}
-						beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
-					/>
-				)}
-			/>
+		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
+			{season.episodes.length > 0 ? (
+				<Virtuoso
+					data={season.episodes}
+					itemContent={(episodeIdx, episode) => (
+						<DisplayShowEpisode
+							episode={episode}
+							episodeIdx={episodeIdx}
+							seasonNumber={season.seasonNumber}
+							seasonIdx={props.openedShowSeason}
+							episodeProgress={seasonProgress?.episodes[episodeIdx]}
+							beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
+						/>
+					)}
+				/>
+			) : (
+				<Text>No episodes found</Text>
+			)}
 		</Stack>
 	) : null;
 };
