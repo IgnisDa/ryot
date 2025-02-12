@@ -517,10 +517,20 @@ export const CollectionsFilter = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
+	const [params, { setP }] = useAppSearchParam(props.cookieName);
+	const appliedCollections = params.get("collections") || "";
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
-	>([]);
-	const [_, { setP }] = useAppSearchParam(props.cookieName);
+	>(
+		appliedCollections.split(",").map((s) => {
+			const [collectionId, presence] = s.split(":");
+			return {
+				collectionId,
+				id: randomId(),
+				presence: presence as MediaCollectionPresenceFilter,
+			};
+		}),
+	);
 
 	useDidUpdate(() => {
 		if (!coreDetails.isServerKeyValidated) return;
