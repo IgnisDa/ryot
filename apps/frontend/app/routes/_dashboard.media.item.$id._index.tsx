@@ -92,7 +92,6 @@ import {
 import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -1261,8 +1260,7 @@ const DisplayShowSeasonEpisodesModal = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const title = useMemo(() => {
 		const showSpecifics = loaderData.metadataDetails.showSpecifics;
-		invariant(showSpecifics);
-		return isNumber(props.openedShowSeason)
+		return isNumber(props.openedShowSeason) && showSpecifics
 			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
 			: "";
 	}, [props.openedShowSeason]);
