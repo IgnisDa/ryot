@@ -26,11 +26,9 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	isString,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
-	zodBoolAsString,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -56,7 +54,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
+import { pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -95,8 +93,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
-				invertCollection: zodBoolAsString.optional(),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
@@ -109,8 +105,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 					UserMetadataGroupsListDocument,
 					{
 						input: {
-							invertCollection: urlParse.invertCollection,
-							filter: { collections: urlParse.collections },
+							filter: {},
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 							search: { page: query[pageQueryParam], query: query.query },
 						},
@@ -226,8 +221,7 @@ export default function Page() {
 								onClick={openFiltersModal}
 								color={
 									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-									loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-									isString(loaderData.list?.url.collections)
+									loaderData.list?.url.sortBy !== defaultFilters.sortBy
 										? "blue"
 										: "gray"
 								}
@@ -427,11 +421,7 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
-			<CollectionsFilter
-				cookieName={loaderData.cookieName}
-				collections={loaderData.list.url.collections}
-				invertCollection={loaderData.list.url.invertCollection}
-			/>
+			<CollectionsFilter cookieName={loaderData.cookieName} />
 		</>
 	);
 };

@@ -35,7 +35,6 @@ import {
 	parseSearchQuery,
 	snakeCase,
 	startCase,
-	zodBoolAsString,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -74,7 +73,6 @@ import {
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
-	zodCommaDelimitedString,
 } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -135,10 +133,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				invertCollection: zodBoolAsString.optional(),
 				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
 					.nativeEnum(ApplicationTimeRange)
@@ -157,12 +153,10 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				{
 					input: {
 						lot,
-						invertCollection: urlParse.invertCollection,
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						search: { page: query[pageQueryParam], query: query.query },
 						filter: {
 							general: urlParse.generalFilter,
-							collections: urlParse.collections,
 							dateRange: {
 								endDate: urlParse.endDateRange,
 								startDate: urlParse.startDateRange,
@@ -264,7 +258,6 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection ||
 		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange;
 
 	return (
@@ -631,11 +624,7 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
-			<CollectionsFilter
-				cookieName={loaderData.cookieName}
-				collections={loaderData.mediaList.url.collections}
-				invertCollection={loaderData.mediaList.url.invertCollection}
-			/>
+			<CollectionsFilter cookieName={loaderData.cookieName} />
 			<Divider />
 			<Stack gap="xs">
 				<Select

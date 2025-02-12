@@ -505,8 +505,6 @@ export const FiltersModal = (props: {
 
 export const CollectionsFilter = (props: {
 	cookieName: string;
-	collections?: string[];
-	invertCollection?: boolean;
 }) => {
 	const collections = useNonHiddenUserCollections();
 	const [_, { setP }] = useAppSearchParam(props.cookieName);
@@ -518,7 +516,6 @@ export const CollectionsFilter = (props: {
 			searchable
 			rightSectionWidth={rem(100)}
 			rightSectionPointerEvents="all"
-			defaultValue={props.collections}
 			placeholder="Select a collection"
 			onChange={(v) => setP("collections", v.join(","))}
 			data={[
@@ -533,7 +530,6 @@ export const CollectionsFilter = (props: {
 			rightSection={
 				<Checkbox
 					label="Invert"
-					checked={props.invertCollection}
 					onChange={(e) => setP("invertCollection", String(e.target.checked))}
 				/>
 			}
