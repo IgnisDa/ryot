@@ -552,56 +552,60 @@ export const CollectionsFilter = (props: {
 				</ActionIcon>
 			</Group>
 			{filters.length > 0 ? (
-				<Stack gap="xs" px="xs">
-					{filters.map((f, idx) => (
-						<Group key={f.id} justify="space-between" wrap="nowrap">
-							<ActionIcon
-								size="xs"
-								color="red"
-								onClick={() => filtersHandlers.remove(idx)}
-							>
-								<IconX />
-							</ActionIcon>
-							<Select
-								size="xs"
-								value={f.presence}
-								data={Object.values(MediaCollectionPresenceFilter).map((o) => ({
-									value: o,
-									label: startCase(o.toLowerCase()),
-								}))}
-								onChange={(v) =>
-									filtersHandlers.setItem(
-										idx,
-										produce(f, (d) => {
-											d.presence = v as MediaCollectionPresenceFilter;
+				<>
+					<Stack gap="xs" px="xs">
+						{filters.map((f, idx) => (
+							<Group key={f.id} justify="space-between" wrap="nowrap">
+								<ActionIcon
+									size="xs"
+									color="red"
+									onClick={() => filtersHandlers.remove(idx)}
+								>
+									<IconX />
+								</ActionIcon>
+								<Select
+									size="xs"
+									value={f.presence}
+									data={Object.values(MediaCollectionPresenceFilter).map(
+										(o) => ({
+											value: o,
+											label: startCase(o.toLowerCase()),
 										}),
-									)
-								}
-							/>
-							<Select
-								size="xs"
-								clearable
-								searchable
-								value={f.collectionId}
-								placeholder="Select a collection"
-								data={collections.map((c) => ({
-									label: c.name,
-									value: c.id.toString(),
-								}))}
-								onChange={(v) =>
-									filtersHandlers.setItem(
-										idx,
-										produce(f, (d) => {
-											d.collectionId = v || "";
-										}),
-									)
-								}
-							/>
-						</Group>
-					))}
-				</Stack>
+									)}
+									onChange={(v) =>
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.presence = v as MediaCollectionPresenceFilter;
+											}),
+										)
+									}
+								/>
+								<Select
+									size="xs"
+									clearable
+									searchable
+									value={f.collectionId}
+									placeholder="Select a collection"
+									data={collections.map((c) => ({
+										label: c.name,
+										value: c.id.toString(),
+									}))}
+									onChange={(v) =>
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.collectionId = v || "";
+											}),
+										)
+									}
+								/>
+							</Group>
+						))}
+					</Stack>
+					<ProRequiredAlert />
+				</>
 			) : null}
-			<ProRequiredAlert />
 		</Stack>
 	);
 };
