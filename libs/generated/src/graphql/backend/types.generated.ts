@@ -954,7 +954,6 @@ export enum IntegrationProvider {
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
   Sonarr = 'SONARR',
-  Tautulli = 'TAUTULLI',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
 
