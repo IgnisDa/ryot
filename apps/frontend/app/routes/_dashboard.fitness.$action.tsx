@@ -2772,7 +2772,7 @@ const ReorderDrawer = (props: {
 				produce(currentWorkout, (draft: any) => {
 					draft.exercises = exerciseElements.map((de) =>
 						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+						draft.exercises.find((e: any) => e.identifier === de.identifier),
 					);
 				}),
 			);
