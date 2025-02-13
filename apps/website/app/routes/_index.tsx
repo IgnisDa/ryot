@@ -87,7 +87,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const { email } = processSubmission(formData, emailSchema);
 			const otpCode = generateOtp(6);
 			otpCodesCache.set(email, otpCode);
-			console.log(`OTP code for ${email} is ${otpCode}`);
+			console.log("OTP code generated:", { email, otpCode });
 			await sendEmail(
 				email,
 				LoginCodeEmail.subject,
@@ -111,6 +111,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const customerId = dbCustomer.at(0)?.id;
 			if (!customerId)
 				throw new Error("There was an error registering the user.");
+			console.log("Customer login successful:", { customerId });
 			return redirect($path("/me"), {
 				headers: {
 					"set-cookie": await websiteAuthCookie.serialize(customerId),

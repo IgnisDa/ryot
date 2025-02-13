@@ -37,6 +37,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		})
 		.otherwise((value) => value.id);
 	if (!customerId) throw new Error("There was an error registering the user.");
+	console.log("Customer login successful:", { customerId });
 	return redirect($path("/me"), {
 		headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },
 	});
