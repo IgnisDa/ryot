@@ -130,6 +130,7 @@ const CalendarEvent = (props: {
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
 					<MetadataDisplayItem
+						noLeftLabel
 						key={calEvent.calendarEventId}
 						altName={calEvent.metadataText}
 						metadataId={calEvent.metadataId}
