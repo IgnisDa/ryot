@@ -170,6 +170,15 @@ export const MetadataDisplayItem = (props: {
 	const leftLabel = useMemo(() => {
 		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
 			return null;
+
+		const inProgress = userMetadataDetails.inProgress;
+		if (inProgress) {
+			if (inProgress.podcastExtraInformation)
+				return `EP-${inProgress.podcastExtraInformation.episode}`;
+			if (inProgress.showExtraInformation)
+				return `S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
+		}
+
 		return metadataDetails.publishYear;
 	}, [metadataDetails, userMetadataDetails]);
 
