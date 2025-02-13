@@ -30,7 +30,7 @@ import {
 	IconStarFilled,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -140,7 +140,7 @@ export const MetadataDisplayItem = (props: {
 	noLeftLabel?: boolean;
 }) => {
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
+	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const userPreferences = useUserPreferences();
 	const { ref, inViewport } = useInViewport();
@@ -150,6 +150,7 @@ export const MetadataDisplayItem = (props: {
 		props.metadataId,
 		inViewport,
 	);
+
 	const averageRating = userMetadataDetails?.averageRating;
 	const completedHistory = (userMetadataDetails?.history || []).filter(
 		(h) => h.state === SeenState.Completed,
@@ -157,6 +158,21 @@ export const MetadataDisplayItem = (props: {
 	const currentProgress = userMetadataDetails?.history.find(
 		(h) => h.state === SeenState.InProgress,
 	)?.progress;
+	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
+		[
+			UserToMediaReason.Finished,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
+	);
+	const hasInteracted = userMetadataDetails?.hasInteracted;
+
+	const leftLabel = useMemo(() => {
+		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
+			return null;
+		return metadataDetails.publishYear;
+	}, [metadataDetails, userMetadataDetails]);
+
 	const surroundReason = (
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
@@ -167,14 +183,6 @@ export const MetadataDisplayItem = (props: {
 			</ThemeIcon>
 		</Tooltip>
 	);
-	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
-		[
-			UserToMediaReason.Finished,
-			UserToMediaReason.Watchlist,
-			UserToMediaReason.Owned,
-		].includes(r),
-	);
-	const hasInteracted = userMetadataDetails?.hasInteracted;
 
 	return (
 		<BaseMediaDisplayItem
@@ -189,10 +197,7 @@ export const MetadataDisplayItem = (props: {
 			labels={
 				metadataDetails
 					? {
-							left:
-								props.noLeftLabel !== true
-									? metadataDetails.publishYear
-									: undefined,
+							left: leftLabel,
 							right:
 								props.rightLabel ||
 								(props.rightLabelLot
