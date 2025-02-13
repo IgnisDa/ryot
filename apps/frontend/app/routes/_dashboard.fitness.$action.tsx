@@ -2764,8 +2764,8 @@ const ReorderDrawer = (props: {
 	);
 
 	useDidUpdate(() => {
-		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
-		const newOrder = exerciseElements.map((e) => e.exerciseId);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.identifier);
+		const newOrder = exerciseElements.map((e) => e.identifier);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
 				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
