@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -8,8 +9,7 @@ import {
 	type EntryContext,
 	ServerRouter,
 } from "react-router";
-import { db, serverVariables, TEMP_DIRECTORY } from "./lib/config.server";
-import { writeFileSync } from "node:fs";
+import { TEMP_DIRECTORY, db, serverVariables } from "./lib/config.server";
 
 migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {
 	console.error("Database migrations failed", error);
