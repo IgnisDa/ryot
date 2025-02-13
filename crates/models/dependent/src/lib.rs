@@ -345,15 +345,15 @@ pub struct CoreDetails {
 
 #[derive(SimpleObject)]
 pub struct UserPersonDetails {
-    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
+    pub is_recently_consumed: bool,
     pub collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
 pub struct UserMetadataGroupDetails {
-    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
+    pub is_recently_consumed: bool,
     pub collections: Vec<collection::Model>,
 }
 
@@ -361,16 +361,16 @@ pub struct UserMetadataGroupDetails {
 pub struct UserMetadataDetails {
     /// Whether this media has been interacted with
     pub has_interacted: bool,
-    /// Whether this media has been recently interacted with
-    pub recently_consumed: bool,
     /// The public reviews of this media.
     pub reviews: Vec<ReviewItem>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: usize,
-    /// The number of times this user has seen this media.
-    pub seen_by_user_count: usize,
     /// The seen history of this media.
     pub history: Vec<seen::Model>,
+    /// The number of times this user has seen this media.
+    pub seen_by_user_count: usize,
+    /// Whether this media has been recently interacted with
+    pub is_recently_consumed: bool,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
     /// The seen item if it is in progress.

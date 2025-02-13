@@ -622,7 +622,7 @@ ORDER BY RANDOM() LIMIT 10;
             } else {
                 None
             };
-        let recently_consumed =
+        let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, &self.0)
                 .await?;
         Ok(UserMetadataDetails {
@@ -634,8 +634,8 @@ ORDER BY RANDOM() LIMIT 10;
             show_progress,
             average_rating,
             podcast_progress,
-            recently_consumed,
             seen_by_user_count,
+            is_recently_consumed,
             seen_by_all_count: seen_by,
             has_interacted: user_to_meta.is_some(),
             media_reason: user_to_meta.and_then(|n| n.media_reason),
@@ -650,12 +650,12 @@ ORDER BY RANDOM() LIMIT 10;
         let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
-        let recently_consumed =
+        let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
-            recently_consumed,
+            is_recently_consumed,
         })
     }
 
@@ -679,7 +679,7 @@ ORDER BY RANDOM() LIMIT 10;
             &self.0,
         )
         .await?;
-        let recently_consumed = get_entity_recently_consumed(
+        let is_recently_consumed = get_entity_recently_consumed(
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
@@ -689,7 +689,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
-            recently_consumed,
+            is_recently_consumed,
         })
     }
 

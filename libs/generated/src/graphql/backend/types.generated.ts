@@ -2772,14 +2772,14 @@ export type UserMetadataDetails = {
   history: Array<Seen>;
   /** The seen item if it is in progress. */
   inProgress?: Maybe<Seen>;
+  /** Whether this media has been recently interacted with */
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   /** The reasons why this metadata is related to this user */
   mediaReason?: Maybe<Array<UserToMediaReason>>;
   /** The next episode/chapter of this media. */
   nextEntry?: Maybe<UserMediaNextEntry>;
   /** The seen progress of this media if it is a podcast. */
   podcastProgress?: Maybe<Array<UserMetadataDetailsEpisodeProgress>>;
-  /** Whether this media has been recently interacted with */
-  recentlyConsumed: Scalars['Boolean']['output'];
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media. */
@@ -2806,7 +2806,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   collections: Array<Collection>;
-  recentlyConsumed: Scalars['Boolean']['output'];
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -2878,7 +2878,7 @@ export type UserPeopleListInput = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   collections: Array<Collection>;
-  recentlyConsumed: Scalars['Boolean']['output'];
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
