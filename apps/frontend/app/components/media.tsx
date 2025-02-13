@@ -184,7 +184,7 @@ export const MetadataDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			name={props.name ?? metadataDetails?.title}
 			imageUrl={metadataDetails?.assets.images.at(0)}
-			highlightImage={userMetadataDetails?.recentlyConsumed}
+			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			labels={
 				metadataDetails
@@ -319,7 +319,7 @@ export const MetadataGroupDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
 			imageOverlay={{ topRight: props.topRight }}
-			highlightImage={userMetadataGroupDetails?.recentlyConsumed}
+			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
@@ -372,7 +372,7 @@ export const PersonDisplayItem = (props: {
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
-			highlightImage={userPersonDetails?.recentlyConsumed}
+			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
