@@ -20,6 +20,7 @@ services:
     image: ignisda/ryot:v8 # or ghcr.io/ignisda/ryot:v8
     pull_policy: always
     container_name: ryot
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:

@@ -376,7 +376,7 @@ export const getRestTimerForSet = async (
 	return restTime;
 };
 
-export const addExerciseToWorkout = async (
+export const addExerciseToCurrentWorkout = async (
 	navigate: NavigateFunction,
 	currentWorkout: InProgressWorkout,
 	userFitnessPreferences: UserFitnessPreferences,

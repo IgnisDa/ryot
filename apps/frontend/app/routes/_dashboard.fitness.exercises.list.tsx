@@ -77,7 +77,7 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
-	addExerciseToWorkout,
+	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
@@ -311,7 +311,7 @@ export default function Page() {
 						size="xl"
 						disabled={selectedExercises.length === 0}
 						onClick={async () => {
-							await addExerciseToWorkout(
+							await addExerciseToCurrentWorkout(
 								navigate,
 								currentWorkout,
 								userPreferences.fitness,

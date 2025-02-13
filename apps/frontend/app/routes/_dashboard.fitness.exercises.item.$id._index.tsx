@@ -88,7 +88,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	addExerciseToWorkout,
+	addExerciseToCurrentWorkout,
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
@@ -663,7 +663,7 @@ export default function Page() {
 							radius="xl"
 							size="xl"
 							onClick={async () => {
-								await addExerciseToWorkout(
+								await addExerciseToCurrentWorkout(
 									navigate,
 									currentWorkout,
 									userPreferences.fitness,

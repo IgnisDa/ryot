@@ -2764,15 +2764,15 @@ const ReorderDrawer = (props: {
 	);
 
 	useDidUpdate(() => {
-		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
-		const newOrder = exerciseElements.map((e) => e.exerciseId);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.identifier);
+		const newOrder = exerciseElements.map((e) => e.identifier);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
 				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 				produce(currentWorkout, (draft: any) => {
 					draft.exercises = exerciseElements.map((de) =>
 						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+						draft.exercises.find((e: any) => e.identifier === de.identifier),
 					);
 				}),
 			);
