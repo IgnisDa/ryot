@@ -223,6 +223,7 @@ export default function Page() {
 			(report) => typeof report.wasSuccess !== "boolean",
 		);
 		if (hasActiveImports) setUserImportReportsRefetchDuration(5000);
+		else setUserImportReportsRefetchDuration(undefined);
 	}, [userImportsQuery.data]);
 
 	return (
@@ -481,10 +482,19 @@ export default function Page() {
 																				report.estimatedFinishTime,
 																			).format("lll")}
 																		</Box>
-																		<Progress
-																			animated
-																			value={Number(report.progress)}
-																		/>
+																		<Group wrap="nowrap">
+																			<Progress
+																				flex={1}
+																				animated
+																				value={Number(report.progress)}
+																			/>
+																			<Text size="xs">
+																				{Number.parseFloat(
+																					report.progress,
+																				).toFixed(3)}
+																				%
+																			</Text>
+																		</Group>
 																	</>
 																) : null}
 															</Stack>
