@@ -229,11 +229,6 @@ jobs:
         uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
-      - name: Set up Node.js and caching
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "yarn"
       - name: Build plugin
         run: moon run kodi:build
       - name: Upload plugin to releases
