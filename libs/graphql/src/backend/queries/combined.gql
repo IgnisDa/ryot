@@ -202,8 +202,8 @@ query UserExercisesList($input: UserExercisesListInput!) {
   }
 }
 
-query ImportReports {
-  importReports {
+query UserImportReports {
+  userImportReports {
     id
     source
     progress
@@ -365,10 +365,10 @@ query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
       nextPage
     }
     items {
-      identifier
       name
       image
       parts
+      identifier
     }
   }
 }
@@ -393,9 +393,9 @@ query MetadataSearch($input: MetadataSearchInput!) {
       nextPage
     }
     items {
-      identifier
       title
       image
+      identifier
       publishYear
     }
   }
@@ -408,10 +408,10 @@ query PeopleSearch($input: PeopleSearchInput!) {
       nextPage
     }
     items {
-      identifier
       name
       image
       birthYear
+      identifier
     }
   }
 }

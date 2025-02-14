@@ -57,7 +57,7 @@ impl ImporterService {
         Ok(true)
     }
 
-    pub async fn import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
+    pub async fn user_import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)

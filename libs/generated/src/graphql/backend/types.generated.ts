@@ -1853,8 +1853,6 @@ export type QueryRoot = {
   getOidcToken: OidcTokenOutput;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
-  /** Get all the import jobs deployed by the user. */
-  importReports: Array<ImportReport>;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -1889,6 +1887,8 @@ export type QueryRoot = {
   userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
+  /** Get all the import jobs deployed by the user. */
+  userImportReports: Array<ImportReport>;
   /** Get all the integrations for the currently logged in user. */
   userIntegrations: Array<Integration>;
   /** Get all the measurements for a user. */

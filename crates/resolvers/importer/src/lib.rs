@@ -14,10 +14,13 @@ impl AuthProvider for ImporterQuery {}
 #[Object]
 impl ImporterQuery {
     /// Get all the import jobs deployed by the user.
-    async fn import_reports(&self, gql_ctx: &Context<'_>) -> Result<Vec<import_report::Model>> {
+    async fn user_import_reports(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.import_reports(user_id).await
+        service.user_import_reports(user_id).await
     }
 }
 
