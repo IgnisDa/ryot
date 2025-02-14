@@ -1,107 +1,107 @@
 query UserDetails {
-  userDetails {
-    __typename
-    ... on User {
-      id
-      lot
-      name
-      isDisabled
-      oidcIssuerId
-      preferences {
-        general {
-          reviewScale
-          gridPacking
-          displayNsfw
-          disableVideos
-          persistQueries
-          disableReviews
-          disableIntegrations
-          disableWatchProviders
-          showSpoilersInCalendar
-          disableNavigationAnimation
-          dashboard {
-            hidden
-            section
-            numElements
-            deduplicateMedia
-          }
-          watchProviders {
-            lot
-            values
-          }
-        }
-        fitness {
-          exercises {
-            unitSystem
-            setRestTimers {
-              ...SetRestTimersPart
-            }
-          }
-          logging {
-            muteSounds
-            caloriesBurntUnit
-            promptForRestTimer
-            showDetailsWhileEditing
-          }
-          measurements {
-            custom {
-              name
-              dataType
-            }
-            inbuilt {
-              weight
-              bodyMassIndex
-              totalBodyWater
-              muscle
-              leanBodyMass
-              bodyFat
-              boneMass
-              visceralFat
-              waistCircumference
-              waistToHeightRatio
-              hipCircumference
-              waistToHipRatio
-              chestCircumference
-              thighCircumference
-              bicepsCircumference
-              neckCircumference
-              bodyFatCaliper
-              chestSkinfold
-              abdominalSkinfold
-              thighSkinfold
-              basalMetabolicRate
-              totalDailyEnergyExpenditure
-              calories
-            }
-          }
-        }
-        notifications {
-          toSend
-          enabled
-        }
-        featuresEnabled {
-          analytics {
-            enabled
-          }
-          others {
-            calendar
-            collections
-          }
-          fitness {
-            enabled
-            workouts
-            templates
-            measurements
-          }
-          media {
-            enabled
-            groups
-            people
-            genres
-            specific
-          }
-        }
-      }
-    }
-  }
+	userDetails {
+		__typename
+		... on User {
+			id
+			lot
+			name
+			isDisabled
+			oidcIssuerId
+			preferences {
+				general {
+					reviewScale
+					gridPacking
+					displayNsfw
+					disableVideos
+					persistQueries
+					disableReviews
+					disableIntegrations
+					disableWatchProviders
+					showSpoilersInCalendar
+					disableNavigationAnimation
+					dashboard {
+						hidden
+						section
+						numElements
+						deduplicateMedia
+					}
+					watchProviders {
+						lot
+						values
+					}
+				}
+				fitness {
+					exercises {
+						unitSystem
+						setRestTimers {
+							...SetRestTimersPart
+						}
+					}
+					logging {
+						muteSounds
+						caloriesBurntUnit
+						promptForRestTimer
+						showDetailsWhileEditing
+					}
+					measurements {
+						custom {
+							name
+							dataType
+						}
+						inbuilt {
+							weight
+							bodyMassIndex
+							totalBodyWater
+							muscle
+							leanBodyMass
+							bodyFat
+							boneMass
+							visceralFat
+							waistCircumference
+							waistToHeightRatio
+							hipCircumference
+							waistToHipRatio
+							chestCircumference
+							thighCircumference
+							bicepsCircumference
+							neckCircumference
+							bodyFatCaliper
+							chestSkinfold
+							abdominalSkinfold
+							thighSkinfold
+							basalMetabolicRate
+							totalDailyEnergyExpenditure
+							calories
+						}
+					}
+				}
+				notifications {
+					toSend
+					enabled
+				}
+				featuresEnabled {
+					analytics {
+						enabled
+					}
+					others {
+						calendar
+						collections
+					}
+					fitness {
+						enabled
+						workouts
+						templates
+						measurements
+					}
+					media {
+						enabled
+						groups
+						people
+						genres
+						specific
+					}
+				}
+			}
+		}
+	}
 }
