@@ -31,7 +31,7 @@ import {
 	IconStarFilled,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, type ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
