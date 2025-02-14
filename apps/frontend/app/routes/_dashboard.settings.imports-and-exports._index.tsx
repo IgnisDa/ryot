@@ -26,9 +26,9 @@ import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
-	ImportReportsDocument,
 	ImportSource,
 	UserExportsDocument,
+	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -197,14 +197,14 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
-	const userImportsQuery = useQuery({
+	const userImportsReportsQuery = useQuery({
 		refetchInterval: 5000,
-		queryKey: ["userImports"],
+		queryKey: ["userImportsReports"],
 		queryFn: async () => {
-			const { importReports } = await clientGqlService.request(
-				ImportReportsDocument,
+			const { userImportReports } = await clientGqlService.request(
+				UserImportReportsDocument,
 			);
-			return importReports;
+			return userImportReports;
 		},
 	});
 
@@ -419,10 +419,10 @@ export default function Page() {
 								) : null}
 								<Divider />
 								<Title order={3}>Import history</Title>
-								{userImportsQuery.data ? (
-									userImportsQuery.data.length > 0 ? (
+								{userImportsReportsQuery.data ? (
+									userImportsReportsQuery.data.length > 0 ? (
 										<Accordion>
-											{userImportsQuery.data.map((report) => {
+											{userImportsReportsQuery.data.map((report) => {
 												const isInProgress =
 													typeof report.wasSuccess !== "boolean";
 
