@@ -62,6 +62,7 @@ import {
 	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
+import { useInViewport } from "@mantine/hooks";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userExports }] = await Promise.all([
@@ -192,12 +193,13 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
-	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
+	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const userImportsReportsQuery = useQuery({
+		enabled: inViewport,
 		refetchInterval: 5000,
 		queryKey: ["userImportsReports"],
 		queryFn: async () => {
@@ -207,6 +209,8 @@ export default function Page() {
 			return userImportReports;
 		},
 	});
+
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	return (
 		<Container size="xs">
@@ -418,7 +422,9 @@ export default function Page() {
 									</>
 								) : null}
 								<Divider />
-								<Title order={3}>Import history</Title>
+								<Title order={3} ref={ref}>
+									Import history
+								</Title>
 								{userImportsReportsQuery.data ? (
 									userImportsReportsQuery.data.length > 0 ? (
 										<Accordion>
