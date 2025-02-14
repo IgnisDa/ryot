@@ -8,8 +8,8 @@ query UserByOidcIssuerId($oidcIssuerId: String!) {
 
 query GetOidcToken($code: String!) {
   getOidcToken(code: $code) {
-    subject
     email
+    subject
   }
 }
 
