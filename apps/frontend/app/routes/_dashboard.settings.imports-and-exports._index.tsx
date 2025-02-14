@@ -22,7 +22,6 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useDidUpdate } from "@mantine/hooks";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
@@ -197,14 +196,10 @@ export default function Page() {
 	const userCollections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
-	const [
-		userImportReportsRefetchDuration,
-		setUserImportReportsRefetchDuration,
-	] = useState<number | undefined>(undefined);
 
 	const userImportsQuery = useQuery({
+		refetchInterval: 5000,
 		queryKey: ["userImports"],
-		refetchInterval: userImportReportsRefetchDuration,
 		queryFn: async () => {
 			const { importReports } = await clientGqlService.request(
 				ImportReportsDocument,
@@ -212,19 +207,6 @@ export default function Page() {
 			return importReports;
 		},
 	});
-
-	useDidUpdate(() => {
-		if (
-			userImportReportsRefetchDuration !== undefined ||
-			!userImportsQuery.data
-		)
-			return;
-		const hasActiveImports = userImportsQuery.data.some(
-			(report) => typeof report.wasSuccess !== "boolean",
-		);
-		if (hasActiveImports) setUserImportReportsRefetchDuration(5000);
-		else setUserImportReportsRefetchDuration(undefined);
-	}, [userImportsQuery.data]);
 
 	return (
 		<Container size="xs">
