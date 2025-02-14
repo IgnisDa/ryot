@@ -1,47 +1,47 @@
 query UserExerciseDetails($exerciseId: String!) {
-  userExerciseDetails(exerciseId: $exerciseId) {
-    collections {
-      ...CollectionPart
-    }
-    reviews {
-      ...ReviewItemPart
-    }
-    history {
-      idx
-      workoutId
-      workoutEndOn
-      bestSet {
-        ...WorkoutSetRecordPart
-      }
-    }
-    details {
-      exerciseId
-      createdOn
-      lastUpdatedOn
-      exerciseNumTimesInteracted
-      exerciseExtraInformation {
-        settings {
-          excludeFromAnalytics
-          setRestTimers {
-            ...SetRestTimersPart
-          }
-        }
-        lifetimeStats {
-          weight
-          reps
-          distance
-          duration
-          personalBestsAchieved
-        }
-        personalBests {
-          lot
-          sets {
-            setIdx
-            workoutId
-            exerciseIdx
-          }
-        }
-      }
-    }
-  }
+	userExerciseDetails(exerciseId: $exerciseId) {
+		collections {
+			...CollectionPart
+		}
+		reviews {
+			...ReviewItemPart
+		}
+		history {
+			idx
+			workoutId
+			workoutEndOn
+			bestSet {
+				...WorkoutSetRecordPart
+			}
+		}
+		details {
+			exerciseId
+			createdOn
+			lastUpdatedOn
+			exerciseNumTimesInteracted
+			exerciseExtraInformation {
+				settings {
+					excludeFromAnalytics
+					setRestTimers {
+						...SetRestTimersPart
+					}
+				}
+				lifetimeStats {
+					weight
+					reps
+					distance
+					duration
+					personalBestsAchieved
+				}
+				personalBests {
+					lot
+					sets {
+						setIdx
+						workoutId
+						exerciseIdx
+					}
+				}
+			}
+		}
+	}
 }

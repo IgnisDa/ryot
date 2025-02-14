@@ -13,6 +13,7 @@ import {
 	Indicator,
 	Progress,
 	Select,
+	Skeleton,
 	Stack,
 	Tabs,
 	Text,
@@ -21,13 +22,14 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
-	ImportReportsDocument,
 	ImportSource,
 	UserExportsDocument,
+	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -36,6 +38,7 @@ import {
 	processSubmission,
 } from "@ryot/ts-utils";
 import { IconDownload, IconTrash } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { useState } from "react";
 import { Form, useLoaderData } from "react-router";
@@ -43,7 +46,11 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
+import {
+	clientGqlService,
+	dayjsLib,
+	openConfirmationModal,
+} from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -58,11 +65,10 @@ import {
 import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const [{ importReports }, { userExports }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
+	const [{ userExports }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
 	]);
-	return { importReports, userExports };
+	return { userExports };
 };
 
 export const meta = () => {
@@ -187,10 +193,24 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
-	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
+	const { inViewport, ref } = useInViewport();
 	const userCollections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
+
+	const userImportsReportsQuery = useQuery({
+		enabled: inViewport,
+		refetchInterval: 5000,
+		queryKey: ["userImportsReports"],
+		queryFn: async () => {
+			const { userImportReports } = await clientGqlService.request(
+				UserImportReportsDocument,
+			);
+			return userImportReports;
+		},
+	});
+
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	return (
 		<Container size="xs">
@@ -402,124 +422,139 @@ export default function Page() {
 									</>
 								) : null}
 								<Divider />
-								<Title order={3}>Import history</Title>
-								{loaderData.importReports.length > 0 ? (
-									<Accordion>
-										{loaderData.importReports.map((report) => {
-											const isInProgress =
-												typeof report.wasSuccess !== "boolean";
+								<Title order={3} ref={ref}>
+									Import history
+								</Title>
+								{userImportsReportsQuery.data ? (
+									userImportsReportsQuery.data.length > 0 ? (
+										<Accordion>
+											{userImportsReportsQuery.data.map((report) => {
+												const isInProgress =
+													typeof report.wasSuccess !== "boolean";
 
-											return (
-												<Accordion.Item
-													key={report.id}
-													value={report.id}
-													data-import-report-id={report.id}
-												>
-													<Accordion.Control disabled={isInProgress}>
-														<Stack gap="xs">
-															<Box>
-																<Indicator
-																	inline
-																	size={12}
-																	offset={-3}
-																	processing={isInProgress}
-																	color={
-																		isInProgress
-																			? undefined
-																			: report.wasSuccess
-																				? "green"
-																				: "red"
-																	}
-																>
-																	{changeCase(report.source)}{" "}
-																	<Text size="xs" span c="dimmed">
-																		({dayjsLib(report.startedOn).fromNow()})
-																	</Text>
-																</Indicator>
-															</Box>
-															{isInProgress && report.progress ? (
-																<>
-																	<Box>
-																		<Text span fw="bold" mr={4}>
-																			Estimated to finish at:
-																		</Text>
-																		{dayjsLib(
-																			report.estimatedFinishTime,
-																		).format("lll")}
-																	</Box>
-																	<Progress
-																		animated
-																		value={Number(report.progress)}
-																	/>
-																</>
-															) : null}
-														</Stack>
-													</Accordion.Control>
-													<Accordion.Panel
-														styles={{ content: { paddingTop: 0 } }}
+												return (
+													<Accordion.Item
+														key={report.id}
+														value={report.id}
+														data-import-report-id={report.id}
 													>
-														<Stack>
-															<Box>
-																<Group>
-																	{report.details ? (
-																		<Box>
-																			<Text span fw="bold" mr={4}>
-																				Total imported:
-																			</Text>
-																			{report.details.import.total},
-																		</Box>
-																	) : null}
-																	<Box>
-																		<Text span fw="bold" mr={4}>
-																			Started at:
+														<Accordion.Control disabled={isInProgress}>
+															<Stack gap="xs">
+																<Box>
+																	<Indicator
+																		inline
+																		size={12}
+																		offset={-3}
+																		processing={isInProgress}
+																		color={
+																			isInProgress
+																				? undefined
+																				: report.wasSuccess
+																					? "green"
+																					: "red"
+																		}
+																	>
+																		{changeCase(report.source)}{" "}
+																		<Text size="xs" span c="dimmed">
+																			({dayjsLib(report.startedOn).fromNow()})
 																		</Text>
-																		{dayjsLib(report.startedOn).format("lll")}
-																	</Box>
-																</Group>
-																<Group>
-																	<Box>
-																		{report.finishedOn ? (
-																			<>
-																				<Text span fw="bold" mr={4}>
-																					Finished on:
-																				</Text>
-																				{dayjsLib(report.finishedOn).format(
-																					"lll",
-																				)}
-																			</>
-																		) : null}
-																	</Box>
-																	{report.details ? (
+																	</Indicator>
+																</Box>
+																{isInProgress && report.progress ? (
+																	<>
 																		<Box>
 																			<Text span fw="bold" mr={4}>
-																				Failed:
+																				Estimated to finish at:
 																			</Text>
-																			{report.details.failedItems.length}
+																			{dayjsLib(
+																				report.estimatedFinishTime,
+																			).format("lll")}
 																		</Box>
-																	) : null}
-																</Group>
-															</Box>
-															{report.details &&
-															report.details.failedItems.length > 0 ? (
-																<CodeHighlight
-																	mah={400}
-																	language="json"
-																	style={{ overflow: "scroll" }}
-																	code={JSON.stringify(
-																		report.details.failedItems,
-																		null,
-																		2,
-																	)}
-																/>
-															) : null}
-														</Stack>
-													</Accordion.Panel>
-												</Accordion.Item>
-											);
-										})}
-									</Accordion>
+																		<Group wrap="nowrap">
+																			<Progress
+																				flex={1}
+																				animated
+																				value={Number(report.progress)}
+																			/>
+																			<Text size="xs">
+																				{Number.parseFloat(
+																					report.progress,
+																				).toFixed(3)}
+																				%
+																			</Text>
+																		</Group>
+																	</>
+																) : null}
+															</Stack>
+														</Accordion.Control>
+														<Accordion.Panel
+															styles={{ content: { paddingTop: 0 } }}
+														>
+															<Stack>
+																<Box>
+																	<Group>
+																		{report.details ? (
+																			<Box>
+																				<Text span fw="bold" mr={4}>
+																					Total imported:
+																				</Text>
+																				{report.details.import.total},
+																			</Box>
+																		) : null}
+																		<Box>
+																			<Text span fw="bold" mr={4}>
+																				Started at:
+																			</Text>
+																			{dayjsLib(report.startedOn).format("lll")}
+																		</Box>
+																	</Group>
+																	<Group>
+																		<Box>
+																			{report.finishedOn ? (
+																				<>
+																					<Text span fw="bold" mr={4}>
+																						Finished on:
+																					</Text>
+																					{dayjsLib(report.finishedOn).format(
+																						"lll",
+																					)}
+																				</>
+																			) : null}
+																		</Box>
+																		{report.details ? (
+																			<Box>
+																				<Text span fw="bold" mr={4}>
+																					Failed:
+																				</Text>
+																				{report.details.failedItems.length}
+																			</Box>
+																		) : null}
+																	</Group>
+																</Box>
+																{report.details &&
+																report.details.failedItems.length > 0 ? (
+																	<CodeHighlight
+																		mah={400}
+																		language="json"
+																		style={{ overflow: "scroll" }}
+																		code={JSON.stringify(
+																			report.details.failedItems,
+																			null,
+																			2,
+																		)}
+																	/>
+																) : null}
+															</Stack>
+														</Accordion.Panel>
+													</Accordion.Item>
+												);
+											})}
+										</Accordion>
+									) : (
+										<Text>You have not performed any imports</Text>
+									)
 								) : (
-									<Text>You have not performed any imports</Text>
+									<Skeleton h={80} w="100%" />
 								)}
 							</Stack>
 						</Form>
