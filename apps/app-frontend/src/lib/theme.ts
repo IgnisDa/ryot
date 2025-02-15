@@ -1,7 +1,50 @@
 import { createTheme } from "@mantine/core";
 
 export const theme = createTheme({
-	primaryColor: "blue",
-	defaultRadius: "md",
-	fontFamily: "Manrope, sans-serif",
+	defaultRadius: "sm",
+	primaryColor: "accent",
+	fontFamily: '"Outfit", -apple-system, sans-serif',
+	fontFamilyMonospace: '"IBM Plex Mono", monospace',
+	headings: {
+		fontWeight: "600",
+		fontFamily: '"Space Grotesk", -apple-system, sans-serif',
+	},
+	colors: {
+		dark: [
+			"#FAFAF9",
+			"#E7E5E4",
+			"#D6D3D1",
+			"#A8A29E",
+			"#78716C",
+			"#57534E",
+			"#44403C",
+			"#302E2B",
+			"#23211F",
+			"#1A1816",
+		],
+		accent: [
+			"#FFFBEB",
+			"#FEF3C7",
+			"#FDE68A",
+			"#FCD34D",
+			"#FBBF24",
+			"#D4A574",
+			"#C4963C",
+			"#9F7928",
+			"#7C5D20",
+			"#5A4318",
+		],
+		stone: [
+			"#FAFAF9",
+			"#F5F5F4",
+			"#E7E5E4",
+			"#D6D3D1",
+			"#A8A29E",
+			"#78716C",
+			"#57534E",
+			"#44403C",
+			"#292524",
+			"#1C1917",
+		],
+	},
 });
