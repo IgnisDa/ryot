@@ -1,6 +1,20 @@
-import { Button, Checkbox, NumberInput, Text, TextInput } from "@mantine/core";
+import {
+	Box,
+	Button,
+	Checkbox,
+	FileButton,
+	Group,
+	NumberInput,
+	Paper,
+	SegmentedControl,
+	Stack,
+	Text,
+	TextInput,
+} from "@mantine/core";
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
+import { Link as LinkIcon, Upload } from "lucide-react";
 import type { HTMLInputTypeAttribute } from "react";
+import { useState } from "react";
 
 type TextFieldProps = {
 	id?: string;
@@ -114,6 +128,211 @@ function CheckboxField(props: CheckboxFieldProps) {
 	);
 }
 
+type ImageFieldValue =
+	| { kind: "remote"; url: string }
+	| { kind: "s3"; key: string }
+	| null
+	| undefined;
+
+type ImageFieldProps = {
+	label: string;
+	required?: boolean;
+	disabled?: boolean;
+};
+
+function ImageField(props: ImageFieldProps) {
+	const field = useFieldContext<ImageFieldValue>();
+	const [tempUrl, setTempUrl] = useState("");
+	const [tempFile, setTempFile] = useState<File | null>(null);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+
+	const handleFileChange = (selectedFile: File | null) => {
+		setTempFile(selectedFile);
+		if (selectedFile) {
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				setPreviewUrl(reader.result as string);
+			};
+			reader.readAsDataURL(selectedFile);
+			field.handleChange({ kind: "s3", key: `temp:${selectedFile.name}` });
+		} else {
+			setPreviewUrl(null);
+			field.handleChange(null);
+		}
+	};
+
+	const handleUrlChange = (url: string) => {
+		setTempUrl(url);
+		if (url.trim()) field.handleChange({ kind: "remote", url: url.trim() });
+		else field.handleChange(null);
+	};
+
+	const currentPreview = uploadMode === "url" ? tempUrl : previewUrl;
+
+	return (
+		<div>
+			<Stack gap="md">
+				<Group gap="xs">
+					<Text size="sm" fw={500}>
+						{props.label}
+						{props.required && (
+							<span style={{ color: "var(--mantine-color-red-6)" }}> *</span>
+						)}
+					</Text>
+				</Group>
+
+				<SegmentedControl
+					fullWidth
+					value={uploadMode}
+					disabled={props.disabled}
+					data={[
+						{
+							value: "url",
+							label: (
+								<Group gap="xs" justify="center">
+									<LinkIcon size={16} strokeWidth={1.5} />
+									<Text size="sm">URL</Text>
+								</Group>
+							),
+						},
+						{
+							value: "file",
+							label: (
+								<Group gap="xs" justify="center">
+									<Upload size={16} strokeWidth={1.5} />
+									<Text size="sm">Upload</Text>
+								</Group>
+							),
+						},
+					]}
+					onChange={(value) => {
+						setUploadMode(value as "url" | "file");
+						field.handleChange(null);
+						setTempFile(null);
+						setTempUrl("");
+						setPreviewUrl(null);
+					}}
+					styles={{
+						root: { backgroundColor: "var(--mantine-color-default)" },
+						indicator: {
+							boxShadow: "var(--mantine-shadow-sm)",
+							backgroundColor: "var(--mantine-color-body)",
+						},
+					}}
+				/>
+
+				{uploadMode === "url" && (
+					<TextInput
+						size="sm"
+						value={tempUrl}
+						disabled={props.disabled}
+						onBlur={field.handleBlur}
+						placeholder="https://example.com/image.jpg"
+						description="Enter an HTTPS URL to an image"
+						onChange={(e) => handleUrlChange(e.currentTarget.value)}
+						styles={{
+							input: {
+								fontSize: "0.8125rem",
+								fontFamily: "var(--mantine-font-family-monospace)",
+							},
+						}}
+					/>
+				)}
+
+				{uploadMode === "file" && (
+					<Stack gap="xs">
+						<FileButton
+							disabled={props.disabled}
+							onChange={handleFileChange}
+							accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+						>
+							{(fileButtonProps) => (
+								<Button
+									size="sm"
+									variant="light"
+									styles={{ root: { fontWeight: 500 } }}
+									leftSection={<Upload size={16} strokeWidth={1.5} />}
+									{...fileButtonProps}
+								>
+									Choose File
+								</Button>
+							)}
+						</FileButton>
+
+						{tempFile && (
+							<Paper
+								p="xs"
+								radius="sm"
+								bg="var(--mantine-color-default)"
+								style={{
+									border: "1px solid var(--mantine-color-default-border)",
+								}}
+							>
+								<Group gap="xs">
+									<Text size="xs" c="dimmed" truncate>
+										{tempFile.name}
+									</Text>
+									<Text size="xs" c="dimmed">
+										({(tempFile.size / 1024).toFixed(1)} KB)
+									</Text>
+								</Group>
+							</Paper>
+						)}
+					</Stack>
+				)}
+
+				<Box
+					p="md"
+					style={{
+						borderRadius: 8,
+						backgroundColor: "var(--mantine-color-default)",
+						border: "1px dashed var(--mantine-color-default-border)",
+					}}
+				>
+					<Stack gap="xs" align="center">
+						<Box
+							w={120}
+							h={120}
+							style={{
+								display: "flex",
+								borderRadius: 8,
+								overflow: "hidden",
+								alignItems: "center",
+								justifyContent: "center",
+								backgroundColor: "var(--mantine-color-default-border)",
+							}}
+						>
+							{currentPreview ? (
+								<img
+									alt="Preview"
+									src={currentPreview}
+									style={{ width: "100%", height: "100%", objectFit: "cover" }}
+								/>
+							) : (
+								<Text size="xs" c="dimmed">
+									Preview
+								</Text>
+							)}
+						</Box>
+						{!currentPreview && (
+							<Text size="xs" c="dimmed" ta="center">
+								Image preview will appear here
+							</Text>
+						)}
+					</Stack>
+				</Box>
+			</Stack>
+
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
 type SubmitButtonProps = {
 	label: string;
 	variant?: string;
@@ -148,5 +367,5 @@ export const { useAppForm } = createFormHook({
 	formContext,
 	fieldContext,
 	formComponents: { SubmitButton },
-	fieldComponents: { CheckboxField, NumberField, TextField },
+	fieldComponents: { CheckboxField, ImageField, NumberField, TextField },
 });
