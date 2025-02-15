@@ -102,6 +102,9 @@ export const listEntitySchemasByUser = async (userId: string) => {
 				};
 			}
 
+			const schema = acc[row.id];
+			if (!schema) return acc;
+
 			if (
 				row.searchScriptId &&
 				row.detailsScriptId &&
@@ -110,9 +113,9 @@ export const listEntitySchemasByUser = async (userId: string) => {
 			) {
 				const scriptPairKey = `${row.searchScriptId}-${row.detailsScriptId}`;
 
-				if (!acc[row.id].seenScriptPairs.has(scriptPairKey)) {
-					acc[row.id].seenScriptPairs.add(scriptPairKey);
-					acc[row.id].scriptPairs.push({
+				if (!schema.seenScriptPairs.has(scriptPairKey)) {
+					schema.seenScriptPairs.add(scriptPairKey);
+					schema.scriptPairs.push({
 						searchScriptId: row.searchScriptId,
 						detailsScriptId: row.detailsScriptId,
 						searchScriptName: row.searchScriptName,
@@ -125,10 +128,10 @@ export const listEntitySchemasByUser = async (userId: string) => {
 				row.eventSchemaId &&
 				row.eventSchemaSlug &&
 				row.eventSchemaName &&
-				!acc[row.id].seenEventSchemas.has(row.eventSchemaId)
+				!schema.seenEventSchemas.has(row.eventSchemaId)
 			) {
-				acc[row.id].seenEventSchemas.add(row.eventSchemaId);
-				acc[row.id].eventSchemas.push({
+				schema.seenEventSchemas.add(row.eventSchemaId);
+				schema.eventSchemas.push({
 					id: row.eventSchemaId,
 					slug: row.eventSchemaSlug,
 					name: row.eventSchemaName,
