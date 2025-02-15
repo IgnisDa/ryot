@@ -13,6 +13,7 @@ import {
 
 export const ensureBuiltinFacet = async (input: {
 	slug: string;
+	icon: string;
 	name: string;
 	mode: FacetMode;
 	description?: string;
@@ -27,6 +28,7 @@ export const ensureBuiltinFacet = async (input: {
 
 	const values = {
 		isBuiltin: true,
+		icon: input.icon,
 		name: input.name,
 		slug: input.slug,
 		mode: input.mode,
