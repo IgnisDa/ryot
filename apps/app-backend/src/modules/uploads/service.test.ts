@@ -1,0 +1,43 @@
+import { describe, expect, it } from "bun:test";
+import { createPresignedUpload, resolvePresignedUploadInput } from "./service";
+
+describe("createPresignedUpload", () => {
+	it("rejects unsupported content types", () => {
+		expect(() =>
+			resolvePresignedUploadInput({ contentType: "application/pdf" }),
+		).toThrow("Upload content type must be a supported MIME type");
+	});
+
+	it("generates a canonical key when filename is omitted", async () => {
+		expect(
+			createPresignedUpload(
+				{ contentType: "image/png" },
+				{
+					generateObjectId: () => "image_123",
+					signUploadUrl: async ({ key }) => `https://example.com/${key}`,
+				},
+			),
+		).resolves.toEqual({
+			key: "uploads/image_123.png",
+			uploadUrl: "https://example.com/uploads/image_123.png",
+		});
+	});
+
+	it("keeps a compatible filename extension when one is provided", async () => {
+		expect(
+			createPresignedUpload(
+				{
+					fileName: "cover.jpeg",
+					contentType: "image/jpeg",
+				},
+				{
+					generateObjectId: () => "image_456",
+					signUploadUrl: async ({ key }) => `https://example.com/${key}`,
+				},
+			),
+		).resolves.toEqual({
+			key: "uploads/image_456.jpeg",
+			uploadUrl: "https://example.com/uploads/image_456.jpeg",
+		});
+	});
+});
