@@ -7,7 +7,7 @@ export interface AppFacet {
 	sortOrder: number;
 	config?: unknown;
 	isBuiltin?: boolean;
-	accentColor?: string | null;
+	accentColor: string;
 	description?: string | null;
 	mode?: "curated" | "generated";
 }
