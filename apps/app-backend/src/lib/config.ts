@@ -14,3 +14,13 @@ const configSchema = z.object({
 export type Config = z.infer<typeof configSchema>;
 
 export const config = configSchema.parse(process.env);
+
+const appConfigSchema = z.object({
+	ANIME_AND_MANGA_MAL_CLIENT_ID: z.string().optional(),
+	BOOKS_GOOGLE_BOOKS_API_KEY: z.string().optional(),
+	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
+});
+
+export type AppConfig = z.infer<typeof appConfigSchema>;
+
+export const appConfig = appConfigSchema.parse(process.env);
