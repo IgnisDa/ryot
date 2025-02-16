@@ -1,12 +1,12 @@
 export interface AppFacet {
 	id: string;
+	icon: string;
 	slug: string;
 	name: string;
 	enabled: boolean;
 	sortOrder: number;
 	config?: unknown;
 	isBuiltin?: boolean;
-	icon?: string | null;
 	accentColor?: string | null;
 	description?: string | null;
 	mode?: "curated" | "generated";
