@@ -150,11 +150,11 @@ function StartPage() {
 										</>
 									)}
 								</authForm.AppField>
-								<authForm.SubmitButton
-									className="w-full"
-									pendingLabel="Please wait..."
-									label={modeContent.actionLabel}
-								/>
+							<authForm.SubmitButton
+								fullWidth
+								pendingLabel="Please wait..."
+								label={modeContent.actionLabel}
+							/>
 							</Stack>
 						</authForm.AppForm>
 					</form>
