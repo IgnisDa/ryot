@@ -6,11 +6,11 @@ export interface SidebarEntitySchema {
 
 export interface SidebarFacet {
 	id: string;
+	icon: string;
 	slug: string;
 	name: string;
 	enabled: boolean;
 	sortOrder: number;
-	icon?: string | null;
 	isExpanded?: boolean;
 	accentColor?: string | null;
 	entitySchemas: SidebarEntitySchema[];
