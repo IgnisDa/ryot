@@ -71,7 +71,9 @@ export const listBuiltinEntitySchemas = async (input?: {
 	const rows = await database
 		.select({
 			id: entitySchema.id,
+			icon: entitySchema.icon,
 			slug: entitySchema.slug,
+			accentColor: entitySchema.accentColor,
 		})
 		.from(entitySchema)
 		.where(and(eq(entitySchema.isBuiltin, true), isNull(entitySchema.userId)));
@@ -149,7 +151,10 @@ export const createEntitySchemaForUser = async (input: {
 			.insert(savedView)
 			.values({
 				isBuiltin: true,
+				icon: input.icon,
 				userId: input.userId,
+				facetId: input.facetId,
+				accentColor: input.accentColor,
 				name: buildBuiltinSavedViewName(input.name),
 				queryDefinition: { entitySchemaIds: [createdEntitySchema.id] },
 			})
