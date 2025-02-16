@@ -6,6 +6,10 @@ export const getPresignedUploadUrlBody = z.object({
 	contentType: z.string(),
 });
 
+export const getPresignedUploadUrlQuery = z.object({
+	key: nonEmptyTrimmedStringSchema,
+});
+
 export const presignedUploadUrlSchema = z.object({
 	uploadUrl: z.url(),
 	key: nonEmptyTrimmedStringSchema,
