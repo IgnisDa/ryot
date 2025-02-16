@@ -15,6 +15,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import type { CreateEntityPayload } from "#/features/entities/form";
 import { useEntityMutations } from "#/features/entities/hooks";
+import type { AppEntity } from "#/features/entities/model";
 import { CreateEntityModal } from "#/features/entities/section";
 import { EntitySchemaCreateModal } from "#/features/entity-schemas/create-modal";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
@@ -24,8 +25,14 @@ import {
 } from "#/features/entity-schemas/hooks";
 import { getFacetEntitySchemaViewState } from "#/features/entity-schemas/model";
 import type { CreateEventSchemaPayload } from "#/features/event-schemas/form";
-import { useEventSchemaMutations } from "#/features/event-schemas/hooks";
+import {
+	useEventSchemaMutations,
+	useEventSchemasQuery,
+} from "#/features/event-schemas/hooks";
 import { CreateEventSchemaModal } from "#/features/event-schemas/section";
+import type { CreateEventPayload } from "#/features/events/form";
+import { useEventMutations } from "#/features/events/hooks";
+import { LogEventModal } from "#/features/events/section";
 import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
@@ -109,10 +116,15 @@ function BuiltinFacetSchemaSection() {
 	);
 }
 
+type CustomFacetModalState =
+	| null
+	| { type: "entity-schema" }
+	| { type: "event"; entity: AppEntity }
+	| { type: "entity"; entitySchemaId: string }
+	| { type: "event-schema"; entitySchemaId: string };
+
 function CustomFacetSchemaSection(props: { facet: AppFacet }) {
-	const [openedModal, setOpenedModal] = useState<
-		"entity-schema" | "event-schema" | "entity" | null
-	>(null);
+	const [openedModal, setOpenedModal] = useState<CustomFacetModalState>(null);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
 	);
@@ -124,10 +136,23 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 	const entitySchemaMutations = useEntitySchemaMutations(props.facet.id);
 
 	const primaryEntitySchema = entitySchemasQuery.entitySchemas[0];
+	const selectedEntitySchema =
+		openedModal?.type === "entity" || openedModal?.type === "event-schema"
+			? entitySchemasQuery.entitySchemas.find(
+					(schema) => schema.id === openedModal.entitySchemaId,
+				)
+			: undefined;
+	const selectedEntity =
+		openedModal?.type === "event" ? openedModal.entity : undefined;
 	const eventSchemaMutations = useEventSchemaMutations(
-		primaryEntitySchema?.id ?? "",
+		selectedEntitySchema?.id ?? "",
 	);
-	const entityMutations = useEntityMutations(primaryEntitySchema?.id ?? "");
+	const entityMutations = useEntityMutations(selectedEntitySchema?.id ?? "");
+	const eventMutations = useEventMutations(selectedEntity?.id ?? "");
+	const selectedEventSchemasQuery = useEventSchemasQuery(
+		selectedEntity?.entitySchemaId ?? "",
+		!!selectedEntity,
+	);
 
 	const viewState = getFacetEntitySchemaViewState({
 		facet: props.facet,
@@ -136,7 +161,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 
 	const openEntitySchemaModal = useCallback(() => {
 		setCreateErrorMessage(null);
-		setOpenedModal("entity-schema");
+		setOpenedModal({ type: "entity-schema" });
 	}, []);
 
 	const closeEntitySchemaModal = useCallback(() => {
@@ -144,19 +169,42 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 		setOpenedModal(null);
 	}, []);
 
-	const openEventSchemaModal = useCallback(() => {
-		setOpenedModal("event-schema");
-	}, []);
+	const openEventSchemaModal = useCallback(
+		(entitySchemaId?: string) => {
+			const nextEntitySchemaId = entitySchemaId ?? primaryEntitySchema?.id;
+			if (!nextEntitySchemaId) return;
+			setOpenedModal({
+				type: "event-schema",
+				entitySchemaId: nextEntitySchemaId,
+			});
+		},
+		[primaryEntitySchema?.id],
+	);
 
 	const closeEventSchemaModal = useCallback(() => {
 		setOpenedModal(null);
 	}, []);
 
-	const openEntityModal = useCallback(() => {
-		setOpenedModal("entity");
-	}, []);
+	const openEntityModal = useCallback(
+		(entitySchemaId?: string) => {
+			const nextEntitySchemaId = entitySchemaId ?? primaryEntitySchema?.id;
+			if (!nextEntitySchemaId) return;
+			setOpenedModal({ type: "entity", entitySchemaId: nextEntitySchemaId });
+		},
+		[primaryEntitySchema?.id],
+	);
 
 	const closeEntityModal = useCallback(() => {
+		setOpenedModal(null);
+	}, []);
+
+	const openLogEventModal = useCallback((entity: AppEntity) => {
+		setCreateErrorMessage(null);
+		setOpenedModal({ type: "event", entity });
+	}, []);
+
+	const closeLogEventModal = useCallback(() => {
+		setCreateErrorMessage(null);
 		setOpenedModal(null);
 	}, []);
 
@@ -202,6 +250,20 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 		[closeEntityModal, entityMutations.create],
 	);
 
+	const submitCreateEvent = useCallback(
+		async (payload: CreateEventPayload) => {
+			setCreateErrorMessage(null);
+
+			try {
+				await eventMutations.create.mutateAsync({ body: payload });
+				closeLogEventModal();
+			} catch (error) {
+				setCreateErrorMessage(getErrorMessage(error));
+			}
+		},
+		[closeLogEventModal, eventMutations.create],
+	);
+
 	if (entitySchemasQuery.isLoading)
 		return (
 			<Center py="xl">
@@ -238,53 +300,71 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			)}
 
 			{viewState.type === "empty" && (
-				<SetupGuidedFlow
-					facet={props.facet}
-					onOpenCreateEntityModal={openEntityModal}
-					entitySchemas={entitySchemasQuery.entitySchemas}
-					onOpenCreateEventSchemaModal={openEventSchemaModal}
-					onOpenCreateEntitySchemaModal={openEntitySchemaModal}
-				/>
+				<Stack gap="xl">
+					<FacetHeader facet={props.facet} />
+					<SetupGuidedFlow
+						facet={props.facet}
+						entitySchemas={entitySchemasQuery.entitySchemas}
+						onOpenCreateEntityModal={() => openEntityModal()}
+						onOpenCreateEntitySchemaModal={openEntitySchemaModal}
+						onOpenCreateEventSchemaModal={() => openEventSchemaModal()}
+					/>
+				</Stack>
 			)}
 
 			{viewState.type === "list" && (
 				<TrackerOverview
-					facetSlug={props.facet.slug}
+					facet={props.facet}
+					onAddEntity={openEntityModal}
+					onLogEvent={openLogEventModal}
+					onAddEventSchema={openEventSchemaModal}
 					entitySchemas={viewState.entitySchemas}
 					onAddEntitySchema={openEntitySchemaModal}
 				/>
 			)}
 
-			{openedModal === "entity-schema" && (
+			{openedModal?.type === "entity-schema" && (
 				<EntitySchemaCreateModal
 					facetId={props.facet.id}
 					onSubmit={submitCreateSchema}
 					onClose={closeEntitySchemaModal}
 					errorMessage={createErrorMessage}
-					opened={openedModal === "entity-schema"}
+					opened={openedModal?.type === "entity-schema"}
 					isLoading={entitySchemaMutations.create.isPending}
 				/>
 			)}
 
-			{openedModal === "event-schema" && primaryEntitySchema && (
+			{openedModal?.type === "event-schema" && selectedEntitySchema && (
 				<CreateEventSchemaModal
 					onClose={closeEventSchemaModal}
 					errorMessage={createErrorMessage}
 					onSubmit={submitCreateEventSchema}
-					opened={openedModal === "event-schema"}
-					entitySchemaId={primaryEntitySchema.id}
+					entitySchemaId={selectedEntitySchema.id}
+					opened={openedModal?.type === "event-schema"}
 					isLoading={eventSchemaMutations.create.isPending}
 				/>
 			)}
 
-			{openedModal === "entity" && primaryEntitySchema && (
+			{openedModal?.type === "entity" && selectedEntitySchema && (
 				<CreateEntityModal
 					onClose={closeEntityModal}
 					onSubmit={submitCreateEntity}
-					opened={openedModal === "entity"}
 					errorMessage={createErrorMessage}
-					entitySchema={primaryEntitySchema}
+					entitySchema={selectedEntitySchema}
+					opened={openedModal?.type === "entity"}
 					isLoading={entityMutations.create.isPending}
+				/>
+			)}
+
+			{openedModal?.type === "event" && selectedEntity && (
+				<LogEventModal
+					entity={selectedEntity}
+					onClose={closeLogEventModal}
+					onSubmit={submitCreateEvent}
+					errorMessage={createErrorMessage}
+					opened={openedModal?.type === "event"}
+					isLoading={eventMutations.create.isPending}
+					eventSchemas={selectedEventSchemasQuery.eventSchemas}
 				/>
 			)}
 		</Stack>
@@ -331,18 +411,20 @@ function RouteComponent() {
 			</Container>
 		);
 
-	return (
-		<Container size="md" py={56}>
-			<Stack gap="xl">
-				<FacetHeader facet={facet} />
-				<FacetMetadata facet={facet} />
-
-				{facet.isBuiltin ? (
+	if (facet.isBuiltin)
+		return (
+			<Container size="md" py={56}>
+				<Stack gap="xl">
+					<FacetHeader facet={facet} />
+					<FacetMetadata facet={facet} />
 					<BuiltinFacetSchemaSection />
-				) : (
-					<CustomFacetSchemaSection facet={facet} />
-				)}
-			</Stack>
+				</Stack>
+			</Container>
+		);
+
+	return (
+		<Container size="xl" py={56}>
+			<CustomFacetSchemaSection facet={facet} />
 		</Container>
 	);
 }
