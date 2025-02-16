@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entitySchema, savedView } from "~/lib/db/schema";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
@@ -50,6 +50,18 @@ export const getEntitySchemaBySlugForUser = async (input: {
 		.limit(1);
 
 	return foundEntitySchema;
+};
+
+export const listBuiltinEntitySchemas = async () => {
+	const rows = await db
+		.select({
+			id: entitySchema.id,
+			slug: entitySchema.slug,
+		})
+		.from(entitySchema)
+		.where(and(eq(entitySchema.isBuiltin, true), isNull(entitySchema.userId)));
+
+	return rows;
 };
 
 export const createEntitySchemaForUser = async (input: {

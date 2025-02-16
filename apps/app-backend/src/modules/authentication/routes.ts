@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
 import { auth, type MaybeAuthType } from "~/lib/auth";
+import { builtinSavedViews } from "~/lib/db/seed/manifests";
 import {
 	createAuthRoute,
 	createValidationErrorResult,
@@ -9,8 +10,13 @@ import {
 	resolveValidationResult,
 	successResponse,
 } from "~/lib/openapi";
+import { listBuiltinEntitySchemas } from "../entity-schemas/repository";
+import { createSavedViewsForUser } from "../saved-views/repository";
 import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
-import { resolveAuthenticationName } from "./service";
+import {
+	buildAuthenticationSavedViewInputs,
+	resolveAuthenticationName,
+} from "./service";
 
 const meRoute = createAuthRoute(
 	createRoute({
@@ -55,12 +61,22 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 			return c.json(createValidationErrorResult(nameResult.error).body, 400);
 
 		try {
-			await auth.api.signUpEmail({
+			const signUpResult = await auth.api.signUpEmail({
 				body: {
 					email: body.email,
 					name: nameResult.data,
 					password: body.password,
 				},
+			});
+
+			const savedViewInputs = buildAuthenticationSavedViewInputs({
+				savedViews: builtinSavedViews(),
+				entitySchemas: await listBuiltinEntitySchemas(),
+			});
+
+			await createSavedViewsForUser({
+				views: savedViewInputs,
+				userId: signUpResult.user.id,
 			});
 		} catch (error) {
 			if (isAPIError(error)) {
