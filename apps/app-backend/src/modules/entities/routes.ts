@@ -9,11 +9,10 @@ import {
 	createAuthRoute,
 	createCustomEntityAccessErrorResult,
 	createNotFoundErrorResult,
-	createValidationErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -180,7 +179,7 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const entityInput = resolveValidationResult(
+		const entityInput = resolveValidationData(
 			() =>
 				resolveEntityCreateInput({
 					name: body.name,
@@ -191,8 +190,8 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Entity payload is invalid",
 		);
-		if ("error" in entityInput)
-			return c.json(createValidationErrorResult(entityInput.error).body, 400);
+		if ("status" in entityInput)
+			return c.json(entityInput.body, entityInput.status);
 		const entityData = entityInput.data;
 
 		const createdEntity = await createEntityForUser({
