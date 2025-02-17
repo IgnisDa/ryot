@@ -7,7 +7,7 @@ pub async fn yank_progress(payload: String) -> Result<ImportResult> {
         Err(err) => bail!(err),
     };
     let mut completed = vec![];
-    for media in payload.media.unwrap_or_default() {
+    for media in payload.metadata.unwrap_or_default() {
         completed.push(ImportCompletedItem::Metadata(media));
     }
     for people in payload.people.unwrap_or_default() {
@@ -19,7 +19,7 @@ pub async fn yank_progress(payload: String) -> Result<ImportResult> {
     for workout in payload.workouts.unwrap_or_default() {
         completed.push(ImportCompletedItem::ApplicationWorkout(workout));
     }
-    for media_group in payload.media_groups.unwrap_or_default() {
+    for media_group in payload.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
     }
     Ok(ImportResult {
