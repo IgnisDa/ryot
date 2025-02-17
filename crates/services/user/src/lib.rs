@@ -38,8 +38,9 @@ use media_models::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
-    core::CoreResponseType, reqwest::async_http_client, AuthenticationFlow, AuthorizationCode,
-    CsrfToken, Nonce, Scope, TokenResponse,
+    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreResponseType},
+    AccessTokenHash, AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
+    IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
@@ -719,7 +720,7 @@ impl UserService {
         };
         let (authorize_url, _, _) = client
             .authorize_url(
-                AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
+                CoreAuthenticationFlow::AuthorizationCode,
                 CsrfToken::new_random,
                 Nonce::new_random,
             )
