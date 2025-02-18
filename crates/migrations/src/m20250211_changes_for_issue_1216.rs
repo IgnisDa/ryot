@@ -7,10 +7,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        if manager
-            .has_column("integration", "last_triggered_on")
-            .await?
-        {
+        if manager.has_column("access_link", "is_demo").await? {
             db.execute_unprepared(r#"ALTER TABLE "access_link" DROP COLUMN "is_demo";"#)
                 .await?;
         }
