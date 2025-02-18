@@ -5,7 +5,7 @@ use enum_meta::{meta, Meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{prelude::DateTimeUtc, sea_query::PgDateTruncUnit, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::{Display, EnumIter};
@@ -251,6 +251,17 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Year,
     Month,
     AllTime,
+}
+
+impl From<DailyUserActivitiesResponseGroupedBy> for PgDateTruncUnit {
+    fn from(group: DailyUserActivitiesResponseGroupedBy) -> Self {
+        match group {
+            DailyUserActivitiesResponseGroupedBy::Day => PgDateTruncUnit::Day,
+            DailyUserActivitiesResponseGroupedBy::Year => PgDateTruncUnit::Year,
+            DailyUserActivitiesResponseGroupedBy::Month => PgDateTruncUnit::Month,
+            DailyUserActivitiesResponseGroupedBy::AllTime => unreachable!(),
+        }
+    }
 }
 
 #[skip_serializing_none]
