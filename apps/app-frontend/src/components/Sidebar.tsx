@@ -14,7 +14,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
-	useMantineColorScheme,
+	useComputedColorScheme,
 } from "@mantine/core";
 import { useHover } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
@@ -31,6 +31,7 @@ import {
 import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
+import { SidebarAccountSection } from "./SidebarAccountSection";
 
 function getFacetColor(facet: SidebarFacet) {
 	return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
@@ -195,14 +196,16 @@ function SortableFacet(props: {
 }
 
 export function Sidebar(props: SidebarProps) {
-	const { colorScheme } = useMantineColorScheme();
 	const { hovered, ref } = useHover<HTMLDivElement>();
+	const computedColorScheme = useComputedColorScheme("light", {
+		getInitialValueInEffect: false,
+	});
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(
 		{},
 	);
 
-	const isDark = colorScheme === "dark";
+	const isDark = computedColorScheme === "dark";
 	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
 	const border = isDark
 		? "var(--mantine-color-dark-6)"
@@ -485,6 +488,15 @@ export function Sidebar(props: SidebarProps) {
 						/>
 					))}
 				</Stack>
+
+				<SidebarAccountSection
+					border={border}
+					isDark={isDark}
+					textMuted={textMuted}
+					account={props.account}
+					textPrimary={textPrimary}
+					borderAccent={borderAccent}
+				/>
 			</Stack>
 		</Box>
 	);
