@@ -28,8 +28,8 @@ impl UserManagementQueryResolver {
         gql_ctx: &Context<'_>,
         query: Option<String>,
     ) -> Result<Vec<BasicUserDetails>> {
-        let service = self.dependency(gql_ctx);
-        Ok(user_data_operations::users_list(service, query).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(user_data_operations::users_list(&user_id, query, service).await?)
     }
 
     /// Get details about the currently logged in user.
