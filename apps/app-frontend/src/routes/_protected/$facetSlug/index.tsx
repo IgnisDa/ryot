@@ -67,7 +67,7 @@ function FacetHeader(props: { facet: AppFacet }) {
 						<FacetIcon icon={props.facet.icon} size={32} />
 					</Box>
 				)}
-				<Stack gap={4} flex={1}>
+				<Stack gap="xs" flex={1}>
 					<Title order={1}>{props.facet.name}</Title>
 					{props.facet.description && (
 						<Text c="dimmed" size="sm">
@@ -85,7 +85,7 @@ function FacetMetadata(props: { facet: AppFacet }) {
 		<>
 			{props.facet.isBuiltin && (
 				<Box>
-					<Text size="sm" fw={500} c="dimmed" mb={8}>
+					<Text size="sm" fw={500} c="dimmed" mb="xs">
 						TYPE
 					</Text>
 					<Text>Built-in</Text>
@@ -97,15 +97,10 @@ function FacetMetadata(props: { facet: AppFacet }) {
 
 function BuiltinFacetSchemaSection() {
 	return (
-		<Paper
-			p="lg"
-			withBorder
-			radius="md"
-			style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-		>
+		<Paper p="lg" withBorder radius="md" bg="gray.0">
 			<Stack gap="xs">
 				<Text fw={600}>
-					Schema management is only available for custom facets.
+					Schema management is only available for custom trackers.
 				</Text>
 				<Text c="dimmed" size="sm">
 					Built-in trackers use product-defined fields, so this page stays
@@ -276,7 +271,7 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 			<Paper p="lg" withBorder radius="md">
 				<Stack gap="sm">
 					<Text c="red" size="sm">
-						Failed to load schemas for this facet.
+						We couldn't load the schemas for this tracker. Please try again.
 					</Text>
 					<Group>
 						<Button
@@ -388,9 +383,9 @@ function RouteComponent() {
 		return (
 			<Container size="md" py={80}>
 				<Stack align="center" gap="lg">
-					<Title order={1}>Failed to load facet</Title>
+					<Title order={1}>Unable to load tracker</Title>
 					<Text c="dimmed" size="lg">
-						We could not load tracking facets right now.
+						We couldn't load your trackers right now. Please try again.
 					</Text>
 					<Button variant="light" onClick={() => facetsQuery.refetch()}>
 						Retry
@@ -403,9 +398,9 @@ function RouteComponent() {
 		return (
 			<Container size="md" py={80}>
 				<Stack align="center" gap="lg">
-					<Title order={1}>Facet not found</Title>
+					<Title order={1}>Tracker not found</Title>
 					<Text c="dimmed" size="lg">
-						The facet "{facetSlug}" does not exist or is not enabled.
+						The tracker "{facetSlug}" doesn't exist or isn't enabled yet.
 					</Text>
 				</Stack>
 			</Container>
