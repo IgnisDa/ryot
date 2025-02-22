@@ -5,6 +5,7 @@ export interface SidebarFacet {
 	name: string;
 	enabled: boolean;
 	sortOrder: number;
+	isBuiltin: boolean;
 	accentColor: string;
 	isExpanded?: boolean;
 	views?: SidebarView[];
@@ -21,9 +22,13 @@ export interface SidebarView {
 export interface SidebarProps {
 	views: SidebarView[];
 	facets: SidebarFacet[];
+	isMutationBusy?: boolean;
 	isCustomizeMode: boolean;
+	onCreateFacet?: () => void;
 	onToggleCustomizeMode: () => void;
 	onSearch?: (query: string) => void;
+	onEditFacet?: (facetId: string) => void;
 	onToggleFacet?: (facetId: string) => void;
+	onToggleFacetEnabled?: (facetId: string) => void;
 	onReorderFacets: (facets: SidebarFacet[]) => void;
 }

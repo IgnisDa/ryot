@@ -31,7 +31,3 @@ export function toAppSavedView(raw: {
 		queryDefinition: raw.queryDefinition as SavedViewQueryDefinition,
 	};
 }
-
-export function getSavedViewsForFacet(views: AppSavedView[], facetId: string) {
-	return views.filter((view) => view.facetId === facetId);
-}
