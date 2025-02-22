@@ -17,5 +17,5 @@ export type DbClient = typeof db | DbTransaction;
 
 export const migrateDB = async () => {
 	await migrate(db, { migrationsFolder });
-	await seedInitialDatabase();
+	await seedInitialDatabase(db);
 };
