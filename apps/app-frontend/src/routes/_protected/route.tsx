@@ -1,6 +1,7 @@
 import { Box, Flex } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { Sidebar } from "#/components/sidebar/Sidebar";
+import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
 import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
 import { toSidebarData } from "#/components/sidebar/sidebar-data";
 import { FacetModal } from "#/features/facets/components/facet-modal";
@@ -10,6 +11,7 @@ import FacetSidebarProvider, {
 } from "#/features/facets/sidebar-context";
 import { useSavedViewsQuery } from "#/features/saved-views/hooks";
 import { useProtectedUser } from "#/hooks/protected-user";
+import { useIsMobileScreen } from "#/hooks/screen";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,
@@ -26,14 +28,36 @@ export const Route = createFileRoute("/_protected")({
 });
 
 function RouteComponent() {
+	const isMobile = useIsMobileScreen();
+	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
+		useDisclosure(false);
+
 	return (
 		<FacetSidebarProvider>
-			<Flex gap={0} h="100vh">
-				<ProtectedSidebar />
+			<Flex gap={0} h="100vh" direction="column">
+				{isMobile && (
+					<Box
+						p="md"
+						style={{
+							borderBottom: "1px solid var(--mantine-color-dark-6)",
+							backgroundColor: "var(--mantine-color-dark-8)",
+						}}
+					>
+						<MobileSidebarBurger opened={drawerOpened} onClick={openDrawer} />
+					</Box>
+				)}
 
-				<Box flex={1} p={16} style={{ overflowY: "auto" }}>
-					<Outlet />
-				</Box>
+				<Flex gap={0} style={{ flex: 1, overflow: "hidden" }}>
+					<ProtectedSidebar
+						onOpenDrawer={openDrawer}
+						onCloseDrawer={closeDrawer}
+						drawerOpened={drawerOpened}
+					/>
+
+					<Box flex={1} p={16} style={{ overflowY: "auto" }}>
+						<Outlet />
+					</Box>
+				</Flex>
 			</Flex>
 
 			<FacetModal />
@@ -41,7 +65,11 @@ function RouteComponent() {
 	);
 }
 
-function ProtectedSidebar() {
+function ProtectedSidebar(props: {
+	drawerOpened: boolean;
+	onOpenDrawer: () => void;
+	onCloseDrawer: () => void;
+}) {
 	const user = useProtectedUser();
 	const state = useFacetSidebarState();
 	const actions = useFacetSidebarActions();
@@ -56,6 +84,9 @@ function ProtectedSidebar() {
 		<Sidebar
 			views={sidebarData.views}
 			facets={sidebarData.facets}
+			drawerOpened={props.drawerOpened}
+			onOpenDrawer={props.onOpenDrawer}
+			onCloseDrawer={props.onCloseDrawer}
 			onEditFacet={actions.openEditModal}
 			isMutationBusy={state.isMutationBusy}
 			account={toSidebarAccount(user)}

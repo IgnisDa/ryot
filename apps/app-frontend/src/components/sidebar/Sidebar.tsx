@@ -8,6 +8,8 @@ import { CSS } from "@dnd-kit/utilities";
 import {
 	ActionIcon,
 	Box,
+	Burger,
+	Drawer,
 	Group,
 	NavLink,
 	rgba,
@@ -30,6 +32,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
+import { useIsMobileScreen } from "#/hooks/screen";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
 import { SidebarAccountSection } from "./SidebarAccountSection";
 
@@ -58,6 +61,7 @@ function SortableFacet(props: {
 	isCustomizeMode: boolean;
 	onEditFacet?: (facetId: string) => void;
 	onToggleFacet: (facetId: string) => void;
+	onNavLinkClick: () => void;
 	onToggleFacetEnabled?: (facetId: string) => void;
 }) {
 	const color = getFacetColor(props.facet);
@@ -175,6 +179,7 @@ function SortableFacet(props: {
 						key={view.id}
 						component={Link}
 						label={view.name}
+						onClick={props.onNavLinkClick}
 						leftSection={<ViewIcon view={view} />}
 						to={`/tracking/random-slug/views/${view.id}`}
 						styles={{
@@ -196,6 +201,7 @@ function SortableFacet(props: {
 }
 
 export function Sidebar(props: SidebarProps) {
+	const isMobile = useIsMobileScreen();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const computedColorScheme = useComputedColorScheme("light", {
 		getInitialValueInEffect: false,
@@ -256,118 +262,183 @@ export function Sidebar(props: SidebarProps) {
 		props.onReorderFacets(nextFacets);
 	};
 
-	return (
-		<Box
-			w={300}
-			h="100vh"
-			bg={surface}
-			style={{
-				flexShrink: 0,
-				display: "flex",
-				flexDirection: "column",
-				borderRight: `1px solid ${border}`,
-			}}
-		>
-			<Stack gap={0} h="100%">
-				<Box ref={ref} p="xl" pb="lg">
-					<Group align="flex-start" justify="space-between" mb={4}>
-						<Group gap="sm">
-							<Box
-								w={32}
-								h={32}
-								style={{
-									display: "grid",
-									borderRadius: 6,
-									placeItems: "center",
-									background:
-										"linear-gradient(135deg, #D4A574 0%, #C4963C 100%)",
-								}}
-							>
-								<Text
-									c="white"
-									fw={700}
-									size="md"
-									ff="var(--mantine-headings-font-family)"
-								>
-									R
-								</Text>
-							</Box>
-							<Text
-								fw={600}
-								size="xl"
-								c={textPrimary}
-								ff="var(--mantine-headings-font-family)"
-							>
-								Ryot
-							</Text>
-						</Group>
+	const handleNavLinkClick = () => {
+		if (isMobile) props.onCloseDrawer?.();
+	};
 
-						<ActionIcon
-							variant="subtle"
-							onClick={props.onToggleCustomizeMode}
-							opacity={hovered || props.isCustomizeMode ? 1 : 0}
-							color={props.isCustomizeMode ? "accent.5" : undefined}
-							styles={{
-								root: {
-									transition: "opacity 120ms ease",
-									color: props.isCustomizeMode ? borderAccent : textMuted,
-									pointerEvents:
-										hovered || props.isCustomizeMode ? "auto" : "none",
-								},
+	const sidebarContent = (
+		<Stack gap={0} h="100%">
+			<Box ref={ref} p="xl" pb="lg">
+				<Group align="flex-start" justify="space-between" mb={4}>
+					<Group gap="sm">
+						<Box
+							w={32}
+							h={32}
+							style={{
+								display: "grid",
+								borderRadius: 6,
+								placeItems: "center",
+								background: "linear-gradient(135deg, #D4A574 0%, #C4963C 100%)",
 							}}
 						>
-							<Settings size={18} />
-						</ActionIcon>
+							<Text
+								c="white"
+								fw={700}
+								size="md"
+								ff="var(--mantine-headings-font-family)"
+							>
+								R
+							</Text>
+						</Box>
+						<Text
+							fw={600}
+							size="xl"
+							c={textPrimary}
+							ff="var(--mantine-headings-font-family)"
+						>
+							Ryot
+						</Text>
 					</Group>
 
-					<Text size="xs" c={textMuted} style={{ letterSpacing: "0.3px" }}>
-						A journal of personal tracking
-					</Text>
-				</Box>
-
-				<Box pb="md" px="lg">
-					<TextInput
-						size="sm"
-						value={searchQuery}
-						placeholder="Search..."
-						leftSection={<Search color={borderAccent} size={16} />}
-						onChange={(event) => handleSearchChange(event.currentTarget.value)}
+					<ActionIcon
+						variant="subtle"
+						onClick={props.onToggleCustomizeMode}
+						opacity={hovered || props.isCustomizeMode ? 1 : 0}
+						color={props.isCustomizeMode ? "accent.5" : undefined}
 						styles={{
-							input: {
-								fontWeight: 400,
-								fontSize: "13px",
-								border: `1px solid ${border}`,
-								backgroundColor: isDark
-									? "var(--mantine-color-dark-7)"
-									: "var(--mantine-color-stone-1)",
-								"&:focus": {
-									borderColor: borderAccent,
-									boxShadow: "0 0 0 2px rgba(212, 165, 116, 0.15)",
-								},
-								"&::placeholder": {
-									color: isDark
-										? "var(--mantine-color-dark-4)"
-										: "var(--mantine-color-stone-4)",
-								},
+							root: {
+								transition: "opacity 120ms ease",
+								color: props.isCustomizeMode ? borderAccent : textMuted,
+								pointerEvents:
+									hovered || props.isCustomizeMode ? "auto" : "none",
 							},
 						}}
-					/>
+					>
+						<Settings size={18} />
+					</ActionIcon>
+				</Group>
+
+				<Text size="xs" c={textMuted} style={{ letterSpacing: "0.3px" }}>
+					A journal of personal tracking
+				</Text>
+			</Box>
+
+			<Box pb="md" px="lg">
+				<TextInput
+					size="sm"
+					value={searchQuery}
+					placeholder="Search..."
+					leftSection={<Search color={borderAccent} size={16} />}
+					onChange={(event) => handleSearchChange(event.currentTarget.value)}
+					styles={{
+						input: {
+							fontWeight: 400,
+							fontSize: "13px",
+							border: `1px solid ${border}`,
+							backgroundColor: isDark
+								? "var(--mantine-color-dark-7)"
+								: "var(--mantine-color-stone-1)",
+							"&:focus": {
+								borderColor: borderAccent,
+								boxShadow: "0 0 0 2px rgba(212, 165, 116, 0.15)",
+							},
+							"&::placeholder": {
+								color: isDark
+									? "var(--mantine-color-dark-4)"
+									: "var(--mantine-color-stone-4)",
+							},
+						},
+					}}
+				/>
+			</Box>
+
+			<Box h={1} mx="lg" style={{ backgroundColor: border }} />
+
+			<Stack gap={0} px="sm" py="md" style={{ flex: 1, overflowY: "auto" }}>
+				<NavLink
+					to="/"
+					label="Home"
+					color="accent.5"
+					variant="subtle"
+					component={Link}
+					onClick={handleNavLinkClick}
+					leftSection={<Home color={borderAccent} size={18} />}
+					styles={{
+						label: { fontWeight: 500, fontSize: "14px" },
+						root: {
+							padding: "10px 14px",
+							borderLeft: "2px solid transparent",
+							"&:hover": {
+								borderLeftColor: borderAccent,
+								backgroundColor: "rgba(212, 165, 116, 0.06)",
+							},
+						},
+					}}
+				/>
+
+				<Box mb="sm" mt="xl">
+					<Box
+						px="md"
+						py="xs"
+						style={{ borderLeft: `2px solid ${borderAccent}` }}
+					>
+						<Text
+							fw={600}
+							size="xs"
+							c={textMuted}
+							ff="var(--mantine-headings-font-family)"
+							style={{ letterSpacing: "1px", textTransform: "uppercase" }}
+						>
+							Facets
+						</Text>
+					</Box>
 				</Box>
 
-				<Box h={1} mx="lg" style={{ backgroundColor: border }} />
+				<DndContext
+					onDragEnd={handleDragEnd}
+					collisionDetection={closestCenter}
+				>
+					<SortableContext
+						strategy={verticalListSortingStrategy}
+						items={props.facets.map((facet) => facet.id)}
+					>
+						{props.facets.map((facet) => {
+							const isExpanded =
+								expandedFacets[facet.id] ?? facet.isExpanded ?? false;
 
-				<Stack gap={0} px="sm" py="md" style={{ flex: 1, overflowY: "auto" }}>
+							return (
+								<SortableFacet
+									facet={facet}
+									key={facet.id}
+									isDark={isDark}
+									isExpanded={isExpanded}
+									textPrimary={textPrimary}
+									textSecondary={textSecondary}
+									onEditFacet={props.onEditFacet}
+									onToggleFacet={handleToggleFacet}
+									onNavLinkClick={handleNavLinkClick}
+									isCustomizeMode={props.isCustomizeMode}
+									isMutationBusy={props.isMutationBusy ?? false}
+									onToggleFacetEnabled={props.onToggleFacetEnabled}
+								/>
+							);
+						})}
+					</SortableContext>
+				</DndContext>
+
+				{props.isCustomizeMode && (
 					<NavLink
-						to="/"
-						label="Home"
-						color="accent.5"
-						variant="subtle"
-						component={Link}
-						leftSection={<Home color={borderAccent} size={18} />}
+						label="Add tracker"
+						onClick={props.onCreateFacet}
+						leftSection={<Plus color={borderAccent} size={16} />}
 						styles={{
-							label: { fontWeight: 500, fontSize: "14px" },
+							label: {
+								fontSize: "13px",
+								fontWeight: 500,
+								color: textPrimary,
+							},
 							root: {
-								padding: "10px 14px",
+								padding: "8px 14px",
 								borderLeft: "2px solid transparent",
 								"&:hover": {
 									borderLeftColor: borderAccent,
@@ -376,128 +447,122 @@ export function Sidebar(props: SidebarProps) {
 							},
 						}}
 					/>
+				)}
 
-					<Box mb="sm" mt="xl">
-						<Box
-							px="md"
-							py="xs"
-							style={{ borderLeft: `2px solid ${borderAccent}` }}
+				<Box mb="sm" mt="xl">
+					<Box px="md" py="xs" style={{ borderLeft: `2px solid ${border}` }}>
+						<Text
+							fw={600}
+							size="xs"
+							c={textMuted}
+							ff="var(--mantine-headings-font-family)"
+							style={{ letterSpacing: "1px", textTransform: "uppercase" }}
 						>
-							<Text
-								fw={600}
-								size="xs"
-								c={textMuted}
-								ff="var(--mantine-headings-font-family)"
-								style={{ letterSpacing: "1px", textTransform: "uppercase" }}
-							>
-								Facets
-							</Text>
-						</Box>
+							Views
+						</Text>
 					</Box>
+				</Box>
 
-					<DndContext
-						onDragEnd={handleDragEnd}
-						collisionDetection={closestCenter}
-					>
-						<SortableContext
-							strategy={verticalListSortingStrategy}
-							items={props.facets.map((facet) => facet.id)}
-						>
-							{props.facets.map((facet) => {
-								const isExpanded =
-									expandedFacets[facet.id] ?? facet.isExpanded ?? false;
-
-								return (
-									<SortableFacet
-										facet={facet}
-										key={facet.id}
-										isDark={isDark}
-										isExpanded={isExpanded}
-										textPrimary={textPrimary}
-										textSecondary={textSecondary}
-										onEditFacet={props.onEditFacet}
-										onToggleFacet={handleToggleFacet}
-										isCustomizeMode={props.isCustomizeMode}
-										isMutationBusy={props.isMutationBusy ?? false}
-										onToggleFacetEnabled={props.onToggleFacetEnabled}
-									/>
-								);
-							})}
-						</SortableContext>
-					</DndContext>
-
-					{props.isCustomizeMode && (
-						<NavLink
-							label="Add tracker"
-							onClick={props.onCreateFacet}
-							leftSection={<Plus color={borderAccent} size={16} />}
-							styles={{
-								label: {
-									fontSize: "13px",
-									fontWeight: 500,
-									color: textPrimary,
+				{props.views.map((view) => (
+					<NavLink
+						key={view.id}
+						label={view.name}
+						component={Link}
+						onClick={handleNavLinkClick}
+						leftSection={<ViewIcon view={view} />}
+						to={`/tracking/random-slug/views/${view.id}`}
+						styles={{
+							label: {
+								fontSize: "13px",
+								fontWeight: 400,
+								color: textSecondary,
+							},
+							root: {
+								padding: "8px 14px",
+								borderLeft: "2px solid transparent",
+								"&:hover": {
+									borderLeftColor: borderAccent,
+									backgroundColor: "rgba(212, 165, 116, 0.06)",
 								},
-								root: {
-									padding: "8px 14px",
-									borderLeft: "2px solid transparent",
-									"&:hover": {
-										borderLeftColor: borderAccent,
-										backgroundColor: "rgba(212, 165, 116, 0.06)",
-									},
-								},
-							}}
-						/>
-					)}
-
-					<Box mb="sm" mt="xl">
-						<Box px="md" py="xs" style={{ borderLeft: `2px solid ${border}` }}>
-							<Text
-								fw={600}
-								size="xs"
-								c={textMuted}
-								ff="var(--mantine-headings-font-family)"
-								style={{ letterSpacing: "1px", textTransform: "uppercase" }}
-							>
-								Views
-							</Text>
-						</Box>
-					</Box>
-
-					{props.views.map((view) => (
-						<NavLink
-							key={view.id}
-							label={view.name}
-							component={Link}
-							leftSection={<ViewIcon view={view} />}
-							to={`/tracking/random-slug/views/${view.id}`}
-							styles={{
-								label: {
-									fontSize: "13px",
-									fontWeight: 400,
-									color: textSecondary,
-								},
-								root: {
-									padding: "8px 14px",
-									borderLeft: "2px solid transparent",
-									"&:hover": {
-										borderLeftColor: borderAccent,
-										backgroundColor: "rgba(212, 165, 116, 0.06)",
-									},
-								},
-							}}
-						/>
-					))}
-				</Stack>
-
-				<SidebarAccountSection
-					border={border}
-					isDark={isDark}
-					textMuted={textMuted}
-					account={props.account}
-					textPrimary={textPrimary}
-					borderAccent={borderAccent}
-				/>
+							},
+						}}
+					/>
+				))}
 			</Stack>
-		</Box>
+
+			<SidebarAccountSection
+				border={border}
+				isDark={isDark}
+				textMuted={textMuted}
+				account={props.account}
+				textPrimary={textPrimary}
+				borderAccent={borderAccent}
+			/>
+		</Stack>
+	);
+
+	return (
+		<>
+			{isMobile && (
+				<Drawer
+					size={300}
+					padding={0}
+					withCloseButton={false}
+					opened={props.drawerOpened ?? false}
+					onClose={() => props.onCloseDrawer?.()}
+					styles={{
+						body: {
+							height: "100%",
+							backgroundColor: isDark ? "var(--mantine-color-dark-8)" : "white",
+						},
+						content: {
+							backgroundColor: isDark ? "var(--mantine-color-dark-8)" : "white",
+						},
+					}}
+				>
+					{sidebarContent}
+				</Drawer>
+			)}
+
+			{!isMobile && (
+				<Box
+					w={300}
+					h="100vh"
+					bg={surface}
+					style={{
+						flexShrink: 0,
+						display: "flex",
+						flexDirection: "column",
+						borderRight: `1px solid ${border}`,
+					}}
+				>
+					{sidebarContent}
+				</Box>
+			)}
+		</>
+	);
+}
+
+export function MobileSidebarBurger(props: {
+	opened: boolean;
+	onClick: () => void;
+}) {
+	const isMobile = useIsMobileScreen();
+	const computedColorScheme = useComputedColorScheme("light", {
+		getInitialValueInEffect: false,
+	});
+	const isDark = computedColorScheme === "dark";
+
+	if (!isMobile) return null;
+
+	return (
+		<Burger
+		size="sm"
+			opened={props.opened}
+			onClick={props.onClick}
+			color={
+				isDark ? "var(--mantine-color-dark-1)" : "var(--mantine-color-dark-7)"
+			}
+		/>
 	);
 }
