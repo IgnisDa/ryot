@@ -10,8 +10,9 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure, useHover } from "@mantine/hooks";
-import { Laptop, Moon, Sparkles, Sun } from "lucide-react";
+import { Laptop, Moon, Sun } from "lucide-react";
 import type { SidebarAccount } from "./Sidebar.types";
+import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
 import {
 	formatSidebarAccountDate,
 	getSidebarAccountInitials,
@@ -195,6 +196,13 @@ export function SidebarAccountSection(props: {
 						</Stack>
 					</Box>
 
+					<SidebarApiKeysSection
+						opened={opened}
+						border={props.border}
+						isDark={props.isDark}
+						textMuted={props.textMuted}
+					/>
+
 					<Group grow>
 						<Box
 							p="md"
@@ -221,30 +229,6 @@ export function SidebarAccountSection(props: {
 							/>
 						</Box>
 					</Group>
-
-					<Box
-						p="md"
-						style={{
-							borderRadius: "14px",
-							border: `1px dashed ${props.border}`,
-							background: props.isDark
-								? "rgba(212, 165, 116, 0.05)"
-								: "rgba(212, 165, 116, 0.06)",
-						}}
-					>
-						<Group gap="xs" mb="xs" wrap="nowrap">
-							<Sparkles color="var(--mantine-color-accent-5)" size={16} />
-							<Text fw={600} size="sm" ff="var(--mantine-headings-font-family)">
-								Account Notes
-							</Text>
-						</Group>
-						<Text c={props.textMuted} size="sm" lh={1.6}>
-							This panel is already wired to your authenticated route user.
-							Security controls, API key management, and export actions can grow
-							here later without changing how other protected components access
-							account data.
-						</Text>
-					</Box>
 				</Stack>
 			</Modal>
 		</>
