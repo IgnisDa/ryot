@@ -22,7 +22,7 @@ import {
 } from "~/lib/zod/media/book";
 import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
 
-export const builtinFacets = () => [
+export const builtinTrackers = () => [
 	{
 		icon: "film",
 		slug: "media",
@@ -57,7 +57,7 @@ export const builtinEntitySchemas = () => [
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
-		facetSlug: "media",
+		trackerSlug: "media",
 		accentColor: "#5B7FFF",
 		eventSchemas: bookEventSchemas(),
 		propertiesSchema: bookPropertiesJsonSchema,
@@ -67,7 +67,7 @@ export const builtinEntitySchemas = () => [
 		slug: "anime",
 		name: "Anime",
 		eventSchemas: [],
-		facetSlug: "media",
+		trackerSlug: "media",
 		accentColor: "#FB7185",
 		propertiesSchema: animePropertiesJsonSchema,
 	},
@@ -75,7 +75,7 @@ export const builtinEntitySchemas = () => [
 		slug: "manga",
 		name: "Manga",
 		icon: "book",
-		facetSlug: "media",
+		trackerSlug: "media",
 		accentColor: "#A78BFA",
 		eventSchemas: [],
 		propertiesSchema: mangaPropertiesJsonSchema,
@@ -85,17 +85,17 @@ export const builtinEntitySchemas = () => [
 export const builtinSavedViews = () => [
 	{
 		name: "All Books",
-		facetSlug: "media",
+		trackerSlug: "media",
 		entitySchemaSlug: "book",
 	},
 	{
 		name: "All Animes",
-		facetSlug: "media",
+		trackerSlug: "media",
 		entitySchemaSlug: "anime",
 	},
 	{
 		name: "All Mangas",
-		facetSlug: "media",
+		trackerSlug: "media",
 		entitySchemaSlug: "manga",
 	},
 ];
