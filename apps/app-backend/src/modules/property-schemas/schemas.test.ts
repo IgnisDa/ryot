@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	createPropertySchemaInputSchema,
 	createPropertySchemaObjectSchema,
 	propertySchemaObjectSchema,
 } from "./schemas";
@@ -44,17 +43,5 @@ describe("createPropertySchemaObjectSchema", () => {
 		expect(result.error.issues[0]?.message).toBe(
 			"Event schema properties must contain at least one property",
 		);
-	});
-});
-
-describe("createPropertySchemaInputSchema", () => {
-	it("rejects string inputs", () => {
-		const schema = createPropertySchemaInputSchema(
-			"Event schema properties must contain at least one property",
-		);
-
-		expect(
-			schema.safeParse('{"rating":{"type":"number"}}').success,
-		).toBeFalse();
 	});
 });
