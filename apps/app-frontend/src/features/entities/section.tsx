@@ -56,7 +56,7 @@ function EntityList(props: {
 								</Text>
 							</Stack>
 							<Link
-								to="/$trackerSlug/entities/$entityId"
+								to="/$trackerSlug/$entityId"
 								params={{ entityId: entity.id, trackerSlug: props.trackerSlug }}
 							>
 								<Anchor component="span" size="sm">

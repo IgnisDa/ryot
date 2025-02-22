@@ -21,9 +21,7 @@ import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import { EntityEventsSection } from "#/features/events/section";
 import { useTrackersQuery } from "#/features/trackers/hooks";
 
-export const Route = createFileRoute(
-	"/_protected/$trackerSlug/entities/$entityId",
-)({
+export const Route = createFileRoute("/_protected/$trackerSlug/$entityId")({
 	component: RouteComponent,
 });
 
