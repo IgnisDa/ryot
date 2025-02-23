@@ -94,11 +94,37 @@ describe("authentication bootstrap helpers", () => {
 		]);
 	});
 
+	it("builds built-in saved views without trackers", () => {
+		expect(
+			buildAuthenticationSavedViewInputs({
+				entitySchemas: [],
+				trackers: [{ id: "tracker-1", slug: "media" }],
+				savedViews: [
+					{
+						icon: "folders",
+						name: "Collections",
+						accentColor: "#F59E0B",
+						queryDefinition: { entitySchemaIds: [] },
+					},
+				],
+			}),
+		).toEqual([
+			{
+				isBuiltin: true,
+				icon: "folders",
+				name: "Collections",
+				trackerId: undefined,
+				accentColor: "#F59E0B",
+				queryDefinition: { entitySchemaIds: [] },
+			},
+		]);
+	});
+
 	it("throws when a saved view references a missing built-in entity schema", () => {
 		expect(() =>
 			buildAuthenticationSavedViewInputs({
-				trackers: [{ id: "tracker-1", slug: "media" }],
 				entitySchemas: [],
+				trackers: [{ id: "tracker-1", slug: "media" }],
 				savedViews: [
 					{
 						name: "All Books",
