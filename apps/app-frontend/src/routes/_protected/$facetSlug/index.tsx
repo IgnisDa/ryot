@@ -76,15 +76,6 @@ function FacetHeader(props: { facet: AppFacet }) {
 function FacetMetadata(props: { facet: AppFacet }) {
 	return (
 		<>
-			{props.facet.mode && (
-				<Box>
-					<Text size="sm" fw={500} c="dimmed" mb={8}>
-						MODE
-					</Text>
-					<Text>{props.facet.mode}</Text>
-				</Box>
-			)}
-
 			{props.facet.isBuiltin && (
 				<Box>
 					<Text size="sm" fw={500} c="dimmed" mb={8}>
