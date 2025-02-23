@@ -35,7 +35,6 @@ function SchemaSearchPage() {
 	const navigate = Route.useNavigate();
 	const [page, setPage] = useState(1);
 	const [query, setQuery] = useState("harry potter");
-	const [schemaSlug, setSchemaSlug] = useState("book");
 	const [searchScriptSlug, setSearchScriptSlug] = useState(
 		openLibrarySearchScriptSlug,
 	);
@@ -44,7 +43,6 @@ function SchemaSearchPage() {
 	);
 
 	const trimmedQuery = query.trim();
-	const trimmedSchemaSlug = schemaSlug.trim();
 
 	useEffect(() => {
 		void authClient.signIn.anonymous();
@@ -54,25 +52,18 @@ function SchemaSearchPage() {
 		refetchOnMount: false,
 		refetchOnReconnect: false,
 		refetchOnWindowFocus: false,
-		enabled: Boolean(trimmedSchemaSlug) && Boolean(trimmedQuery),
-		queryKey: [
-			"entity-schema-search",
-			trimmedSchemaSlug,
-			trimmedQuery,
-			searchScriptSlug,
-			page,
-		],
+		enabled: Boolean(trimmedQuery),
+		queryKey: ["entity-schema-search", trimmedQuery, searchScriptSlug, page],
 		queryFn: async () => {
-			const response = await apiClient.protected["entity-schemas"][
-				":schemaSlug"
-			].search.$post({
-				json: {
-					page,
-					query: trimmedQuery,
-					search_script_slug: searchScriptSlug,
+			const response = await apiClient.protected["entity-schemas"].search.$post(
+				{
+					json: {
+						page,
+						query: trimmedQuery,
+						search_script_slug: searchScriptSlug,
+					},
 				},
-				param: { schemaSlug: trimmedSchemaSlug },
-			});
+			);
 
 			const payload = await response.json();
 			if ("error" in payload) throw new Error(payload.error);
@@ -88,14 +79,11 @@ function SchemaSearchPage() {
 
 	const importEntityRequest = useMutation({
 		mutationFn: async (identifier: string) => {
-			if (!trimmedSchemaSlug) throw new Error("Schema slug is required");
-
-			const response = await apiClient.protected["entity-schemas"][
-				":schemaSlug"
-			].import.$post({
-				json: { identifier },
-				param: { schemaSlug: trimmedSchemaSlug },
-			});
+			const response = await apiClient.protected["entity-schemas"].import.$post(
+				{
+					json: { identifier, search_script_slug: searchScriptSlug },
+				},
+			);
 
 			const payload = await response.json();
 
@@ -146,18 +134,13 @@ function SchemaSearchPage() {
 					<Stack gap={4}>
 						<Title order={2}>Entity Schema Search</Title>
 						<Text c="dimmed">
-							Runs `/api/protected/entity-schemas/:schemaSlug/search` and
-							returns results directly. Use the source picker below to switch
-							between OpenLibrary and Google Books.
+							Runs `/api/protected/entity-schemas/search` and returns results
+							directly. Use the source picker below to switch between
+							OpenLibrary and Google Books.
 						</Text>
 					</Stack>
 
 					<Group grow align="start">
-						<TextInput
-							value={schemaSlug}
-							label="Schema slug"
-							onChange={(event) => setSchemaSlug(event.currentTarget.value)}
-						/>
 						<TextInput
 							label="Query"
 							value={query}
