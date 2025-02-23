@@ -25,7 +25,9 @@ export const schemaImportResponse = z
 	.object({
 		name: z.string(),
 		properties: bookPropertiesSchema,
-		external_ids: z.object({ openlibrary_work: z.string() }).strict(),
+		external_ids: z
+			.record(z.string().trim().min(1), z.string().trim().min(1))
+			.refine((value) => Object.keys(value).length > 0),
 	})
 	.strict();
 
