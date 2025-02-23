@@ -56,7 +56,7 @@ async function refreshUpdatedTracker(userId: string, trackerId: string) {
 
 const listTrackersRoute = createAuthRoute(
 	createRoute({
-		path: "/list",
+		path: "",
 		method: "get",
 		tags: ["trackers"],
 		summary: "List trackers available for the user",
@@ -71,8 +71,8 @@ const listTrackersRoute = createAuthRoute(
 
 const createTrackerRoute = createAuthRoute(
 	createRoute({
+		path: "/",
 		method: "post",
-		path: "/create",
 		tags: ["trackers"],
 		summary: "Create and enable a custom tracker",
 		request: {
