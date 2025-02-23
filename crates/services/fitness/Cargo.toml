@@ -7,7 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 const-str = { workspace = true }
 futures = { workspace = true }
-nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
