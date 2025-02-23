@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema } from "~/lib/db/schema";
+import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
 import type { EntityPropertiesShape } from "./service";
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
@@ -10,6 +10,7 @@ const entitySchemaVisibleToUserClause = (userId: string) => {
 const entitySelection = {
 	id: entity.id,
 	name: entity.name,
+	image: entity.image,
 	createdAt: entity.createdAt,
 	updatedAt: entity.updatedAt,
 	externalId: entity.externalId,
@@ -102,6 +103,7 @@ export const createEntityForUser = async (input: {
 	name: string;
 	userId: string;
 	entitySchemaId: string;
+	image: ImageSchemaType | null;
 	properties: EntityPropertiesShape;
 }) => {
 	const [createdEntity] = await db
@@ -109,6 +111,7 @@ export const createEntityForUser = async (input: {
 		.values({
 			name: input.name,
 			externalId: null,
+			image: input.image,
 			userId: input.userId,
 			properties: input.properties,
 			detailsSandboxScriptId: null,

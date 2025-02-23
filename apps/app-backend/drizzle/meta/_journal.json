@@ -22,6 +22,13 @@
 			"when": 1773343501744,
 			"tag": "0002_overconfident_dark_beast",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1773422654412,
+			"tag": "0003_illegal_lake",
+			"breakpoints": true
 		}
 	]
 }

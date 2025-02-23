@@ -11,6 +11,8 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
+import { z } from "zod";
+import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 import { user } from "./auth";
 
 const tsvector = customType<{ data: string }>({
@@ -21,6 +23,19 @@ export enum EntitySchemaSandboxScriptKind {
 	search = "search",
 	details = "details",
 }
+
+export const ImageSchema = z.discriminatedUnion("kind", [
+	z.object({
+		url: z.url(),
+		kind: z.literal("remote"),
+	}),
+	z.object({
+		kind: z.literal("s3"),
+		key: nonEmptyTrimmedStringSchema,
+	}),
+]);
+
+export type ImageSchemaType = z.infer<typeof ImageSchema>;
 
 export const facet = pgTable(
 	"facet",
@@ -205,6 +220,7 @@ export const entity = pgTable(
 	{
 		externalId: text(),
 		name: text().notNull(),
+		image: jsonb().$type<ImageSchemaType>(),
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
