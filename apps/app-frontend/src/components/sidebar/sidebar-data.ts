@@ -13,6 +13,7 @@ export function toSidebarData(input: {
 	const visibleFacets = input.isCustomizeMode
 		? sortFacetsByOrder(input.facets)
 		: sortFacetsByOrder(input.facets).filter((facet) => facet.enabled);
+	const facetById = new Map(visibleFacets.map((facet) => [facet.id, facet]));
 	const facets = visibleFacets.map((facet) => ({
 		id: facet.id,
 		name: facet.name,
@@ -28,6 +29,7 @@ export function toSidebarData(input: {
 				id: view.id,
 				icon: view.icon,
 				name: view.name,
+				facetSlug: facet.slug,
 				facetId: view.facetId,
 				accentColor: view.accentColor,
 			})),
@@ -38,6 +40,9 @@ export function toSidebarData(input: {
 			id: view.id,
 			icon: view.icon,
 			name: view.name,
+			facetSlug: view.facetId
+				? (facetById.get(view.facetId)?.slug ?? null)
+				: null,
 			facetId: view.facetId,
 			accentColor: view.accentColor,
 		}));

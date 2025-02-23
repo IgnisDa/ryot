@@ -24,6 +24,7 @@ export interface SidebarView {
 	name: string;
 	accentColor: string;
 	facetId: string | null;
+	facetSlug: string | null;
 }
 
 export interface SidebarProps {
