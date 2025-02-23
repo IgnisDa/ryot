@@ -11,7 +11,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { redis } from "~/lib/redis";
-import { getMetricsAsText, initializeMetrics } from "./service";
+import { getMetricsAsText } from "./service";
 
 const healthResponseSchema = dataSchema(
 	z.object({
@@ -75,7 +75,6 @@ export const systemApi = new OpenAPIHono()
 		return c.json(successResponse({ status: "healthy" as const }), 200);
 	})
 	.openapi(metricsRoute, async (c) => {
-		initializeMetrics();
 		const metricsText = await getMetricsAsText();
 		return c.text(metricsText, 200, {
 			"Content-Type": "text/plain; charset=utf-8",
