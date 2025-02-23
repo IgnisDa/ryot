@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
 import {
+	applicationIconNameSchema,
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
 	nullableStringSchema,
@@ -13,7 +14,7 @@ export const listedTrackerSchema = z.object({
 	config: z.unknown(),
 	enabled: z.boolean(),
 	isBuiltin: z.boolean(),
-	icon: nonEmptyTrimmedStringSchema,
+	icon: applicationIconNameSchema,
 	description: nullableStringSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	sortOrder: z.number().int().nonnegative(),
@@ -25,7 +26,7 @@ export const listTrackersResponseSchema = dataSchema(
 );
 
 export const createTrackerBody = createNameWithOptionalSlugSchema({
-	icon: nonEmptyTrimmedStringSchema,
+	icon: applicationIconNameSchema,
 	accentColor: nonEmptyTrimmedStringSchema,
 	description: nonEmptyTrimmedStringSchema.optional(),
 });
@@ -39,7 +40,7 @@ export const updateTrackerBody = z
 		enabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
 		accentColor: nonEmptyTrimmedStringSchema.optional(),
-		icon: nonEmptyTrimmedStringSchema.optional(),
+		icon: applicationIconNameSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
 		slug: nonEmptyTrimmedStringSchema.optional(),
 	})
