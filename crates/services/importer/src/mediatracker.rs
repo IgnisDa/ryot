@@ -122,34 +122,6 @@ struct ItemDetails {
     goodreads_id: Option<i32>,
 }
 
-fn get_identifier_and_source(
-    media_type: &MediaType,
-    details: &ItemDetails,
-    lot: MediaLot,
-) -> Result<(String, MediaSource), ImportFailedItem> {
-    match media_type {
-        MediaType::Book => {
-            if let Some(_g_id) = details.goodreads_id {
-                Err(ImportFailedItem {
-                    lot: Some(lot),
-                    step: ImportFailStep::ItemDetailsFromSource,
-                    identifier: details.id.to_string(),
-                    error: Some("Goodreads ID not supported".to_string()),
-                })
-            } else {
-                Ok((
-                    get_key(&details.openlibrary_id.clone().unwrap()),
-                    MediaSource::Openlibrary,
-                ))
-            }
-        }
-        MediaType::Movie => Ok((details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb)),
-        MediaType::Tv => Ok((details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb)),
-        MediaType::VideoGame => Ok((details.igdb_id.unwrap().to_string(), MediaSource::Igdb)),
-        MediaType::Audiobook => Ok((details.audible_id.clone().unwrap(), MediaSource::Audible)),
-    }
-}
-
 async fn get_item_details_with_source(
     client: &reqwest::Client,
     url: &str,
@@ -189,13 +161,29 @@ async fn get_item_details_with_source(
             return Err(());
         }
     };
-    match get_identifier_and_source(media_type, &details, lot) {
-        Ok((identifier, source)) => Ok((details, identifier, source, lot)),
-        Err(e) => {
-            failed.push(e);
-            Err(())
+    let (identifier, source) = match media_type {
+        MediaType::Book => {
+            if let Some(_g_id) = details.goodreads_id {
+                failed.push(ImportFailedItem {
+                    lot: Some(lot),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: details.id.to_string(),
+                    error: Some("Goodreads ID not supported".to_string()),
+                });
+                return Err(());
+            } else {
+                (
+                    get_key(&details.openlibrary_id.clone().unwrap()),
+                    MediaSource::Openlibrary,
+                )
+            }
         }
-    }
+        MediaType::Movie => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+        MediaType::Tv => (details.tmdb_id.unwrap().to_string(), MediaSource::Tmdb),
+        MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MediaSource::Igdb),
+        MediaType::Audiobook => (details.audible_id.clone().unwrap(), MediaSource::Audible),
+    };
+    Ok((details, identifier, source, lot))
 }
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
