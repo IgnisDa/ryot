@@ -264,7 +264,7 @@ export const ExerciseHistory = (props: {
 		<Paper
 			p="xs"
 			withBorder
-			id={props.exerciseIdx.toString()}
+			id={`exercise-history-${props.exerciseIdx}`}
 			style={{
 				borderLeftWidth: isInSuperset ? "3px" : undefined,
 				borderLeftColor: isInSuperset
