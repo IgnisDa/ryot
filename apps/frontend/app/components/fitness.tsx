@@ -293,7 +293,7 @@ export const ExerciseHistory = (props: {
 														entity: "workouts",
 														id: props.entityId,
 													}),
-													props.exerciseIdx.toString(),
+													`exercise-history-${props.exerciseIdx}`,
 												)
 											: getExerciseDetailsPath(exercise.id)
 									}

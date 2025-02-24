@@ -763,7 +763,7 @@ const DisplayPersonalBest = (props: {
 							entity: "workouts",
 							id: props.set.workoutId,
 						}),
-						props.set.exerciseIdx.toString(),
+						`exercise-history-${props.set.exerciseIdx}`,
 					)}
 					fw="bold"
 				>
