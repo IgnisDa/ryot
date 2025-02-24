@@ -1413,7 +1413,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 				<Text display="inline" fw="bold">
 					{props.total}
 				</Text>{" "}
-				items found
+				item{props.total === 1 ? "" : "s"} found
 				{props.rightSection}
 			</Box>
 			<Form

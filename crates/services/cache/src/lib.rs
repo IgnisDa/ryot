@@ -68,6 +68,9 @@ impl CacheService {
         &self,
         items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
     ) -> Result<HashMap<ApplicationCacheKey, Uuid>> {
+        if items.is_empty() {
+            return Ok(HashMap::new());
+        }
         let now = Utc::now();
         let mut response = HashMap::new();
         for (key, value) in items {
