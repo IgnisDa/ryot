@@ -130,17 +130,17 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			UserExercisesListDocument,
 			{
 				input: {
+					sortBy: query.sortBy,
 					search: { page: query[pageQueryParam], query: query.query },
 					filter: {
-						equipment: query.equipment,
-						force: query.force,
-						level: query.level,
-						mechanic: query.mechanic,
-						muscle: query.muscle,
 						type: query.type,
+						level: query.level,
+						force: query.force,
+						muscle: query.muscle,
+						mechanic: query.mechanic,
+						equipment: query.equipment,
 						collection: query.collection,
 					},
-					sortBy: query.sortBy,
 				},
 			},
 		),
