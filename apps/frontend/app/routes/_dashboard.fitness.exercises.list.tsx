@@ -198,12 +198,21 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
+	const replacingExerciseId =
+		currentWorkout?.replacingExerciseIdx &&
+		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
+
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== pageQueryParam && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
+
+	const { data: replacingExercise } = useQuery({
+		enabled: !!replacingExerciseId,
+		...getExerciseDetailsQuery(replacingExerciseId || ""),
+	});
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
@@ -246,11 +255,7 @@ export default function Page() {
 				</Group>
 				{currentWorkout?.replacingExerciseIdx ? (
 					<Alert icon={<IconAlertCircle />}>
-						You are replacing exercise:{" "}
-						{
-							currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
-								.exerciseId
-						}
+						You are replacing exercise: {replacingExercise?.name}
 					</Alert>
 				) : null}
 				{mergingExercise ? (
