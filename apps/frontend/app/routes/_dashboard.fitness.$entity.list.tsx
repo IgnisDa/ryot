@@ -224,23 +224,23 @@ export default function Page() {
 						<FiltersModalForm />
 					</FiltersModal>
 				</Group>
-				{loaderData.displayData.items.length > 0 ? (
-					<Stack gap="xs">
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.displayData.cacheId}
-							total={loaderData.displayData.details.total}
-						/>
-						{loaderData.displayData.items.map((entityId, index) => (
+				<Stack gap="xs">
+					<DisplayListDetailsAndRefresh
+						cacheId={loaderData.displayData.cacheId}
+						total={loaderData.displayData.details.total}
+					/>
+					{loaderData.displayData.items.length > 0 ? (
+						loaderData.displayData.items.map((entityId, index) => (
 							<DisplayFitnessEntity
 								index={index}
 								key={entityId}
 								entityId={entityId}
 							/>
-						))}
-					</Stack>
-				) : (
-					<Text>No {loaderData.entity} found</Text>
-				)}
+						))
+					) : (
+						<Text>No {loaderData.entity} found</Text>
+					)}
+				</Stack>
 				<Center>
 					<Pagination
 						size="sm"
