@@ -536,7 +536,16 @@ pub enum NotificationPlatformSpecifics {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult, InputObject, Default,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 pub struct UserExtraInformation {
     pub scheduled_for_workout_revision: bool,

@@ -2347,6 +2347,7 @@ export type UpdateUserWorkoutAttributesInput = {
 export type User = {
   __typename?: 'User';
   createdOn: Scalars['DateTime']['output'];
+  extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
   lot: UserLot;
@@ -2426,6 +2427,11 @@ export type UserExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
   search: SearchInput;
   sortBy?: InputMaybe<ExerciseSortBy>;
+};
+
+export type UserExtraInformation = {
+  __typename?: 'UserExtraInformation';
+  scheduledForWorkoutRevision: Scalars['Boolean']['output'];
 };
 
 export type UserFeaturesEnabledPreferences = {

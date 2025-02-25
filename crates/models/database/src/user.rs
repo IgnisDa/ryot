@@ -29,7 +29,6 @@ pub struct Model {
     pub preferences: UserPreferences,
     #[graphql(skip)]
     pub last_activity_on: Option<DateTimeUtc>,
-    #[graphql(skip)]
     pub extra_information: Option<UserExtraInformation>,
 }
 
