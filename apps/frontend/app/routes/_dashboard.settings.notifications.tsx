@@ -38,8 +38,7 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { Form, Link, useLoaderData } from "react-router";
-import { $path } from "safe-routes";
+import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -294,18 +293,6 @@ export default function Page() {
 							</Button>
 						</Group>
 					</Flex>
-					<Text size="xs" ta="right">
-						For more settings, please visit the{" "}
-						<Anchor
-							component={Link}
-							to={$path("/settings/preferences", {
-								defaultTab: "notifications",
-							})}
-						>
-							notification preferences
-						</Anchor>
-						.
-					</Text>
 				</Stack>
 			</Container>
 		</>
