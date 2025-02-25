@@ -685,20 +685,19 @@ pub async fn send_notification_for_user(
     user_id: &String,
     lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
-    notification: &(String, UserNotificationContent),
+    (msg, change): &(String, UserNotificationContent),
 ) -> Result<()> {
-    let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
-    if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        create_user_notification(msg, user_id, &ss.db, lot)
-            .await
-            .trace_ok();
-    } else {
+    if !notification_preferences.enabled || !notification_preferences.to_send.contains(change) {
         ryot_log!(
             debug,
             "User id = {user_id} has disabled notifications for {change}"
         );
+        return Ok(());
     }
+    create_user_notification(msg, user_id, &ss.db, lot)
+        .await
+        .trace_ok();
     Ok(())
 }
 
