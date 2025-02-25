@@ -50,12 +50,12 @@ use dependent_models::{
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, create_partial_metadata, create_user_notification,
-    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
-    get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
-    get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, first_metadata_image_as_url, get_entity_recently_consumed,
+    get_google_books_service, get_hardcover_service, get_metadata_provider,
+    get_openlibrary_service, get_pending_notifications_for_user, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
     handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
     post_review, progress_update, refresh_collection_to_entity_association,
     remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
@@ -1994,11 +1994,14 @@ ORDER BY RANDOM() LIMIT 10;
                 let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
                 if get_current_date(&self.0.timezone) == reminder.reminder {
                     for user in related_users {
-                        create_user_notification(
-                            &reminder.text,
+                        send_notification_for_user(
                             &user.user_id,
-                            &self.0.db,
                             UserNotificationLot::Queued,
+                            &self.0,
+                            &(
+                                reminder.text.clone(),
+                                UserNotificationContent::NotificationFromReminderCollection,
+                            ),
                         )
                         .await?;
                         remove_entity_from_collection(
@@ -2496,14 +2499,17 @@ ORDER BY RANDOM() LIMIT 10;
                 event.entity_lot,
                 Some("reviews"),
             );
-            create_user_notification(
-                &format!(
-                    "New review posted for {} ({}, {}) by {}.",
-                    event.obj_title, event.entity_lot, url, event.username
-                ),
+            send_notification_for_user(
                 &user_id,
-                &self.0.db,
                 UserNotificationLot::Queued,
+                &self.0,
+                &(
+                    format!(
+                        "New review posted for {} ({}, {}) by {}.",
+                        event.obj_title, event.entity_lot, url, event.username
+                    ),
+                    UserNotificationContent::ReviewPosted,
+                ),
             )
             .await?;
         }

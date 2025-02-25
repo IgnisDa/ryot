@@ -660,7 +660,7 @@ pub async fn get_users_monitoring_entity(
     )
 }
 
-pub async fn create_user_notification(
+async fn create_user_notification(
     message: &str,
     user_id: &String,
     db: &DatabaseConnection,

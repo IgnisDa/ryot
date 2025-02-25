@@ -11,6 +11,23 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"DROP TABLE "user_notification";"#)
                 .await?;
         }
+        db.execute_unprepared(
+            r#"
+UPDATE
+  "user"
+SET
+  preferences = JSONB_SET(
+    preferences,
+    '{notifications,to_send}',
+    (preferences -> 'notifications' -> 'to_send') || '"NotificationFromReminderCollection"'
+  )
+where
+  NOT (
+    preferences -> 'notifications' -> 'to_send' ? 'NotificationFromReminderCollection'
+  );
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
