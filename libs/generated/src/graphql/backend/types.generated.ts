@@ -1617,6 +1617,7 @@ export type MutationRootUpdateUserWorkoutAttributesArgs = {
 
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
+  configuredEvents: Array<UserNotificationContent>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
