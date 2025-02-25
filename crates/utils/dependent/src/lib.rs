@@ -681,11 +681,11 @@ pub async fn create_user_notification(
     Ok(true)
 }
 
-pub async fn create_notification_for_user(
+pub async fn send_notification_for_user(
     user_id: &String,
-    notification: &(String, UserNotificationContent),
     lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
+    notification: &(String, UserNotificationContent),
 ) -> Result<()> {
     let (msg, change) = notification;
     let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
@@ -731,14 +731,9 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for (user_id, cte_id) in users_to_notify.iter() {
-                create_notification_for_user(
-                    user_id,
-                    &notification,
-                    UserNotificationLot::Queued,
-                    ss,
-                )
-                .await
-                .trace_ok();
+                send_notification_for_user(user_id, UserNotificationLot::Queued, ss, &notification)
+                    .await
+                    .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
@@ -2061,14 +2056,14 @@ pub async fn create_or_update_user_workout(
         Some(_) => schedule_user_for_workout_revision(user_id, ss).await?,
         None => {
             if input.create_workout_id.is_none() {
-                create_notification_for_user(
+                send_notification_for_user(
                     user_id,
+                    UserNotificationLot::Queued,
+                    ss,
                     &(
                         format!("New workout created - {}", data.name),
                         UserNotificationContent::NewWorkoutCreated,
                     ),
-                    UserNotificationLot::Queued,
-                    ss,
                 )
                 .await?
             }

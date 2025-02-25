@@ -15,8 +15,8 @@ use database_models::{
 use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{
-    create_notification_for_user, get_google_books_service, get_hardcover_service,
-    get_openlibrary_service, process_import,
+    get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
+    send_notification_for_user,
 };
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot, UserNotificationLot};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
@@ -60,8 +60,10 @@ impl IntegrationService {
         let integration = integration.update(&self.0.db).await?;
 
         if are_all_errors {
-            create_notification_for_user(
+            send_notification_for_user(
                 &integration.user_id,
+                UserNotificationLot::Display,
+                &self.0,
                 &(
                     format!(
                         "Integration {} has been disabled due to too many errors",
@@ -69,8 +71,6 @@ impl IntegrationService {
                     ),
                     UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
                 ),
-                UserNotificationLot::Display,
-                &self.0,
             )
             .await
             .trace_ok();
