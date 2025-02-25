@@ -92,6 +92,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250210_changes_for_issue_1217::Migration),
             Box::new(m20250210_changes_for_issue_1232::Migration),
             Box::new(m20250211_changes_for_issue_1216::Migration),
+            Box::new(m20250225_changes_for_issue_1271::Migration),
         ]
     }
 }
