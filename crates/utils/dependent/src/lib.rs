@@ -675,21 +675,21 @@ pub async fn send_notification_for_user(
         );
         return Ok(());
     }
-    let platforms = NotificationPlatform::find()
+    let notification_platforms = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
         .all(&ss.db)
         .await?;
-    for notification in platforms {
-        if notification.is_disabled.unwrap_or_default() {
+    for platform in notification_platforms {
+        if platform.is_disabled.unwrap_or_default() {
             ryot_log!(
                 debug,
                 "Skipping sending notification to user: {} for platform: {} since it is disabled",
                 user_id,
-                notification.lot
+                platform.lot
             );
             continue;
         }
-        if let Err(err) = send_notification(notification.platform_specifics, msg).await {
+        if let Err(err) = send_notification(platform.platform_specifics, msg).await {
             ryot_log!(trace, "Error sending notification: {:?}", err);
         }
     }
