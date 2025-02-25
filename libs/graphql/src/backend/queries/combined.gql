@@ -517,10 +517,3 @@ query UserAnalyticsParameters {
 	}
 }
 
-query UserPendingNotifications {
-	userPendingNotifications {
-		id
-		message
-		createdOn
-	}
-}
