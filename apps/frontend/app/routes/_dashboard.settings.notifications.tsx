@@ -331,7 +331,7 @@ const DisplayNotification = (props: {
 						Created: {dayjsLib(props.notification.createdOn).fromNow()}
 					</Text>
 				</Box>
-				<Group>
+				<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
 					<Form method="POST" action={withQuery(".", { intent: "update" })}>
 						<ActionIcon color="indigo" variant="subtle" type="submit">
 							{props.notification.isDisabled ? (
@@ -376,7 +376,7 @@ const DisplayNotification = (props: {
 							</ActionIcon>
 						</Form>
 					</Tooltip>
-				</Group>
+				</Flex>
 			</Flex>
 		</Paper>
 	);
