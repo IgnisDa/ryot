@@ -144,19 +144,6 @@ pub enum UserLot {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(
-    rs_type = "String",
-    rename_all = "snake_case",
-    db_type = "String(StringLen::None)"
-)]
-pub enum UserNotificationLot {
-    Queued,
-    Display,
-}
-
-#[derive(
     Eq,
     Ord,
     Hash,

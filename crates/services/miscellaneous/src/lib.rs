@@ -30,9 +30,9 @@ use database_models::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
         ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
         MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
-        Review, Seen, User, UserNotification, UserToEntity,
+        Review, Seen, User, UserToEntity,
     },
-    review, seen, user, user_notification, user_to_entity,
+    review, seen, user, user_to_entity,
 };
 use database_utils::{
     calculate_user_activities_and_summary, entity_in_collections,
@@ -62,8 +62,7 @@ use dependent_utils::{
 };
 use either::Either;
 use enum_models::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
-    UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
 };
 use futures::{future::join_all, TryStreamExt};
 use itertools::Itertools;
@@ -1994,7 +1993,6 @@ ORDER BY RANDOM() LIMIT 10;
                     for user in related_users {
                         send_notification_for_user(
                             &user.user_id,
-                            UserNotificationLot::Queued,
                             &self.0,
                             &(
                                 reminder.text.clone(),
@@ -2248,13 +2246,7 @@ ORDER BY RANDOM() LIMIT 10;
             let users_to_notify =
                 get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
-                send_notification_for_user(
-                    &user,
-                    UserNotificationLot::Queued,
-                    &self.0,
-                    &notification,
-                )
-                .await?;
+                send_notification_for_user(&user, &self.0, &notification).await?;
             }
         }
         Ok(())
@@ -2423,14 +2415,9 @@ ORDER BY RANDOM() LIMIT 10;
                     .await?;
             for notification in notifications {
                 for (user_id, cte_id) in users_to_notify.iter() {
-                    send_notification_for_user(
-                        user_id,
-                        UserNotificationLot::Queued,
-                        &self.0,
-                        &notification,
-                    )
-                    .await
-                    .trace_ok();
+                    send_notification_for_user(user_id, &self.0, &notification)
+                        .await
+                        .trace_ok();
                     refresh_collection_to_entity_association(cte_id, &self.0.db)
                         .await
                         .trace_ok();
@@ -2499,7 +2486,6 @@ ORDER BY RANDOM() LIMIT 10;
             );
             send_notification_for_user(
                 &user_id,
-                UserNotificationLot::Queued,
                 &self.0,
                 &(
                     format!(
@@ -2657,12 +2643,6 @@ ORDER BY RANDOM() LIMIT 10;
                 .await
                 .trace_ok();
         }
-        ryot_log!(debug, "Deleting all addressed user notifications");
-        UserNotification::delete_many()
-            .filter(user_notification::Column::IsAddressed.eq(true))
-            .exec(&self.0.db)
-            .await
-            .trace_ok();
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
@@ -2771,7 +2751,6 @@ ORDER BY RANDOM() LIMIT 10;
                     .to_case(Case::Lower);
                 send_notification_for_user(
                     &seen_item.user_id,
-                    UserNotificationLot::Display,
                     &self.0,
                     &(
                         format!(
@@ -2799,20 +2778,6 @@ ORDER BY RANDOM() LIMIT 10;
         User::update_many()
             .filter(user::Column::Id.eq(user_id))
             .col_expr(user::Column::LastActivityOn, Expr::value(timestamp))
-            .exec(&self.0.db)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn mark_old_display_user_notifications_as_addressed(&self) -> Result<()> {
-        let threshold = Utc::now() - Duration::days(1);
-        UserNotification::update_many()
-            .filter(user_notification::Column::CreatedOn.lt(threshold))
-            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Display))
-            .col_expr(
-                user_notification::Column::IsAddressed,
-                Expr::val(true).into(),
-            )
             .exec(&self.0.db)
             .await?;
         Ok(())
@@ -2871,10 +2836,6 @@ ORDER BY RANDOM() LIMIT 10;
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
-        ryot_log!(trace, "Marking old display notifications as addressed");
-        self.mark_old_display_user_notifications_as_addressed()
-            .await
-            .trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())

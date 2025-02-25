@@ -18,7 +18,7 @@ use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
     send_notification_for_user,
 };
-use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot, UserNotificationLot};
+use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -62,7 +62,6 @@ impl IntegrationService {
         if are_all_errors {
             send_notification_for_user(
                 &integration.user_id,
-                UserNotificationLot::Display,
                 &self.0,
                 &(
                     format!(

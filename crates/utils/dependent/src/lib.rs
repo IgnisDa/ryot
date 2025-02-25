@@ -42,7 +42,7 @@ use either::Either;
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -664,7 +664,6 @@ pub async fn get_users_monitoring_entity(
 
 pub async fn send_notification_for_user(
     user_id: &String,
-    lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
     (msg, change): &(String, UserNotificationContent),
 ) -> Result<()> {
@@ -726,7 +725,7 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for (user_id, cte_id) in users_to_notify.iter() {
-                send_notification_for_user(user_id, UserNotificationLot::Queued, ss, &notification)
+                send_notification_for_user(user_id, ss, &notification)
                     .await
                     .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
@@ -2053,7 +2052,6 @@ pub async fn create_or_update_user_workout(
             if input.create_workout_id.is_none() {
                 send_notification_for_user(
                     user_id,
-                    UserNotificationLot::Queued,
                     ss,
                     &(
                         format!("New workout created - {}", data.name),
