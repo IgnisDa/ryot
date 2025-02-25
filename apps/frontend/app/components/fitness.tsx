@@ -43,7 +43,6 @@ import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
 import { BaseMediaDisplayItem } from "~/components/common";
 import {
 	FitnessEntity,
@@ -264,7 +263,6 @@ export const ExerciseHistory = (props: {
 		<Paper
 			p="xs"
 			withBorder
-			id={`exercise-history-${props.exerciseIdx}`}
 			style={{
 				borderLeftWidth: isInSuperset ? "3px" : undefined,
 				borderLeftColor: isInSuperset
@@ -288,13 +286,10 @@ export const ExerciseHistory = (props: {
 									style={{ scrollMargin: 20 }}
 									to={
 										props.hideExerciseDetails
-											? withFragment(
-													$path("/fitness/:entity/:id", {
-														entity: "workouts",
-														id: props.entityId,
-													}),
-													`exercise-history-${props.exerciseIdx}`,
-												)
+											? $path("/fitness/:entity/:id", {
+													entity: "workouts",
+													id: props.entityId,
+												})
 											: getExerciseDetailsPath(exercise.id)
 									}
 								>
