@@ -2,13 +2,11 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
-	Alert,
 	Anchor,
 	AppShell,
 	Box,
 	Burger,
 	Button,
-	Card,
 	Center,
 	Checkbox,
 	Code,
@@ -49,17 +47,14 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
-	MarkNotificationsAsAddressedDocument,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
 	UserLot,
 	type UserMetadataDetailsQuery,
-	UserPendingNotificationsDocument,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -72,13 +67,10 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconArchive,
-	IconBellRinging,
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
 	IconCancel,
-	IconCheck,
-	IconChecks,
 	IconChevronLeft,
 	IconChevronRight,
 	IconChevronsLeft,
@@ -99,7 +91,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
@@ -118,7 +110,6 @@ import {
 import { Fragment } from "react/jsx-runtime";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
@@ -126,12 +117,9 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
-	clientGqlService,
 	convertDecimalToThreePointSmiley,
-	dayjsLib,
 	getMetadataDetailsQuery,
 	getVerb,
-	queryFactory,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
@@ -362,10 +350,6 @@ export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
-	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-	const userPendingNotificationsQuery = useUserPendingNotifications();
-	const markUserNotificationsAsAddressedMutation =
-		useMarkUserNotificationsAsAddressedMutation();
 	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
@@ -542,42 +526,6 @@ export default function Layout() {
 					</Form>
 				</Affix>
 			) : null}
-			<Modal
-				centered
-				opened={isNotificationModalOpen}
-				onClose={() => setIsNotificationModalOpen(false)}
-				title={`You have ${userPendingNotificationsQuery.data?.length} pending notifications`}
-			>
-				<Stack ref={parent}>
-					{userPendingNotificationsQuery.data?.map((n, idx) => (
-						<DisplayNotificationContent idx={idx} key={n.id} />
-					))}
-					{(userPendingNotificationsQuery.data?.length || 0) > 0 ? (
-						<Button
-							ta="right"
-							variant="subtle"
-							size="compact-md"
-							rightSection={<IconChecks />}
-							onClick={() => {
-								const ids = userPendingNotificationsQuery.data?.map(
-									(n) => n.id,
-								);
-								if (!ids) return;
-								notifications.show({
-									color: "green",
-									message: "All notifications will be marked as read",
-								});
-								markUserNotificationsAsAddressedMutation.mutate(ids);
-								setIsNotificationModalOpen(false);
-							}}
-						>
-							Mark all as read
-						</Button>
-					) : (
-						<Text ta="center">No notifications</Text>
-					)}
-				</Stack>
-			</Modal>
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}
 				opened={metadataToUpdate !== null}
@@ -846,19 +794,6 @@ export default function Layout() {
 									: parent
 							}
 						>
-							{userPendingNotificationsQuery.data &&
-							userPendingNotificationsQuery.data.length > 0 ? (
-								<Container mb="md">
-									<Alert
-										icon={<IconBellRinging />}
-										style={{ cursor: "pointer" }}
-										onClick={() => setIsNotificationModalOpen(true)}
-									>
-										You have {userPendingNotificationsQuery.data.length} pending
-										notifications
-									</Alert>
-								</Container>
-							) : null}
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
@@ -957,70 +892,6 @@ const LinksGroup = ({
 			</UnstyledButton>
 			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
 		</>
-	);
-};
-
-const useUserPendingNotifications = () => {
-	const userPendingNotificationsQuery = useQuery({
-		queryKey: queryFactory.user.userPendingNotifications().queryKey,
-		queryFn: async () => {
-			const { userPendingNotifications } = await clientGqlService.request(
-				UserPendingNotificationsDocument,
-			);
-			return userPendingNotifications;
-		},
-	});
-	return userPendingNotificationsQuery;
-};
-
-const useMarkUserNotificationsAsAddressedMutation = () => {
-	const userPendingNotificationsQuery = useUserPendingNotifications();
-	const markUserNotificationsAsAddressedMutation = useMutation({
-		mutationFn: async (notificationIds: string[]) => {
-			await clientGqlService.request(MarkNotificationsAsAddressedDocument, {
-				notificationIds,
-			});
-		},
-		onSuccess: () => {
-			userPendingNotificationsQuery.refetch();
-		},
-	});
-	return markUserNotificationsAsAddressedMutation;
-};
-
-const DisplayNotificationContent = (props: { idx: number }) => {
-	const userPendingNotificationsQuery = useUserPendingNotifications();
-	const markUserNotificationsAsAddressedMutation =
-		useMarkUserNotificationsAsAddressedMutation();
-
-	const notification = userPendingNotificationsQuery.data?.[props.idx];
-	invariant(notification);
-
-	return (
-		<Card shadow="md">
-			<Card.Section withBorder p="xs">
-				<Text size="sm">{notification.message}</Text>
-			</Card.Section>
-			<Card.Section py={4} px="sm">
-				<Group wrap="nowrap" justify="space-between">
-					<Text size="xs" c="dimmed">
-						{dayjsLib(notification.createdOn).format("L")}
-					</Text>
-					<ActionIcon
-						size="xs"
-						variant="transparent"
-						loading={markUserNotificationsAsAddressedMutation.isPending}
-						onClick={() => {
-							markUserNotificationsAsAddressedMutation.mutate([
-								notification.id,
-							]);
-						}}
-					>
-						<IconCheck />
-					</ActionIcon>
-				</Group>
-			</Card.Section>
-		</Card>
 	);
 };
 
