@@ -1,7 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::UserNotificationContent;
 use educe::Educe;
-use enum_models::{MediaLot, UserLot};
+use enum_models::{MediaLot, UserLot, UserNotificationContent};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};

@@ -7,7 +7,7 @@ use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
-    StringIdObject, UserLevelCacheKey, UserNotificationContent,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
@@ -42,7 +42,7 @@ use either::Either;
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationContent, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
