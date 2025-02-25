@@ -25,13 +25,12 @@ use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
-    notification_platform, person,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
         ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
-        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
-        NotificationPlatform, Person, Review, Seen, User, UserNotification, UserToEntity,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
+        Review, Seen, User, UserNotification, UserToEntity,
     },
     review, seen, user, user_notification, user_to_entity,
 };
@@ -54,12 +53,12 @@ use dependent_utils::{
     deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
     deploy_update_person_job, first_metadata_image_as_url, get_entity_recently_consumed,
     get_google_books_service, get_hardcover_service, get_metadata_provider,
-    get_openlibrary_service, get_pending_notifications_for_user, get_tmdb_non_media_service,
-    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, refresh_collection_to_entity_association,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
+    user_metadata_list, user_people_list,
 };
 use either::Either;
 use enum_models::{
@@ -87,7 +86,6 @@ use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
 };
 use nanoid::nanoid;
-use notification_service::send_notification;
 use providers::{
     anilist::NonMediaAnilistService, audible::AudibleService, igdb::IgdbService,
     itunes::ITunesService, listennotes::ListennotesService, mal::NonMediaMalService,
@@ -2736,52 +2734,6 @@ ORDER BY RANDOM() LIMIT 10;
             &self.0.db,
         )
         .await?;
-        Ok(())
-    }
-
-    pub async fn send_pending_notifications(&self) -> Result<()> {
-        let users = User::find().all(&self.0.db).await?;
-        for user_details in users {
-            let notifications = get_pending_notifications_for_user(
-                &user_details.id,
-                UserNotificationLot::Queued,
-                &self.0,
-            )
-            .await?;
-            if notifications.is_empty() {
-                continue;
-            }
-            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
-            let msg = notifications
-                .into_iter()
-                .map(|n| n.message)
-                .collect::<Vec<String>>()
-                .join("\n");
-            let platforms = NotificationPlatform::find()
-                .filter(notification_platform::Column::UserId.eq(&user_details.id))
-                .all(&self.0.db)
-                .await?;
-            for notification in platforms {
-                if notification.is_disabled.unwrap_or_default() {
-                    ryot_log!(
-                        debug,
-                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
-                        user_details.id,
-                        notification.lot
-                    );
-                    continue;
-                }
-                if let Err(err) = send_notification(notification.platform_specifics, &msg).await {
-                    ryot_log!(trace, "Error sending notification: {:?}", err);
-                }
-            }
-            UserNotification::update_many()
-                .filter(user_notification::Column::Id.is_in(notification_ids))
-                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
-                .exec(&self.0.db)
-                .await?;
-        }
         Ok(())
     }
 

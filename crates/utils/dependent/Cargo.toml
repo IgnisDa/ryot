@@ -24,6 +24,7 @@ itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
+notification-service = { path = "../../services/notification" }
 providers = { path = "../../providers" }
 rand = { workspace = true }
 rust_decimal = { workspace = true }

@@ -19,11 +19,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserDetailsResult,
     UserMetadataRecommendationsResponse,
 };
-use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
+use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
-use enum_models::{
-    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
-};
+use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
 use itertools::Itertools;
 use jwt_service::sign;
 use media_models::{
@@ -690,16 +688,6 @@ impl UserService {
             .all(&self.0.db)
             .await?;
         Ok(integrations)
-    }
-
-    pub async fn user_pending_notifications(
-        &self,
-        user_id: &String,
-    ) -> Result<Vec<user_notification::Model>> {
-        let notifications =
-            get_pending_notifications_for_user(user_id, UserNotificationLot::Display, &self.0)
-                .await?;
-        Ok(notifications)
     }
 
     pub async fn user_notification_platforms(
