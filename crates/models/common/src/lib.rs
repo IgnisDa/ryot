@@ -201,6 +201,7 @@ pub enum UserNotificationContent {
     PersonMetadataGroupAssociated,
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
+    NotificationFromReminderCollection,
     IntegrationDisabledDueToTooManyErrors,
 }
 

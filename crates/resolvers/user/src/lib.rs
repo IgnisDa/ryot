@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user, user_notification};
+use database_models::{access_link, integration, notification_platform, user};
 use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
@@ -60,16 +60,6 @@ impl UserQuery {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(&user_id).await
-    }
-
-    /// Get all pending display notifications for the currently logged in user.
-    async fn user_pending_notifications(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<user_notification::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_pending_notifications(&user_id).await
     }
 
     /// Get all the notification platforms for the currently logged in user.
@@ -280,18 +270,5 @@ impl UserMutation {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
-    }
-
-    /// Mark user notifications as addressed.
-    async fn mark_notifications_as_addressed(
-        &self,
-        gql_ctx: &Context<'_>,
-        notification_ids: Vec<String>,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
-            .mark_notifications_as_addressed(user_id, notification_ids)
-            .await
     }
 }

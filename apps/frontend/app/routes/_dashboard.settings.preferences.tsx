@@ -509,6 +509,11 @@ export default function Page() {
 												() => "New media group is associated with a person",
 											)
 											.with(
+												UserNotificationContent.NotificationFromReminderCollection,
+												() =>
+													"When an item is added to the reminder collection",
+											)
+											.with(
 												UserNotificationContent.NewWorkoutCreated,
 												() => "A new workout is created",
 											)

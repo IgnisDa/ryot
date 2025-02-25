@@ -5,6 +5,7 @@ use std::{
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
+use common_models::UserNotificationContent;
 use common_utils::ryot_log;
 use database_models::{
     integration, metadata,
@@ -15,6 +16,7 @@ use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
+    send_notification_for_user,
 };
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
@@ -50,10 +52,28 @@ impl IntegrationService {
             new_trigger_result.pop_back();
         }
         new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
+        let are_all_errors = new_trigger_result.iter().take(5).all(|r| r.error.is_some());
         let mut integration: integration::ActiveModel = integration.clone().into();
         integration.last_finished_at = last_finished_at;
         integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
-        integration.update(&self.0.db).await?;
+        integration.is_disabled = ActiveValue::Set(Some(are_all_errors));
+        let integration = integration.update(&self.0.db).await?;
+
+        if are_all_errors {
+            send_notification_for_user(
+                &integration.user_id,
+                &self.0,
+                &(
+                    format!(
+                        "Integration {} has been disabled due to too many errors",
+                        integration.provider,
+                    ),
+                    UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
+                ),
+            )
+            .await
+            .trace_ok();
+        }
         Ok(())
     }
 

@@ -8,8 +8,8 @@ use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User, UserNotification},
-    user, user_notification,
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
+    user,
 };
 use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
@@ -19,11 +19,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserDetailsResult,
     UserMetadataRecommendationsResponse,
 };
-use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
+use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
-use enum_models::{
-    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
-};
+use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
 use itertools::Itertools;
 use jwt_service::sign;
 use media_models::{
@@ -692,16 +690,6 @@ impl UserService {
         Ok(integrations)
     }
 
-    pub async fn user_pending_notifications(
-        &self,
-        user_id: &String,
-    ) -> Result<Vec<user_notification::Model>> {
-        let notifications =
-            get_pending_notifications_for_user(user_id, UserNotificationLot::Display, &self.0)
-                .await?;
-        Ok(notifications)
-    }
-
     pub async fn user_notification_platforms(
         &self,
         user_id: &String,
@@ -753,19 +741,5 @@ impl UserService {
             .await?
             .map(|u| u.id);
         Ok(user)
-    }
-
-    pub async fn mark_notifications_as_addressed(
-        &self,
-        user_id: String,
-        notification_ids: Vec<String>,
-    ) -> Result<bool> {
-        UserNotification::update_many()
-            .filter(user_notification::Column::UserId.eq(user_id))
-            .filter(user_notification::Column::Id.is_in(notification_ids))
-            .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
-            .exec(&self.0.db)
-            .await?;
-        Ok(true)
     }
 }
