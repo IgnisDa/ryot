@@ -339,7 +339,12 @@ const DisplayNotification = (props: {
 							<Text span>{props.notification.description}</Text>
 						</Text>
 						<Text size="xs">
-							Created: {dayjsLib(props.notification.createdOn).fromNow()}
+							{[
+								`Created: ${dayjsLib(props.notification.createdOn).fromNow()}`,
+								props.notification.isDisabled && "Disabled",
+							]
+								.filter(Boolean)
+								.join(" • ")}
 						</Text>
 					</Box>
 					<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
