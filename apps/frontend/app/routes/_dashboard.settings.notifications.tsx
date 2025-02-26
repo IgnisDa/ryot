@@ -441,6 +441,8 @@ const DisplayNotification = (props: {
 							{[
 								`Created: ${dayjsLib(props.notification.createdOn).fromNow()}`,
 								props.notification.isDisabled && "Disabled",
+								props.notification.configuredEvents.length > 0 &&
+									`${props.notification.configuredEvents.length} events`,
 							]
 								.filter(Boolean)
 								.join(" • ")}
