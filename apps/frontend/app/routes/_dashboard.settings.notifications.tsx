@@ -32,11 +32,7 @@ import {
 	processSubmission,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
-import {
-	IconPlayerPause,
-	IconPlayerPlay,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
@@ -303,9 +299,19 @@ const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
 	const submit = useConfirmSubmit();
+	const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
+		useDisclosure(false);
 
 	return (
 		<Paper p="xs" withBorder>
+			<Modal
+				opened={editModalOpened}
+				onClose={closeEditModal}
+				centered
+				title="Edit Notification"
+			>
+				<Text>Hello World</Text>
+			</Modal>
 			<Flex align="center" justify="space-between">
 				<Box w="80%">
 					<Text size="sm" truncate>
@@ -319,26 +325,9 @@ const DisplayNotification = (props: {
 					</Text>
 				</Box>
 				<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
-					<Form method="POST" action={withQuery(".", { intent: "update" })}>
-						<ActionIcon color="indigo" variant="subtle" type="submit">
-							{props.notification.isDisabled ? (
-								<IconPlayerPlay />
-							) : (
-								<IconPlayerPause />
-							)}
-							<input
-								hidden
-								name="notificationId"
-								defaultValue={props.notification.id}
-							/>
-							<input
-								hidden
-								readOnly
-								name="isDisabled"
-								value={props.notification.isDisabled ? "false" : "true"}
-							/>
-						</ActionIcon>
-					</Form>
+					<ActionIcon color="indigo" variant="subtle" onClick={openEditModal}>
+						<IconPencil />
+					</ActionIcon>
 					<Tooltip label="Delete">
 						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 							<input
