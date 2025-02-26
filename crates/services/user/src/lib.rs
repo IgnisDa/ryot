@@ -633,6 +633,9 @@ impl UserService {
         if let Some(s) = input.is_disabled {
             db_notification.is_disabled = ActiveValue::Set(Some(s));
         }
+        if let Some(e) = input.configured_events {
+            db_notification.configured_events = ActiveValue::Set(e);
+        }
         db_notification.update(&self.0.db).await?;
         Ok(true)
     }

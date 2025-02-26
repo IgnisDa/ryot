@@ -10,7 +10,7 @@ use common_models::{
 use common_utils::deserialize_date;
 use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
-    SeenState, Visibility,
+    SeenState, UserNotificationContent, Visibility,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -1053,6 +1053,7 @@ pub struct CreateUserNotificationPlatformInput {
 pub struct UpdateUserNotificationPlatformInput {
     pub notification_id: String,
     pub is_disabled: Option<bool>,
+    pub configured_events: Option<Vec<UserNotificationContent>>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]

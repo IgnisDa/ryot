@@ -2335,6 +2335,7 @@ export type UpdateUserIntegrationInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
+  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
