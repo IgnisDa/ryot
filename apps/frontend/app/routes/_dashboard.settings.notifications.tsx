@@ -453,7 +453,15 @@ const DisplayNotification = (props: {
 							<IconPencil />
 						</ActionIcon>
 						<Tooltip label="Delete">
-							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
+							<Form
+								method="POST"
+								action={withQuery(".", { intent: "delete" })}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+								}}
+							>
 								<input
 									hidden
 									name="notificationId"
