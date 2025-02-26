@@ -264,7 +264,7 @@ export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
+	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
