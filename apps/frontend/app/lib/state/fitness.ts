@@ -38,6 +38,7 @@ import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	lot: SetLot;
+	identifier: string;
 	rpe?: number | null;
 	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
@@ -187,6 +188,7 @@ export const convertHistorySetToCurrentSet = (
 		lot: set.lot,
 		rpe: set.rpe,
 		note: set.note,
+		identifier: randomUUID(),
 		statistic: set.statistic,
 		confirmedAt: confirmedAt ?? null,
 		restTimer: set.restTime ? { duration: set.restTime } : null,
@@ -262,7 +264,7 @@ export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
+	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
@@ -398,6 +400,7 @@ export const addExerciseToCurrentWorkout = async (
 				lot: setLot,
 				statistic: {},
 				confirmedAt: null,
+				identifier: randomUUID(),
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];

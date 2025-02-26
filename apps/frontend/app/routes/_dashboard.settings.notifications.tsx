@@ -3,8 +3,8 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Collapse,
 	Container,
-	Divider,
 	Flex,
 	Group,
 	Modal,
@@ -311,6 +311,8 @@ const DisplayNotification = (props: {
 	const submit = useConfirmSubmit();
 	const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
 		useDisclosure(false);
+	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] =
+		useDisclosure(false);
 	const [configuredEvents, configuredEventsHandler] =
 		useListState<UserNotificationContent>(props.notification.configuredEvents);
 
@@ -339,89 +341,98 @@ const DisplayNotification = (props: {
 							label="Disable notification"
 							defaultChecked={props.notification.isDisabled ?? false}
 						/>
-						<Divider />
-						<Stack gap="xs">
-							{Object.values(UserNotificationContent).map((name) => (
-								<Switch
-									size="xs"
-									key={name}
-									defaultChecked={props.notification.configuredEvents.includes(
-										name,
-									)}
-									onChange={(value) => {
-										const checked = value.target.checked;
-										if (checked) configuredEventsHandler.append(name);
-										else
-											configuredEventsHandler.filter((event) => event !== name);
-									}}
-									label={match(name)
-										.with(
-											UserNotificationContent.OutdatedSeenEntries,
-											() => "Media has been in progress/on hold for too long",
-										)
-										.with(
-											UserNotificationContent.MetadataEpisodeNameChanged,
-											() => "Name of an episode changes",
-										)
-										.with(
-											UserNotificationContent.MetadataEpisodeImagesChanged,
-											() => "Images for an episode changes",
-										)
-										.with(
-											UserNotificationContent.MetadataEpisodeReleased,
-											() => "Number of episodes changes",
-										)
-										.with(
-											UserNotificationContent.MetadataPublished,
+						<Flex justify="end">
+							<Anchor c="blue" size="xs" onClick={toggleAdvancedSettings}>
+								{isAdvancedSettingsOpen ? "Hide" : "Show"} advanced settings
+							</Anchor>
+						</Flex>
+						<Collapse in={isAdvancedSettingsOpen}>
+							<Stack gap="xs">
+								{Object.values(UserNotificationContent).map((name) => (
+									<Switch
+										size="xs"
+										key={name}
+										defaultChecked={props.notification.configuredEvents.includes(
+											name,
+										)}
+										onChange={(value) => {
+											const checked = value.target.checked;
+											if (checked) configuredEventsHandler.append(name);
+											else
+												configuredEventsHandler.filter(
+													(event) => event !== name,
+												);
+										}}
+										label={match(name)
+											.with(
+												UserNotificationContent.OutdatedSeenEntries,
+												() => "Media has been in progress/on hold for too long",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeNameChanged,
+												() => "Name of an episode changes",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeImagesChanged,
+												() => "Images for an episode changes",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeReleased,
+												() => "Number of episodes changes",
+											)
+											.with(
+												UserNotificationContent.MetadataPublished,
 
-											() => "A media is published",
-										)
-										.with(
-											UserNotificationContent.MetadataStatusChanged,
-											() => "Status changes",
-										)
-										.with(
-											UserNotificationContent.MetadataReleaseDateChanged,
-											() => "Release date changes",
-										)
-										.with(
-											UserNotificationContent.MetadataNumberOfSeasonsChanged,
-											() => "Number of seasons changes",
-										)
-										.with(
-											UserNotificationContent.MetadataChaptersOrEpisodesChanged,
-											() =>
-												"Number of chapters/episodes changes for manga/anime",
-										)
-										.with(
-											UserNotificationContent.ReviewPosted,
-											() =>
-												"A new public review is posted for media/people you monitor",
-										)
-										.with(
-											UserNotificationContent.PersonMetadataAssociated,
-											() => "New media is associated with a person",
-										)
-										.with(
-											UserNotificationContent.PersonMetadataGroupAssociated,
-											() => "New media group is associated with a person",
-										)
-										.with(
-											UserNotificationContent.NotificationFromReminderCollection,
-											() => "When an item is added to the reminder collection",
-										)
-										.with(
-											UserNotificationContent.NewWorkoutCreated,
-											() => "A new workout is created",
-										)
-										.with(
-											UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
-											() => "Integration disabled due to too many errors",
-										)
-										.exhaustive()}
-								/>
-							))}
-						</Stack>
+												() => "A media is published",
+											)
+											.with(
+												UserNotificationContent.MetadataStatusChanged,
+												() => "Status changes",
+											)
+											.with(
+												UserNotificationContent.MetadataReleaseDateChanged,
+												() => "Release date changes",
+											)
+											.with(
+												UserNotificationContent.MetadataNumberOfSeasonsChanged,
+												() => "Number of seasons changes",
+											)
+											.with(
+												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
+												() =>
+													"Number of chapters/episodes changes for manga/anime",
+											)
+											.with(
+												UserNotificationContent.ReviewPosted,
+												() =>
+													"A new public review is posted for media/people you monitor",
+											)
+											.with(
+												UserNotificationContent.PersonMetadataAssociated,
+												() => "New media is associated with a person",
+											)
+											.with(
+												UserNotificationContent.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
+											.with(
+												UserNotificationContent.NotificationFromReminderCollection,
+												() =>
+													"When an item is added to the reminder collection",
+											)
+											.with(
+												UserNotificationContent.NewWorkoutCreated,
+												() => "A new workout is created",
+											)
+											.with(
+												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
+												() => "Integration disabled due to too many errors",
+											)
+											.exhaustive()}
+									/>
+								))}
+							</Stack>
+						</Collapse>
 						<Button type="submit" onClick={closeEditModal}>
 							Save
 						</Button>
@@ -453,7 +464,15 @@ const DisplayNotification = (props: {
 							<IconPencil />
 						</ActionIcon>
 						<Tooltip label="Delete">
-							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
+							<Form
+								method="POST"
+								action={withQuery(".", { intent: "delete" })}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+								}}
+							>
 								<input
 									hidden
 									name="notificationId"

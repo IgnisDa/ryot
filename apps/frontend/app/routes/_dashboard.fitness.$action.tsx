@@ -354,12 +354,15 @@ export default function Page() {
 					const exerciseIdx = currentWorkout?.exercises.findIndex(
 						(c) => c.identifier === triggeredBy.exerciseIdentifier,
 					);
+					const setIdx = currentWorkout?.exercises[exerciseIdx]?.sets.findIndex(
+						(s) => s.identifier === triggeredBy.setIdentifier,
+					);
 					if (
 						exerciseIdx !== -1 &&
 						exerciseIdx !== undefined &&
 						userPreferences.fitness.logging.promptForRestTimer
 					) {
-						performTasksAfterSetConfirmed(triggeredBy.setIdx, exerciseIdx);
+						performTasksAfterSetConfirmed(setIdx, exerciseIdx);
 					}
 				}
 				playCompleteTimerSound();
@@ -382,7 +385,7 @@ export default function Page() {
 	};
 	const startTimer = (
 		duration: number,
-		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
+		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
 	) => {
 		setCurrentTimer({
 			triggeredBy,
@@ -411,8 +414,13 @@ export default function Page() {
 					const exercise = draft.exercises.find(
 						(e) => e.identifier === triggeredBy.exerciseIdentifier,
 					);
-					const restTimer = exercise?.sets[triggeredBy.setIdx].restTimer;
-					if (exercise && restTimer) restTimer.hasElapsed = true;
+					if (exercise) {
+						const setIdx = exercise.sets.findIndex(
+							(s) => s.identifier === triggeredBy.setIdentifier,
+						);
+						const restTimer = exercise.sets[setIdx].restTimer;
+						if (restTimer) restTimer.hasElapsed = true;
+					}
 				}),
 			);
 		}
@@ -1245,7 +1253,7 @@ const EditSupersetExerciseButton = (props: {
 
 type FuncStartTimer = (
 	duration: number,
-	triggeredBy: { exerciseIdentifier: string; setIdx: number },
+	triggeredBy: { exerciseIdentifier: string; setIdentifier: string },
 ) => void;
 
 const focusOnExercise = (idx: number) => {
@@ -1869,6 +1877,7 @@ const ExerciseDisplay = (props: {
 											draft.exercises[props.exerciseIdx].sets.push({
 												lot: setLot,
 												confirmedAt: null,
+												identifier: randomUUID(),
 												statistic: currentSet?.statistic ?? {},
 												restTimer: restTimer
 													? { duration: restTimer }
@@ -1975,7 +1984,7 @@ const SetDisplay = (props: {
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
-		currentTimer?.triggeredBy?.setIdx === props.setIdx;
+		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 
@@ -2272,7 +2281,7 @@ const SetDisplay = (props: {
 										onClick={() => {
 											invariant(set.restTimer);
 											props.startTimer(set.restTimer.duration, {
-												setIdx: props.setIdx,
+												setIdentifier: set.identifier,
 												exerciseIdentifier: exercise.identifier,
 											});
 											setCurrentWorkout(
@@ -2336,12 +2345,13 @@ const SetDisplay = (props: {
 												!newConfirmed &&
 												currentTimer?.triggeredBy?.exerciseIdentifier ===
 													exercise.identifier &&
-												currentTimer?.triggeredBy?.setIdx === props.setIdx
+												currentTimer?.triggeredBy?.setIdentifier ===
+													set.identifier
 											)
 												props.stopTimer();
 											if (set.restTimer && newConfirmed && !promptForRestTimer)
 												props.startTimer(set.restTimer.duration, {
-													setIdx: props.setIdx,
+													setIdentifier: set.identifier,
 													exerciseIdentifier: exercise.identifier,
 												});
 											setCurrentWorkout(
