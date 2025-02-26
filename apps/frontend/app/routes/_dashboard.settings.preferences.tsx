@@ -30,7 +30,6 @@ import {
 	GridPacking,
 	MediaLot,
 	UpdateUserPreferenceDocument,
-	UserNotificationContent,
 	type UserPreferences,
 	UserReviewScale,
 	UserUnitSystem,
@@ -171,7 +170,6 @@ export default function Page() {
 						<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
 						<Tabs.Tab value="features">Features</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
-						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="dashboard">
@@ -415,118 +413,6 @@ export default function Page() {
 							</Stack>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="notifications">
-						<Stack>
-							<Switch
-								size="xs"
-								label="Whether notifications will be sent"
-								defaultChecked={userPreferences.notifications.enabled}
-								disabled={!!isEditDisabled}
-								onChange={(ev) => {
-									updatePreference((draft) => {
-										draft.notifications.enabled = ev.currentTarget.checked;
-									});
-								}}
-							/>
-							<Divider />
-							<Text>
-								The notifications you want to receive in your configured
-								providers.
-							</Text>
-							<SimpleGrid cols={{ md: 2 }}>
-								{Object.values(UserNotificationContent).map((name) => (
-									<Switch
-										size="xs"
-										key={name}
-										styles={{ track: { flex: "none" } }}
-										defaultChecked={userPreferences.notifications.toSend.includes(
-											name,
-										)}
-										disabled={
-											!!isEditDisabled || !userPreferences.notifications.enabled
-										}
-										onChange={() => {
-											const alreadyToSend = new Set(
-												changingUserPreferences.value.notifications.toSend,
-											);
-											const alreadyHas = alreadyToSend.has(name);
-											if (!alreadyHas) alreadyToSend.add(name);
-											else alreadyToSend.delete(name);
-											updatePreference((draft) => {
-												draft.notifications.toSend = Array.from(alreadyToSend);
-											});
-										}}
-										label={match(name)
-											.with(
-												UserNotificationContent.OutdatedSeenEntries,
-												() => "Media has been in progress/on hold for too long",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeNameChanged,
-												() => "Name of an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeImagesChanged,
-												() => "Images for an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeReleased,
-												() => "Number of episodes changes",
-											)
-											.with(
-												UserNotificationContent.MetadataPublished,
-
-												() => "A media is published",
-											)
-											.with(
-												UserNotificationContent.MetadataStatusChanged,
-												() => "Status changes",
-											)
-											.with(
-												UserNotificationContent.MetadataReleaseDateChanged,
-												() => "Release date changes",
-											)
-											.with(
-												UserNotificationContent.MetadataNumberOfSeasonsChanged,
-												() => "Number of seasons changes",
-											)
-											.with(
-												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
-												() =>
-													"Number of chapters/episodes changes for manga/anime",
-											)
-											.with(
-												UserNotificationContent.ReviewPosted,
-												() =>
-													"A new public review is posted for media/people you monitor",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataAssociated,
-												() => "New media is associated with a person",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataGroupAssociated,
-												() => "New media group is associated with a person",
-											)
-											.with(
-												UserNotificationContent.NotificationFromReminderCollection,
-												() =>
-													"When an item is added to the reminder collection",
-											)
-											.with(
-												UserNotificationContent.NewWorkoutCreated,
-												() => "A new workout is created",
-											)
-											.with(
-												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
-												() => "Integration disabled due to too many errors",
-											)
-											.exhaustive()}
-									/>
-								))}
-							</SimpleGrid>
-						</Stack>
-					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
 						<Stack>
 							<SimpleGrid
@@ -541,7 +427,7 @@ export default function Page() {
 												window.location.reload();
 											} else
 												notifications.show({
-													color: "yellow",
+													color: "green",
 													message: "You have already granted permissions",
 												});
 										}}
