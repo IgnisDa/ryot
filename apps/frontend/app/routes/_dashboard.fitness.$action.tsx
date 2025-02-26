@@ -1869,6 +1869,7 @@ const ExerciseDisplay = (props: {
 											draft.exercises[props.exerciseIdx].sets.push({
 												lot: setLot,
 												confirmedAt: null,
+												identifier: randomUUID(),
 												statistic: currentSet?.statistic ?? {},
 												restTimer: restTimer
 													? { duration: restTimer }
