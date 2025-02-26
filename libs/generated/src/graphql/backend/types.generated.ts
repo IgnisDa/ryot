@@ -1617,6 +1617,7 @@ export type MutationRootUpdateUserWorkoutAttributesArgs = {
 
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
+  configuredEvents: Array<UserNotificationContent>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -2334,6 +2335,7 @@ export type UpdateUserIntegrationInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
+  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2838,17 +2840,6 @@ export enum UserNotificationContent {
   ReviewPosted = 'REVIEW_POSTED'
 }
 
-export type UserNotificationsPreferences = {
-  __typename?: 'UserNotificationsPreferences';
-  enabled: Scalars['Boolean']['output'];
-  toSend: Array<UserNotificationContent>;
-};
-
-export type UserNotificationsPreferencesInput = {
-  enabled: Scalars['Boolean']['input'];
-  toSend: Array<UserNotificationContent>;
-};
-
 export type UserOthersFeaturesEnabledPreferences = {
   __typename?: 'UserOthersFeaturesEnabledPreferences';
   calendar: Scalars['Boolean']['output'];
@@ -2878,14 +2869,12 @@ export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
-  notifications: UserNotificationsPreferences;
 };
 
 export type UserPreferencesInput = {
   featuresEnabled: UserFeaturesEnabledPreferencesInput;
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
-  notifications: UserNotificationsPreferencesInput;
 };
 
 export enum UserReviewScale {

@@ -7,14 +7,15 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum NotificationPlatform {
-    Table,
     Id,
     Lot,
-    CreatedOn,
-    PlatformSpecifics,
-    Description,
+    Table,
     UserId,
+    CreatedOn,
     IsDisabled,
+    Description,
+    ConfiguredEvents,
+    PlatformSpecifics,
 }
 
 #[async_trait::async_trait]
@@ -53,6 +54,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(NotificationPlatform::IsDisabled).boolean())
+                    .col(
+                        ColumnDef::new(NotificationPlatform::ConfiguredEvents)
+                            .array(ColumnType::Text)
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("notification_platform_to_user_foreign_key")

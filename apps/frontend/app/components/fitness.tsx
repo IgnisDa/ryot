@@ -177,10 +177,10 @@ export const DisplaySet = (props: {
 			<Flex align="center">
 				<Text
 					fz="sm"
-					c={getSetColor(props.set.lot)}
 					mr="md"
 					fw="bold"
 					ff="monospace"
+					c={getSetColor(props.set.lot)}
 				>
 					{match(props.set.lot)
 						.with(SetLot.Normal, () => props.idx + 1)
@@ -190,10 +190,10 @@ export const DisplaySet = (props: {
 					<Popover position="left" withArrow shadow="md" opened={opened}>
 						<Popover.Target>
 							<ActionIcon
+								color="grape"
 								onMouseEnter={open}
 								onMouseLeave={close}
 								variant="transparent"
-								color="grape"
 							>
 								<IconTrophy size={18} />
 							</ActionIcon>
@@ -466,6 +466,7 @@ export const WorkoutDisplayItem = (props: {
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
+			imageOverlay={{ topRight: props.topRight }}
 			onImageClickBehavior={$path("/fitness/:entity/:id", {
 				id: props.workoutId,
 				entity: "workouts",
@@ -474,7 +475,6 @@ export const WorkoutDisplayItem = (props: {
 				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
 				right: props.rightLabel,
 			}}
-			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };
@@ -492,6 +492,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 		<BaseMediaDisplayItem
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
+			imageOverlay={{ topRight: props.topRight }}
 			onImageClickBehavior={$path("/fitness/:entity/:id", {
 				id: props.workoutTemplateId,
 				entity: FitnessEntity.Templates,
@@ -500,7 +501,6 @@ export const WorkoutTemplateDisplayItem = (props: {
 				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
 				right: "Template",
 			}}
-			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };

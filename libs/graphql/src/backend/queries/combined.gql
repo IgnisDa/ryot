@@ -86,6 +86,7 @@ query UserNotificationPlatforms {
 		createdOn
 		isDisabled
 		description
+		configuredEvents
 	}
 }
 

@@ -186,25 +186,6 @@ pub struct ChangeCollectionToEntityInput {
     pub information: Option<serde_json::Value>,
 }
 
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-pub enum UserNotificationContent {
-    ReviewPosted,
-    MetadataPublished,
-    NewWorkoutCreated,
-    OutdatedSeenEntries,
-    MetadataStatusChanged,
-    MetadataEpisodeReleased,
-    PersonMetadataAssociated,
-    MetadataReleaseDateChanged,
-    MetadataEpisodeNameChanged,
-    MetadataEpisodeImagesChanged,
-    PersonMetadataGroupAssociated,
-    MetadataNumberOfSeasonsChanged,
-    MetadataChaptersOrEpisodesChanged,
-    NotificationFromReminderCollection,
-    IntegrationDisabledDueToTooManyErrors,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
     pub size: i64,

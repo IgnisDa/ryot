@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use enum_models::NotificationPlatformLot;
+use enum_models::{NotificationPlatformLot, UserNotificationContent};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use user_models::NotificationPlatformSpecifics;
@@ -13,14 +13,15 @@ use user_models::NotificationPlatformSpecifics;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: String,
-    pub lot: NotificationPlatformLot,
-    pub created_on: DateTimeWithTimeZone,
-    pub is_disabled: Option<bool>,
-    #[graphql(skip)]
-    pub platform_specifics: NotificationPlatformSpecifics,
-    pub description: String,
     #[graphql(skip)]
     pub user_id: String,
+    pub description: String,
+    pub is_disabled: Option<bool>,
+    pub lot: NotificationPlatformLot,
+    pub created_on: DateTimeWithTimeZone,
+    pub configured_events: Vec<UserNotificationContent>,
+    #[graphql(skip)]
+    pub platform_specifics: NotificationPlatformSpecifics,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

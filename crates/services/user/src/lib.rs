@@ -21,7 +21,9 @@ use dependent_models::{
 };
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
-use enum_models::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
+use enum_models::{
+    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationContent,
+};
 use itertools::Itertools;
 use jwt_service::sign;
 use media_models::{
@@ -607,8 +609,9 @@ impl UserService {
         let notification = notification_platform::ActiveModel {
             lot: ActiveValue::Set(input.lot),
             user_id: ActiveValue::Set(user_id),
-            platform_specifics: ActiveValue::Set(specifics),
             description: ActiveValue::Set(description),
+            platform_specifics: ActiveValue::Set(specifics),
+            configured_events: ActiveValue::Set(UserNotificationContent::iter().collect()),
             ..Default::default()
         };
         let new_notification_id = notification.insert(&self.0.db).await?.id;
@@ -632,6 +635,9 @@ impl UserService {
         let mut db_notification: notification_platform::ActiveModel = db_notification.into();
         if let Some(s) = input.is_disabled {
             db_notification.is_disabled = ActiveValue::Set(Some(s));
+        }
+        if let Some(e) = input.configured_events {
+            db_notification.configured_events = ActiveValue::Set(e);
         }
         db_notification.update(&self.0.db).await?;
         Ok(true)

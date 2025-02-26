@@ -14,7 +14,6 @@ use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
     SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
-    UserNotificationContent,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, BULK_APPLICATION_UPDATE_CHUNK_SIZE,
@@ -62,7 +61,8 @@ use dependent_utils::{
 };
 use either::Either;
 use enum_models::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    UserNotificationContent, UserToMediaReason,
 };
 use futures::{future::join_all, TryStreamExt};
 use itertools::Itertools;

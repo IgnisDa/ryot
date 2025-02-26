@@ -5,7 +5,6 @@ use std::{
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
-use common_models::UserNotificationContent;
 use common_utils::ryot_log;
 use database_models::{
     integration, metadata,
@@ -18,7 +17,9 @@ use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
     send_notification_for_user,
 };
-use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use enum_models::{
+    EntityLot, IntegrationLot, IntegrationProvider, MediaLot, UserNotificationContent,
+};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
 use sea_orm::{
