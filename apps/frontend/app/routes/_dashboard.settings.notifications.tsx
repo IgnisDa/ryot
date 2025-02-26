@@ -4,6 +4,7 @@ import {
 	Box,
 	Button,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Modal,
@@ -17,13 +18,14 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
 	NotificationPlatformLot,
 	TestUserNotificationPlatformsDocument,
 	UpdateUserNotificationPlatformDocument,
+	UserNotificationContent,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -39,7 +41,11 @@ import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
+import {
+	dayjsLib,
+	openConfirmationModal,
+	zodCommaDelimitedString,
+} from "~/lib/generals";
 import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.notifications";
@@ -134,6 +140,9 @@ const createSchema = z.object({
 const updateSchema = z.object({
 	notificationId: z.string(),
 	isDisabled: zodCheckboxAsString,
+	configuredEvents: zodCommaDelimitedString.transform(
+		(v) => v as UserNotificationContent[],
+	),
 });
 
 export default function Page() {
@@ -302,6 +311,8 @@ const DisplayNotification = (props: {
 	const submit = useConfirmSubmit();
 	const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
 		useDisclosure(false);
+	const [configuredEvents, configuredEventsHandler] =
+		useListState<UserNotificationContent>(props.notification.configuredEvents);
 
 	return (
 		<>
@@ -317,12 +328,100 @@ const DisplayNotification = (props: {
 						name="notificationId"
 						defaultValue={props.notification.id}
 					/>
+					<input
+						hidden
+						name="configuredEvents"
+						value={configuredEvents.join(",")}
+					/>
 					<Stack>
 						<Switch
 							name="isDisabled"
 							label="Disable notification"
 							defaultChecked={props.notification.isDisabled ?? false}
 						/>
+						<Divider />
+						<Stack gap="xs">
+							{Object.values(UserNotificationContent).map((name) => (
+								<Switch
+									size="xs"
+									key={name}
+									defaultChecked={props.notification.configuredEvents.includes(
+										name,
+									)}
+									onChange={(value) => {
+										const checked = value.target.checked;
+										if (checked) configuredEventsHandler.append(name);
+										else
+											configuredEventsHandler.filter((event) => event !== name);
+									}}
+									label={match(name)
+										.with(
+											UserNotificationContent.OutdatedSeenEntries,
+											() => "Media has been in progress/on hold for too long",
+										)
+										.with(
+											UserNotificationContent.MetadataEpisodeNameChanged,
+											() => "Name of an episode changes",
+										)
+										.with(
+											UserNotificationContent.MetadataEpisodeImagesChanged,
+											() => "Images for an episode changes",
+										)
+										.with(
+											UserNotificationContent.MetadataEpisodeReleased,
+											() => "Number of episodes changes",
+										)
+										.with(
+											UserNotificationContent.MetadataPublished,
+
+											() => "A media is published",
+										)
+										.with(
+											UserNotificationContent.MetadataStatusChanged,
+											() => "Status changes",
+										)
+										.with(
+											UserNotificationContent.MetadataReleaseDateChanged,
+											() => "Release date changes",
+										)
+										.with(
+											UserNotificationContent.MetadataNumberOfSeasonsChanged,
+											() => "Number of seasons changes",
+										)
+										.with(
+											UserNotificationContent.MetadataChaptersOrEpisodesChanged,
+											() =>
+												"Number of chapters/episodes changes for manga/anime",
+										)
+										.with(
+											UserNotificationContent.ReviewPosted,
+											() =>
+												"A new public review is posted for media/people you monitor",
+										)
+										.with(
+											UserNotificationContent.PersonMetadataAssociated,
+											() => "New media is associated with a person",
+										)
+										.with(
+											UserNotificationContent.PersonMetadataGroupAssociated,
+											() => "New media group is associated with a person",
+										)
+										.with(
+											UserNotificationContent.NotificationFromReminderCollection,
+											() => "When an item is added to the reminder collection",
+										)
+										.with(
+											UserNotificationContent.NewWorkoutCreated,
+											() => "A new workout is created",
+										)
+										.with(
+											UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
+											() => "Integration disabled due to too many errors",
+										)
+										.exhaustive()}
+								/>
+							))}
+						</Stack>
 						<Button type="submit" onClick={closeEditModal}>
 							Save
 						</Button>
