@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
-use enum_models::{MediaLot, UserLot, UserNotificationContent};
+use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
@@ -17,27 +17,6 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
     "Hulu",
     "Crunchyroll",
 ];
-
-#[derive(
-    Eq,
-    Educe,
-    Clone,
-    Debug,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[educe(Default)]
-#[graphql(input_name = "UserNotificationsPreferencesInput")]
-pub struct UserNotificationsPreferences {
-    #[educe(Default(expression = UserNotificationContent::iter().collect()))]
-    pub to_send: Vec<UserNotificationContent>,
-    #[educe(Default = true)]
-    pub enabled: bool,
-}
 
 #[derive(
     Eq,
@@ -493,7 +472,6 @@ pub struct UserGeneralPreferences {
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
-    pub notifications: UserNotificationsPreferences,
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 

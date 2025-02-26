@@ -78,10 +78,6 @@ query UserDetails {
 						}
 					}
 				}
-				notifications {
-					toSend
-					enabled
-				}
 				featuresEnabled {
 					analytics {
 						enabled

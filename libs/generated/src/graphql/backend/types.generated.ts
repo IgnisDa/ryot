@@ -2840,17 +2840,6 @@ export enum UserNotificationContent {
   ReviewPosted = 'REVIEW_POSTED'
 }
 
-export type UserNotificationsPreferences = {
-  __typename?: 'UserNotificationsPreferences';
-  enabled: Scalars['Boolean']['output'];
-  toSend: Array<UserNotificationContent>;
-};
-
-export type UserNotificationsPreferencesInput = {
-  enabled: Scalars['Boolean']['input'];
-  toSend: Array<UserNotificationContent>;
-};
-
 export type UserOthersFeaturesEnabledPreferences = {
   __typename?: 'UserOthersFeaturesEnabledPreferences';
   calendar: Scalars['Boolean']['output'];
@@ -2880,14 +2869,12 @@ export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
-  notifications: UserNotificationsPreferences;
 };
 
 export type UserPreferencesInput = {
   featuresEnabled: UserFeaturesEnabledPreferencesInput;
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
-  notifications: UserNotificationsPreferencesInput;
 };
 
 export enum UserReviewScale {
