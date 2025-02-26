@@ -11,6 +11,7 @@ import {
 	Paper,
 	Select,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Title,
@@ -310,7 +311,12 @@ const DisplayNotification = (props: {
 				onClose={closeEditModal}
 				title="Edit Notification"
 			>
-				<Text>Hello World</Text>
+				<Stack>
+					<Switch
+						label="Disable notification"
+						defaultChecked={props.notification.isDisabled ?? false}
+					/>
+				</Stack>
 			</Modal>
 			<Paper p="xs" withBorder>
 				<Flex align="center" justify="space-between">
