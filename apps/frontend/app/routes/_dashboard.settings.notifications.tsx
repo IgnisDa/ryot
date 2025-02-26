@@ -31,7 +31,7 @@ import {
 	changeCase,
 	getActionIntent,
 	processSubmission,
-	zodBoolAsString,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
@@ -133,7 +133,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
 	notificationId: z.string(),
-	isDisabled: zodBoolAsString.optional(),
+	isDisabled: zodCheckboxAsString,
 });
 
 export default function Page() {
@@ -311,12 +311,23 @@ const DisplayNotification = (props: {
 				onClose={closeEditModal}
 				title="Edit Notification"
 			>
-				<Stack>
-					<Switch
-						label="Disable notification"
-						defaultChecked={props.notification.isDisabled ?? false}
+				<Form method="POST" action={withQuery(".", { intent: "update" })}>
+					<input
+						hidden
+						name="notificationId"
+						defaultValue={props.notification.id}
 					/>
-				</Stack>
+					<Stack>
+						<Switch
+							name="isDisabled"
+							label="Disable notification"
+							defaultChecked={props.notification.isDisabled ?? false}
+						/>
+						<Button type="submit" onClick={closeEditModal}>
+							Save
+						</Button>
+					</Stack>
+				</Form>
 			</Modal>
 			<Paper p="xs" withBorder>
 				<Flex align="center" justify="space-between">
