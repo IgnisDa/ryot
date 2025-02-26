@@ -305,9 +305,9 @@ const DisplayNotification = (props: {
 	return (
 		<>
 			<Modal
+				centered
 				opened={editModalOpened}
 				onClose={closeEditModal}
-				centered
 				title="Edit Notification"
 			>
 				<Text>Hello World</Text>
