@@ -303,7 +303,7 @@ const DisplayNotification = (props: {
 		useDisclosure(false);
 
 	return (
-		<Paper p="xs" withBorder>
+		<>
 			<Modal
 				opened={editModalOpened}
 				onClose={closeEditModal}
@@ -312,48 +312,50 @@ const DisplayNotification = (props: {
 			>
 				<Text>Hello World</Text>
 			</Modal>
-			<Flex align="center" justify="space-between">
-				<Box w="80%">
-					<Text size="sm" truncate>
-						<Text span fw="bold">
-							{changeCase(props.notification.lot)}:
-						</Text>{" "}
-						<Text span>{props.notification.description}</Text>
-					</Text>
-					<Text size="xs">
-						Created: {dayjsLib(props.notification.createdOn).fromNow()}
-					</Text>
-				</Box>
-				<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
-					<ActionIcon color="indigo" variant="subtle" onClick={openEditModal}>
-						<IconPencil />
-					</ActionIcon>
-					<Tooltip label="Delete">
-						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
-							<input
-								hidden
-								name="notificationId"
-								defaultValue={props.notification.id}
-							/>
-							<ActionIcon
-								type="submit"
-								color="red"
-								variant="subtle"
-								onClick={(e) => {
-									const form = e.currentTarget.form;
-									e.preventDefault();
-									openConfirmationModal(
-										"Are you sure you want to delete this notification platform?",
-										() => submit(form),
-									);
-								}}
-							>
-								<IconTrash />
-							</ActionIcon>
-						</Form>
-					</Tooltip>
+			<Paper p="xs" withBorder>
+				<Flex align="center" justify="space-between">
+					<Box w="80%">
+						<Text size="sm" truncate>
+							<Text span fw="bold">
+								{changeCase(props.notification.lot)}:
+							</Text>{" "}
+							<Text span>{props.notification.description}</Text>
+						</Text>
+						<Text size="xs">
+							Created: {dayjsLib(props.notification.createdOn).fromNow()}
+						</Text>
+					</Box>
+					<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
+						<ActionIcon color="indigo" variant="subtle" onClick={openEditModal}>
+							<IconPencil />
+						</ActionIcon>
+						<Tooltip label="Delete">
+							<Form method="POST" action={withQuery(".", { intent: "delete" })}>
+								<input
+									hidden
+									name="notificationId"
+									defaultValue={props.notification.id}
+								/>
+								<ActionIcon
+									type="submit"
+									color="red"
+									variant="subtle"
+									onClick={(e) => {
+										const form = e.currentTarget.form;
+										e.preventDefault();
+										openConfirmationModal(
+											"Are you sure you want to delete this notification platform?",
+											() => submit(form),
+										);
+									}}
+								>
+									<IconTrash />
+								</ActionIcon>
+							</Form>
+						</Tooltip>
+					</Flex>
 				</Flex>
-			</Flex>
-		</Paper>
+			</Paper>
+		</>
 	);
 };
