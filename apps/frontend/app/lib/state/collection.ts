@@ -96,7 +96,9 @@ export const useBulkEditCollection = () => {
 								);
 								if (lot)
 									return clientGqlService
-										.request(UserMetadataListDocument, { input: { lot, take } })
+										.request(UserMetadataListDocument, {
+											input: { lot, search: { take } },
+										})
 										.then((r) =>
 											r.userMetadataList.response.items.map((m) => ({
 												entityId: m,
