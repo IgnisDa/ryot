@@ -1766,36 +1766,40 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	name: string;
 	children: ReactNode;
 	runtime?: number | null;
+	endDate?: string | null;
 	overview?: string | null;
 	displayIndicator: number;
 	onNameClick?: () => void;
+	startDate?: string | null;
 	id?: number | string | null;
 	numEpisodes?: number | null;
 	posterImages: Array<string>;
 	publishDate?: string | null;
 }) => {
 	const [parent] = useAutoAnimate();
-	const swt = (t: string) => (
-		<Text size="xs" c="dimmed">
-			{t}
-		</Text>
-	);
 	const filteredElements = [
 		props.runtime
-			? swt(
-					humanizeDuration(
-						dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
-						{ units: ["h", "m"] },
-					),
+			? humanizeDuration(
+					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
+					{ units: ["h", "m"] },
 				)
 			: null,
-		props.publishDate ? swt(dayjsLib(props.publishDate).format("ll")) : null,
-		props.numEpisodes ? swt(`${props.numEpisodes} episodes`) : null,
+		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
+		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
+		props.startDate && props.endDate
+			? `${dayjsLib(props.startDate).format("MM/YYYY")} to ${dayjsLib(
+					props.endDate,
+				).format("MM/YYYY")}`
+			: null,
 	].filter((s) => s !== null);
 	const display =
 		filteredElements.length > 0
 			? filteredElements
-					.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+					.map<ReactNode>((s, i) => (
+						<Text size="xs" key={i.toString()} c="dimmed">
+							{s}
+						</Text>
+					))
 					.reduce((prev, curr) => [prev, " • ", curr])
 			: null;
 
@@ -1804,7 +1808,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	const DisplayDetails = () => (
 		<>
 			{props.onNameClick ? (
-				<Anchor onClick={props.onNameClick} lineClamp={2}>
+				<Anchor onClick={props.onNameClick} lineClamp={2} display="inline">
 					{props.name}
 				</Anchor>
 			) : (
@@ -1898,6 +1902,8 @@ const DisplayShowSeason = (props: {
 				numEpisodes={props.season.episodes.length}
 				onNameClick={() => props.openSeasonModal()}
 				name={getShowSeasonDisplayName(props.season)}
+				endDate={props.season.episodes.at(-1)?.publishDate}
+				startDate={props.season.episodes.at(0)?.publishDate}
 				runtime={props.season.episodes
 					.map((e) => e.runtime || 0)
 					.reduce((i, a) => i + a, 0)}
