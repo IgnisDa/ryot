@@ -14,7 +14,6 @@ import {
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
-	MediaLot,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -39,10 +38,9 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
-	getAuthorizationCookie,
 	getCookiesForApplication,
 	getCoreDetails,
 	redirectWithToast,
@@ -59,21 +57,6 @@ export type SearchParams = z.infer<typeof searchParamsSchema> &
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const isAuthenticated = !!getAuthorizationCookie(request);
-	if (isAuthenticated) {
-		throw await redirectWithToast(
-			$path(
-				"/media/:action/:lot",
-				{ action: "search", lot: MediaLot.Movie },
-				{ query: "avengers" },
-			),
-			{
-				message:
-					"Welcome to Ryot! Get started by adding a movie to your watchlist!",
-				closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
-			},
-		);
-	}
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	return {
 		intent: query.intent || "login",
