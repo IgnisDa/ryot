@@ -14,6 +14,10 @@ type SignUploadUrlInput = {
 	contentType: UploadContentType;
 };
 
+type CreatePresignedDownloadDeps = {
+	signDownloadUrl?: (key: string) => Promise<string>;
+};
+
 type CreatePresignedUploadDeps = {
 	generateObjectId?: () => string;
 	signUploadUrl?: (input: SignUploadUrlInput) => Promise<string>;
@@ -53,6 +57,15 @@ const signUploadUrl = async (input: SignUploadUrlInput) => {
 	});
 };
 
+const signDownloadUrl = async (key: string) => {
+	if (!s3 || !s3BucketName)
+		throw new Error("S3 uploads are not configured for app-backend");
+
+	return s3.file(key).presign({
+		expiresIn: uploadUrlExpirySeconds,
+	});
+};
+
 export const createPresignedUpload = async (
 	input: { contentType: string },
 	deps: CreatePresignedUploadDeps = {},
@@ -66,6 +79,17 @@ export const createPresignedUpload = async (
 		key,
 		contentType: resolvedInput.contentType,
 	});
+
+	return { key, uploadUrl };
+};
+
+export const createPresignedDownload = async (
+	input: { key: string },
+	deps: CreatePresignedDownloadDeps = {},
+) => {
+	const key = resolveRequiredString(input.key, "Upload key");
+	const signDownloadUrlFn = deps.signDownloadUrl ?? signDownloadUrl;
+	const uploadUrl = await signDownloadUrlFn(key);
 
 	return { key, uploadUrl };
 };

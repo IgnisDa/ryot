@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { createPresignedUpload, resolvePresignedUploadInput } from "./service";
+import {
+	createPresignedDownload,
+	createPresignedUpload,
+	resolvePresignedUploadInput,
+} from "./service";
 
 describe("createPresignedUpload", () => {
 	it("rejects unsupported content types", () => {
@@ -35,6 +39,22 @@ describe("createPresignedUpload", () => {
 		).resolves.toEqual({
 			key: "uploads/image_456.jpg",
 			uploadUrl: "https://example.com/uploads/image_456.jpg",
+		});
+	});
+});
+
+describe("createPresignedDownload", () => {
+	it("returns a presigned URL for an existing key", async () => {
+		expect(
+			createPresignedDownload(
+				{ key: "uploads/image_123.png" },
+				{
+					signDownloadUrl: async (key) => `https://example.com/${key}`,
+				},
+			),
+		).resolves.toEqual({
+			key: "uploads/image_123.png",
+			uploadUrl: "https://example.com/uploads/image_123.png",
 		});
 	});
 });
