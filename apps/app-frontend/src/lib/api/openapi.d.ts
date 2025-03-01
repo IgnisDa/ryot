@@ -1377,8 +1377,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        /** @enum {string} */
-                        contentType: "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+                        contentType: string;
                     };
                 };
             };
