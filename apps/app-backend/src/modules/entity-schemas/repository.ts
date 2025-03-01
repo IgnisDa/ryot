@@ -14,6 +14,34 @@ type EntitySchemaRow = Omit<ListedEntitySchema, "propertiesSchema"> & {
 	propertiesSchema: unknown;
 };
 
+const listedEntitySchemaSelection = {
+	id: entitySchema.id,
+	name: entitySchema.name,
+	icon: entitySchema.icon,
+	slug: entitySchema.slug,
+	facetId: facetEntitySchema.facetId,
+	isBuiltin: entitySchema.isBuiltin,
+	accentColor: entitySchema.accentColor,
+	propertiesSchema: entitySchema.propertiesSchema,
+};
+
+const builtinEntitySchemaSelection = {
+	id: entitySchema.id,
+	icon: entitySchema.icon,
+	slug: entitySchema.slug,
+	accentColor: entitySchema.accentColor,
+};
+
+const createdEntitySchemaSelection = {
+	id: entitySchema.id,
+	name: entitySchema.name,
+	slug: entitySchema.slug,
+	icon: entitySchema.icon,
+	isBuiltin: entitySchema.isBuiltin,
+	accentColor: entitySchema.accentColor,
+	propertiesSchema: entitySchema.propertiesSchema,
+};
+
 const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
 	...row,
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
@@ -24,16 +52,7 @@ export const listEntitySchemasByFacetForUser = async (input: {
 	facetId: string;
 }) => {
 	const rows = await db
-		.select({
-			id: entitySchema.id,
-			name: entitySchema.name,
-			icon: entitySchema.icon,
-			slug: entitySchema.slug,
-			facetId: facetEntitySchema.facetId,
-			isBuiltin: entitySchema.isBuiltin,
-			accentColor: entitySchema.accentColor,
-			propertiesSchema: entitySchema.propertiesSchema,
-		})
+		.select(listedEntitySchemaSelection)
 		.from(facetEntitySchema)
 		.innerJoin(facet, eq(facet.id, facetEntitySchema.facetId))
 		.innerJoin(
@@ -76,12 +95,7 @@ export const listBuiltinEntitySchemas = async (input?: {
 	const database = input?.database ?? db;
 
 	const rows = await database
-		.select({
-			id: entitySchema.id,
-			icon: entitySchema.icon,
-			slug: entitySchema.slug,
-			accentColor: entitySchema.accentColor,
-		})
+		.select(builtinEntitySchemaSelection)
 		.from(entitySchema)
 		.where(and(eq(entitySchema.isBuiltin, true), isNull(entitySchema.userId)));
 
@@ -130,15 +144,7 @@ export const createEntitySchemaForUser = async (input: {
 				accentColor: input.accentColor,
 				propertiesSchema: input.propertiesSchema,
 			})
-			.returning({
-				id: entitySchema.id,
-				name: entitySchema.name,
-				slug: entitySchema.slug,
-				icon: entitySchema.icon,
-				isBuiltin: entitySchema.isBuiltin,
-				accentColor: entitySchema.accentColor,
-				propertiesSchema: entitySchema.propertiesSchema,
-			});
+			.returning(createdEntitySchemaSelection);
 
 		if (!createdEntitySchema)
 			throw new Error("Could not persist entity schema");

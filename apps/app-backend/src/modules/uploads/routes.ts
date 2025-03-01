@@ -4,10 +4,9 @@ import {
 	commonErrors,
 	createAuthRoute,
 	createErrorResponse,
-	createValidationErrorResult,
 	jsonResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -70,13 +69,13 @@ const getPresignedDownloadUrlRoute = createAuthRoute(
 export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getPresignedUploadUrlRoute, async (c) => {
 		const body = c.req.valid("json");
-		const uploadInput = resolveValidationResult(
+		const uploadInput = resolveValidationData(
 			() => resolvePresignedUploadInput(body),
 			"Could not create presigned upload URL",
 		);
 
-		if ("error" in uploadInput)
-			return c.json(createValidationErrorResult(uploadInput.error).body, 400);
+		if ("status" in uploadInput)
+			return c.json(uploadInput.body, uploadInput.status);
 
 		return c.json(
 			successResponse(await createPresignedUpload(uploadInput.data)),
