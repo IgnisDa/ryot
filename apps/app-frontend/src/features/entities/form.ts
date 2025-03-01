@@ -2,8 +2,15 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
 import { fromAppSchema, zodRequiredName } from "@ryot/ts-utils";
 import { z } from "zod";
 
+export type EntityImageValue =
+	| { kind: "s3"; key: string }
+	| { kind: "remote"; url: string }
+	| null
+	| undefined;
+
 export interface CreateEntityFormValues {
 	name: string;
+	image: EntityImageValue;
 	properties: Record<string, unknown>;
 }
 
@@ -19,6 +26,12 @@ export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 
 	return z.object({
 		name: zodRequiredName,
+		image: z.union([
+			z.object({ kind: z.literal("s3"), key: z.string() }),
+			z.object({ kind: z.literal("remote"), url: z.string() }),
+			z.null(),
+			z.undefined(),
+		]),
 		properties: z.object(propertySchemas),
 	});
 };
@@ -32,7 +45,7 @@ export const buildDefaultEntityFormValues = (
 		if (propertyDef.required) properties[key] = getDefaultValue(propertyDef);
 	}
 
-	return { name: "", properties };
+	return { name: "", image: null, properties };
 };
 
 const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
@@ -60,8 +73,9 @@ const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 
 export interface CreateEntityPayload {
 	name: string;
-	properties: Record<string, unknown>;
 	entitySchemaId: string;
+	image: EntityImageValue;
+	properties: Record<string, unknown>;
 }
 
 export function toCreateEntityPayload(
@@ -70,6 +84,7 @@ export function toCreateEntityPayload(
 ): CreateEntityPayload {
 	return {
 		entitySchemaId,
+		image: input.image,
 		name: input.name.trim(),
 		properties: input.properties,
 	};
