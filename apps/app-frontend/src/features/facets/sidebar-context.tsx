@@ -16,11 +16,10 @@ import { moveFacet } from "./reorder";
 interface FacetSidebarState {
 	isError: boolean;
 	isLoading: boolean;
-	isCustomizeMode: boolean;
 	modalOpened: boolean;
 	isReordering: boolean;
 	isMutationBusy: boolean;
-	isDisablePending: boolean;
+	isCustomizeMode: boolean;
 	isModalSubmitting: boolean;
 	activeFacet: AppFacet | undefined;
 	navItems: ReturnType<typeof toTrackingNavItems>;
@@ -31,7 +30,6 @@ interface FacetSidebarActions {
 	closeModal: () => void;
 	openCreateModal: () => void;
 	toggleCustomizeMode: () => void;
-	toggleActiveFacet: () => Promise<void>;
 	toggleFacetById: (facetId: string) => Promise<void>;
 	openEditModal: (facetId: string) => void;
 	moveFacetById: (facetId: string, direction: "up" | "down") => Promise<void>;
@@ -73,10 +71,10 @@ export function useFacetSidebarActions() {
 export default function FacetSidebarProvider(props: { children: ReactNode }) {
 	const facetsQuery = useFacetsQuery();
 	const mutations = useFacetMutations();
-	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] =
-		useDisclosure(false);
 	const [isCustomizeMode, setIsCustomizeMode] = useState(false);
 	const [activeFacetId, setActiveFacetId] = useState<string | null>(null);
+	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] =
+		useDisclosure(false);
 	const navItems = useMemo(
 		() => toTrackingNavItems(facetsQuery.facets),
 		[facetsQuery.facets],
@@ -106,18 +104,12 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 
 	const toggleFacet = useCallback(
 		async (facet: AppFacet) => {
-			if (facet.enabled) {
-				await mutations.disable.mutateAsync({
-					params: { path: { facetId: facet.id } },
-				});
-				return;
-			}
-
-			await mutations.enable.mutateAsync({
+			await mutations.toggle.mutateAsync({
+				body: { enabled: !facet.enabled },
 				params: { path: { facetId: facet.id } },
 			});
 		},
-		[mutations.disable, mutations.enable],
+		[mutations.toggle],
 	);
 
 	const moveFacetById = useCallback(
@@ -165,15 +157,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 		[activeFacet, closeModal, mutations.create, mutations.update],
 	);
 
-	const toggleActiveFacet = useCallback(async () => {
-		if (!activeFacet) {
-			return;
-		}
-
-		await toggleFacet(activeFacet);
-		closeModal();
-	}, [activeFacet, closeModal, toggleFacet]);
-
 	const retry = useCallback(() => {
 		void facetsQuery.refetch();
 	}, [facetsQuery.refetch]);
@@ -185,14 +168,10 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 	const isMutationBusy =
 		mutations.create.isPending ||
 		mutations.update.isPending ||
-		mutations.enable.isPending ||
-		mutations.disable.isPending;
+		mutations.toggle.isPending;
 
 	const isModalSubmitting =
 		mutations.create.isPending || mutations.update.isPending;
-
-	const isDisablePending =
-		mutations.enable.isPending || mutations.disable.isPending;
 
 	const stateValue = useMemo(
 		() => ({
@@ -201,7 +180,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			modalOpened,
 			isMutationBusy,
 			isCustomizeMode,
-			isDisablePending,
 			isModalSubmitting,
 			isError: facetsQuery.isError,
 			isLoading: facetsQuery.isLoading,
@@ -213,7 +191,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			modalOpened,
 			isMutationBusy,
 			isCustomizeMode,
-			isDisablePending,
 			isModalSubmitting,
 			facetsQuery.isError,
 			facetsQuery.isLoading,
@@ -230,7 +207,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			moveFacetById,
 			openCreateModal,
 			toggleFacetById,
-			toggleActiveFacet,
 			toggleCustomizeMode,
 		}),
 		[
@@ -241,7 +217,6 @@ export default function FacetSidebarProvider(props: { children: ReactNode }) {
 			moveFacetById,
 			openCreateModal,
 			toggleFacetById,
-			toggleActiveFacet,
 			toggleCustomizeMode,
 		],
 	);
