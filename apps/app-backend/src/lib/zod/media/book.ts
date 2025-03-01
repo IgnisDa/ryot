@@ -1,9 +1,9 @@
+import { toAppSchemaProperties } from "@ryot/ts-utils";
 import { z } from "zod";
 import {
 	createImportEnvelopeSchema,
 	nullableBooleanSchema,
 	nullableIntSchema,
-	toStableJsonSchema,
 } from "../base";
 import { mediaPropertiesSchema } from "./common";
 
@@ -18,7 +18,7 @@ export const bookPropertiesSchema = mediaPropertiesSchema.extend({
 });
 
 export const bookPropertiesJsonSchema =
-	toStableJsonSchema(bookPropertiesSchema);
+	toAppSchemaProperties(bookPropertiesSchema);
 
 export const schemaImportResponse =
 	createImportEnvelopeSchema(bookPropertiesSchema);
@@ -40,10 +40,10 @@ export const progressEventPropertiesSchema = z
 	})
 	.strict();
 
-export const readEventPropertiesJsonSchema = toStableJsonSchema(
+export const readEventPropertiesJsonSchema = toAppSchemaProperties(
 	readEventPropertiesSchema,
 );
 
-export const progressEventPropertiesJsonSchema = toStableJsonSchema(
+export const progressEventPropertiesJsonSchema = toAppSchemaProperties(
 	progressEventPropertiesSchema,
 );
