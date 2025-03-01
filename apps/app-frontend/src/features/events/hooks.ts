@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { sortEvents } from "./model";
+import { sortEvents, toAppEvent } from "./model";
 
 export function useEventsQuery(entityId: string, enabled = true) {
 	const apiClient = useApiClient();
@@ -13,14 +13,7 @@ export function useEventsQuery(entityId: string, enabled = true) {
 
 	return {
 		...query,
-		events: sortEvents(
-			(query.data?.data ?? []).map((event) => ({
-				...event,
-				createdAt: new Date(event.createdAt),
-				updatedAt: new Date(event.updatedAt),
-				occurredAt: new Date(event.occurredAt),
-			})),
-		),
+		events: sortEvents((query.data?.data ?? []).map(toAppEvent)),
 	};
 }
 

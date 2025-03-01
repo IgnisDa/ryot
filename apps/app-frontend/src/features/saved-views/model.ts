@@ -1,33 +1,5 @@
-export interface SavedViewQueryDefinition {
-	entitySchemaIds: string[];
-}
+import type { ApiGetResponseData } from "#/lib/api/types";
 
-export interface AppSavedView {
-	id: string;
-	icon: string;
-	name: string;
-	isBuiltin: boolean;
-	accentColor: string;
-	facetId: string | null;
-	queryDefinition: SavedViewQueryDefinition;
-}
+export type AppSavedView = ApiGetResponseData<"/saved-views">[number];
 
-export function toAppSavedView(raw: {
-	id: string;
-	icon: string;
-	name: string;
-	isBuiltin: boolean;
-	accentColor: string;
-	facetId: string | null;
-	queryDefinition: unknown;
-}): AppSavedView {
-	return {
-		id: raw.id,
-		icon: raw.icon,
-		name: raw.name,
-		facetId: raw.facetId,
-		isBuiltin: raw.isBuiltin,
-		accentColor: raw.accentColor,
-		queryDefinition: raw.queryDefinition as SavedViewQueryDefinition,
-	};
-}
+export type SavedViewQueryDefinition = AppSavedView["queryDefinition"];

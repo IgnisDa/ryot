@@ -1,12 +1,6 @@
-import type { AppSchema } from "@ryot/ts-utils";
+import type { ApiGetResponseData } from "#/lib/api/types";
 
-export interface AppEventSchema {
-	id: string;
-	name: string;
-	slug: string;
-	entitySchemaId: string;
-	propertiesSchema: AppSchema;
-}
+export type AppEventSchema = ApiGetResponseData<"/event-schemas">[number];
 
 export function sortEventSchemas(eventSchemas: AppEventSchema[]) {
 	return [...eventSchemas].sort((a, b) => {
