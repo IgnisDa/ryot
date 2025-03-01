@@ -14,7 +14,6 @@ import { Route as ThemesRouteRouteImport } from './routes/themes/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ProtectedTrackerOverviewRouteImport } from './routes/_protected/tracker-overview'
 import { Route as ProtectedFacetSlugIndexRouteImport } from './routes/_protected/$facetSlug/index'
 import { Route as ProtectedFacetSlugViewsViewIdRouteImport } from './routes/_protected/$facetSlug/views/$viewId'
 import { Route as ProtectedFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/$facetSlug/entities/$entityId'
@@ -43,12 +42,6 @@ const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedTrackerOverviewRoute =
-  ProtectedTrackerOverviewRouteImport.update({
-    id: '/tracker-overview',
-    path: '/tracker-overview',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
 const ProtectedFacetSlugIndexRoute = ProtectedFacetSlugIndexRouteImport.update({
   id: '/$facetSlug/',
   path: '/$facetSlug/',
@@ -71,7 +64,6 @@ export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
-  '/tracker-overview': typeof ProtectedTrackerOverviewRoute
   '/themes/': typeof ThemesIndexRoute
   '/$facetSlug/': typeof ProtectedFacetSlugIndexRoute
   '/$facetSlug/entities/$entityId': typeof ProtectedFacetSlugEntitiesEntityIdRoute
@@ -79,7 +71,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
-  '/tracker-overview': typeof ProtectedTrackerOverviewRoute
   '/': typeof ProtectedIndexRoute
   '/themes': typeof ThemesIndexRoute
   '/$facetSlug': typeof ProtectedFacetSlugIndexRoute
@@ -91,7 +82,6 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/themes': typeof ThemesRouteRouteWithChildren
   '/start': typeof StartRoute
-  '/_protected/tracker-overview': typeof ProtectedTrackerOverviewRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/themes/': typeof ThemesIndexRoute
   '/_protected/$facetSlug/': typeof ProtectedFacetSlugIndexRoute
@@ -104,7 +94,6 @@ export interface FileRouteTypes {
     | '/'
     | '/themes'
     | '/start'
-    | '/tracker-overview'
     | '/themes/'
     | '/$facetSlug/'
     | '/$facetSlug/entities/$entityId'
@@ -112,7 +101,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
-    | '/tracker-overview'
     | '/'
     | '/themes'
     | '/$facetSlug'
@@ -123,7 +111,6 @@ export interface FileRouteTypes {
     | '/_protected'
     | '/themes'
     | '/start'
-    | '/_protected/tracker-overview'
     | '/_protected/'
     | '/themes/'
     | '/_protected/$facetSlug/'
@@ -174,13 +161,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/tracker-overview': {
-      id: '/_protected/tracker-overview'
-      path: '/tracker-overview'
-      fullPath: '/tracker-overview'
-      preLoaderRoute: typeof ProtectedTrackerOverviewRouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
     '/_protected/$facetSlug/': {
       id: '/_protected/$facetSlug/'
       path: '/$facetSlug'
@@ -206,7 +186,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface ProtectedRouteRouteChildren {
-  ProtectedTrackerOverviewRoute: typeof ProtectedTrackerOverviewRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedFacetSlugIndexRoute: typeof ProtectedFacetSlugIndexRoute
   ProtectedFacetSlugEntitiesEntityIdRoute: typeof ProtectedFacetSlugEntitiesEntityIdRoute
@@ -214,7 +193,6 @@ interface ProtectedRouteRouteChildren {
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
-  ProtectedTrackerOverviewRoute: ProtectedTrackerOverviewRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedFacetSlugIndexRoute: ProtectedFacetSlugIndexRoute,
   ProtectedFacetSlugEntitiesEntityIdRoute:
