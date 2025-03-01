@@ -1,3 +1,4 @@
+import type { AppSchema } from "@ryot/ts-utils";
 import type { AppFacet } from "#/features/facets/model";
 
 export interface AppEntitySchema {
@@ -6,10 +7,7 @@ export interface AppEntitySchema {
 	slug: string;
 	facetId: string;
 	isBuiltin: boolean;
-	propertiesSchema: {
-		type: "object";
-		properties: Record<string, unknown>;
-	};
+	propertiesSchema: AppSchema;
 }
 
 export function sortEntitySchemas(
