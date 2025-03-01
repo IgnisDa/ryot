@@ -32,7 +32,7 @@ describe("parsePropertySchemaInput", () => {
 				propertiesLabel: "Event schema properties",
 				schemaLabel: "Event schema properties schema",
 			}),
-		).toThrow("Event schema properties schema must be a JSON object");
+		).toThrow("Invalid input: expected record, received array");
 	});
 
 	it("rejects string inputs", () => {
@@ -41,7 +41,7 @@ describe("parsePropertySchemaInput", () => {
 				propertiesLabel: "Entity schema properties",
 				schemaLabel: "Entity schema properties schema",
 			}),
-		).toThrow("Entity schema properties schema must be a JSON object");
+		).toThrow("Invalid input: expected record, received string");
 	});
 
 	it("rejects extra keys on primitive properties", () => {
@@ -53,7 +53,7 @@ describe("parsePropertySchemaInput", () => {
 					schemaLabel: "Entity schema properties schema",
 				},
 			),
-		).toThrow('Property "rating" has unsupported key "items"');
+		).toThrow('Unrecognized key: "items"');
 	});
 
 	it("rejects non-literal required flag", () => {
@@ -65,7 +65,7 @@ describe("parsePropertySchemaInput", () => {
 					schemaLabel: "Entity schema properties schema",
 				},
 			),
-		).toThrow('Property "rating" must have required=true when present');
+		).toThrow("Invalid input: expected true");
 	});
 
 	it("rejects extra keys on array and object properties", () => {
@@ -83,7 +83,7 @@ describe("parsePropertySchemaInput", () => {
 					schemaLabel: "Entity schema properties schema",
 				},
 			),
-		).toThrow('Property "tags" has unsupported key "properties"');
+		).toThrow('Unrecognized key: "properties"');
 
 		expect(() =>
 			parsePropertySchemaInput(
@@ -99,6 +99,6 @@ describe("parsePropertySchemaInput", () => {
 					schemaLabel: "Entity schema properties schema",
 				},
 			),
-		).toThrow('Property "metadata" has unsupported key "items"');
+		).toThrow('Unrecognized key: "items"');
 	});
 });

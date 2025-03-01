@@ -44,3 +44,4 @@ export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 });
 
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
+export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;

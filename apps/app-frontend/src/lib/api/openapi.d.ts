@@ -779,14 +779,13 @@ export interface paths {
                                 entitySchemaId: string;
                                 externalId: string | null;
                                 image: {
-                                    /** Format: uri */
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                } | {
                                     url: string;
                                     /** @enum {string} */
                                     kind: "remote";
-                                } | {
-                                    /** @enum {string} */
-                                    kind: "s3";
-                                    key: string;
                                 } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
@@ -845,14 +844,13 @@ export interface paths {
                     "application/json": {
                         name: string;
                         image: {
-                            /** Format: uri */
+                            key: string;
+                            /** @enum {string} */
+                            kind: "s3";
+                        } | {
                             url: string;
                             /** @enum {string} */
                             kind: "remote";
-                        } | {
-                            /** @enum {string} */
-                            kind: "s3";
-                            key: string;
                         } | unknown;
                         entitySchemaId: string;
                         properties: {
@@ -879,14 +877,13 @@ export interface paths {
                                 entitySchemaId: string;
                                 externalId: string | null;
                                 image: {
-                                    /** Format: uri */
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                } | {
                                     url: string;
                                     /** @enum {string} */
                                     kind: "remote";
-                                } | {
-                                    /** @enum {string} */
-                                    kind: "s3";
-                                    key: string;
                                 } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
@@ -973,14 +970,13 @@ export interface paths {
                                 entitySchemaId: string;
                                 externalId: string | null;
                                 image: {
-                                    /** Format: uri */
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                } | {
                                     url: string;
                                     /** @enum {string} */
                                     kind: "remote";
-                                } | {
-                                    /** @enum {string} */
-                                    kind: "s3";
-                                    key: string;
                                 } | unknown;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
@@ -1748,20 +1744,29 @@ export interface components {
         AppPrimitiveProperty: {
             /** @enum {boolean} */
             required?: true;
-            /** @enum {string} */
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
             type: "string" | "number" | "integer" | "boolean" | "date";
         };
         AppArrayProperty: {
             /** @enum {boolean} */
             required?: true;
-            /** @enum {string} */
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
             type: "array";
             items: components["schemas"]["AppPropertyDefinition"];
         };
         AppObjectProperty: {
             /** @enum {boolean} */
             required?: true;
-            /** @enum {string} */
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
             type: "object";
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];
