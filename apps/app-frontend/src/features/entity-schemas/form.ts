@@ -10,26 +10,49 @@ export const entitySchemaPropertyTypes = appPropertyPrimitiveTypes;
 
 export type EntitySchemaPropertyType = AppPropertyPrimitiveType;
 
-export interface EntitySchemaPropertyRow {
+interface EntitySchemaPropertyBase {
 	key: string;
 	required: boolean;
 	type: EntitySchemaPropertyType;
 }
 
+export interface EntitySchemaPropertyRow extends EntitySchemaPropertyBase {
+	id: string;
+}
+
+export interface EntitySchemaPropertyInput extends EntitySchemaPropertyBase {
+	id?: string;
+}
+
 export interface EntitySchemaFormValues {
 	name: string;
 	slug: string;
-	properties: EntitySchemaPropertyRow[];
+	properties: EntitySchemaPropertyInput[];
 }
 
 export const defaultEntitySchemaPropertiesSchema = "{}";
 
+function buildEntitySchemaPropertyRow(
+	row: EntitySchemaPropertyInput,
+): EntitySchemaPropertyRow {
+	return {
+		key: row.key,
+		type: row.type,
+		required: row.required,
+		id: row.id ?? crypto.randomUUID(),
+	};
+}
+
 export function buildDefaultEntitySchemaPropertyRow(): EntitySchemaPropertyRow {
-	return { key: "", type: "string", required: false };
+	return buildEntitySchemaPropertyRow({
+		key: "",
+		type: "string",
+		required: false,
+	});
 }
 
 export function isEntitySchemaPropertyRowsValid(
-	rows: EntitySchemaPropertyRow[],
+	rows: EntitySchemaPropertyInput[],
 ) {
 	if (rows.length === 0) return false;
 
@@ -46,6 +69,7 @@ export const createEntitySchemaFormSchema = z.object({
 	properties: z
 		.array(
 			z.object({
+				id: z.string(),
 				key: z.string(),
 				required: z.boolean(),
 				type: z.enum(entitySchemaPropertyTypes),
@@ -71,13 +95,13 @@ export function buildEntitySchemaFormValues(
 		slug: values?.slug ?? "",
 		properties:
 			properties && properties.length > 0
-				? properties
+				? properties.map(buildEntitySchemaPropertyRow)
 				: [buildDefaultEntitySchemaPropertyRow()],
 	};
 }
 
 export const buildEntitySchemaPropertiesSchema = (
-	properties: EntitySchemaPropertyRow[],
+	properties: EntitySchemaPropertyInput[],
 ) => {
 	const propertiesMap: Record<string, unknown> = {};
 
@@ -94,7 +118,7 @@ export const buildEntitySchemaPropertiesSchema = (
 };
 
 export const serializeEntitySchemaProperties = (
-	properties: EntitySchemaPropertyRow[],
+	properties: EntitySchemaPropertyInput[],
 ) => {
 	const schema = buildEntitySchemaPropertiesSchema(properties);
 	return JSON.stringify(schema);
