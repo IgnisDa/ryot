@@ -181,7 +181,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 									{overview.recentEntities.map((item) => (
 										<Link
 											key={item.entity.id}
-											to="/$trackerSlug/entities/$entityId"
+											to="/$trackerSlug/$entityId"
 											params={{
 												entityId: item.entity.id,
 												trackerSlug: props.tracker.slug,
