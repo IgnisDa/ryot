@@ -50,6 +50,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { StartOnboardingTourButton } from "~/components/common";
 import {
 	applicationBaseUrl,
 	dayjsLib,
@@ -67,7 +68,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
-import { StartOnboardingTourButton } from "~/components/common";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);

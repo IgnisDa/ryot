@@ -1,5 +1,5 @@
-import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import {
 	ActionIcon,
 	Affix,
@@ -138,6 +138,7 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
+import { useOnboardingTour } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -155,7 +156,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import { useOnboardingTour } from "~/lib/state/tour";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
