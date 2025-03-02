@@ -3,15 +3,15 @@ import type { ComponentType, HTMLInputTypeAttribute, ReactNode } from "react";
 
 type GeneratedPropertyFieldConfig =
 	| {
-		label: string;
-		kind: "checkbox";
+			label: string;
+			kind: "checkbox";
 			required: boolean;
 	  }
 	| {
-		label: string;
-		required: boolean;
-		placeholder?: string;
-		kind: "number" | "text";
+			label: string;
+			required: boolean;
+			placeholder?: string;
+			kind: "number" | "text";
 			inputType?: HTMLInputTypeAttribute;
 	  };
 
@@ -20,7 +20,11 @@ type GeneratedPropertyFieldOptions = {
 };
 
 type GeneratedPropertyFieldRenderProps = {
-	CheckboxField: ComponentType<{ disabled?: boolean; label: string }>;
+	CheckboxField: ComponentType<{
+		label: string;
+		required?: boolean;
+		disabled?: boolean;
+	}>;
 	NumberField: ComponentType<{
 		label: string;
 		disabled?: boolean;
@@ -108,6 +112,7 @@ export function GeneratedPropertyField(props: GeneratedPropertyFieldProps) {
 						return (
 							<field.CheckboxField
 								label={config.label}
+								required={config.required}
 								disabled={props.disabled}
 							/>
 						);

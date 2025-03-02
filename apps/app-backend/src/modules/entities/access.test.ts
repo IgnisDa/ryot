@@ -1,36 +1,36 @@
 import { describe, expect, it } from "bun:test";
-import { resolveCustomEntitySchemaAccess } from "~/lib/entity-schema-access";
+import { resolveEntityDetailAccess } from "./service";
 
-describe("resolveCustomEntitySchemaAccess", () => {
-	it("returns error when entity schema is undefined", () => {
-		expect(resolveCustomEntitySchemaAccess(undefined)).toEqual({
+describe("resolveEntityDetailAccess", () => {
+	it("returns not_found when the entity scope is undefined", () => {
+		expect(resolveEntityDetailAccess(undefined)).toEqual({
 			error: "not_found",
 		});
 	});
 
-	it("returns error when entity schema is builtin", () => {
-		const entitySchema = {
-			id: "schema-1",
-			isBuiltin: true,
-			userId: "user-1",
-			propertiesSchema: {},
-		};
-
-		expect(resolveCustomEntitySchemaAccess(entitySchema)).toEqual({
-			error: "builtin",
-		});
+	it("returns builtin when the entity schema is built in", () => {
+		expect(
+			resolveEntityDetailAccess({
+				isBuiltin: true,
+				entityId: "entity-1",
+				entitySchemaId: "schema-1",
+			}),
+		).toEqual({ error: "builtin" });
 	});
 
-	it("returns entity schema when custom and found", () => {
-		const entitySchema = {
-			id: "schema-1",
-			userId: "user-1",
-			isBuiltin: false,
-			propertiesSchema: {},
-		};
-
-		expect(resolveCustomEntitySchemaAccess(entitySchema)).toEqual({
-			entitySchema,
+	it("returns the resolved scope when the entity is custom", () => {
+		expect(
+			resolveEntityDetailAccess({
+				isBuiltin: false,
+				entityId: "entity-1",
+				entitySchemaId: "schema-1",
+			}),
+		).toEqual({
+			access: {
+				isBuiltin: false,
+				entityId: "entity-1",
+				entitySchemaId: "schema-1",
+			},
 		});
 	});
 });
