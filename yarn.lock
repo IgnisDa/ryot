@@ -5967,6 +5967,7 @@ __metadata:
     "@conform-to/react": "npm:1.2.2"
     "@conform-to/zod": "npm:1.2.2"
     "@formkit/auto-animate": "npm:0.8.2"
+    "@gfazioli/mantine-onboarding-tour": "npm:1.0.0"
     "@hello-pangea/dnd": "npm:18.0.1"
     "@lukemorales/query-key-factory": "npm:1.3.4"
     "@mantine/carousel": "npm:7.17.0"
@@ -6070,7 +6071,6 @@ __metadata:
   resolution: "@ryot/root@workspace:."
   dependencies:
     "@biomejs/biome": "npm:1.9.4"
-    "@gfazioli/mantine-onboarding-tour": "npm:1.0.0"
     tsconfig-moon: "npm:1.3.0"
     typescript: "npm:5.7.3"
   languageName: unknown
