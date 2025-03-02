@@ -11,7 +11,7 @@ import {
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
-import { IconBackpack, IconInfoCircle } from "@tabler/icons-react";
+import { IconInfoCircle } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { useLoaderData } from "react-router";
@@ -107,13 +107,6 @@ export default function Page() {
 		"false",
 	);
 
-	const isDashboardEmpty =
-		loaderData.userUpcomingCalendarEvents.length +
-			loaderData.inProgressCollectionContents.response.results.items.length +
-			loaderData.userMetadataRecommendations.response.length +
-			Number(Boolean(latestUserSummary)) ===
-		0;
-
 	return (
 		<Container>
 			<Stack gap={32}>
@@ -131,13 +124,6 @@ export default function Page() {
 						) : null
 					}
 				</ClientOnly>
-				{isDashboardEmpty ? (
-					<Alert icon={<IconBackpack />}>
-						Start by marking a few movies as watched by: clicking on the Media
-						section in the sidebar, selecting Movie, opening the search tab and
-						then typing your favorite movie!
-					</Alert>
-				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
