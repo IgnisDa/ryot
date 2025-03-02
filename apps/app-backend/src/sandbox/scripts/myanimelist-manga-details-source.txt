@@ -124,7 +124,7 @@ const productionStatus =
 
 return {
 	name: title,
-	external_ids: { myanimelist: payloadIdentifier },
+	external_id: payloadIdentifier,
 	properties: {
 		url: `https://myanimelist.net/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
 		genres: collectGenres(payload?.genres),
