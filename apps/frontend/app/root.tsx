@@ -127,18 +127,18 @@ export default function App() {
 				<ColorSchemeScript forceColorScheme={loaderData.defaultColorScheme} />
 			</head>
 			<body>
-				<OnboardingTour
-					tour={tourSteps}
-					started={isTourStarted}
-					onOnboardingTourEnd={stopTour}
-					onOnboardingTourClose={stopTour}
+				<MantineProvider
+					theme={theme}
+					classNamesPrefix="mnt"
+					forceColorScheme={loaderData.defaultColorScheme}
 				>
-					<QueryClientProvider client={queryClient}>
-						<MantineProvider
-							theme={theme}
-							classNamesPrefix="mnt"
-							forceColorScheme={loaderData.defaultColorScheme}
-						>
+					<OnboardingTour
+						tour={tourSteps}
+						started={isTourStarted}
+						onOnboardingTourEnd={stopTour}
+						onOnboardingTourClose={stopTour}
+					>
+						<QueryClientProvider client={queryClient}>
 							<ModalsProvider>
 								{["loading", "submitting"].includes(navigation.state) ? (
 									<Loader
@@ -157,10 +157,10 @@ export default function App() {
 								<ScrollRestoration />
 								<Scripts />
 							</ModalsProvider>
-						</MantineProvider>
-						<ReactQueryDevtools buttonPosition="top-right" />
-					</QueryClientProvider>
-				</OnboardingTour>
+							<ReactQueryDevtools buttonPosition="top-right" />
+						</QueryClientProvider>
+					</OnboardingTour>
+				</MantineProvider>
 			</body>
 		</html>
 	);
