@@ -19,5 +19,8 @@
 	},
 	"resolutions": {
 		"@types/react": "18.3.4"
+	},
+	"dependencies": {
+		"@gfazioli/mantine-onboarding-tour": "1.0.0"
 	}
 }
