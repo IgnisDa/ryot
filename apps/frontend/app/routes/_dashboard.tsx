@@ -42,12 +42,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
-import {
-	upperFirst,
-	useCounter,
-	useDisclosure,
-	useLocalStorage,
-} from "@mantine/hooks";
+import { upperFirst, useCounter, useDisclosure } from "@mantine/hooks";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -116,7 +111,6 @@ import { joinURL, withQuery } from "ufo";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
-	type OpenedSidebarLinks,
 	ThreePointSmileyRating,
 	Verb,
 	convertDecimalToThreePointSmiley,
@@ -138,7 +132,7 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour, useOpenedSidebarLinks } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -356,17 +350,7 @@ export default function Layout() {
 	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [openedLinkGroups, setOpenedLinkGroups] =
-		useLocalStorage<OpenedSidebarLinks>({
-			key: "SavedOpenedLinkGroups",
-			defaultValue: {
-				fitness: false,
-				media: false,
-				settings: false,
-				collection: false,
-			},
-			getInitialValueInEffect: true,
-		});
+	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
 	const theme = useMantineTheme();
@@ -625,11 +609,11 @@ export default function Layout() {
 									label="Media"
 									icon={IconDeviceSpeaker}
 									links={loaderData.mediaLinks}
-									opened={openedLinkGroups?.media || false}
+									opened={openedSidebarLinks.media || false}
 									toggle={toggleMobileNavbar}
 									setOpened={(k) =>
-										setOpenedLinkGroups(
-											produce(openedLinkGroups, (draft) => {
+										setOpenedSidebarLinks(
+											produce(openedSidebarLinks, (draft) => {
 												if (draft) draft.media = k;
 											}),
 										)
@@ -640,11 +624,11 @@ export default function Layout() {
 								<LinksGroup
 									label="Fitness"
 									icon={IconStretching}
-									opened={openedLinkGroups?.fitness || false}
+									opened={openedSidebarLinks.fitness || false}
 									toggle={toggleMobileNavbar}
 									setOpened={(k) =>
-										setOpenedLinkGroups(
-											produce(openedLinkGroups, (draft) => {
+										setOpenedSidebarLinks(
+											produce(openedSidebarLinks, (draft) => {
 												if (draft) draft.fitness = k;
 											}),
 										)
@@ -687,11 +671,11 @@ export default function Layout() {
 								<LinksGroup
 									label="Settings"
 									icon={IconSettings}
-									opened={openedLinkGroups?.settings || false}
+									opened={openedSidebarLinks.settings || false}
 									toggle={toggleMobileNavbar}
 									setOpened={(k) =>
-										setOpenedLinkGroups(
-											produce(openedLinkGroups, (draft) => {
+										setOpenedSidebarLinks(
+											produce(openedSidebarLinks, (draft) => {
 												if (draft) draft.settings = k;
 											}),
 										)

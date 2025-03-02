@@ -135,13 +135,6 @@ export enum FitnessAction {
 	CreateTemplate = "create-template",
 }
 
-export type OpenedSidebarLinks = {
-	media: boolean;
-	fitness: boolean;
-	settings: boolean;
-	collection: boolean;
-};
-
 export type AppServiceWorkerNotificationTag = "timer-completed";
 
 export type AppServiceWorkerNotificationData = {
