@@ -22,9 +22,9 @@ import { useResolvedEntityImageUrl } from "./image";
 
 function formatShortDate(date: Date) {
 	return date.toLocaleDateString(undefined, {
-		year: "numeric",
 		month: "short",
 		day: "numeric",
+		year: "numeric",
 	});
 }
 
@@ -63,9 +63,9 @@ export function EntityDetailIdentityHeader(props: {
 									root: {
 										fontWeight: 600,
 										color: props.trackerColor.base,
-										fontFamily: '"Space Grotesk", sans-serif',
-										borderColor: `${props.trackerColor.base}33`,
 										backgroundColor: props.trackerColor.muted,
+										borderColor: `${props.trackerColor.base}33`,
+										fontFamily: "var(--mantine-headings-font-family)",
 									},
 								}}
 							>
@@ -77,7 +77,7 @@ export function EntityDetailIdentityHeader(props: {
 								styles={{
 									root: {
 										fontWeight: 500,
-										fontFamily: '"Space Grotesk", sans-serif',
+										fontFamily: "var(--mantine-headings-font-family)",
 									},
 								}}
 							>
@@ -88,10 +88,10 @@ export function EntityDetailIdentityHeader(props: {
 						<Title
 							order={1}
 							fw={600}
+							ff="var(--mantine-headings-font-family)"
 							style={{
 								lineHeight: 1.2,
 								fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
-								fontFamily: '"Space Grotesk", sans-serif',
 							}}
 						>
 							{props.entity.name}
@@ -110,7 +110,7 @@ export function EntityDetailIdentityHeader(props: {
 									<Text
 										size="sm"
 										c="dimmed"
-										style={{ fontFamily: '"IBM Plex Mono", monospace' }}
+										ff="var(--mantine-font-family-monospace)"
 									>
 										{props.entity.externalId}
 									</Text>
@@ -190,11 +190,7 @@ export function EntityDetailPropertiesSection(props: {
 		<Paper p="lg" withBorder radius="sm">
 			<Stack gap="md">
 				<Box pb="sm" style={{ borderBottom: `1px solid ${props.border}` }}>
-					<Text
-						fw={600}
-						size="md"
-						style={{ fontFamily: '"Space Grotesk", sans-serif' }}
-					>
+					<Text fw={600} ff="var(--mantine-headings-font-family)" size="md">
 						Properties
 					</Text>
 					<Text c="dimmed" size="sm">
@@ -211,10 +207,8 @@ export function EntityDetailPropertiesSection(props: {
 									size="xs"
 									c="dimmed"
 									tt="uppercase"
-									style={{
-										letterSpacing: "0.5px",
-										fontFamily: '"Space Grotesk", sans-serif',
-									}}
+									style={{ letterSpacing: "0.5px" }}
+									ff="var(--mantine-headings-font-family)"
 								>
 									{property.label}
 								</Text>
@@ -224,7 +218,7 @@ export function EntityDetailPropertiesSection(props: {
 										wordBreak: "break-word",
 										fontFamily:
 											property.type === "number" || property.type === "integer"
-												? '"IBM Plex Mono", monospace'
+												? "var(--mantine-font-family-monospace)"
 												: undefined,
 									}}
 								>
@@ -281,11 +275,7 @@ export function EntityDetailEventTimeline(props: {
 			<Stack gap="md">
 				<Group justify="space-between" align="flex-start">
 					<Box>
-						<Text
-							fw={600}
-							size="md"
-							style={{ fontFamily: '"Space Grotesk", sans-serif' }}
-						>
+						<Text fw={600} ff="var(--mantine-headings-font-family)" size="md">
 							Activity Timeline
 						</Text>
 						<Text c="dimmed" size="sm">
@@ -349,7 +339,7 @@ export function EntityDetailEventTimeline(props: {
 										<Text
 											fw={600}
 											size="sm"
-											style={{ fontFamily: '"Space Grotesk", sans-serif' }}
+											ff="var(--mantine-headings-font-family)"
 										>
 											{event.eventSchemaName}
 										</Text>
@@ -394,11 +384,7 @@ export function EntityDetailSidebar(props: {
 		<Stack gap="md">
 			<Paper p="md" withBorder radius="sm">
 				<Stack gap="md">
-					<Text
-						fw={600}
-						size="sm"
-						style={{ fontFamily: '"Space Grotesk", sans-serif' }}
-					>
+					<Text fw={600} ff="var(--mantine-headings-font-family)" size="sm">
 						Quick Facts
 					</Text>
 
@@ -411,10 +397,8 @@ export function EntityDetailSidebar(props: {
 						</Group>
 						<Text
 							size="xs"
-							style={{
-								wordBreak: "break-all",
-								fontFamily: '"IBM Plex Mono", monospace',
-							}}
+							style={{ wordBreak: "break-all" }}
+							ff="var(--mantine-font-family-monospace)"
 						>
 							{props.entity.id}
 						</Text>
@@ -438,11 +422,7 @@ export function EntityDetailSidebar(props: {
 						<Text size="xs" c="dimmed">
 							Events Logged
 						</Text>
-						<Text
-							fw={600}
-							size="lg"
-							style={{ fontFamily: '"Space Grotesk", sans-serif' }}
-						>
+						<Text fw={600} ff="var(--mantine-headings-font-family)" size="lg">
 							{props.eventCount}
 						</Text>
 					</Stack>
