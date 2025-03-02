@@ -132,7 +132,11 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import { useOnboardingTour, useOpenedSidebarLinks } from "~/lib/state/general";
+import {
+	tourSteps,
+	useOnboardingTour,
+	useOpenedSidebarLinks,
+} from "~/lib/state/general";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -547,15 +551,10 @@ export default function Layout() {
 				/>
 			</Drawer>
 			<OnboardingTour
+				tour={tourSteps}
 				started={isTourStarted}
 				onOnboardingTourEnd={stopTour}
 				onOnboardingTourClose={stopTour}
-				tour={[
-					{
-						id: "step-1",
-						content: "Welcome to Ryot! Let's get you started.",
-					},
-				]}
 			>
 				<AppShell
 					w="100%"
@@ -607,10 +606,11 @@ export default function Layout() {
 							{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 								<LinksGroup
 									label="Media"
+									tourStepId="step-1"
 									icon={IconDeviceSpeaker}
+									toggle={toggleMobileNavbar}
 									links={loaderData.mediaLinks}
 									opened={openedSidebarLinks.media || false}
-									toggle={toggleMobileNavbar}
 									setOpened={(k) =>
 										setOpenedSidebarLinks(
 											produce(openedSidebarLinks, (draft) => {
@@ -815,19 +815,21 @@ interface LinksGroupProps {
 	label: string;
 	href?: string;
 	opened: boolean;
-	setOpened: (v: boolean) => void;
 	toggle: () => void;
+	tourStepId?: string;
+	setOpened: (v: boolean) => void;
 	links?: Array<{ label: string; link: string }>;
 }
 
 const LinksGroup = ({
-	icon: Icon,
-	label,
 	href,
-	setOpened,
-	toggle,
-	opened,
+	label,
 	links,
+	opened,
+	toggle,
+	setOpened,
+	icon: Icon,
+	tourStepId,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
 	const hasLinks = Array.isArray(links);
@@ -851,6 +853,8 @@ const LinksGroup = ({
 	return (
 		<>
 			<UnstyledButton<typeof Link>
+				className={classes.control}
+				data-onboarding-tour-id={tourStepId}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
@@ -858,7 +862,6 @@ const LinksGroup = ({
 					if (hasLinks) setOpened(!opened);
 					else toggle();
 				}}
-				className={classes.control}
 			>
 				<Group justify="space-between" gap={0}>
 					<Box style={{ display: "flex", alignItems: "center" }}>

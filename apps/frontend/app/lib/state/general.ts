@@ -1,5 +1,14 @@
+import type { OnboardingTourStep } from "@gfazioli/mantine-onboarding-tour";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
+
+export const tourSteps = [
+	{
+		id: "step-1",
+		content:
+			"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+	},
+] as OnboardingTourStep[];
 
 const onboardingTourAtom = atom<boolean>(false);
 
