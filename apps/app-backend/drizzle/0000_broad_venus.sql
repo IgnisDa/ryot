@@ -39,12 +39,12 @@ CREATE TABLE "apikey" (
 );
 --> statement-breakpoint
 CREATE TABLE "entity" (
-	"search_vector" text,
 	"name" text NOT NULL,
+	"external_id" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"external_id" text NOT NULL,
 	"user_id" text,
+	"search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', name)) STORED NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"schema_id" text NOT NULL,
 	"details_sandbox_script_id" text NOT NULL,
@@ -175,8 +175,8 @@ CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statem
 CREATE INDEX "entity_schema_id_idx" ON "entity" USING btree ("schema_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
+CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "entity_details_sandbox_script_id_idx" ON "entity" USING btree ("details_sandbox_script_id");--> statement-breakpoint
-CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin (to_tsvector('english', "name"));--> statement-breakpoint
 CREATE INDEX "entity_schema_slug_idx" ON "entity_schema" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_entity_schema_id_idx" ON "entity_schema_sandbox_script" USING btree ("entity_schema_id");--> statement-breakpoint
