@@ -376,7 +376,6 @@ export default function Layout() {
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
@@ -389,6 +388,8 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
+
+	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
 		bulkEditingCollectionState &&
