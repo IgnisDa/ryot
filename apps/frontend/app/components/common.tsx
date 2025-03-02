@@ -121,7 +121,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour, useOpenedSidebarLinks } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -1475,10 +1475,20 @@ export const ExpireCacheKeyButton = (props: {
 };
 
 export const StartOnboardingTourButton = () => {
+	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const { setIsTourStarted } = useOnboardingTour();
 
 	return (
-		<Button onClick={() => setIsTourStarted(true)}>
+		<Button
+			onClick={() => {
+				setIsTourStarted(true);
+				setOpenedSidebarLinks(
+					produce(openedSidebarLinks, (draft) => {
+						draft.media = true;
+					}),
+				);
+			}}
+		>
 			Start onboarding tour
 		</Button>
 	);
