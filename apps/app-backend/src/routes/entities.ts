@@ -2,11 +2,11 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AuthType } from "../auth";
-import { db } from "../db";
-import { entity, entitySchema } from "../db/schema";
-import { errorResponse, successResponse } from "../lib/response";
-import { nonEmptyTrimmedStringSchema } from "../lib/zod/base";
+import type { AuthType } from "~/auth";
+import { db } from "~/db";
+import { entity, entitySchema } from "~/db/schema";
+import { errorResponse, successResponse } from "~/lib/response";
+import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 
 const entityParams = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
