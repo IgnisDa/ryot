@@ -6,7 +6,7 @@ use argon2::{
 };
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use enum_models::{UserLot, UserOnboardingTour};
+use enum_models::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 use user_models::{UserExtraInformation, UserPreferences};
@@ -30,7 +30,6 @@ pub struct Model {
     #[graphql(skip)]
     pub last_activity_on: Option<DateTimeUtc>,
     pub extra_information: Option<UserExtraInformation>,
-    pub completed_onboarding_tours: Vec<UserOnboardingTour>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

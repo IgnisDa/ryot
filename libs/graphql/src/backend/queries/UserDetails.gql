@@ -7,7 +7,6 @@ query UserDetails {
 			name
 			isDisabled
 			oidcIssuerId
-			completedOnboardingTours
 			extraInformation {
 				scheduledForWorkoutRevision
 			}

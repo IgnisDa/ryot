@@ -2348,7 +2348,6 @@ export type UpdateUserWorkoutAttributesInput = {
 
 export type User = {
   __typename?: 'User';
-  completedOnboardingTours: Array<UserOnboardingTour>;
   createdOn: Scalars['DateTime']['output'];
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
@@ -2839,10 +2838,6 @@ export enum UserNotificationContent {
   PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
   PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
   ReviewPosted = 'REVIEW_POSTED'
-}
-
-export enum UserOnboardingTour {
-  Media = 'MEDIA'
 }
 
 export type UserOthersFeaturesEnabledPreferences = {
