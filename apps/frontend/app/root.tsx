@@ -1,3 +1,4 @@
+import "@gfazioli/mantine-onboarding-tour/styles.css";
 import {
 	ActionIcon,
 	Alert,
