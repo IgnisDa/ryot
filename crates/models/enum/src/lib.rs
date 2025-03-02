@@ -145,6 +145,29 @@ pub enum UserLot {
 
 #[derive(
     Eq,
+    Enum,
+    Copy,
+    Hash,
+    Debug,
+    Clone,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
+)]
+#[sea_orm(
+    rs_type = "String",
+    rename_all = "snake_case",
+    db_type = "String(StringLen::None)"
+)]
+#[serde(rename_all = "snake_case")]
+pub enum UserOnboardingTour {
+    Media,
+}
+
+#[derive(
+    Eq,
     Ord,
     Hash,
     Copy,
