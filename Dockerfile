@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y curl unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /home/ryot
-COPY --chown=ryot:ryot apps/app-backend/drizzle ./drizzle
+COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
 COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
 COPY --from=builder --chown=ryot:ryot /app/apps/app-frontend/dist/client ./client
 USER ryot
