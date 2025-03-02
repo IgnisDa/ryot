@@ -4,22 +4,15 @@ import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
-import {
-	createPropertySchemaInputSchema,
-	createPropertySchemaObjectSchema,
-} from "../property-schemas/schemas";
-
-const eventSchemaPropertiesMessage =
-	"Event schema properties must contain at least one property";
+import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
 export const listedEventSchemaSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	slug: z.string(),
 	entitySchemaId: z.string(),
-	propertiesSchema: createPropertySchemaObjectSchema(
-		eventSchemaPropertiesMessage,
-	),
+	propertiesSchema: createLabeledPropertySchemas("Event schema properties")
+		.schema,
 });
 
 export const listEventSchemasResponseSchema = dataSchema(
@@ -36,9 +29,8 @@ export const listEventSchemasQuery = z.object({
 
 export const createEventSchemaBody = createNameWithOptionalSlugSchema({
 	entitySchemaId: nonEmptyTrimmedStringSchema,
-	propertiesSchema: createPropertySchemaInputSchema(
-		eventSchemaPropertiesMessage,
-	),
+	propertiesSchema: createLabeledPropertySchemas("Event schema properties")
+		.schema,
 });
 
 export type CreateEventSchemaBody = z.infer<typeof createEventSchemaBody>;
