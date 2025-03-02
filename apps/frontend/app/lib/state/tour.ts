@@ -1,8 +1,8 @@
 import { atom, useAtom } from "jotai";
 
-const onboardingTourAtom = atom<true | null>(null);
+const onboardingTourAtom = atom<boolean>(false);
 
 export const useOnboardingTour = () => {
-	const [tour, setTour] = useAtom(onboardingTourAtom);
-	return { tour, setTour };
+	const [isTourStarted, setIsTourStarted] = useAtom(onboardingTourAtom);
+	return { isTourStarted, setIsTourStarted };
 };

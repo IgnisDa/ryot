@@ -135,6 +135,7 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
+import { useOnboardingTour } from "~/lib/state/tour";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
@@ -1474,12 +1475,10 @@ export const ExpireCacheKeyButton = (props: {
 };
 
 export const StartOnboardingTourButton = () => {
+	const { setIsTourStarted } = useOnboardingTour();
+
 	return (
-		<Button
-			onClick={() => {
-				console.log("start onboarding tour");
-			}}
-		>
+		<Button onClick={() => setIsTourStarted(true)}>
 			Start onboarding tour
 		</Button>
 	);
