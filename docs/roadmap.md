@@ -94,14 +94,14 @@ This phase turns Ryot from a product with built-in trackers into a true "track a
 #### Goals
 
 - Allow a user-created facet to own one or more schemas.
-- Provision default entity and event schemas when appropriate.
+- Let custom facets start empty and support user-managed entity and event schemas.
 - Generate entity creation, editing, browsing, and detail experiences from schema definitions.
 - Generate event logging flows from event schemas.
 - Ensure custom facets receive the same structural benefits as built-in facets, even if the UI is less curated.
 
 #### Deliverables
 
-- Schema builder for custom facets
+- Schema builder for custom facets, including entity and event schema management
 - Generated entity CRUD
 - Generated event logging
 - Generated entity detail pages
@@ -263,7 +263,7 @@ A box is checked only when the capability is clearly implemented in the current 
 
 ### Custom tracker platform
 
-- [x] Custom schema builder
+- [x] Custom entity and event schema builder
 - [ ] Generated custom entity CRUD
 - [ ] Generated custom event logging
 - [ ] Generated custom entity detail pages
