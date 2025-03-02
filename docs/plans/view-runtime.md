@@ -68,8 +68,10 @@ Suggested request shape:
 Each filter in the `filters` array has the shape:
 
 - `field: string` — property path using the schema-qualified syntax (see "Schema-Qualified Property Syntax" section)
-- `op: string` — operator: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isNull`
+- `op: string` — operator: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `isNull`
 - `value: any` — the value to compare against (type depends on the property being filtered)
+
+**Note**: The `contains` operator is deferred to Phase 2 due to complexity with JSONB array/object containment vs string substring matching. Phase 1 focuses on exact comparisons, range queries, and null checks.
 
 The `sort.field` is an array of schema-qualified property paths:
 
@@ -131,6 +133,74 @@ This eliminates the need for frontend COALESCE logic and makes rendering trivial
 
 The runtime contract should stay generic enough that the frontend can compile both built-in curated views and user-authored saved views into the same payload.
 
+### Runtime Request Discriminated Union
+
+The runtime request uses a discriminated union for display configuration with the layout as a separate top-level discriminant:
+
+```typescript
+{
+  entitySchemaSlugs: string[]
+  filters: FilterExpression[]
+  sort: SortDefinition
+  page: PaginationParams
+  layout: "grid" | "list" | "table"
+  displayConfiguration: GridDisplayConfig | ListDisplayConfig | TableDisplayConfig
+}
+```
+
+Where:
+
+```typescript
+type GridDisplayConfig = {
+  imageProperty?: string[]
+  titleProperty?: string[]
+  subtitleProperty?: string[]
+  badgeProperty?: string[] | null
+}
+
+type ListDisplayConfig = {
+  imageProperty?: string[]
+  titleProperty?: string[]
+  subtitleProperty?: string[]
+  badgeProperty?: string[] | null
+}
+
+type TableDisplayConfig = {
+  columns: Array<{ property: string[] }>
+}
+```
+
+The `layout` field determines which display config type is present in `displayConfiguration`.
+
+### Filter Value Discriminated Union
+
+Filter expressions use a discriminated union by operator to validate value types:
+
+```typescript
+type FilterExpression =
+  | { field: string, op: "isNull", value?: null }
+  | { field: string, op: "in", value: any[] }
+  | { field: string, op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte", value: any }
+```
+
+The `isNull` operator accepts no value or null. The `in` operator requires an array. Other operators accept single values.
+
+### Table Column Resolution
+
+For table layouts, resolved properties use index-based keys:
+
+```typescript
+{
+  "resolvedProperties": {
+    "column_0": "iPhone 15 Pro",
+    "column_1": "Apple",
+    "column_2": "2023"
+  }
+}
+```
+
+The index corresponds to the column's position in the `columns` array. This allows the frontend to render table cells in the correct column order without semantic naming.
+
 ### Schema-Qualified Property Syntax
 
 To support cross-schema views where different entity schemas have different property names, the runtime contract uses a **unified schema-qualified property path syntax** across all features.
@@ -145,7 +215,7 @@ To support cross-schema views where different entity schemas have different prop
 
 2. **Schema-qualified properties**: `smartphones.manufacturer`, `tablets.maker`
    - Format: `<schema-slug>.<property>` (uses entity schema slugs, not IDs)
-   - References properties in the entity's `propertyValues` jsonb column
+   - References properties in the entity's `properties` jsonb column
    - **Required for all entity schema properties** — no unqualified references allowed
    - Schema slugs are stable identifiers (e.g., "smartphones", "movies", "whiskeys")
    - Used in filters, sorts, and displayConfiguration
@@ -199,7 +269,6 @@ Single-schema view:
 ```json
 {
   "filters": [
-    { "field": "@name", "op": "contains", "value": "Pro" },
     { "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
     { "field": "smartphones.year", "op": "gte", "value": 2020 }
   ],
@@ -220,7 +289,6 @@ Cross-schema view:
 ```json
 {
   "filters": [
-    { "field": "@name", "op": "contains", "value": "Pro" },
     { "field": "smartphones.year", "op": "gte", "value": 2020 },
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
   ],
@@ -236,7 +304,7 @@ Cross-schema view:
 }
 ```
 
-### Entity Structure: Top-Level vs PropertyValues
+### Entity Structure: Top-Level vs Properties
 
 Entities have a hybrid structure with both top-level database columns and schema-defined properties stored in jsonb:
 
@@ -250,9 +318,9 @@ Entities have a hybrid structure with both top-level database columns and schema
 - `externalId` — optional external source identifier
 - `searchVector` — tsvector for full-text search
 
-**PropertyValues (schema-defined properties):**
+**Properties (schema-defined properties):**
 
-- All other entity properties defined in the entity schema's AppSchema are stored in the `propertyValues` jsonb column
+- All other entity properties defined in the entity schema's AppSchema are stored in the `properties` jsonb column
 
 **Why keep name and image as top-level columns?**
 
@@ -266,7 +334,7 @@ Entities have a hybrid structure with both top-level database columns and schema
 
 5. **Relationship display cost**: Displaying relationships (cast lists, collection memberships, related entities) requires fetching names constantly. Direct column access is substantially faster than jsonb extraction at scale.
 
-**Filter and sort handling**: The view-runtime query builder handles this hybrid structure transparently using the schema-qualified property syntax (see "Schema-Qualified Property Syntax" section). The `@` prefix routes to top-level columns; schema-qualified paths route to `propertyValues` jsonb extraction.
+**Filter and sort handling**: The view-runtime query builder handles this hybrid structure transparently using the schema-qualified property syntax (see "Schema-Qualified Property Syntax" section). The `@` prefix routes to top-level columns; schema-qualified paths route to `properties` jsonb extraction.
 
 ### Display Configuration Property References
 
@@ -545,7 +613,6 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
 {
   "entitySchemaSlugs": ["smartphones", "tablets"],
   "filters": [
-    { "field": "@name", "op": "contains", "value": "Pro" },
     { "field": "smartphones.year", "op": "gte", "value": 2020 },
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
   ],
@@ -569,32 +636,34 @@ WITH filtered_entities AS (
     e.name,
     e.image,
     e.entity_schema_id,
-    e.property_values,
+    e.properties,
     e.created_at,
     e.updated_at,
     es.slug as entity_schema_slug
   FROM entities e
   JOIN entity_schemas es ON es.id = e.entity_schema_id
   WHERE es.slug IN ('smartphones', 'tablets')
-    AND e.name ILIKE '%Pro%'
     AND (
-      (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
+      (es.slug = 'smartphones' AND (e.properties->>'year')::integer >= 2020)
       OR
-      (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
+      (es.slug = 'tablets' AND (e.properties->>'release_year')::integer >= 2020)
     )
+),
+entity_count AS (
+  SELECT COUNT(*) as total FROM filtered_entities
 ),
 sorted_entities AS (
   SELECT *,
     COALESCE(
-      (property_values->>'year')::integer,
-      (property_values->>'release_year')::integer
+      (properties->>'year')::integer,
+      (properties->>'release_year')::integer
     ) as sort_value
   FROM filtered_entities
-  ORDER BY sort_value DESC
+  ORDER BY sort_value DESC NULLS LAST
 ),
 paginated_entities AS (
   SELECT * FROM sorted_entities
-  ORDER BY sort_value DESC
+  ORDER BY sort_value DESC NULLS LAST
   LIMIT 20 OFFSET 0
 )
 SELECT
@@ -606,24 +675,26 @@ SELECT
   pe.created_at,
   pe.updated_at,
   jsonb_build_object(
-    'imageProperty', COALESCE(pe.property_values->>'product_image', pe.property_values->>'device_image'),
+    'imageProperty', COALESCE(pe.properties->>'product_image', pe.properties->>'device_image'),
     'titleProperty', pe.name,
-    'subtitleProperty', COALESCE(pe.property_values->>'manufacturer', pe.property_values->>'maker', (pe.property_values->>'year')::text, (pe.property_values->>'release_year')::text),
-    'badgeProperty', COALESCE((pe.property_values->>'price_usd')::text, (pe.property_values->>'retail_price')::text)
+    'subtitleProperty', COALESCE(pe.properties->>'manufacturer', pe.properties->>'maker', (pe.properties->>'year')::text, (pe.properties->>'release_year')::text),
+    'badgeProperty', COALESCE((pe.properties->>'price_usd')::text, (pe.properties->>'retail_price')::text)
   ) as resolved_properties,
-  (SELECT COUNT(*) FROM filtered_entities) as total_count
-FROM paginated_entities pe;
+  ec.total as total_count
+FROM paginated_entities pe
+CROSS JOIN entity_count ec;
 ```
 
 **Key SQL patterns:**
 
 1. **Schema validation**: `WHERE es.slug IN ('smartphones', 'tablets')` filters to requested schemas
-2. **Top-level filters**: `AND e.name ILIKE '%Pro%'` applies to all entities regardless of schema
-3. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
-4. **COALESCE for sorting**: Handles different property names across schemas
+2. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
+3. **COALESCE for sorting**: Handles different property names across schemas with explicit `NULLS LAST` ordering
+4. **Optimized count**: Separate CTE for total count to avoid repeated count subqueries
 5. **Resolved properties**: Backend computes each requested display slot from the supplied displayConfiguration property reference arrays
-6. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
-7. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
+6. **Type casting**: Properties extracted from jsonb are cast to appropriate types (integer, text, etc.)
+7. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
+8. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
 
 The response would include pagination metadata grouped under `meta`:
 
@@ -661,17 +732,19 @@ The existing module needs a fuller API surface so the frontend can support real 
 - `GET /saved-views`
 - `POST /saved-views`
 - `GET /saved-views/{viewId}`
-- `PATCH /saved-views/{viewId}`
+- `PUT /saved-views/{viewId}`
 - `DELETE /saved-views/{viewId}`
 - `POST /saved-views/{viewId}/clone`
 
-`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltin: false` (so cloned views are deletable), and appends " (Copy)" to the name (always the same suffix, no smart numbering). If users want to customize the cloned view or rename it, they immediately edit it via `PATCH /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
+`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltin: false` (so cloned views are deletable), and appends " (Copy)" to the name (always the same suffix, no smart numbering). If users want to customize the cloned view or rename it, they immediately edit it via `PUT /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
 
 Route behavior notes:
 
 - `POST /view-runtime/execute` must be rebuilt around the compiled runtime contract; the current `entitySchemaId` placeholder is insufficient.
 - `GET /saved-views` can keep its route name, but its response schema needs to grow with the richer saved-view definition.
+- `GET /saved-views/{viewId}` returns any saved view the user can access (both built-in and user-owned views).
 - `POST /saved-views` can keep its route name, but its request body must accept the richer saved-view structure.
+- `PUT /saved-views/{viewId}` performs full replacement of a saved view (all fields required except immutable ones: `id`, `isBuiltin`, `userId`, `createdAt`, `updatedAt`).
 - `DELETE /saved-views/{viewId}` can stay largely as-is. The built-in protection rule still makes sense.
 
 ## Existing Endpoints That Likely Do Not Need Changes
@@ -690,13 +763,15 @@ The runtime module should query against the underlying tables and repositories i
 
 ### Phase 1: Fix Saved View Persistence Surface
 
-- add `GET /saved-views/{viewId}`
-- add `PATCH /saved-views/{viewId}`
-- add `POST /saved-views/{viewId}/clone` (pure copy, no request body)
+- add `GET /saved-views/{viewId}` (returns built-in and user-owned views)
+- add `PUT /saved-views/{viewId}` (full replacement with required fields)
+- add `POST /saved-views/{viewId}/clone` (pure copy, no request body, appends " (Copy)" to name)
 - add `queryDefinition` jsonb column to store query semantics (entitySchemaSlugs, filters, sort)
 - add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
 - make both columns required with validation
 - apply minimal bootstrap fixes to ensure typechecking passes (full bootstrap implementation deferred to Phase 2)
+- enforce reserved slug validation for built-in entity schema names (derived from manifests)
+- create hardcoded default display configurations for bootstrap (broken configs acceptable in Phase 1)
 
 ### Phase 2: Build Real Runtime Execution
 
@@ -723,6 +798,134 @@ The runtime module should query against the underlying tables and repositories i
 - execute via `POST /view-runtime/execute`
 - render returned entities using `resolvedProperties` from the runtime response
 - remove assumptions that saved views live under a tracker route
+
+## Phase 1 Implementation Details
+
+### Migration Strategy
+
+**No data migration is required.** The application is still under development and not deployed to production. Existing saved views will be wiped and rebuilt from scratch during bootstrap. This eliminates migration complexity and allows for a clean implementation of the new structure.
+
+### Schema Immutability
+
+**Entity schema slugs are immutable after creation.** Once an entity schema is created, its slug cannot be changed. This guarantees that saved views referencing schema slugs remain valid. Attempting to change a slug would be a breaking change that invalidates all saved views.
+
+### Reserved Slug Enforcement
+
+**Built-in entity schema slugs are reserved and cannot be used for custom schemas.** The list of reserved slugs is derived from the bootstrap manifests (`authentication/bootstrap/manifests.ts`). When a user attempts to create a custom entity schema, the slug is validated against the list of built-in schema slugs. This prevents conflicts between built-in and custom schemas.
+
+### Display Configuration Structure
+
+**Display configurations use a discriminated union with a separate layout discriminant.** The runtime request includes both a top-level `layout` field and a `displayConfiguration` object that contains the active layout's config:
+
+```typescript
+{
+  layout: "grid" | "list" | "table",
+  displayConfiguration: {
+    // Grid-specific fields
+    imageProperty?: string[]
+    titleProperty?: string[]
+    subtitleProperty?: string[]
+    badgeProperty?: string[] | null
+  } | {
+    // Table-specific fields
+    columns: Array<{ property: string[] }>
+  }
+}
+```
+
+When a user creates a saved view, only the grid layout configuration is required. List and table configurations are initialized when the user switches to those layouts for the first time. This reduces upfront configuration burden.
+
+### Empty Property Arrays
+
+**Empty property arrays in display configurations are replaced with `[null]` for COALESCE.** Since PostgreSQL COALESCE requires at least one argument, empty arrays like `subtitleProperty: []` are converted to `COALESCE(NULL)` in the SQL generation, which returns NULL.
+
+### Sort Requirement
+
+**The `sort` field is required in runtime requests.** There is no default sort behavior. Clients must explicitly specify sort order. This eliminates ambiguity about result ordering.
+
+### Pagination Behavior
+
+**Pagination offsets are clamped to valid ranges.** If a client requests an offset beyond the total result count, the offset is clamped to `max(0, total - limit)` to prevent empty result pages with misleading pagination metadata.
+
+For zero results:
+- `totalPages: 0`
+- `currentPage: 1` (pages are always 1-indexed, even for empty results)
+
+### Error Handling
+
+**Phase 1 error responses follow the existing Hono/OpenAPI error pattern:**
+
+```typescript
+// 404 Not Found
+return c.json(createNotFoundErrorResult("Schema not found").body, 404);
+
+// 400 Validation Error
+return c.json(createValidationErrorResult("Invalid filter operator").body, 400);
+
+// 200 Success
+return c.json(successResponse(data), 200);
+```
+
+### Validation Strategy
+
+**Phase 1 trusts the frontend to send valid requests.** Filter paths, property references, and display configurations are assumed to be well-formed. Backend validation of property existence, type compatibility, and operator validity is deferred to Phase 2.
+
+**However, the following validations are enforced in Phase 1:**
+
+- Entity schema slugs exist and user has access to them
+- Properties referenced in filters exist in the target schemas (throws error if missing)
+- Filter operator discriminated union (validates value type based on operator)
+- Sort field is non-empty
+- Required fields in request bodies
+
+### Query Builder Structure
+
+The view-runtime query builder lives in `app-backend/src/modules/view-runtime/query-builder.ts`. The query builder:
+
+1. Pre-fetches all entity schemas referenced in the request
+2. Builds a schema map for type introspection
+3. Generates Drizzle SQL using the `sql` template tag for type safety
+4. Returns results with COALESCE-resolved properties
+
+### Image Handling
+
+**Images are returned as raw jsonb discriminated unions.** The view-runtime does not resolve S3 keys to URLs or perform any image transformation. The frontend already has utilities for converting ImageSchema objects (`{ kind: "s3", key: "..." }`) to fully qualified URLs.
+
+### Testing Approach
+
+Phase 1 includes both unit tests and integration tests:
+
+- **Unit tests**: Test SQL generation, filter building, COALESCE resolution, and pagination math
+- **Integration tests**: Test full execution flow with real database queries
+
+A testing harness for live database tests will be added to `app-backend` separately before starting Phase 1 implementation.
+
+### Bootstrap Updates
+
+Bootstrap manifests are updated with minimal changes to satisfy type requirements. The hardcoded display configuration for all built-in views is:
+
+```typescript
+{
+  layout: "grid",
+  grid: {
+    imageProperty: ["@image"],
+    titleProperty: ["@name"],
+    subtitleProperty: null,
+    badgeProperty: null
+  },
+  list: {
+    imageProperty: ["@image"],
+    titleProperty: ["@name"],
+    subtitleProperty: null,
+    badgeProperty: null
+  },
+  table: {
+    columns: [{ property: ["@name"] }]
+  }
+}
+```
+
+**This configuration will be broken** because `@image` returns the full jsonb object, not a URL. This is acceptable for Phase 1. Full bootstrap implementation with schema-aware defaults is deferred to Phase 2.
 
 ## Design Constraints
 
@@ -798,11 +1001,19 @@ For cross-schema views with OR logic:
 
 Type-specific operators that add convenience but aren't essential for v1:
 
+- `contains` (string substring matching with ILIKE, or JSONB containment with `@>` operator depending on property type)
 - `notIn` (inverse of `in`)
 - `notContains` (string negation)
 - `between` (range queries, syntactic sugar for `gte` + `lte`)
 - `regex` (pattern matching, use with caution for performance)
 - `isEmpty` / `isNotEmpty` (for array/object properties)
+
+The `contains` operator is complex because it has different semantics depending on property type:
+- For strings: `ILIKE '%value%'` for substring matching
+- For JSONB arrays: `@> '[value]'` for array containment
+- For JSONB objects: `@> '{"key": "value"}'` for object containment
+
+Phase 1 focuses on exact comparisons, range queries, and null checks. The `contains` operator requires property type introspection to choose the correct SQL operator, which adds complexity to the query builder.
 
 ### Schema-Aware Filter Validation
 
@@ -941,8 +1152,69 @@ WHERE es.slug = 'movies'
 
 However, relationship querying is essential for the saved view to become the true universal browsing primitive. Without it, collection browsing, people-to-media connections, and cross-entity queries remain special-cased outside the unified view-runtime system.
 
+## Phase 1 Complete Scope Summary
+
+Phase 1 delivers a working foundation for saved views and view-runtime execution with the following scope:
+
+**Saved Views Module:**
+- Add `GET /saved-views/{viewId}` (returns built-in and user-owned views)
+- Add `PUT /saved-views/{viewId}` (full replacement)
+- Add `POST /saved-views/{viewId}/clone` (pure copy, appends " (Copy)")
+- Add `displayConfiguration` jsonb column to database
+- Expand `queryDefinition` structure (slugs, filters, sort)
+- Update schemas to use discriminated unions
+- Add reserved slug enforcement
+
+**View Runtime Module:**
+- Replace placeholder with full runtime contract
+- Pre-fetch entity schemas for type introspection
+- Implement filter execution (eq, ne, gt, gte, lt, lte, in, isNull)
+- Implement sort with COALESCE and NULLS LAST
+- Implement pagination with clamped offsets
+- Implement display configuration COALESCE resolution
+- Return resolved properties for grid/list/table layouts
+- Use Drizzle query builder for type-safe SQL generation
+
+**Bootstrap:**
+- Update manifests with hardcoded display configurations
+- Minimal changes to satisfy type requirements
+- Accept that built-in views will be broken (fixed in Phase 2)
+
+**Testing:**
+- Add testing harness for live database tests (separate task)
+- Write unit tests for query builder SQL generation
+- Write integration tests for full execution flow
+
+**Validation Strategy:**
+- Trust frontend in Phase 1
+- Validate schema existence and property existence
+- Validate filter operator discriminated union
+- Require sort field
+- Defer comprehensive validation to Phase 2
+
+**Deferred to Phase 2:**
+- `contains` operator (complex type-dependent behavior)
+- Event-based filtering
+- Relationship querying
+- Compound filter logic (explicit OR)
+- Schema-aware default display configurations
+- Performance optimization (indexes)
+- Full validation of property types and operators
+
 ## Recommended First Step
 
 Start by redesigning the saved-view schema and API surface before writing runtime SQL.
 
 Reason: the runtime contract depends on what the frontend will compile from a saved view, and that only becomes stable once the persisted saved-view shape is defined clearly.
+
+**Specific implementation order:**
+
+1. Add database migration for `display_configuration` column
+2. Update saved-views schemas (Zod definitions)
+3. Implement saved-views endpoints (GET /{id}, PUT /{id}, POST /{id}/clone)
+4. Update bootstrap manifests with hardcoded configs
+5. Implement view-runtime schemas (request/response)
+6. Implement query-builder (filter, sort, COALESCE logic)
+7. Implement view-runtime execution endpoint
+8. Write unit tests for query builder
+9. Write integration tests for full flow
