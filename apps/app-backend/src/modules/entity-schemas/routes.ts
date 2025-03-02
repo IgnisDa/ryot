@@ -101,38 +101,35 @@ const importEntitySchemasRoute = createRoute({
 	},
 });
 
-export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>();
+export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(listEntitySchemasRoute, async (c) => {
+		const user = c.get("user");
+		const schemas = await listEntitySchemasByUser(user.id);
+		return c.json({ schemas }, 200);
+	})
+	.openapi(searchEntitySchemasRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+		const result = await runSchemaSearch({ userId: user.id, body });
 
-entitySchemasApi.openapi(listEntitySchemasRoute, async (c) => {
-	const user = c.get("user");
-	const schemas = await listEntitySchemasByUser(user.id);
-	return c.json({ schemas }, 200);
-});
+		if (!result.success) {
+			if (result.status === 404) return c.json({ error: result.error }, 404);
+			if (result.status === 504) return c.json({ error: result.error }, 504);
+			return c.json({ error: result.error }, 500);
+		}
 
-entitySchemasApi.openapi(searchEntitySchemasRoute, async (c) => {
-	const user = c.get("user");
-	const body = c.req.valid("json");
-	const result = await runSchemaSearch({ userId: user.id, body });
+		return c.json(result.data, 200);
+	})
+	.openapi(importEntitySchemasRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+		const result = await runSchemaImport({ userId: user.id, body });
 
-	if (!result.success) {
-		if (result.status === 404) return c.json({ error: result.error }, 404);
-		if (result.status === 504) return c.json({ error: result.error }, 504);
-		return c.json({ error: result.error }, 500);
-	}
+		if (!result.success) {
+			if (result.status === 404) return c.json({ error: result.error }, 404);
+			if (result.status === 504) return c.json({ error: result.error }, 504);
+			return c.json({ error: result.error }, 500);
+		}
 
-	return c.json(result.data, 200);
-});
-
-entitySchemasApi.openapi(importEntitySchemasRoute, async (c) => {
-	const user = c.get("user");
-	const body = c.req.valid("json");
-	const result = await runSchemaImport({ userId: user.id, body });
-
-	if (!result.success) {
-		if (result.status === 404) return c.json({ error: result.error }, 404);
-		if (result.status === 504) return c.json({ error: result.error }, 504);
-		return c.json({ error: result.error }, 500);
-	}
-
-	return c.json(result.data, 200);
-});
+		return c.json(result.data, 200);
+	});
