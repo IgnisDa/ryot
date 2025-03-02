@@ -2,9 +2,9 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
-	facet,
-	facetEntitySchema,
 	savedView,
+	tracker,
+	trackerEntitySchema,
 } from "~/lib/db/schema";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
 import type { ListedEntitySchema } from "./schemas";
@@ -19,7 +19,7 @@ const listedEntitySchemaSelection = {
 	name: entitySchema.name,
 	icon: entitySchema.icon,
 	slug: entitySchema.slug,
-	facetId: facetEntitySchema.facetId,
+	trackerId: trackerEntitySchema.trackerId,
 	isBuiltin: entitySchema.isBuiltin,
 	accentColor: entitySchema.accentColor,
 	propertiesSchema: entitySchema.propertiesSchema,
@@ -47,23 +47,23 @@ const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
 });
 
-export const listEntitySchemasByFacetForUser = async (input: {
+export const listEntitySchemasByTrackerForUser = async (input: {
 	userId: string;
-	facetId: string;
+	trackerId: string;
 }) => {
 	const rows = await db
 		.select(listedEntitySchemaSelection)
-		.from(facetEntitySchema)
-		.innerJoin(facet, eq(facet.id, facetEntitySchema.facetId))
+		.from(trackerEntitySchema)
+		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
 		.innerJoin(
 			entitySchema,
-			eq(entitySchema.id, facetEntitySchema.entitySchemaId),
+			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
 		)
 		.where(
 			and(
-				eq(facet.id, input.facetId),
-				eq(facet.userId, input.userId),
-				eq(facetEntitySchema.isDisabled, false),
+				eq(tracker.id, input.trackerId),
+				eq(tracker.userId, input.userId),
+				eq(trackerEntitySchema.isDisabled, false),
 			),
 		)
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
@@ -102,10 +102,10 @@ export const listBuiltinEntitySchemas = async (input?: {
 	return rows;
 };
 
-export const createFacetEntitySchemas = async (input: {
+export const createTrackerEntitySchemas = async (input: {
 	database?: DbClient;
 	links: Array<{
-		facetId: string;
+		trackerId: string;
 		entitySchemaId: string;
 		isDisabled?: boolean;
 	}>;
@@ -114,9 +114,9 @@ export const createFacetEntitySchemas = async (input: {
 
 	const database = input.database ?? db;
 
-	await database.insert(facetEntitySchema).values(
+	await database.insert(trackerEntitySchema).values(
 		input.links.map((link) => ({
-			facetId: link.facetId,
+			trackerId: link.trackerId,
 			entitySchemaId: link.entitySchemaId,
 			isDisabled: link.isDisabled ?? false,
 		})),
@@ -128,7 +128,7 @@ export const createEntitySchemaForUser = async (input: {
 	name: string;
 	slug: string;
 	userId: string;
-	facetId: string;
+	trackerId: string;
 	accentColor: string;
 	propertiesSchema: EntitySchemaPropertiesShape;
 }) => {
@@ -149,16 +149,16 @@ export const createEntitySchemaForUser = async (input: {
 		if (!createdEntitySchema)
 			throw new Error("Could not persist entity schema");
 
-		const [createdFacetEntitySchema] = await tx
-			.insert(facetEntitySchema)
+		const [createdTrackerEntitySchema] = await tx
+			.insert(trackerEntitySchema)
 			.values({
-				facetId: input.facetId,
+				trackerId: input.trackerId,
 				entitySchemaId: createdEntitySchema.id,
 			})
-			.returning({ facetId: facetEntitySchema.facetId });
+			.returning({ trackerId: trackerEntitySchema.trackerId });
 
-		if (!createdFacetEntitySchema)
-			throw new Error("Could not persist facet entity schema link");
+		if (!createdTrackerEntitySchema)
+			throw new Error("Could not persist tracker entity schema link");
 
 		const [createdSavedView] = await tx
 			.insert(savedView)
@@ -166,7 +166,7 @@ export const createEntitySchemaForUser = async (input: {
 				isBuiltin: true,
 				icon: input.icon,
 				userId: input.userId,
-				facetId: input.facetId,
+				trackerId: input.trackerId,
 				accentColor: input.accentColor,
 				name: buildBuiltinSavedViewName(input.name),
 				queryDefinition: { entitySchemaIds: [createdEntitySchema.id] },
@@ -178,7 +178,7 @@ export const createEntitySchemaForUser = async (input: {
 
 		return toListedEntitySchema({
 			...createdEntitySchema,
-			facetId: createdFacetEntitySchema.facetId,
+			trackerId: createdTrackerEntitySchema.trackerId,
 		});
 	});
 };

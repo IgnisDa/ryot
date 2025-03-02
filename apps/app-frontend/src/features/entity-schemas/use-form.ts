@@ -9,7 +9,7 @@ import {
 } from "./form";
 
 type UseCreateEntitySchemaFormProps = {
-	facetId: string;
+	trackerId: string;
 	onSubmit: (payload: CreateEntitySchemaPayload) => Promise<void>;
 };
 
@@ -20,7 +20,7 @@ export function useCreateEntitySchemaForm(
 		defaultValues: buildEntitySchemaFormValues(),
 		validators: { onChange: createEntitySchemaFormSchema },
 		onSubmit: async ({ value }) => {
-			await props.onSubmit(toCreateEntitySchemaPayload(value, props.facetId));
+			await props.onSubmit(toCreateEntitySchemaPayload(value, props.trackerId));
 		},
 	});
 	const previousDerivedSlug = useRef("");
