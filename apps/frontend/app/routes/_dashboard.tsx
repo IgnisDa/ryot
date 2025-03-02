@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import {
 	ActionIcon,
 	Affix,
@@ -132,11 +131,7 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import {
-	tourSteps,
-	useOnboardingTour,
-	useOpenedSidebarLinks,
-} from "~/lib/state/general";
+import { useOpenedSidebarLinks } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -372,9 +367,7 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, setIsTourStarted } = useOnboardingTour();
 
-	const stopTour = () => setIsTourStarted(false);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
@@ -550,253 +543,247 @@ export default function Layout() {
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
-			<OnboardingTour
-				tour={tourSteps}
-				started={isTourStarted}
-				onOnboardingTourEnd={stopTour}
-				onOnboardingTourClose={stopTour}
+
+			<AppShell
+				w="100%"
+				padding={0}
+				layout="alt"
+				navbar={{
+					breakpoint: "sm",
+					width: { sm: 220, lg: 250 },
+					collapsed: {
+						mobile: !mobileNavbarOpened,
+						desktop: loaderData.desktopSidebarCollapsed === "true",
+					},
+				}}
 			>
-				<AppShell
-					w="100%"
-					padding={0}
-					layout="alt"
-					navbar={{
-						breakpoint: "sm",
-						width: { sm: 220, lg: 250 },
-						collapsed: {
-							mobile: !mobileNavbarOpened,
-							desktop: loaderData.desktopSidebarCollapsed === "true",
-						},
-					}}
-				>
-					{loaderData.desktopSidebarCollapsed ? (
-						<ActionIcon
-							left={0}
-							size="lg"
-							top="50%"
-							pos="fixed"
-							visibleFrom="sm"
-							variant="default"
-							style={{ zIndex: 20 }}
-							onClick={() => {
-								Cookies.remove(desktopSidebarCollapsedCookie);
-								revalidate();
-							}}
-						>
-							<IconChevronsRight size={30} />
-						</ActionIcon>
-					) : null}
-					<AppShell.Navbar py="md" px="md" className={classes.navbar}>
-						<Flex justify="end" hiddenFrom="sm">
-							<Burger
-								opened={mobileNavbarOpened}
-								onClick={toggleMobileNavbar}
-								color={theme.colors.gray[6]}
-							/>
-						</Flex>
-						<Box component={ScrollArea} style={{ flexGrow: 1 }}>
+				{loaderData.desktopSidebarCollapsed ? (
+					<ActionIcon
+						left={0}
+						size="lg"
+						top="50%"
+						pos="fixed"
+						visibleFrom="sm"
+						variant="default"
+						style={{ zIndex: 20 }}
+						onClick={() => {
+							Cookies.remove(desktopSidebarCollapsedCookie);
+							revalidate();
+						}}
+					>
+						<IconChevronsRight size={30} />
+					</ActionIcon>
+				) : null}
+				<AppShell.Navbar py="md" px="md" className={classes.navbar}>
+					<Flex justify="end" hiddenFrom="sm">
+						<Burger
+							opened={mobileNavbarOpened}
+							onClick={toggleMobileNavbar}
+							color={theme.colors.gray[6]}
+						/>
+					</Flex>
+					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
+						<LinksGroup
+							label="Dashboard"
+							icon={IconHome2}
+							href={$path("/")}
+							opened={false}
+							toggle={toggleMobileNavbar}
+							setOpened={() => {}}
+						/>
+						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
-								label="Dashboard"
-								icon={IconHome2}
-								href={$path("/")}
+								label="Media"
+								tourStepId="step-1"
+								icon={IconDeviceSpeaker}
+								toggle={toggleMobileNavbar}
+								links={loaderData.mediaLinks}
+								opened={openedSidebarLinks.media || false}
+								setOpened={(k) =>
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
+											if (draft) draft.media = k;
+										}),
+									)
+								}
+							/>
+						) : null}
+						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
+							<LinksGroup
+								label="Fitness"
+								icon={IconStretching}
+								opened={openedSidebarLinks.fitness || false}
+								toggle={toggleMobileNavbar}
+								setOpened={(k) =>
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
+											if (draft) draft.fitness = k;
+										}),
+									)
+								}
+								links={loaderData.fitnessLinks}
+							/>
+						) : null}
+						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
+							<LinksGroup
+								opened={false}
+								icon={IconGraph}
+								label="Analytics"
+								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/analytics")}
+							/>
+						) : null}
+						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
+							<LinksGroup
+								label="Calendar"
+								icon={IconCalendar}
+								href={$path("/calendar")}
 								opened={false}
 								toggle={toggleMobileNavbar}
 								setOpened={() => {}}
 							/>
-							{loaderData.userPreferences.featuresEnabled.media.enabled ? (
-								<LinksGroup
-									label="Media"
-									tourStepId="step-1"
-									icon={IconDeviceSpeaker}
-									toggle={toggleMobileNavbar}
-									links={loaderData.mediaLinks}
-									opened={openedSidebarLinks.media || false}
-									setOpened={(k) =>
-										setOpenedSidebarLinks(
-											produce(openedSidebarLinks, (draft) => {
-												if (draft) draft.media = k;
-											}),
-										)
-									}
-								/>
-							) : null}
-							{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
-								<LinksGroup
-									label="Fitness"
-									icon={IconStretching}
-									opened={openedSidebarLinks.fitness || false}
-									toggle={toggleMobileNavbar}
-									setOpened={(k) =>
-										setOpenedSidebarLinks(
-											produce(openedSidebarLinks, (draft) => {
-												if (draft) draft.fitness = k;
-											}),
-										)
-									}
-									links={loaderData.fitnessLinks}
-								/>
-							) : null}
-							{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
-								<LinksGroup
-									opened={false}
-									icon={IconGraph}
-									label="Analytics"
-									setOpened={() => {}}
-									toggle={toggleMobileNavbar}
-									href={$path("/analytics")}
-								/>
-							) : null}
-							{loaderData.userPreferences.featuresEnabled.others.calendar ? (
-								<LinksGroup
-									label="Calendar"
-									icon={IconCalendar}
-									href={$path("/calendar")}
-									opened={false}
-									toggle={toggleMobileNavbar}
-									setOpened={() => {}}
-								/>
-							) : null}
-							{loaderData.userPreferences.featuresEnabled.others.collections ? (
-								<LinksGroup
-									label="Collections"
-									icon={IconArchive}
-									href={$path("/collections/list")}
-									opened={false}
-									toggle={toggleMobileNavbar}
-									setOpened={() => {}}
-								/>
-							) : null}
-							{loaderData.isAccessLinkSession &&
-							!loaderData.isDemoInstance ? null : (
-								<LinksGroup
-									label="Settings"
-									icon={IconSettings}
-									opened={openedSidebarLinks.settings || false}
-									toggle={toggleMobileNavbar}
-									setOpened={(k) =>
-										setOpenedSidebarLinks(
-											produce(openedSidebarLinks, (draft) => {
-												if (draft) draft.settings = k;
-											}),
-										)
-									}
-									links={loaderData.settingsLinks}
-								/>
-							)}
-						</Box>
-						<Flex direction="column" justify="center" gap="md">
-							<Button
-								color="gray"
-								visibleFrom="sm"
-								variant="subtle"
-								leftSection={<IconChevronsLeft />}
-								onClick={() => {
-									Cookies.set(desktopSidebarCollapsedCookie, "true");
-									revalidate();
-								}}
-							>
-								Collapse
-							</Button>
-							{loaderData.isAccessLinkSession ? (
-								<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
-									<Button leftSection={<IconEyeglass />} disabled>
-										Visitor
-									</Button>
-								</Tooltip>
-							) : null}
-							<Form
-								method="POST"
-								action={withQuery("/actions", { intent: "toggleColorScheme" })}
-								onSubmit={submit}
-							>
-								<Group justify="center">
-									<UnstyledButton
-										aria-label="Toggle theme"
-										className={classes.control2}
-										type="submit"
-									>
-										<Center className={classes.iconWrapper}>
-											<Icon size={16.8} stroke={1.5} />
-										</Center>
-										<Text size="sm" className={classes.value}>
-											{upperFirst(
-												loaderData.currentColorScheme === "dark"
-													? "light"
-													: "dark",
-											)}{" "}
-											theme
-										</Text>
-									</UnstyledButton>
-								</Group>
-							</Form>
-							<Form
-								method="POST"
-								style={{ display: "flex" }}
-								action={withQuery("/actions", { intent: "logout" })}
-							>
+						) : null}
+						{loaderData.userPreferences.featuresEnabled.others.collections ? (
+							<LinksGroup
+								label="Collections"
+								icon={IconArchive}
+								href={$path("/collections/list")}
+								opened={false}
+								toggle={toggleMobileNavbar}
+								setOpened={() => {}}
+							/>
+						) : null}
+						{loaderData.isAccessLinkSession &&
+						!loaderData.isDemoInstance ? null : (
+							<LinksGroup
+								label="Settings"
+								icon={IconSettings}
+								opened={openedSidebarLinks.settings || false}
+								toggle={toggleMobileNavbar}
+								setOpened={(k) =>
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
+											if (draft) draft.settings = k;
+										}),
+									)
+								}
+								links={loaderData.settingsLinks}
+							/>
+						)}
+					</Box>
+					<Flex direction="column" justify="center" gap="md">
+						<Button
+							color="gray"
+							visibleFrom="sm"
+							variant="subtle"
+							leftSection={<IconChevronsLeft />}
+							onClick={() => {
+								Cookies.set(desktopSidebarCollapsedCookie, "true");
+								revalidate();
+							}}
+						>
+							Collapse
+						</Button>
+						{loaderData.isAccessLinkSession ? (
+							<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
+								<Button leftSection={<IconEyeglass />} disabled>
+									Visitor
+								</Button>
+							</Tooltip>
+						) : null}
+						<Form
+							method="POST"
+							action={withQuery("/actions", { intent: "toggleColorScheme" })}
+							onSubmit={submit}
+						>
+							<Group justify="center">
 								<UnstyledButton
-									mx="auto"
-									className={classes.oldLink}
+									aria-label="Toggle theme"
+									className={classes.control2}
 									type="submit"
 								>
-									<Group>
-										<IconLogout size={19.2} />
-										<Text>Logout</Text>
-									</Group>
-								</UnstyledButton>
-							</Form>
-						</Flex>
-					</AppShell.Navbar>
-					<Flex direction="column" h="90%">
-						<Flex justify="space-between" p="md" hiddenFrom="sm">
-							<Link to={$path("/")} style={{ all: "unset" }}>
-								<Group>
-									<Image
-										h={40}
-										w={40}
-										darkHidden
-										radius="md"
-										src={LOGO_IMAGE_URL}
-									/>
-									<Image
-										h={40}
-										w={40}
-										radius="md"
-										lightHidden
-										src="/logo-light.png"
-									/>
-									<Text size="xl" className={classes.logoText}>
-										Ryot
+									<Center className={classes.iconWrapper}>
+										<Icon size={16.8} stroke={1.5} />
+									</Center>
+									<Text size="sm" className={classes.value}>
+										{upperFirst(
+											loaderData.currentColorScheme === "dark"
+												? "light"
+												: "dark",
+										)}{" "}
+										theme
 									</Text>
-								</Group>
-							</Link>
-							<Burger
-								opened={mobileNavbarOpened}
-								onClick={toggleMobileNavbar}
-								color={theme.colors.gray[6]}
-							/>
-						</Flex>
-						<AppShell.Main py={{ sm: "xl" }}>
-							<Box
-								mt="md"
-								pb={40}
-								mih="90%"
-								style={{ flexGrow: 1 }}
-								ref={
-									loaderData.userPreferences.general.disableNavigationAnimation
-										? undefined
-										: parent
-								}
+								</UnstyledButton>
+							</Group>
+						</Form>
+						<Form
+							method="POST"
+							style={{ display: "flex" }}
+							action={withQuery("/actions", { intent: "logout" })}
+						>
+							<UnstyledButton
+								mx="auto"
+								className={classes.oldLink}
+								type="submit"
 							>
-								<Outlet />
-							</Box>
-							<Box className={classes.shellFooter}>
-								<Footer />
-							</Box>
-						</AppShell.Main>
+								<Group>
+									<IconLogout size={19.2} />
+									<Text>Logout</Text>
+								</Group>
+							</UnstyledButton>
+						</Form>
 					</Flex>
-				</AppShell>
-			</OnboardingTour>
+				</AppShell.Navbar>
+				<Flex direction="column" h="90%">
+					<Flex justify="space-between" p="md" hiddenFrom="sm">
+						<Link to={$path("/")} style={{ all: "unset" }}>
+							<Group>
+								<Image
+									h={40}
+									w={40}
+									darkHidden
+									radius="md"
+									src={LOGO_IMAGE_URL}
+								/>
+								<Image
+									h={40}
+									w={40}
+									radius="md"
+									lightHidden
+									src="/logo-light.png"
+								/>
+								<Text size="xl" className={classes.logoText}>
+									Ryot
+								</Text>
+							</Group>
+						</Link>
+						<Burger
+							opened={mobileNavbarOpened}
+							onClick={toggleMobileNavbar}
+							color={theme.colors.gray[6]}
+						/>
+					</Flex>
+					<AppShell.Main py={{ sm: "xl" }}>
+						<Box
+							mt="md"
+							pb={40}
+							mih="90%"
+							style={{ flexGrow: 1 }}
+							ref={
+								loaderData.userPreferences.general.disableNavigationAnimation
+									? undefined
+									: parent
+							}
+						>
+							<Outlet />
+						</Box>
+						<Box className={classes.shellFooter}>
+							<Footer />
+						</Box>
+					</AppShell.Main>
+				</Flex>
+			</AppShell>
 			{loaderData.shouldHaveUmami ? (
 				<script
 					defer
