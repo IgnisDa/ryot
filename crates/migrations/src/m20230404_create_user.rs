@@ -17,6 +17,7 @@ pub enum User {
     OidcIssuerId,
     LastActivityOn,
     ExtraInformation,
+    CompletedOnboardingTours,
 }
 
 #[async_trait::async_trait]
@@ -42,6 +43,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::IsDisabled).boolean())
                     .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(User::LastActivityOn).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(User::CompletedOnboardingTours)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default(Expr::val("{}")),
+                    )
                     .to_owned(),
             )
             .await?;
