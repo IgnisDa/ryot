@@ -24,6 +24,7 @@ import {
 	DisplaySummarySection,
 	ExpireCacheKeyButton,
 	ProRequiredAlert,
+	StartOnboardingTourButton,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
@@ -110,6 +111,7 @@ export default function Page() {
 	return (
 		<Container>
 			<Stack gap={32}>
+				<StartOnboardingTourButton />
 				<ClientOnly>
 					{() =>
 						dashboardMessage && isAlertDismissed === "false" ? (

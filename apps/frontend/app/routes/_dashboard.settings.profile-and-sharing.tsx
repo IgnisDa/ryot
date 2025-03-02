@@ -67,6 +67,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
+import { StartOnboardingTourButton } from "~/components/common";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);
@@ -250,6 +251,7 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
+							<StartOnboardingTourButton />
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">

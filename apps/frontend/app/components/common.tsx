@@ -1472,3 +1472,15 @@ export const ExpireCacheKeyButton = (props: {
 		</Form>
 	);
 };
+
+export const StartOnboardingTourButton = () => {
+	return (
+		<Button
+			onClick={() => {
+				console.log("start onboarding tour");
+			}}
+		>
+			Start onboarding tour
+		</Button>
+	);
+};
