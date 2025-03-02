@@ -149,6 +149,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
+import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
@@ -837,11 +838,10 @@ const LinksGroup = ({
 		</NavLink>
 	));
 
-	return (
-		<>
+	const component = (
+		<Box>
 			<UnstyledButton<typeof Link>
 				className={classes.control}
-				data-onboarding-tour-id={tourStepId}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
@@ -876,8 +876,15 @@ const LinksGroup = ({
 				</Group>
 			</UnstyledButton>
 			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
-		</>
+		</Box>
 	);
+
+	if (tourStepId)
+		return (
+			<OnboardingTour.Target id={tourStepId}>{component}</OnboardingTour.Target>
+		);
+
+	return component;
 };
 
 const Footer = () => {
