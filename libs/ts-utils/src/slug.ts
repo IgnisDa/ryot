@@ -21,10 +21,6 @@ export const resolveRequiredSlug = (input: {
 	return resolvedSlug;
 };
 
-/**
- * Trims a string and validates it's not empty.
- * @throws {Error} If the trimmed string is empty
- */
 export const resolveRequiredString = (input: string, label: string): string => {
 	const resolved = input.trim();
 	if (!resolved) throw new Error(`${label} is required`);

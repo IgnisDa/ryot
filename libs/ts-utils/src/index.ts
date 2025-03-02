@@ -205,3 +205,9 @@ export {
 	toAppSchema,
 	toAppSchemaProperties,
 } from "./app-schema";
+
+export {
+	normalizeSlug,
+	resolveRequiredSlug,
+	resolveRequiredString,
+} from "./slug";
