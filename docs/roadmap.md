@@ -91,7 +91,7 @@ This phase proves that Ryot can ship high-quality vertical experiences without b
 
 This phase turns Ryot from a product with built-in trackers into a true "track anything" platform.
 
-Current rewrite status: the custom-tracker shell now matches the SOUL model. Tracker root routes render generated overview pages for non-empty custom trackers, empty trackers stay in the guided setup flow, and schema-level browsing continues to live in saved views under the tracker.
+Current rewrite status: the custom-tracker shell now matches the SOUL model. Tracker root routes render generated overview pages for non-empty custom trackers, empty trackers stay in the guided setup flow, schema-level browsing continues to live in saved views under the tracker, and generated entity detail pages now have a proper journal-style identity header, property rendering, and activity timeline instead of the earlier placeholder treatment.
 
 #### Goals
 
