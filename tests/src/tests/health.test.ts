@@ -1,14 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { getBackendUrl } from "../setup";
+import { getBackendClient } from "../setup";
 
 describe("Health endpoint", () => {
 	it("should return healthy status", async () => {
-		const url = getBackendUrl();
-		const res = await fetch(`${url}/system/health`);
+		const client = getBackendClient();
+		const { data, response } = await client.GET("/system/health");
 
-		expect(res.status).toBe(200);
-
-		const data = await res.json();
-		expect(data.data.status).toBe("healthy");
+		expect(response.status).toBe(200);
+		expect(data?.data.status).toBe("healthy");
 	});
 });
