@@ -18,8 +18,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub name: String,
-    pub user_id: String,
     pub created_on: DateTimeUtc,
+    pub user_id: Option<String>,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
     #[sea_orm(column_type = "Json")]

@@ -990,26 +990,32 @@ ORDER BY RANDOM() LIMIT 10;
             let monitoring_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
+                    c.name == DefaultCollection::Monitoring.to_string()
+                        && c.user_id.as_ref().unwrap() == &user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let watchlist_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
+                    c.name == DefaultCollection::Watchlist.to_string()
+                        && c.user_id.as_ref().unwrap() == &user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let owned_collection_id = collections
                 .iter()
-                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
+                .find(|c| {
+                    c.name == DefaultCollection::Owned.to_string()
+                        && c.user_id.as_ref().unwrap() == &user_id
+                })
                 .map(|c| c.id.clone())
                 .unwrap();
             let reminder_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Reminders.to_string() && c.user_id == user_id
+                    c.name == DefaultCollection::Reminders.to_string()
+                        && c.user_id.as_ref().unwrap() == &user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
@@ -2003,10 +2009,10 @@ ORDER BY RANDOM() LIMIT 10;
                         remove_entity_from_collection(
                             &user.user_id,
                             ChangeCollectionToEntityInput {
-                                creator_user_id: col.user_id.clone(),
-                                collection_name: DefaultCollection::Reminders.to_string(),
-                                entity_id: cte.entity_id.clone(),
                                 entity_lot: cte.entity_lot,
+                                entity_id: cte.entity_id.clone(),
+                                creator_user_id: col.user_id.as_ref().unwrap().clone(),
+                                collection_name: DefaultCollection::Reminders.to_string(),
                                 ..Default::default()
                             },
                             &self.0,

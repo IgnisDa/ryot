@@ -2690,7 +2690,7 @@ pub async fn create_or_update_collection(
                 },
                 last_updated_on: ActiveValue::Set(Utc::now()),
                 name: ActiveValue::Set(new_name),
-                user_id: ActiveValue::Set(user_id.to_owned()),
+                user_id: ActiveValue::Set(Some(user_id.to_owned())),
                 description: ActiveValue::Set(input.description),
                 information_template: ActiveValue::Set(input.information_template),
                 ..Default::default()
