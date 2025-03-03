@@ -9,13 +9,13 @@ pub struct Migration;
 
 #[derive(Iden)]
 pub enum Collection {
-    Table,
     Id,
-    CreatedOn,
-    LastUpdatedOn,
     Name,
+    Table,
     UserId,
+    CreatedOn,
     Description,
+    LastUpdatedOn,
     InformationTemplate,
 }
 
