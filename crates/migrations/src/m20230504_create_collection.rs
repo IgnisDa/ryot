@@ -47,7 +47,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::InformationTemplate).json_binary())
-                    .col(ColumnDef::new(Collection::UserId).text().not_null())
+                    .col(ColumnDef::new(Collection::UserId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_user_foreign_key")
