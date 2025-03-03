@@ -583,7 +583,10 @@ export default function Layout() {
 							color={theme.colors.gray[6]}
 						/>
 					</Flex>
-					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
+					<Box
+						component={ScrollArea}
+						style={{ flexGrow: 1, overflow: "initial" }}
+					>
 						<LinksGroup
 							label="Dashboard"
 							icon={IconHome2}
