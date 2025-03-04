@@ -149,6 +149,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
+import clsx from "clsx";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
@@ -170,7 +171,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			return {
 				label: f,
 				href: undefined,
-				tourStepId: f === MediaLot.Movie ? "step-2" : undefined,
+				tourStepId: f === MediaLot.Movie ? "tour-step-2" : undefined,
 			};
 		}),
 		userPreferences.featuresEnabled.media.groups
@@ -602,7 +603,7 @@ export default function Layout() {
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
-								tourStepId="step-1"
+								tourStepId="tour-step-1"
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								links={loaderData.mediaLinks}
@@ -824,27 +825,26 @@ const LinksGroup = ({
 	toggle,
 	setOpened,
 	icon: Icon,
+	tourStepId,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
 
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const linkItems = (hasLinks ? links || [] : []).map((link) => {
-		return (
-			<NavLink
-				to={link.link}
-				key={link.label}
-				onClick={toggle}
-				className={classes.link}
-			>
-				{({ isActive }) => (
-					<span style={isActive ? { textDecoration: "underline" } : undefined}>
-						{link.label}
-					</span>
-				)}
-			</NavLink>
-		);
-	});
+	const linkItems = (hasLinks ? links || [] : []).map((link) => (
+		<NavLink
+			to={link.link}
+			key={link.label}
+			onClick={toggle}
+			className={clsx(classes.link, link.tourStepId)}
+		>
+			{({ isActive }) => (
+				<span style={isActive ? { textDecoration: "underline" } : undefined}>
+					{link.label}
+				</span>
+			)}
+		</NavLink>
+	));
 
 	return (
 		<Box>
@@ -859,7 +859,10 @@ const LinksGroup = ({
 				}}
 			>
 				<Group justify="space-between" gap={0}>
-					<Box style={{ display: "flex", alignItems: "center" }}>
+					<Box
+						className={tourStepId}
+						style={{ display: "flex", alignItems: "center" }}
+					>
 						<ThemeIcon variant="light" size={30}>
 							<Icon size={17.6} />
 						</ThemeIcon>
