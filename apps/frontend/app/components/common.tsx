@@ -1475,15 +1475,7 @@ export const ExpireCacheKeyButton = (props: {
 };
 
 export const StartOnboardingTourButton = () => {
-	const { setIsTourStarted } = useOnboardingTour();
+	const { startTour } = useOnboardingTour();
 
-	return (
-		<Button
-			onClick={() => {
-				setIsTourStarted(true);
-			}}
-		>
-			Start onboarding tour
-		</Button>
-	);
+	return <Button onClick={startTour}>Start onboarding tour</Button>;
 };

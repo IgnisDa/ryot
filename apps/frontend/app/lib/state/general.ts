@@ -15,11 +15,21 @@ export const tourSteps = [
 	},
 ];
 
-const onboardingTourAtom = atom<boolean>(false);
+const onboardingTourAtom = atom<
+	| {
+			currentStepIndex: number;
+	  }
+	| undefined
+>();
 
 export const useOnboardingTour = () => {
-	const [isTourStarted, setIsTourStarted] = useAtom(onboardingTourAtom);
-	return { isTourStarted, setIsTourStarted };
+	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+
+	return {
+		isTourStarted: !!tourState,
+		stopTour: () => setTourState(undefined),
+		startTour: () => setTourState({ currentStepIndex: 0 }),
+	};
 };
 
 type OpenedSidebarLinks = {
