@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import {
 	ActionIcon,
 	Affix,
@@ -825,14 +824,13 @@ const LinksGroup = ({
 	toggle,
 	setOpened,
 	icon: Icon,
-	tourStepId,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
 
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const linkItems = (hasLinks ? links || [] : []).map((link) => {
-		const component = (
+		return (
 			<NavLink
 				to={link.link}
 				key={link.label}
@@ -846,16 +844,9 @@ const LinksGroup = ({
 				)}
 			</NavLink>
 		);
-		if (link.tourStepId)
-			return (
-				<OnboardingTour.Target id={link.tourStepId}>
-					{component}
-				</OnboardingTour.Target>
-			);
-		return component;
 	});
 
-	const component = (
+	return (
 		<Box>
 			<UnstyledButton<typeof Link>
 				className={classes.control}
@@ -895,13 +886,6 @@ const LinksGroup = ({
 			{hasLinks ? <Collapse in={opened}>{linkItems}</Collapse> : null}
 		</Box>
 	);
-
-	if (tourStepId)
-		return (
-			<OnboardingTour.Target id={tourStepId}>{component}</OnboardingTour.Target>
-		);
-
-	return component;
 };
 
 const Footer = () => {

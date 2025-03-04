@@ -1,4 +1,3 @@
-import "@gfazioli/mantine-onboarding-tour/styles.css";
 import "@mantine/core/styles.css";
 import "@mantine/code-highlight/styles.css";
 import "@mantine/charts/styles.css";
@@ -6,7 +5,6 @@ import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "mantine-datatable/styles.layer.css";
-import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import {
 	ActionIcon,
 	Alert,
@@ -39,7 +37,6 @@ import {
 	extendResponseHeaders,
 	getToast,
 } from "~/lib/utilities.server";
-import { tourSteps, useOnboardingTour } from "./lib/state/general";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -108,9 +105,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function App() {
 	const navigation = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
-	const { isTourStarted, setIsTourStarted } = useOnboardingTour();
-
-	const stopTour = () => setIsTourStarted(false);
 
 	return (
 		<html lang="en">
@@ -132,35 +126,27 @@ export default function App() {
 					classNamesPrefix="mnt"
 					forceColorScheme={loaderData.defaultColorScheme}
 				>
-					<OnboardingTour
-						maw={400}
-						tour={tourSteps}
-						started={isTourStarted}
-						onOnboardingTourEnd={stopTour}
-						onOnboardingTourClose={stopTour}
-					>
-						<QueryClientProvider client={queryClient}>
-							<ModalsProvider>
-								{["loading", "submitting"].includes(navigation.state) ? (
-									<Loader
-										top={10}
-										size="sm"
-										right={10}
-										pos="fixed"
-										color="yellow"
-										style={{ zIndex: 10 }}
-									/>
-								) : null}
-								<Toaster toast={loaderData.toast} />
-								<Flex style={{ flexGrow: 1 }} mih="100vh">
-									<Outlet />
-								</Flex>
-								<ScrollRestoration />
-								<Scripts />
-							</ModalsProvider>
-							<ReactQueryDevtools buttonPosition="top-right" />
-						</QueryClientProvider>
-					</OnboardingTour>
+					<QueryClientProvider client={queryClient}>
+						<ModalsProvider>
+							{["loading", "submitting"].includes(navigation.state) ? (
+								<Loader
+									top={10}
+									size="sm"
+									right={10}
+									pos="fixed"
+									color="yellow"
+									style={{ zIndex: 10 }}
+								/>
+							) : null}
+							<Toaster toast={loaderData.toast} />
+							<Flex style={{ flexGrow: 1 }} mih="100vh">
+								<Outlet />
+							</Flex>
+							<ScrollRestoration />
+							<Scripts />
+						</ModalsProvider>
+						<ReactQueryDevtools buttonPosition="top-right" />
+					</QueryClientProvider>
 				</MantineProvider>
 			</body>
 		</html>
