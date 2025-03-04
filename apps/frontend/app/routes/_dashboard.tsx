@@ -1,4 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 import {
 	ActionIcon,
 	Affix,
@@ -149,7 +150,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import { OnboardingTour } from "@gfazioli/mantine-onboarding-tour";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
