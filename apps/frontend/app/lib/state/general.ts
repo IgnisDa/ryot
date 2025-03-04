@@ -4,9 +4,14 @@ import type { Step } from "react-joyride";
 
 export const tourSteps = [
 	{
-		target: "tour-step-1",
+		target: ".tour-step-1",
 		content:
 			"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+	},
+	{
+		target: ".tour-step-2",
+		content:
+			"Now, click on the movies section to start tracking your favorite movies.",
 	},
 ] as Step[];
 

@@ -399,7 +399,16 @@ export default function Layout() {
 
 	return (
 		<>
-			<Joyride steps={tourSteps} run={isTourStarted} stepIndex={stepIndex} />
+			<ClientOnly>
+				{() => (
+					<Joyride
+						continuous
+						steps={tourSteps}
+						run={isTourStarted}
+						stepIndex={stepIndex}
+					/>
+				)}
+			</ClientOnly>
 			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
