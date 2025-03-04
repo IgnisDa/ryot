@@ -133,6 +133,7 @@ export default function App() {
 					forceColorScheme={loaderData.defaultColorScheme}
 				>
 					<OnboardingTour
+						maw={400}
 						tour={tourSteps}
 						started={isTourStarted}
 						onOnboardingTourEnd={stopTour}
