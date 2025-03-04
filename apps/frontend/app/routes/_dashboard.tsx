@@ -828,10 +828,10 @@ const LinksGroup = ({
 	const allLinks = (hasLinks ? links || [] : []).filter((s) => s !== undefined);
 	const items = allLinks.map((link) => (
 		<NavLink
-			className={classes.link}
 			to={link.link}
 			key={link.label}
 			onClick={toggle}
+			className={classes.link}
 		>
 			{({ isActive }) => (
 				<span style={isActive ? { textDecoration: "underline" } : undefined}>

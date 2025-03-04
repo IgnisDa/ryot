@@ -135,8 +135,6 @@ export default function App() {
 					<OnboardingTour
 						maw={400}
 						tour={tourSteps}
-						withNextButton={false}
-						withPrevButton={false}
 						started={isTourStarted}
 						onOnboardingTourEnd={stopTour}
 						onOnboardingTourClose={stopTour}
