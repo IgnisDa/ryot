@@ -1,19 +1,14 @@
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
+import type { Step } from "react-joyride";
 
 export const tourSteps = [
 	{
-		id: "tour-step-1",
+		target: "tour-step-1",
 		content:
-			"Welcome to Ryot! Let's get started by adding a movie to your watchlist.",
-		//Click on the media section in the sidebar to see what all you can track.",
+			"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 	},
-	{
-		id: "tour-step-2",
-		content:
-			"Now, click on the movies section to start tracking your favorite movies.",
-	},
-];
+] as Step[];
 
 const onboardingTourAtom = atom<
 	| {
@@ -27,6 +22,7 @@ export const useOnboardingTour = () => {
 
 	return {
 		isTourStarted: !!tourState,
+		stepIndex: tourState?.currentStepIndex,
 		stopTour: () => setTourState(undefined),
 		startTour: () => setTourState({ currentStepIndex: 0 }),
 	};

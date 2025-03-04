@@ -87,9 +87,11 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import Joyride from "react-joyride";
 import {
 	Form,
 	Link,
@@ -131,7 +133,11 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import { useOpenedSidebarLinks } from "~/lib/state/general";
+import {
+	tourSteps,
+	useOnboardingTour,
+	useOpenedSidebarLinks,
+} from "~/lib/state/general";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -149,7 +155,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import clsx from "clsx";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
@@ -373,6 +378,7 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
+	const { isTourStarted, stepIndex } = useOnboardingTour();
 
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
@@ -393,6 +399,7 @@ export default function Layout() {
 
 	return (
 		<>
+			<Joyride steps={tourSteps} run={isTourStarted} stepIndex={stepIndex} />
 			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
