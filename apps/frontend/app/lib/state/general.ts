@@ -6,7 +6,13 @@ export const tourSteps = [
 	{
 		id: "step-1",
 		content:
-			"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+			"Welcome to Ryot! Let's get started by adding a movie to your watchlist.",
+		//Click on the media section in the sidebar to see what all you can track.",
+	},
+	{
+		id: "step-2",
+		content:
+			"Now, click on the movies section to start tracking your favorite movies.",
 	},
 ] as OnboardingTourStep[];
 

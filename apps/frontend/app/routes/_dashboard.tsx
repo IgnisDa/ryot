@@ -168,7 +168,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
-			return { label: f, href: undefined };
+			return {
+				label: f,
+				href: undefined,
+				tourStepId: f === MediaLot.Movie ? "step-2" : undefined,
+			};
 		}),
 		userPreferences.featuresEnabled.media.groups
 			? {
@@ -193,6 +197,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			link
 				? {
 						label: changeCase(link.label),
+						tourStepId: "tourStepId" in link ? link.tourStepId : undefined,
 						link: link.href
 							? link.href
 							: $path("/media/:action/:lot", {
@@ -809,7 +814,7 @@ interface LinksGroupProps {
 	toggle: () => void;
 	tourStepId?: string;
 	setOpened: (v: boolean) => void;
-	links?: Array<{ label: string; link: string }>;
+	links?: Array<{ label: string; link: string; tourStepId?: string }>;
 }
 
 const LinksGroup = ({
@@ -823,23 +828,32 @@ const LinksGroup = ({
 	tourStepId,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
+
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const allLinks = (hasLinks ? links || [] : []).filter((s) => s !== undefined);
-	const items = allLinks.map((link) => (
-		<NavLink
-			to={link.link}
-			key={link.label}
-			onClick={toggle}
-			className={classes.link}
-		>
-			{({ isActive }) => (
-				<span style={isActive ? { textDecoration: "underline" } : undefined}>
-					{link.label}
-				</span>
-			)}
-		</NavLink>
-	));
+	const linkItems = (hasLinks ? links || [] : []).map((link) => {
+		const component = (
+			<NavLink
+				to={link.link}
+				key={link.label}
+				onClick={toggle}
+				className={classes.link}
+			>
+				{({ isActive }) => (
+					<span style={isActive ? { textDecoration: "underline" } : undefined}>
+						{link.label}
+					</span>
+				)}
+			</NavLink>
+		);
+		if (link.tourStepId)
+			return (
+				<OnboardingTour.Target id={link.tourStepId}>
+					{component}
+				</OnboardingTour.Target>
+			);
+		return component;
+	});
 
 	const component = (
 		<Box>
@@ -878,7 +892,7 @@ const LinksGroup = ({
 					) : null}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
+			{hasLinks ? <Collapse in={opened}>{linkItems}</Collapse> : null}
 		</Box>
 	);
 
