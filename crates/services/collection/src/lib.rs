@@ -286,7 +286,7 @@ impl CollectionService {
         };
         let user = details.find_related(User).one(&self.0.db).await?.unwrap();
         let reviews = item_reviews(
-            &details.user_id,
+            &details.user_id.as_ref().unwrap(),
             &input.collection_id,
             EntityLot::Collection,
             true,

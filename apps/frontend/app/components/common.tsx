@@ -991,7 +991,7 @@ export const DisplayCollectionEntity = (props: {
 export const DisplayCollection = (props: {
 	entityId: string;
 	entityLot: EntityLot;
-	creatorUserId: string;
+	creatorUserId?: string | null;
 	col: { id: string; name: string };
 }) => {
 	const color = useGetRandomMantineColor(props.col.name);
@@ -1017,12 +1017,14 @@ export const DisplayCollection = (props: {
 					<input readOnly hidden name="entityId" value={props.entityId} />
 					<input readOnly hidden name="entityLot" value={props.entityLot} />
 					<input readOnly hidden name="collectionName" value={props.col.name} />
-					<input
-						readOnly
-						hidden
-						name="creatorUserId"
-						value={props.creatorUserId}
-					/>
+					{props.creatorUserId ? (
+						<input
+							readOnly
+							hidden
+							name="creatorUserId"
+							value={props.creatorUserId}
+						/>
+					) : null}
 					<ActionIcon
 						size={16}
 						onClick={(e) => {

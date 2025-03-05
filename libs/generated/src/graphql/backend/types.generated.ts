@@ -152,7 +152,7 @@ export type Collection = {
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
   lastUpdatedOn: Scalars['DateTime']['output'];
   name: Scalars['String']['output'];
-  userId: Scalars['String']['output'];
+  userId?: Maybe<Scalars['String']['output']>;
 };
 
 export type CollectionContents = {
