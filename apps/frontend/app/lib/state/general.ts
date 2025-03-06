@@ -22,12 +22,7 @@ export const tourSteps = (
 	] as Step[]
 ).map((step) => ({ ...step, target: `.${step.target}` }));
 
-const onboardingTourAtom = atom<
-	| {
-			currentStepIndex: number;
-	  }
-	| undefined
->();
+const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
