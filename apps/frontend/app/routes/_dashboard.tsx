@@ -403,9 +403,11 @@ export default function Layout() {
 			<ClientOnly>
 				{() => (
 					<Joyride
-						continuous
+						hideBackButton
+						hideCloseButton
 						steps={tourSteps}
 						run={isTourStarted}
+						spotlightPadding={0}
 						stepIndex={stepIndex}
 					/>
 				)}
