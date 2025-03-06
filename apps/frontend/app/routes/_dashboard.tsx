@@ -134,6 +134,7 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
+	TourStepTargets,
 	tourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
@@ -176,7 +177,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			return {
 				label: f,
 				href: undefined,
-				tourStepId: f === MediaLot.Movie ? "tour-step-2" : undefined,
+				tourStepId: f === MediaLot.Movie ? TourStepTargets.Two : undefined,
 			};
 		}),
 		userPreferences.featuresEnabled.media.groups
@@ -619,10 +620,10 @@ export default function Layout() {
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
-								tourStepId="tour-step-1"
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								links={loaderData.mediaLinks}
+								tourStepId={TourStepTargets.One}
 								opened={openedSidebarLinks.media || false}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
