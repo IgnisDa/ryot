@@ -27,11 +27,14 @@ const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 
+	const startTour = () => setTourState({ currentStepIndex: 0 });
+	const stopTour = () => setTourState(undefined);
+
 	return {
+		stopTour,
+		startTour,
 		isTourStarted: !!tourState,
 		stepIndex: tourState?.currentStepIndex,
-		stopTour: () => setTourState(undefined),
-		startTour: () => setTourState({ currentStepIndex: 0 }),
 	};
 };
 
