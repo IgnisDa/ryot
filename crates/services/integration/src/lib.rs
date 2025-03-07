@@ -165,14 +165,14 @@ impl IntegrationService {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
         let maybe_progress_update = match integration.provider {
-            IntegrationProvider::Kodi => sink::kodi::yank_progress(payload).await,
-            IntegrationProvider::Emby => sink::emby::yank_progress(payload, &self.0.db).await,
-            IntegrationProvider::JellyfinSink => sink::jellyfin::yank_progress(payload).await,
+            IntegrationProvider::Kodi => sink::kodi::sink_progress(payload).await,
+            IntegrationProvider::Emby => sink::emby::sink_progress(payload, &self.0.db).await,
+            IntegrationProvider::JellyfinSink => sink::jellyfin::sink_progress(payload).await,
             IntegrationProvider::PlexSink => {
                 let specifics = integration.clone().provider_specifics.unwrap();
-                sink::plex::yank_progress(payload, &self.0.db, specifics.plex_sink_username).await
+                sink::plex::sink_progress(payload, &self.0.db, specifics.plex_sink_username).await
             }
-            IntegrationProvider::GenericJson => sink::generic_json::yank_progress(payload).await,
+            IntegrationProvider::GenericJson => sink::generic_json::sink_progress(payload).await,
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {

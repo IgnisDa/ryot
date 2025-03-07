@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 
-pub async fn yank_progress(payload: String) -> Result<ImportResult> {
+pub async fn sink_progress(payload: String) -> Result<ImportResult> {
     let payload = match serde_json::from_str::<CompleteExport>(&payload) {
         Ok(val) => val,
         Err(err) => bail!(err),

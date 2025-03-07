@@ -47,7 +47,7 @@ mod models {
     }
 }
 
-pub async fn yank_progress(payload: String, db: &DatabaseConnection) -> Result<ImportResult> {
+pub async fn sink_progress(payload: String, db: &DatabaseConnection) -> Result<ImportResult> {
     let payload: models::EmbyWebhookPayload = serde_json::from_str(&payload)?;
     let runtime = payload
         .item
