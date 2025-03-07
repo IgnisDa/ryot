@@ -10,14 +10,16 @@ type OpenedSidebarLinks = {
 	collection: boolean;
 };
 
+export const defaultSidebarLinksState: OpenedSidebarLinks = {
+	media: false,
+	fitness: false,
+	settings: false,
+	collection: false,
+};
+
 const openedSidebarLinksAtom = atomWithStorage<OpenedSidebarLinks>(
 	"OpenedSidebarLinks",
-	{
-		media: false,
-		fitness: false,
-		settings: false,
-		collection: false,
-	},
+	defaultSidebarLinksState,
 );
 
 export const useOpenedSidebarLinks = () => {
@@ -58,9 +60,13 @@ const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const isTourStarted = !!tourState;
 
-	const startTour = () => setTourState({ currentStepIndex: 0 });
+	const startTour = () => {
+		setOpenedSidebarLinks(defaultSidebarLinksState);
+		setTourState({ currentStepIndex: 0 });
+	};
 	const setTourStep = (stepIndex: number) =>
 		setTourState({ currentStepIndex: stepIndex });
 	const incrementStep = () =>
