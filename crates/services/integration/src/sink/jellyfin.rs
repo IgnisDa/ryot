@@ -77,6 +77,14 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
     };
 
     match payload.event.unwrap_or_default().as_str() {
+        "MarkPlayed" => {
+            item.seen_history.push(ImportOrExportMetadataItemSeen {
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
+                provider_watched_on: Some("Jellyfin".to_string()),
+                ..Default::default()
+            });
+        }
         _ => {
             let runtime = payload
                 .item
