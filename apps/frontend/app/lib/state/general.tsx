@@ -3,6 +3,30 @@ import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
 import type { Step } from "react-joyride";
 
+type OpenedSidebarLinks = {
+	media: boolean;
+	fitness: boolean;
+	settings: boolean;
+	collection: boolean;
+};
+
+const openedSidebarLinksAtom = atomWithStorage<OpenedSidebarLinks>(
+	"OpenedSidebarLinks",
+	{
+		media: false,
+		fitness: false,
+		settings: false,
+		collection: false,
+	},
+);
+
+export const useOpenedSidebarLinks = () => {
+	const [openedSidebarLinks, setOpenedSidebarLinks] = useAtom(
+		openedSidebarLinksAtom,
+	);
+	return { openedSidebarLinks, setOpenedSidebarLinks };
+};
+
 export const OnboardingTourStepTargets = {
 	One: "tour-step-1",
 	Two: "tour-step-2",
@@ -56,28 +80,4 @@ export const useOnboardingTour = () => {
 		incrementStep,
 		stepIndex: tourState?.currentStepIndex,
 	};
-};
-
-type OpenedSidebarLinks = {
-	media: boolean;
-	fitness: boolean;
-	settings: boolean;
-	collection: boolean;
-};
-
-const openedSidebarLinksAtom = atomWithStorage<OpenedSidebarLinks>(
-	"OpenedSidebarLinks",
-	{
-		media: false,
-		fitness: false,
-		settings: false,
-		collection: false,
-	},
-);
-
-export const useOpenedSidebarLinks = () => {
-	const [openedSidebarLinks, setOpenedSidebarLinks] = useAtom(
-		openedSidebarLinksAtom,
-	);
-	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
