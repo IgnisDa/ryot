@@ -89,7 +89,7 @@ fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
     }
 }
 
-pub async fn yank_progress(
+pub async fn sink_progress(
     payload: String,
     db: &DatabaseConnection,
     plex_user: Option<String>,
