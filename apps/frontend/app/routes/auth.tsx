@@ -23,6 +23,7 @@ import {
 	parseSearchQuery,
 	processSubmission,
 	startCase,
+	zodBoolAsString,
 	zodNumAsString,
 } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
@@ -51,6 +52,7 @@ import {
 import type { Route } from "./+types/auth";
 
 const searchParamsSchema = z.object({
+	autoOidcLaunch: zodBoolAsString.default("true"),
 	intent: z.enum(["login", "register"]).optional(),
 });
 
@@ -80,6 +82,14 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		);
 	}
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
+	if (
+		coreDetails.oidcEnabled &&
+		coreDetails.localAuthDisabled &&
+		query.autoOidcLaunch === true
+	) {
+		const url = await getOidcRedirectUrl();
+		return redirect(url);
+	}
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
