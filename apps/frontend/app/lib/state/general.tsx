@@ -85,9 +85,12 @@ export const useOnboardingTour = () => {
 		setTourState({ currentStepIndex: 0 });
 	};
 
-	const advanceTourStep = () => {
+	const advanceTourStep = (timeout = 0) => {
 		const currentStepIndex = tourState?.currentStepIndex || 0;
-		setTourState({ currentStepIndex: currentStepIndex + 1 });
+		setTimeout(
+			() => setTourState({ currentStepIndex: currentStepIndex + 1 }),
+			timeout,
+		);
 	};
 
 	useEffect(() => {

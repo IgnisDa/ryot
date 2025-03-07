@@ -348,9 +348,7 @@ export default function Layout() {
 					f === MediaLot.Movie
 						? ({
 								target: OnboardingTourStepTargets.Two,
-								onTargetInteract: () => {
-									setTimeout(() => advanceTourStep(), 1000);
-								},
+								onTargetInteract: () => advanceTourStep(1000),
 							} as TourControl)
 						: undefined,
 			};

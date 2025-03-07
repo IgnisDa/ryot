@@ -293,7 +293,7 @@ export default function Page() {
 							),
 						);
 						if (v === "search" && isTourStarted) {
-							setTimeout(() => advanceTourStep(), 400);
+							advanceTourStep(400);
 						}
 					}
 				}}
@@ -419,9 +419,7 @@ export default function Page() {
 									loaderData.lot === MediaLot.Movie
 										? {
 												target: OnboardingTourStepTargets.Four,
-												onTargetInteract: () => {
-													setTimeout(() => advanceTourStep(), 2000);
-												},
+												onTargetInteract: () => advanceTourStep(2000),
 											}
 										: undefined
 								}
