@@ -32,6 +32,7 @@ export const useOpenedSidebarLinks = () => {
 export const OnboardingTourStepTargets = {
 	One: "tour-step-1",
 	Two: "tour-step-2",
+	Three: "tour-step-3",
 } as const;
 
 export const onboardingTourSteps = (
@@ -45,6 +46,11 @@ export const onboardingTourSteps = (
 			target: OnboardingTourStepTargets.Two,
 			content:
 				"Now, click on the movies section to start tracking your favorite movies.",
+		},
+		{
+			target: OnboardingTourStepTargets.Three,
+			content:
+				"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
 		},
 	] as Step[]
 ).map((step) => ({

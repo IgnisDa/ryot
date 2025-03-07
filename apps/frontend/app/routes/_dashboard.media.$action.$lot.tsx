@@ -96,6 +96,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
+import { OnboardingTourStepTargets } from "~/lib/state/general";
 
 export type SearchParams = {
 	query?: string;
@@ -293,7 +294,11 @@ export default function Page() {
 					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
 						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
-					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+					<Tabs.Tab
+						value="search"
+						leftSection={<IconSearch size={24} />}
+						className={OnboardingTourStepTargets.Three}
+					>
 						<Text>Search</Text>
 					</Tabs.Tab>
 					<Box ml="auto" visibleFrom="md">

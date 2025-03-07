@@ -345,12 +345,12 @@ export default function Layout() {
 				href: undefined,
 				tourControl:
 					f === MediaLot.Movie
-						? {
+						? ({
 								target: OnboardingTourStepTargets.Two,
 								onTargetClick: () => {
-									console.log("clicked");
+									setTimeout(() => setTourStep(2), 1000);
 								},
-							}
+							} as TourControl)
 						: undefined,
 			};
 		}),
@@ -805,7 +805,6 @@ export default function Layout() {
 						/>
 					</Flex>
 					<AppShell.Main py={{ sm: "xl" }}>
-						{JSON.stringify({ stepIndex })}
 						<Box
 							mt="md"
 							pb={40}
@@ -869,7 +868,10 @@ const LinksGroup = ({
 		<NavLink
 			to={link.link}
 			key={link.label}
-			onClick={toggle}
+			onClick={() => {
+				toggle();
+				link.tourControl?.onTargetClick();
+			}}
 			className={clsx(classes.link, link.tourControl?.target)}
 		>
 			{({ isActive }) => (
