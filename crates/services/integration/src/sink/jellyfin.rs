@@ -68,23 +68,15 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
         _ => bail!("Only movies and shows supported"),
     };
 
-    let mut item = ImportOrExportMetadataItem {
-        lot,
-        identifier,
-        seen_history: vec![],
-        source: MediaSource::Tmdb,
+    let mut seen_item = ImportOrExportMetadataItemSeen {
+        show_season_number: payload.item.season_number,
+        show_episode_number: payload.item.episode_number,
+        provider_watched_on: Some("Jellyfin".to_string()),
         ..Default::default()
     };
 
     match payload.event.unwrap_or_default().as_str() {
-        "MarkPlayed" => {
-            item.seen_history.push(ImportOrExportMetadataItemSeen {
-                show_season_number: payload.item.season_number,
-                show_episode_number: payload.item.episode_number,
-                provider_watched_on: Some("Jellyfin".to_string()),
-                ..Default::default()
-            });
-        }
+        "MarkPlayed" => {}
         _ => {
             let runtime = payload
                 .item
@@ -97,19 +89,18 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
                 .and_then(|s| s.play_state.position_ticks.as_ref())
                 .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
 
-            item.seen_history.push(ImportOrExportMetadataItemSeen {
-                progress: Some(position / runtime * dec!(100)),
-                show_season_number: payload.item.season_number,
-                show_episode_number: payload.item.episode_number,
-                provider_watched_on: Some("Jellyfin".to_string()),
-                ..Default::default()
-            });
+            seen_item.progress = Some(position / runtime * dec!(100));
         }
     }
 
-    let completed = ImportResult {
-        completed: vec![ImportCompletedItem::Metadata(item)],
+    Ok(ImportResult {
+        completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+            lot,
+            identifier,
+            source: MediaSource::Tmdb,
+            seen_history: vec![seen_item],
+            ..Default::default()
+        })],
         ..Default::default()
-    };
-    Ok(completed)
+    })
 }
