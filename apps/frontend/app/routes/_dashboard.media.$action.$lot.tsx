@@ -96,7 +96,10 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
-import { OnboardingTourStepTargets } from "~/lib/state/general";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 
 export type SearchParams = {
 	query?: string;
@@ -255,6 +258,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
+	const { isTourStarted, setTourStep } = useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
@@ -276,7 +280,7 @@ export default function Page() {
 				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
-					if (v)
+					if (v) {
 						navigate(
 							$path(
 								"/media/:action/:lot",
@@ -288,6 +292,10 @@ export default function Page() {
 								},
 							),
 						);
+						if (v === "search" && isTourStarted) {
+							setTimeout(() => setTourStep(3), 400);
+						}
+					}
 				}}
 			>
 				<Tabs.List mb="xs" style={{ alignItems: "center" }}>
