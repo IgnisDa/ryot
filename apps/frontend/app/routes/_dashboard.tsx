@@ -342,8 +342,8 @@ export default function Layout() {
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
-				label: f,
-				href: undefined,
+				label: changeCase(f),
+				link: $path("/media/:action/:lot", { action: "list", lot: f }),
 				tourControl:
 					isTourStarted && f === MediaLot.Movie
 						? ({
@@ -356,37 +356,22 @@ export default function Layout() {
 		userPreferences.featuresEnabled.media.groups
 			? {
 					label: "Groups",
-					href: $path("/media/groups/:action", { action: "list" }),
+					link: $path("/media/groups/:action", { action: "list" }),
 				}
 			: undefined,
 		userPreferences.featuresEnabled.media.people
 			? {
 					label: "People",
-					href: $path("/media/people/:action", { action: "list" }),
+					link: $path("/media/people/:action", { action: "list" }),
 				}
 			: undefined,
 		userPreferences.featuresEnabled.media.genres
 			? {
 					label: "Genres",
-					href: $path("/media/genre/list"),
+					link: $path("/media/genre/list"),
 				}
 			: undefined,
-	]
-		.map((link, _index) =>
-			link
-				? {
-						label: changeCase(link.label),
-						tourControl: "tourControl" in link ? link.tourControl : undefined,
-						link: link.href
-							? link.href
-							: $path("/media/:action/:lot", {
-									action: "list",
-									lot: link.label,
-								}),
-					}
-				: undefined,
-		)
-		.filter((link) => link !== undefined);
+	].filter((link) => link !== undefined);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
@@ -815,7 +800,6 @@ export default function Layout() {
 									: parent
 							}
 						>
-							{JSON.stringify({ stepIndex })}
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
