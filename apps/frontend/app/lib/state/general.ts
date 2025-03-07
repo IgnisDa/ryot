@@ -30,20 +30,25 @@ export const handleJoyrideCallback = (data: CallBackProps) => {
 	console.log(data);
 };
 
+const OnboardingTourCompletedKey = "OnboardingTourCompleted";
+
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+	const isTourStarted = !!tourState;
 
 	const stopTour = () => setTourState(undefined);
 	const startTour = () => setTourState({ currentStepIndex: 0 });
 
 	useEffect(() => {
-		console.log(new Date().toISOString());
+		const completed = localStorage.getItem(OnboardingTourCompletedKey);
+
+		if (!completed && !isTourStarted) startTour();
 	}, []);
 
 	return {
 		stopTour,
 		startTour,
-		isTourStarted: !!tourState,
+		isTourStarted,
 		stepIndex: tourState?.currentStepIndex,
 	};
 };
