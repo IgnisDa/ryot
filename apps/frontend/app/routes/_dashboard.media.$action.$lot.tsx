@@ -98,6 +98,7 @@ import {
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
 import {
 	OnboardingTourStepTargets,
+	type TourControl,
 	useOnboardingTour,
 } from "~/lib/state/general";
 
@@ -416,7 +417,7 @@ export default function Page() {
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
 								tourControl={
-									loaderData.lot === MediaLot.Movie
+									loaderData.lot === MediaLot.Movie && isTourStarted
 										? {
 												target: OnboardingTourStepTargets.Four,
 												onTargetInteract: () => advanceTourStep(2000),
@@ -481,6 +482,7 @@ export default function Page() {
 
 const MediaSearchItem = (props: {
 	source: MediaSource;
+	tourControl?: TourControl;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
