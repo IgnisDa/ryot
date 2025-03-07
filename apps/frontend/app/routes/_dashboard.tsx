@@ -172,50 +172,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const mediaLinks = [
-		...userPreferences.featuresEnabled.media.specific.map((f) => {
-			return {
-				label: f,
-				href: undefined,
-				tourStepId:
-					f === MediaLot.Movie ? OnboardingTourStepTargets.Two : undefined,
-			};
-		}),
-		userPreferences.featuresEnabled.media.groups
-			? {
-					label: "Groups",
-					href: $path("/media/groups/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.people
-			? {
-					label: "People",
-					href: $path("/media/people/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.genres
-			? {
-					label: "Genres",
-					href: $path("/media/genre/list"),
-				}
-			: undefined,
-	]
-		.map((link, _index) =>
-			link
-				? {
-						label: changeCase(link.label),
-						tourStepId: "tourStepId" in link ? link.tourStepId : undefined,
-						link: link.href
-							? link.href
-							: $path("/media/:action/:lot", {
-									action: "list",
-									lot: link.label,
-								}),
-					}
-				: undefined,
-		)
-		.filter((link) => link !== undefined);
-
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
 			.filter(([v, _]) => !["enabled"].includes(v))
@@ -263,7 +219,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		!isDemoInstance;
 
 	return {
-		mediaLinks,
 		userDetails,
 		coreDetails,
 		fitnessLinks,
@@ -357,6 +312,7 @@ export function ErrorBoundary() {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const { revalidate } = useRevalidator();
@@ -382,6 +338,49 @@ export default function Layout() {
 	const bulkEditingCollection = useBulkEditCollection();
 	const { isTourStarted, stepIndex, setTourStep } = useOnboardingTour();
 
+	const mediaLinks = [
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return {
+				label: f,
+				href: undefined,
+				tourStepId:
+					f === MediaLot.Movie ? OnboardingTourStepTargets.Two : undefined,
+			};
+		}),
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					href: $path("/media/groups/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					href: $path("/media/people/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					href: $path("/media/genre/list"),
+				}
+			: undefined,
+	]
+		.map((link, _index) =>
+			link
+				? {
+						label: changeCase(link.label),
+						tourStepId: "tourStepId" in link ? link.tourStepId : undefined,
+						link: link.href
+							? link.href
+							: $path("/media/:action/:lot", {
+									action: "list",
+									lot: link.label,
+								}),
+					}
+				: undefined,
+		)
+		.filter((link) => link !== undefined);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
@@ -625,9 +624,9 @@ export default function Layout() {
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
+								links={mediaLinks}
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
-								links={loaderData.mediaLinks}
 								opened={openedSidebarLinks.media || false}
 								tourControl={{
 									target: OnboardingTourStepTargets.One,
