@@ -57,6 +57,11 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
+const getOidcRedirectUrl = () =>
+	serverGqlService
+		.request(GetOidcRedirectUrlDocument)
+		.then(({ getOidcRedirectUrl }) => getOidcRedirectUrl);
+
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
@@ -173,10 +178,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("getOidcRedirectUrl", async () => {
-			const { getOidcRedirectUrl } = await serverGqlService.request(
-				GetOidcRedirectUrlDocument,
-			);
-			return redirect(getOidcRedirectUrl);
+			const url = await getOidcRedirectUrl();
+			return redirect(url);
 		})
 		.run();
 };
