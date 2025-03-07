@@ -25,13 +25,16 @@ Once these are set, restart your Ryot instance and you should be able to see the
 "Continue with OpenID Connect" on the authentication pages. New users will have their
 username set to their email address. This can be changed later in the profile settings.
 
+You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
+users to authenticate using OIDC. When OIDC is enabled and local authentication is
+disabled, users will be redirected to the OIDC provider when they visit the auth page. To
+see the authentication page anyway, you can visit
+`<FRONTEND_URL>/auth?autoOidcLaunch=false`.
+
 !!! warning
 
       A user can either have a username/password or it can use your OIDC provider to
       authenticate but not both.
-
-You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
-users to authenticate using OIDC.
 
 ### Converting a local user to an OIDC user
 
