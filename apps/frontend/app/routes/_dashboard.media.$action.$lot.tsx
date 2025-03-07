@@ -293,7 +293,10 @@ export default function Page() {
 							),
 						);
 						if (v === "search" && isTourStarted) {
-							setTimeout(() => setTourStep(3), 400);
+							setTimeout(
+								() => setTourStep(OnboardingTourStepTargets.Four),
+								400,
+							);
 						}
 					}
 				}}
@@ -420,7 +423,10 @@ export default function Page() {
 										? {
 												target: OnboardingTourStepTargets.Four,
 												onTargetInteract: () => {
-													console.log("hello world");
+													setTimeout(
+														() => setTourStep(OnboardingTourStepTargets.Five),
+														2000,
+													);
 												},
 											}
 										: undefined

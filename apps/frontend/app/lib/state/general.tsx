@@ -32,12 +32,13 @@ export const useOpenedSidebarLinks = () => {
 
 export type TourControl = { target: string; onTargetInteract: () => void };
 
-export const OnboardingTourStepTargets = {
-	One: "tour-step-1",
-	Two: "tour-step-2",
-	Three: "tour-step-3",
-	Four: "tour-step-4",
-} as const;
+export enum OnboardingTourStepTargets {
+	One = "tour-step-1",
+	Two = "tour-step-2",
+	Three = "tour-step-3",
+	Four = "tour-step-4",
+	Five = "tour-step-5",
+}
 
 export const onboardingTourSteps = (
 	[
@@ -83,8 +84,12 @@ export const useOnboardingTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		setTourState({ currentStepIndex: 0 });
 	};
-	const setTourStep = (stepIndex: number) =>
-		setTourState({ currentStepIndex: stepIndex });
+	const setTourStep = (stepTarget: OnboardingTourStepTargets) => {
+		const index = onboardingTourSteps.findIndex(
+			(step) => step.target === `.${stepTarget}`,
+		);
+		setTourState({ currentStepIndex: index });
+	};
 	const incrementStep = () =>
 		setTourState((prev) => ({
 			currentStepIndex: (prev?.currentStepIndex || 0) + 1,

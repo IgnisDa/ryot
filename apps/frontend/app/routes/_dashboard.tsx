@@ -349,7 +349,10 @@ export default function Layout() {
 						? ({
 								target: OnboardingTourStepTargets.Two,
 								onTargetInteract: () => {
-									setTimeout(() => setTourStep(2), 1000);
+									setTimeout(
+										() => setTourStep(OnboardingTourStepTargets.Three),
+										1000,
+									);
 								},
 							} as TourControl)
 						: undefined,
@@ -638,7 +641,8 @@ export default function Layout() {
 								opened={openedSidebarLinks.media || false}
 								tourControl={{
 									target: OnboardingTourStepTargets.One,
-									onTargetInteract: () => setTourStep(1),
+									onTargetInteract: () =>
+										setTourStep(OnboardingTourStepTargets.Two),
 								}}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
