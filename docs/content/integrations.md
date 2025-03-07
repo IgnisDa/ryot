@@ -42,7 +42,7 @@ will work for all the media that have a valid TMDb ID attached to their metadata
     - Webhook Url => `<paste_url_copied>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
+    - Events => `Play`, `Pause`, `Resume`, `Stop`, `Progress` and `MarkPlayed`
 
 ### Emby
 
