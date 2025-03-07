@@ -408,6 +408,8 @@ export default function Layout() {
 						continuous
 						hideBackButton
 						hideCloseButton
+						disableCloseOnEsc
+						disableOverlayClose
 						run={isTourStarted}
 						spotlightPadding={0}
 						stepIndex={stepIndex}

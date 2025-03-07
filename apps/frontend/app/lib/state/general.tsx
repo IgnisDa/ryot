@@ -11,7 +11,6 @@ export const OnboardingTourStepTargets = {
 export const onboardingTourSteps = (
 	[
 		{
-			disableBeacon: true,
 			target: OnboardingTourStepTargets.One,
 			content:
 				"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
@@ -22,7 +21,12 @@ export const onboardingTourSteps = (
 				"Now, click on the movies section to start tracking your favorite movies.",
 		},
 	] as Step[]
-).map((step) => ({ ...step, target: `.${step.target}` }));
+).map((step) => ({
+	...step,
+	hideFooter: true,
+	disableBeacon: true,
+	target: `.${step.target}`,
+}));
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 
