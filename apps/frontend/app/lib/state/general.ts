@@ -1,6 +1,7 @@
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import type { Step } from "react-joyride";
+import { useEffect } from "react";
+import type { CallBackProps, Step } from "react-joyride";
 
 export const TourStepTargets = {
 	One: "tour-step-1",
@@ -10,6 +11,7 @@ export const TourStepTargets = {
 export const tourSteps = (
 	[
 		{
+			disableBeacon: true,
 			target: TourStepTargets.One,
 			content:
 				"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
@@ -24,11 +26,19 @@ export const tourSteps = (
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 
+export const handleJoyrideCallback = (data: CallBackProps) => {
+	console.log(data);
+};
+
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 
-	const startTour = () => setTourState({ currentStepIndex: 0 });
 	const stopTour = () => setTourState(undefined);
+	const startTour = () => setTourState({ currentStepIndex: 0 });
+
+	useEffect(() => {
+		console.log(new Date().toISOString());
+	}, []);
 
 	return {
 		stopTour,
@@ -46,7 +56,7 @@ type OpenedSidebarLinks = {
 };
 
 const openedSidebarLinksAtom = atomWithStorage<OpenedSidebarLinks>(
-	"openedSidebarLinks",
+	"OpenedSidebarLinks",
 	{
 		media: false,
 		fitness: false,

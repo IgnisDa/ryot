@@ -138,6 +138,7 @@ import {
 	tourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
+	handleJoyrideCallback,
 } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
@@ -403,12 +404,14 @@ export default function Layout() {
 			<ClientOnly>
 				{() => (
 					<Joyride
+						continuous
 						hideBackButton
 						hideCloseButton
 						steps={tourSteps}
 						run={isTourStarted}
 						spotlightPadding={0}
 						stepIndex={stepIndex}
+						callback={handleJoyrideCallback}
 					/>
 				)}
 			</ClientOnly>
