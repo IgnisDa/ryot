@@ -1,7 +1,7 @@
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
-import type { CallBackProps, Step } from "react-joyride";
+import type { Step } from "react-joyride";
 
 export const OnboardingTourStepTargets = {
 	One: "tour-step-1",
@@ -30,18 +30,19 @@ export const onboardingTourSteps = (
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 
-export const handleJoyrideCallback = (data: CallBackProps) => {
-	console.log(data);
-};
-
 const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const isTourStarted = !!tourState;
 
-	const stopTour = () => setTourState(undefined);
 	const startTour = () => setTourState({ currentStepIndex: 0 });
+	const setTourStep = (stepIndex: number) =>
+		setTourState({ currentStepIndex: stepIndex });
+	const incrementStep = () =>
+		setTourState((prev) => ({
+			currentStepIndex: (prev?.currentStepIndex || 0) + 1,
+		}));
 
 	useEffect(() => {
 		const completed = localStorage.getItem(OnboardingTourCompletedKey);
@@ -50,9 +51,9 @@ export const useOnboardingTour = () => {
 	}, []);
 
 	return {
-		stopTour,
-		startTour,
+		setTourStep,
 		isTourStarted,
+		incrementStep,
 		stepIndex: tourState?.currentStepIndex,
 	};
 };

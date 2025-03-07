@@ -138,7 +138,6 @@ import {
 	onboardingTourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
-	handleJoyrideCallback,
 } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
@@ -381,7 +380,7 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, stepIndex } = useOnboardingTour();
+	const { isTourStarted, stepIndex, setTourStep } = useOnboardingTour();
 
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
@@ -405,7 +404,6 @@ export default function Layout() {
 			<ClientOnly>
 				{() => (
 					<Joyride
-						continuous
 						hideBackButton
 						hideCloseButton
 						disableCloseOnEsc
@@ -414,7 +412,6 @@ export default function Layout() {
 						spotlightPadding={0}
 						stepIndex={stepIndex}
 						steps={onboardingTourSteps}
-						callback={handleJoyrideCallback}
 					/>
 				)}
 			</ClientOnly>
@@ -631,8 +628,11 @@ export default function Layout() {
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								links={loaderData.mediaLinks}
-								tourStepId={OnboardingTourStepTargets.One}
 								opened={openedSidebarLinks.media || false}
+								tourControl={{
+									target: OnboardingTourStepTargets.One,
+									onTargetClick: () => setTourStep(1),
+								}}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -799,6 +799,7 @@ export default function Layout() {
 						/>
 					</Flex>
 					<AppShell.Main py={{ sm: "xl" }}>
+						{JSON.stringify({ stepIndex })}
 						<Box
 							mt="md"
 							pb={40}
@@ -837,8 +838,8 @@ interface LinksGroupProps {
 	href?: string;
 	opened: boolean;
 	toggle: () => void;
-	tourStepId?: string;
 	setOpened: (v: boolean) => void;
+	tourControl?: { target: string; onTargetClick: () => void };
 	links?: Array<{ label: string; link: string; tourStepId?: string }>;
 }
 
@@ -850,7 +851,7 @@ const LinksGroup = ({
 	toggle,
 	setOpened,
 	icon: Icon,
-	tourStepId,
+	tourControl,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
 
@@ -874,20 +875,21 @@ const LinksGroup = ({
 	return (
 		<Box>
 			<UnstyledButton<typeof Link>
-				className={classes.control}
+				className={clsx(classes.control, tourControl?.target)}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
 				onClick={() => {
-					if (hasLinks) setOpened(!opened);
-					else toggle();
+					if (hasLinks) {
+						setOpened(!opened);
+						setTimeout(() => tourControl?.onTargetClick(), 200);
+						return;
+					}
+					toggle();
 				}}
 			>
 				<Group justify="space-between" gap={0}>
-					<Box
-						className={tourStepId}
-						style={{ display: "flex", alignItems: "center" }}
-					>
+					<Box style={{ display: "flex", alignItems: "center" }}>
 						<ThemeIcon variant="light" size={30}>
 							<Icon size={17.6} />
 						</ThemeIcon>
