@@ -46,7 +46,7 @@ mod models {
     }
 }
 
-pub async fn yank_progress(payload: String) -> Result<ImportResult> {
+pub async fn sink_progress(payload: String) -> Result<ImportResult> {
     let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
     let identifier = payload
         .item
