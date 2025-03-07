@@ -134,8 +134,8 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
-	TourStepTargets,
-	tourSteps,
+	OnboardingTourStepTargets,
+	onboardingTourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 	handleJoyrideCallback,
@@ -178,7 +178,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			return {
 				label: f,
 				href: undefined,
-				tourStepId: f === MediaLot.Movie ? TourStepTargets.Two : undefined,
+				tourStepId:
+					f === MediaLot.Movie ? OnboardingTourStepTargets.Two : undefined,
 			};
 		}),
 		userPreferences.featuresEnabled.media.groups
@@ -407,10 +408,10 @@ export default function Layout() {
 						continuous
 						hideBackButton
 						hideCloseButton
-						steps={tourSteps}
 						run={isTourStarted}
 						spotlightPadding={0}
 						stepIndex={stepIndex}
+						steps={onboardingTourSteps}
 						callback={handleJoyrideCallback}
 					/>
 				)}
@@ -628,7 +629,7 @@ export default function Layout() {
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								links={loaderData.mediaLinks}
-								tourStepId={TourStepTargets.One}
+								tourStepId={OnboardingTourStepTargets.One}
 								opened={openedSidebarLinks.media || false}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(

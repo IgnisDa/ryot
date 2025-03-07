@@ -3,21 +3,21 @@ import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
 import type { CallBackProps, Step } from "react-joyride";
 
-export const TourStepTargets = {
+export const OnboardingTourStepTargets = {
 	One: "tour-step-1",
 	Two: "tour-step-2",
 } as const;
 
-export const tourSteps = (
+export const onboardingTourSteps = (
 	[
 		{
 			disableBeacon: true,
-			target: TourStepTargets.One,
+			target: OnboardingTourStepTargets.One,
 			content:
 				"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 		},
 		{
-			target: TourStepTargets.Two,
+			target: OnboardingTourStepTargets.Two,
 			content:
 				"Now, click on the movies section to start tracking your favorite movies.",
 		},
