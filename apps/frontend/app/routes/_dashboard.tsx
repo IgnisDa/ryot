@@ -343,8 +343,15 @@ export default function Layout() {
 			return {
 				label: f,
 				href: undefined,
-				tourStepId:
-					f === MediaLot.Movie ? OnboardingTourStepTargets.Two : undefined,
+				tourControl:
+					f === MediaLot.Movie
+						? {
+								target: OnboardingTourStepTargets.Two,
+								onTargetClick: () => {
+									console.log("clicked");
+								},
+							}
+						: undefined,
 			};
 		}),
 		userPreferences.featuresEnabled.media.groups
@@ -370,7 +377,7 @@ export default function Layout() {
 			link
 				? {
 						label: changeCase(link.label),
-						tourStepId: "tourStepId" in link ? link.tourStepId : undefined,
+						tourControl: "tourControl" in link ? link.tourControl : undefined,
 						link: link.href
 							? link.href
 							: $path("/media/:action/:lot", {
@@ -830,6 +837,8 @@ export default function Layout() {
 	);
 }
 
+type TourControl = { target: string; onTargetClick: () => void };
+
 interface LinksGroupProps {
 	// biome-ignore lint/suspicious/noExplicitAny: required here
 	icon: FC<any>;
@@ -837,9 +846,9 @@ interface LinksGroupProps {
 	href?: string;
 	opened: boolean;
 	toggle: () => void;
+	tourControl?: TourControl;
 	setOpened: (v: boolean) => void;
-	tourControl?: { target: string; onTargetClick: () => void };
-	links?: Array<{ label: string; link: string; tourStepId?: string }>;
+	links?: Array<{ label: string; link: string; tourControl?: TourControl }>;
 }
 
 const LinksGroup = ({
@@ -861,7 +870,7 @@ const LinksGroup = ({
 			to={link.link}
 			key={link.label}
 			onClick={toggle}
-			className={clsx(classes.link, link.tourStepId)}
+			className={clsx(classes.link, link.tourControl?.target)}
 		>
 			{({ isActive }) => (
 				<span style={isActive ? { textDecoration: "underline" } : undefined}>
