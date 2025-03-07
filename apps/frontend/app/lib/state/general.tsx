@@ -84,16 +84,11 @@ export const useOnboardingTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		setTourState({ currentStepIndex: 0 });
 	};
-	const setTourStep = (stepTarget: OnboardingTourStepTargets) => {
-		const index = onboardingTourSteps.findIndex(
-			(step) => step.target === `.${stepTarget}`,
-		);
-		setTourState({ currentStepIndex: index });
+
+	const advanceTourStep = () => {
+		const currentStepIndex = tourState?.currentStepIndex || 0;
+		setTourState({ currentStepIndex: currentStepIndex + 1 });
 	};
-	const incrementStep = () =>
-		setTourState((prev) => ({
-			currentStepIndex: (prev?.currentStepIndex || 0) + 1,
-		}));
 
 	useEffect(() => {
 		const completed = localStorage.getItem(OnboardingTourCompletedKey);
@@ -102,9 +97,8 @@ export const useOnboardingTour = () => {
 	}, []);
 
 	return {
-		setTourStep,
 		isTourStarted,
-		incrementStep,
+		advanceTourStep,
 		stepIndex: tourState?.currentStepIndex,
 	};
 };

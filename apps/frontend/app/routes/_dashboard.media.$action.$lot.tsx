@@ -258,7 +258,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, setTourStep } = useOnboardingTour();
+	const { isTourStarted, advanceTourStep } = useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
@@ -293,10 +293,7 @@ export default function Page() {
 							),
 						);
 						if (v === "search" && isTourStarted) {
-							setTimeout(
-								() => setTourStep(OnboardingTourStepTargets.Four),
-								400,
-							);
+							setTimeout(() => advanceTourStep(), 400);
 						}
 					}
 				}}
@@ -423,10 +420,7 @@ export default function Page() {
 										? {
 												target: OnboardingTourStepTargets.Four,
 												onTargetInteract: () => {
-													setTimeout(
-														() => setTourStep(OnboardingTourStepTargets.Five),
-														2000,
-													);
+													setTimeout(() => advanceTourStep(), 2000);
 												},
 											}
 										: undefined

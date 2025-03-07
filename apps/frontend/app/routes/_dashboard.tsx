@@ -337,7 +337,7 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, stepIndex, setTourStep } = useOnboardingTour();
+	const { isTourStarted, stepIndex, advanceTourStep } = useOnboardingTour();
 
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
@@ -349,10 +349,7 @@ export default function Layout() {
 						? ({
 								target: OnboardingTourStepTargets.Two,
 								onTargetInteract: () => {
-									setTimeout(
-										() => setTourStep(OnboardingTourStepTargets.Three),
-										1000,
-									);
+									setTimeout(() => advanceTourStep(), 1000);
 								},
 							} as TourControl)
 						: undefined,
@@ -641,8 +638,7 @@ export default function Layout() {
 								opened={openedSidebarLinks.media || false}
 								tourControl={{
 									target: OnboardingTourStepTargets.One,
-									onTargetInteract: () =>
-										setTourStep(OnboardingTourStepTargets.Two),
+									onTargetInteract: () => advanceTourStep(),
 								}}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
