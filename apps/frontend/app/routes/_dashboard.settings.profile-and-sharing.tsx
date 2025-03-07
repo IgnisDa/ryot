@@ -50,7 +50,6 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { StartOnboardingTourButton } from "~/components/common";
 import {
 	applicationBaseUrl,
 	dayjsLib,
@@ -251,7 +250,6 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
-							<StartOnboardingTourButton />
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">

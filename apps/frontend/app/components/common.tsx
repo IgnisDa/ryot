@@ -121,7 +121,6 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -1472,10 +1471,4 @@ export const ExpireCacheKeyButton = (props: {
 			</ActionIcon>
 		</Form>
 	);
-};
-
-export const StartOnboardingTourButton = () => {
-	const { startTour } = useOnboardingTour();
-
-	return <Button onClick={startTour}>Start onboarding tour</Button>;
 };
