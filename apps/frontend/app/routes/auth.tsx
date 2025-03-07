@@ -50,7 +50,7 @@ import {
 import type { Route } from "./+types/auth";
 
 const searchParamsSchema = z.object({
-	autoOidcLaunch: zodBoolAsString.default("true"),
+	autoOidcLaunch: zodBoolAsString.optional(),
 	intent: z.enum(["login", "register"]).optional(),
 });
 
@@ -66,7 +66,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	if (
-		coreDetails.oidcEnabled &&
+		(coreDetails.oidcEnabled || true) &&
 		coreDetails.localAuthDisabled &&
 		query.autoOidcLaunch === true
 	) {

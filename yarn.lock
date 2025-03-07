@@ -6024,7 +6024,7 @@ __metadata:
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
     react-joyride: "npm:2.9.3"
-    react-router: "npm:7.2.0"
+    react-router: "npm:7.3.0"
     react-router-devtools: "npm:1.1.6"
     react-virtuoso: "npm:4.12.5"
     recharts: "npm:2.15.1"
@@ -6100,7 +6100,7 @@ __metadata:
     dayjs: "npm:1.11.13"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
-    react-router: "npm:7.2.0"
+    react-router: "npm:7.3.0"
     tailwind-merge: "npm:3.0.2"
     tiny-invariant: "npm:1.3.3"
     zod: "npm:3.24.2"
@@ -6159,7 +6159,7 @@ __metadata:
     postgres: "npm:3.4.5"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
-    react-router: "npm:7.2.0"
+    react-router: "npm:7.3.0"
     remix-utils: "npm:8.1.1"
     safe-routes: "npm:1.0.9"
     sonner: "npm:2.0.1"
@@ -13157,9 +13157,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router@npm:7.2.0":
-  version: 7.2.0
-  resolution: "react-router@npm:7.2.0"
+"react-router@npm:7.3.0":
+  version: 7.3.0
+  resolution: "react-router@npm:7.3.0"
   dependencies:
     "@types/cookie": "npm:^0.6.0"
     cookie: "npm:^1.0.1"
@@ -13171,7 +13171,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/2b8d51bf0787d088c1b12857a686719fa922256a8ac84045e64c98b86c5ff81a4b76d49a25e6fb9bc9f582fb0d92233207917573358a26dd40ad4e91b01bfb66
+  checksum: 10/f7694785f95b989e55c0ae058c36c5f523e318109aea26f4e1567a3c50dcbff769417c54451d976990c507f83499bfe7bc4ec9bea52b2fabab4e6da57d21b231
   languageName: node
   linkType: hard
 
