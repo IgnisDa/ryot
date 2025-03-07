@@ -135,6 +135,7 @@ import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
+	type TourControl,
 	onboardingTourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
@@ -347,7 +348,7 @@ export default function Layout() {
 					f === MediaLot.Movie
 						? ({
 								target: OnboardingTourStepTargets.Two,
-								onTargetClick: () => {
+								onTargetInteract: () => {
 									setTimeout(() => setTourStep(2), 1000);
 								},
 							} as TourControl)
@@ -637,7 +638,7 @@ export default function Layout() {
 								opened={openedSidebarLinks.media || false}
 								tourControl={{
 									target: OnboardingTourStepTargets.One,
-									onTargetClick: () => setTourStep(1),
+									onTargetInteract: () => setTourStep(1),
 								}}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
@@ -816,6 +817,7 @@ export default function Layout() {
 									: parent
 							}
 						>
+							{JSON.stringify({ stepIndex })}
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
@@ -835,8 +837,6 @@ export default function Layout() {
 		</>
 	);
 }
-
-type TourControl = { target: string; onTargetClick: () => void };
 
 interface LinksGroupProps {
 	// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -870,7 +870,7 @@ const LinksGroup = ({
 			key={link.label}
 			onClick={() => {
 				toggle();
-				link.tourControl?.onTargetClick();
+				link.tourControl?.onTargetInteract();
 			}}
 			className={clsx(classes.link, link.tourControl?.target)}
 		>
@@ -892,7 +892,7 @@ const LinksGroup = ({
 				onClick={() => {
 					if (hasLinks) {
 						setOpened(!opened);
-						setTimeout(() => tourControl?.onTargetClick(), 200);
+						setTimeout(() => tourControl?.onTargetInteract(), 200);
 						return;
 					}
 					toggle();

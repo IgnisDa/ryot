@@ -1,3 +1,4 @@
+import { isNumber } from "@ryot/ts-utils";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
@@ -29,10 +30,13 @@ export const useOpenedSidebarLinks = () => {
 	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
 
+export type TourControl = { target: string; onTargetInteract: () => void };
+
 export const OnboardingTourStepTargets = {
 	One: "tour-step-1",
 	Two: "tour-step-2",
 	Three: "tour-step-3",
+	Four: "tour-step-4",
 } as const;
 
 export const onboardingTourSteps = (
@@ -52,6 +56,11 @@ export const onboardingTourSteps = (
 			content:
 				"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
 		},
+		{
+			target: OnboardingTourStepTargets.Four,
+			content:
+				"Now search for 'avengers'. Note: the tour will progress only when you search for 'avengers'.",
+		},
 	] as Step[]
 ).map((step) => ({
 	...step,
@@ -67,7 +76,7 @@ const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
-	const isTourStarted = !!tourState;
+	const isTourStarted = isNumber(tourState?.currentStepIndex);
 
 	const startTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);

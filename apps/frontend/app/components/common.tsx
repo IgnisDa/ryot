@@ -135,6 +135,7 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
+import type { TourControl } from "~/lib/state/general";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
@@ -262,9 +263,10 @@ export const MediaDetailsLayout = (props: {
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
 
 export const DebouncedSearchInput = (props: {
-	initialValue?: string;
 	queryParam?: string;
 	placeholder?: string;
+	initialValue?: string;
+	tourControl?: TourControl;
 	enhancedQueryParams?: string;
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
@@ -274,19 +276,23 @@ export const DebouncedSearchInput = (props: {
 	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced.trim());
+		const query = debounced.trim();
+		setP(props.queryParam || "query", query);
+		if (query.toLowerCase() === "avengers") {
+			props.tourControl?.onTargetInteract();
+		}
 	}, [debounced]);
 
 	return (
 		<TextInput
 			name="query"
-			placeholder={props.placeholder || "Search..."}
-			leftSection={<IconSearch />}
-			onChange={(e) => setQuery(e.currentTarget.value)}
 			value={query}
-			style={{ flexGrow: 1 }}
-			autoCapitalize="none"
 			autoComplete="off"
+			autoCapitalize="none"
+			style={{ flexGrow: 1 }}
+			leftSection={<IconSearch />}
+			placeholder={props.placeholder || "Search..."}
+			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (
 					<ActionIcon onClick={() => setQuery("")}>

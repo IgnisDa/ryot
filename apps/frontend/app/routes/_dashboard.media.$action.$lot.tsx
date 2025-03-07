@@ -22,7 +22,7 @@ import {
 	GraphqlSortOrder,
 	GridPacking,
 	MediaGeneralFilter,
-	type MediaLot,
+	MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataSearchDocument,
@@ -407,6 +407,16 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
+								tourControl={
+									loaderData.lot === MediaLot.Movie
+										? {
+												target: OnboardingTourStepTargets.Four,
+												onTargetInteract: () => {
+													console.log("hello world");
+												},
+											}
+										: undefined
+								}
 							/>
 							{mediaSearch.mediaSources.length > 1 ? (
 								<Select
