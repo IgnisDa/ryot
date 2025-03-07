@@ -273,6 +273,8 @@ export default function Page() {
 			loaderData.mediaList?.url.collections,
 			defaultFilters.mineCollections,
 		);
+	const isEligibleForNextTourStep =
+		loaderData.lot === MediaLot.Movie && isTourStarted;
 
 	return (
 		<Container>
@@ -417,7 +419,7 @@ export default function Page() {
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
 								tourControl={
-									loaderData.lot === MediaLot.Movie && isTourStarted
+									isEligibleForNextTourStep
 										? {
 												target: OnboardingTourStepTargets.Four,
 												onTargetInteract: () => advanceTourStep(2000),
@@ -451,11 +453,19 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{mediaSearch.search.items.map((b) => (
+									{mediaSearch.search.items.map((b, index) => (
 										<MediaSearchItem
 											item={b}
 											key={b.identifier}
 											source={mediaSearch.url.source}
+											tourControl={
+												isEligibleForNextTourStep && index === 0
+													? {
+															target: OnboardingTourStepTargets.Five,
+															onTargetInteract: () => advanceTourStep(2000),
+														}
+													: undefined
+											}
 										/>
 									))}
 								</ApplicationGrid>
@@ -517,7 +527,7 @@ const MediaSearchItem = (props: {
 	};
 
 	return (
-		<Box>
+		<Box className={props.tourControl?.target}>
 			<BaseMediaDisplayItem
 				isLoading={false}
 				name={props.item.title}

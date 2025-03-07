@@ -62,6 +62,11 @@ export const onboardingTourSteps = (
 			content:
 				"Now search for 'avengers'. Note: the tour will progress only when you search for 'avengers'.",
 		},
+		{
+			target: OnboardingTourStepTargets.Five,
+			content:
+				"Now, add this movie to your watchlist. Note: you can remove it later.",
+		},
 	] as Step[]
 ).map((step) => ({
 	...step,
