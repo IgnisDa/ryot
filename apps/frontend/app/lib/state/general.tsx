@@ -52,6 +52,7 @@ export const onboardingTourSteps = (
 				"Now, click on the movies section to start tracking your favorite movies.",
 		},
 		{
+			spotlightClicks: true,
 			target: OnboardingTourStepTargets.Three,
 			content:
 				"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
