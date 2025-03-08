@@ -105,6 +105,7 @@ export const useOnboardingTour = () => {
 		if (nextStepIndex >= onboardingTourSteps.length) {
 			setTourState(undefined);
 			localStorage.setItem(OnboardingTourCompletedKey, "true");
+			window.location.reload();
 			return;
 		}
 
