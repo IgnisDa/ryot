@@ -337,7 +337,8 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, stepIndex, advanceTourStep } = useOnboardingTour();
+	const { isTourStarted, stepIndex, completeTour, advanceTourStep } =
+		useOnboardingTour();
 
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
@@ -536,6 +537,22 @@ export default function Layout() {
 				<MetadataProgressUpdateForm
 					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 				/>
+			</Modal>
+			<Modal
+				centered
+				withCloseButton={false}
+				onClose={() => completeTour()}
+				opened={stepIndex === onboardingTourSteps.length}
+			>
+				<Stack>
+					<Text>You've completed the onboarding tour!</Text>
+					<Text size="sm" c="dimmed">
+						You can restart the tour at any time from the profile settings.
+					</Text>
+					<Button variant="outline" onClick={() => completeTour()}>
+						Start using Ryot!
+					</Button>
+				</Stack>
 			</Modal>
 			<Modal
 				onClose={() => setEntityToReview(null)}

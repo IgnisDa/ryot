@@ -103,17 +103,16 @@ export const useOnboardingTour = () => {
 		setTourState({ currentStepIndex: 0 });
 	};
 
+	const completeTour = () => {
+		setTourState(undefined);
+		localStorage.setItem(OnboardingTourCompletedKey, "true");
+		window.location.href = "/";
+	};
+
 	const advanceTourStep = (timeout = 0) => {
 		if (!isTourStarted) return;
 
 		const nextStepIndex = tourState.currentStepIndex + 1;
-
-		if (nextStepIndex >= onboardingTourSteps.length) {
-			setTourState(undefined);
-			localStorage.setItem(OnboardingTourCompletedKey, "true");
-			window.location.reload();
-			return;
-		}
 
 		setTimeout(
 			() => setTourState({ currentStepIndex: nextStepIndex }),
@@ -128,6 +127,7 @@ export const useOnboardingTour = () => {
 	}, []);
 
 	return {
+		completeTour,
 		isTourStarted,
 		advanceTourStep,
 		stepIndex: tourState?.currentStepIndex,
