@@ -184,16 +184,21 @@ export default function Page() {
 								) : null}
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], ([v, _]) =>
-							latestUserSummary ? (
-								<Section key={v} lot={v}>
-									<SectionTitle text="Summary" />
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Summary" />
+								{latestUserSummary ? (
 									<DisplaySummarySection
 										latestUserSummary={latestUserSummary}
 									/>
-								</Section>
-							) : null,
-						)
+								) : (
+									<Text c="dimmed">
+										No summary available. Please add some media to your watched
+										history.
+									</Text>
+								)}
+							</Section>
+						))
 						.otherwise(() => undefined),
 				)}
 			</Stack>
