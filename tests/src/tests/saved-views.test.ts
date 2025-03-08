@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createAuthenticatedClient } from "../helpers";
 import {
+	buildSavedViewBody,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
 	createSavedView,
@@ -203,5 +204,46 @@ describe("Saved views E2E", () => {
 		expect(refreshedView.isBuiltin).toBe(false);
 		expect(refreshedView.createdAt).toBe(createdView.createdAt);
 		expect(refreshedView.updatedAt).not.toBe(createdView.updatedAt);
+	});
+
+	it("rejects empty sort fields when creating or updating saved views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: "Sort Guard View",
+		});
+
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({
+				name: "Broken Sort View",
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: ["book"],
+					sort: { field: [], direction: "asc" },
+				},
+			}),
+		});
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: createdView.id } },
+			body: buildUpdatedSavedViewBody({
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: ["book"],
+					sort: { field: [], direction: "asc" },
+				},
+			}),
+		});
+		const refreshedView = await getSavedView(client, cookies, createdView.id);
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error?.message).toContain(
+			"Sort field is required",
+		);
+		expect(updateResult.error?.error?.message).toContain(
+			"Sort field is required",
+		);
+		expect(refreshedView.queryDefinition.sort.field).toEqual(["@name"]);
 	});
 });

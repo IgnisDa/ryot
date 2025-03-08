@@ -133,14 +133,6 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({ entitySchemaSlugs: ["missing-schema"] }),
 		);
-		const missingSortFieldResult = await executeViewRuntime(
-			client,
-			cookies,
-			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
-				sort: { field: [], direction: "asc" },
-			}),
-		);
 		const missingPropertyResult = await executeViewRuntime(
 			client,
 			cookies,
@@ -153,10 +145,6 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		expect(missingSchemaResult.response.status).toBe(404);
 		expect(missingSchemaResult.error?.error?.message).toBe(
 			"Schema 'missing-schema' not found",
-		);
-		expect(missingSortFieldResult.response.status).toBe(400);
-		expect(missingSortFieldResult.error?.error?.message).toBe(
-			"Sort field is required",
 		);
 		expect(missingPropertyResult.response.status).toBe(400);
 		expect(missingPropertyResult.error?.error?.message).toBe(

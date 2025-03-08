@@ -11,90 +11,27 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
-import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
+import { match } from "ts-pattern";
 import type { FilterExpression } from "../saved-views/schemas";
 import { ViewRuntimeValidationError } from "./errors";
 import {
-	getPropertyType,
-	type PropertyType,
-	parseFieldPath,
-} from "./schema-introspection";
+	buildCastedValueExpression,
+	buildCoalescedExpression,
+	getSchemaForReference,
+	resolveRuntimeReference,
+	type ViewRuntimeSchemaLike,
+} from "./runtime-reference";
+import { getPropertyType } from "./schema-introspection";
 
-type ViewRuntimeSchema = {
-	slug: string;
-	propertiesSchema: EntitySchemaPropertiesShape;
-};
-
-type RuntimeRef =
-	| { type: "top-level"; column: string }
-	| { type: "schema-property"; slug: string; property: string };
-
-const resolveRuntimeReference = (
-	reference: string,
-	defaultSchemaSlug: string,
-): RuntimeRef => {
-	try {
-		if (reference.startsWith("@")) {
-			return parseFieldPath(reference);
-		}
-		if (reference.includes(".")) {
-			return parseFieldPath(reference);
-		}
-	} catch (error) {
-		throw new ViewRuntimeValidationError(
-			error instanceof Error ? error.message : "Invalid field reference",
-		);
-	}
-
-	return {
-		property: reference,
-		type: "schema-property",
-		slug: defaultSchemaSlug,
-	};
-};
-
-const getSchemaForReference = (
-	schemaMap: Map<string, ViewRuntimeSchema>,
-	reference: Extract<RuntimeRef, { type: "schema-property" }>,
-) => {
-	const foundSchema = schemaMap.get(reference.slug);
-	if (!foundSchema) {
-		throw new ViewRuntimeValidationError(
-			`Schema '${reference.slug}' is not part of this runtime request`,
-		);
-	}
-
-	return foundSchema;
-};
-
-const buildCastedValueExpression = (
-	propertyType: PropertyType,
-	input: {
-		propertyText: ReturnType<typeof sql>;
-		propertyJson: ReturnType<typeof sql>;
-	},
-) => {
-	switch (propertyType) {
-		case "integer":
-			return sql`(${input.propertyText})::integer`;
-		case "number":
-			return sql`(${input.propertyText})::numeric`;
-		case "boolean":
-			return sql`(${input.propertyText})::boolean`;
-		case "date":
-			return sql`(${input.propertyText})::timestamp`;
-		case "array":
-		case "object":
-			return input.propertyJson;
-		default:
-			return input.propertyText;
-	}
-};
-
-const buildPropertyFilterExpression = (input: {
+const buildPropertyFilterExpression = <
+	TSchema extends ViewRuntimeSchemaLike,
+>(input: {
 	alias: string;
-	schemaMap: Map<string, ViewRuntimeSchema>;
-	reference: Extract<RuntimeRef, { type: "schema-property" }>;
+	schemaMap: Map<string, TSchema>;
+	reference: Extract<
+		ReturnType<typeof resolveRuntimeReference>,
+		{ type: "schema-property" }
+	>;
 }) => {
 	const foundSchema = getSchemaForReference(input.schemaMap, input.reference);
 	const propertyType = getPropertyType(foundSchema, input.reference.property);
@@ -110,69 +47,54 @@ const buildPropertyFilterExpression = (input: {
 	});
 };
 
-const buildTopLevelFilterExpression = (alias: string, column: string) => {
-	switch (column) {
-		case "name":
-			return sql`${sql.raw(alias)}.name`;
-		case "createdAt":
-			return sql`${sql.raw(alias)}.created_at`;
-		case "updatedAt":
-			return sql`${sql.raw(alias)}.updated_at`;
-		case "image":
+const buildTopLevelFilterExpression = (alias: string, column: string) =>
+	match(column)
+		.with("name", () => sql`${sql.raw(alias)}.name`)
+		.with("createdAt", () => sql`${sql.raw(alias)}.created_at`)
+		.with("updatedAt", () => sql`${sql.raw(alias)}.updated_at`)
+		.with("image", () => {
 			throw new ViewRuntimeValidationError(
 				"Unsupported filter column '@image'",
 			);
-		default:
+		})
+		.otherwise(() => {
 			throw new ViewRuntimeValidationError(
 				`Unsupported filter column '@${column}'`,
 			);
-	}
-};
+		});
 
 const buildFilterOperationClause = (
 	filter: FilterExpression,
 	expression: ReturnType<typeof sql>,
-) => {
-	switch (filter.op) {
-		case "eq":
-			return eq(expression, filter.value);
-		case "ne":
-			return ne(expression, filter.value);
-		case "gt":
-			return gt(expression, filter.value);
-		case "gte":
-			return gte(expression, filter.value);
-		case "lt":
-			return lt(expression, filter.value);
-		case "lte":
-			return lte(expression, filter.value);
-		case "in":
-			if (!Array.isArray(filter.value)) {
+) =>
+	match(filter)
+		.with({ op: "isNull" }, () => isNull(expression))
+		.with({ op: "eq" }, ({ value }) => eq(expression, value))
+		.with({ op: "ne" }, ({ value }) => ne(expression, value))
+		.with({ op: "gt" }, ({ value }) => gt(expression, value))
+		.with({ op: "lt" }, ({ value }) => lt(expression, value))
+		.with({ op: "gte" }, ({ value }) => gte(expression, value))
+		.with({ op: "lte" }, ({ value }) => lte(expression, value))
+		.with({ op: "in" }, ({ value }) => {
+			if (!Array.isArray(value)) {
 				throw new ViewRuntimeValidationError(
 					"Filter operator 'in' requires an array value",
 				);
 			}
-			return inArray(expression, filter.value);
-		case "isNull":
-			return isNull(expression);
-	}
-};
 
-const buildCoalescedExpression = (expressions: ReturnType<typeof sql>[]) => {
-	if (expressions.length === 1) {
-		return expressions[0] ?? sql`null`;
-	}
+			return inArray(expression, value);
+		})
+		.exhaustive();
 
-	return sql`coalesce(${sql.join(expressions, sql`, `)})`;
-};
-
-const buildFilterClauseForSchema = (input: {
+const buildFilterClauseForSchema = <
+	TSchema extends ViewRuntimeSchemaLike,
+>(input: {
 	alias: string;
-	isMultiSchema: boolean;
 	schemaSlug: string;
+	isMultiSchema: boolean;
 	filter: FilterExpression;
 	defaultSchemaSlug: string;
-	schemaMap: Map<string, ViewRuntimeSchema>;
+	schemaMap: Map<string, TSchema>;
 }) => {
 	const expressions = input.filter.field.flatMap((reference) => {
 		if (
@@ -220,17 +142,20 @@ const buildFilterClauseForSchema = (input: {
 	);
 };
 
-export const buildFilterWhereClause = (input: {
+export const buildFilterWhereClause = <
+	TSchema extends ViewRuntimeSchemaLike,
+>(input: {
 	alias: string;
 	defaultSchemaSlug: string;
 	entitySchemaSlugs: string[];
 	filters: FilterExpression[];
-	schemaMap: Map<string, ViewRuntimeSchema>;
+	schemaMap: Map<string, TSchema>;
 	schemaSlugExpression?: ReturnType<typeof sql>;
 }) => {
 	if (!input.filters.length) {
 		return undefined;
 	}
+
 	const isMultiSchema = new Set(input.entitySchemaSlugs).size > 1;
 
 	const schemaGroups = [...new Set(input.entitySchemaSlugs)].map(
