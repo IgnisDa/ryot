@@ -26,10 +26,7 @@ export const auth = betterAuth({
 			fallbackToDatabase: true,
 			storage: "secondary-storage",
 			enableSessionForAPIKeys: true,
-			rateLimit: {
-				maxRequests: 60,
-				timeWindow: 60 * 1000, // 1 minute
-			},
+			rateLimit: { maxRequests: 60, timeWindow: 60 * 1000 }, // 60 RPS
 		}),
 	],
 });
