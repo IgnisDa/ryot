@@ -145,11 +145,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			if (loginUser.__typename === "LoginResponse") {
 				const headers = await getCookiesForApplication(loginUser.apiKey);
-				if (submission[redirectToQueryParam])
-					return redirect(safeRedirect(submission[redirectToQueryParam]), {
-						headers,
-					});
-				return Response.json({}, { headers });
+				const redirectTo = submission[redirectToQueryParam];
+				return redirect(
+					redirectTo
+						? safeRedirect(submission[redirectToQueryParam])
+						: $path("/"),
+					{ headers },
+				);
 			}
 			const message = match(loginUser.error)
 				.with(
