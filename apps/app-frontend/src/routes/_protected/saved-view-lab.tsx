@@ -27,15 +27,11 @@ import {
 	ArrowDownAZ,
 	ArrowUpAZ,
 	Edit3,
-	Filter,
 	Image as ImageIcon,
-	LayoutGrid,
-	LayoutList,
 	MoreVertical,
 	Plus,
 	Save,
 	SlidersHorizontal,
-	Table2,
 	X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -1148,7 +1144,13 @@ function QueryBuilderDrawer(props: {
 	opened: boolean;
 	onClose: () => void;
 	scenario: SavedViewScenario;
+	layout: ViewLayout;
+	sortKey: string;
+	sortDirection: SortDirection;
 	isDark: boolean;
+	onLayoutChange: (value: ViewLayout) => void;
+	onSortKeyChange: (value: string) => void;
+	onSortDirectionChange: (value: SortDirection) => void;
 }) {
 	const surface = props.isDark ? "var(--mantine-color-dark-8)" : "white";
 	const surfaceElevated = props.isDark
@@ -1233,6 +1235,17 @@ function QueryBuilderDrawer(props: {
 					>
 						1. Scope Selection
 					</Text>
+					<Paper p="md" withBorder radius="sm" bg={surfaceElevated} mb="sm">
+						<Stack gap="sm">
+							<Text size="sm" fw={500} c={textPrimary}>
+								View name
+							</Text>
+							<TextInput
+								defaultValue={props.scenario.name}
+								placeholder="Enter view name"
+							/>
+						</Stack>
+					</Paper>
 					<Paper p="md" withBorder radius="sm" bg={surfaceElevated}>
 						<Stack gap="sm">
 							<Text size="sm" fw={500} c={textPrimary}>
@@ -1346,15 +1359,61 @@ function QueryBuilderDrawer(props: {
 						<Paper p="md" withBorder radius="sm" bg={surfaceElevated}>
 							<Stack gap="xs">
 								<Text size="sm" fw={500} c={textPrimary}>
+									Default sort
+								</Text>
+								<Select
+									data={props.scenario.availableSorts.map((sort) => ({
+										label: sort.label,
+										value: sort.key,
+									}))}
+									value={props.sortKey}
+									onChange={(value) => {
+										if (value) props.onSortKeyChange(value);
+									}}
+								/>
+								<SegmentedControl
+									value={props.sortDirection}
+									onChange={(value) =>
+										props.onSortDirectionChange(value as SortDirection)
+									}
+									data={[
+										{
+											label: (
+												<Group gap={6} wrap="nowrap">
+													<ArrowUpAZ size={14} />
+													<Text size="xs">Ascending</Text>
+												</Group>
+											),
+											value: "asc",
+										},
+										{
+											label: (
+												<Group gap={6} wrap="nowrap">
+													<ArrowDownAZ size={14} />
+													<Text size="xs">Descending</Text>
+												</Group>
+											),
+											value: "desc",
+										},
+									]}
+								/>
+							</Stack>
+						</Paper>
+						<Paper p="md" withBorder radius="sm" bg={surfaceElevated}>
+							<Stack gap="xs">
+								<Text size="sm" fw={500} c={textPrimary}>
 									Default layout
 								</Text>
 								<SegmentedControl
+									value={props.layout}
+									onChange={(value) =>
+										props.onLayoutChange(value as ViewLayout)
+									}
 									data={[
 										{ label: "Grid", value: "grid" },
 										{ label: "List", value: "list" },
 										{ label: "Table", value: "table" },
 									]}
-									defaultValue="grid"
 								/>
 							</Stack>
 						</Paper>
@@ -1483,7 +1542,6 @@ function SavedViewRenderer(props: {
 	const [page, setPage] = useState(1);
 	const [sortKey, setSortKey] = useState("name");
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-	const [filters, setFilters] = useState<Record<string, string>>({});
 	const [
 		queryBuilderOpened,
 		{ open: openQueryBuilder, close: closeQueryBuilder },
@@ -1492,9 +1550,6 @@ function SavedViewRenderer(props: {
 		useDisclosure(false);
 
 	const surface = props.isDark ? "var(--mantine-color-dark-8)" : "white";
-	const surfaceElevated = props.isDark
-		? "var(--mantine-color-dark-7)"
-		: "var(--mantine-color-stone-1)";
 	const textPrimary = props.isDark
 		? "var(--mantine-color-dark-0)"
 		: "var(--mantine-color-dark-9)";
@@ -1510,13 +1565,9 @@ function SavedViewRenderer(props: {
 
 	const filteredEntities = applyFiltersAndSort(
 		props.scenario.mockEntities,
-		filters,
+		{},
 		sortKey,
 		sortDirection,
-	);
-
-	const hasActiveFilters = Object.values(filters).some(
-		(value) => value && value !== "All" && value !== "Any",
 	);
 	const pageSize = layout === "grid" ? 8 : 6;
 	const totalPages = Math.max(1, Math.ceil(filteredEntities.length / pageSize));
@@ -1525,9 +1576,6 @@ function SavedViewRenderer(props: {
 		(currentPage - 1) * pageSize,
 		currentPage * pageSize,
 	);
-	const activeRefinementCount = Object.values(filters).filter(
-		(value) => value && value !== "All" && value !== "Any",
-	).length;
 	const rangeStart = filteredEntities.length
 		? (currentPage - 1) * pageSize + 1
 		: 0;
@@ -1535,11 +1583,7 @@ function SavedViewRenderer(props: {
 
 	useEffect(() => {
 		setPage(1);
-	}, [props.scenario.id, layout, sortKey, sortDirection, filters]);
-
-	const handleClearFilters = () => {
-		setFilters({});
-	};
+	}, [props.scenario.id, layout, sortKey, sortDirection]);
 
 	return (
 		<Stack gap="xl">
@@ -1605,12 +1649,6 @@ function SavedViewRenderer(props: {
 										Showing {rangeStart}-{rangeEnd}
 									</Text>
 								)}
-								{activeRefinementCount > 0 && (
-									<Text size="xs" c={textMuted}>
-										{activeRefinementCount} refinement
-										{activeRefinementCount === 1 ? "" : "s"} applied
-									</Text>
-								)}
 							</Group>
 						</Stack>
 						<Group gap="xs">
@@ -1666,137 +1704,6 @@ function SavedViewRenderer(props: {
 				</Stack>
 			</Paper>
 
-			<Paper p="md" withBorder radius="sm" bg={surfaceElevated}>
-				<Stack gap="md">
-					<Group justify="space-between" align="flex-start" wrap="nowrap">
-						<Group gap="xs" style={{ flex: 1, flexWrap: "wrap" }}>
-							<Stack gap={4} mr="xs">
-								<Text
-									size="xs"
-									fw={600}
-									c={textMuted}
-									tt="uppercase"
-									style={{ letterSpacing: "0.6px" }}
-								>
-									Refine view
-								</Text>
-								<Text size="xs" c={textMuted}>
-									Quick filters exposed by this saved view. They narrow the
-									current results without rewriting the underlying definition.
-								</Text>
-							</Stack>
-							{props.scenario.availableFilters.slice(0, 3).map((filter) => (
-								<Select
-									key={filter.key}
-									size="xs"
-									placeholder={filter.label}
-									data={filter.options ?? []}
-									value={filters[filter.key] ?? ""}
-									onChange={(value) =>
-										setFilters({ ...filters, [filter.key]: value ?? "" })
-									}
-									leftSection={<Filter size={12} />}
-									clearable
-									style={{ minWidth: 140 }}
-								/>
-							))}
-							{hasActiveFilters && (
-								<Button
-									size="xs"
-									variant="subtle"
-									leftSection={<X size={12} />}
-									onClick={handleClearFilters}
-								>
-									Clear filters
-								</Button>
-							)}
-						</Group>
-						<Group gap="xs" wrap="nowrap">
-							<Menu position="bottom-end">
-								<Menu.Target>
-									<Button
-										size="xs"
-										variant="light"
-										leftSection={
-											sortDirection === "asc" ? (
-												<ArrowUpAZ size={14} />
-											) : (
-												<ArrowDownAZ size={14} />
-											)
-										}
-										style={{ backgroundColor: accentMuted, color: accentColor }}
-									>
-										Sort
-									</Button>
-								</Menu.Target>
-								<Menu.Dropdown>
-									{props.scenario.availableSorts.map((sort) => (
-										<Menu.Item
-											key={sort.key}
-											onClick={() => {
-												if (sortKey === sort.key) {
-													setSortDirection(
-														sortDirection === "asc" ? "desc" : "asc",
-													);
-												} else {
-													setSortKey(sort.key);
-													setSortDirection("asc");
-												}
-											}}
-											rightSection={
-												sortKey === sort.key ? (
-													sortDirection === "asc" ? (
-														<ArrowUpAZ size={14} />
-													) : (
-														<ArrowDownAZ size={14} />
-													)
-												) : undefined
-											}
-										>
-											{sort.label}
-										</Menu.Item>
-									))}
-								</Menu.Dropdown>
-							</Menu>
-							<SegmentedControl
-								size="xs"
-								value={layout}
-								onChange={(value) => setLayout(value as ViewLayout)}
-								data={[
-									{
-										value: "grid",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<LayoutGrid size={14} />
-												<Text size="xs">Grid</Text>
-											</Group>
-										),
-									},
-									{
-										value: "list",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<LayoutList size={14} />
-												<Text size="xs">List</Text>
-											</Group>
-										),
-									},
-									{
-										value: "table",
-										label: (
-											<Group gap={6} wrap="nowrap">
-												<Table2 size={14} />
-												<Text size="xs">Table</Text>
-											</Group>
-										),
-									},
-								]}
-							/>
-						</Group>
-					</Group>
-				</Stack>
-			</Paper>
-
 			{filteredEntities.length === 0 ? (
 				<Paper
 					p="xl"
@@ -1817,7 +1724,7 @@ function SavedViewRenderer(props: {
 								color: accentColor,
 							}}
 						>
-							<Filter size={28} />
+							<X size={28} />
 						</Box>
 						<Stack gap="xs" align="center">
 							<Text
@@ -1828,21 +1735,9 @@ function SavedViewRenderer(props: {
 								No results found
 							</Text>
 							<Text size="sm" c={textMuted} style={{ maxWidth: 400 }}>
-								{hasActiveFilters
-									? "Try adjusting your filters or clearing them to see more results."
-									: "There are no entities matching this view's criteria yet."}
+								There are no entities matching this view's criteria yet.
 							</Text>
 						</Stack>
-						{hasActiveFilters && (
-							<Button
-								variant="light"
-								onClick={handleClearFilters}
-								leftSection={<X size={14} />}
-								style={{ backgroundColor: accentMuted, color: accentColor }}
-							>
-								Clear all filters
-							</Button>
-						)}
 					</Stack>
 				</Paper>
 			) : layout === "grid" ? (
@@ -1898,7 +1793,13 @@ function SavedViewRenderer(props: {
 				opened={queryBuilderOpened}
 				onClose={closeQueryBuilder}
 				scenario={props.scenario}
+				layout={layout}
+				sortKey={sortKey}
+				sortDirection={sortDirection}
 				isDark={props.isDark}
+				onLayoutChange={(value) => setLayout(value)}
+				onSortKeyChange={(value) => setSortKey(value)}
+				onSortDirectionChange={(value) => setSortDirection(value)}
 			/>
 
 			<SaveViewModal
@@ -1950,8 +1851,7 @@ function RouteComponent() {
 								Saved View Preview
 							</Text>
 							<Text size="sm" c={textSecondary}>
-								A compact mock of the renderer, quick refinements, and save
-								actions.
+								A compact mock of the renderer, view controls, and save actions.
 							</Text>
 						</Stack>
 						<Select
