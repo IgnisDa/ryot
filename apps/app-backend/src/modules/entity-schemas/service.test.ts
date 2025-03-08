@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import {
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
@@ -6,6 +7,7 @@ import {
 	resolveEntitySchemaIcon,
 	resolveEntitySchemaName,
 	resolveEntitySchemaTrackerId,
+	validateSlugNotReserved,
 } from "./service";
 
 describe("resolveEntitySchemaName", () => {
@@ -185,6 +187,18 @@ describe("resolveEntitySchemaCreateInput", () => {
 			}),
 		).toThrow("Entity schema accent color is required");
 	});
+
+	it("throws when slug is reserved", () => {
+		expect(() =>
+			resolveEntitySchemaCreateInput({
+				slug: "book",
+				name: "Books",
+				icon: "book-open",
+				accentColor: "#5B7FFF",
+				propertiesSchema: { title: { type: "string" } },
+			}),
+		).toThrow('Entity schema slug "book" is reserved for built-in schemas');
+	});
 });
 
 describe("resolveEntitySchemaTrackerId", () => {
@@ -196,5 +210,37 @@ describe("resolveEntitySchemaTrackerId", () => {
 		expect(() => resolveEntitySchemaTrackerId("   ")).toThrow(
 			"Tracker id is required",
 		);
+	});
+});
+
+describe("validateSlugNotReserved", () => {
+	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
+	const reservedSlugs = builtinEntitySchemas.map((s) => s.slug);
+
+	it("throws error for each built-in schema slug", () => {
+		for (const slug of reservedSlugs) {
+			expect(() => validateSlugNotReserved(slug)).toThrow(
+				`Entity schema slug "${slug}" is reserved for built-in schemas`,
+			);
+		}
+	});
+
+	it("does not throw for non-reserved slugs", () => {
+		const nonReservedSlugs = [
+			"cars",
+			"whiskey",
+			"smartphones",
+			"custom-schema",
+		];
+
+		for (const slug of nonReservedSlugs) {
+			expect(() => validateSlugNotReserved(slug)).not.toThrow();
+		}
+	});
+
+	it("derives reserved list from manifests", () => {
+		expect(reservedSlugs).toContain("book");
+		expect(reservedSlugs).toContain("anime");
+		expect(reservedSlugs).toContain("manga");
 	});
 });
