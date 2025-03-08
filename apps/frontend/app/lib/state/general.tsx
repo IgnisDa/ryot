@@ -92,8 +92,16 @@ export const useOnboardingTour = () => {
 
 	const advanceTourStep = (timeout = 0) => {
 		const currentStepIndex = tourState?.currentStepIndex || 0;
+		const nextStepIndex = currentStepIndex + 1;
+
+		if (nextStepIndex >= onboardingTourSteps.length) {
+			setTourState(undefined);
+			localStorage.setItem(OnboardingTourCompletedKey, "true");
+			return;
+		}
+
 		setTimeout(
-			() => setTourState({ currentStepIndex: currentStepIndex + 1 }),
+			() => setTourState({ currentStepIndex: nextStepIndex }),
 			timeout,
 		);
 	};

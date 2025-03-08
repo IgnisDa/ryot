@@ -499,13 +499,14 @@ const MediaSearchItem = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const gridPacking = userPreferences.general.gridPacking;
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const { advanceTourStep } = useOnboardingTour();
 
+	const gridPacking = userPreferences.general.gridPacking;
 	const buttonSize =
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 
@@ -588,6 +589,7 @@ const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					size={buttonSize}
+					className={props.tourControl?.target}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -607,6 +609,9 @@ const MediaSearchItem = (props: {
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
+						if (props.tourControl?.target) {
+							advanceTourStep(2000);
+						}
 					}}
 				>
 					Add to watchlist
