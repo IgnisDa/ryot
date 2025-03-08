@@ -78,7 +78,7 @@ export const onboardingTourSteps = (
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
 
-const OnboardingTourCompletedKey = "OnboardingTourCompleted";
+export const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);

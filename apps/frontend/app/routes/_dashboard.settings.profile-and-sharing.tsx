@@ -5,6 +5,7 @@ import {
 	Button,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Indicator,
@@ -67,6 +68,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
+import { OnboardingTourCompletedKey } from "~/lib/state/general";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);
@@ -171,12 +173,12 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
 	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemoInstance;
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
 
+	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
 		(acl) => acl.isAccountDefault,
 	);
@@ -233,7 +235,6 @@ export default function Page() {
 													: undefined
 										}
 									/>
-
 									<Button
 										type="submit"
 										onClick={(e) => {
@@ -250,6 +251,29 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
+							<ClientOnly>
+								{() => {
+									const isOnboardingTourCompleted = localStorage.getItem(
+										OnboardingTourCompletedKey,
+									);
+									if (!isOnboardingTourCompleted) return null;
+
+									return (
+										<>
+											<Divider />
+											<Button
+												variant="default"
+												onClick={() => {
+													localStorage.removeItem(OnboardingTourCompletedKey);
+													window.location.href = "/";
+												}}
+											>
+												Restart onboarding
+											</Button>
+										</>
+									);
+								}}
+							</ClientOnly>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
