@@ -1,5 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
+	Anchor,
 	Badge,
 	Box,
 	Button,
@@ -130,6 +131,16 @@ export function SidebarApiKeysSection(props: {
 					Create and revoke personal keys for scripts, automations, and local
 					tooling.
 				</Text>
+				<Anchor
+					mt={6}
+					size="sm"
+					target="_blank"
+					rel="noreferrer"
+					href="/api/docs"
+					display="inline-block"
+				>
+					Open API docs
+				</Anchor>
 			</Box>
 
 			{isMobile ? (
