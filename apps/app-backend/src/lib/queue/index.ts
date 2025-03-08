@@ -19,14 +19,16 @@ export const initializeWorkers = async () => {
 };
 
 export const getQueues = () => {
-	if (!queues)
+	if (!queues) {
 		throw new Error("Queues not initialized. Call initializeQueues() first.");
+	}
 	return queues;
 };
 
 export const getWorkers = () => {
-	if (!workers)
+	if (!workers) {
 		throw new Error("Workers not initialized. Call initializeWorkers() first.");
+	}
 	return workers;
 };
 
@@ -35,7 +37,9 @@ export const shutdownQueues = async () => {
 		await queues.sandboxScriptQueueEvents.close();
 		await queues.sandboxScriptQueue.close();
 		queues = null;
-		if (!workers) await shutdownQueueRedisConnection();
+		if (!workers) {
+			await shutdownQueueRedisConnection();
+		}
 		console.info("Queues shut down");
 	}
 };
@@ -44,7 +48,9 @@ export const shutdownWorkers = async () => {
 	if (workers) {
 		await workers.sandboxScriptWorker.close();
 		workers = null;
-		if (!queues) await shutdownQueueRedisConnection();
+		if (!queues) {
+			await shutdownQueueRedisConnection();
+		}
 		console.info("Workers shut down");
 	}
 };

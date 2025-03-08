@@ -123,19 +123,21 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() => resolveEntitySchemaCreateInput(body),
 			"Entity schema payload is invalid",
 		);
-		if ("status" in entitySchemaInput)
+		if ("status" in entitySchemaInput) {
 			return c.json(entitySchemaInput.body, entitySchemaInput.status);
+		}
 		const entitySchemaData = entitySchemaInput.data;
 
 		const existingEntitySchema = await getEntitySchemaBySlugForUser({
 			userId: user.id,
 			slug: entitySchemaData.slug,
 		});
-		if (existingEntitySchema)
+		if (existingEntitySchema) {
 			return c.json(
 				duplicateSlugErrorResult.body,
 				duplicateSlugErrorResult.status,
 			);
+		}
 
 		try {
 			const createdEntitySchema = await createEntitySchemaForUser({
@@ -150,11 +152,12 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 			return c.json(successResponse(createdEntitySchema), 200);
 		} catch (error) {
-			if (isUniqueConstraintError(error, entitySchemaUniqueConstraint))
+			if (isUniqueConstraintError(error, entitySchemaUniqueConstraint)) {
 				return c.json(
 					duplicateSlugErrorResult.body,
 					duplicateSlugErrorResult.status,
 				);
+			}
 
 			throw error;
 		}

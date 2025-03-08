@@ -100,9 +100,12 @@ function SortableTracker(props: {
 			<NavLink
 				label={props.tracker.name}
 				onClick={() => {
-					if (props.isCustomizeMode) return;
-					if (props.tracker.views?.length)
+					if (props.isCustomizeMode) {
+						return;
+					}
+					if (props.tracker.views?.length) {
 						props.onToggleTracker(props.tracker.id);
+					}
 					props.onNavLinkClick();
 				}}
 				renderRoot={
@@ -304,10 +307,14 @@ export function Sidebar(props: SidebarProps) {
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
-		if (!state.isCustomizeMode) return;
+		if (!state.isCustomizeMode) {
+			return;
+		}
 
 		const { active, over } = event;
-		if (!over || active.id === over.id) return;
+		if (!over || active.id === over.id) {
+			return;
+		}
 
 		const activeIndex = sidebarData.trackers.findIndex(
 			(tracker) => tracker.id === active.id,
@@ -316,11 +323,15 @@ export function Sidebar(props: SidebarProps) {
 			(tracker) => tracker.id === over.id,
 		);
 
-		if (activeIndex === -1 || overIndex === -1) return;
+		if (activeIndex === -1 || overIndex === -1) {
+			return;
+		}
 
 		const nextTrackers = Array.from(sidebarData.trackers);
 		const movedTracker = nextTrackers[activeIndex];
-		if (!movedTracker) return;
+		if (!movedTracker) {
+			return;
+		}
 
 		nextTrackers.splice(activeIndex, 1);
 		nextTrackers.splice(overIndex, 0, movedTracker);
@@ -328,7 +339,9 @@ export function Sidebar(props: SidebarProps) {
 	};
 
 	const handleNavLinkClick = () => {
-		if (isMobile) props.onCloseDrawer?.();
+		if (isMobile) {
+			props.onCloseDrawer?.();
+		}
 	};
 
 	const sidebarContent = (
@@ -633,7 +646,9 @@ export function MobileSidebarBurger(props: {
 	const computedColorScheme = useColorScheme();
 	const isDark = computedColorScheme === "dark";
 
-	if (!isMobile) return null;
+	if (!isMobile) {
+		return null;
+	}
 
 	return (
 		<Burger

@@ -5,7 +5,9 @@ import { redis } from "~/lib/redis";
 let metricsInitialized = false;
 
 export const initializeMetrics = () => {
-	if (metricsInitialized) return;
+	if (metricsInitialized) {
+		return;
+	}
 	metricsInitialized = true;
 
 	promClient.collectDefaultMetrics({ prefix: "app_" });
@@ -90,15 +92,19 @@ export const updateRedisMetrics = async () => {
 		for (const line of lines) {
 			if (line && !line.startsWith("#")) {
 				const [key, value] = line.split(":");
-				if (key && value) stats[key] = value;
+				if (key && value) {
+					stats[key] = value;
+				}
 			}
 		}
 
-		if (stats.used_memory)
+		if (stats.used_memory) {
 			redisUsedMemory.set(Number.parseInt(stats.used_memory, 10));
+		}
 
-		if (stats.connected_clients)
+		if (stats.connected_clients) {
 			redisConnectedClients.set(Number.parseInt(stats.connected_clients, 10));
+		}
 
 		if (stats.total_commands_processed) {
 			const currentCommands = Number.parseInt(
@@ -107,7 +113,9 @@ export const updateRedisMetrics = async () => {
 			);
 			if (lastCommandsProcessed > 0) {
 				const delta = currentCommands - lastCommandsProcessed;
-				if (delta > 0) redisTotalCommandsProcessed.inc(delta);
+				if (delta > 0) {
+					redisTotalCommandsProcessed.inc(delta);
+				}
 			}
 			lastCommandsProcessed = currentCommands;
 		}
@@ -116,7 +124,9 @@ export const updateRedisMetrics = async () => {
 			const currentHits = Number.parseInt(stats.keyspace_hits, 10);
 			if (lastKeySpaceHits > 0) {
 				const delta = currentHits - lastKeySpaceHits;
-				if (delta > 0) redisKeySpaceHits.inc(delta);
+				if (delta > 0) {
+					redisKeySpaceHits.inc(delta);
+				}
 			}
 			lastKeySpaceHits = currentHits;
 		}
@@ -125,7 +135,9 @@ export const updateRedisMetrics = async () => {
 			const currentMisses = Number.parseInt(stats.keyspace_misses, 10);
 			if (lastKeySpaceMisses > 0) {
 				const delta = currentMisses - lastKeySpaceMisses;
-				if (delta > 0) redisKeySpaceMisses.inc(delta);
+				if (delta > 0) {
+					redisKeySpaceMisses.inc(delta);
+				}
 			}
 			lastKeySpaceMisses = currentMisses;
 		}

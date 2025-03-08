@@ -51,7 +51,9 @@ export function toCreateTrackerPayload(
 	};
 
 	const description = trimmedOrUndefined(input.description);
-	if (description !== undefined) payload.description = description;
+	if (description !== undefined) {
+		payload.description = description;
+	}
 
 	return payload;
 }

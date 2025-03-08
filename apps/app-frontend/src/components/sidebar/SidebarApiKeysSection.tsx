@@ -25,7 +25,9 @@ import {
 const accountApiKeysQueryKey = ["account", "api-keys"] as const;
 
 function getErrorMessage(error: unknown, fallback: string) {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
 	return fallback;
 }
 
@@ -52,8 +54,9 @@ export function SidebarApiKeysSection(props: {
 			const response = await authClient.apiKey.list({
 				query: { sortBy: "createdAt", sortDirection: "desc" },
 			});
-			if (response.error)
+			if (response.error) {
 				throw new Error(response.error.message || "Failed to load API keys.");
+			}
 			return response.data;
 		},
 	});
@@ -61,8 +64,9 @@ export function SidebarApiKeysSection(props: {
 	const createApiKeyMutation = useMutation({
 		mutationFn: async (name: string) => {
 			const response = await authClient.apiKey.create({ name });
-			if (response.error)
+			if (response.error) {
 				throw new Error(response.error.message || "Failed to create API key.");
+			}
 			return response.data;
 		},
 		onSuccess: async (data) => {
@@ -76,12 +80,15 @@ export function SidebarApiKeysSection(props: {
 	const deleteApiKeyMutation = useMutation({
 		mutationFn: async (keyId: string) => {
 			const response = await authClient.apiKey.delete({ keyId });
-			if (response.error)
+			if (response.error) {
 				throw new Error(response.error.message || "Failed to delete API key.");
+			}
 			return keyId;
 		},
 		onSuccess: async (keyId) => {
-			if (createdApiKey?.id === keyId) setCreatedApiKey(null);
+			if (createdApiKey?.id === keyId) {
+				setCreatedApiKey(null);
+			}
 			await queryClient.invalidateQueries({ queryKey: accountApiKeysQueryKey });
 		},
 	});
@@ -92,14 +99,19 @@ export function SidebarApiKeysSection(props: {
 	);
 
 	const handleCreateApiKey = () => {
-		if (!trimmedName) return;
+		if (!trimmedName) {
+			return;
+		}
 		createApiKeyMutation.mutate(trimmedName);
 	};
 
 	const handleCopyCreatedKey = async () => {
-		if (!createdApiKey?.key) return;
-		if (typeof navigator === "undefined" || !navigator.clipboard?.writeText)
+		if (!createdApiKey?.key) {
 			return;
+		}
+		if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+			return;
+		}
 
 		await navigator.clipboard.writeText(createdApiKey.key);
 		setCopiedKey(true);
@@ -110,7 +122,9 @@ export function SidebarApiKeysSection(props: {
 			const confirmed = window.confirm(
 				`Remove ${name || "this API key"}? This cannot be undone.`,
 			);
-			if (!confirmed) return;
+			if (!confirmed) {
+				return;
+			}
 		}
 
 		deleteApiKeyMutation.mutate(keyId);

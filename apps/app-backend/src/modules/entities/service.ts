@@ -29,7 +29,9 @@ export const resolveEntityDetailAccess = (
 	scope: EntityDetailScope | undefined,
 ): EntityDetailAccess => {
 	const entityAccess = resolveCustomEntitySchemaAccess(scope);
-	if (!("entitySchema" in entityAccess)) return { error: entityAccess.error };
+	if (!("entitySchema" in entityAccess)) {
+		return { error: entityAccess.error };
+	}
 
 	return { access: entityAccess.entitySchema };
 };
@@ -45,17 +47,25 @@ export const parseEntityProperties = (input: {
 	}) as EntityPropertiesShape;
 
 export const parseEntityImage = (image: unknown): ImageSchemaType | null => {
-	if (image == null) return null;
+	if (image == null) {
+		return null;
+	}
 
 	const parsedImage = ImageSchema.safeParse(image);
-	if (parsedImage.success) return parsedImage.data;
+	if (parsedImage.success) {
+		return parsedImage.data;
+	}
 
 	const firstIssue = parsedImage.error.issues[0];
-	if (!firstIssue) throw new Error("Entity image is invalid");
-	if (firstIssue.code === "invalid_type" && firstIssue.path.length === 0)
+	if (!firstIssue) {
+		throw new Error("Entity image is invalid");
+	}
+	if (firstIssue.code === "invalid_type" && firstIssue.path.length === 0) {
 		throw new Error("Entity image must be an object");
-	if (firstIssue.code === "invalid_union" && firstIssue.path[0] === "kind")
+	}
+	if (firstIssue.code === "invalid_union" && firstIssue.path[0] === "kind") {
 		throw new Error("Entity image kind must be either remote or s3");
+	}
 
 	throw new Error(firstIssue.message);
 };

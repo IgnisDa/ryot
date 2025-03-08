@@ -28,7 +28,9 @@ describe("buildEventSchemaFormValues", () => {
 		const values = buildEventSchemaFormValues();
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a default property row");
+		if (!row) {
+			throw new Error("Expected a default property row");
+		}
 
 		expect(values.name).toBe("");
 		expect(values.slug).toBe("");
@@ -44,7 +46,9 @@ describe("buildEventSchemaFormValues", () => {
 	it("exports the default create values", () => {
 		const row = defaultCreateEventSchemaFormValues.properties[0];
 
-		if (!row) throw new Error("Expected an exported default property row");
+		if (!row) {
+			throw new Error("Expected an exported default property row");
+		}
 
 		expect(defaultCreateEventSchemaFormValues.name).toBe("");
 		expect(defaultCreateEventSchemaFormValues.slug).toBe("");
@@ -63,7 +67,9 @@ describe("buildEventSchemaFormValues", () => {
 		];
 		const inputRow = properties[0];
 
-		if (!inputRow) throw new Error("Expected an input property row");
+		if (!inputRow) {
+			throw new Error("Expected an input property row");
+		}
 
 		const values = buildEventSchemaFormValues({
 			properties,
@@ -72,7 +78,9 @@ describe("buildEventSchemaFormValues", () => {
 		});
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a mapped property row");
+		if (!row) {
+			throw new Error("Expected a mapped property row");
+		}
 
 		expect(values.name).toBe("Tasting");
 		expect(values.slug).toBe("tasting");
@@ -85,7 +93,9 @@ describe("buildEventSchemaFormValues", () => {
 		const values = buildEventSchemaFormValues({ properties: [] });
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a normalized property row");
+		if (!row) {
+			throw new Error("Expected a normalized property row");
+		}
 
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject({
@@ -171,7 +181,9 @@ describe("createEventSchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -201,7 +213,9 @@ describe("createEventSchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -223,7 +237,9 @@ describe("createEventSchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -244,7 +260,9 @@ describe("createEventSchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",

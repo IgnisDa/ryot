@@ -7,13 +7,15 @@ export const parseAppSchemaProperties = (input: {
 	properties: unknown;
 	propertiesSchema: AppSchema;
 }) => {
-	if (!input.properties || typeof input.properties !== "object")
+	if (!input.properties || typeof input.properties !== "object") {
 		throw new Error(`${input.kind} properties must be a JSON object`);
+	}
 
-	if (Array.isArray(input.properties))
+	if (Array.isArray(input.properties)) {
 		throw new Error(
 			`${input.kind} properties must be a JSON object, not an array`,
 		);
+	}
 
 	const schemaShape: Record<string, z.ZodType> = {};
 
@@ -25,10 +27,11 @@ export const parseAppSchemaProperties = (input: {
 	const validationSchema = z.object(schemaShape);
 	const result = validationSchema.safeParse(input.properties);
 
-	if (!result.success)
+	if (!result.success) {
 		throw new Error(
 			`${input.kind} properties validation failed: ${result.error.message}`,
 		);
+	}
 
 	return result.data as Record<string, unknown>;
 };

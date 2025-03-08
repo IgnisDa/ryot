@@ -125,7 +125,9 @@ export const createEntityForUser = async (input: {
 		})
 		.returning(entitySelection);
 
-	if (!createdEntity) throw new Error("Could not persist entity");
+	if (!createdEntity) {
+		throw new Error("Could not persist entity");
+	}
 
 	return toListedEntity(createdEntity);
 };
