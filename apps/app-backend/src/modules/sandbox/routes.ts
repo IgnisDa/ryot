@@ -1,7 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/auth";
-import { requireAuth } from "~/auth/middleware";
 import {
+	createAuthRoute,
 	errorJsonResponse,
 	jsonResponse,
 	payloadValidationErrorResponse,
@@ -25,27 +25,22 @@ const runSandboxResponseSchema = z.object({
 	durationMs: z.number().int().nonnegative(),
 });
 
-const runSandboxRoute = createRoute({
-	path: "/run",
-	method: "post",
-	tags: ["sandbox"],
-	middleware: [requireAuth],
-	summary: "Run a sandbox script",
-	request: {
-		body: {
-			content: {
-				"application/json": {
-					schema: runSandboxSchema,
-				},
-			},
+const runSandboxRoute = createAuthRoute(
+	createRoute({
+		path: "/run",
+		method: "post",
+		tags: ["sandbox"],
+		summary: "Run a sandbox script",
+		request: {
+			body: { content: { "application/json": { schema: runSandboxSchema } } },
 		},
-	},
-	responses: {
-		400: payloadValidationErrorResponse,
-		401: errorJsonResponse("Request is unauthenticated"),
-		200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
-	},
-});
+		responses: {
+			400: payloadValidationErrorResponse,
+			401: errorJsonResponse("Request is unauthenticated"),
+			200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
+		},
+	}),
+);
 
 export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 	runSandboxRoute,
@@ -61,12 +56,6 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 			apiFunctions: { getAppConfigValue, getUserConfigValue },
 		});
 
-		return c.json(
-			{
-				...result,
-				durationMs: Date.now() - startedAt,
-			},
-			200,
-		);
+		return c.json({ ...result, durationMs: Date.now() - startedAt }, 200);
 	},
 );
