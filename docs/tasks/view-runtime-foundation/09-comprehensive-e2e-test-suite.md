@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -88,17 +88,17 @@ Create test fixtures:
 
 ## Acceptance criteria
 
-- [ ] `tests/src/tests/saved-views.test.ts` exists with full lifecycle tests
-- [ ] `tests/src/tests/view-runtime.test.ts` exists with comprehensive runtime tests
-- [ ] Filter tests cover all 8 operators (eq, ne, gt, gte, lt, lte, in, isNull)
-- [ ] Sort tests cover ascending, descending, cross-schema COALESCE, NULLS LAST
-- [ ] Pagination tests cover first page, middle page, last page, clamped offset, zero results
-- [ ] Display configuration tests cover grid, list, table layouts
-- [ ] Cross-schema tests cover filters, sort, and display COALESCE
-- [ ] Error tests cover 404 and 400 cases
-- [ ] All tests pass with `bun test` in the `tests/` directory
-- [ ] Tests use existing testcontainers setup (no new infrastructure needed)
-- [ ] Tests follow existing patterns from `health.test.ts`
+- [x] `tests/src/tests/saved-views.test.ts` exists with full lifecycle tests
+- [x] `tests/src/tests/view-runtime.test.ts` exists with comprehensive runtime tests
+- [x] Filter tests cover all 8 operators (eq, ne, gt, gte, lt, lte, in, isNull)
+- [x] Sort tests cover ascending, descending, cross-schema COALESCE, NULLS LAST
+- [x] Pagination tests cover first page, middle page, last page, clamped offset, zero results
+- [x] Display configuration tests cover grid, list, table layouts
+- [x] Cross-schema tests cover filters, sort, and display COALESCE
+- [x] Error tests cover 404 and 400 cases
+- [x] All tests pass with `bun test` in the `tests/` directory
+- [x] Tests use existing testcontainers setup (no new infrastructure needed)
+- [x] Tests follow existing patterns from `health.test.ts`
 
 ## Blocked by
 
