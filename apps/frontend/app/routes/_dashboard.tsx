@@ -529,10 +529,10 @@ export default function Layout() {
 				</Affix>
 			) : null}
 			<Modal
-				onClose={closeMetadataProgressUpdateModal}
-				opened={metadataToUpdate !== null}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				opened={metadataToUpdate !== null}
+				onClose={closeMetadataProgressUpdateModal}
 			>
 				<MetadataProgressUpdateForm
 					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
@@ -555,27 +555,27 @@ export default function Layout() {
 				</Stack>
 			</Modal>
 			<Modal
-				onClose={() => setEntityToReview(null)}
-				opened={entityToReview !== null}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				opened={entityToReview !== null}
+				onClose={() => setEntityToReview(null)}
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
 			<Modal
-				onClose={closeAddEntityToCollectionModal}
-				opened={addEntityToCollectionData !== null}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				opened={addEntityToCollectionData !== null}
+				onClose={closeAddEntityToCollectionModal}
 			>
 				<AddEntityToCollectionForm
 					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
 				/>
 			</Modal>
 			<Drawer
-				onClose={closeMeasurementsDrawer}
-				opened={measurementsDrawerOpen}
 				title="Add new measurement"
+				opened={measurementsDrawerOpen}
+				onClose={closeMeasurementsDrawer}
 			>
 				<CreateMeasurementForm
 					closeMeasurementModal={closeMeasurementsDrawer}
