@@ -706,9 +706,9 @@ After Phase 1 implementation is complete, the following work can begin:
 
 ## Tasks
 
-**Overall Progress:** 7 of 9 tasks completed
+**Overall Progress:** 8 of 9 tasks completed
 
-**Current Task:** [Task 08](./08-view-runtime-cross-schema-coalesce.md) (todo)
+**Current Task:** [Task 09](./09-comprehensive-e2e-test-suite.md) (todo)
 
 ### Task List
 
@@ -721,5 +721,5 @@ After Phase 1 implementation is complete, the following work can begin:
 | 05  | [Reserved Slug Validation](./05-reserved-slug-validation.md)                                                 | AFK  | done   | Task 01                  |
 | 06  | [View Runtime: Schema Introspection + Single-Schema Execution](./06-view-runtime-single-schema-execution.md) | AFK  | done   | Task 01                  |
 | 07  | [View Runtime: Filter Execution](./07-view-runtime-filter-execution.md)                                      | AFK  | done   | Task 06                  |
-| 08  | [View Runtime: Cross-Schema COALESCE](./08-view-runtime-cross-schema-coalesce.md)                            | AFK  | todo   | Task 06                  |
+| 08  | [View Runtime: Cross-Schema COALESCE](./08-view-runtime-cross-schema-coalesce.md)                            | AFK  | done   | Task 06                  |
 | 09  | [Comprehensive E2E Test Suite](./09-comprehensive-e2e-test-suite.md)                                         | AFK  | todo   | Tasks 02, 03, 04, 07, 08 |
