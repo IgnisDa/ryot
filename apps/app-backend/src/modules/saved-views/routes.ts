@@ -47,7 +47,7 @@ const createSavedViewRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["saved-views"],
-		summary: "Create a saved view",
+		summary: "Create a user-defined saved view",
 		request: {
 			body: {
 				content: { "application/json": { schema: createSavedViewBody } },
@@ -68,7 +68,7 @@ const deleteSavedViewRoute = createAuthRoute(
 		method: "delete",
 		path: "/{viewId}",
 		tags: ["saved-views"],
-		summary: "Delete a saved view",
+		summary: "Delete a user-defined saved view",
 		request: { params: deleteSavedViewParams },
 		responses: {
 			400: payloadErrorResponse(),

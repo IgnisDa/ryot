@@ -59,7 +59,7 @@ const listTrackersRoute = createAuthRoute(
 		path: "",
 		method: "get",
 		tags: ["trackers"],
-		summary: "List trackers available for the user",
+		summary: "List trackers for the authenticated user",
 		responses: {
 			200: jsonResponse(
 				"Trackers available for the user",
@@ -74,7 +74,7 @@ const createTrackerRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["trackers"],
-		summary: "Create and enable a custom tracker",
+		summary: "Create an enabled custom tracker",
 		request: {
 			body: { content: { "application/json": { schema: createTrackerBody } } },
 		},
@@ -108,7 +108,7 @@ const reorderTrackersRoute = createAuthRoute(
 		method: "post",
 		tags: ["trackers"],
 		path: "/reorder",
-		summary: "Reorder trackers for the user",
+		summary: "Reorder visible trackers for the authenticated user",
 		request: {
 			body: {
 				content: { "application/json": { schema: reorderTrackersBody } },

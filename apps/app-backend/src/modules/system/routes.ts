@@ -23,7 +23,7 @@ const healthRoute = createRoute({
 	method: "get",
 	path: "/health",
 	tags: ["system"],
-	summary: "Check backend health",
+	summary: "Check database and Redis health",
 	responses: {
 		503: createErrorResponse(
 			"Database or Redis checks failed",
@@ -37,7 +37,7 @@ const metricsRoute = createRoute({
 	method: "get",
 	path: "/metrics",
 	tags: ["system"],
-	summary: "Export metrics in Prometheus format",
+	summary: "Export application metrics in Prometheus format",
 	responses: {
 		200: {
 			description: "Prometheus metrics in text format",
