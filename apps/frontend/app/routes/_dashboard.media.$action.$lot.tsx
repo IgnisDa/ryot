@@ -22,7 +22,7 @@ import {
 	GraphqlSortOrder,
 	GridPacking,
 	MediaGeneralFilter,
-	type MediaLot,
+	MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataSearchDocument,
@@ -84,6 +84,11 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
+import {
+	OnboardingTourStepTargets,
+	type TourControl,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -254,6 +259,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
+	const { isTourStarted, advanceTourStep } = useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
@@ -267,6 +273,8 @@ export default function Page() {
 			loaderData.mediaList?.url.collections,
 			defaultFilters.mineCollections,
 		);
+	const isEligibleForNextTourStep =
+		loaderData.lot === MediaLot.Movie && isTourStarted;
 
 	return (
 		<Container>
@@ -275,7 +283,7 @@ export default function Page() {
 				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
-					if (v)
+					if (v) {
 						navigate(
 							$path(
 								"/media/:action/:lot",
@@ -287,13 +295,21 @@ export default function Page() {
 								},
 							),
 						);
+						if (v === "search" && isTourStarted) {
+							advanceTourStep(400);
+						}
+					}
 				}}
 			>
 				<Tabs.List mb="xs" style={{ alignItems: "center" }}>
 					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
 						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
-					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+					<Tabs.Tab
+						value="search"
+						leftSection={<IconSearch size={24} />}
+						className={OnboardingTourStepTargets.Three}
+					>
 						<Text>Search</Text>
 					</Tabs.Tab>
 					<Box ml="auto" visibleFrom="md">
@@ -402,6 +418,14 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
+								tourControl={
+									isEligibleForNextTourStep
+										? {
+												target: OnboardingTourStepTargets.Four,
+												onTargetInteract: () => advanceTourStep(2000),
+											}
+										: undefined
+								}
 							/>
 							{mediaSearch.mediaSources.length > 1 ? (
 								<Select
@@ -429,11 +453,27 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{mediaSearch.search.items.map((b) => (
+									{mediaSearch.search.items.map((b, index) => (
 										<MediaSearchItem
 											item={b}
 											key={b.identifier}
 											source={mediaSearch.url.source}
+											tourControlOne={
+												isEligibleForNextTourStep && index === 0
+													? {
+															target: OnboardingTourStepTargets.Five,
+															onTargetInteract: () => advanceTourStep(2000),
+														}
+													: undefined
+											}
+											tourControlTwo={
+												isEligibleForNextTourStep && index === 0
+													? {
+															target: OnboardingTourStepTargets.Six,
+															onTargetInteract: () => advanceTourStep(200),
+														}
+													: undefined
+											}
 										/>
 									))}
 								</ApplicationGrid>
@@ -460,19 +500,21 @@ export default function Page() {
 
 const MediaSearchItem = (props: {
 	source: MediaSource;
+	tourControlOne?: TourControl;
+	tourControlTwo?: TourControl;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const gridPacking = userPreferences.general.gridPacking;
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 
+	const gridPacking = userPreferences.general.gridPacking;
 	const buttonSize =
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 
@@ -494,7 +536,7 @@ const MediaSearchItem = (props: {
 	};
 
 	return (
-		<Box>
+		<Box className={props.tourControlOne?.target}>
 			<BaseMediaDisplayItem
 				isLoading={false}
 				name={props.item.title}
@@ -543,9 +585,13 @@ const MediaSearchItem = (props: {
 					w="100%"
 					variant="outline"
 					size={buttonSize}
+					className={props.tourControlTwo?.target}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
+						if (props.tourControlTwo?.target) {
+							props.tourControlTwo.onTargetInteract();
+						}
 					}}
 				>
 					Mark as {getVerb(Verb.Read, loaderData.lot)}
@@ -555,6 +601,7 @@ const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					size={buttonSize}
+					className={props.tourControlOne?.target}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -574,6 +621,9 @@ const MediaSearchItem = (props: {
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
+						if (props.tourControlOne?.target) {
+							props.tourControlOne.onTargetInteract();
+						}
 					}}
 				>
 					Add to watchlist

@@ -18,15 +18,15 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: String,
     pub name: String,
+    pub lot: UserLot,
+    pub created_on: DateTimeUtc,
+    pub is_disabled: Option<bool>,
     #[graphql(skip)]
     pub password: Option<String>,
+    pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
-    pub created_on: DateTimeUtc,
     #[graphql(skip)]
     pub last_login_on: Option<DateTimeUtc>,
-    pub lot: UserLot,
-    pub is_disabled: Option<bool>,
-    pub preferences: UserPreferences,
     #[graphql(skip)]
     pub last_activity_on: Option<DateTimeUtc>,
     pub extra_information: Option<UserExtraInformation>,

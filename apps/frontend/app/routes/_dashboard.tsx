@@ -41,12 +41,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
-import {
-	upperFirst,
-	useCounter,
-	useDisclosure,
-	useLocalStorage,
-} from "@mantine/hooks";
+import { upperFirst, useCounter, useDisclosure } from "@mantine/hooks";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -92,9 +87,11 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import Joyride from "react-joyride";
 import {
 	Form,
 	Link,
@@ -137,6 +134,13 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
+	OnboardingTourStepTargets,
+	type TourControl,
+	onboardingTourSteps,
+	useOnboardingTour,
+	useOpenedSidebarLinks,
+} from "~/lib/state/general";
+import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -168,44 +172,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		request,
 		desktopSidebarCollapsedCookie,
 	);
-
-	const mediaLinks = [
-		...userPreferences.featuresEnabled.media.specific.map((f) => {
-			return { label: f, href: undefined };
-		}),
-		userPreferences.featuresEnabled.media.groups
-			? {
-					label: "Groups",
-					href: $path("/media/groups/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.people
-			? {
-					label: "People",
-					href: $path("/media/people/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.genres
-			? {
-					label: "Genres",
-					href: $path("/media/genre/list"),
-				}
-			: undefined,
-	]
-		.map((link, _index) =>
-			link
-				? {
-						label: changeCase(link.label),
-						link: link.href
-							? link.href
-							: $path("/media/:action/:lot", {
-									action: "list",
-									lot: link.label,
-								}),
-					}
-				: undefined,
-		)
-		.filter((link) => link !== undefined);
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
@@ -254,7 +220,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		!isDemoInstance;
 
 	return {
-		mediaLinks,
 		userDetails,
 		coreDetails,
 		fitnessLinks,
@@ -348,35 +313,18 @@ export function ErrorBoundary() {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
-		| {
-				media: boolean;
-				fitness: boolean;
-				settings: boolean;
-				collection: boolean;
-		  }
-		| undefined
-	>({
-		key: "SavedOpenedLinkGroups",
-		defaultValue: {
-			fitness: false,
-			media: false,
-			settings: false,
-			collection: false,
-		},
-		getInitialValueInEffect: true,
-	});
+	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
@@ -389,6 +337,43 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
+	const { isTourStarted, stepIndex, completeTour, advanceTourStep } =
+		useOnboardingTour();
+
+	const mediaLinks = [
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return {
+				label: changeCase(f),
+				link: $path("/media/:action/:lot", { action: "list", lot: f }),
+				tourControl:
+					isTourStarted && f === MediaLot.Movie
+						? ({
+								target: OnboardingTourStepTargets.Two,
+								onTargetInteract: () => advanceTourStep(1000),
+							} as TourControl)
+						: undefined,
+			};
+		}),
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					link: $path("/media/groups/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					link: $path("/media/people/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					link: $path("/media/genre/list"),
+				}
+			: undefined,
+	].filter((link) => link !== undefined);
+	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
 		bulkEditingCollectionState &&
@@ -407,6 +392,23 @@ export default function Layout() {
 
 	return (
 		<>
+			<ClientOnly>
+				{() => {
+					if (!isTourStarted) return null;
+					return (
+						<Joyride
+							hideBackButton
+							hideCloseButton
+							disableCloseOnEsc
+							disableOverlayClose
+							run={isTourStarted}
+							spotlightPadding={0}
+							stepIndex={stepIndex}
+							steps={onboardingTourSteps}
+						/>
+					);
+				}}
+			</ClientOnly>
 			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
@@ -537,6 +539,22 @@ export default function Layout() {
 				/>
 			</Modal>
 			<Modal
+				centered
+				withCloseButton={false}
+				onClose={() => completeTour()}
+				opened={stepIndex === onboardingTourSteps.length}
+			>
+				<Stack>
+					<Text>You've completed the onboarding tour!</Text>
+					<Text size="sm" c="dimmed">
+						You can restart the tour at any time from the profile settings.
+					</Text>
+					<Button variant="outline" onClick={() => completeTour()}>
+						Start using Ryot!
+					</Button>
+				</Stack>
+			</Modal>
+			<Modal
 				onClose={() => setEntityToReview(null)}
 				opened={entityToReview !== null}
 				withCloseButton={false}
@@ -563,6 +581,7 @@ export default function Layout() {
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
+
 			<AppShell
 				w="100%"
 				padding={0}
@@ -603,23 +622,27 @@ export default function Layout() {
 					</Flex>
 					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 						<LinksGroup
-							label="Dashboard"
-							icon={IconHome2}
-							href={$path("/")}
 							opened={false}
-							toggle={toggleMobileNavbar}
+							icon={IconHome2}
+							label="Dashboard"
 							setOpened={() => {}}
+							href={$path("/")}
+							toggle={toggleMobileNavbar}
 						/>
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
+								links={mediaLinks}
 								icon={IconDeviceSpeaker}
-								links={loaderData.mediaLinks}
-								opened={openedLinkGroups?.media || false}
 								toggle={toggleMobileNavbar}
+								opened={openedSidebarLinks.media || false}
+								tourControl={{
+									target: OnboardingTourStepTargets.One,
+									onTargetInteract: () => advanceTourStep(),
+								}}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.media = k;
 										}),
 									)
@@ -630,11 +653,11 @@ export default function Layout() {
 							<LinksGroup
 								label="Fitness"
 								icon={IconStretching}
-								opened={openedLinkGroups?.fitness || false}
+								opened={openedSidebarLinks.fitness || false}
 								toggle={toggleMobileNavbar}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.fitness = k;
 										}),
 									)
@@ -677,11 +700,11 @@ export default function Layout() {
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
-								opened={openedLinkGroups?.settings || false}
+								opened={openedSidebarLinks.settings || false}
 								toggle={toggleMobileNavbar}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.settings = k;
 										}),
 									)
@@ -820,30 +843,35 @@ interface LinksGroupProps {
 	label: string;
 	href?: string;
 	opened: boolean;
-	setOpened: (v: boolean) => void;
 	toggle: () => void;
-	links?: Array<{ label: string; link: string }>;
+	tourControl?: TourControl;
+	setOpened: (v: boolean) => void;
+	links?: Array<{ label: string; link: string; tourControl?: TourControl }>;
 }
 
 const LinksGroup = ({
-	icon: Icon,
-	label,
 	href,
-	setOpened,
-	toggle,
-	opened,
+	label,
 	links,
+	opened,
+	toggle,
+	setOpened,
+	icon: Icon,
+	tourControl,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
+
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const allLinks = (hasLinks ? links || [] : []).filter((s) => s !== undefined);
-	const items = allLinks.map((link) => (
+	const linkItems = (hasLinks ? links || [] : []).map((link) => (
 		<NavLink
-			className={classes.link}
 			to={link.link}
 			key={link.label}
-			onClick={toggle}
+			onClick={() => {
+				toggle();
+				link.tourControl?.onTargetInteract();
+			}}
+			className={clsx(classes.link, link.tourControl?.target)}
 		>
 			{({ isActive }) => (
 				<span style={isActive ? { textDecoration: "underline" } : undefined}>
@@ -854,16 +882,20 @@ const LinksGroup = ({
 	));
 
 	return (
-		<>
+		<Box>
 			<UnstyledButton<typeof Link>
+				className={clsx(classes.control, tourControl?.target)}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
 				onClick={() => {
-					if (hasLinks) setOpened(!opened);
-					else toggle();
+					if (hasLinks) {
+						setOpened(!opened);
+						setTimeout(() => tourControl?.onTargetInteract(), 200);
+						return;
+					}
+					toggle();
 				}}
-				className={classes.control}
 			>
 				<Group justify="space-between" gap={0}>
 					<Box style={{ display: "flex", alignItems: "center" }}>
@@ -890,8 +922,8 @@ const LinksGroup = ({
 					) : null}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
-		</>
+			{hasLinks ? <Collapse in={opened}>{linkItems}</Collapse> : null}
+		</Box>
 	);
 };
 
@@ -1115,8 +1147,10 @@ const MetadataNewProgressUpdateForm = ({
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
-	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
+	const { advanceTourStep } = useOnboardingTour();
+
+	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1346,7 +1380,9 @@ const MetadataNewProgressUpdateForm = ({
 				<Button
 					type="submit"
 					variant="outline"
+					onClick={() => advanceTourStep()}
 					disabled={selectedDate === undefined}
+					className={OnboardingTourStepTargets.Seven}
 				>
 					Submit
 				</Button>
