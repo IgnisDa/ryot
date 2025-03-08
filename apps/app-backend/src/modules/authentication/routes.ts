@@ -2,11 +2,7 @@ import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { db } from "~/lib/db";
-import {
-	builtinEntitySchemas,
-	builtinSavedViews,
-	builtinTrackers,
-} from "~/lib/db/seed/manifests";
+import { builtinEntitySchemas, builtinTrackers } from "~/lib/db/seed/manifests";
 import {
 	createAuthRoute,
 	createValidationErrorResult,
@@ -110,7 +106,29 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					userId: signUpResult.user.id,
 					views: buildAuthenticationSavedViewInputs({
 						trackers: createdTrackers,
-						savedViews: builtinSavedViews(),
+						savedViews: [
+							{
+								name: "All Books",
+								trackerSlug: "media",
+								entitySchemaSlug: "book",
+							},
+							{
+								name: "All Animes",
+								trackerSlug: "media",
+								entitySchemaSlug: "anime",
+							},
+							{
+								name: "All Mangas",
+								trackerSlug: "media",
+								entitySchemaSlug: "manga",
+							},
+							{
+								icon: "folders",
+								name: "Collections",
+								accentColor: "#F59E0B",
+								queryDefinition: { entitySchemaIds: [] },
+							},
+						],
 						entitySchemas: builtinEntitySchemaRows,
 					}),
 				});
