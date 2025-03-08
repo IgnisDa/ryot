@@ -470,7 +470,7 @@ export default function Page() {
 												isEligibleForNextTourStep && index === 0
 													? {
 															target: OnboardingTourStepTargets.Six,
-															onTargetInteract: () => advanceTourStep(2000),
+															onTargetInteract: () => advanceTourStep(200),
 														}
 													: undefined
 											}

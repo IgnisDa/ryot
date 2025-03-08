@@ -1130,8 +1130,10 @@ const MetadataNewProgressUpdateForm = ({
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
-	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
+	const { advanceTourStep } = useOnboardingTour();
+
+	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1361,7 +1363,9 @@ const MetadataNewProgressUpdateForm = ({
 				<Button
 					type="submit"
 					variant="outline"
+					onClick={() => advanceTourStep()}
 					disabled={selectedDate === undefined}
+					className={OnboardingTourStepTargets.Seven}
 				>
 					Submit
 				</Button>
