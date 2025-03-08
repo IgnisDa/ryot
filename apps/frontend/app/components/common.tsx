@@ -332,6 +332,7 @@ export const BaseMediaDisplayItem = (props: {
 	progress?: string;
 	isLoading: boolean;
 	nameRight?: ReactNode;
+	imageClassName?: string;
 	imageUrl?: string | null;
 	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
@@ -361,7 +362,7 @@ export const BaseMediaDisplayItem = (props: {
 	} as const;
 
 	return (
-		<Flex justify="space-between" direction="column" ref={props.innerRef}>
+		<Flex direction="column" ref={props.innerRef} justify="space-between">
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip
@@ -373,7 +374,7 @@ export const BaseMediaDisplayItem = (props: {
 							radius="md"
 							pos="relative"
 							style={{ overflow: "hidden" }}
-							className={clsx({
+							className={clsx(props.imageClassName, {
 								[classes.highlightImage]:
 									coreDetails.isServerKeyValidated && props.highlightImage,
 							})}

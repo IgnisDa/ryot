@@ -453,29 +453,42 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{mediaSearch.search.items.map((b, index) => (
-										<MediaSearchItem
-											item={b}
-											key={b.identifier}
-											source={mediaSearch.url.source}
-											tourControlOne={
-												isEligibleForNextTourStep && index === 0
-													? {
-															target: OnboardingTourStepTargets.Five,
-															onTargetInteract: () => advanceTourStep(2000),
-														}
-													: undefined
-											}
-											tourControlTwo={
-												isEligibleForNextTourStep && index === 0
-													? {
-															target: OnboardingTourStepTargets.Six,
-															onTargetInteract: () => advanceTourStep(200),
-														}
-													: undefined
-											}
-										/>
-									))}
+									{mediaSearch.search.items.map((b, index) => {
+										const isTourTarget =
+											isEligibleForNextTourStep && index === 0;
+
+										return (
+											<MediaSearchItem
+												item={b}
+												key={b.identifier}
+												source={mediaSearch.url.source}
+												tourControlOne={
+													isTourTarget
+														? {
+																target: OnboardingTourStepTargets.Five,
+																onTargetInteract: () => advanceTourStep(2000),
+															}
+														: undefined
+												}
+												tourControlTwo={
+													isTourTarget
+														? {
+																target: OnboardingTourStepTargets.Six,
+																onTargetInteract: () => advanceTourStep(200),
+															}
+														: undefined
+												}
+												tourControlThree={
+													isTourTarget
+														? {
+																target: OnboardingTourStepTargets.Eight,
+																onTargetInteract: () => advanceTourStep(2000),
+															}
+														: undefined
+												}
+											/>
+										);
+									})}
 								</ApplicationGrid>
 							</>
 						) : (
@@ -502,6 +515,7 @@ const MediaSearchItem = (props: {
 	source: MediaSource;
 	tourControlOne?: TourControl;
 	tourControlTwo?: TourControl;
+	tourControlThree?: TourControl;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
@@ -536,11 +550,12 @@ const MediaSearchItem = (props: {
 	};
 
 	return (
-		<Box className={props.tourControlOne?.target}>
+		<Box>
 			<BaseMediaDisplayItem
 				isLoading={false}
 				name={props.item.title}
 				imageUrl={props.item.image}
+				imageClassName={props.tourControlThree?.target}
 				labels={{
 					left: props.item.publishYear,
 					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
@@ -554,6 +569,9 @@ const MediaSearchItem = (props: {
 					setIsLoading(true);
 					const id = await basicCommit();
 					setIsLoading(false);
+					if (props.tourControlThree?.target) {
+						props.tourControlThree.onTargetInteract();
+					}
 					navigate($path("/media/item/:id", { id }));
 				}}
 				nameRight={
