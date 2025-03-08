@@ -62,13 +62,13 @@ import {
 	useDashboardLayoutData,
 	useUserDetails,
 } from "~/lib/hooks";
+import { OnboardingTourCompletedKey } from "~/lib/state/general";
 import {
 	createToastHeaders,
 	getDecodedJwt,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
-import { OnboardingTourCompletedKey } from "~/lib/state/general";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);

@@ -121,6 +121,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import type { TourControl } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -135,7 +136,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
-import type { TourControl } from "~/lib/state/general";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;

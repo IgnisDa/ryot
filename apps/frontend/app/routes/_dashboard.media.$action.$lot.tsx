@@ -85,6 +85,11 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
+	OnboardingTourStepTargets,
+	type TourControl,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
@@ -96,11 +101,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
-import {
-	OnboardingTourStepTargets,
-	type TourControl,
-	useOnboardingTour,
-} from "~/lib/state/general";
 
 export type SearchParams = {
 	query?: string;
