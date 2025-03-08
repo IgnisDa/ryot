@@ -158,7 +158,7 @@ export default function Page() {
 										)}
 									</ApplicationGrid>
 								) : (
-									<Text c="dimmed">No media in progress</Text>
+									<Text c="dimmed">No media in progress.</Text>
 								)}
 							</Section>
 						))
@@ -182,7 +182,7 @@ export default function Page() {
 								)}
 								{loaderData.userMetadataRecommendations.response.length ===
 								0 ? (
-									<Text c="dimmed">No recommendations available</Text>
+									<Text c="dimmed">No recommendations available.</Text>
 								) : null}
 							</Section>
 						))
