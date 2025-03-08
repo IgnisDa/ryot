@@ -86,7 +86,6 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
-	type TourControl,
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
@@ -453,42 +452,15 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{mediaSearch.search.items.map((b, index) => {
-										const isTourTarget =
-											isEligibleForNextTourStep && index === 0;
-
-										return (
-											<MediaSearchItem
-												item={b}
-												key={b.identifier}
-												source={mediaSearch.url.source}
-												tourControlOne={
-													isTourTarget
-														? {
-																target: OnboardingTourStepTargets.Five,
-																onTargetInteract: () => advanceTourStep(2000),
-															}
-														: undefined
-												}
-												tourControlTwo={
-													isTourTarget
-														? {
-																target: OnboardingTourStepTargets.Six,
-																onTargetInteract: () => advanceTourStep(200),
-															}
-														: undefined
-												}
-												tourControlThree={
-													isTourTarget
-														? {
-																target: OnboardingTourStepTargets.Eight,
-																onTargetInteract: () => advanceTourStep(2000),
-															}
-														: undefined
-												}
-											/>
-										);
-									})}
+									{mediaSearch.search.items.map((b, index) => (
+										<MediaSearchItem
+											item={b}
+											key={b.identifier}
+											isFirstItem={index === 0}
+											source={mediaSearch.url.source}
+											isEligibleForNextTourStep={isEligibleForNextTourStep}
+										/>
+									))}
 								</ApplicationGrid>
 							</>
 						) : (
@@ -513,9 +485,8 @@ export default function Page() {
 
 const MediaSearchItem = (props: {
 	source: MediaSource;
-	tourControlOne?: TourControl;
-	tourControlTwo?: TourControl;
-	tourControlThree?: TourControl;
+	isFirstItem: boolean;
+	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
@@ -527,10 +498,32 @@ const MediaSearchItem = (props: {
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const { advanceTourStep } = useOnboardingTour();
 
 	const gridPacking = userPreferences.general.gridPacking;
 	const buttonSize =
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
+
+	const tourControlOne = props.isFirstItem
+		? {
+				target: OnboardingTourStepTargets.Five,
+				onTargetInteract: () => advanceTourStep(2000),
+			}
+		: undefined;
+
+	const tourControlTwo = props.isFirstItem
+		? {
+				target: OnboardingTourStepTargets.Six,
+				onTargetInteract: () => advanceTourStep(200),
+			}
+		: undefined;
+
+	const tourControlThree = props.isFirstItem
+		? {
+				target: OnboardingTourStepTargets.Eight,
+				onTargetInteract: () => advanceTourStep(2000),
+			}
+		: undefined;
 
 	const basicCommit = async () => {
 		setIsLoading(true);
@@ -555,7 +548,7 @@ const MediaSearchItem = (props: {
 				isLoading={false}
 				name={props.item.title}
 				imageUrl={props.item.image}
-				imageClassName={props.tourControlThree?.target}
+				imageClassName={tourControlThree?.target}
 				labels={{
 					left: props.item.publishYear,
 					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
@@ -569,8 +562,8 @@ const MediaSearchItem = (props: {
 					setIsLoading(true);
 					const id = await basicCommit();
 					setIsLoading(false);
-					if (props.tourControlThree?.target) {
-						props.tourControlThree.onTargetInteract();
+					if (tourControlThree?.target) {
+						tourControlThree.onTargetInteract();
 					}
 					navigate($path("/media/item/:id", { id }));
 				}}
@@ -603,12 +596,12 @@ const MediaSearchItem = (props: {
 					w="100%"
 					variant="outline"
 					size={buttonSize}
-					className={props.tourControlTwo?.target}
+					className={tourControlTwo?.target}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
-						if (props.tourControlTwo?.target) {
-							props.tourControlTwo.onTargetInteract();
+						if (tourControlTwo?.target) {
+							tourControlTwo.onTargetInteract();
 						}
 					}}
 				>
@@ -619,7 +612,7 @@ const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					size={buttonSize}
-					className={props.tourControlOne?.target}
+					className={tourControlOne?.target}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -639,8 +632,8 @@ const MediaSearchItem = (props: {
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
-						if (props.tourControlOne?.target) {
-							props.tourControlOne.onTargetInteract();
+						if (tourControlOne?.target) {
+							tourControlOne.onTargetInteract();
 						}
 					}}
 				>
