@@ -138,14 +138,14 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
-							loaderData.inProgressCollectionContents.response.results.items
-								.length > 0 ? (
-								<Section key={v} lot={v}>
-									<SectionTitleWithRefreshIcon
-										text="In Progress"
-										cacheId={loaderData.inProgressCollectionContents.cacheId}
-									/>
+						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitleWithRefreshIcon
+									text="In Progress"
+									cacheId={loaderData.inProgressCollectionContents.cacheId}
+								/>
+								{loaderData.inProgressCollectionContents.response.results.items
+									.length > 0 ? (
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.response.results.items.map(
 											(lm) => (
@@ -157,9 +157,11 @@ export default function Page() {
 											),
 										)}
 									</ApplicationGrid>
-								</Section>
-							) : null,
-						)
+								) : (
+									<Text c="dimmed">No media in progress</Text>
+								)}
+							</Section>
+						))
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
