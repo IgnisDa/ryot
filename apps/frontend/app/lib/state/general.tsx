@@ -38,6 +38,7 @@ export enum OnboardingTourStepTargets {
 	Three = "tour-step-3",
 	Four = "tour-step-4",
 	Five = "tour-step-5",
+	Six = "tour-step-6",
 }
 
 export const onboardingTourSteps = (
@@ -67,12 +68,18 @@ export const onboardingTourSteps = (
 			content:
 				"Now, add this movie to your watchlist. Note: you can remove it later.",
 		},
+		{
+			target: OnboardingTourStepTargets.Six,
+			content:
+				"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
+		},
 	] as Step[]
 ).map((step) => ({
 	...step,
 	hideFooter: true,
 	disableBeacon: true,
 	spotlightClicks: true,
+	disableScrolling: true,
 	target: `.${step.target}`,
 }));
 

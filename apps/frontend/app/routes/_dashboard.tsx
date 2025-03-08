@@ -392,18 +392,21 @@ export default function Layout() {
 	return (
 		<>
 			<ClientOnly>
-				{() => (
-					<Joyride
-						hideBackButton
-						hideCloseButton
-						disableCloseOnEsc
-						disableOverlayClose
-						run={isTourStarted}
-						spotlightPadding={0}
-						stepIndex={stepIndex}
-						steps={onboardingTourSteps}
-					/>
-				)}
+				{() => {
+					if (!isTourStarted) return null;
+					return (
+						<Joyride
+							hideBackButton
+							hideCloseButton
+							disableCloseOnEsc
+							disableOverlayClose
+							run={isTourStarted}
+							spotlightPadding={0}
+							stepIndex={stepIndex}
+							steps={onboardingTourSteps}
+						/>
+					);
+				}}
 			</ClientOnly>
 			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
@@ -600,17 +603,14 @@ export default function Layout() {
 							color={theme.colors.gray[6]}
 						/>
 					</Flex>
-					<Box
-						component={ScrollArea}
-						style={{ flexGrow: 1, overflow: "initial" }}
-					>
+					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 						<LinksGroup
-							label="Dashboard"
-							icon={IconHome2}
-							href={$path("/")}
 							opened={false}
-							toggle={toggleMobileNavbar}
+							icon={IconHome2}
+							label="Dashboard"
 							setOpened={() => {}}
+							href={$path("/")}
+							toggle={toggleMobileNavbar}
 						/>
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
