@@ -197,7 +197,7 @@ export default function Page() {
 						color="green"
 						variant="outline"
 						className={OnboardingTourStepTargets.Thirteen}
-						onClick={() => {
+						onClick={async () => {
 							if (
 								!coreDetails.isServerKeyValidated &&
 								loaderData.entity === FitnessEntity.Templates
@@ -215,7 +215,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
-							advanceTourStep();
+							await advanceTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>

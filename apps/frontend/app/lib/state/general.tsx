@@ -87,7 +87,7 @@ export const useOnboardingTour = () => {
 		window.location.href = "/";
 	};
 
-	const advanceTourStep = () => {
+	const advanceTourStep = async () => {
 		if (!isTourStarted) return;
 
 		setTourState((ts) =>
@@ -96,8 +96,8 @@ export const useOnboardingTour = () => {
 			}),
 		);
 
-		setTimeout(
-			() =>
+		return new Promise<void>((resolve) => {
+			setTimeout(() => {
 				setTourState((ts) =>
 					produce(ts, (draft) => {
 						if (draft) {
@@ -106,9 +106,10 @@ export const useOnboardingTour = () => {
 							draft.currentStepIndex = nextStepIndex;
 						}
 					}),
-				),
-			2000,
-		);
+				);
+				resolve();
+			}, 2000);
+		});
 	};
 
 	const StepWrapper = ({ children }: { children: ReactNode }) => (
