@@ -1,4 +1,4 @@
-import { useMantineTheme } from "@mantine/core";
+import { Button, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isBoolean, isNumber } from "@ryot/ts-utils";
 import { atom, useAtom } from "jotai";
@@ -56,6 +56,26 @@ export const useOnboardingTour = () => {
 	const isTourStarted = isNumber(tourState?.currentStepIndex);
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+
+	const startTour = () => {
+		setOpenedSidebarLinks(defaultSidebarLinksState);
+		setTourState({ currentStepIndex: 0 });
+	};
+
+	const completeTour = () => {
+		setTourState(undefined);
+		localStorage.setItem(OnboardingTourCompletedKey, "true");
+		window.location.href = "/";
+	};
+
+	const advanceTourStep = () => {
+		if (!isTourStarted) return;
+
+		const nextStepIndex = tourState.currentStepIndex + 1;
+
+		setTimeout(() => setTourState({ currentStepIndex: nextStepIndex }), 2000);
+	};
+
 	const onboardingTourSteps = (
 		[
 			{
@@ -111,8 +131,15 @@ export const useOnboardingTour = () => {
 			{
 				hideFooter: false,
 				target: OnboardingTourStepTargets.Ten,
-				content:
-					"Here are all the movies in your library. Click on the next button to continue to the fitness section.",
+				content: (
+					<Stack>
+						<Text>
+							Here are all the movies in your library. Click on the next button
+							to continue to the fitness section.
+						</Text>
+						<Button onClick={advanceTourStep}>Next</Button>
+					</Stack>
+				),
 			},
 		] as Step[]
 	).map((step) => ({
@@ -123,25 +150,6 @@ export const useOnboardingTour = () => {
 	}));
 	const isOnLastTourStep =
 		tourState?.currentStepIndex === onboardingTourSteps.length;
-
-	const startTour = () => {
-		setOpenedSidebarLinks(defaultSidebarLinksState);
-		setTourState({ currentStepIndex: 0 });
-	};
-
-	const completeTour = () => {
-		setTourState(undefined);
-		localStorage.setItem(OnboardingTourCompletedKey, "true");
-		window.location.href = "/";
-	};
-
-	const advanceTourStep = () => {
-		if (!isTourStarted) return;
-
-		const nextStepIndex = tourState.currentStepIndex + 1;
-
-		setTimeout(() => setTourState({ currentStepIndex: nextStepIndex }), 2000);
-	};
 
 	useEffect(() => {
 		if (typeof isMobile === "undefined" || isMobile) return;
