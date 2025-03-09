@@ -1,3 +1,5 @@
+import { useMantineTheme } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
@@ -109,6 +111,8 @@ export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const isTourStarted = isNumber(tourState?.currentStepIndex);
+	const theme = useMantineTheme();
+	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
 	const startTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
@@ -133,10 +137,11 @@ export const useOnboardingTour = () => {
 	};
 
 	useEffect(() => {
-		const completed = localStorage.getItem(OnboardingTourCompletedKey);
+		if (typeof isMobile === "undefined" || isMobile) return;
 
+		const completed = localStorage.getItem(OnboardingTourCompletedKey);
 		if (!completed && !isTourStarted) startTour();
-	}, []);
+	}, [isMobile]);
 
 	return {
 		completeTour,
