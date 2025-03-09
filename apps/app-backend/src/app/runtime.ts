@@ -8,7 +8,10 @@ import {
 	shutdownWorkers,
 } from "~/lib/queue";
 import { initializeRedis, shutdownRedis } from "~/lib/redis";
-import { initializeSandboxService, shutdownSandboxService } from "~/sandbox";
+import {
+	initializeSandboxService,
+	shutdownSandboxService,
+} from "~/lib/sandbox";
 import { app } from "./server";
 
 export const startServer = async () => {

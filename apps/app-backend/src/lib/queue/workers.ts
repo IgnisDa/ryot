@@ -1,6 +1,6 @@
 import { type Job, Worker } from "bullmq";
-import { getSandboxService } from "~/sandbox";
-import { sandboxRunJobData, sandboxRunJobName } from "~/sandbox/jobs";
+import { getSandboxService } from "~/lib/sandbox";
+import { sandboxRunJobData, sandboxRunJobName } from "~/lib/sandbox/jobs";
 import { getRedisConnection } from "./connection";
 
 const processSandboxRunJob = async (job: Job) => {
