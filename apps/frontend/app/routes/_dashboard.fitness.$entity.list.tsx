@@ -94,7 +94,10 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.list";
-import { OnboardingTourStepTargets } from "~/lib/state/general";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 
 const defaultFilters = {
 	orderBy: GraphqlSortOrder.Desc,
@@ -173,6 +176,8 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const { advanceTourStep } = useOnboardingTour();
+
 	const isFilterChanged =
 		loaderData.query.sortBy !== defaultFilters.sortBy ||
 		loaderData.query.orderBy !== defaultFilters.orderBy;
@@ -210,6 +215,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
+							advanceTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>
