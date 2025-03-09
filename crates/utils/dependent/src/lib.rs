@@ -681,7 +681,7 @@ pub async fn send_notification_for_user(
             );
             continue;
         }
-        if !platform.configured_events.contains(&change) {
+        if !platform.configured_events.contains(change) {
             ryot_log!(
                 debug,
                 "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
