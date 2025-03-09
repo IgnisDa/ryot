@@ -141,6 +141,10 @@ import {
 } from "~/lib/utilities.server";
 import { MetadataSpecificsSchema } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 
 const JUST_WATCH_URL = "https://www.justwatch.com";
 
@@ -284,11 +288,11 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
+	const { advanceTourStep } = useOnboardingTour();
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
-
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -583,7 +587,12 @@ export default function Page() {
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							<Tabs.Tab
+								value="actions"
+								onClick={() => advanceTourStep(200)}
+								leftSection={<IconUser size={16} />}
+								className={OnboardingTourStepTargets.Nine}
+							>
 								Actions
 							</Tabs.Tab>
 							<Tabs.Tab

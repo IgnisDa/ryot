@@ -41,6 +41,7 @@ export enum OnboardingTourStepTargets {
 	Six = "tour-step-6",
 	Seven = "tour-step-7",
 	Eight = "tour-step-8",
+	Nine = "tour-step-9",
 }
 
 export const onboardingTourSteps = (
@@ -84,6 +85,11 @@ export const onboardingTourSteps = (
 			target: OnboardingTourStepTargets.Eight,
 			content:
 				"Great! Now, let's view some more details about the movie. Click on the movie to continue.",
+		},
+		{
+			target: OnboardingTourStepTargets.Nine,
+			content:
+				"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
 		},
 	] as Step[]
 ).map((step) => ({
