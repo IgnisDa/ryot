@@ -1,10 +1,10 @@
-import { Button, Stack, Text, useMantineTheme } from "@mantine/core";
+import { Box, Button, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
 
 type OpenedSidebarLinks = {
@@ -102,91 +102,154 @@ export const useOnboardingTour = () => {
 		);
 	};
 
+	const StepWrapper = ({ children }: { children: ReactNode }) => (
+		<Stack>
+			<Box>{children}</Box>
+			<Text size="sm" c="dimmed">
+				Step {(tourState?.currentStepIndex || 0) + 1} of{" "}
+				{onboardingTourSteps.length}
+			</Text>
+		</Stack>
+	);
+
 	const onboardingTourSteps = (
 		[
 			{
 				target: OnboardingTourStepTargets.Zero,
-				content:
-					"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+				content: (
+					<StepWrapper>
+						Welcome to Ryot! Let's get started by adding a movie to your
+						watchlist. Click on the media section in the sidebar to see what all
+						you can track.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.One,
-				content:
-					"Now, click on the movies section to start tracking your favorite movies.",
+				content: (
+					<StepWrapper>
+						Now, click on the movies section to start tracking your favorite
+						movies.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Two,
-				content:
-					"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
+				content: (
+					<StepWrapper>
+						Let's start by adding a movie to your watchlist. Click on the search
+						tab to search for a movie.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Three,
-				content:
-					"You can find any movie here. Let us proceed by searching for 'avengers'.",
+				content: (
+					<StepWrapper>
+						You can find any movie here. Let us proceed by searching for
+						'avengers'.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Four,
-				content:
-					"Now, add this movie to your watchlist. Note: you can remove it later.",
+				content: (
+					<StepWrapper>
+						Now, add this movie to your watchlist. Note: you can remove it
+						later.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Five,
-				content:
-					"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
+				content: (
+					<StepWrapper>
+						Great! You've added your first movie to your watchlist. Now, let's
+						add it to your watched history.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Six,
-				content:
-					"Select a desired date that you watched the movie and click on the 'Submit' button.",
+				content: (
+					<StepWrapper>
+						Select a desired date that you watched the movie and click on the
+						'Submit' button.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Seven,
-				content:
-					"Great! Now, let's view some more details about the movie. Click on the movie to continue.",
+				content: (
+					<StepWrapper>
+						Great! Now, let's view some more details about the movie. Click on
+						the movie to continue.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Eight,
-				content:
-					"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
+				content: (
+					<StepWrapper>
+						The most important tab is the 'Actions' tab. Here you can add the
+						movie to your collection, mark it as watched, etc.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Nine,
-				content:
-					"Great! Let's go back to the movies section and see your library.",
+				content: (
+					<StepWrapper>
+						Great! Let's go back to the movies section and see your library.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Ten,
 				content: (
-					<Stack>
-						<Text>
-							Here are all the movies in your library. Click on the next button
-							to continue to the fitness section.
-						</Text>
-						<Button.Group>
-							<Button onClick={advanceTourStep} fullWidth>
-								Next
-							</Button>
-							<Button variant="outline" onClick={completeTour}>
-								Skip fitness section
-							</Button>
-						</Button.Group>
-					</Stack>
+					<StepWrapper>
+						<Stack>
+							<Text>
+								Here are all the movies in your library. Click on the next
+								button to continue to the fitness section.
+							</Text>
+							<Button.Group>
+								<Button onClick={advanceTourStep} fullWidth>
+									Next
+								</Button>
+								<Button variant="outline" onClick={completeTour}>
+									Skip fitness section
+								</Button>
+							</Button.Group>
+						</Stack>
+					</StepWrapper>
 				),
 			},
 			{
 				target: OnboardingTourStepTargets.Eleven,
-				content:
-					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
+				content: (
+					<StepWrapper>
+						Let's move on to the fitness section. Click on the corresponding in
+						the sidebar.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Twelve,
-				content:
-					"Click on the 'Workouts' section to see all your workouts and start a new one.",
+				content: (
+					<StepWrapper>
+						Click on the 'Workouts' section to see all your workouts and start a
+						new one.
+					</StepWrapper>
+				),
 			},
 			{
 				target: OnboardingTourStepTargets.Thirteen,
-				content:
-					"This is the workouts section. Let's start by adding a new workout.",
+				content: (
+					<StepWrapper>
+						This is the workouts section. Let's start by adding a new workout.
+					</StepWrapper>
+				),
 			},
 		] as Step[]
 	).map((step) => ({
