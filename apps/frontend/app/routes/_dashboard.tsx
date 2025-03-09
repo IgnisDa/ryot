@@ -407,6 +407,7 @@ export default function Layout() {
 							spotlightPadding={0}
 							stepIndex={stepIndex}
 							steps={onboardingTourSteps}
+							styles={{ overlay: { zIndex: 120 } }}
 						/>
 					);
 				}}
