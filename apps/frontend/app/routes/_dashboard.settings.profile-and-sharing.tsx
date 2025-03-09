@@ -252,27 +252,20 @@ export default function Page() {
 								</Stack>
 							</Form>
 							<ClientOnly>
-								{() => {
-									const isOnboardingTourCompleted = localStorage.getItem(
-										OnboardingTourCompletedKey,
-									);
-									if (!isOnboardingTourCompleted) return null;
-
-									return (
-										<>
-											<Divider />
-											<Button
-												variant="default"
-												onClick={() => {
-													localStorage.removeItem(OnboardingTourCompletedKey);
-													window.location.href = "/";
-												}}
-											>
-												Restart onboarding
-											</Button>
-										</>
-									);
-								}}
+								{() => (
+									<>
+										<Divider />
+										<Button
+											variant="default"
+											onClick={() => {
+												localStorage.removeItem(OnboardingTourCompletedKey);
+												window.location.href = "/";
+											}}
+										>
+											Restart onboarding
+										</Button>
+									</>
+								)}
 							</ClientOnly>
 						</Stack>
 					</Tabs.Panel>
