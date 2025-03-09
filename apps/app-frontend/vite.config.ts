@@ -7,7 +7,6 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import openapiTS, { astToString } from "openapi-typescript";
 import { defineConfig, type Plugin } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 const openApiRefreshInterval = 10 * 1000;
 const openApiGeneratedBanner = `/**
@@ -104,11 +103,11 @@ const openApiTypesPlugin = (): Plugin => {
 };
 
 const config = defineConfig({
+	resolve: { tsconfigPaths: true },
 	server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
 	plugins: [
 		devtools(),
 		openApiTypesPlugin(),
-		tsconfigPaths({ projects: ["./tsconfig.json"] }),
 		tanstackStart({ spa: { enabled: true } }),
 		viteReact(),
 	],
