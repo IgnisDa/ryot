@@ -1,7 +1,7 @@
 import { Button, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
 import type { Step } from "react-joyride";
@@ -49,7 +49,9 @@ export enum OnboardingTourStepTargets {
 	Thirteen = "tour-step-13",
 }
 
-const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
+const onboardingTourAtom = atomWithStorage<
+	{ currentStepIndex: number } | undefined
+>("OnboardingTour", undefined);
 
 export const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 
