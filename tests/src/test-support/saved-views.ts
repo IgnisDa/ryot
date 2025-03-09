@@ -1,7 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import type createClient from "openapi-fetch";
+import type { Client } from "../helpers";
 
-type Client = ReturnType<typeof createClient<paths>>;
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
