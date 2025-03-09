@@ -381,12 +381,14 @@ export default function Layout() {
 			?.filter((f) => f.enabled)
 			.map((f) => ({
 				label: changeCase(f.name.toString()),
-				href: joinURL("/fitness", f.name, "list"),
+				link: joinURL("/fitness", f.name, "list"),
+				tourControlTarget:
+					isTourStarted && f.name === "workouts"
+						? OnboardingTourStepTargets.Twelve
+						: undefined,
 			})) || []),
-		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-	]
-		.filter((link) => link !== undefined)
-		.map((link) => ({ label: link.label, link: link.href }));
+		{ label: "Exercises", link: $path("/fitness/exercises/list") },
+	].filter((link) => link !== undefined);
 
 	return (
 		<>

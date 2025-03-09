@@ -45,6 +45,7 @@ export enum OnboardingTourStepTargets {
 	Nine = "tour-step-9",
 	Ten = "tour-step-10",
 	Eleven = "tour-step-11",
+	Twelve = "tour-step-12",
 }
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
@@ -145,6 +146,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.Eleven,
 				content:
 					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
+			},
+			{
+				target: OnboardingTourStepTargets.Twelve,
+				content:
+					"Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 		] as Step[]
 	).map((step) => ({
