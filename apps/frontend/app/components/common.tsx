@@ -138,6 +138,7 @@ import {
 } from "./media";
 
 export const ApplicationGrid = (props: {
+	className?: string;
 	children: ReactNode | Array<ReactNode>;
 }) => {
 	const userPreferences = useUserPreferences();
@@ -147,6 +148,7 @@ export const ApplicationGrid = (props: {
 		<SimpleGrid
 			spacing="lg"
 			ref={parent}
+			className={props.className}
 			cols={match(userPreferences.general.gridPacking)
 				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
 				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))

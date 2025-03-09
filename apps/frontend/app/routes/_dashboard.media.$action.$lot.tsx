@@ -328,7 +328,7 @@ export default function Page() {
 				</Tabs.List>
 			</Tabs>
 
-			<Stack className={OnboardingTourStepTargets.Ten}>
+			<Stack>
 				{loaderData.mediaList ? (
 					<>
 						<Group wrap="nowrap">
@@ -362,7 +362,7 @@ export default function Page() {
 						!coreDetails.isServerKeyValidated ? (
 							<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 						) : loaderData.mediaList.list.response.details.total > 0 ? (
-							<ApplicationGrid>
+							<ApplicationGrid className={OnboardingTourStepTargets.Ten}>
 								{loaderData.mediaList.list.response.items.map((item) => {
 									const becItem = {
 										entityId: item,
