@@ -417,12 +417,9 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								tourControl={
+								tourControlTarget={
 									isEligibleForNextTourStep
-										? {
-												onTargetInteract: advanceTourStep,
-												target: OnboardingTourStepTargets.Three,
-											}
+										? OnboardingTourStepTargets.Three
 										: undefined
 								}
 							/>

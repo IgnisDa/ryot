@@ -135,7 +135,6 @@ import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
-	type TourControl,
 	onboardingTourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
@@ -340,7 +339,6 @@ export default function Layout() {
 	const {
 		completeTour,
 		isTourStarted,
-		advanceTourStep,
 		isOnLastTourStep,
 		currentTourStepIndex,
 	} = useOnboardingTour();
@@ -350,12 +348,9 @@ export default function Layout() {
 			return {
 				label: changeCase(f),
 				link: $path("/media/:action/:lot", { action: "list", lot: f }),
-				tourControl:
+				tourControlTarget:
 					isTourStarted && f === MediaLot.Movie
-						? ({
-								onTargetInteract: advanceTourStep,
-								target: `${OnboardingTourStepTargets.One} ${OnboardingTourStepTargets.Nine}`,
-							} as TourControl)
+						? `${OnboardingTourStepTargets.One} ${OnboardingTourStepTargets.Nine}`
 						: undefined,
 			};
 		}),
@@ -644,10 +639,7 @@ export default function Layout() {
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.media || false}
-								tourControl={{
-									target: OnboardingTourStepTargets.Zero,
-									onTargetInteract: () => advanceTourStep(),
-								}}
+								tourControlTarget={OnboardingTourStepTargets.Zero}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -852,9 +844,9 @@ interface LinksGroupProps {
 	href?: string;
 	opened: boolean;
 	toggle: () => void;
-	tourControl?: TourControl;
+	tourControlTarget?: string;
 	setOpened: (v: boolean) => void;
-	links?: Array<{ label: string; link: string; tourControl?: TourControl }>;
+	links?: Array<{ label: string; link: string; tourControlTarget?: string }>;
 }
 
 const LinksGroup = ({
@@ -865,9 +857,10 @@ const LinksGroup = ({
 	toggle,
 	setOpened,
 	icon: Icon,
-	tourControl,
+	tourControlTarget,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
+	const { advanceTourStep } = useOnboardingTour();
 
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
@@ -875,11 +868,11 @@ const LinksGroup = ({
 		<NavLink
 			to={link.link}
 			key={link.label}
+			className={clsx(classes.link, link.tourControlTarget)}
 			onClick={() => {
 				toggle();
-				link.tourControl?.onTargetInteract();
+				advanceTourStep();
 			}}
-			className={clsx(classes.link, link.tourControl?.target)}
 		>
 			{({ isActive }) => (
 				<span style={isActive ? { textDecoration: "underline" } : undefined}>
@@ -892,14 +885,14 @@ const LinksGroup = ({
 	return (
 		<Box>
 			<UnstyledButton<typeof Link>
-				className={clsx(classes.control, tourControl?.target)}
+				className={clsx(classes.control, tourControlTarget)}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
 				onClick={() => {
 					if (hasLinks) {
 						setOpened(!opened);
-						setTimeout(() => tourControl?.onTargetInteract(), 200);
+						advanceTourStep();
 						return;
 					}
 					toggle();

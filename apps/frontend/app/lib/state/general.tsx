@@ -32,8 +32,6 @@ export const useOpenedSidebarLinks = () => {
 	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
 
-export type TourControl = { target: string; onTargetInteract: () => void };
-
 export enum OnboardingTourStepTargets {
 	Zero = "tour-step-0",
 	One = "tour-step-1",
@@ -67,7 +65,7 @@ export const onboardingTourSteps = (
 		{
 			target: OnboardingTourStepTargets.Three,
 			content:
-				"Now search for 'avengers'. Note: the tour will progress only when you search for 'avengers'.",
+				"You can find any movie here. Let us proceed by searching for 'avengers'.",
 		},
 		{
 			target: OnboardingTourStepTargets.Four,

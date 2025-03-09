@@ -129,6 +129,10 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
 	useReviewEntity,
@@ -141,10 +145,6 @@ import {
 } from "~/lib/utilities.server";
 import { MetadataSpecificsSchema } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
-import {
-	OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
 
 const JUST_WATCH_URL = "https://www.justwatch.com";
 
