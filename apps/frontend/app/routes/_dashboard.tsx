@@ -354,7 +354,7 @@ export default function Layout() {
 					isTourStarted && f === MediaLot.Movie
 						? ({
 								onTargetInteract: advanceTourStep,
-								target: OnboardingTourStepTargets.One,
+								target: `${OnboardingTourStepTargets.One} ${OnboardingTourStepTargets.Nine}`,
 							} as TourControl)
 						: undefined,
 			};
