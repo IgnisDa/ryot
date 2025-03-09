@@ -504,7 +504,7 @@ function BrutalistTheme() {
 								<Group gap="md">
 									<Button
 										variant="outline"
-										color="dark.5"
+										color={textMuted}
 										size="md"
 										onClick={() =>
 											setColorScheme(colorScheme === "dark" ? "light" : "dark")
