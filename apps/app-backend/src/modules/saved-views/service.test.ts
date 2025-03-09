@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -12,7 +13,6 @@ import {
 	deleteSavedView,
 	resolveSavedViewName,
 	type SavedViewServiceDeps,
-	type SavedViewServiceResult,
 	updateSavedView,
 } from "./service";
 
@@ -96,14 +96,6 @@ const createDeps = (
 		}),
 	...overrides,
 });
-
-const expectDataResult = <T>(result: SavedViewServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveSavedViewName", () => {
 	it("trims the provided name", () => {

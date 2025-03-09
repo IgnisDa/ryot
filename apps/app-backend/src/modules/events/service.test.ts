@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import type { CreateEventBody, ListedEvent } from "./schemas";
 import {
 	createEvent,
 	type EventServiceDeps,
-	type EventServiceResult,
 	listEntityEvents,
 	parseEventProperties,
 	resolveEventCreateInput,
@@ -64,14 +64,6 @@ const createDeps = (
 	listEventsByEntityForUser: async () => [createListedEvent()],
 	...overrides,
 });
-
-const expectDataResult = <T>(result: EventServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveEventEntityId", () => {
 	it("trims the provided entity id", () => {
