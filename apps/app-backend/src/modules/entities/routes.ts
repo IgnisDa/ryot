@@ -42,6 +42,7 @@ const listEntitiesRoute = createAuthRoute(
 	createRoute({
 		path: "/",
 		method: "get",
+		deprecated: true,
 		tags: ["entities"],
 		request: { query: listEntitiesQuery },
 		summary: "List entities for a custom entity schema",
