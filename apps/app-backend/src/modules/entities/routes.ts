@@ -34,11 +34,11 @@ const foundEntityResponseSchema = dataSchema(
 	z.object({
 		id: z.string(),
 		name: z.string(),
-		properties: z.unknown(),
 		created_at: z.string(),
 		updated_at: z.string(),
 		schema_slug: z.string(),
 		external_id: z.string(),
+		properties: z.unknown(),
 		details_script_id: z.string(),
 	}),
 );
