@@ -101,9 +101,8 @@ export const useOnboardingTour = () => {
 				setTourState((ts) =>
 					produce(ts, (draft) => {
 						if (draft) {
-							const nextStepIndex = tourState.currentStepIndex + 1;
 							draft.isLoading = undefined;
-							draft.currentStepIndex = nextStepIndex;
+							draft.currentStepIndex = tourState.currentStepIndex + 1;
 						}
 					}),
 				);
