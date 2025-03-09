@@ -1,6 +1,6 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "~/db";
+import { db } from "~/lib/db";
 import {
 	EntitySchemaSandboxScriptKind,
 	entitySchema,
@@ -9,7 +9,7 @@ import {
 	type FacetMode,
 	facet,
 	sandboxScript,
-} from "~/db/schema";
+} from "~/lib/db/schema";
 
 export const ensureBuiltinFacet = async (input: {
 	slug: string;
