@@ -24,6 +24,12 @@ Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh`
 
 ## Coding Standards
 
+### Pattern Discovery Before Writing New Code
+
+Before writing new code for any feature or module, always launch a subagent (using the `explore` agent type) to explore related modules and features in the codebase. The goal is to identify existing patterns — naming conventions, component structure, data fetching approaches, state management, error handling, tests, etc. — and replicate them in the new code.
+
+This ensures consistency across the codebase and avoids introducing divergent patterns.
+
 ### Code Comments
 
 Do not add code comments unless strictly necessary. Prefer self-documenting code with clear variable names, function names, and structure.
