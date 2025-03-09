@@ -328,7 +328,7 @@ export default function Page() {
 				</Tabs.List>
 			</Tabs>
 
-			<Stack>
+			<Stack className={OnboardingTourStepTargets.Ten}>
 				{loaderData.mediaList ? (
 					<>
 						<Group wrap="nowrap">

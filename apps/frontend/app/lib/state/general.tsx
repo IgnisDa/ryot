@@ -1,6 +1,6 @@
 import { useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { isNumber } from "@ryot/ts-utils";
+import { isBoolean, isNumber } from "@ryot/ts-utils";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
@@ -43,6 +43,7 @@ export enum OnboardingTourStepTargets {
 	Seven = "tour-step-7",
 	Eight = "tour-step-8",
 	Nine = "tour-step-9",
+	Ten = "tour-step-10",
 }
 
 export const onboardingTourSteps = (
@@ -97,12 +98,18 @@ export const onboardingTourSteps = (
 			content:
 				"Great! Let's go back to the movies section and see your library.",
 		},
+		{
+			hideFooter: false,
+			target: OnboardingTourStepTargets.Ten,
+			content:
+				"Here are all the movies in your library. Click on the next button to continue to the fitness section.",
+		},
 	] as Step[]
 ).map((step) => ({
 	...step,
-	hideFooter: true,
 	disableBeacon: true,
 	target: `.${step.target}`,
+	hideFooter: isBoolean(step.hideFooter) ? step.hideFooter : true,
 }));
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
