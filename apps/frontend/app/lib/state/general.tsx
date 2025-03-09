@@ -162,7 +162,14 @@ export const useOnboardingTour = () => {
 							Here are all the movies in your library. Click on the next button
 							to continue to the fitness section.
 						</Text>
-						<Button onClick={advanceTourStep}>Next</Button>
+						<Button.Group>
+							<Button onClick={advanceTourStep} fullWidth>
+								Next
+							</Button>
+							<Button variant="outline" onClick={completeTour}>
+								Skip fitness section
+							</Button>
+						</Button.Group>
 					</Stack>
 				),
 			},
