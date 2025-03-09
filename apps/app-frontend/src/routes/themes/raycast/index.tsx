@@ -44,16 +44,16 @@ const raycastTheme = createTheme({
 	defaultRadius: "md",
 	colors: {
 		dark: [
-			"#FFFFFF",
-			"#AEAEB2",
-			"#86868B",
-			"#48484A",
-			"#2C2C2E",
-			"#242426",
-			"#1C1C1E",
-			"#161618",
-			"#111113",
-			"#000000",
+			"#EDEDED",
+			"#B0B0B0",
+			"#808080",
+			"#404040",
+			"#1E1E1E",
+			"#171717",
+			"#121212",
+			"#0E0E0E",
+			"#0A0A0A",
+			"#050505",
 		],
 		red: [
 			"#FFE5E5",
@@ -73,10 +73,10 @@ const raycastTheme = createTheme({
 			"#DDD6FE",
 			"#C4B5FD",
 			"#A78BFA",
-			"#8B5CF6",
-			"#7C3AED",
-			"#6D28D9",
-			"#5B21B6",
+			"#9333EA",
+			"#7E22CE",
+			"#6B21A8",
+			"#581C87",
 			"#4C1D95",
 		],
 		teal: [
@@ -91,6 +91,18 @@ const raycastTheme = createTheme({
 			"#234E52",
 			"#1D4044",
 		],
+		cyan: [
+			"#ECFEFF",
+			"#CFFAFE",
+			"#A5F3FC",
+			"#67E8F9",
+			"#22D3EE",
+			"#06B6D4",
+			"#0891B2",
+			"#0E7490",
+			"#155E75",
+			"#164E63",
+		],
 	},
 });
 
@@ -99,13 +111,13 @@ function RaycastTheme() {
 
 	return (
 		<MantineProvider theme={raycastTheme} forceColorScheme={colorScheme}>
-			<Flex h="100vh" bg="dark.6">
+			<Flex h="100vh" bg="dark.8">
 				<Box
 					w={280}
-					bg="dark.4"
+					bg="dark.9"
 					style={{
-						borderRight: "1px solid var(--mantine-color-dark-3)",
-						boxShadow: "2px 0 8px rgba(0, 0, 0, 0.1)",
+						borderRight: "1px solid rgba(255, 255, 255, 0.06)",
+						boxShadow: "2px 0 12px rgba(0, 0, 0, 0.3)",
 					}}
 				>
 					<Stack gap={0} h="100%">
@@ -403,9 +415,11 @@ function RaycastTheme() {
 									styles={{
 										root: {
 											boxShadow: "0 2px 8px rgba(255, 99, 99, 0.3)",
+											transition: "all 0.2s ease",
 											"&:hover": {
 												transform: "translateY(-1px)",
-												boxShadow: "0 4px 12px rgba(255, 99, 99, 0.4)",
+												boxShadow:
+													"0 8px 16px rgba(255, 99, 99, 0.5), 0 0 20px rgba(255, 99, 99, 0.3)",
 											},
 										},
 									}}
@@ -416,42 +430,57 @@ function RaycastTheme() {
 						</Group>
 
 						<Grid mb="xl">
-							{stats.map((stat) => (
-								<Grid.Col key={stat.label} span={3}>
-									<Card
-										p="lg"
-										bg="dark.4"
-										style={{
-											border: "1px solid var(--mantine-color-dark-3)",
-											transition: "all 0.2s",
-											"&:hover": {
-												borderColor: "var(--mantine-color-red-5)",
-												boxShadow: "0 0 0 3px rgba(255, 99, 99, 0.08)",
-											},
-										}}
-									>
-										<Stack gap={6}>
-											<Text size="xs" c="dark.1" tt="uppercase" fw={700}>
-												{stat.label}
-											</Text>
-											<Text size="2rem" fw={700} c="dark.0" lh={1}>
-												{stat.value}
-											</Text>
-											{stat.change && (
-												<Group gap={4}>
-													<TrendingUp
-														size={14}
-														color="var(--mantine-color-teal-5)"
-													/>
-													<Text size="xs" c="teal.5" fw={600}>
-														{stat.change}
-													</Text>
-												</Group>
-											)}
-										</Stack>
-									</Card>
-								</Grid.Col>
-							))}
+							{stats.map((stat, idx) => {
+								const borderColors = ["red.5", "teal.5", "cyan.5", "violet.5"];
+								return (
+									<Grid.Col key={stat.label} span={3}>
+										<Card
+											p="lg"
+											bg="dark.7"
+											style={{
+												border: "1px solid rgba(255, 255, 255, 0.08)",
+												borderBottom: `3px solid var(--mantine-color-${borderColors[idx % borderColors.length]})`,
+												transition: "all 0.2s ease",
+											}}
+											styles={{
+												root: {
+													"&:hover": {
+														transform: "translateY(-2px)",
+														boxShadow:
+															"0 8px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 99, 99, 0.15)",
+													},
+												},
+											}}
+										>
+											<Stack gap={6}>
+												<Text
+													size="xs"
+													c="dark.1"
+													tt="uppercase"
+													fw={700}
+													style={{ letterSpacing: "0.5px" }}
+												>
+													{stat.label}
+												</Text>
+												<Text size="2rem" fw={700} c="dark.0" lh={1}>
+													{stat.value}
+												</Text>
+												{stat.change && (
+													<Group gap={4}>
+														<TrendingUp
+															size={14}
+															color="var(--mantine-color-teal-5)"
+														/>
+														<Text size="xs" c="teal.5" fw={600}>
+															{stat.change}
+														</Text>
+													</Group>
+												)}
+											</Stack>
+										</Card>
+									</Grid.Col>
+								);
+							})}
 						</Grid>
 
 						<Group justify="space-between" align="center" mb="md">
@@ -467,15 +496,21 @@ function RaycastTheme() {
 								<Grid.Col key={entity.id} span={4}>
 									<Card
 										p={0}
-										bg="dark.4"
+										bg="dark.7"
 										style={{
-											border: "1px solid var(--mantine-color-dark-3)",
+											border: "1px solid rgba(255, 255, 255, 0.08)",
 											cursor: "pointer",
-											transition: "all 0.15s ease-out",
+											transition: "all 0.25s ease",
 											overflow: "hidden",
-											"&:hover": {
-												borderColor: "var(--mantine-color-dark-2)",
-												transform: "scale(1.02)",
+										}}
+										styles={{
+											root: {
+												"&:hover": {
+													transform: "translateY(-4px)",
+													boxShadow:
+														"0 12px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(255, 99, 99, 0.2)",
+													border: "1px solid rgba(255, 99, 99, 0.3)",
+												},
 											},
 										}}
 									>
