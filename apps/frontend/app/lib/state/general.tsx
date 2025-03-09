@@ -125,15 +125,12 @@ export const useOnboardingTour = () => {
 		window.location.href = "/";
 	};
 
-	const advanceTourStep = (timeout = 0) => {
+	const advanceTourStep = () => {
 		if (!isTourStarted) return;
 
 		const nextStepIndex = tourState.currentStepIndex + 1;
 
-		setTimeout(
-			() => setTourState({ currentStepIndex: nextStepIndex }),
-			timeout,
-		);
+		setTimeout(() => setTourState({ currentStepIndex: nextStepIndex }), 2000);
 	};
 
 	useEffect(() => {

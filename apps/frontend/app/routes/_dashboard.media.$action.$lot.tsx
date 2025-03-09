@@ -295,7 +295,7 @@ export default function Page() {
 							),
 						);
 						if (v === "search" && isTourStarted) {
-							advanceTourStep(400);
+							advanceTourStep();
 						}
 					}
 				}}
@@ -420,8 +420,8 @@ export default function Page() {
 								tourControl={
 									isEligibleForNextTourStep
 										? {
+												onTargetInteract: advanceTourStep,
 												target: OnboardingTourStepTargets.Four,
-												onTargetInteract: () => advanceTourStep(2000),
 											}
 										: undefined
 								}
@@ -506,22 +506,22 @@ const MediaSearchItem = (props: {
 
 	const tourControlOne = props.isFirstItem
 		? {
+				onTargetInteract: advanceTourStep,
 				target: OnboardingTourStepTargets.Five,
-				onTargetInteract: () => advanceTourStep(2000),
 			}
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? {
+				onTargetInteract: advanceTourStep,
 				target: OnboardingTourStepTargets.Six,
-				onTargetInteract: () => advanceTourStep(1000),
 			}
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
 		? {
+				onTargetInteract: advanceTourStep,
 				target: OnboardingTourStepTargets.Eight,
-				onTargetInteract: () => advanceTourStep(2000),
 			}
 		: undefined;
 
