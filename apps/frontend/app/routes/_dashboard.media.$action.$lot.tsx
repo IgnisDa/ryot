@@ -514,7 +514,7 @@ const MediaSearchItem = (props: {
 	const tourControlTwo = props.isFirstItem
 		? {
 				target: OnboardingTourStepTargets.Six,
-				onTargetInteract: () => advanceTourStep(200),
+				onTargetInteract: () => advanceTourStep(1000),
 			}
 		: undefined;
 
