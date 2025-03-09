@@ -98,8 +98,6 @@ export const onboardingTourSteps = (
 	...step,
 	hideFooter: true,
 	disableBeacon: true,
-	spotlightClicks: true,
-	disableScrolling: true,
 	target: `.${step.target}`,
 }));
 

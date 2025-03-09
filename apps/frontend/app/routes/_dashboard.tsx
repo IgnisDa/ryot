@@ -399,6 +399,8 @@ export default function Layout() {
 						<Joyride
 							hideBackButton
 							hideCloseButton
+							spotlightClicks
+							disableScrolling
 							disableCloseOnEsc
 							disableOverlayClose
 							run={isTourStarted}
