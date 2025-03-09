@@ -171,20 +171,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const fitnessLinks = [
-		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => !["enabled"].includes(v))
-			.map(([name, enabled]) => ({ name, enabled }))
-			?.filter((f) => f.enabled)
-			.map((f) => ({
-				label: changeCase(f.name.toString()),
-				href: joinURL("/fitness", f.name, "list"),
-			})) || []),
-		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-	]
-		.filter((link) => link !== undefined)
-		.map((link) => ({ label: link.label, link: link.href }));
-
 	const settingsLinks = [
 		{ label: "Preferences", link: $path("/settings/preferences") },
 		{
@@ -220,7 +206,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		userDetails,
 		coreDetails,
-		fitnessLinks,
 		settingsLinks,
 		isDemoInstance,
 		userPreferences,
@@ -389,6 +374,19 @@ export default function Layout() {
 					$path("/media/people/:action", { action: "list" }),
 					$path("/media/groups/:action", { action: "list" }),
 				].includes(location.pathname));
+	const fitnessLinks = [
+		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
+			.filter(([v, _]) => !["enabled"].includes(v))
+			.map(([name, enabled]) => ({ name, enabled }))
+			?.filter((f) => f.enabled)
+			.map((f) => ({
+				label: changeCase(f.name.toString()),
+				href: joinURL("/fitness", f.name, "list"),
+			})) || []),
+		{ label: "Exercises", href: $path("/fitness/exercises/list") },
+	]
+		.filter((link) => link !== undefined)
+		.map((link) => ({ label: link.label, link: link.href }));
 
 	return (
 		<>
@@ -652,9 +650,9 @@ export default function Layout() {
 						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
+								links={fitnessLinks}
 								icon={IconStretching}
 								toggle={toggleMobileNavbar}
-								links={loaderData.fitnessLinks}
 								opened={openedSidebarLinks.fitness || false}
 								tourControlTarget={OnboardingTourStepTargets.Eleven}
 								setOpened={(k) =>
