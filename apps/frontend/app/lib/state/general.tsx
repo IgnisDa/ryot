@@ -1,6 +1,7 @@
 import { Button, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
+import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
@@ -50,7 +51,11 @@ export enum OnboardingTourStepTargets {
 }
 
 const onboardingTourAtom = atomWithStorage<
-	{ currentStepIndex: number } | undefined
+	| {
+			isLoading?: true;
+			currentStepIndex: number;
+	  }
+	| undefined
 >("OnboardingTour", undefined);
 
 export const OnboardingTourCompletedKey = "OnboardingTourCompleted";
@@ -76,9 +81,25 @@ export const useOnboardingTour = () => {
 	const advanceTourStep = () => {
 		if (!isTourStarted) return;
 
-		const nextStepIndex = tourState.currentStepIndex + 1;
+		setTourState((ts) =>
+			produce(ts, (draft) => {
+				if (draft) draft.isLoading = true;
+			}),
+		);
 
-		setTimeout(() => setTourState({ currentStepIndex: nextStepIndex }), 2000);
+		setTimeout(
+			() =>
+				setTourState((ts) =>
+					produce(ts, (draft) => {
+						if (draft) {
+							const nextStepIndex = tourState.currentStepIndex + 1;
+							draft.isLoading = undefined;
+							draft.currentStepIndex = nextStepIndex;
+						}
+					}),
+				),
+			2000,
+		);
 	};
 
 	const onboardingTourSteps = (
@@ -183,6 +204,7 @@ export const useOnboardingTour = () => {
 		advanceTourStep,
 		isOnLastTourStep,
 		onboardingTourSteps,
+		isTourLoading: tourState?.isLoading,
 		currentTourStepIndex: tourState?.currentStepIndex,
 	};
 };
