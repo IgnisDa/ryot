@@ -349,7 +349,7 @@ export default function Layout() {
 					isTourStarted && f === MediaLot.Movie
 						? ({
 								onTargetInteract: advanceTourStep,
-								target: OnboardingTourStepTargets.Two,
+								target: OnboardingTourStepTargets.One,
 							} as TourControl)
 						: undefined,
 			};
@@ -640,7 +640,7 @@ export default function Layout() {
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.media || false}
 								tourControl={{
-									target: OnboardingTourStepTargets.One,
+									target: OnboardingTourStepTargets.Zero,
 									onTargetInteract: () => advanceTourStep(),
 								}}
 								setOpened={(k) =>
@@ -1385,7 +1385,7 @@ const MetadataNewProgressUpdateForm = ({
 					variant="outline"
 					onClick={() => advanceTourStep()}
 					disabled={selectedDate === undefined}
-					className={OnboardingTourStepTargets.Seven}
+					className={OnboardingTourStepTargets.Six}
 				>
 					Submit
 				</Button>

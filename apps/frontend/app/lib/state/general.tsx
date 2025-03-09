@@ -35,61 +35,61 @@ export const useOpenedSidebarLinks = () => {
 export type TourControl = { target: string; onTargetInteract: () => void };
 
 export enum OnboardingTourStepTargets {
+	Zero = "tour-step-0",
 	One = "tour-step-1",
 	Two = "tour-step-2",
 	Three = "tour-step-3",
 	Four = "tour-step-4",
 	Five = "tour-step-5",
 	Six = "tour-step-6",
-	Seven = "tour-step-7",
-	Eight = "tour-step-8",
-	Nine = "tour-step-9",
+	Seven = "tour-step-8",
+	Eight = "tour-step-9",
 }
 
 export const onboardingTourSteps = (
 	[
 		{
-			target: OnboardingTourStepTargets.One,
+			target: OnboardingTourStepTargets.Zero,
 			content:
 				"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 		},
 		{
-			target: OnboardingTourStepTargets.Two,
+			target: OnboardingTourStepTargets.One,
 			content:
 				"Now, click on the movies section to start tracking your favorite movies.",
 		},
 		{
-			target: OnboardingTourStepTargets.Three,
+			target: OnboardingTourStepTargets.Two,
 			content:
 				"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
 		},
 		{
-			target: OnboardingTourStepTargets.Four,
+			target: OnboardingTourStepTargets.Three,
 			content:
 				"Now search for 'avengers'. Note: the tour will progress only when you search for 'avengers'.",
 		},
 		{
-			target: OnboardingTourStepTargets.Five,
+			target: OnboardingTourStepTargets.Four,
 			content:
 				"Now, add this movie to your watchlist. Note: you can remove it later.",
 		},
 		{
-			target: OnboardingTourStepTargets.Six,
+			target: OnboardingTourStepTargets.Five,
 			content:
 				"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
 		},
 		{
-			target: OnboardingTourStepTargets.Seven,
+			target: OnboardingTourStepTargets.Six,
 			content:
 				"Select a desired date that you watched the movie and click on the 'Submit' button.",
 		},
 		{
-			target: OnboardingTourStepTargets.Eight,
+			target: OnboardingTourStepTargets.Seven,
 			content:
 				"Great! Now, let's view some more details about the movie. Click on the movie to continue.",
 		},
 		{
-			target: OnboardingTourStepTargets.Nine,
+			target: OnboardingTourStepTargets.Eight,
 			content:
 				"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
 		},

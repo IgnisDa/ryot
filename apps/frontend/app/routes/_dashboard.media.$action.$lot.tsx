@@ -307,7 +307,7 @@ export default function Page() {
 					<Tabs.Tab
 						value="search"
 						leftSection={<IconSearch size={24} />}
-						className={OnboardingTourStepTargets.Three}
+						className={OnboardingTourStepTargets.Two}
 					>
 						<Text>Search</Text>
 					</Tabs.Tab>
@@ -421,7 +421,7 @@ export default function Page() {
 									isEligibleForNextTourStep
 										? {
 												onTargetInteract: advanceTourStep,
-												target: OnboardingTourStepTargets.Four,
+												target: OnboardingTourStepTargets.Three,
 											}
 										: undefined
 								}
@@ -507,21 +507,21 @@ const MediaSearchItem = (props: {
 	const tourControlOne = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Five,
+				target: OnboardingTourStepTargets.Four,
 			}
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Six,
+				target: OnboardingTourStepTargets.Five,
 			}
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Eight,
+				target: OnboardingTourStepTargets.Seven,
 			}
 		: undefined;
 

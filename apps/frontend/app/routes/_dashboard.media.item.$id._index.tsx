@@ -591,7 +591,7 @@ export default function Page() {
 								value="actions"
 								onClick={advanceTourStep}
 								leftSection={<IconUser size={16} />}
-								className={OnboardingTourStepTargets.Nine}
+								className={OnboardingTourStepTargets.Eight}
 							>
 								Actions
 							</Tabs.Tab>
