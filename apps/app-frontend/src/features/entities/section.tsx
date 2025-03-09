@@ -180,9 +180,9 @@ export function EntitiesSection(props: {
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
 	);
-	const entitiesQuery = useEntitiesQuery(props.entitySchema.id);
+	const entitiesQuery = useEntitiesQuery(props.entitySchema.slug);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
-	const entityMutations = useEntityMutations(props.entitySchema.id);
+	const entityMutations = useEntityMutations(props.entitySchema.slug);
 	const viewState = getEntityListViewState(entitiesQuery.entities);
 
 	const openCreateModal = useCallback(() => {
