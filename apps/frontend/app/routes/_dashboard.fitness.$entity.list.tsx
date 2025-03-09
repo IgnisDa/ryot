@@ -94,6 +94,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.list";
+import { OnboardingTourStepTargets } from "~/lib/state/general";
 
 const defaultFilters = {
 	orderBy: GraphqlSortOrder.Desc,
@@ -190,6 +191,7 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
+						className={OnboardingTourStepTargets.Thirteen}
 						onClick={() => {
 							if (
 								!coreDetails.isServerKeyValidated &&
