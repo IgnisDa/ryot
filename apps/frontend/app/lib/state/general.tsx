@@ -1,6 +1,6 @@
 import { Button, Stack, Text, useMantineTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { isBoolean, isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect } from "react";
@@ -44,6 +44,7 @@ export enum OnboardingTourStepTargets {
 	Eight = "tour-step-8",
 	Nine = "tour-step-9",
 	Ten = "tour-step-10",
+	Eleven = "tour-step-11",
 }
 
 const onboardingTourAtom = atom<{ currentStepIndex: number } | undefined>();
@@ -129,7 +130,6 @@ export const useOnboardingTour = () => {
 					"Great! Let's go back to the movies section and see your library.",
 			},
 			{
-				hideFooter: false,
 				target: OnboardingTourStepTargets.Ten,
 				content: (
 					<Stack>
@@ -141,12 +141,17 @@ export const useOnboardingTour = () => {
 					</Stack>
 				),
 			},
+			{
+				target: OnboardingTourStepTargets.Eleven,
+				content:
+					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
+			},
 		] as Step[]
 	).map((step) => ({
 		...step,
+		hideFooter: true,
 		disableBeacon: true,
 		target: `.${step.target}`,
-		hideFooter: isBoolean(step.hideFooter) ? step.hideFooter : true,
 	}));
 	const isOnLastTourStep =
 		tourState?.currentStepIndex === onboardingTourSteps.length;

@@ -405,8 +405,8 @@ export default function Layout() {
 							disableOverlayClose
 							run={isTourStarted}
 							spotlightPadding={0}
-							stepIndex={currentTourStepIndex}
 							steps={onboardingTourSteps}
+							stepIndex={currentTourStepIndex}
 							styles={{ overlay: { zIndex: 120 } }}
 						/>
 					);
@@ -653,8 +653,10 @@ export default function Layout() {
 							<LinksGroup
 								label="Fitness"
 								icon={IconStretching}
-								opened={openedSidebarLinks.fitness || false}
 								toggle={toggleMobileNavbar}
+								links={loaderData.fitnessLinks}
+								opened={openedSidebarLinks.fitness || false}
+								tourControlTarget={OnboardingTourStepTargets.Eleven}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -662,7 +664,6 @@ export default function Layout() {
 										}),
 									)
 								}
-								links={loaderData.fitnessLinks}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
@@ -677,22 +678,22 @@ export default function Layout() {
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
+								opened={false}
 								label="Calendar"
 								icon={IconCalendar}
-								href={$path("/calendar")}
-								opened={false}
-								toggle={toggleMobileNavbar}
 								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/calendar")}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.collections ? (
 							<LinksGroup
-								label="Collections"
-								icon={IconArchive}
-								href={$path("/collections/list")}
 								opened={false}
-								toggle={toggleMobileNavbar}
+								icon={IconArchive}
+								label="Collections"
 								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/collections/list")}
 							/>
 						) : null}
 						{loaderData.isAccessLinkSession &&
@@ -700,8 +701,9 @@ export default function Layout() {
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
-								opened={openedSidebarLinks.settings || false}
 								toggle={toggleMobileNavbar}
+								links={loaderData.settingsLinks}
+								opened={openedSidebarLinks.settings || false}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -709,7 +711,6 @@ export default function Layout() {
 										}),
 									)
 								}
-								links={loaderData.settingsLinks}
 							/>
 						)}
 					</Box>
