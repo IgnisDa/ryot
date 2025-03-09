@@ -135,7 +135,6 @@ import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
-	onboardingTourSteps,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 } from "~/lib/state/general";
@@ -340,6 +339,7 @@ export default function Layout() {
 		completeTour,
 		isTourStarted,
 		isOnLastTourStep,
+		onboardingTourSteps,
 		currentTourStepIndex,
 	} = useOnboardingTour();
 
