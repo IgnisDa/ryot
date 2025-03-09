@@ -1,4 +1,12 @@
-import { Box, Button, Stack, Text, useMantineTheme } from "@mantine/core";
+import {
+	Box,
+	Button,
+	Group,
+	Loader,
+	Stack,
+	Text,
+	useMantineTheme,
+} from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -66,6 +74,7 @@ export const useOnboardingTour = () => {
 	const isTourStarted = isNumber(tourState?.currentStepIndex);
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+	const isTourLoading = tourState?.isLoading;
 
 	const startTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
@@ -105,10 +114,13 @@ export const useOnboardingTour = () => {
 	const StepWrapper = ({ children }: { children: ReactNode }) => (
 		<Stack>
 			<Box>{children}</Box>
-			<Text size="sm" c="dimmed">
-				Step {(tourState?.currentStepIndex || 0) + 1} of{" "}
-				{onboardingTourSteps.length}
-			</Text>
+			<Group justify="space-between">
+				{isTourLoading ? <Loader size="xs" /> : <Box />}
+				<Text size="sm" c="dimmed">
+					Step {(tourState?.currentStepIndex || 0) + 1} of{" "}
+					{onboardingTourSteps.length}
+				</Text>
+			</Group>
 		</Stack>
 	);
 
@@ -214,10 +226,15 @@ export const useOnboardingTour = () => {
 								button to continue to the fitness section.
 							</Text>
 							<Button.Group>
-								<Button onClick={advanceTourStep} fullWidth>
+								<Button onClick={advanceTourStep} size="xs" fullWidth>
 									Next
 								</Button>
-								<Button variant="outline" onClick={completeTour}>
+								<Button
+									size="xs"
+									fullWidth
+									variant="outline"
+									onClick={completeTour}
+								>
 									Skip fitness section
 								</Button>
 							</Button.Group>
@@ -274,7 +291,6 @@ export const useOnboardingTour = () => {
 		advanceTourStep,
 		isOnLastTourStep,
 		onboardingTourSteps,
-		isTourLoading: tourState?.isLoading,
 		currentTourStepIndex: tourState?.currentStepIndex,
 	};
 };
