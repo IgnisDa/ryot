@@ -337,8 +337,13 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, stepIndex, completeTour, advanceTourStep } =
-		useOnboardingTour();
+	const {
+		completeTour,
+		isTourStarted,
+		advanceTourStep,
+		isOnLastTourStep,
+		currentTourStepIndex,
+	} = useOnboardingTour();
 
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
@@ -405,7 +410,7 @@ export default function Layout() {
 							disableOverlayClose
 							run={isTourStarted}
 							spotlightPadding={0}
-							stepIndex={stepIndex}
+							stepIndex={currentTourStepIndex}
 							steps={onboardingTourSteps}
 							styles={{ overlay: { zIndex: 120 } }}
 						/>
@@ -544,8 +549,8 @@ export default function Layout() {
 			<Modal
 				centered
 				withCloseButton={false}
+				opened={isOnLastTourStep}
 				onClose={() => completeTour()}
-				opened={stepIndex === onboardingTourSteps.length}
 			>
 				<Stack>
 					<Text>You've completed the onboarding tour!</Text>

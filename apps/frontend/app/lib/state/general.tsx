@@ -42,8 +42,9 @@ export enum OnboardingTourStepTargets {
 	Four = "tour-step-4",
 	Five = "tour-step-5",
 	Six = "tour-step-6",
-	Seven = "tour-step-8",
-	Eight = "tour-step-9",
+	Seven = "tour-step-7",
+	Eight = "tour-step-8",
+	Nine = "tour-step-9",
 }
 
 export const onboardingTourSteps = (
@@ -93,6 +94,11 @@ export const onboardingTourSteps = (
 			content:
 				"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
 		},
+		{
+			target: OnboardingTourStepTargets.Nine,
+			content:
+				"Great! Let's go back to the movies section and see your library.",
+		},
 	] as Step[]
 ).map((step) => ({
 	...step,
@@ -111,6 +117,8 @@ export const useOnboardingTour = () => {
 	const isTourStarted = isNumber(tourState?.currentStepIndex);
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+	const isOnLastTourStep =
+		tourState?.currentStepIndex === onboardingTourSteps.length;
 
 	const startTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
@@ -142,6 +150,7 @@ export const useOnboardingTour = () => {
 		completeTour,
 		isTourStarted,
 		advanceTourStep,
-		stepIndex: tourState?.currentStepIndex,
+		isOnLastTourStep,
+		currentTourStepIndex: tourState?.currentStepIndex,
 	};
 };
