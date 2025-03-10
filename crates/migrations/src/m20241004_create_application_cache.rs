@@ -12,6 +12,7 @@ pub enum ApplicationCache {
     Version,
     ExpiresAt,
     CreatedAt,
+    SanitizedKey,
 }
 
 #[async_trait::async_trait]
@@ -51,6 +52,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(ApplicationCache::Version).text())
+                    .col(
+                        ColumnDef::new(ApplicationCache::SanitizedKey)
+                            .text()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;
