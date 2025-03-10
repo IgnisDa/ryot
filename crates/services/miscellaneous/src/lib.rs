@@ -1547,7 +1547,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap();
         for user_id in all_users {
-            calculate_user_activities_and_summary(&self.0.db, &user_id, false).await?;
+            calculate_user_activities_and_summary(&user_id, &self.0, false).await?;
         }
         Ok(())
     }
