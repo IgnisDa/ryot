@@ -18,6 +18,8 @@ ALTER TABLE "application_cache" ADD COLUMN "sanitized_key" TEXT;
 UPDATE "application_cache" SET "sanitized_key" = 'dummy-key';
 
 ALTER TABLE "application_cache" ALTER COLUMN "sanitized_key" SET NOT NULL;
+
+CREATE INDEX "application_cache_sanitized_key_index" ON "application_cache" ("sanitized_key");
             "#,
             )
             .await?;
