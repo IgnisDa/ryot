@@ -9,11 +9,17 @@ import {
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { isNumber } from "@ryot/ts-utils";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
+import { clientGqlService } from "../generals";
+import {
+	BackgroundJob,
+	DeployBackgroundJobDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -75,6 +81,14 @@ export const useOnboardingTour = () => {
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 	const isTourLoading = tourState?.isLoading;
+
+	const deployBackgroundJobMutation = useMutation({
+		mutationFn: async () => {
+			await clientGqlService.request(DeployBackgroundJobDocument, {
+				jobName: BackgroundJob.CalculateUserActivitiesAndSummary,
+			});
+		},
+	});
 
 	const startTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
@@ -185,14 +199,26 @@ export const useOnboardingTour = () => {
 							to continue to the fitness section.
 						</Text>
 						<Button.Group>
-							<Button onClick={advanceTourStep} size="xs" fullWidth>
-								Next
-							</Button>
 							<Button
 								size="xs"
 								fullWidth
+								loading={deployBackgroundJobMutation.isPending}
+								onClick={async () => {
+									await deployBackgroundJobMutation.mutateAsync();
+									advanceTourStep();
+								}}
+							>
+								Next
+							</Button>
+							<Button
+								fullWidth
+								size="xs"
 								variant="outline"
-								onClick={completeTour}
+								loading={deployBackgroundJobMutation.isPending}
+								onClick={async () => {
+									await deployBackgroundJobMutation.mutateAsync();
+									completeTour();
+								}}
 							>
 								Skip fitness section
 							</Button>
