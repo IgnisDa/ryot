@@ -421,6 +421,7 @@ export default function Layout() {
 				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
+						style={{ transition: "all 0.3s" }}
 						position={{
 							bottom: rem(40),
 							right: rem(
@@ -430,13 +431,12 @@ export default function Layout() {
 									: 40,
 							),
 						}}
-						style={{ transition: "all 0.3s" }}
 					>
 						<ActionIcon
-							variant="filled"
-							color="orange"
-							radius="xl"
 							size="xl"
+							radius="xl"
+							color="orange"
+							variant="filled"
 							onClick={() =>
 								navigate(
 									$path("/fitness/:action", {
@@ -454,11 +454,11 @@ export default function Layout() {
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
+						action={$path("/actions", { intent: "bulkCollectionAction" })}
 						onSubmit={(e) => {
 							submit(e);
 							bulkEditingCollectionState.stop(true);
 						}}
-						action={$path("/actions", { intent: "bulkCollectionAction" })}
 					>
 						<input
 							type="hidden"
@@ -516,14 +516,14 @@ export default function Layout() {
 									</Button>
 									<Button
 										size="xs"
+										type="submit"
+										disabled={
+											bulkEditingCollectionState.data.entities.length === 0
+										}
 										color={
 											bulkEditingCollectionState.data.action === "remove"
 												? "red"
 												: "green"
-										}
-										type="submit"
-										disabled={
-											bulkEditingCollectionState.data.entities.length === 0
 										}
 									>
 										{changeCase(bulkEditingCollectionState.data.action)}
@@ -546,16 +546,16 @@ export default function Layout() {
 			</Modal>
 			<Modal
 				centered
+				onClose={completeTour}
 				withCloseButton={false}
 				opened={isOnLastTourStep}
-				onClose={() => completeTour()}
 			>
 				<Stack>
 					<Text>You've completed the onboarding tour!</Text>
 					<Text size="sm" c="dimmed">
 						You can restart the tour at any time from the profile settings.
 					</Text>
-					<Button variant="outline" onClick={() => completeTour()}>
+					<Button variant="outline" onClick={completeTour}>
 						Start using Ryot!
 					</Button>
 				</Stack>
@@ -571,8 +571,8 @@ export default function Layout() {
 			<Modal
 				centered
 				withCloseButton={false}
-				opened={addEntityToCollectionData !== null}
 				onClose={closeAddEntityToCollectionModal}
+				opened={addEntityToCollectionData !== null}
 			>
 				<AddEntityToCollectionForm
 					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
@@ -739,14 +739,14 @@ export default function Layout() {
 						) : null}
 						<Form
 							method="POST"
-							action={withQuery("/actions", { intent: "toggleColorScheme" })}
 							onSubmit={submit}
+							action={withQuery("/actions", { intent: "toggleColorScheme" })}
 						>
 							<Group justify="center">
 								<UnstyledButton
+									type="submit"
 									aria-label="Toggle theme"
 									className={classes.control2}
-									type="submit"
 								>
 									<Center className={classes.iconWrapper}>
 										<Icon size={16.8} stroke={1.5} />
@@ -769,8 +769,8 @@ export default function Layout() {
 						>
 							<UnstyledButton
 								mx="auto"
-								className={classes.oldLink}
 								type="submit"
+								className={classes.oldLink}
 							>
 								<Group>
 									<IconLogout size={19.2} />
@@ -889,10 +889,10 @@ const LinksGroup = ({
 	return (
 		<Box>
 			<UnstyledButton<typeof Link>
-				className={clsx(classes.control, tourControlTarget)}
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
 				to={!hasLinks ? href : (undefined as any)}
+				className={clsx(classes.control, tourControlTarget)}
 				onClick={() => {
 					if (hasLinks) {
 						setOpened(!opened);
@@ -913,9 +913,9 @@ const LinksGroup = ({
 						<ClientOnly>
 							{() => (
 								<ChevronIcon
-									className={classes.chevron}
 									size={16}
 									stroke={1.5}
+									className={classes.chevron}
 									style={{
 										transform: opened
 											? `rotate(${dir === "rtl" ? -90 : 90}deg)`
@@ -1078,13 +1078,13 @@ const MetadataInProgressUpdateForm = ({
 			<Stack mt="sm">
 				<Group>
 					<Slider
-						max={100}
 						min={0}
 						step={1}
-						showLabelOnHover={false}
+						max={100}
 						value={value}
 						onChange={setValue}
 						style={{ flexGrow: 1 }}
+						showLabelOnHover={false}
 					/>
 					<NumberInput
 						w="20%"
@@ -1190,9 +1190,9 @@ const MetadataNewProgressUpdateForm = ({
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
-							label="Episode"
 							required
 							hideControls
+							label="Episode"
 							value={metadataToUpdate.animeEpisodeNumber?.toString()}
 							onChange={(e) => {
 								setMetadataToUpdate(
@@ -1203,8 +1203,8 @@ const MetadataNewProgressUpdateForm = ({
 							}}
 						/>
 						<Checkbox
-							label="Mark all unseen episodes before this as watched"
 							name="animeAllEpisodesBefore"
+							label="Mark all unseen episodes before this as watched"
 						/>
 					</>
 				) : null}
@@ -1216,8 +1216,8 @@ const MetadataNewProgressUpdateForm = ({
 						>
 							<Group wrap="nowrap">
 								<NumberInput
-									description="Chapter"
 									hideControls
+									description="Chapter"
 									value={metadataToUpdate.mangaChapterNumber?.toString()}
 									onChange={(e) => {
 										setMetadataToUpdate(
@@ -1232,8 +1232,8 @@ const MetadataNewProgressUpdateForm = ({
 									OR
 								</Text>
 								<NumberInput
-									description="Volume"
 									hideControls
+									description="Volume"
 									value={metadataToUpdate.mangaVolumeNumber?.toString()}
 									onChange={(e) => {
 										setMetadataToUpdate(
@@ -1247,21 +1247,23 @@ const MetadataNewProgressUpdateForm = ({
 							</Group>
 						</Input.Wrapper>
 						<Checkbox
-							label="Mark all unread volumes/chapters before this as watched"
 							name="mangaAllChaptersOrVolumesBefore"
+							label="Mark all unread volumes/chapters before this as watched"
 						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
 						<Select
-							label="Season"
 							required
+							searchable
+							limit={50}
+							label="Season"
+							value={metadataToUpdate.showSeasonNumber?.toString()}
 							data={metadataDetails.showSpecifics?.seasons.map((s) => ({
 								label: `${s.seasonNumber}. ${s.name.toString()}`,
 								value: s.seasonNumber.toString(),
 							}))}
-							value={metadataToUpdate.showSeasonNumber?.toString()}
 							onChange={(v) => {
 								setMetadataToUpdate(
 									produce(metadataToUpdate, (draft) => {
@@ -1269,12 +1271,20 @@ const MetadataNewProgressUpdateForm = ({
 									}),
 								);
 							}}
-							searchable
-							limit={50}
 						/>
 						<Select
-							label="Episode"
+							searchable
+							limit={50}
 							required
+							label="Episode"
+							value={metadataToUpdate.showEpisodeNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showEpisodeNumber = Number(v);
+									}),
+								);
+							}}
 							data={
 								metadataDetails.showSpecifics?.seasons
 									.find(
@@ -1285,16 +1295,6 @@ const MetadataNewProgressUpdateForm = ({
 										value: e.episodeNumber.toString(),
 									})) || []
 							}
-							value={metadataToUpdate.showEpisodeNumber?.toString()}
-							onChange={(v) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.showEpisodeNumber = Number(v);
-									}),
-								);
-							}}
-							searchable
-							limit={50}
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
@@ -1314,12 +1314,14 @@ const MetadataNewProgressUpdateForm = ({
 						<Text fw="bold">Select episode</Text>
 						<Select
 							required
+							searchable
+							limit={50}
 							label="Episode"
+							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
 								label: se.title.toString(),
 								value: se.number.toString(),
 							}))}
-							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 							onChange={(v) => {
 								setMetadataToUpdate(
 									produce(metadataToUpdate, (draft) => {
@@ -1327,8 +1329,6 @@ const MetadataNewProgressUpdateForm = ({
 									}),
 								);
 							}}
-							searchable
-							limit={50}
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
@@ -1385,9 +1385,11 @@ const MetadataNewProgressUpdateForm = ({
 				<Button
 					type="submit"
 					variant="outline"
-					onClick={() => advanceTourStep()}
 					disabled={selectedDate === undefined}
 					className={OnboardingTourStepTargets.Six}
+					onClick={async () => {
+						await advanceTourStep();
+					}}
 				>
 					Submit
 				</Button>
