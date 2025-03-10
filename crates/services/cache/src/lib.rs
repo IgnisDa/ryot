@@ -93,6 +93,7 @@ impl CacheService {
                 key: ActiveValue::Set(key_value),
                 created_at: ActiveValue::Set(now),
                 version: ActiveValue::Set(version),
+                sanitized_key: ActiveValue::Set(sanitized_key),
                 value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
                 expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
                 ..Default::default()
@@ -105,6 +106,7 @@ impl CacheService {
                             application_cache::Column::Version,
                             application_cache::Column::ExpiresAt,
                             application_cache::Column::CreatedAt,
+                            application_cache::Column::SanitizedKey,
                         ])
                         .to_owned(),
                 )
