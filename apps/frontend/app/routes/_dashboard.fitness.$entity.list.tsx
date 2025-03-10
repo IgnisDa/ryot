@@ -88,16 +88,16 @@ import {
 	getExerciseDetailsQuery,
 } from "~/lib/state/fitness";
 import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.list";
-import {
-	OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
 
 const defaultFilters = {
 	orderBy: GraphqlSortOrder.Desc,

@@ -8,6 +8,10 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import {
+	BackgroundJob,
+	DeployBackgroundJobDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
@@ -16,10 +20,6 @@ import { atomWithStorage } from "jotai/utils";
 import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
 import { clientGqlService } from "../generals";
-import {
-	BackgroundJob,
-	DeployBackgroundJobDocument,
-} from "@ryot/generated/graphql/backend/graphql";
 
 type OpenedSidebarLinks = {
 	media: boolean;
