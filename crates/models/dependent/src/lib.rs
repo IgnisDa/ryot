@@ -37,7 +37,7 @@ use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::Display;
+use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -533,8 +533,18 @@ pub struct EmptyCacheValue {
 
 #[skip_serializing_none]
 #[derive(
-    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+    Eq,
+    Hash,
+    Debug,
+    Clone,
+    Display,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    EnumDiscriminants,
+    FromJsonQueryResult,
 )]
+#[strum_discriminants(derive(Display))]
 pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
@@ -609,7 +619,7 @@ pub enum ExpireCacheKeyInput {
     ById(Uuid),
     ByKey(ApplicationCacheKey),
     BySanitizedKey {
-        key: String,
         user_id: Option<String>,
+        key: ApplicationCacheKeyDiscriminants,
     },
 }

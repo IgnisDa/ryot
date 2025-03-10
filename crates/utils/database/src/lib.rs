@@ -18,7 +18,10 @@ use database_models::{
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
+use dependent_models::{
+    ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
+};
 use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
@@ -743,6 +746,15 @@ pub async fn calculate_user_activities_and_summary(
         model.total_duration = ActiveValue::Set(total_duration);
         model.insert(&ss.db).await.unwrap();
     }
+
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserAnalytics,
+        })
+        .await?;
+
+    ryot_log!(debug, "Expired cache key for user: {:?}", user_id);
 
     Ok(())
 }
