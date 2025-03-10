@@ -608,4 +608,8 @@ pub struct GetCacheKeyResponse {
 pub enum ExpireCacheKeyInput {
     ById(Uuid),
     ByKey(ApplicationCacheKey),
+    BySanitizedKey {
+        key: String,
+        user_id: Option<String>,
+    },
 }

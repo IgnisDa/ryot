@@ -178,6 +178,13 @@ impl CacheService {
             .filter(match by {
                 ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
                 ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::BySanitizedKey { key, user_id } => {
+                    let sanitized_key = match (key, user_id) {
+                        (key, None) => key,
+                        (key, Some(user_id)) => format!("{}-{}", key, user_id),
+                    };
+                    application_cache::Column::SanitizedKey.eq(sanitized_key)
+                }
             })
             .set(application_cache::ActiveModel {
                 expires_at: ActiveValue::Set(Utc::now()),
