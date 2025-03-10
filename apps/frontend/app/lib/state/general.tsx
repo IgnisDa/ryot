@@ -128,145 +128,92 @@ export const useOnboardingTour = () => {
 		[
 			{
 				target: OnboardingTourStepTargets.Zero,
-				content: (
-					<StepWrapper>
-						Welcome to Ryot! Let's get started by adding a movie to your
-						watchlist. Click on the media section in the sidebar to see what all
-						you can track.
-					</StepWrapper>
-				),
+				content:
+					"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
 				target: OnboardingTourStepTargets.One,
-				content: (
-					<StepWrapper>
-						Now, click on the movies section to start tracking your favorite
-						movies.
-					</StepWrapper>
-				),
+				content:
+					"Now, click on the movies section to start tracking your favorite movies.",
 			},
 			{
 				target: OnboardingTourStepTargets.Two,
-				content: (
-					<StepWrapper>
-						Let's start by adding a movie to your watchlist. Click on the search
-						tab to search for a movie.
-					</StepWrapper>
-				),
+				content:
+					"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
 			},
 			{
 				target: OnboardingTourStepTargets.Three,
-				content: (
-					<StepWrapper>
-						You can find any movie here. Let us proceed by searching for
-						'avengers'.
-					</StepWrapper>
-				),
+				content:
+					"You can find any movie here. Let us proceed by searching for 'avengers'.",
 			},
 			{
 				target: OnboardingTourStepTargets.Four,
-				content: (
-					<StepWrapper>
-						Now, add this movie to your watchlist. Note: you can remove it
-						later.
-					</StepWrapper>
-				),
+				content:
+					"Now, add this movie to your watchlist. Note: you can remove it later.",
 			},
 			{
 				target: OnboardingTourStepTargets.Five,
-				content: (
-					<StepWrapper>
-						Great! You've added your first movie to your watchlist. Now, let's
-						add it to your watched history.
-					</StepWrapper>
-				),
+				content:
+					"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
 			},
 			{
 				target: OnboardingTourStepTargets.Six,
-				content: (
-					<StepWrapper>
-						Select a desired date that you watched the movie and click on the
-						'Submit' button.
-					</StepWrapper>
-				),
+				content:
+					"Select a desired date that you watched the movie and click on the 'Submit' button.",
 			},
 			{
 				target: OnboardingTourStepTargets.Seven,
-				content: (
-					<StepWrapper>
-						Great! Now, let's view some more details about the movie. Click on
-						the movie to continue.
-					</StepWrapper>
-				),
+				content:
+					"Great! Now, let's view some more details about the movie. Click on the movie to continue.",
 			},
 			{
 				target: OnboardingTourStepTargets.Eight,
-				content: (
-					<StepWrapper>
-						The most important tab is the 'Actions' tab. Here you can add the
-						movie to your collection, mark it as watched, etc.
-					</StepWrapper>
-				),
+				content:
+					"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
 			},
 			{
 				target: OnboardingTourStepTargets.Nine,
-				content: (
-					<StepWrapper>
-						Great! Let's go back to the movies section and see your library.
-					</StepWrapper>
-				),
+				content:
+					"Great! Let's go back to the movies section and see your library.",
 			},
 			{
 				target: OnboardingTourStepTargets.Ten,
 				content: (
-					<StepWrapper>
-						<Stack>
-							<Text>
-								Here are all the movies in your library. Click on the next
-								button to continue to the fitness section.
-							</Text>
-							<Button.Group>
-								<Button onClick={advanceTourStep} size="xs" fullWidth>
-									Next
-								</Button>
-								<Button
-									size="xs"
-									fullWidth
-									variant="outline"
-									onClick={completeTour}
-								>
-									Skip fitness section
-								</Button>
-							</Button.Group>
-						</Stack>
-					</StepWrapper>
+					<Stack>
+						<Text>
+							Here are all the movies in your library. Click on the next button
+							to continue to the fitness section.
+						</Text>
+						<Button.Group>
+							<Button onClick={advanceTourStep} size="xs" fullWidth>
+								Next
+							</Button>
+							<Button
+								size="xs"
+								fullWidth
+								variant="outline"
+								onClick={completeTour}
+							>
+								Skip fitness section
+							</Button>
+						</Button.Group>
+					</Stack>
 				),
 			},
 			{
 				target: OnboardingTourStepTargets.Eleven,
-				content: (
-					<StepWrapper>
-						Let's move on to the fitness section. Click on the corresponding in
-						the sidebar.
-					</StepWrapper>
-				),
+				content:
+					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
 			},
 			{
 				target: OnboardingTourStepTargets.Twelve,
-				content: (
-					<StepWrapper>
-						Click on the 'Workouts' section to see all your workouts and start a
-						new one.
-					</StepWrapper>
-				),
+				content:
+					"Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 			{
 				target: OnboardingTourStepTargets.Thirteen,
-				content: (
-					<StepWrapper>
-						This is the workouts section. Let's start by adding a new workout.
-					</StepWrapper>
-				),
+				content:
+					"This is the workouts section. Let's start by adding a new workout.",
 			},
 		] as Step[]
 	).map((step) => ({
@@ -274,6 +221,7 @@ export const useOnboardingTour = () => {
 		hideFooter: true,
 		disableBeacon: true,
 		target: `.${step.target}`,
+		content: <StepWrapper>{step.content}</StepWrapper>,
 	}));
 	const isOnLastTourStep =
 		tourState?.currentStepIndex === onboardingTourSteps.length;
