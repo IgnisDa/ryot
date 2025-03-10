@@ -51,7 +51,6 @@ export const useFallbackImageUrl = (text = "No Image") => {
 
 export const useAppSearchParam = (cookieKey: string) => {
 	const [searchParams, setSearchParams] = useSearchParams();
-	const coreDetails = useCoreDetails();
 
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);
@@ -59,7 +58,7 @@ export const useAppSearchParam = (cookieKey: string) => {
 		if (!value) cookieSearchParams.delete(key);
 		else cookieSearchParams.set(key, value);
 		Cookies.set(cookieKey, cookieSearchParams.toString(), {
-			expires: dayjsLib().add(coreDetails.tokenValidForDays, "day").toDate(),
+			expires: dayjsLib().add(10, "day").toDate(),
 		});
 	};
 
