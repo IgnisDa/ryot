@@ -77,11 +77,23 @@ impl CacheService {
             let version = self
                 .should_respect_version(&key)
                 .then(|| self.version.to_owned());
+            let key_value = serde_json::to_value(&key).unwrap();
+
+            let user_id = key_value
+                .as_object()
+                .and_then(|obj| obj.values().next())
+                .and_then(|variant_obj| variant_obj.get("user_id"))
+                .and_then(|id| id.as_str())
+                .map(|s| format!("-{}", s))
+                .unwrap_or_default();
+
+            let sanitized_key = format!("{}{}", key, user_id);
+
             let to_insert = application_cache::ActiveModel {
+                key: ActiveValue::Set(key_value),
                 created_at: ActiveValue::Set(now),
                 version: ActiveValue::Set(version),
-                key: ActiveValue::Set(serde_json::to_value(&key).unwrap()),
-                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
                 expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
                 ..Default::default()
             };
