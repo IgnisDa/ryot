@@ -4,8 +4,9 @@ use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, GetCacheKeyResponse};
-use either::Either;
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, GetCacheKeyResponse,
+};
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -172,11 +173,11 @@ impl CacheService {
         Some((value.id, db_value))
     }
 
-    pub async fn expire_key(&self, by: Either<ApplicationCacheKey, Uuid>) -> Result<bool> {
+    pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<bool> {
         let deleted = ApplicationCache::update_many()
             .filter(match by {
-                Either::Right(id) => application_cache::Column::Id.eq(id),
-                Either::Left(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
+                ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
             })
             .set(application_cache::ActiveModel {
                 expires_at: ActiveValue::Set(Utc::now()),

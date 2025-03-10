@@ -39,12 +39,12 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
-    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, ExpireCacheKeyInput,
+    GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -59,7 +59,6 @@ use dependent_utils::{
     send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
     user_metadata_list, user_people_list,
 };
-use either::Either;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserNotificationContent, UserToMediaReason,
@@ -926,7 +925,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
         self.0
             .cache_service
-            .expire_key(Either::Right(cache_id))
+            .expire_key(ExpireCacheKeyInput::ById(cache_id))
             .await
     }
 
@@ -1522,7 +1521,10 @@ ORDER BY RANDOM() LIMIT 10;
                 provider_watched_on: si.provider_watched_on.clone(),
             },
         });
-        self.0.cache_service.expire_key(Either::Left(cache)).await?;
+        self.0
+            .cache_service
+            .expire_key(ExpireCacheKeyInput::ByKey(cache))
+            .await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
