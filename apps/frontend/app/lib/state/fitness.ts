@@ -23,7 +23,6 @@ import { atomWithStorage } from "jotai/utils";
 import type { NavigateFunction } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
 	CURRENT_WORKOUT_KEY,
@@ -386,7 +385,6 @@ export const addExerciseToCurrentWorkout = async (
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {
 	const draft = createDraft(currentWorkout);
-	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		const setLot = SetLot.Normal;
@@ -431,12 +429,5 @@ export const addExerciseToCurrentWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
-	navigate(
-		withFragment(
-			$path("/fitness/:action", {
-				action: currentWorkout.currentAction,
-			}),
-			idxOfNextExercise.toString(),
-		),
-	);
+	navigate($path("/fitness/:action", { action: currentWorkout.currentAction }));
 };
