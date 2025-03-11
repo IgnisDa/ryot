@@ -63,7 +63,7 @@ export enum OnboardingTourStepTargets {
 	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
-	AddNewExercise = "tour-step-add-new-exercise",
+	ClickOnAddAnExerciseButton = "tour-step-click-on-add-an-exercise-button",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -255,7 +255,7 @@ export const useOnboardingTour = () => {
 					"This is the workouts section. Let's start by adding a new workout.",
 			},
 			{
-				target: OnboardingTourStepTargets.AddNewExercise,
+				target: OnboardingTourStepTargets.ClickOnAddAnExerciseButton,
 				content:
 					"You have started with an empty workout. Let's add a new exercise to it.",
 			},

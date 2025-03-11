@@ -704,7 +704,9 @@ export default function Page() {
 										variant="subtle"
 										onClick={advanceTourStep}
 										to={$path("/fitness/exercises/list")}
-										className={OnboardingTourStepTargets.AddNewExercise}
+										className={
+											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
+										}
 									>
 										Add an exercise
 									</Button>
