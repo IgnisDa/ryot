@@ -65,14 +65,13 @@ export enum OnboardingTourStepTargets {
 }
 
 const onboardingTourAtom = atomWithStorage<
+	| undefined
 	| {
 			isLoading?: true;
+			isCompleted?: true;
 			currentStepIndex: number;
 	  }
-	| undefined
 >("OnboardingTour", undefined);
-
-export const OnboardingTourCompletedKey = "OnboardingTourCompleted";
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
@@ -80,7 +79,10 @@ export const useOnboardingTour = () => {
 	const isTourStarted = isNumber(tourState?.currentStepIndex);
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+
 	const isTourLoading = tourState?.isLoading;
+	const canTourBeStarted =
+		typeof tourState === "undefined" || tourState.isCompleted;
 
 	const deployBackgroundJobMutation = useMutation({
 		mutationFn: async () => {
@@ -96,8 +98,11 @@ export const useOnboardingTour = () => {
 	};
 
 	const completeTour = () => {
-		setTourState(undefined);
-		localStorage.setItem(OnboardingTourCompletedKey, "true");
+		setTourState(
+			produce(tourState, (draft) => {
+				if (draft) draft.isCompleted = true;
+			}),
+		);
 		window.location.href = "/";
 	};
 
@@ -250,20 +255,22 @@ export const useOnboardingTour = () => {
 		content: <StepWrapper>{step.content}</StepWrapper>,
 	}));
 	const isOnLastTourStep =
-		tourState?.currentStepIndex === onboardingTourSteps.length;
+		tourState?.currentStepIndex === onboardingTourSteps.length &&
+		!tourState?.isCompleted;
 
 	useEffect(() => {
 		if (typeof isMobile === "undefined" || isMobile) return;
 
-		const completed = localStorage.getItem(OnboardingTourCompletedKey);
-		if (!completed && !isTourStarted) startTour();
-	}, [isMobile]);
+		if (canTourBeStarted && !isTourStarted) startTour();
+	}, [isMobile, canTourBeStarted]);
 
 	return {
+		startTour,
 		completeTour,
 		isTourStarted,
 		advanceTourStep,
 		isOnLastTourStep,
+		canTourBeStarted,
 		onboardingTourSteps,
 		currentTourStepIndex: tourState?.currentStepIndex,
 	};

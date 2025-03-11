@@ -62,7 +62,7 @@ import {
 	useDashboardLayoutData,
 	useUserDetails,
 } from "~/lib/hooks";
-import { OnboardingTourCompletedKey } from "~/lib/state/general";
+import { useOnboardingTour } from "~/lib/state/general";
 import {
 	createToastHeaders,
 	getDecodedJwt,
@@ -177,6 +177,7 @@ export default function Page() {
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
+	const { canTourBeStarted, startTour } = useOnboardingTour();
 
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
@@ -251,22 +252,24 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
-							<ClientOnly>
-								{() => (
-									<>
-										<Divider />
-										<Button
-											variant="default"
-											onClick={() => {
-												localStorage.removeItem(OnboardingTourCompletedKey);
-												window.location.href = "/";
-											}}
-										>
-											Restart onboarding
-										</Button>
-									</>
-								)}
-							</ClientOnly>
+							{canTourBeStarted ? (
+								<ClientOnly>
+									{() => (
+										<>
+											<Divider />
+											<Button
+												variant="default"
+												onClick={() => {
+													startTour();
+													window.location.href = "/";
+												}}
+											>
+												Restart onboarding
+											</Button>
+										</>
+									)}
+								</ClientOnly>
+							) : null}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
