@@ -423,7 +423,7 @@ const ExerciseItemDisplay = (props: {
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
 
 	return exercise && userExerciseDetails ? (
-		<Flex gap="lg" align="center">
+		<Flex gap="lg" align="center" data-exercise-id={props.exerciseId}>
 			{props.allowAddingExerciseToWorkout ? (
 				<Checkbox
 					onChange={(e) => {
