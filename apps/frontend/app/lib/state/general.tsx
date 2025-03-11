@@ -47,6 +47,8 @@ export const useOpenedSidebarLinks = () => {
 	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
 
+export const TOUR_EXERCISE_TARGET_ID = "Alternate Incline Dumbbell Curl";
+
 export enum OnboardingTourStepTargets {
 	Welcome = "tour-step-welcome",
 	FirstSidebar = "tour-step-first-sidebar",
@@ -65,6 +67,7 @@ export enum OnboardingTourStepTargets {
 	AddNewWorkout = "tour-step-add-new-workout",
 	ClickOnAddAnExerciseButton = "tour-step-click-on-add-an-exercise-button",
 	SelectExercise = "tour-step-select-exercise",
+	AddSelectedExerciseToWorkout = "tour-step-add-selected-exercise-to-workout",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -263,8 +266,12 @@ export const useOnboardingTour = () => {
 			{
 				disableScrolling: false,
 				target: OnboardingTourStepTargets.SelectExercise,
+				content: `Let's proceed by selecting '${TOUR_EXERCISE_TARGET_ID}'. Please click on the checkbox to continue.`,
+			},
+			{
+				target: OnboardingTourStepTargets.AddSelectedExerciseToWorkout,
 				content:
-					"Let's proceed by selecting 'Alternate Incline Dumbbell Curl'. You can also select multiple.",
+					"Once you have selected the exercises you want, click on this button to add them to the workout.",
 			},
 		] as Step[]
 	).map((step) => ({

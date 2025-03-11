@@ -94,6 +94,7 @@ import {
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 import {
 	OnboardingTourStepTargets,
+	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
 
@@ -202,6 +203,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const { advanceTourStep } = useOnboardingTour();
 
 	const replacingExerciseId =
 		currentWorkout?.replacingExerciseIdx &&
@@ -315,12 +317,14 @@ export default function Page() {
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
+						size="xl"
+						radius="xl"
 						color="blue"
 						variant="light"
-						radius="xl"
-						size="xl"
 						disabled={selectedExercises.length === 0}
+						className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
 						onClick={async () => {
+							advanceTourStep();
 							await addExerciseToCurrentWorkout(
 								navigate,
 								currentWorkout,
@@ -427,8 +431,7 @@ const ExerciseItemDisplay = (props: {
 	const numTimesInteracted =
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
-	const isTourTargetExercise =
-		props.exerciseId === "Alternate Incline Dumbbell Curl";
+	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
 
 	return (
 		<Box
