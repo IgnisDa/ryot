@@ -267,9 +267,8 @@ export const useOnboardingTour = () => {
 
 	useEffect(() => {
 		if (typeof isMobile === "undefined" || isMobile) return;
-
-		if (canTourBeStarted && !isTourInProgress) startTour();
-	}, [isMobile, canTourBeStarted]);
+		if (typeof tourState === "undefined") startTour();
+	}, [isMobile, tourState]);
 
 	return {
 		startTour,
