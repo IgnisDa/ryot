@@ -3,6 +3,7 @@ import {
 	Affix,
 	Alert,
 	Avatar,
+	Box,
 	Center,
 	Checkbox,
 	Container,
@@ -91,6 +92,10 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 
 const defaultFiltersValue = {
 	muscle: undefined,
@@ -407,6 +412,7 @@ const ExerciseItemDisplay = (props: {
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const { advanceTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
 	const { data: exercise } = useQuery({
 		...getExerciseDetailsQuery(props.exerciseId),
@@ -421,97 +427,111 @@ const ExerciseItemDisplay = (props: {
 	const numTimesInteracted =
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
+	const isTourTargetExercise =
+		props.exerciseId === "Alternate Incline Dumbbell Curl";
 
-	return exercise && userExerciseDetails ? (
-		<Flex gap="lg" align="center" data-exercise-id={props.exerciseId}>
-			{props.allowAddingExerciseToWorkout ? (
-				<Checkbox
-					onChange={(e) => {
-						if (e.currentTarget.checked)
-							props.setSelectedExercises.append({
-								name: props.exerciseId,
-								lot: exercise.lot,
-							});
-						else
-							props.setSelectedExercises.filter(
-								(item) => item.name !== props.exerciseId,
-							);
-					}}
-				/>
-			) : null}
-			<Indicator
-				size={16}
-				offset={8}
-				color="grape"
-				position="top-start"
-				disabled={!numTimesInteracted}
-				label={numTimesInteracted ?? ""}
-			>
-				<Avatar
-					size="lg"
-					radius="xl"
-					imageProps={{ loading: "lazy" }}
-					src={exercise.attributes.images[0]}
-				/>
-			</Indicator>
-			<Link
-				style={{ all: "unset", cursor: "pointer" }}
-				to={getExerciseDetailsPath(props.exerciseId)}
-				onClick={(e) => {
-					if (props.allowAddingExerciseToWorkout) return;
-					if (props.mergingExercise) {
-						e.preventDefault();
-						openConfirmationModal(
-							"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
-							() => {
-								const formData = new FormData();
-								if (props.mergingExercise)
-									formData.append("mergeFrom", props.mergingExercise);
-								formData.append("mergeInto", props.exerciseId);
-								props.setMergingExercise(null);
-								submit(formData, {
-									method: "POST",
-									action: withQuery(".", {
-										intent: "mergeExercise",
+	return (
+		<Box
+			data-exercise-id={props.exerciseId}
+			className={
+				isTourTargetExercise
+					? OnboardingTourStepTargets.SelectExercise
+					: undefined
+			}
+		>
+			{exercise && userExerciseDetails ? (
+				<Flex gap="lg" align="center">
+					{props.allowAddingExerciseToWorkout ? (
+						<Checkbox
+							onChange={(e) => {
+								if (e.currentTarget.checked) {
+									props.setSelectedExercises.append({
+										name: props.exerciseId,
+										lot: exercise.lot,
+									});
+									if (isTourTargetExercise) advanceTourStep();
+								} else
+									props.setSelectedExercises.filter(
+										(item) => item.name !== props.exerciseId,
+									);
+							}}
+						/>
+					) : null}
+					<Indicator
+						size={16}
+						offset={8}
+						color="grape"
+						position="top-start"
+						disabled={!numTimesInteracted}
+						label={numTimesInteracted ?? ""}
+					>
+						<Avatar
+							size="lg"
+							radius="xl"
+							imageProps={{ loading: "lazy" }}
+							src={exercise.attributes.images[0]}
+						/>
+					</Indicator>
+					<Link
+						style={{ all: "unset", cursor: "pointer" }}
+						to={getExerciseDetailsPath(props.exerciseId)}
+						onClick={(e) => {
+							if (props.allowAddingExerciseToWorkout) return;
+							if (props.mergingExercise) {
+								e.preventDefault();
+								openConfirmationModal(
+									"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+									() => {
+										const formData = new FormData();
+										if (props.mergingExercise)
+											formData.append("mergeFrom", props.mergingExercise);
+										formData.append("mergeInto", props.exerciseId);
+										props.setMergingExercise(null);
+										submit(formData, {
+											method: "POST",
+											action: withQuery(".", {
+												intent: "mergeExercise",
+											}),
+										});
+									},
+								);
+								return;
+							}
+							if (currentWorkout) {
+								e.preventDefault();
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
+										draft.exercises[
+											currentWorkout.replacingExerciseIdx
+										].exerciseId = props.exerciseId;
+										draft.replacingExerciseIdx = undefined;
 									}),
-								});
-							},
-						);
-						return;
-					}
-					if (currentWorkout) {
-						e.preventDefault();
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
-								draft.exercises[
-									currentWorkout.replacingExerciseIdx
-								].exerciseId = props.exerciseId;
-								draft.replacingExerciseIdx = undefined;
-							}),
-						);
-						navigate(-1);
-						return;
-					}
-				}}
-			>
-				<Flex direction="column" justify="space-around">
-					<Text>{exercise.name}</Text>
-					<Flex>
-						{firstMuscle ? (
-							<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
-						) : null}
-						{lastUpdatedOn ? (
-							<Text size="xs" c="dimmed">
-								{firstMuscle ? "," : null}{" "}
-								{dayjsLib(lastUpdatedOn).format("D MMM")}
-							</Text>
-						) : null}
-					</Flex>
+								);
+								navigate(-1);
+								return;
+							}
+						}}
+					>
+						<Flex direction="column" justify="space-around">
+							<Text>{exercise.name}</Text>
+							<Flex>
+								{firstMuscle ? (
+									<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
+								) : null}
+								{lastUpdatedOn ? (
+									<Text size="xs" c="dimmed">
+										{firstMuscle ? "," : null}{" "}
+										{dayjsLib(lastUpdatedOn).format("D MMM")}
+									</Text>
+								) : null}
+							</Flex>
+						</Flex>
+					</Link>
 				</Flex>
-			</Link>
-		</Flex>
-	) : (
-		<Skeleton height={56} ref={ref} />
+			) : (
+				<Skeleton height={56} ref={ref} />
+			)}
+		</Box>
 	);
 };

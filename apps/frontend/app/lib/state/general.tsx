@@ -64,6 +64,7 @@ export enum OnboardingTourStepTargets {
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
 	ClickOnAddAnExerciseButton = "tour-step-click-on-add-an-exercise-button",
+	SelectExercise = "tour-step-select-exercise",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -258,6 +259,12 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.ClickOnAddAnExerciseButton,
 				content:
 					"You have started with an empty workout. Let's add a new exercise to it.",
+			},
+			{
+				disableScrolling: false,
+				target: OnboardingTourStepTargets.SelectExercise,
+				content:
+					"Let's proceed by selecting 'Alternate Incline Dumbbell Curl'. You can also select multiple.",
 			},
 		] as Step[]
 	).map((step) => ({
