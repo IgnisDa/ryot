@@ -335,7 +335,7 @@ export default function Layout() {
 				link: $path("/media/:action/:lot", { action: "list", lot: f }),
 				tourControlTarget:
 					isTourStarted && f === MediaLot.Movie
-						? `${OnboardingTourStepTargets.One} ${OnboardingTourStepTargets.Nine}`
+						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToMoviesSection}`
 						: undefined,
 			};
 		}),
@@ -384,7 +384,7 @@ export default function Layout() {
 				link: joinURL("/fitness", f.name, "list"),
 				tourControlTarget:
 					isTourStarted && f.name === "workouts"
-						? OnboardingTourStepTargets.Twelve
+						? OnboardingTourStepTargets.OpenWorkoutsSection
 						: undefined,
 			})) || []),
 		{ label: "Exercises", link: $path("/fitness/exercises/list") },
@@ -642,7 +642,7 @@ export default function Layout() {
 								icon={IconDeviceSpeaker}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.media || false}
-								tourControlTarget={OnboardingTourStepTargets.Zero}
+								tourControlTarget={OnboardingTourStepTargets.Welcome}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -659,7 +659,7 @@ export default function Layout() {
 								icon={IconStretching}
 								toggle={toggleMobileNavbar}
 								opened={openedSidebarLinks.fitness || false}
-								tourControlTarget={OnboardingTourStepTargets.Eleven}
+								tourControlTarget={OnboardingTourStepTargets.OpenFitnessSidebar}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {
@@ -1386,7 +1386,7 @@ const MetadataNewProgressUpdateForm = ({
 					type="submit"
 					variant="outline"
 					disabled={selectedDate === undefined}
-					className={OnboardingTourStepTargets.Six}
+					className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 					onClick={async () => {
 						await advanceTourStep();
 					}}

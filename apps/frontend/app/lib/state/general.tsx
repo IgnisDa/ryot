@@ -48,20 +48,20 @@ export const useOpenedSidebarLinks = () => {
 };
 
 export enum OnboardingTourStepTargets {
-	Zero = "tour-step-0",
-	One = "tour-step-1",
-	Two = "tour-step-2",
-	Three = "tour-step-3",
-	Four = "tour-step-4",
-	Five = "tour-step-5",
-	Six = "tour-step-6",
-	Seven = "tour-step-7",
-	Eight = "tour-step-8",
-	Nine = "tour-step-9",
-	Ten = "tour-step-10",
-	Eleven = "tour-step-11",
-	Twelve = "tour-step-12",
-	Thirteen = "tour-step-13",
+	Welcome = "tour-step-welcome",
+	FirstSidebar = "tour-step-first-sidebar",
+	GoToMoviesSection = "tour-step-go-to-movies-section",
+	SearchMovie = "tour-step-search-movie",
+	AddMovieToWatchlist = "tour-step-add-movie-to-watchlist",
+	OpenMetadataProgressForm = "tour-step-open-metadata-progress-form",
+	AddMovieToWatchedHistory = "tour-step-add-movie-to-watched-history",
+	GoToMoviesSectionAgain = "tour-step-go-to-movies-section-again",
+	MetadataDetailsActionsTab = "tour-step-metadata-details-actions-tab",
+	GoBackToMoviesSection = "tour-step-go-back-to-movies-section",
+	ShowMoviesListPage = "tour-step-show-movies-list-page",
+	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
+	OpenWorkoutsSection = "tour-step-open-workouts-section",
+	AddNewWorkout = "tour-step-add-new-workout",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -146,57 +146,57 @@ export const useOnboardingTour = () => {
 	const onboardingTourSteps = (
 		[
 			{
-				target: OnboardingTourStepTargets.Zero,
+				target: OnboardingTourStepTargets.Welcome,
 				content:
 					"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
-				target: OnboardingTourStepTargets.One,
+				target: OnboardingTourStepTargets.FirstSidebar,
 				content:
 					"Now, click on the movies section to start tracking your favorite movies.",
 			},
 			{
-				target: OnboardingTourStepTargets.Two,
+				target: OnboardingTourStepTargets.GoToMoviesSection,
 				content:
 					"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
 			},
 			{
-				target: OnboardingTourStepTargets.Three,
+				target: OnboardingTourStepTargets.SearchMovie,
 				content:
 					"You can find any movie here. Let us proceed by searching for 'avengers'.",
 			},
 			{
-				target: OnboardingTourStepTargets.Four,
+				target: OnboardingTourStepTargets.AddMovieToWatchlist,
 				content:
 					"Now, add this movie to your watchlist. Note: you can remove it later.",
 			},
 			{
-				target: OnboardingTourStepTargets.Five,
+				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 				content:
 					"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
 			},
 			{
-				target: OnboardingTourStepTargets.Six,
+				target: OnboardingTourStepTargets.AddMovieToWatchedHistory,
 				content:
 					"Select a desired date that you watched the movie and click on the 'Submit' button.",
 			},
 			{
-				target: OnboardingTourStepTargets.Seven,
+				target: OnboardingTourStepTargets.GoToMoviesSectionAgain,
 				content:
 					"Great! Now, let's view some more details about the movie. Click on the movie to continue.",
 			},
 			{
-				target: OnboardingTourStepTargets.Eight,
+				target: OnboardingTourStepTargets.MetadataDetailsActionsTab,
 				content:
 					"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
 			},
 			{
-				target: OnboardingTourStepTargets.Nine,
+				target: OnboardingTourStepTargets.GoBackToMoviesSection,
 				content:
 					"Great! Let's go back to the movies section and see your library.",
 			},
 			{
-				target: OnboardingTourStepTargets.Ten,
+				target: OnboardingTourStepTargets.ShowMoviesListPage,
 				content: (
 					<Stack>
 						<Text>
@@ -232,17 +232,17 @@ export const useOnboardingTour = () => {
 				),
 			},
 			{
-				target: OnboardingTourStepTargets.Eleven,
+				target: OnboardingTourStepTargets.OpenFitnessSidebar,
 				content:
 					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
 			},
 			{
-				target: OnboardingTourStepTargets.Twelve,
+				target: OnboardingTourStepTargets.OpenWorkoutsSection,
 				content:
 					"Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 			{
-				target: OnboardingTourStepTargets.Thirteen,
+				target: OnboardingTourStepTargets.AddNewWorkout,
 				content:
 					"This is the workouts section. Let's start by adding a new workout.",
 			},

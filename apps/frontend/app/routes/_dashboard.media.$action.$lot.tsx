@@ -307,7 +307,7 @@ export default function Page() {
 					<Tabs.Tab
 						value="search"
 						leftSection={<IconSearch size={24} />}
-						className={OnboardingTourStepTargets.Two}
+						className={OnboardingTourStepTargets.GoToMoviesSection}
 					>
 						<Text>Search</Text>
 					</Tabs.Tab>
@@ -362,7 +362,9 @@ export default function Page() {
 						!coreDetails.isServerKeyValidated ? (
 							<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 						) : loaderData.mediaList.list.response.details.total > 0 ? (
-							<ApplicationGrid className={OnboardingTourStepTargets.Ten}>
+							<ApplicationGrid
+								className={OnboardingTourStepTargets.ShowMoviesListPage}
+							>
 								{loaderData.mediaList.list.response.items.map((item) => {
 									const becItem = {
 										entityId: item,
@@ -419,7 +421,7 @@ export default function Page() {
 								).toLowerCase()}s`}
 								tourControlTarget={
 									isEligibleForNextTourStep
-										? OnboardingTourStepTargets.Three
+										? OnboardingTourStepTargets.SearchMovie
 										: undefined
 								}
 							/>
@@ -504,21 +506,21 @@ const MediaSearchItem = (props: {
 	const tourControlOne = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Four,
+				target: OnboardingTourStepTargets.AddMovieToWatchlist,
 			}
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Five,
+				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 			}
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
 		? {
 				onTargetInteract: advanceTourStep,
-				target: OnboardingTourStepTargets.Seven,
+				target: OnboardingTourStepTargets.GoToMoviesSectionAgain,
 			}
 		: undefined;
 

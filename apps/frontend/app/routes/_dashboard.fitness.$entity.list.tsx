@@ -196,7 +196,7 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
-						className={OnboardingTourStepTargets.Thirteen}
+						className={OnboardingTourStepTargets.AddNewWorkout}
 						onClick={async () => {
 							if (
 								!coreDetails.isServerKeyValidated &&
