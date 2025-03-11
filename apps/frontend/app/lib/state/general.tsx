@@ -63,6 +63,7 @@ export enum OnboardingTourStepTargets {
 	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
+	AddNewExercise = "tour-step-add-new-exercise",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -252,6 +253,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.AddNewWorkout,
 				content:
 					"This is the workouts section. Let's start by adding a new workout.",
+			},
+			{
+				target: OnboardingTourStepTargets.AddNewExercise,
+				content:
+					"You have started with an empty workout. Let's add a new exercise to it.",
 			},
 		] as Step[]
 	).map((step) => ({

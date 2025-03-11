@@ -150,6 +150,10 @@ import {
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 import type { Route } from "./+types/_dashboard.fitness.$action";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
@@ -314,8 +318,9 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
+	const { advanceTourStep } = useOnboardingTour();
 
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
 	const shouldDisplayWorkoutTimer = Boolean(
 		loaderData.action === FitnessAction.LogWorkout,
@@ -697,7 +702,9 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										onClick={advanceTourStep}
 										to={$path("/fitness/exercises/list")}
+										className={OnboardingTourStepTargets.AddNewExercise}
 									>
 										Add an exercise
 									</Button>
