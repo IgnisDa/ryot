@@ -258,7 +258,8 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourStarted, advanceTourStep } = useOnboardingTour();
+	const { isTourInProgress: isTourStarted, advanceTourStep } =
+		useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;

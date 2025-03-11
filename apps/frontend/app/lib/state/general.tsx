@@ -77,7 +77,8 @@ const onboardingTourAtom = atomWithStorage<
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
-	const isTourStarted = isNumber(tourState?.currentStepIndex);
+	const isTourInProgress =
+		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
@@ -108,7 +109,7 @@ export const useOnboardingTour = () => {
 	};
 
 	const advanceTourStep = async () => {
-		if (!isTourStarted) return;
+		if (!isTourInProgress) return;
 
 		setTourState((ts) =>
 			produce(ts, (draft) => {
@@ -267,16 +268,16 @@ export const useOnboardingTour = () => {
 	useEffect(() => {
 		if (typeof isMobile === "undefined" || isMobile) return;
 
-		if (canTourBeStarted && !isTourStarted) startTour();
+		if (canTourBeStarted && !isTourInProgress) startTour();
 	}, [isMobile, canTourBeStarted]);
 
 	return {
 		startTour,
 		completeTour,
-		isTourStarted,
 		advanceTourStep,
 		isOnLastTourStep,
 		canTourBeStarted,
+		isTourInProgress,
 		onboardingTourSteps,
 		currentTourStepIndex: tourState?.currentStepIndex,
 	};

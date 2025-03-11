@@ -322,7 +322,7 @@ export default function Layout() {
 	const bulkEditingCollection = useBulkEditCollection();
 	const {
 		completeTour,
-		isTourStarted,
+		isTourInProgress: isTourStarted,
 		isOnLastTourStep,
 		onboardingTourSteps,
 		currentTourStepIndex,
