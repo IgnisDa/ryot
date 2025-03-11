@@ -58,6 +58,7 @@ export enum OnboardingTourStepTargets {
 	GoToMoviesSectionAgain = "tour-step-go-to-movies-section-again",
 	MetadataDetailsActionsTab = "tour-step-metadata-details-actions-tab",
 	GoBackToMoviesSection = "tour-step-go-back-to-movies-section",
+	RefreshMoviesListPage = "tour-step-refresh-movies-list-page",
 	ShowMoviesListPage = "tour-step-show-movies-list-page",
 	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
@@ -194,6 +195,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.GoBackToMoviesSection,
 				content:
 					"Great! Let's go back to the movies section and see your library.",
+			},
+			{
+				target: OnboardingTourStepTargets.RefreshMoviesListPage,
+				content:
+					"When you have added a new item to the library, you can refresh it using this button.",
 			},
 			{
 				target: OnboardingTourStepTargets.ShowMoviesListPage,

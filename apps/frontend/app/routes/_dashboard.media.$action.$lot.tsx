@@ -356,6 +356,7 @@ export default function Page() {
 						<DisplayListDetailsAndRefresh
 							cacheId={loaderData.mediaList.list.cacheId}
 							total={loaderData.mediaList.list.response.details.total}
+							className={OnboardingTourStepTargets.RefreshMoviesListPage}
 						/>
 						{(loaderData.mediaList?.url.startDateRange ||
 							loaderData.mediaList?.url.endDateRange) &&

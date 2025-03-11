@@ -1414,9 +1414,11 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId: string;
+	className?: string;
 	rightSection?: ReactNode;
 }) => {
 	const submit = useConfirmSubmit();
+	const { advanceTourStep } = useOnboardingTour();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -1440,6 +1442,8 @@ export const DisplayListDetailsAndRefresh = (props: {
 					size="xs"
 					type="submit"
 					variant="subtle"
+					onClick={advanceTourStep}
+					className={props.className}
 					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh
