@@ -149,11 +149,11 @@ import {
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
-import type { Route } from "./+types/_dashboard.fitness.$action";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import type { Route } from "./+types/_dashboard.fitness.$action";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 

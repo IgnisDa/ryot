@@ -85,6 +85,11 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import {
+	OnboardingTourStepTargets,
+	TOUR_EXERCISE_TARGET_ID,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
@@ -92,11 +97,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
-import {
-	OnboardingTourStepTargets,
-	TOUR_EXERCISE_TARGET_ID,
-	useOnboardingTour,
-} from "~/lib/state/general";
 
 const defaultFiltersValue = {
 	muscle: undefined,
