@@ -312,7 +312,6 @@ export default function Page() {
 						total={loaderData.totalPages}
 					/>
 				</Center>
-				``
 			</Stack>
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
