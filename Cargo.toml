@@ -47,7 +47,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = "=1.0.95"
+anyhow = "=1.0.97"
 apalis = { version = "=0.6.4", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.6.4"
 argon2 = "=0.6.0-pre.1"
@@ -59,16 +59,16 @@ async-graphql = { version = "=7.0.15", features = [
     "uuid",
 ] }
 async-graphql-axum = "=7.0.15"
-async-trait = "=0.1.86"
-aws-sdk-s3 = { version = "=1.76.0", features = ["behavior-version-latest"] }
+async-trait = "=0.1.87"
+aws-sdk-s3 = { version = "=1.79.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.1", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-bon = "=3.3.2"
-chrono = "=0.4.39"
+bon = "=3.4.0"
+chrono = "=0.4.40"
 chrono-tz = "=0.10.1"
 compile-time = "=0.2.0"
 const-str = "=0.6.2"
-convert_case = "=0.7.1"
+convert_case = "=0.8.0"
 csv = "=1.3.1"
 data-encoding = "=2.8.0"
 derive_more = { version = "=2.0.1", features = [
@@ -85,18 +85,18 @@ educe = { version = "=0.6.0", features = [
 ], default-features = false }
 enum_meta = "=0.7.0"
 eventsource-stream = "=0.2.3"
-flate2 = "=1.0.35"
+flate2 = "=1.1.0"
 futures = "=0.3.31"
 graphql_client = "=0.14.0"
 hashbag = "=0.1.12"
-http = "=1.2.0"
-indexmap = "=2.7.1"
-indoc = "=2.0.5"
+http = "=1.3.1"
+indexmap = "=2.8.0"
+indoc = "=2.0.6"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.14.0"
 jsonwebtoken = { version = "=9.3.1", default-features = false }
 logs-wheel = "=0.3.1"
-markdown = "=1.0.0-alpha.22"
+markdown = "=1.0.0-alpha.23"
 mime_guess = "=2.0.5"
 nanoid = "=0.4.0"
 nest_struct = "=0.5.3"
@@ -108,7 +108,7 @@ regex = "=1.11.1"
 rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.14"
-rustypipe = { version = "0.10.0", features = ["userdata"] }
+rustypipe = { version = "0.11.0", features = ["userdata"] }
 schematic = { version = "=0.17.11", features = [
     "config",
     "env",
@@ -123,8 +123,8 @@ schematic = { version = "=0.17.11", features = [
     "validate",
     "yaml",
 ], default-features = false }
-scraper = "=0.22.0"
-sea-orm = { version = "=1.1.5", features = [
+scraper = "=0.23.1"
+sea-orm = { version = "=1.1.7", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -135,26 +135,26 @@ sea-orm = { version = "=1.1.5", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.1.5"
+sea-orm-migration = "=1.1.7"
 sea-query = "=0.32.2"
-serde = { version = "=1.0.217", features = ["derive"] }
-serde_json = "=1.0.138"
+serde = { version = "=1.0.219", features = ["derive"] }
+serde_json = "=1.0.140"
 serde_with = { version = "=3.12.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.6.0"
 slug = "=0.1.6"
 sonarr-api-rs = "=3.0.0"
 sqlx = { version = "=0.8.3", default-features = false, features = ["postgres"] }
-strum = { version = "=0.26.3", features = ["derive"] }
+strum = { version = "=0.27.1", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
-reqwest = { version = "=0.12.12", features = ["json", "stream"] }
-tokio = { version = "=1.43.0", features = ["full"] }
+reqwest = { version = "=0.12.14", features = ["json", "stream"] }
+tokio = { version = "=1.44.0", features = ["full"] }
 tokio-util = { version = "=0.7.13", features = ["codec"] }
 tower = "=0.5.2"
 tower-http = { version = "=0.6.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
 tracing-subscriber = "=0.3.19"
 unkey = "=0.5.0"
-uuid = { version = "=1.13.2", features = ["v4"], default-features = false }
+uuid = { version = "=1.15.1", features = ["v4"], default-features = false }
 
 [profile.release]
 lto = true
