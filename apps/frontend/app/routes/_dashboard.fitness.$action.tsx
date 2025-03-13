@@ -319,7 +319,7 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceTourStep, isTourInProgress } = useOnboardingTour();
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
@@ -553,6 +553,10 @@ export default function Page() {
 											size="compact-sm"
 											loading={isSaveBtnLoading}
 											disabled={isWorkoutPaused}
+											className={clsx(
+												isTourInProgress &&
+													OnboardingTourStepTargets.FinishWorkout,
+											)}
 											onClick={() => {
 												if (!currentWorkout.name) {
 													notifications.show({
@@ -571,6 +575,7 @@ export default function Page() {
 														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													async () => {
 														setIsSaveBtnLoading(true);
+														if (isTourInProgress) advanceTourStep();
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,

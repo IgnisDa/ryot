@@ -73,6 +73,7 @@ export enum OnboardingTourStepTargets {
 	OpenSetMenuDetails = "tour-step-open-set-menu-details",
 	OpenExerciseMenuDetails = "tour-step-open-exercise-menu-details",
 	ConfirmSetForExercise = "tour-step-confirm-set-for-exercise",
+	FinishWorkout = "tour-step-finish-workout",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -302,6 +303,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.ConfirmSetForExercise,
 				content:
 					"Once you have associated the correct inputs for a set, the confirm button will be enabled. Clicking on it will confirm the set, start the rest timer and collapse the exercise if it is the last set.",
+			},
+			{
+				target: OnboardingTourStepTargets.FinishWorkout,
+				content:
+					"Great! You have finished your workout tour. Once you are ready, click on the 'Finish' button to continue.",
 			},
 		] as Step[]
 	).map((step) => ({
