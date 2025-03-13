@@ -607,6 +607,9 @@ impl FitnessService {
             ))
             .all(&self.0.db)
             .await?;
+        if revisions.is_empty() {
+            return Ok(());
+        }
         for user in revisions {
             ryot_log!(debug, "Revising workouts for {}", user.id);
             self.revise_user_workouts(user.id.clone()).await?;
