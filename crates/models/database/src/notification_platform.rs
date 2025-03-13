@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use enum_models::{NotificationPlatformLot, UserNotificationContent};
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 use user_models::NotificationPlatformSpecifics;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]

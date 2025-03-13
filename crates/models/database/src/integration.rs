@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use enum_models::{IntegrationLot, IntegrationProvider};
 use media_models::{IntegrationProviderSpecifics, IntegrationTriggerResult};
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, InputObject)]
 #[sea_orm(table_name = "integration")]

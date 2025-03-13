@@ -5,7 +5,7 @@ use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";

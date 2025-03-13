@@ -1,11 +1,11 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     sync::{Mutex, OnceLock},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use application_utils::get_base_http_client;
-use async_graphql::futures_util::{stream, StreamExt};
+use async_graphql::futures_util::{StreamExt, stream};
 use common_models::DefaultCollection;
 use common_utils::{ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
@@ -17,12 +17,12 @@ use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
 };
 use reqwest::Url;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tokio::sync::{mpsc, mpsc::UnboundedReceiver, mpsc::error::TryRecvError};
 
 mod komga_book {
     use super::*;

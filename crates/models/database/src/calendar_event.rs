@@ -6,7 +6,7 @@ use media_models::{
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::{ExportJob, SearchInput};
-use common_utils::{ryot_log, TEMPORARY_DIRECTORY};
+use common_utils::{TEMPORARY_DIRECTORY, ryot_log};
 use database_models::{
     prelude::{Exercise, Metadata, MetadataGroup, Person, Seen},
     seen,
@@ -31,11 +31,11 @@ use media_models::{
 };
 use nanoid::nanoid;
 use reqwest::{
-    header::{CONTENT_LENGTH, CONTENT_TYPE},
     Body, Client,
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
 };
 use sea_orm::{
-    strum::Display, ColumnTrait, EntityTrait, EnumIter, Iterable, ModelTrait, QueryFilter,
+    ColumnTrait, EntityTrait, EnumIter, Iterable, ModelTrait, QueryFilter, strum::Display,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
@@ -110,7 +110,8 @@ impl ExporterService {
             ));
         }
         let started_at = Utc::now();
-        let export_path = PathBuf::from(TEMPORARY_DIRECTORY).join(format!("ryot-export-{}.json", nanoid!()));
+        let export_path =
+            PathBuf::from(TEMPORARY_DIRECTORY).join(format!("ryot-export-{}.json", nanoid!()));
         let file = std::fs::File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();

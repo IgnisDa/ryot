@@ -16,8 +16,8 @@ use common_models::{
     SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, BULK_APPLICATION_UPDATE_CHUNK_SIZE,
-    BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -63,9 +63,9 @@ use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserNotificationContent, UserToMediaReason,
 };
-use futures::{future::join_all, TryStreamExt};
+use futures::{TryStreamExt, future::join_all};
 use itertools::Itertools;
-use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
@@ -92,14 +92,14 @@ use providers::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, query::UpdateMany, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait,
+    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement,
+    Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
+    extension::postgres::PgExpr,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;

@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl};
-use common_utils::{ryot_log, PAGE_SIZE};
+use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse,
@@ -19,15 +19,15 @@ use media_models::{
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
 };
 use reqwest::{
-    header::{HeaderName, HeaderValue, AUTHORIZATION},
     Client,
+    header::{AUTHORIZATION, HeaderName, HeaderValue},
 };
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use serde_json::{Value, json};
+use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 

@@ -1,11 +1,11 @@
 use std::env;
 
-use anyhow::{anyhow, Result};
-use common_utils::{ryot_log, APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME};
+use anyhow::{Result, anyhow};
+use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
 use convert_case::{Case, Casing};
 use reqwest::{
-    header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     Client,
+    header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue},
 };
 use user_models::NotificationPlatformSpecifics;
 

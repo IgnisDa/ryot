@@ -16,7 +16,7 @@ use media_models::{
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
-    model::{richtext::ToHtml, Thumbnail},
+    model::{Thumbnail, richtext::ToHtml},
 };
 use traits::MediaProvider;
 

@@ -10,7 +10,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 

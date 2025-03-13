@@ -35,8 +35,8 @@ use fitness_models::{
 use futures::TryStreamExt;
 use nanoid::nanoid;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, prelude::DateTimeUtc,
 };
 use sea_query::{Expr, OnConflict};
 use supporting_service::SupportingService;

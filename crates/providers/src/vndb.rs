@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
-use common_utils::{convert_date_to_year, convert_string_to_date, PAGE_SIZE};
-use dependent_models::{PersonDetails, PeopleSearchResponse, SearchResults};
+use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use dependent_models::{PeopleSearchResponse, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{

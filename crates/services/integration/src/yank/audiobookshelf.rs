@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
@@ -17,8 +17,8 @@ use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
 };
 use reqwest::{
-    header::{HeaderValue, AUTHORIZATION},
     Client,
+    header::{AUTHORIZATION, HeaderValue},
 };
 use rust_decimal_macros::dec;
 use supporting_service::SupportingService;

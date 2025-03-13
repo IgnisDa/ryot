@@ -16,10 +16,10 @@ use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
-    prelude::{Date, Expr},
-    sea_query::{Alias, Func, NullOrdering, PgFunc},
     ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Order, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
+    prelude::{Date, Expr},
+    sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
 use supporting_service::SupportingService;
 

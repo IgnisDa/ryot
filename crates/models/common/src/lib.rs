@@ -1,11 +1,11 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
-use enum_meta::{meta, Meta};
+use enum_meta::{Meta, meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, sea_query::PgDateTruncUnit, FromJsonQueryResult};
+use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::{Display, EnumIter};

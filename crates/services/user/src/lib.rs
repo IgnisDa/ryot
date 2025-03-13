@@ -38,15 +38,15 @@ use media_models::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
-    core::CoreResponseType, reqwest::async_http_client, AuthenticationFlow, AuthorizationCode,
-    CsrfToken, Nonce, Scope, TokenResponse,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
+    core::CoreResponseType, reqwest::async_http_client,
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
-    prelude::Expr,
-    sea_query::{extension::postgres::PgExpr, Func},
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, Order,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    prelude::Expr,
+    sea_query::{Func, extension::postgres::PgExpr},
 };
 use supporting_service::SupportingService;
 use user_models::{
@@ -189,7 +189,7 @@ impl UserService {
             None => {
                 return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
                     error: ProcessAccessLinkErrorVariant::NotFound,
-                }))
+                }));
             }
             Some(l) => l,
         };

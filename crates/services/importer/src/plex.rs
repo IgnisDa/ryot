@@ -8,7 +8,7 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
-use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
+use reqwest::header::{ACCEPT, HeaderName, HeaderValue};
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(Some(vec![

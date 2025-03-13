@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use application_utils::{
-    get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
+    GraphqlRepresentation, get_podcast_episode_by_number, get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
@@ -26,7 +26,7 @@ use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;
-use jwt_service::{verify, Claims};
+use jwt_service::{Claims, verify};
 use markdown::to_html as markdown_to_html;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MediaCollectionFilter,
@@ -35,13 +35,13 @@ use media_models::{
     SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{NullOrdering, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
     Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    prelude::{Date, DateTimeUtc, Expr},
+    sea_query::{NullOrdering, PgFunc},
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
