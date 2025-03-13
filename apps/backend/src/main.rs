@@ -50,10 +50,10 @@ async fn main() -> Result<()> {
     match env::var(LOGGING_ENV_VAR).ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v));
+                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v)) };
             }
         }
-        None => env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info"),
+        None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
     }
     init_tracing()?;
 
