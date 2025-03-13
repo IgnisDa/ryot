@@ -78,7 +78,7 @@ where
 {
     struct JsonStringVisitor;
 
-    impl<'de> de::Visitor<'de> for JsonStringVisitor {
+    impl de::Visitor<'_> for JsonStringVisitor {
         type Value = NaiveDate;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

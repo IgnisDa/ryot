@@ -571,7 +571,7 @@ ORDER BY RANDOM() LIMIT 10;
                     let seen = history
                         .iter()
                         .filter(|h| {
-                            h.show_extra_information.as_ref().map_or(false, |s| {
+                            h.show_extra_information.as_ref().is_some_and(|s| {
                                 s.season == season.season_number
                                     && s.episode == episode.episode_number
                             })
@@ -605,8 +605,7 @@ ORDER BY RANDOM() LIMIT 10;
                         .iter()
                         .filter(|h| {
                             h.podcast_extra_information
-                                .as_ref()
-                                .map_or(false, |s| s.episode == episode.number)
+                                .as_ref().is_some_and(|s| s.episode == episode.number)
                         })
                         .collect_vec();
                     episodes.push(UserMetadataDetailsEpisodeProgress {
