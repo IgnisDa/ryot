@@ -5365,9 +5365,9 @@ dependencies = [
 
 [[package]]
 name = "schematic"
-version = "0.17.11"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "365f270caf8e8539eaad997c3800bfe0159e664eab1da87ca8043f527234539e"
+checksum = "91dee2240c12c2ce025782f0f7cf209419e1d1b28117d19f540fb33fc8c8d27c"
 dependencies = [
  "garde",
  "indexmap 2.8.0",
@@ -5387,11 +5387,11 @@ dependencies = [
 
 [[package]]
 name = "schematic_macros"
-version = "0.17.8"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e5ea932a91232414dc5c0f34f0e3ad60c8244968f9e8b06e8b3a4b87ae99051"
+checksum = "35daf588bff8f6c38d38b75f3386d5fb18ae9d3d477dae944c03298e9e38ed77"
 dependencies = [
- "convert_case 0.7.1",
+ "convert_case 0.8.0",
  "darling",
  "proc-macro2",
  "quote",
@@ -5400,9 +5400,9 @@ dependencies = [
 
 [[package]]
 name = "schematic_types"
-version = "0.9.7"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15254cba352d302f26c0e427bf2634e513dff936f8a86c6df4f94843818fa4e3"
+checksum = "2d080c1da871374064ad558756d13a101b0040babcacc5b047ed7c1449586103"
 dependencies = [
  "chrono",
  "indexmap 2.8.0",
@@ -6234,9 +6234,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "starbase_styles"
-version = "0.4.14"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27604aa17f1a81b57033ca1a466fa5a39f24211a3f06e98d64f804af1c665bc5"
+checksum = "b2eaf276f88990ad31740689546564c450caf2acbb9cd60e5cd517931783fd32"
 dependencies = [
  "dirs",
  "owo-colors",

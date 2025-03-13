@@ -109,7 +109,7 @@ rust_decimal = "=1.36.0"
 rust_decimal_macros = "=1.36.0"
 rust_iso3166 = "=0.1.14"
 rustypipe = { version = "0.11.0", features = ["userdata"] }
-schematic = { version = "=0.17.11", features = [
+schematic = { version = "=0.18.1", features = [
     "config",
     "env",
     "json",
