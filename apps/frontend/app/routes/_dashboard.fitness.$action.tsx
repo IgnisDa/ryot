@@ -2107,11 +2107,9 @@ const SetDisplay = (props: {
 								onClick={() => {
 									if (isTourStep) advanceTourStep();
 								}}
-								className={
-									isTourStep
-										? OnboardingTourStepTargets.OpenSetMenuDetails
-										: undefined
-								}
+								className={clsx(
+									isTourStep && OnboardingTourStepTargets.OpenSetMenuDetails,
+								)}
 							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
 									{match(set.lot)
@@ -2342,12 +2340,11 @@ const SetDisplay = (props: {
 									<ActionIcon
 										color="green"
 										style={style}
-										className={
-											isTourStep
-												? OnboardingTourStepTargets.ConfirmSetForExercise
-												: undefined
-										}
 										variant={set.confirmedAt ? "filled" : "outline"}
+										className={clsx(
+											isTourStep &&
+												OnboardingTourStepTargets.ConfirmSetForExercise,
+										)}
 										disabled={
 											!match(exercise.lot)
 												.with(ExerciseLot.Reps, () =>
