@@ -271,7 +271,7 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.AddSelectedExerciseToWorkout,
 				content:
-					"Once you have selected the exercises you want, click on this button to add them to the workout.",
+					"Once you have selected the exercises you want, click on this button to add them to the active workout.",
 			},
 		] as Step[]
 	).map((step) => ({
