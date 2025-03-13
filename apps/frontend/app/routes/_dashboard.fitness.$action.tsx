@@ -1485,6 +1485,7 @@ const ExerciseDisplay = (props: {
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
+	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -1528,6 +1529,11 @@ const ExerciseDisplay = (props: {
 			}),
 		);
 	};
+
+	const isTourStep =
+		isTourInProgress && props.exerciseIdx === 0
+			? OnboardingTourStepTargets.OpenExerciseMenuDetails
+			: undefined;
 
 	return (
 		<>
@@ -1576,7 +1582,16 @@ const ExerciseDisplay = (props: {
 									<IconChevronUp />
 								</ActionIcon>
 								<Menu.Target>
-									<ActionIcon color="blue">
+									<ActionIcon
+										color="blue"
+										onClick={() => {
+											if (isTourStep) advanceTourStep();
+										}}
+										className={clsx(
+											isTourStep &&
+												OnboardingTourStepTargets.OpenExerciseMenuDetails,
+										)}
+									>
 										<IconDotsVertical size={20} />
 									</ActionIcon>
 								</Menu.Target>

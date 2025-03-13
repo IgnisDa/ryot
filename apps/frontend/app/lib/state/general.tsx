@@ -71,6 +71,7 @@ export enum OnboardingTourStepTargets {
 	AddWeightToExercise = "tour-step-add-weight-to-exercise",
 	AddRepsToExercise = "tour-step-add-reps-to-exercise",
 	OpenSetMenuDetails = "tour-step-open-set-menu-details",
+	OpenExerciseMenuDetails = "tour-step-open-exercise-menu-details",
 	ConfirmSetForExercise = "tour-step-confirm-set-for-exercise",
 }
 
@@ -291,6 +292,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.OpenSetMenuDetails,
 				content:
 					"Click on the set number. Here you will get a menu with options to adjust the set details and add additional attributes to it.",
+			},
+			{
+				target: OnboardingTourStepTargets.OpenExerciseMenuDetails,
+				content:
+					"Click on the three dots to open the exercise menu. You will get a menu with options to adjust the exercise details etc.",
 			},
 			{
 				target: OnboardingTourStepTargets.ConfirmSetForExercise,
