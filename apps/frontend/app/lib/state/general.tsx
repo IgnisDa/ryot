@@ -70,6 +70,7 @@ export enum OnboardingTourStepTargets {
 	AddSelectedExerciseToWorkout = "tour-step-add-selected-exercise-to-workout",
 	AddWeightToExercise = "tour-step-add-weight-to-exercise",
 	AddRepsToExercise = "tour-step-add-reps-to-exercise",
+	ConfirmSetForExercise = "tour-step-confirm-set-for-exercise",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -284,6 +285,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.AddRepsToExercise,
 				content:
 					"Let's associate some rep count to it. Please enter 10 to continue.",
+			},
+			{
+				target: OnboardingTourStepTargets.ConfirmSetForExercise,
+				content:
+					"Once you have associated the correct inputs for a set, the confirm button will be enabled. Clicking on it will confirm the set, start the rest timer and collapse the exercise if it is the last set.",
 			},
 		] as Step[]
 	).map((step) => ({

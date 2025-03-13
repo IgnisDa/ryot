@@ -1987,6 +1987,7 @@ const SetDisplay = (props: {
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -2011,6 +2012,13 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const tourStepClassName =
+		isTourInProgress &&
+		set.confirmedAt === null &&
+		props.exerciseIdx === 0 &&
+		props.setIdx === 0
+			? OnboardingTourStepTargets.ConfirmSetForExercise
+			: undefined;
 
 	return (
 		<>
@@ -2326,6 +2334,7 @@ const SetDisplay = (props: {
 									<ActionIcon
 										color="green"
 										style={style}
+										className={tourStepClassName}
 										variant={set.confirmedAt ? "filled" : "outline"}
 										disabled={
 											!match(exercise.lot)
@@ -2365,6 +2374,8 @@ const SetDisplay = (props: {
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
+											if (tourStepClassName && newConfirmed) advanceTourStep();
+
 											if (
 												!newConfirmed &&
 												currentTimer?.triggeredBy?.exerciseIdentifier ===
