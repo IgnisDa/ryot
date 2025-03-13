@@ -935,10 +935,10 @@ const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
 };
 
 const StatInput = (props: {
-	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof WorkoutSetStatistic;
 	inputStep?: number;
+	exerciseIdx: number;
+	stat: keyof WorkoutSetStatistic;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -2238,32 +2238,32 @@ const SetDisplay = (props: {
 					</Box>
 					{props.durationCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="duration"
 							inputStep={0.1}
+							stat="duration"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.distanceCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="distance"
 							inputStep={0.01}
+							stat="distance"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.weightCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="weight"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.repsCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="reps"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					<Group
@@ -2273,13 +2273,13 @@ const SetDisplay = (props: {
 					>
 						<Transition
 							mounted
+							duration={200}
+							timingFunction="ease-in-out"
 							transition={{
 								in: {},
 								out: {},
 								transitionProperty: "all",
 							}}
-							duration={200}
-							timingFunction="ease-in-out"
 						>
 							{(style) =>
 								set.displayRestTimeTrigger ? (
