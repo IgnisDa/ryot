@@ -1492,6 +1492,7 @@ const ExerciseDisplay = (props: {
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
+	const isTourStep = isTourInProgress && props.exerciseIdx === 0;
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -1529,11 +1530,6 @@ const ExerciseDisplay = (props: {
 			}),
 		);
 	};
-
-	const isTourStep =
-		isTourInProgress && props.exerciseIdx === 0
-			? OnboardingTourStepTargets.OpenExerciseMenuDetails
-			: undefined;
 
 	return (
 		<>
