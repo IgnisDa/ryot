@@ -70,7 +70,6 @@
 		"zod": "3.24.2"
 	},
 	"devDependencies": {
-		"@bitprojects/umami-logger-typescript": "1.0.10",
 		"@react-router/dev": "7.3.0",
 		"@remix-pwa/dev": "3.1.0",
 		"@types/cookie": "1.0.0",
