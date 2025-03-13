@@ -2012,13 +2012,11 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const tourStepClassName =
+	const isTourStep =
 		isTourInProgress &&
 		set.confirmedAt === null &&
 		props.exerciseIdx === 0 &&
-		props.setIdx === 0
-			? OnboardingTourStepTargets.ConfirmSetForExercise
-			: undefined;
+		props.setIdx === 0;
 
 	return (
 		<>
@@ -2104,7 +2102,17 @@ const SetDisplay = (props: {
 				<Flex justify="space-between" align="center" py={4}>
 					<Menu>
 						<Menu.Target>
-							<UnstyledButton w="5%">
+							<UnstyledButton
+								w="5%"
+								onClick={() => {
+									if (isTourStep) advanceTourStep();
+								}}
+								className={
+									isTourStep
+										? OnboardingTourStepTargets.OpenSetMenuDetails
+										: undefined
+								}
+							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
 									{match(set.lot)
 										.with(SetLot.Normal, () => props.setIdx + 1)
@@ -2334,7 +2342,11 @@ const SetDisplay = (props: {
 									<ActionIcon
 										color="green"
 										style={style}
-										className={tourStepClassName}
+										className={
+											isTourStep
+												? OnboardingTourStepTargets.ConfirmSetForExercise
+												: undefined
+										}
 										variant={set.confirmedAt ? "filled" : "outline"}
 										disabled={
 											!match(exercise.lot)
@@ -2374,7 +2386,7 @@ const SetDisplay = (props: {
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
-											if (tourStepClassName && newConfirmed) advanceTourStep();
+											if (isTourStep && newConfirmed) advanceTourStep();
 
 											if (
 												!newConfirmed &&

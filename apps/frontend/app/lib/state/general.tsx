@@ -70,6 +70,7 @@ export enum OnboardingTourStepTargets {
 	AddSelectedExerciseToWorkout = "tour-step-add-selected-exercise-to-workout",
 	AddWeightToExercise = "tour-step-add-weight-to-exercise",
 	AddRepsToExercise = "tour-step-add-reps-to-exercise",
+	OpenSetMenuDetails = "tour-step-open-set-menu-details",
 	ConfirmSetForExercise = "tour-step-confirm-set-for-exercise",
 }
 
@@ -285,6 +286,11 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.AddRepsToExercise,
 				content:
 					"Let's associate some rep count to it. Please enter 10 to continue.",
+			},
+			{
+				target: OnboardingTourStepTargets.OpenSetMenuDetails,
+				content:
+					"Click on the set number. Here you will get a menu with options to adjust the set details and add additional attributes to it.",
 			},
 			{
 				target: OnboardingTourStepTargets.ConfirmSetForExercise,
