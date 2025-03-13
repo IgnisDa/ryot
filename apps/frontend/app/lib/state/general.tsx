@@ -68,6 +68,8 @@ export enum OnboardingTourStepTargets {
 	ClickOnAddAnExerciseButton = "tour-step-click-on-add-an-exercise-button",
 	SelectExercise = "tour-step-select-exercise",
 	AddSelectedExerciseToWorkout = "tour-step-add-selected-exercise-to-workout",
+	AddWeightToExercise = "tour-step-add-weight-to-exercise",
+	AddRepsToExercise = "tour-step-add-reps-to-exercise",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -272,6 +274,16 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.AddSelectedExerciseToWorkout,
 				content:
 					"Once you have selected the exercises you want, click on this button to add them to the active workout.",
+			},
+			{
+				target: OnboardingTourStepTargets.AddWeightToExercise,
+				content:
+					"Let's associate some weight to the exercise. Please enter 20 to continue.",
+			},
+			{
+				target: OnboardingTourStepTargets.AddRepsToExercise,
+				content:
+					"Let's associate some rep count to it. Please enter 10 to continue.",
 			},
 		] as Step[]
 	).map((step) => ({

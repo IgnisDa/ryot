@@ -154,6 +154,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
+import clsx from "clsx";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
@@ -949,6 +950,17 @@ const StatInput = (props: {
 			: undefined,
 		500,
 	);
+	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
+
+	const weightStepTourClassName =
+		isTourInProgress && props.stat === "weight" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddWeightToExercise
+			: undefined;
+
+	const repsStepTourClassName =
+		isTourInProgress && props.stat === "reps" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddRepsToExercise
+			: undefined;
 
 	useDidUpdate(() => {
 		if (currentWorkout)
@@ -959,6 +971,8 @@ const StatInput = (props: {
 						draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
 					if (val === null) draftSet.confirmedAt = null;
+					if (weightStepTourClassName && val === "20") advanceTourStep();
+					if (repsStepTourClassName && val === "10") advanceTourStep();
 				}),
 			);
 	}, [value]);
@@ -972,6 +986,7 @@ const StatInput = (props: {
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
+				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
