@@ -250,61 +250,73 @@ export const useOnboardingTour = () => {
 				),
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.OpenFitnessSidebar,
 				content:
 					"Let's move on to the fitness section. Click on the corresponding in the sidebar.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.OpenWorkoutsSection,
 				content:
 					"Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.AddNewWorkout,
 				content:
 					"This is the workouts section. Let's start by adding a new workout.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.ClickOnAddAnExerciseButton,
 				content:
 					"You have started with an empty workout. Let's add a new exercise to it.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				disableScrolling: false,
 				target: OnboardingTourStepTargets.SelectExercise,
 				content: `Let's proceed by selecting '${TOUR_EXERCISE_TARGET_ID}'. Please click on the checkbox to continue.`,
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.AddSelectedExerciseToWorkout,
 				content:
 					"Once you have selected the exercises you want, click on this button to add them to the active workout.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.AddWeightToExercise,
 				content:
 					"Let's associate some weight to the exercise. Please enter 20 to continue.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.AddRepsToExercise,
 				content:
 					"Let's associate some rep count to it. Please enter 10 to continue.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.OpenSetMenuDetails,
 				content:
 					"Click on the set number. Here you will get a menu with options to adjust the set details and add additional attributes to it.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.OpenExerciseMenuDetails,
 				content:
 					"Click on the three dots to open the exercise menu. You will get a menu with options to adjust the exercise details etc.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.ConfirmSetForExercise,
 				content:
 					"Once you have associated the correct inputs for a set, the confirm button will be enabled. Clicking on it will confirm the set, start the rest timer and collapse the exercise if it is the last set.",
 			},
 			{
+				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.FinishWorkout,
 				content:
 					"Great! You have finished your workout tour. Once you are ready, click on the 'Finish' button to continue.",
