@@ -90,6 +90,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
@@ -154,7 +155,6 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
-import clsx from "clsx";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
