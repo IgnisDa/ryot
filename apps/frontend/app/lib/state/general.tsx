@@ -163,7 +163,16 @@ export const useOnboardingTour = () => {
 		<Stack>
 			<Box>{children}</Box>
 			<Group justify="space-between">
-				{isTourLoading ? <Loader size="xs" /> : <Box />}
+				<Group>
+					{isTourLoading ? <Loader size="xs" /> : null}
+					<Button
+						size="compact-xs"
+						variant="default"
+						onClick={() => completeTour()}
+					>
+						Complete tour
+					</Button>
+				</Group>
 				<Text size="sm" c="dimmed">
 					Step {(tourState?.currentStepIndex || 0) + 1} of{" "}
 					{onboardingTourSteps.length}
