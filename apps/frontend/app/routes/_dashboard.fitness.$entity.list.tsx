@@ -176,7 +176,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const isFilterChanged =
 		loaderData.query.sortBy !== defaultFilters.sortBy ||
@@ -215,7 +215,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
-							await advanceTourStep();
+							await advanceOnboardingTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>

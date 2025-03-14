@@ -302,11 +302,11 @@ export default function Layout() {
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
 	const {
-		completeTour,
-		isTourInProgress: isTourStarted,
-		isOnLastTourStep,
 		onboardingTourSteps,
-		currentTourStepIndex,
+		completeOnboardingTour,
+		isOnboardingTourInProgress,
+		isOnLastOnboardingTourStep,
+		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
 	const mediaLinks = [
@@ -315,7 +315,7 @@ export default function Layout() {
 				label: changeCase(f),
 				link: $path("/media/:action/:lot", { action: "list", lot: f }),
 				tourControlTarget:
-					isTourStarted && f === MediaLot.Movie
+					isOnboardingTourInProgress && f === MediaLot.Movie
 						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToMoviesSection}`
 						: undefined,
 			};
@@ -364,7 +364,7 @@ export default function Layout() {
 				label: changeCase(f.name.toString()),
 				link: joinURL("/fitness", f.name, "list"),
 				tourControlTarget:
-					isTourStarted && f.name === "workouts"
+					isOnboardingTourInProgress && f.name === "workouts"
 						? OnboardingTourStepTargets.OpenWorkoutsSection
 						: undefined,
 			})) || []),
@@ -396,7 +396,7 @@ export default function Layout() {
 		<>
 			<ClientOnly>
 				{() => {
-					if (!isTourStarted) return null;
+					if (!isOnboardingTourInProgress) return null;
 					return (
 						<Joyride
 							hideBackButton
@@ -405,10 +405,10 @@ export default function Layout() {
 							disableScrolling
 							disableCloseOnEsc
 							disableOverlayClose
-							run={isTourStarted}
 							spotlightPadding={0}
 							steps={onboardingTourSteps}
-							stepIndex={currentTourStepIndex}
+							run={isOnboardingTourInProgress}
+							stepIndex={currentOnboardingTourStepIndex}
 							styles={{
 								overlay: { zIndex: 120 },
 								tooltipContent: { padding: 0 },
@@ -548,9 +548,9 @@ export default function Layout() {
 			</Modal>
 			<Modal
 				centered
-				onClose={completeTour}
 				withCloseButton={false}
-				opened={isOnLastTourStep}
+				onClose={completeOnboardingTour}
+				opened={isOnLastOnboardingTourStep}
 				title="You've completed the onboarding tour!"
 			>
 				<Stack>
@@ -562,7 +562,7 @@ export default function Layout() {
 					<Text size="sm" c="dimmed">
 						You can restart the tour at any time from the profile settings.
 					</Text>
-					<Button variant="outline" onClick={completeTour}>
+					<Button variant="outline" onClick={completeOnboardingTour}>
 						Start using Ryot!
 					</Button>
 				</Stack>
@@ -874,7 +874,7 @@ const LinksGroup = ({
 	tourControlTarget,
 }: LinksGroupProps) => {
 	const { dir } = useDirection();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
@@ -885,7 +885,7 @@ const LinksGroup = ({
 			className={clsx(classes.link, link.tourControlTarget)}
 			onClick={() => {
 				toggle();
-				advanceTourStep();
+				advanceOnboardingTourStep();
 			}}
 		>
 			{({ isActive }) => (
@@ -906,7 +906,7 @@ const LinksGroup = ({
 				onClick={() => {
 					if (hasLinks) {
 						setOpened(!opened);
-						advanceTourStep();
+						advanceOnboardingTourStep();
 						return;
 					}
 					toggle();
@@ -1163,7 +1163,7 @@ const MetadataNewProgressUpdateForm = ({
 		WatchTimes.JustCompletedNow,
 	);
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
@@ -1398,7 +1398,7 @@ const MetadataNewProgressUpdateForm = ({
 					disabled={selectedDate === undefined}
 					className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 					onClick={async () => {
-						await advanceTourStep();
+						await advanceOnboardingTourStep();
 					}}
 				>
 					Submit

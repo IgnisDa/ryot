@@ -288,7 +288,7 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
@@ -589,8 +589,8 @@ export default function Page() {
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="actions"
-								onClick={() => advanceTourStep()}
 								leftSection={<IconUser size={16} />}
+								onClick={() => advanceOnboardingTourStep()}
 								className={OnboardingTourStepTargets.MetadataDetailsActionsTab}
 							>
 								Actions

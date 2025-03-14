@@ -203,7 +203,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const replacingExerciseId =
 		currentWorkout?.replacingExerciseIdx &&
@@ -323,7 +323,7 @@ export default function Page() {
 						disabled={selectedExercises.length === 0}
 						className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
 						onClick={async () => {
-							advanceTourStep();
+							await advanceOnboardingTourStep();
 							await addExerciseToCurrentWorkout(
 								navigate,
 								currentWorkout,
@@ -415,7 +415,7 @@ const ExerciseItemDisplay = (props: {
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
 	const { data: exercise } = useQuery({
 		...getExerciseDetailsQuery(props.exerciseId),
@@ -451,7 +451,7 @@ const ExerciseItemDisplay = (props: {
 										name: props.exerciseId,
 										lot: exercise.lot,
 									});
-									if (isTourTargetExercise) advanceTourStep();
+									if (isTourTargetExercise) advanceOnboardingTourStep();
 								} else
 									props.setSelectedExercises.filter(
 										(item) => item.name !== props.exerciseId,

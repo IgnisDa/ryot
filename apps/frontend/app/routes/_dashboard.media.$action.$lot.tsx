@@ -258,7 +258,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const { isTourInProgress: isTourStarted, advanceTourStep } =
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
@@ -274,7 +274,7 @@ export default function Page() {
 			defaultFilters.mineCollections,
 		);
 	const isEligibleForNextTourStep =
-		loaderData.lot === MediaLot.Movie && isTourStarted;
+		loaderData.lot === MediaLot.Movie && isOnboardingTourInProgress;
 
 	return (
 		<Container>
@@ -295,8 +295,8 @@ export default function Page() {
 								},
 							),
 						);
-						if (v === "search" && isTourStarted) {
-							advanceTourStep();
+						if (v === "search" && isOnboardingTourInProgress) {
+							advanceOnboardingTourStep();
 						}
 					}
 				}}
@@ -499,7 +499,7 @@ const MediaSearchItem = (props: {
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const gridPacking = userPreferences.general.gridPacking;
 	const buttonSize =
@@ -507,21 +507,21 @@ const MediaSearchItem = (props: {
 
 	const tourControlOne = props.isFirstItem
 		? {
-				onTargetInteract: advanceTourStep,
+				onTargetInteract: advanceOnboardingTourStep,
 				target: OnboardingTourStepTargets.AddMovieToWatchlist,
 			}
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? {
-				onTargetInteract: advanceTourStep,
+				onTargetInteract: advanceOnboardingTourStep,
 				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 			}
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
 		? {
-				onTargetInteract: advanceTourStep,
+				onTargetInteract: advanceOnboardingTourStep,
 				target: OnboardingTourStepTargets.GoToMoviesSectionAgain,
 			}
 		: undefined;

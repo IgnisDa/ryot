@@ -319,7 +319,8 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceTourStep, isTourInProgress } = useOnboardingTour();
+	const { advanceOnboardingTourStep, isOnboardingTourInProgress } =
+		useOnboardingTour();
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
@@ -554,7 +555,7 @@ export default function Page() {
 											loading={isSaveBtnLoading}
 											disabled={isWorkoutPaused}
 											className={clsx(
-												isTourInProgress &&
+												isOnboardingTourInProgress &&
 													OnboardingTourStepTargets.FinishWorkout,
 											)}
 											onClick={() => {
@@ -575,8 +576,10 @@ export default function Page() {
 														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													async () => {
 														setIsSaveBtnLoading(true);
-														if (isTourInProgress)
-															advanceTourStep({ collapseSidebar: true });
+														if (isOnboardingTourInProgress)
+															advanceOnboardingTourStep({
+																collapseSidebar: true,
+															});
 
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
@@ -710,7 +713,7 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										onClick={() => advanceTourStep()}
+										onClick={() => advanceOnboardingTourStep()}
 										to={$path("/fitness/exercises/list")}
 										className={
 											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
@@ -957,15 +960,16 @@ const StatInput = (props: {
 			: undefined,
 		500,
 	);
-	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const weightStepTourClassName =
-		isTourInProgress && props.stat === "weight" && props.setIdx === 0
+		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddWeightToExercise
 			: undefined;
 
 	const repsStepTourClassName =
-		isTourInProgress && props.stat === "reps" && props.setIdx === 0
+		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddRepsToExercise
 			: undefined;
 
@@ -978,8 +982,10 @@ const StatInput = (props: {
 						draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
 					if (val === null) draftSet.confirmedAt = null;
-					if (weightStepTourClassName && val === "20") advanceTourStep();
-					if (repsStepTourClassName && val === "10") advanceTourStep();
+					if (weightStepTourClassName && val === "20")
+						advanceOnboardingTourStep();
+					if (repsStepTourClassName && val === "10")
+						advanceOnboardingTourStep();
 				}),
 			);
 	}, [value]);
@@ -1492,14 +1498,16 @@ const ExerciseDisplay = (props: {
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
-	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
-	const isTourStep = isTourInProgress && props.exerciseIdx === 0;
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress && props.exerciseIdx === 0;
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -1588,10 +1596,10 @@ const ExerciseDisplay = (props: {
 									<ActionIcon
 										color="blue"
 										onClick={() => {
-											if (isTourStep) advanceTourStep();
+											if (isOnboardingTourStep) advanceOnboardingTourStep();
 										}}
 										className={clsx(
-											isTourStep &&
+											isOnboardingTourStep &&
 												OnboardingTourStepTargets.OpenExerciseMenuDetails,
 										)}
 									>
@@ -2005,7 +2013,8 @@ const SetDisplay = (props: {
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { isTourInProgress, advanceTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -2030,8 +2039,8 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const isTourStep =
-		isTourInProgress &&
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress &&
 		set.confirmedAt === null &&
 		props.exerciseIdx === 0 &&
 		props.setIdx === 0;
@@ -2123,10 +2132,11 @@ const SetDisplay = (props: {
 							<UnstyledButton
 								w="5%"
 								onClick={() => {
-									if (isTourStep) advanceTourStep();
+									if (isOnboardingTourStep) advanceOnboardingTourStep();
 								}}
 								className={clsx(
-									isTourStep && OnboardingTourStepTargets.OpenSetMenuDetails,
+									isOnboardingTourStep &&
+										OnboardingTourStepTargets.OpenSetMenuDetails,
 								)}
 							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
@@ -2360,7 +2370,7 @@ const SetDisplay = (props: {
 										style={style}
 										variant={set.confirmedAt ? "filled" : "outline"}
 										className={clsx(
-											isTourStep &&
+											isOnboardingTourStep &&
 												OnboardingTourStepTargets.ConfirmSetForExercise,
 										)}
 										disabled={
@@ -2401,7 +2411,8 @@ const SetDisplay = (props: {
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
-											if (isTourStep && newConfirmed) advanceTourStep();
+											if (isOnboardingTourStep && newConfirmed)
+												advanceOnboardingTourStep();
 
 											if (
 												!newConfirmed &&

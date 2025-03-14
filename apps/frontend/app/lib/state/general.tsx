@@ -94,13 +94,13 @@ export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const navigate = useNavigate();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
-	const isTourInProgress =
+	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
 	const theme = useMantineTheme();
 	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
 
-	const isTourLoading = tourState?.isLoading;
-	const canTourBeStarted =
+	const isOnboardingTourLoading = tourState?.isLoading;
+	const canOnboardingTourBeStarted =
 		typeof tourState === "undefined" || tourState.isCompleted;
 
 	const deployBackgroundJobMutation = useMutation({
@@ -116,7 +116,7 @@ export const useOnboardingTour = () => {
 		setTourState({ currentStepIndex: 0 });
 	};
 
-	const completeTour = () => {
+	const completeOnboardingTour = () => {
 		setTourState(
 			produce(tourState, (draft) => {
 				if (draft) draft.isCompleted = true;
@@ -125,11 +125,11 @@ export const useOnboardingTour = () => {
 		navigate($path("/"));
 	};
 
-	const advanceTourStep = async (input?: {
+	const advanceOnboardingTourStep = async (input?: {
 		collapseSidebar?: true;
 		skipSecondarySteps?: true;
 	}) => {
-		if (!isTourInProgress) return;
+		if (!isOnboardingTourInProgress) return;
 
 		setTourState((ts) =>
 			produce(ts, (draft) => {
@@ -171,11 +171,11 @@ export const useOnboardingTour = () => {
 			<Box>{children}</Box>
 			<Group justify="space-between">
 				<Group>
-					{isTourLoading ? <Loader size="xs" /> : null}
+					{isOnboardingTourLoading ? <Loader size="xs" /> : null}
 					<Button
 						size="compact-xs"
 						variant="default"
-						onClick={() => completeTour()}
+						onClick={() => completeOnboardingTour()}
 					>
 						Complete tour
 					</Button>
@@ -260,7 +260,7 @@ export const useOnboardingTour = () => {
 								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
-									advanceTourStep({ collapseSidebar: true });
+									advanceOnboardingTourStep({ collapseSidebar: true });
 								}}
 							>
 								Next
@@ -272,7 +272,7 @@ export const useOnboardingTour = () => {
 								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
-									advanceTourStep({ skipSecondarySteps: true });
+									advanceOnboardingTourStep({ skipSecondarySteps: true });
 								}}
 							>
 								Skip fitness section
@@ -371,7 +371,7 @@ export const useOnboardingTour = () => {
 		target: `.${step.target}`,
 		content: <StepWrapper>{step.content}</StepWrapper>,
 	}));
-	const isOnLastTourStep =
+	const isOnLastOnboardingTourStep =
 		tourState?.currentStepIndex === onboardingTourSteps.length &&
 		!tourState?.isCompleted;
 
@@ -381,13 +381,13 @@ export const useOnboardingTour = () => {
 	}, [isMobile, tourState]);
 
 	return {
-		startOnboardingTour,
-		completeTour,
-		advanceTourStep,
-		isOnLastTourStep,
-		canTourBeStarted,
-		isTourInProgress,
 		onboardingTourSteps,
-		currentTourStepIndex: tourState?.currentStepIndex,
+		startOnboardingTour,
+		completeOnboardingTour,
+		advanceOnboardingTourStep,
+		isOnLastOnboardingTourStep,
+		canOnboardingTourBeStarted,
+		isOnboardingTourInProgress,
+		currentOnboardingTourStepIndex: tourState?.currentStepIndex,
 	};
 };

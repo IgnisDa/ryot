@@ -276,13 +276,13 @@ export const DebouncedSearchInput = (props: {
 	const [_e, { setP }] = useAppSearchParam(
 		props.enhancedQueryParams || "query",
 	);
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	useDidUpdate(() => {
 		const query = debounced.trim();
 		setP(props.queryParam || "query", query);
 		if (query.toLowerCase() === "avengers") {
-			advanceTourStep();
+			advanceOnboardingTourStep();
 		}
 	}, [debounced]);
 
@@ -1418,7 +1418,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	rightSection?: ReactNode;
 }) => {
 	const submit = useConfirmSubmit();
-	const { advanceTourStep } = useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -1443,7 +1443,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 					type="submit"
 					variant="subtle"
 					className={props.className}
-					onClick={() => advanceTourStep()}
+					onClick={() => advanceOnboardingTourStep()}
 					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh
