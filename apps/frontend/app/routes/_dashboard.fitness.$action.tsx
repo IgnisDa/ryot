@@ -575,7 +575,9 @@ export default function Page() {
 														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													async () => {
 														setIsSaveBtnLoading(true);
-														if (isTourInProgress) advanceTourStep();
+														if (isTourInProgress)
+															advanceTourStep({ collapseSidebar: true });
+
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,

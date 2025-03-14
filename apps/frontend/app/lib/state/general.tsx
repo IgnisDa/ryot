@@ -21,6 +21,8 @@ import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
 import { match } from "ts-pattern";
 import { clientGqlService } from "../generals";
+import { useNavigate } from "react-router";
+import { $path } from "safe-routes";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -90,6 +92,7 @@ const onboardingTourAtom = atomWithStorage<
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+	const navigate = useNavigate();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const isTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
@@ -119,10 +122,13 @@ export const useOnboardingTour = () => {
 				if (draft) draft.isCompleted = true;
 			}),
 		);
-		window.location.href = "/";
+		navigate($path("/"));
 	};
 
-	const advanceTourStep = async (input?: { skipSecondarySteps?: boolean }) => {
+	const advanceTourStep = async (input?: {
+		collapseSidebar?: true;
+		skipSecondarySteps?: true;
+	}) => {
 		if (!isTourInProgress) return;
 
 		setTourState((ts) =>
@@ -132,7 +138,7 @@ export const useOnboardingTour = () => {
 		);
 
 		return new Promise<void>((resolve) => {
-			if (input?.skipSecondarySteps)
+			if (input?.skipSecondarySteps || input?.collapseSidebar)
 				setOpenedSidebarLinks(defaultSidebarLinksState);
 
 			setTimeout(() => {
@@ -142,7 +148,7 @@ export const useOnboardingTour = () => {
 							draft.isLoading = undefined;
 							const nextStepIndex = tourState.currentStepIndex + 1;
 							const newIndex = match(input?.skipSecondarySteps)
-								.with(undefined, false, () => nextStepIndex)
+								.with(undefined, () => nextStepIndex)
 								.with(true, () => {
 									const target = onboardingTourSteps.findIndex(
 										(step, index) =>
@@ -254,7 +260,7 @@ export const useOnboardingTour = () => {
 								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
-									advanceTourStep();
+									advanceTourStep({ collapseSidebar: true });
 								}}
 							>
 								Next
