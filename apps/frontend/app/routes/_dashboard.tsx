@@ -171,24 +171,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const settingsLinks = [
-		{ label: "Preferences", link: $path("/settings/preferences") },
-		{
-			label: "Imports and Exports",
-			link: $path("/settings/imports-and-exports"),
-		},
-		{
-			label: "Profile and Sharing",
-			link: $path("/settings/profile-and-sharing"),
-		},
-		{ label: "Integrations", link: $path("/settings/integrations") },
-		{ label: "Notifications", link: $path("/settings/notifications") },
-		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
-		userDetails.lot === UserLot.Admin
-			? { label: "Users", link: $path("/settings/users") }
-			: undefined,
-	].filter((link) => link !== undefined);
-
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
@@ -206,7 +188,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		userDetails,
 		coreDetails,
-		settingsLinks,
 		isDemoInstance,
 		userPreferences,
 		shouldHaveUmami,
@@ -388,6 +369,27 @@ export default function Layout() {
 						: undefined,
 			})) || []),
 		{ label: "Exercises", link: $path("/fitness/exercises/list") },
+	].filter((link) => link !== undefined);
+	const settingsLinks = [
+		{
+			label: "Preferences",
+			link: $path("/settings/preferences"),
+			tourControlTarget: OnboardingTourStepTargets.OpenSettingsPreferences,
+		},
+		{
+			label: "Imports and Exports",
+			link: $path("/settings/imports-and-exports"),
+		},
+		{
+			label: "Profile and Sharing",
+			link: $path("/settings/profile-and-sharing"),
+		},
+		{ label: "Integrations", link: $path("/settings/integrations") },
+		{ label: "Notifications", link: $path("/settings/notifications") },
+		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
+		userDetails.lot === UserLot.Admin
+			? { label: "Users", link: $path("/settings/users") }
+			: undefined,
 	].filter((link) => link !== undefined);
 
 	return (
@@ -704,9 +706,12 @@ export default function Layout() {
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
+								links={settingsLinks}
 								toggle={toggleMobileNavbar}
-								links={loaderData.settingsLinks}
 								opened={openedSidebarLinks.settings || false}
+								tourControlTarget={
+									OnboardingTourStepTargets.OpenSettingsSidebar
+								}
 								setOpened={(k) =>
 									setOpenedSidebarLinks(
 										produce(openedSidebarLinks, (draft) => {

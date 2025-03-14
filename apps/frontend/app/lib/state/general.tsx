@@ -74,6 +74,8 @@ export enum OnboardingTourStepTargets {
 	OpenExerciseMenuDetails = "tour-step-open-exercise-menu-details",
 	ConfirmSetForExercise = "tour-step-confirm-set-for-exercise",
 	FinishWorkout = "tour-step-finish-workout",
+	OpenSettingsSidebar = "tour-step-open-settings-sidebar",
+	OpenSettingsPreferences = "tour-step-open-settings-preferences",
 }
 
 const onboardingTourAtom = atomWithStorage<
@@ -320,6 +322,16 @@ export const useOnboardingTour = () => {
 				target: OnboardingTourStepTargets.FinishWorkout,
 				content:
 					"Great! You have finished your workout tour. Once you are ready, click on the 'Finish' button to continue.",
+			},
+			{
+				target: OnboardingTourStepTargets.OpenSettingsSidebar,
+				content:
+					"Let's move on to the settings section. Click on the corresponding section in the sidebar.",
+			},
+			{
+				target: OnboardingTourStepTargets.OpenSettingsPreferences,
+				content:
+					"You can use the preferences settings to customize your experience.",
 			},
 		] as Step[]
 	).map((step) => ({
