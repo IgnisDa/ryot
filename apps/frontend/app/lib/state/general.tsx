@@ -122,7 +122,7 @@ export const useOnboardingTour = () => {
 		window.location.href = "/";
 	};
 
-	const advanceTourStep = async (skipSecondarySteps = false) => {
+	const advanceTourStep = async (input?: { skipSecondarySteps?: boolean }) => {
 		if (!isTourInProgress) return;
 
 		setTourState((ts) =>
@@ -132,7 +132,8 @@ export const useOnboardingTour = () => {
 		);
 
 		return new Promise<void>((resolve) => {
-			if (skipSecondarySteps) setOpenedSidebarLinks(defaultSidebarLinksState);
+			if (input?.skipSecondarySteps)
+				setOpenedSidebarLinks(defaultSidebarLinksState);
 
 			setTimeout(() => {
 				setTourState((ts) =>
@@ -140,8 +141,8 @@ export const useOnboardingTour = () => {
 						if (draft) {
 							draft.isLoading = undefined;
 							const nextStepIndex = tourState.currentStepIndex + 1;
-							const newIndex = match(skipSecondarySteps)
-								.with(false, () => nextStepIndex)
+							const newIndex = match(input?.skipSecondarySteps)
+								.with(undefined, false, () => nextStepIndex)
 								.with(true, () => {
 									const target = onboardingTourSteps.findIndex(
 										(step, index) =>
@@ -265,7 +266,7 @@ export const useOnboardingTour = () => {
 								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
-									advanceTourStep(true);
+									advanceTourStep({ skipSecondarySteps: true });
 								}}
 							>
 								Skip fitness section
