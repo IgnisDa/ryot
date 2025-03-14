@@ -19,10 +19,10 @@ import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
-import { match } from "ts-pattern";
-import { clientGqlService } from "../generals";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
+import { match } from "ts-pattern";
+import { clientGqlService } from "../generals";
 
 type OpenedSidebarLinks = {
 	media: boolean;
