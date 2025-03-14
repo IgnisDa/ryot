@@ -28,7 +28,11 @@ import {
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
@@ -98,12 +102,13 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
-		`AlertDismissed-${CryptoJS.SHA256(dashboardMessage)}`,
+		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
 		"false",
 	);
 
