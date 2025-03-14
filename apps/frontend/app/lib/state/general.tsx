@@ -111,7 +111,7 @@ export const useOnboardingTour = () => {
 		},
 	});
 
-	const startTour = () => {
+	const startOnboardingTour = () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		setTourState({ currentStepIndex: 0 });
 	};
@@ -377,11 +377,11 @@ export const useOnboardingTour = () => {
 
 	useEffect(() => {
 		if (typeof isMobile === "undefined" || isMobile) return;
-		if (typeof tourState === "undefined") startTour();
+		if (typeof tourState === "undefined") startOnboardingTour();
 	}, [isMobile, tourState]);
 
 	return {
-		startTour,
+		startOnboardingTour,
 		completeTour,
 		advanceTourStep,
 		isOnLastTourStep,

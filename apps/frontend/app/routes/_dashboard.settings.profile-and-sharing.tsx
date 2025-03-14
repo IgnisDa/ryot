@@ -177,7 +177,7 @@ export default function Page() {
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
-	const { canTourBeStarted, startTour } = useOnboardingTour();
+	const { canTourBeStarted, startOnboardingTour } = useOnboardingTour();
 
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
@@ -260,7 +260,7 @@ export default function Page() {
 											<Button
 												variant="default"
 												onClick={() => {
-													startTour();
+													startOnboardingTour();
 													window.location.href = "/";
 												}}
 											>
