@@ -1442,8 +1442,8 @@ export const DisplayListDetailsAndRefresh = (props: {
 					size="xs"
 					type="submit"
 					variant="subtle"
-					onClick={advanceTourStep}
 					className={props.className}
+					onClick={() => advanceTourStep()}
 					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh

@@ -708,7 +708,7 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										onClick={advanceTourStep}
+										onClick={() => advanceTourStep()}
 										to={$path("/fitness/exercises/list")}
 										className={
 											OnboardingTourStepTargets.ClickOnAddAnExerciseButton

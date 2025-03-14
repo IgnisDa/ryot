@@ -20,6 +20,7 @@ import { atomWithStorage } from "jotai/utils";
 import { type ReactNode, useEffect } from "react";
 import type { Step } from "react-joyride";
 import { clientGqlService } from "../generals";
+import { match } from "ts-pattern";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -121,7 +122,7 @@ export const useOnboardingTour = () => {
 		window.location.href = "/";
 	};
 
-	const advanceTourStep = async () => {
+	const advanceTourStep = async (skipSecondarySteps = false) => {
 		if (!isTourInProgress) return;
 
 		setTourState((ts) =>
@@ -131,12 +132,25 @@ export const useOnboardingTour = () => {
 		);
 
 		return new Promise<void>((resolve) => {
+			if (skipSecondarySteps) setOpenedSidebarLinks(defaultSidebarLinksState);
+
 			setTimeout(() => {
 				setTourState((ts) =>
 					produce(ts, (draft) => {
 						if (draft) {
 							draft.isLoading = undefined;
-							draft.currentStepIndex = tourState.currentStepIndex + 1;
+							const nextStepIndex = tourState.currentStepIndex + 1;
+							const newIndex = match(skipSecondarySteps)
+								.with(false, () => nextStepIndex)
+								.with(true, () => {
+									const target = onboardingTourSteps.findIndex(
+										(step, index) =>
+											index > nextStepIndex && !step.data?.isSecondaryStep,
+									);
+									return target !== -1 ? target : nextStepIndex;
+								})
+								.exhaustive();
+							draft.currentStepIndex = newIndex;
 						}
 					}),
 				);
@@ -242,7 +256,7 @@ export const useOnboardingTour = () => {
 								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
-									completeTour();
+									advanceTourStep(true);
 								}}
 							>
 								Skip fitness section
