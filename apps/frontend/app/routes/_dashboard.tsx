@@ -551,9 +551,14 @@ export default function Layout() {
 				onClose={completeTour}
 				withCloseButton={false}
 				opened={isOnLastTourStep}
+				title="You've completed the onboarding tour!"
 			>
 				<Stack>
-					<Text>You've completed the onboarding tour!</Text>
+					<Text>
+						These are just the basics to get you up and running. Ryot has a lot
+						more to offer. I encourage you to explore the app and see what it
+						can do for you.
+					</Text>
 					<Text size="sm" c="dimmed">
 						You can restart the tour at any time from the profile settings.
 					</Text>
