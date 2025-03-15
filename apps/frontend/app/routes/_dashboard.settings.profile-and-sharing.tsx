@@ -60,6 +60,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
+	useIsMobile,
 	useUserDetails,
 } from "~/lib/hooks";
 import { useOnboardingTour } from "~/lib/state/general";
@@ -180,6 +181,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { canOnboardingTourBeStarted, startOnboardingTour } =
 		useOnboardingTour();
+	const isMobile = useIsMobile();
 
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
@@ -254,7 +256,7 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
-							{canOnboardingTourBeStarted ? (
+							{canOnboardingTourBeStarted && !isMobile ? (
 								<ClientOnly>
 									{() => (
 										<>
