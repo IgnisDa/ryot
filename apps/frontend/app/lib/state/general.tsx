@@ -258,7 +258,6 @@ export const useOnboardingTour = () => {
 							<Button
 								size="xs"
 								fullWidth
-								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
 									advanceOnboardingTourStep({ collapseSidebar: true });
@@ -270,7 +269,6 @@ export const useOnboardingTour = () => {
 								fullWidth
 								size="xs"
 								variant="outline"
-								loading={deployBackgroundJobMutation.isPending}
 								onClick={async () => {
 									await deployBackgroundJobMutation.mutateAsync();
 									advanceOnboardingTourStep({ skipSecondarySteps: true });
