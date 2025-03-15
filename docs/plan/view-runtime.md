@@ -96,7 +96,7 @@ Each item should include at least:
 
 - `id` — entity primary key
 - `name` — entity name (top-level column)
-- `image` — entity image URL (top-level column)
+- `image` — entity image object (top-level column, uses ImageSchema discriminated union: `{ kind: "remote", url: "..." }` or `{ kind: "s3", key: "..." }` or `null`)
 - `entitySchemaId` — the UUID foreign key to the entity schema
 - `entitySchemaSlug` — the human-readable schema slug (e.g., "smartphones", "movies")
 - `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
@@ -113,7 +113,7 @@ The `resolvedProperties` object contains the resolved values for each displayCon
 {
   "id": "entity-123",
   "name": "iPhone 15 Pro",
-  "image": "https://...",
+  "image": { "kind": "s3", "key": "uploads/abc123.jpg" },
   "entitySchemaId": "c3f8a9b2-...",
   "entitySchemaSlug": "smartphones",
   "createdAt": "2024-09-15T10:30:00Z",
@@ -137,10 +137,11 @@ To support cross-schema views where different entity schemas have different prop
 
 **Two path formats:**
 
-1. **Top-level columns**: `@name`, `@image`, `@createdAt`
+1. **Top-level columns**: `@name`, `@createdAt`, `@updatedAt`
    - Prefix: `@`
    - References database columns that exist on all entities
    - Used in filters, sorts, and displayConfiguration
+   - **Note**: `@image` is not supported for filtering due to its complex discriminated union structure (ImageSchema)
 
 2. **Schema-qualified properties**: `smartphones.manufacturer`, `tablets.maker`
    - Format: `<schema-slug>.<property>` (uses entity schema slugs, not IDs)
@@ -243,7 +244,7 @@ Entities have a hybrid structure with both top-level database columns and schema
 
 - `id` — entity primary key
 - `name` — required text column, universally present on all entities
-- `image` — optional text column for image URLs
+- `image` — optional jsonb column storing ImageSchema discriminated union (`{ kind: "remote", url: "..." }` or `{ kind: "s3", key: "..." }`)
 - `entitySchemaId` — foreign key to entity schema
 - `createdAt`, `updatedAt` — timestamps
 - `externalId` — optional external source identifier
@@ -453,7 +454,7 @@ This allows both entity types to render properly in the same unified list despit
 
 **Filter behavior:**
 
-Each filter is schema-qualified and only applies to entities from that schema. Top-level filters (`@name`, `@image`) apply to all entities regardless of schema. Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally. See "Complete SQL Query Example" for the full SQL translation.
+Each filter is schema-qualified and only applies to entities from that schema. Top-level filters (`@name`, `@createdAt`, `@updatedAt`) apply to all entities regardless of schema. Note that `@image` filtering is not supported due to its complex ImageSchema structure. Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally. See "Complete SQL Query Example" for the full SQL translation.
 
 **Sort behavior:**
 
