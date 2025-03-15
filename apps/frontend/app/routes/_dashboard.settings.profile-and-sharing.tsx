@@ -46,7 +46,7 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import { Form, useLoaderData } from "react-router";
+import { Form, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -172,6 +172,7 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
+	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
 	const [
 		createAccessLinkModalOpened,
@@ -262,7 +263,7 @@ export default function Page() {
 												variant="default"
 												onClick={() => {
 													startOnboardingTour();
-													window.location.href = "/";
+													navigate("/");
 												}}
 											>
 												Restart onboarding
