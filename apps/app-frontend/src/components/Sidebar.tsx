@@ -137,8 +137,8 @@ function SortableFacet(props: {
 					<NavLink
 						to="/"
 						key={schema.id}
-						label={schema.name}
 						component={Link}
+						label={schema.name}
 						styles={{
 							root: {
 								paddingLeft: "40px",
