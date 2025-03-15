@@ -16,10 +16,9 @@ export const mediaPropertiesSchema = z
 		assets: remoteImagesAssetsSchema,
 		description: nullableStringSchema,
 		providerRating: nullableNumberSchema,
+		productionStatus: nullableStringSchema,
 		sourceUrl: nullableStringSchema.optional(),
 	})
 	.strict();
 
-export const animeMangaPropertiesSchema = mediaPropertiesSchema.extend({
-	production_status: nullableStringSchema,
-});
+export const animeMangaPropertiesSchema = mediaPropertiesSchema.extend({});
