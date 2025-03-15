@@ -133,9 +133,9 @@ export const useOnboardingTour = () => {
 	}) => {
 		if (!isOnboardingTourInProgress) return;
 
-		setTourState((ts) =>
-			produce(ts, (draft) => {
-				if (draft) draft.isLoading = true;
+		setTourState(
+			produce(tourState, (draft) => {
+				draft.isLoading = true;
 			}),
 		);
 
@@ -144,23 +144,21 @@ export const useOnboardingTour = () => {
 				setOpenedSidebarLinks(defaultSidebarLinksState);
 
 			setTimeout(() => {
-				setTourState((ts) =>
-					produce(ts, (draft) => {
-						if (draft) {
-							draft.isLoading = undefined;
-							const nextStepIndex = tourState.currentStepIndex + 1;
-							const newIndex = match(input?.skipSecondarySteps)
-								.with(undefined, () => nextStepIndex)
-								.with(true, () => {
-									const target = onboardingTourSteps.findIndex(
-										(step, index) =>
-											index > nextStepIndex && !step.data?.isSecondaryStep,
-									);
-									return target !== -1 ? target : nextStepIndex;
-								})
-								.exhaustive();
-							draft.currentStepIndex = newIndex;
-						}
+				setTourState(
+					produce(tourState, (draft) => {
+						draft.isLoading = undefined;
+						const nextStepIndex = tourState.currentStepIndex + 1;
+						const newIndex = match(input?.skipSecondarySteps)
+							.with(undefined, () => nextStepIndex)
+							.with(true, () => {
+								const target = onboardingTourSteps.findIndex(
+									(step, index) =>
+										index > nextStepIndex && !step.data?.isSecondaryStep,
+								);
+								return target !== -1 ? target : nextStepIndex;
+							})
+							.exhaustive();
+						draft.currentStepIndex = newIndex;
 					}),
 				);
 				resolve();
