@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { applyTrackerEnabledPatch, applyTrackerReorderPatch } from "./cache";
+import { applyTrackerIsDisabledPatch, applyTrackerReorderPatch } from "./cache";
 import type { AppTracker } from "./model";
 import {
 	findEnabledTrackerBySlug,
@@ -8,21 +8,21 @@ import {
 	sortTrackersByOrder,
 } from "./model";
 
-function extractTrackerEnabledFromInput(
+function extractTrackerIsDisabledFromInput(
 	input: unknown,
-): { trackerId: string; enabled: boolean } | undefined {
+): { trackerId: string; isDisabled: boolean } | undefined {
 	const parsed = input as {
-		body?: { enabled?: boolean };
+		body?: { isDisabled?: boolean };
 		params?: { path?: { trackerId: string } };
 	};
+	const isDisabled = parsed.body?.isDisabled;
 	const trackerId = parsed.params?.path?.trackerId;
-	const enabled = parsed.body?.enabled;
 
-	if (!trackerId || enabled === undefined) {
+	if (!trackerId || isDisabled === undefined) {
 		return;
 	}
 
-	return { enabled, trackerId };
+	return { isDisabled, trackerId };
 }
 
 function extractTrackerIdsFromInput(input: unknown): string[] | undefined {
@@ -122,8 +122,8 @@ export function useTrackerMutations() {
 			queryClient,
 			listQueryKey,
 			(data, value) =>
-				applyTrackerEnabledPatch(data, value.trackerId, value.enabled),
-			extractTrackerEnabledFromInput,
+				applyTrackerIsDisabledPatch(data, value.trackerId, value.isDisabled),
+			extractTrackerIsDisabledFromInput,
 		),
 		queryClient,
 	);

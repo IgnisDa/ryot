@@ -1,12 +1,12 @@
 import type { AppTracker } from "./model";
 
-export function applyTrackerEnabledPatch(
+export function applyTrackerIsDisabledPatch(
 	trackers: AppTracker[],
 	trackerId: string,
-	enabled: boolean,
+	isDisabled: boolean,
 ): AppTracker[] {
 	return trackers.map((tracker) =>
-		tracker.id === trackerId ? { ...tracker, enabled } : tracker,
+		tracker.id === trackerId ? { ...tracker, isDisabled } : tracker,
 	);
 }
 
