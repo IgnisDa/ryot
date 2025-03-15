@@ -11,7 +11,6 @@ const schemaImportPerson = z
 	.strict();
 
 export const bookPropertiesSchema = mediaPropertiesSchema.extend({
-	source_url: z.string(),
 	pages: nullableIntSchema,
 	isCompilation: z.boolean().optional(),
 	people: z.array(schemaImportPerson),
