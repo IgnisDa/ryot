@@ -34,6 +34,7 @@ Update `apps/app-backend/src/modules/saved-views/schemas.ts`:
 
 - `SavedViewQueryDefinition` expands to include `entitySchemaSlugs: string[]`, `filters: FilterExpression[]`, `sort: SortDefinition`
 - New `DisplayConfiguration` schema with discriminated union for layouts (grid/list/table)
+- Table display columns require `{ label: string, property: string[] }`
 - New `FilterExpression` discriminated union by operator type (see PRD section "Filter operator discriminated union")
 - Request/response schemas for saved view creation updated to include new fields
 - See PRD sections "Saved Views Module Changes > Schema updates" and "View Runtime Module Changes > Filter operator discriminated union"
@@ -50,6 +51,7 @@ Update `apps/app-backend/src/modules/saved-views/repository.ts`:
 
 Update `apps/app-backend/src/modules/authentication/bootstrap/manifests.ts`:
 - Add hardcoded display configuration to all built-in saved views (All Books, All Animes, All Mangas, Collections)
+- Ensure default table columns include labels (for example `{ label: "Name", property: ["@name"] }`)
 - Update `queryDefinition` to use new structure with `entitySchemaSlugs` (slugs instead of IDs)
 - See PRD section "Bootstrap Updates" for the exact hardcoded config
 
