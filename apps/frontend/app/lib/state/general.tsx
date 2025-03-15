@@ -1,13 +1,4 @@
-import {
-	Box,
-	Button,
-	Group,
-	Loader,
-	Stack,
-	Text,
-	useMantineTheme,
-} from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
+import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
@@ -23,6 +14,7 @@ import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { clientGqlService } from "../common";
+import { useIsMobile } from "../hooks";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -98,8 +90,7 @@ export const useOnboardingTour = () => {
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const isOnboardingTourInProgress =
 		isNumber(tourState?.currentStepIndex) && !tourState?.isCompleted;
-	const theme = useMantineTheme();
-	const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+	const isMobile = useIsMobile();
 
 	const isOnboardingTourLoading = tourState?.isLoading;
 	const canOnboardingTourBeStarted =

@@ -15,7 +15,7 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { useInterval } from "usehooks-ts";
+import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	type FitnessAction,
 	dayjsLib,
@@ -211,4 +211,9 @@ export const useIsFitnessActionActive = () => {
 	const [currentWorkout] = useCurrentWorkout();
 	const action = currentWorkout?.currentAction;
 	return action !== undefined;
+};
+
+export const useIsMobile = () => {
+	const isMobile = useMediaQuery("(max-width: 768px)");
+	return isMobile;
 };
