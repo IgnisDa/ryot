@@ -177,7 +177,9 @@ export const useOnboardingTour = () => {
 					<Button
 						size="compact-xs"
 						variant="default"
-						onClick={() => completeOnboardingTour()}
+						onClick={() => {
+							setTourState({ currentStepIndex: onboardingTourSteps.length });
+						}}
 					>
 						Complete tour
 					</Button>
