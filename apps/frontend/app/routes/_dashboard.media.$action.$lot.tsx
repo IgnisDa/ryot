@@ -510,24 +510,15 @@ const MediaSearchItem = (props: {
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 
 	const tourControlOne = props.isFirstItem
-		? {
-				onTargetInteract: advanceOnboardingTourStep,
-				target: OnboardingTourStepTargets.AddMovieToWatchlist,
-			}
+		? OnboardingTourStepTargets.AddMovieToWatchlist
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
-		? {
-				onTargetInteract: advanceOnboardingTourStep,
-				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
-			}
+		? OnboardingTourStepTargets.OpenMetadataProgressForm
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
-		? {
-				onTargetInteract: advanceOnboardingTourStep,
-				target: OnboardingTourStepTargets.GoToMoviesSectionAgain,
-			}
+		? OnboardingTourStepTargets.GoToMoviesSectionAgain
 		: undefined;
 
 	const basicCommit = async () => {
@@ -553,7 +544,7 @@ const MediaSearchItem = (props: {
 				isLoading={false}
 				name={props.item.title}
 				imageUrl={props.item.image}
-				imageClassName={tourControlThree?.target}
+				imageClassName={tourControlThree}
 				labels={{
 					left: props.item.publishYear,
 					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
@@ -567,8 +558,8 @@ const MediaSearchItem = (props: {
 					setIsLoading(true);
 					const id = await basicCommit();
 					setIsLoading(false);
-					if (tourControlThree?.target) {
-						tourControlThree.onTargetInteract();
+					if (tourControlThree) {
+						advanceOnboardingTourStep();
 					}
 					navigate($path("/media/item/:id", { id }));
 				}}
@@ -601,12 +592,12 @@ const MediaSearchItem = (props: {
 					w="100%"
 					variant="outline"
 					size={buttonSize}
-					className={tourControlTwo?.target}
+					className={tourControlTwo}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
-						if (tourControlTwo?.target) {
-							tourControlTwo.onTargetInteract();
+						if (tourControlTwo) {
+							advanceOnboardingTourStep();
 						}
 					}}
 				>
@@ -617,7 +608,7 @@ const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					size={buttonSize}
-					className={tourControlOne?.target}
+					className={tourControlOne}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -637,8 +628,8 @@ const MediaSearchItem = (props: {
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
-						if (tourControlOne?.target) {
-							tourControlOne.onTargetInteract();
+						if (tourControlOne) {
+							advanceOnboardingTourStep();
 						}
 					}}
 				>
