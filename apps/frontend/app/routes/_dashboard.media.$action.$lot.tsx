@@ -18,6 +18,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	DeployUpdateMetadataJobDocument,
 	EntityLot,
 	GraphqlSortOrder,
 	GridPacking,
@@ -69,6 +70,7 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
@@ -533,9 +535,13 @@ const MediaSearchItem = (props: {
 			body: data,
 		});
 		const json = await resp.json();
-		const response = json.commitMedia.id;
+		const metadataId = json.commitMedia.id;
+		await Promise.all([
+			clientGqlService.request(DeployUpdateMetadataJobDocument, { metadataId }),
+			new Promise((resolve) => setTimeout(resolve, 2000)),
+		]);
 		setIsLoading(false);
-		return response;
+		return metadataId;
 	};
 
 	return (
