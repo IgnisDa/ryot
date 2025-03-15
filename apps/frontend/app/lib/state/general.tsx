@@ -51,6 +51,7 @@ export const useOpenedSidebarLinks = () => {
 };
 
 export const TOUR_EXERCISE_TARGET_ID = "Alternate Incline Dumbbell Curl";
+export const TOUR_MOVIE_TARGET_ID = "avengers";
 
 export enum OnboardingTourStepTargets {
 	Welcome = "tour-step-welcome",
@@ -69,6 +70,7 @@ export enum OnboardingTourStepTargets {
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
 	ClickOnAddAnExerciseButton = "tour-step-click-on-add-an-exercise-button",
+	SearchForExercise = "tour-step-search-for-exercise",
 	SelectExercise = "tour-step-select-exercise",
 	AddSelectedExerciseToWorkout = "tour-step-add-selected-exercise-to-workout",
 	AddWeightToExercise = "tour-step-add-weight-to-exercise",
@@ -207,8 +209,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTargets.SearchMovie,
-				content:
-					"You can find any movie here. Let us proceed by searching for 'avengers'.",
+				content: `You can find any movie here. Let us proceed by searching for "${TOUR_MOVIE_TARGET_ID}".`,
 			},
 			{
 				target: OnboardingTourStepTargets.AddMovieToWatchlist,
@@ -307,6 +308,11 @@ export const useOnboardingTour = () => {
 			},
 			{
 				data: { isSecondaryStep: true },
+				target: OnboardingTourStepTargets.SearchForExercise,
+				content: `Let's proceed by searching for "${TOUR_EXERCISE_TARGET_ID}".`,
+			},
+			{
+				data: { isSecondaryStep: true },
 				disableScrolling: false,
 				target: OnboardingTourStepTargets.SelectExercise,
 				content: `Let's proceed by selecting '${TOUR_EXERCISE_TARGET_ID}'. Please click on the checkbox to continue.`,
@@ -348,6 +354,7 @@ export const useOnboardingTour = () => {
 					"Once you have associated the correct inputs for a set, the confirm button will be enabled. Clicking on it will confirm the set, start the rest timer and collapse the exercise if it is the last set.",
 			},
 			{
+				disableScrolling: false,
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTargets.FinishWorkout,
 				content:

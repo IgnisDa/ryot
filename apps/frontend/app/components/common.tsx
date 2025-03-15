@@ -121,7 +121,10 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
+import {
+	type OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -268,22 +271,22 @@ export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
 	initialValue?: string;
-	tourControlTarget?: string;
 	enhancedQueryParams?: string;
+	tourControl?: {
+		target: OnboardingTourStepTargets;
+		onQueryChange: (query: string) => void;
+	};
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
 	const [_e, { setP }] = useAppSearchParam(
 		props.enhancedQueryParams || "query",
 	);
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	useDidUpdate(() => {
-		const query = debounced.trim();
+		const query = debounced.trim().toLowerCase();
 		setP(props.queryParam || "query", query);
-		if (query.toLowerCase() === "avengers") {
-			advanceOnboardingTourStep();
-		}
+		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 
 	return (
@@ -294,7 +297,7 @@ export const DebouncedSearchInput = (props: {
 			autoCapitalize="none"
 			style={{ flexGrow: 1 }}
 			leftSection={<IconSearch />}
-			className={props.tourControlTarget}
+			className={props.tourControl?.target}
 			placeholder={props.placeholder || "Search..."}
 			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={

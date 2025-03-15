@@ -86,6 +86,7 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
+	TOUR_MOVIE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
@@ -421,11 +422,14 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								tourControlTarget={
-									isEligibleForNextTourStep
-										? OnboardingTourStepTargets.SearchMovie
-										: undefined
-								}
+								tourControl={{
+									target: OnboardingTourStepTargets.SearchMovie,
+									onQueryChange: (query) => {
+										if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+											advanceOnboardingTourStep();
+										}
+									},
+								}}
 							/>
 							{mediaSearch.mediaSources.length > 1 ? (
 								<Select

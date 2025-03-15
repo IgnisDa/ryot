@@ -245,6 +245,14 @@ export default function Page() {
 						initialValue={loaderData.query.query}
 						enhancedQueryParams={loaderData.cookieName}
 						placeholder="Search for exercises by name or instructions"
+						tourControl={{
+							target: OnboardingTourStepTargets.SearchForExercise,
+							onQueryChange: (query) => {
+								if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
+									advanceOnboardingTourStep();
+								}
+							},
+						}}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}

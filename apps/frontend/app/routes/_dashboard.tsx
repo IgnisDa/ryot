@@ -556,7 +556,7 @@ export default function Layout() {
 				<Stack>
 					<Text>
 						These are just the basics to get you up and running. Ryot has a lot
-						more to offer. I encourage you to explore the app and see what it
+						more to offer and I encourage you to explore the app and see what it
 						can do for you.
 					</Text>
 					<Text size="sm" c="dimmed">
