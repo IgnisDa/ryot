@@ -553,7 +553,7 @@ const MediaSearchItem = (props: {
 				imageClassName={tourControlThree}
 				labels={{
 					left: props.item.publishYear,
-					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
+					right: changeCase(snakeCase(loaderData.lot)),
 				}}
 				imageOverlay={{
 					topLeft: isLoading ? (
