@@ -392,12 +392,13 @@ Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is de
 
 The `displayConfiguration` column stores:
 
-- `layout: "grid" | "list" | "table"` — currently active layout
 - `grid: {}` — grid layout configuration
 - `list: {}` — list layout configuration
 - `table: {}` — table layout configuration
 
 All three layout configurations are stored simultaneously so users can switch between layouts in the frontend without losing their configuration. Each layout specifies which entity properties to display using schema-qualified property paths (see "Display Configuration Property References" section).
+
+**Active layout is not persisted in the backend.** The currently active layout for a given view is stored in the browser's `localStorage`, keyed per user per view (e.g., `view-layout:<viewId>`). This means the backend never needs to be updated when a user switches layouts — the change is local to that user's browser session. On first load, the frontend defaults to `"grid"` if no localStorage entry exists.
 
 This separation keeps query logic distinct from presentation concerns while allowing the saved-view record to align with product behavior without making `view-runtime` own persistence concerns.
 
@@ -433,7 +434,6 @@ Consider a "Smartphones" entity schema with properties:
     "sort": { "field": ["smartphones.year"], "direction": "desc" }
   },
   "displayConfiguration": {
-    "layout": "grid",
     "grid": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
@@ -476,7 +476,6 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
     "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
   },
   "displayConfiguration": {
-    "layout": "grid",
     "grid": {
       "imageProperty": ["smartphones.product_image", "tablets.device_image"],
       "titleProperty": ["@name"],
@@ -544,7 +543,6 @@ The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to h
     "sort": { "field": ["smartphones.year"], "direction": "asc" }
   },
   "displayConfiguration": {
-    "layout": "list",
     "grid": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
@@ -574,7 +572,7 @@ The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to h
 When the frontend loads View 1:
 
 1. `GET /saved-views/{view1Id}` → returns the saved view above
-2. Frontend extracts the current layout from `displayConfiguration.layout` (e.g., "grid")
+2. Frontend reads the current layout from `localStorage` (key: `view-layout:<viewId>`), defaulting to `"grid"` if absent
 3. Frontend compiles runtime request from `queryDefinition` + active layout config:
 
   ```json
@@ -598,9 +596,9 @@ When the frontend loads View 1:
   The active layout's `displayConfiguration` is passed through unchanged so the runtime can resolve its property reference arrays using the rules described in "Display Configuration Property References".
 
 4. `POST /view-runtime/execute` → returns entities with `resolvedProperties`
-5. Frontend renders using `layout` and the `resolvedProperties` from the runtime response
+5. Frontend renders using the active layout and the `resolvedProperties` from the runtime response
 
-When the user switches from grid to list view in the UI, the frontend changes the active layout and reruns the query with `displayConfiguration.list` instead of `displayConfiguration.grid`. The saved view stores all three layout configurations, and the backend makes no layout assumptions - clients must be explicit about what data they need and how to present it.
+When the user switches from grid to list view in the UI, the frontend writes the new layout to `localStorage`, then reruns the query with `displayConfiguration.list` instead of `displayConfiguration.grid`. The saved view stores all three layout configurations, and the backend makes no layout assumptions - clients must be explicit about what data they need and how to present it.
 
 ### Complete SQL Query Example
 
@@ -765,7 +763,7 @@ The runtime module should query against the underlying tables and repositories i
 - add `PUT /saved-views/{viewId}` (full replacement with required fields)
 - add `POST /saved-views/{viewId}/clone` (pure copy, no request body, appends " (Copy)" to name)
 - add `queryDefinition` jsonb column to store query semantics (entitySchemaSlugs, filters, sort)
-- add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
+- add `displayConfiguration` jsonb column to store presentation config (grid config, list config, table config)
 - make both columns required with validation
 - apply minimal bootstrap fixes to ensure typechecking passes (full bootstrap implementation deferred to Phase 2)
 - enforce reserved slug validation for built-in entity schema names (derived from manifests)
@@ -790,7 +788,7 @@ The runtime module should query against the underlying tables and repositories i
 
 - change frontend route to `/views/$viewId`
 - fetch saved view by id
-- extract active layout from `displayConfiguration.layout`
+- read the active layout from `localStorage` (key: `view-layout:<viewId>`), defaulting to `"grid"`
 - compile runtime payload from `queryDefinition` + active layout config
   - pass the active layout's `displayConfiguration` for COALESCE resolution
 - execute via `POST /view-runtime/execute`
@@ -813,7 +811,7 @@ The runtime module should query against the underlying tables and repositories i
 
 ### Display Configuration Structure
 
-**Display configurations use a discriminated union with a separate layout discriminant.** The runtime request includes both a top-level `layout` field and a `displayConfiguration` object that contains the active layout's config:
+**Display configurations use a discriminated union with a separate layout discriminant.** The runtime request includes both a top-level `layout` field and a `displayConfiguration` object that contains the active layout's config. The `layout` value is read from `localStorage` (key: `view-layout:<viewId>`) and is never stored in the backend:
 
 ```typescript
 {
@@ -905,7 +903,6 @@ Bootstrap manifests are updated with minimal changes to satisfy type requirement
 
 ```typescript
 {
-  layout: "grid",
   grid: {
     imageProperty: ["@image"],
     titleProperty: ["@name"],

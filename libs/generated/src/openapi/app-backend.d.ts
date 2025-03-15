@@ -1487,8 +1487,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             }[];
                         };
@@ -1576,8 +1574,6 @@ export interface paths {
                                     property: string[];
                                 }[];
                             };
-                            /** @enum {string} */
-                            layout: "grid" | "list" | "table";
                         };
                         trackerId?: string;
                     };
@@ -1645,8 +1641,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
@@ -1762,8 +1756,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
@@ -1852,8 +1844,6 @@ export interface paths {
                                     property: string[];
                                 }[];
                             };
-                            /** @enum {string} */
-                            layout: "grid" | "list" | "table";
                         };
                         trackerId?: string;
                     };
@@ -1921,8 +1911,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
@@ -2037,8 +2025,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
@@ -2166,8 +2152,6 @@ export interface paths {
                                             property: string[];
                                         }[];
                                     };
-                                    /** @enum {string} */
-                                    layout: "grid" | "list" | "table";
                                 };
                             };
                         };
