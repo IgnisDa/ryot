@@ -8,23 +8,15 @@ import type { SidebarTracker, SidebarView } from "./Sidebar.types";
 export function toSidebarData(input: {
 	views: AppSavedView[];
 	trackers: AppTracker[];
-	isCustomizeMode?: boolean;
 }): {
 	views: SidebarView[];
 	trackers: SidebarTracker[];
 } {
-	const visibleTrackers = input.isCustomizeMode
-		? sortTrackersByOrder(input.trackers)
-		: sortTrackersByOrder(input.trackers).filter(
-				(tracker) => !tracker.isDisabled,
-			);
-	const trackers = visibleTrackers.map((tracker) => {
+	const trackers = sortTrackersByOrder(input.trackers).map((tracker) => {
 		const trackerViews = input.views.filter(
 			(view) => view.trackerId === tracker.id,
 		);
-		const visibleViews = input.isCustomizeMode
-			? trackerViews
-			: trackerViews.filter((view) => !view.isDisabled);
+
 		return {
 			id: tracker.id,
 			name: tracker.name,
@@ -34,7 +26,7 @@ export function toSidebarData(input: {
 			isBuiltin: tracker.isBuiltin,
 			isDisabled: tracker.isDisabled,
 			accentColor: tracker.accentColor,
-			views: visibleViews.map((view) => ({
+			views: trackerViews.map((view) => ({
 				id: view.id,
 				icon: view.icon,
 				name: view.name,

@@ -13,6 +13,7 @@ import { listTrackersByUser } from "./repository";
 import {
 	createTrackerBody,
 	createTrackerResponseSchema,
+	listTrackersQuery,
 	listTrackersResponseSchema,
 	reorderTrackersBody,
 	reorderTrackersResponseSchema,
@@ -26,8 +27,10 @@ const listTrackersRoute = createAuthRoute(
 		path: "",
 		method: "get",
 		tags: ["trackers"],
+		request: { query: listTrackersQuery },
 		summary: "List trackers for the authenticated user",
 		responses: {
+			400: payloadErrorResponse(),
 			200: jsonResponse(
 				"Trackers available for the user",
 				listTrackersResponseSchema,
@@ -94,7 +97,8 @@ const reorderTrackersRoute = createAuthRoute(
 export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listTrackersRoute, async (c) => {
 		const user = c.get("user");
-		const trackers = await listTrackersByUser(user.id);
+		const query = c.req.valid("query");
+		const trackers = await listTrackersByUser(user.id, query.includeDisabled);
 		const response = createSuccessResult(trackers);
 		return c.json(response.body, response.status);
 	})

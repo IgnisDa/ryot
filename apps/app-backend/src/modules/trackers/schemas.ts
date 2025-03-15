@@ -1,3 +1,4 @@
+import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
 import {
@@ -24,6 +25,10 @@ export const createTrackerResponseSchema = dataSchema(listedTrackerSchema);
 export const listTrackersResponseSchema = dataSchema(
 	z.array(listedTrackerSchema),
 );
+
+export const listTrackersQuery = z.object({
+	includeDisabled: zodBoolAsString.optional().default(false),
+});
 
 export const createTrackerBody = createNameWithOptionalSlugSchema({
 	icon: applicationIconNameSchema,
