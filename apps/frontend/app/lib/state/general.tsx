@@ -50,7 +50,7 @@ export const useOpenedSidebarLinks = () => {
 	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
 
-export const TOUR_EXERCISE_TARGET_ID = "Alternate Incline Dumbbell Curl";
+export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
 export const TOUR_MOVIE_TARGET_ID = "avengers";
 
 export enum OnboardingTourStepTargets {
