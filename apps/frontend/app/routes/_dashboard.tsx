@@ -118,7 +118,7 @@ import {
 	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,

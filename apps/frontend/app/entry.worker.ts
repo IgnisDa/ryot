@@ -6,7 +6,7 @@ import type {
 	AppServiceWorkerMessageData,
 	AppServiceWorkerNotificationData,
 	AppServiceWorkerNotificationTag,
-} from "~/lib/generals";
+} from "~/lib/common";
 
 declare let self: ServiceWorkerGlobalScope;
 declare let clients: Clients;

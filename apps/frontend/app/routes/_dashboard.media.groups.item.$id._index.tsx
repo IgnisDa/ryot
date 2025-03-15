@@ -35,7 +35,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { clientGqlService } from "~/lib/generals";
+import { clientGqlService } from "~/lib/common";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";

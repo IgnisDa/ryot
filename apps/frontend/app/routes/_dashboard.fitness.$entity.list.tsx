@@ -75,7 +75,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	pageQueryParam,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,

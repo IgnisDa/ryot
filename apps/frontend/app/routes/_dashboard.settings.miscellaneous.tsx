@@ -16,7 +16,7 @@ import { processSubmission } from "@ryot/ts-utils";
 import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { openConfirmationModal } from "~/lib/generals";
+import { openConfirmationModal } from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,

@@ -108,7 +108,7 @@ import {
 	openConfirmationModal,
 	redirectToQueryParam,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,

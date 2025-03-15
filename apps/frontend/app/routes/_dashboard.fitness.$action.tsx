@@ -122,7 +122,7 @@ import {
 	queryClient,
 	queryFactory,
 	sendNotificationToServiceWorker,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	forceUpdateEverySecond,
 	useApplicationEvents,

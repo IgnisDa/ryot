@@ -71,7 +71,7 @@ import {
 	queryClient,
 	queryFactory,
 	zodCommaDelimitedString,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,

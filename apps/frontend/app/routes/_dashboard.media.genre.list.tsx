@@ -39,8 +39,8 @@ import {
 	getPartialMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/generals";
-import { pageQueryParam } from "~/lib/generals";
+} from "~/lib/common";
+import { pageQueryParam } from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,

@@ -35,7 +35,7 @@ import {
 	toastKey,
 	zodEmptyDecimalString,
 	zodEmptyNumberString,
-} from "~/lib/generals";
+} from "~/lib/common";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 

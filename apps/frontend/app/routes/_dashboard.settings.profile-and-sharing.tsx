@@ -55,7 +55,7 @@ import {
 	applicationBaseUrl,
 	dayjsLib,
 	openConfirmationModal,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useCoreDetails,

@@ -31,7 +31,7 @@ import {
 	useNavigation,
 } from "react-router";
 import { Toaster } from "~/components/toaster";
-import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
+import { LOGO_IMAGE_URL, queryClient } from "~/lib/common";
 import {
 	colorSchemeCookie,
 	extendResponseHeaders,

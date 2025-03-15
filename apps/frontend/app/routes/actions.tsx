@@ -37,7 +37,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/common";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,

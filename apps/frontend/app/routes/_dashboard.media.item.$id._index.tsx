@@ -118,7 +118,7 @@ import {
 	openConfirmationModal,
 	refreshUserMetadataDetails,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,

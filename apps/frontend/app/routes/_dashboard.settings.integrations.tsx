@@ -60,7 +60,7 @@ import {
 	dayjsLib,
 	openConfirmationModal,
 	zodCommaDelimitedString,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useCoreDetails,

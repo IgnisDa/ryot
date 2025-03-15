@@ -22,7 +22,7 @@ import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	selectRandomElement,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	type InProgressWorkout,
 	useCurrentWorkout,

@@ -22,7 +22,7 @@ import type { Step } from "react-joyride";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { clientGqlService } from "../generals";
+import { clientGqlService } from "../common";
 
 type OpenedSidebarLinks = {
 	media: boolean;

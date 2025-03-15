@@ -13,7 +13,7 @@ import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { clientGqlService } from "../generals";
+import { clientGqlService } from "../common";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 

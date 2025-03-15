@@ -56,7 +56,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {

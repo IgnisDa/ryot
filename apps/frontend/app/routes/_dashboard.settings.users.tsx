@@ -49,7 +49,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common";
-import { openConfirmationModal } from "~/lib/generals";
+import { openConfirmationModal } from "~/lib/common";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,

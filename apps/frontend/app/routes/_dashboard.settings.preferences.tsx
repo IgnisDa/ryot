@@ -55,7 +55,7 @@ import { Fragment, useState } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";
+import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/common";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,

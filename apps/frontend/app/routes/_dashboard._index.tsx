@@ -27,7 +27,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib } from "~/lib/common";
 import {
 	useCoreDetails,
 	useUserDetails,

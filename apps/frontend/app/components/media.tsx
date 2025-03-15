@@ -48,7 +48,7 @@ import {
 	openConfirmationModal,
 	queryFactory,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useMetadataDetails,

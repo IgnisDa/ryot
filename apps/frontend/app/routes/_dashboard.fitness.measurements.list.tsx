@@ -41,7 +41,7 @@ import {
 	getDateFromTimeSpan,
 	getStringAsciiValue,
 	openConfirmationModal,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,

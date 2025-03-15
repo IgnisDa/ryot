@@ -39,7 +39,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/common";
 import {
 	createToastHeaders,
 	getCookiesForApplication,

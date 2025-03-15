@@ -32,7 +32,7 @@ import {
 	getTimeOfDay,
 	queryClient,
 	queryFactory,
-} from "~/lib/generals";
+} from "~/lib/common";
 import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
