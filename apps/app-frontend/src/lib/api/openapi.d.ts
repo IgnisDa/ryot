@@ -249,8 +249,8 @@ export interface paths {
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
-                                accentColor?: string | null;
                                 description?: string | null;
+                                accentColor: string;
                                 sortOrder: number;
                             }[];
                         };
@@ -301,7 +301,7 @@ export interface paths {
                         slug?: string;
                         icon: string;
                         description?: string;
-                        accentColor?: string;
+                        accentColor: string;
                     };
                 };
             };
@@ -323,8 +323,8 @@ export interface paths {
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
-                                accentColor?: string | null;
                                 description?: string | null;
+                                accentColor: string;
                                 sortOrder: number;
                             };
                         };
@@ -388,7 +388,7 @@ export interface paths {
                     "application/json": {
                         enabled?: boolean;
                         description?: string | unknown;
-                        accentColor?: string | unknown;
+                        accentColor?: string;
                         icon?: string;
                         name?: string;
                         slug?: string;
@@ -413,8 +413,8 @@ export interface paths {
                                 mode: "curated" | "generated";
                                 isBuiltin: boolean;
                                 icon: string;
-                                accentColor?: string | null;
                                 description?: string | null;
+                                accentColor: string;
                                 sortOrder: number;
                             };
                         };
