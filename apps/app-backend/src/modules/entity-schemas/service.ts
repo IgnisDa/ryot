@@ -29,8 +29,8 @@ const success = <T>(data: T) => ({ data, success: true as const });
 const sandboxSearchResponseSchema = z.object({
 	items: z.array(schemaSearchItemSchema),
 	details: z.object({
-		next_page: positiveIntSchema.nullable(),
-		total_items: z.number().int().nonnegative(),
+		nextPage: positiveIntSchema.nullable(),
+		totalItems: z.number().int().nonnegative(),
 	}),
 });
 
@@ -52,7 +52,7 @@ export const runSchemaSearch = async (input: {
 	userId: string;
 	body: SchemaSearchBody;
 }) => {
-	const script = await getScriptById(input.body.search_script_id);
+	const script = await getScriptById(input.body.searchScriptId);
 	if (!script) return failure("Search script not found", 404);
 
 	const sandbox = getSandboxService();
@@ -77,8 +77,8 @@ export const runSchemaSearch = async (input: {
 	return success(
 		paginatedResponse(parsedResult.data.items, {
 			page: input.body.page,
-			total: parsedResult.data.details.total_items,
-			hasMore: parsedResult.data.details.next_page !== null,
+			total: parsedResult.data.details.totalItems,
+			hasMore: parsedResult.data.details.nextPage !== null,
 		}),
 	);
 };
@@ -126,7 +126,7 @@ export const runSchemaImport = async (input: {
 	userId: string;
 	body: SchemaImportBody;
 }) => {
-	const script = await getScriptById(input.body.details_script_id);
+	const script = await getScriptById(input.body.detailsScriptId);
 	if (!script) return failure("Details script not found", 404);
 
 	const sandbox = getSandboxService();
