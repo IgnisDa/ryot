@@ -17,17 +17,17 @@ export const listedFacetSchema = z.object({
 	enabled: z.boolean(),
 	mode: facetModeSchema,
 	isBuiltin: z.boolean(),
-	icon: nullableStringSchema,
+	icon: nonEmptyTrimmedStringSchema,
 	accentColor: nullableStringSchema,
 	description: nullableStringSchema,
 	sortOrder: z.number().int().nonnegative(),
 });
 
-export const listFacetsResponseSchema = dataSchema(z.array(listedFacetSchema));
 export const createFacetResponseSchema = dataSchema(listedFacetSchema);
+export const listFacetsResponseSchema = dataSchema(z.array(listedFacetSchema));
 
 export const createFacetBody = createNameWithOptionalSlugSchema({
-	icon: nonEmptyTrimmedStringSchema.optional(),
+	icon: nonEmptyTrimmedStringSchema,
 	description: nonEmptyTrimmedStringSchema.optional(),
 	accentColor: nonEmptyTrimmedStringSchema.optional(),
 });
@@ -38,15 +38,36 @@ const nullableTextInputSchema = z
 
 export const updateFacetBody = z
 	.object({
-		icon: nullableTextInputSchema,
 		enabled: z.boolean().optional(),
 		description: nullableTextInputSchema,
 		accentColor: nullableTextInputSchema,
+		icon: nonEmptyTrimmedStringSchema.optional(),
 		name: nonEmptyTrimmedStringSchema.optional(),
 		slug: nonEmptyTrimmedStringSchema.optional(),
 	})
-	.refine((value) => Object.keys(value).length > 0, {
-		message: "At least one field must be provided",
+	.superRefine((value, ctx) => {
+		if (Object.keys(value).length === 0) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "At least one field must be provided",
+			});
+			return;
+		}
+
+		const hasConfigUpdate =
+			value.icon !== undefined ||
+			value.name !== undefined ||
+			value.slug !== undefined ||
+			value.description !== undefined ||
+			value.accentColor !== undefined;
+
+		if (!hasConfigUpdate || value.icon !== undefined) return;
+
+		ctx.addIssue({
+			path: ["icon"],
+			code: z.ZodIssueCode.custom,
+			message: "Icon is required",
+		});
 	});
 
 export const reorderFacetsBody = z

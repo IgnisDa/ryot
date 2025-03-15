@@ -5,7 +5,7 @@ describe("resolveFacetPatch", () => {
 	it("keeps current slug when neither name nor slug changes", () => {
 		const patch = resolveFacetPatch({
 			current: {
-				icon: null,
+				icon: "film",
 				slug: "media",
 				name: "Media",
 				description: null,
@@ -21,7 +21,7 @@ describe("resolveFacetPatch", () => {
 	it("recomputes slug when name changes", () => {
 		const patch = resolveFacetPatch({
 			current: {
-				icon: null,
+				icon: "coffee",
 				slug: "whiskey",
 				name: "Whiskey",
 				description: null,
@@ -37,9 +37,9 @@ describe("resolveFacetPatch", () => {
 	it("prefers explicit slug over derived slug", () => {
 		const patch = resolveFacetPatch({
 			current: {
-				icon: null,
 				slug: "coffee",
 				name: "Coffee",
+				icon: "cup-soda",
 				description: null,
 				accentColor: null,
 			},
@@ -47,6 +47,21 @@ describe("resolveFacetPatch", () => {
 		});
 
 		expect(patch.slug).toBe("cups-and-brews");
+	});
+
+	it("keeps the current icon when icon is omitted", () => {
+		const patch = resolveFacetPatch({
+			current: {
+				icon: "film",
+				slug: "media",
+				name: "Media",
+				description: null,
+				accentColor: null,
+			},
+			input: { description: "Track media" },
+		});
+
+		expect(patch.icon).toBe("film");
 	});
 });
 
