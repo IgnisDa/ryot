@@ -65,7 +65,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	let status = undefined;
 	await match(intent)
-		.with("commitMedia", async () => {
+		.with("commitMetadata", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
 			const { commitMetadata } = await serverGqlService.authenticatedRequest(
 				request,

@@ -530,7 +530,7 @@ const MediaSearchItem = (props: {
 		data.append("identifier", props.item.identifier);
 		data.append("lot", loaderData.lot);
 		data.append("source", props.source);
-		const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
+		const resp = await fetch($path("/actions", { intent: "commitMetadata" }), {
 			method: "POST",
 			body: data,
 		});
