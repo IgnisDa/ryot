@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
 import type { AppSavedView } from "./model";
 
@@ -29,4 +30,42 @@ export function useSavedViewQuery(props: { viewId: string }) {
 		isError: allViewsQuery.isError,
 		isLoading: allViewsQuery.isLoading,
 	};
+}
+
+export function useSavedViewMutations() {
+	const apiClient = useApiClient();
+	const queryClient = useQueryClient();
+	const listQueryKey = apiClient.queryOptions("get", "/saved-views").queryKey;
+
+	const update = apiClient.useMutation(
+		"put",
+		"/saved-views/{viewId}",
+		{
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: listQueryKey });
+			},
+		},
+		queryClient,
+	);
+
+	const toggleViewById = async (viewId: string, savedViews: AppSavedView[]) => {
+		const view = savedViews.find((v) => v.id === viewId);
+		if (!view) {
+			return;
+		}
+		await update.mutateAsync({
+			body: {
+				icon: view.icon,
+				name: view.name,
+				isDisabled: !view.isDisabled,
+				accentColor: view.accentColor,
+				queryDefinition: view.queryDefinition,
+				displayConfiguration: view.displayConfiguration,
+				...(view.trackerId !== null ? { trackerId: view.trackerId } : {}),
+			},
+			params: { path: { viewId } },
+		});
+	};
+
+	return { update, toggleViewById, isPending: update.isPending };
 }
