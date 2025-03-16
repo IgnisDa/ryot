@@ -141,6 +141,12 @@ export const errorResponse = (code: string, message: string) => ({
 export const dataSchema = <T extends z.ZodType>(schema: T) =>
 	z.object({ data: schema });
 
+export const itemDataSchema = <T extends z.ZodType>(schema: T) =>
+	dataSchema(schema);
+
+export const listDataSchema = <T extends z.ZodType>(schema: T) =>
+	dataSchema(z.array(schema));
+
 export const unknownObjectSchema = z.record(z.string(), z.unknown());
 
 const jsonContent = <TSchema extends z.ZodType>(schema: TSchema) => ({

@@ -1,6 +1,12 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
+import {
+	entity,
+	entityAccessScopeWithSchemaJoinSelection,
+	entitySchema,
+	entitySchemaAccessScopeSelection,
+	type ImageSchemaType,
+} from "~/lib/db/schema";
 import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
 
@@ -21,16 +27,8 @@ const entitySelection = {
 };
 
 const entitySchemaScopeSelection = {
-	id: entitySchema.id,
-	userId: entitySchema.userId,
-	isBuiltin: entitySchema.isBuiltin,
+	...entitySchemaAccessScopeSelection,
 	propertiesSchema: entitySchema.propertiesSchema,
-};
-
-const entityScopeSelection = {
-	entityId: entity.id,
-	isBuiltin: entitySchema.isBuiltin,
-	entitySchemaId: entity.entitySchemaId,
 };
 
 type EntityRow = Omit<ListedEntity, "properties"> & {
@@ -65,7 +63,7 @@ export const getEntityScopeForUser = async (input: {
 	entityId: string;
 }) => {
 	const [foundEntity] = await db
-		.select(entityScopeSelection)
+		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))

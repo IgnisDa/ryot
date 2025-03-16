@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { dataSchema, unknownObjectSchema } from "~/lib/openapi";
+import {
+	itemDataSchema,
+	listDataSchema,
+	unknownObjectSchema,
+} from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 import { occurredAtStringSchema } from "./service";
 
@@ -15,9 +19,9 @@ export const listedEventSchema = z.object({
 	properties: unknownObjectSchema,
 });
 
-export const listEventsResponseSchema = dataSchema(z.array(listedEventSchema));
+export const listEventsResponseSchema = listDataSchema(listedEventSchema);
 
-export const createEventResponseSchema = dataSchema(listedEventSchema);
+export const createEventResponseSchema = itemDataSchema(listedEventSchema);
 
 export const listEventsQuery = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
