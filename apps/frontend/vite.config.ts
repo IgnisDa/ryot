@@ -14,7 +14,8 @@ export default defineConfig({
 	},
 	plugins: [
 		reactRouter(),
-		safeRoutes(),
+		// biome-ignore lint/suspicious/noExplicitAny: to satisfy the plugin's expected type
+		safeRoutes() as any,
 		tsconfigPaths({ ignoreConfigErrors: true }),
 		VitePWA({
 			srcDir: "app",
