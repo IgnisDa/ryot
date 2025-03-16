@@ -88,14 +88,17 @@ export const builtinEntitySchemas = () => [
 export const builtinSavedViews = () => [
 	{
 		name: "All Books",
+		facetSlug: "media",
 		entitySchemaSlug: "book",
 	},
 	{
 		name: "All Animes",
+		facetSlug: "media",
 		entitySchemaSlug: "anime",
 	},
 	{
 		name: "All Mangas",
+		facetSlug: "media",
 		entitySchemaSlug: "manga",
 	},
 ];

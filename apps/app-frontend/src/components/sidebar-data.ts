@@ -1,4 +1,3 @@
-import { kebabCase } from "@ryot/ts-utils";
 import {
 	type AppFacet,
 	selectEnabledFacets,
@@ -11,8 +10,8 @@ export function toSidebarData(input: {
 	facets: AppFacet[];
 	views: AppSavedView[];
 }): {
-	facets: SidebarFacet[];
 	views: SidebarView[];
+	facets: SidebarFacet[];
 } {
 	const facets = selectEnabledFacets(sortFacetsByOrder(input.facets)).map(
 		(facet) => ({
@@ -20,18 +19,31 @@ export function toSidebarData(input: {
 			name: facet.name,
 			slug: facet.slug,
 			icon: facet.icon,
-			entitySchemas: [],
 			enabled: facet.enabled,
 			sortOrder: facet.sortOrder,
 			accentColor: facet.accentColor,
+			views: input.views
+				.filter((view) => view.facetId === facet.id)
+				.map((view) => ({
+					id: view.id,
+					icon: view.icon,
+					name: view.name,
+					slug: view.name,
+					facetId: view.facetId,
+					accentColor: view.accentColor,
+				})),
 		}),
 	);
-	const views = input.views.map((view) => ({
-		id: view.id,
-		name: view.name,
-		icon: "book-open",
-		slug: kebabCase(view.name),
-	}));
+	const views = input.views
+		.filter((view) => view.facetId === null)
+		.map((view) => ({
+			id: view.id,
+			icon: view.icon,
+			name: view.name,
+			slug: view.name,
+			facetId: view.facetId,
+			accentColor: view.accentColor,
+		}));
 
 	return { views, facets };
 }
