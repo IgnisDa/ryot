@@ -16,8 +16,8 @@ use common_models::{
     SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, BULK_APPLICATION_UPDATE_CHUNK_SIZE,
-    BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log,
 };
 use convert_case::{Case, Casing};
 use database_models::{
@@ -39,12 +39,12 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
-    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, ExpireCacheKeyInput,
+    GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -59,14 +59,13 @@ use dependent_utils::{
     send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
     user_metadata_list, user_people_list,
 };
-use either::Either;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserNotificationContent, UserToMediaReason,
 };
-use futures::{future::join_all, TryStreamExt};
+use futures::{TryStreamExt, future::join_all};
 use itertools::Itertools;
-use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
@@ -93,14 +92,14 @@ use providers::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, query::UpdateMany, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait,
+    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement,
+    Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
+    extension::postgres::PgExpr,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -572,7 +571,7 @@ ORDER BY RANDOM() LIMIT 10;
                     let seen = history
                         .iter()
                         .filter(|h| {
-                            h.show_extra_information.as_ref().map_or(false, |s| {
+                            h.show_extra_information.as_ref().is_some_and(|s| {
                                 s.season == season.season_number
                                     && s.episode == episode.episode_number
                             })
@@ -606,8 +605,7 @@ ORDER BY RANDOM() LIMIT 10;
                         .iter()
                         .filter(|h| {
                             h.podcast_extra_information
-                                .as_ref()
-                                .map_or(false, |s| s.episode == episode.number)
+                                .as_ref().is_some_and(|s| s.episode == episode.number)
                         })
                         .collect_vec();
                     episodes.push(UserMetadataDetailsEpisodeProgress {
@@ -926,7 +924,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
         self.0
             .cache_service
-            .expire_key(Either::Right(cache_id))
+            .expire_key(ExpireCacheKeyInput::ById(cache_id))
             .await
     }
 
@@ -1522,7 +1520,10 @@ ORDER BY RANDOM() LIMIT 10;
                 provider_watched_on: si.provider_watched_on.clone(),
             },
         });
-        self.0.cache_service.expire_key(Either::Left(cache)).await?;
+        self.0
+            .cache_service
+            .expire_key(ExpireCacheKeyInput::ByKey(cache))
+            .await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
@@ -1545,7 +1546,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap();
         for user_id in all_users {
-            calculate_user_activities_and_summary(&self.0.db, &user_id, false).await?;
+            calculate_user_activities_and_summary(&user_id, &self.0, false).await?;
         }
         Ok(())
     }

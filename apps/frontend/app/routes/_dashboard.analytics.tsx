@@ -74,7 +74,7 @@ import {
 	getStartTimeFromRange,
 	queryFactory,
 	selectRandomElement,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useGetMantineColors,

@@ -3,9 +3,9 @@ use std::{sync::Arc, time::Duration};
 use async_graphql::{Error, Result};
 use async_trait::async_trait;
 use axum::{
-    extract::FromRequestParts,
-    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
+    extract::FromRequestParts,
+    http::{StatusCode, header::AUTHORIZATION, request::Parts},
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use common_utils::USER_AGENT_STR;
@@ -14,8 +14,8 @@ use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
+    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
 };
 use sea_orm::Order;
 

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};

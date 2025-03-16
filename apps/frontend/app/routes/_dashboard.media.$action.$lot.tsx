@@ -18,11 +18,12 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	DeployUpdateMetadataJobDocument,
 	EntityLot,
 	GraphqlSortOrder,
 	GridPacking,
 	MediaGeneralFilter,
-	type MediaLot,
+	MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataSearchDocument,
@@ -69,13 +70,14 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
 	zodCollectionFilter,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
@@ -85,12 +87,17 @@ import {
 } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
+	OnboardingTourStepTargets,
+	TOUR_MOVIE_TARGET_ID,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
 	getCoreDetails,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -122,7 +129,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			lot: z.string().transform((v) => getLot(v) as MediaLot),
 		}),
 	);
-	const cookieName = await getEnhancedCookieName(
+	const cookieName = await getSearchEnhancedCookieName(
 		`media.${action}.${lot}`,
 		request,
 	);
@@ -254,6 +261,8 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
@@ -267,6 +276,8 @@ export default function Page() {
 			loaderData.mediaList?.url.collections,
 			defaultFilters.mineCollections,
 		);
+	const isEligibleForNextTourStep =
+		loaderData.lot === MediaLot.Movie && isOnboardingTourInProgress;
 
 	return (
 		<Container>
@@ -275,7 +286,7 @@ export default function Page() {
 				variant="default"
 				value={loaderData.action}
 				onChange={(v) => {
-					if (v)
+					if (v) {
 						navigate(
 							$path(
 								"/media/:action/:lot",
@@ -287,13 +298,21 @@ export default function Page() {
 								},
 							),
 						);
+						if (v === "search" && isOnboardingTourInProgress) {
+							advanceOnboardingTourStep();
+						}
+					}
 				}}
 			>
 				<Tabs.List mb="xs" style={{ alignItems: "center" }}>
 					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
 						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
 					</Tabs.Tab>
-					<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+					<Tabs.Tab
+						value="search"
+						leftSection={<IconSearch size={24} />}
+						className={OnboardingTourStepTargets.GoToMoviesSection}
+					>
 						<Text>Search</Text>
 					</Tabs.Tab>
 					<Box ml="auto" visibleFrom="md">
@@ -341,13 +360,16 @@ export default function Page() {
 						<DisplayListDetailsAndRefresh
 							cacheId={loaderData.mediaList.list.cacheId}
 							total={loaderData.mediaList.list.response.details.total}
+							className={OnboardingTourStepTargets.RefreshMoviesListPage}
 						/>
 						{(loaderData.mediaList?.url.startDateRange ||
 							loaderData.mediaList?.url.endDateRange) &&
 						!coreDetails.isServerKeyValidated ? (
 							<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 						) : loaderData.mediaList.list.response.details.total > 0 ? (
-							<ApplicationGrid>
+							<ApplicationGrid
+								className={OnboardingTourStepTargets.ShowMoviesListPage}
+							>
 								{loaderData.mediaList.list.response.items.map((item) => {
 									const becItem = {
 										entityId: item,
@@ -402,6 +424,14 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
+								tourControl={{
+									target: OnboardingTourStepTargets.SearchMovie,
+									onQueryChange: (query) => {
+										if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+											advanceOnboardingTourStep();
+										}
+									},
+								}}
 							/>
 							{mediaSearch.mediaSources.length > 1 ? (
 								<Select
@@ -429,11 +459,13 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{mediaSearch.search.items.map((b) => (
+									{mediaSearch.search.items.map((b, index) => (
 										<MediaSearchItem
 											item={b}
 											key={b.identifier}
+											isFirstItem={index === 0}
 											source={mediaSearch.url.source}
+											isEligibleForNextTourStep={isEligibleForNextTourStep}
 										/>
 									))}
 								</ApplicationGrid>
@@ -460,21 +492,36 @@ export default function Page() {
 
 const MediaSearchItem = (props: {
 	source: MediaSource;
+	isFirstItem: boolean;
+	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const gridPacking = userPreferences.general.gridPacking;
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
+	const gridPacking = userPreferences.general.gridPacking;
 	const buttonSize =
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
+
+	const tourControlOne = props.isFirstItem
+		? OnboardingTourStepTargets.AddMovieToWatchlist
+		: undefined;
+
+	const tourControlTwo = props.isFirstItem
+		? OnboardingTourStepTargets.OpenMetadataProgressForm
+		: undefined;
+
+	const tourControlThree = props.isFirstItem
+		? OnboardingTourStepTargets.GoToMoviesSectionAgain
+		: undefined;
 
 	const basicCommit = async () => {
 		setIsLoading(true);
@@ -483,14 +530,18 @@ const MediaSearchItem = (props: {
 		data.append("identifier", props.item.identifier);
 		data.append("lot", loaderData.lot);
 		data.append("source", props.source);
-		const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
+		const resp = await fetch($path("/actions", { intent: "commitMetadata" }), {
 			method: "POST",
 			body: data,
 		});
 		const json = await resp.json();
-		const response = json.commitMedia.id;
+		const metadataId = json.commitMedia.id;
+		await Promise.all([
+			clientGqlService.request(DeployUpdateMetadataJobDocument, { metadataId }),
+			new Promise((resolve) => setTimeout(resolve, 2000)),
+		]);
 		setIsLoading(false);
-		return response;
+		return metadataId;
 	};
 
 	return (
@@ -499,9 +550,10 @@ const MediaSearchItem = (props: {
 				isLoading={false}
 				name={props.item.title}
 				imageUrl={props.item.image}
+				imageClassName={tourControlThree}
 				labels={{
 					left: props.item.publishYear,
-					right: <Text>{changeCase(snakeCase(loaderData.lot))}</Text>,
+					right: changeCase(snakeCase(loaderData.lot)),
 				}}
 				imageOverlay={{
 					topLeft: isLoading ? (
@@ -512,6 +564,9 @@ const MediaSearchItem = (props: {
 					setIsLoading(true);
 					const id = await basicCommit();
 					setIsLoading(false);
+					if (tourControlThree) {
+						advanceOnboardingTourStep();
+					}
 					navigate($path("/media/item/:id", { id }));
 				}}
 				nameRight={
@@ -543,9 +598,13 @@ const MediaSearchItem = (props: {
 					w="100%"
 					variant="outline"
 					size={buttonSize}
+					className={tourControlTwo}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
+						if (tourControlTwo) {
+							advanceOnboardingTourStep();
+						}
 					}}
 				>
 					Mark as {getVerb(Verb.Read, loaderData.lot)}
@@ -555,6 +614,7 @@ const MediaSearchItem = (props: {
 					mt="xs"
 					variant="outline"
 					size={buttonSize}
+					className={tourControlOne}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -574,6 +634,9 @@ const MediaSearchItem = (props: {
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
+						if (tourControlOne) {
+							advanceOnboardingTourStep();
+						}
 					}}
 				>
 					Add to watchlist

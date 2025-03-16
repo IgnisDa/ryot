@@ -90,6 +90,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
@@ -121,7 +122,7 @@ import {
 	queryClient,
 	queryFactory,
 	sendNotificationToServiceWorker,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	forceUpdateEverySecond,
 	useApplicationEvents,
@@ -149,6 +150,12 @@ import {
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
+import {
+	ACTIVE_WORKOUT_REPS_TARGET,
+	ACTIVE_WORKOUT_WEIGHT_TARGET,
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
@@ -314,8 +321,10 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
+	const { advanceOnboardingTourStep, isOnboardingTourInProgress } =
+		useOnboardingTour();
 
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
 	const shouldDisplayWorkoutTimer = Boolean(
 		loaderData.action === FitnessAction.LogWorkout,
@@ -547,6 +556,10 @@ export default function Page() {
 											size="compact-sm"
 											loading={isSaveBtnLoading}
 											disabled={isWorkoutPaused}
+											className={clsx(
+												isOnboardingTourInProgress &&
+													OnboardingTourStepTargets.FinishWorkout,
+											)}
 											onClick={() => {
 												if (!currentWorkout.name) {
 													notifications.show({
@@ -565,6 +578,9 @@ export default function Page() {
 														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													async () => {
 														setIsSaveBtnLoading(true);
+														if (isOnboardingTourInProgress)
+															advanceOnboardingTourStep();
+
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
@@ -697,7 +713,11 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										onClick={() => advanceOnboardingTourStep()}
 										to={$path("/fitness/exercises/list")}
+										className={
+											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
+										}
 									>
 										Add an exercise
 									</Button>
@@ -926,10 +946,10 @@ const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
 };
 
 const StatInput = (props: {
-	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof WorkoutSetStatistic;
 	inputStep?: number;
+	exerciseIdx: number;
+	stat: keyof WorkoutSetStatistic;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -940,6 +960,18 @@ const StatInput = (props: {
 			: undefined,
 		500,
 	);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
+
+	const weightStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddWeightToExercise
+			: undefined;
+
+	const repsStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddRepsToExercise
+			: undefined;
 
 	useDidUpdate(() => {
 		if (currentWorkout)
@@ -950,6 +982,10 @@ const StatInput = (props: {
 						draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
 					if (val === null) draftSet.confirmedAt = null;
+					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET)
+						advanceOnboardingTourStep();
+					if (repsStepTourClassName && val === ACTIVE_WORKOUT_REPS_TARGET)
+						advanceOnboardingTourStep();
 				}),
 			);
 	}, [value]);
@@ -963,6 +999,7 @@ const StatInput = (props: {
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
+				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
@@ -1461,12 +1498,16 @@ const ExerciseDisplay = (props: {
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress && props.exerciseIdx === 0;
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -1552,7 +1593,16 @@ const ExerciseDisplay = (props: {
 									<IconChevronUp />
 								</ActionIcon>
 								<Menu.Target>
-									<ActionIcon color="blue">
+									<ActionIcon
+										color="blue"
+										onClick={() => {
+											if (isOnboardingTourStep) advanceOnboardingTourStep();
+										}}
+										className={clsx(
+											isOnboardingTourStep &&
+												OnboardingTourStepTargets.OpenExerciseMenuDetails,
+										)}
+									>
 										<IconDotsVertical size={20} />
 									</ActionIcon>
 								</Menu.Target>
@@ -1963,6 +2013,8 @@ const SetDisplay = (props: {
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -1987,6 +2039,11 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress &&
+		set.confirmedAt === null &&
+		props.exerciseIdx === 0 &&
+		props.setIdx === 0;
 
 	return (
 		<>
@@ -2072,7 +2129,16 @@ const SetDisplay = (props: {
 				<Flex justify="space-between" align="center" py={4}>
 					<Menu>
 						<Menu.Target>
-							<UnstyledButton w="5%">
+							<UnstyledButton
+								w="5%"
+								onClick={() => {
+									if (isOnboardingTourStep) advanceOnboardingTourStep();
+								}}
+								className={clsx(
+									isOnboardingTourStep &&
+										OnboardingTourStepTargets.OpenSetMenuDetails,
+								)}
+							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
 									{match(set.lot)
 										.with(SetLot.Normal, () => props.setIdx + 1)
@@ -2229,32 +2295,32 @@ const SetDisplay = (props: {
 					</Box>
 					{props.durationCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="duration"
 							inputStep={0.1}
+							stat="duration"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.distanceCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="distance"
 							inputStep={0.01}
+							stat="distance"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.weightCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="weight"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.repsCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="reps"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					<Group
@@ -2264,13 +2330,13 @@ const SetDisplay = (props: {
 					>
 						<Transition
 							mounted
+							duration={200}
+							timingFunction="ease-in-out"
 							transition={{
 								in: {},
 								out: {},
 								transitionProperty: "all",
 							}}
-							duration={200}
-							timingFunction="ease-in-out"
 						>
 							{(style) =>
 								set.displayRestTimeTrigger ? (
@@ -2303,6 +2369,10 @@ const SetDisplay = (props: {
 										color="green"
 										style={style}
 										variant={set.confirmedAt ? "filled" : "outline"}
+										className={clsx(
+											isOnboardingTourStep &&
+												OnboardingTourStepTargets.ConfirmSetForExercise,
+										)}
 										disabled={
 											!match(exercise.lot)
 												.with(ExerciseLot.Reps, () =>
@@ -2341,6 +2411,9 @@ const SetDisplay = (props: {
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
+											if (isOnboardingTourStep && newConfirmed)
+												advanceOnboardingTourStep();
+
 											if (
 												!newConfirmed &&
 												currentTimer?.triggeredBy?.exerciseIdentifier ===

@@ -118,7 +118,7 @@ import {
 	openConfirmationModal,
 	refreshUserMetadataDetails,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -128,6 +128,10 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -284,11 +288,11 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
-
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -583,7 +587,12 @@ export default function Page() {
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							<Tabs.Tab
+								value="actions"
+								leftSection={<IconUser size={16} />}
+								onClick={() => advanceOnboardingTourStep()}
+								className={OnboardingTourStepTargets.MetadataDetailsActionsTab}
+							>
 								Actions
 							</Tabs.Tab>
 							<Tabs.Tab

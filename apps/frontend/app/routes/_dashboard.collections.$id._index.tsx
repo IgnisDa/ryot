@@ -49,12 +49,12 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import { dayjsLib, pageQueryParam } from "~/lib/common";
 import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -87,7 +87,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		params,
 		z.object({ id: z.string() }),
 	);
-	const cookieName = await getEnhancedCookieName(
+	const cookieName = await getSearchEnhancedCookieName(
 		`collections.details.${collectionId}`,
 		request,
 	);

@@ -21,10 +21,10 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib } from "~/lib/common";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -37,7 +37,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("calendar", request);
+	const cookieName = await getSearchEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);

@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+pub static APPLICATION_CACHE_SANITIZED_KEY_INDEX: &str = "application_cache_sanitized_key_index";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -12,6 +14,7 @@ pub enum ApplicationCache {
     Version,
     ExpiresAt,
     CreatedAt,
+    SanitizedKey,
 }
 
 #[async_trait::async_trait]
@@ -51,6 +54,20 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(ApplicationCache::Version).text())
+                    .col(
+                        ColumnDef::new(ApplicationCache::SanitizedKey)
+                            .text()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(APPLICATION_CACHE_SANITIZED_KEY_INDEX)
+                    .table(ApplicationCache::Table)
+                    .col(ApplicationCache::SanitizedKey)
                     .to_owned(),
             )
             .await?;

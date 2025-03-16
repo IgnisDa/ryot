@@ -7,7 +7,7 @@ use common_models::PersonSourceSpecifics;
 use enum_models::MediaSource;
 use media_models::{MetadataImage, PersonStateChanges};
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]

@@ -17,10 +17,10 @@ import { useLoaderData } from "react-router";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { pageQueryParam } from "~/lib/generals";
+import { pageQueryParam } from "~/lib/common";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -35,7 +35,10 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: genreId } = parseParameters(params, z.object({ id: z.string() }));
-	const cookieName = await getEnhancedCookieName(`genre.${genreId}`, request);
+	const cookieName = await getSearchEnhancedCookieName(
+		`genre.${genreId}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ genreDetails }] = await Promise.all([

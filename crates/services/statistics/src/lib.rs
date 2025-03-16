@@ -16,10 +16,10 @@ use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
-    prelude::{Date, Expr},
-    sea_query::{Alias, Func, NullOrdering, PgFunc},
     ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Order, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
+    prelude::{Date, Expr},
+    sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
 use supporting_service::SupportingService;
 
@@ -31,7 +31,7 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+        calculate_user_activities_and_summary(user_id, &self.0, calculate_from_beginning).await
     }
 
     pub async fn user_analytics_parameters(

@@ -50,7 +50,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	openConfirmationModal,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,

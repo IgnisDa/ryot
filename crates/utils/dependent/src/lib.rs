@@ -10,8 +10,8 @@ use common_models::{
     StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES, ryot_log,
+    sleep_for_n_seconds,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -32,13 +32,12 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, SearchResults,
+    UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use either::Either;
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
@@ -85,16 +84,16 @@ use providers::{
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{
-    prelude::{FromPrimitive, One, ToPrimitive},
     Decimal,
+    prelude::{FromPrimitive, One, ToPrimitive},
 };
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::{DateTimeUtc, Expr},
-    sea_query::{extension::postgres::PgExpr, Alias, Func, NullOrdering, OnConflict, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
+    prelude::{DateTimeUtc, Expr},
+    sea_query::{Alias, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr},
 };
 use serde::{Deserialize, Serialize};
 use slug::slugify;
@@ -681,7 +680,7 @@ pub async fn send_notification_for_user(
             );
             continue;
         }
-        if !platform.configured_events.contains(&change) {
+        if !platform.configured_events.contains(change) {
             ryot_log!(
                 debug,
                 "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
@@ -1312,7 +1311,6 @@ pub async fn progress_update(
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
-    acquire_lock!(&ss.db, &cache_and_lock_key);
     let all_prev_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
@@ -2650,7 +2648,9 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    ss.cache_service.expire_key(Either::Left(cache_key)).await?;
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
     Ok(())
 }
 

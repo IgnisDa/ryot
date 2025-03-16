@@ -35,8 +35,8 @@ use fitness_models::{
 use futures::TryStreamExt;
 use nanoid::nanoid;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, prelude::DateTimeUtc,
 };
 use sea_query::{Expr, OnConflict};
 use supporting_service::SupportingService;
@@ -607,6 +607,9 @@ impl FitnessService {
             ))
             .all(&self.0.db)
             .await?;
+        if revisions.is_empty() {
+            return Ok(());
+        }
         for user in revisions {
             ryot_log!(debug, "Revising workouts for {}", user.id);
             self.revise_user_workouts(user.id.clone()).await?;

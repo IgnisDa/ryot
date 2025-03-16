@@ -49,7 +49,7 @@ import {
 	dayjsLib,
 	getExerciseDetailsPath,
 	getSetColor,
-} from "~/lib/generals";
+} from "~/lib/common";
 import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,

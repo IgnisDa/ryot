@@ -12,7 +12,7 @@ use media_models::{
 use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
 use super::functions::associate_user_with_entity;

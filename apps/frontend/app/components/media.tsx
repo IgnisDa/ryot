@@ -48,7 +48,7 @@ import {
 	openConfirmationModal,
 	queryFactory,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
@@ -166,7 +166,6 @@ export const MetadataDisplayItem = (props: {
 			UserToMediaReason.Owned,
 		].includes(r),
 	);
-	const hasInteracted = userMetadataDetails?.hasInteracted;
 
 	const leftLabel = useMemo(() => {
 		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
@@ -221,15 +220,11 @@ export const MetadataDisplayItem = (props: {
 								(props.rightLabelLot
 									? changeCase(snakeCase(metadataDetails.lot))
 									: undefined) ||
-								(props.rightLabelHistory ? (
-									completedHistory.length > 0 ? (
-										`${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
-									) : null
-								) : (
-									<Text c={hasInteracted ? "yellow" : undefined}>
-										{changeCase(snakeCase(metadataDetails.lot))}
-									</Text>
-								)),
+								(props.rightLabelHistory
+									? completedHistory.length > 0
+										? `${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
+										: null
+									: changeCase(snakeCase(metadataDetails.lot))),
 						}
 					: undefined
 			}

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 
 pub async fn sink_progress(payload: String) -> Result<ImportResult> {

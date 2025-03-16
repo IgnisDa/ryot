@@ -1,4 +1,3 @@
-import type Umami from "@bitprojects/umami-logger-typescript";
 import {
 	createQueryKeys,
 	mergeQueryKeys,
@@ -45,9 +44,7 @@ import { z } from "zod";
 
 declare global {
 	interface Window {
-		umami?: {
-			track: typeof Umami.trackEvent;
-		};
+		umami?: { track: (eventName: string, eventData: unknown) => void };
 	}
 }
 

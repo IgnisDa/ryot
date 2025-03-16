@@ -41,12 +41,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
-import {
-	upperFirst,
-	useCounter,
-	useDisclosure,
-	useLocalStorage,
-} from "@mantine/hooks";
+import { upperFirst, useCounter, useDisclosure } from "@mantine/hooks";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -92,9 +87,11 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import Joyride from "react-joyride";
 import {
 	Form,
 	Link,
@@ -121,7 +118,7 @@ import {
 	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -137,6 +134,11 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+	useOpenedSidebarLinks,
+} from "~/lib/state/general";
+import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -146,6 +148,7 @@ import {
 	getCookieValue,
 	getCoreDetails,
 	getDecodedJwt,
+	getEnhancedCookieName,
 	getUserCollectionsList,
 	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
@@ -169,78 +172,17 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsedCookie,
 	);
 
-	const mediaLinks = [
-		...userPreferences.featuresEnabled.media.specific.map((f) => {
-			return { label: f, href: undefined };
-		}),
-		userPreferences.featuresEnabled.media.groups
-			? {
-					label: "Groups",
-					href: $path("/media/groups/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.people
-			? {
-					label: "People",
-					href: $path("/media/people/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.genres
-			? {
-					label: "Genres",
-					href: $path("/media/genre/list"),
-				}
-			: undefined,
-	]
-		.map((link, _index) =>
-			link
-				? {
-						label: changeCase(link.label),
-						link: link.href
-							? link.href
-							: $path("/media/:action/:lot", {
-									action: "list",
-									lot: link.label,
-								}),
-					}
-				: undefined,
-		)
-		.filter((link) => link !== undefined);
-
-	const fitnessLinks = [
-		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => !["enabled"].includes(v))
-			.map(([name, enabled]) => ({ name, enabled }))
-			?.filter((f) => f.enabled)
-			.map((f) => ({
-				label: changeCase(f.name.toString()),
-				href: joinURL("/fitness", f.name, "list"),
-			})) || []),
-		{ label: "Exercises", href: $path("/fitness/exercises/list") },
-	]
-		.filter((link) => link !== undefined)
-		.map((link) => ({ label: link.label, link: link.href }));
-
-	const settingsLinks = [
-		{ label: "Preferences", link: $path("/settings/preferences") },
-		{
-			label: "Imports and Exports",
-			link: $path("/settings/imports-and-exports"),
-		},
-		{
-			label: "Profile and Sharing",
-			link: $path("/settings/profile-and-sharing"),
-		},
-		{ label: "Integrations", link: $path("/settings/integrations") },
-		{ label: "Notifications", link: $path("/settings/notifications") },
-		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
-		userDetails.lot === UserLot.Admin
-			? { label: "Users", link: $path("/settings/users") }
-			: undefined,
-	].filter((link) => link !== undefined);
-
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
+	);
+	const onboardingTourCompletedCookie = await getEnhancedCookieName(
+		"empty",
+		"OnboardingCompleted",
+		request,
+	);
+	const isOnboardingTourCompleted = getCookieValue(
+		request,
+		onboardingTourCompletedCookie,
 	);
 
 	const decodedCookie = getDecodedJwt(request);
@@ -254,11 +196,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		!isDemoInstance;
 
 	return {
-		mediaLinks,
 		userDetails,
 		coreDetails,
-		fitnessLinks,
-		settingsLinks,
 		isDemoInstance,
 		userPreferences,
 		shouldHaveUmami,
@@ -266,6 +205,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		currentColorScheme,
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
+		isOnboardingTourCompleted,
+		onboardingTourCompletedCookie,
 	};
 };
 
@@ -348,35 +289,18 @@ export function ErrorBoundary() {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const { revalidate } = useRevalidator();
 	const submit = useConfirmSubmit();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
-		| {
-				media: boolean;
-				fitness: boolean;
-				settings: boolean;
-				collection: boolean;
-		  }
-		| undefined
-	>({
-		key: "SavedOpenedLinkGroups",
-		defaultValue: {
-			fitness: false,
-			media: false,
-			settings: false,
-			collection: false,
-		},
-		getInitialValueInEffect: true,
-	});
+	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
 	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
 		useDisclosure(false);
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
@@ -389,6 +313,45 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
+	const {
+		onboardingTourSteps,
+		completeOnboardingTour,
+		isOnboardingTourInProgress,
+		isOnLastOnboardingTourStep,
+		currentOnboardingTourStepIndex,
+	} = useOnboardingTour();
+
+	const mediaLinks = [
+		...userPreferences.featuresEnabled.media.specific.map((f) => {
+			return {
+				label: changeCase(f),
+				link: $path("/media/:action/:lot", { action: "list", lot: f }),
+				tourControlTarget:
+					isOnboardingTourInProgress && f === MediaLot.Movie
+						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToMoviesSection}`
+						: undefined,
+			};
+		}),
+		userPreferences.featuresEnabled.media.groups
+			? {
+					label: "Groups",
+					link: $path("/media/groups/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.people
+			? {
+					label: "People",
+					link: $path("/media/people/:action", { action: "list" }),
+				}
+			: undefined,
+		userPreferences.featuresEnabled.media.genres
+			? {
+					label: "Genres",
+					link: $path("/media/genre/list"),
+				}
+			: undefined,
+	].filter((link) => link !== undefined);
+	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 	const shouldShowBulkEditingAffix =
 		bulkEditingCollectionState &&
@@ -404,15 +367,79 @@ export default function Layout() {
 					$path("/media/people/:action", { action: "list" }),
 					$path("/media/groups/:action", { action: "list" }),
 				].includes(location.pathname));
+	const fitnessLinks = [
+		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
+			.filter(([v, _]) => !["enabled"].includes(v))
+			.map(([name, enabled]) => ({ name, enabled }))
+			?.filter((f) => f.enabled)
+			.map((f) => ({
+				label: changeCase(f.name.toString()),
+				link: joinURL("/fitness", f.name, "list"),
+				tourControlTarget:
+					isOnboardingTourInProgress && f.name === "workouts"
+						? OnboardingTourStepTargets.OpenWorkoutsSection
+						: f.name === "templates"
+							? OnboardingTourStepTargets.ClickOnTemplatesSidebarSection
+							: f.name === "measurements"
+								? OnboardingTourStepTargets.ClickOnMeasurementSidebarSection
+								: undefined,
+			})) || []),
+		{ label: "Exercises", link: $path("/fitness/exercises/list") },
+	].filter((link) => link !== undefined);
+	const settingsLinks = [
+		{
+			label: "Preferences",
+			link: $path("/settings/preferences"),
+			tourControlTarget: OnboardingTourStepTargets.OpenSettingsPreferences,
+		},
+		{
+			label: "Imports and Exports",
+			link: $path("/settings/imports-and-exports"),
+		},
+		{
+			label: "Profile and Sharing",
+			link: $path("/settings/profile-and-sharing"),
+		},
+		{ label: "Integrations", link: $path("/settings/integrations") },
+		{ label: "Notifications", link: $path("/settings/notifications") },
+		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
+		userDetails.lot === UserLot.Admin
+			? { label: "Users", link: $path("/settings/users") }
+			: undefined,
+	].filter((link) => link !== undefined);
 
 	return (
 		<>
+			<ClientOnly>
+				{() => {
+					if (!isOnboardingTourInProgress) return null;
+					return (
+						<Joyride
+							hideBackButton
+							hideCloseButton
+							spotlightClicks
+							disableScrolling
+							disableCloseOnEsc
+							disableOverlayClose
+							spotlightPadding={0}
+							steps={onboardingTourSteps}
+							run={isOnboardingTourInProgress}
+							stepIndex={currentOnboardingTourStepIndex}
+							styles={{
+								overlay: { zIndex: 120 },
+								tooltipContent: { padding: 0 },
+							}}
+						/>
+					);
+				}}
+			</ClientOnly>
 			{isFitnessActionActive &&
 			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
+						style={{ transition: "all 0.3s" }}
 						position={{
 							bottom: rem(40),
 							right: rem(
@@ -422,13 +449,12 @@ export default function Layout() {
 									: 40,
 							),
 						}}
-						style={{ transition: "all 0.3s" }}
 					>
 						<ActionIcon
-							variant="filled"
-							color="orange"
-							radius="xl"
 							size="xl"
+							radius="xl"
+							color="orange"
+							variant="filled"
 							onClick={() =>
 								navigate(
 									$path("/fitness/:action", {
@@ -446,11 +472,11 @@ export default function Layout() {
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
+						action={$path("/actions", { intent: "bulkCollectionAction" })}
 						onSubmit={(e) => {
 							submit(e);
 							bulkEditingCollectionState.stop(true);
 						}}
-						action={$path("/actions", { intent: "bulkCollectionAction" })}
 					>
 						<input
 							type="hidden"
@@ -508,14 +534,14 @@ export default function Layout() {
 									</Button>
 									<Button
 										size="xs"
+										type="submit"
+										disabled={
+											bulkEditingCollectionState.data.entities.length === 0
+										}
 										color={
 											bulkEditingCollectionState.data.action === "remove"
 												? "red"
 												: "green"
-										}
-										type="submit"
-										disabled={
-											bulkEditingCollectionState.data.entities.length === 0
 										}
 									>
 										{changeCase(bulkEditingCollectionState.data.action)}
@@ -527,42 +553,64 @@ export default function Layout() {
 				</Affix>
 			) : null}
 			<Modal
-				onClose={closeMetadataProgressUpdateModal}
-				opened={metadataToUpdate !== null}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				opened={metadataToUpdate !== null}
+				onClose={closeMetadataProgressUpdateModal}
 			>
 				<MetadataProgressUpdateForm
 					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 				/>
 			</Modal>
 			<Modal
-				onClose={() => setEntityToReview(null)}
-				opened={entityToReview !== null}
-				withCloseButton={false}
 				centered
+				withCloseButton={false}
+				onClose={completeOnboardingTour}
+				opened={isOnLastOnboardingTourStep}
+				title="You've completed the onboarding tour!"
+			>
+				<Stack>
+					<Text>
+						These are just the basics to get you up and running. Ryot has a lot
+						more to offer and I encourage you to explore the app and see what it
+						can do for you.
+					</Text>
+					<Text size="sm" c="dimmed">
+						You can restart the tour at any time from the profile settings.
+					</Text>
+					<Button variant="outline" onClick={completeOnboardingTour}>
+						Start using Ryot!
+					</Button>
+				</Stack>
+			</Modal>
+			<Modal
+				centered
+				withCloseButton={false}
+				opened={entityToReview !== null}
+				onClose={() => setEntityToReview(null)}
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
 			<Modal
+				centered
+				withCloseButton={false}
 				onClose={closeAddEntityToCollectionModal}
 				opened={addEntityToCollectionData !== null}
-				withCloseButton={false}
-				centered
 			>
 				<AddEntityToCollectionForm
 					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
 				/>
 			</Modal>
 			<Drawer
-				onClose={closeMeasurementsDrawer}
-				opened={measurementsDrawerOpen}
 				title="Add new measurement"
+				opened={measurementsDrawerOpen}
+				onClose={closeMeasurementsDrawer}
 			>
 				<CreateMeasurementForm
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
+
 			<AppShell
 				w="100%"
 				padding={0}
@@ -603,23 +651,24 @@ export default function Layout() {
 					</Flex>
 					<Box component={ScrollArea} style={{ flexGrow: 1 }}>
 						<LinksGroup
-							label="Dashboard"
-							icon={IconHome2}
-							href={$path("/")}
 							opened={false}
-							toggle={toggleMobileNavbar}
+							icon={IconHome2}
+							label="Dashboard"
 							setOpened={() => {}}
+							href={$path("/")}
+							toggle={toggleMobileNavbar}
 						/>
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
+								links={mediaLinks}
 								icon={IconDeviceSpeaker}
-								links={loaderData.mediaLinks}
-								opened={openedLinkGroups?.media || false}
 								toggle={toggleMobileNavbar}
+								opened={openedSidebarLinks.media || false}
+								tourControlTarget={OnboardingTourStepTargets.Welcome}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.media = k;
 										}),
 									)
@@ -629,17 +678,18 @@ export default function Layout() {
 						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
+								links={fitnessLinks}
 								icon={IconStretching}
-								opened={openedLinkGroups?.fitness || false}
 								toggle={toggleMobileNavbar}
+								opened={openedSidebarLinks.fitness || false}
+								tourControlTarget={OnboardingTourStepTargets.OpenFitnessSidebar}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.fitness = k;
 										}),
 									)
 								}
-								links={loaderData.fitnessLinks}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.analytics.enabled ? (
@@ -650,26 +700,32 @@ export default function Layout() {
 								setOpened={() => {}}
 								toggle={toggleMobileNavbar}
 								href={$path("/analytics")}
+								tourControlTarget={
+									OnboardingTourStepTargets.ClickOnAnalyticsSidebarSection
+								}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
+								opened={false}
 								label="Calendar"
 								icon={IconCalendar}
-								href={$path("/calendar")}
-								opened={false}
-								toggle={toggleMobileNavbar}
 								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/calendar")}
 							/>
 						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.collections ? (
 							<LinksGroup
-								label="Collections"
-								icon={IconArchive}
-								href={$path("/collections/list")}
 								opened={false}
-								toggle={toggleMobileNavbar}
+								icon={IconArchive}
+								label="Collections"
 								setOpened={() => {}}
+								toggle={toggleMobileNavbar}
+								href={$path("/collections/list")}
+								tourControlTarget={
+									OnboardingTourStepTargets.ClickOnCollectionsSidebarSection
+								}
 							/>
 						) : null}
 						{loaderData.isAccessLinkSession &&
@@ -677,16 +733,19 @@ export default function Layout() {
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
-								opened={openedLinkGroups?.settings || false}
+								links={settingsLinks}
 								toggle={toggleMobileNavbar}
+								opened={openedSidebarLinks.settings || false}
+								tourControlTarget={
+									OnboardingTourStepTargets.OpenSettingsSidebar
+								}
 								setOpened={(k) =>
-									setOpenedLinkGroups(
-										produce(openedLinkGroups, (draft) => {
+									setOpenedSidebarLinks(
+										produce(openedSidebarLinks, (draft) => {
 											if (draft) draft.settings = k;
 										}),
 									)
 								}
-								links={loaderData.settingsLinks}
 							/>
 						)}
 					</Box>
@@ -712,14 +771,14 @@ export default function Layout() {
 						) : null}
 						<Form
 							method="POST"
-							action={withQuery("/actions", { intent: "toggleColorScheme" })}
 							onSubmit={submit}
+							action={withQuery("/actions", { intent: "toggleColorScheme" })}
 						>
 							<Group justify="center">
 								<UnstyledButton
+									type="submit"
 									aria-label="Toggle theme"
 									className={classes.control2}
-									type="submit"
 								>
 									<Center className={classes.iconWrapper}>
 										<Icon size={16.8} stroke={1.5} />
@@ -742,8 +801,8 @@ export default function Layout() {
 						>
 							<UnstyledButton
 								mx="auto"
-								className={classes.oldLink}
 								type="submit"
+								className={classes.oldLink}
 							>
 								<Group>
 									<IconLogout size={19.2} />
@@ -820,30 +879,27 @@ interface LinksGroupProps {
 	label: string;
 	href?: string;
 	opened: boolean;
-	setOpened: (v: boolean) => void;
 	toggle: () => void;
-	links?: Array<{ label: string; link: string }>;
+	tourControlTarget?: string;
+	setOpened: (v: boolean) => void;
+	links?: Array<{ label: string; link: string; tourControlTarget?: string }>;
 }
 
-const LinksGroup = ({
-	icon: Icon,
-	label,
-	href,
-	setOpened,
-	toggle,
-	opened,
-	links,
-}: LinksGroupProps) => {
+const LinksGroup = (props: LinksGroupProps) => {
 	const { dir } = useDirection();
-	const hasLinks = Array.isArray(links);
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+
+	const hasLinks = Array.isArray(props.links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const allLinks = (hasLinks ? links || [] : []).filter((s) => s !== undefined);
-	const items = allLinks.map((link) => (
+	const linkItems = (hasLinks ? props.links || [] : []).map((link) => (
 		<NavLink
-			className={classes.link}
 			to={link.link}
 			key={link.label}
-			onClick={toggle}
+			className={clsx(classes.link, link.tourControlTarget)}
+			onClick={() => {
+				props.toggle();
+				advanceOnboardingTourStep();
+			}}
 		>
 			{({ isActive }) => (
 				<span style={isActive ? { textDecoration: "underline" } : undefined}>
@@ -854,33 +910,37 @@ const LinksGroup = ({
 	));
 
 	return (
-		<>
+		<Box>
 			<UnstyledButton<typeof Link>
 				component={!hasLinks ? Link : undefined}
 				// biome-ignore lint/suspicious/noExplicitAny: required here
-				to={!hasLinks ? href : (undefined as any)}
+				to={!hasLinks ? props.href : (undefined as any)}
+				className={clsx(classes.control, props.tourControlTarget)}
 				onClick={() => {
-					if (hasLinks) setOpened(!opened);
-					else toggle();
+					advanceOnboardingTourStep();
+					if (hasLinks) {
+						props.setOpened(!props.opened);
+						return;
+					}
+					props.toggle();
 				}}
-				className={classes.control}
 			>
 				<Group justify="space-between" gap={0}>
 					<Box style={{ display: "flex", alignItems: "center" }}>
 						<ThemeIcon variant="light" size={30}>
-							<Icon size={17.6} />
+							<props.icon size={17.6} />
 						</ThemeIcon>
-						<Box ml="md">{label}</Box>
+						<Box ml="md">{props.label}</Box>
 					</Box>
 					{hasLinks ? (
 						<ClientOnly>
 							{() => (
 								<ChevronIcon
-									className={classes.chevron}
 									size={16}
 									stroke={1.5}
+									className={classes.chevron}
 									style={{
-										transform: opened
+										transform: props.opened
 											? `rotate(${dir === "rtl" ? -90 : 90}deg)`
 											: "none",
 									}}
@@ -890,8 +950,8 @@ const LinksGroup = ({
 					) : null}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
-		</>
+			{hasLinks ? <Collapse in={props.opened}>{linkItems}</Collapse> : null}
+		</Box>
 	);
 };
 
@@ -1041,13 +1101,13 @@ const MetadataInProgressUpdateForm = ({
 			<Stack mt="sm">
 				<Group>
 					<Slider
-						max={100}
 						min={0}
 						step={1}
-						showLabelOnHover={false}
+						max={100}
 						value={value}
 						onChange={setValue}
 						style={{ flexGrow: 1 }}
+						showLabelOnHover={false}
 					/>
 					<NumberInput
 						w="20%"
@@ -1115,8 +1175,10 @@ const MetadataNewProgressUpdateForm = ({
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
-	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+
+	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1151,9 +1213,9 @@ const MetadataNewProgressUpdateForm = ({
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
-							label="Episode"
 							required
 							hideControls
+							label="Episode"
 							value={metadataToUpdate.animeEpisodeNumber?.toString()}
 							onChange={(e) => {
 								setMetadataToUpdate(
@@ -1164,8 +1226,8 @@ const MetadataNewProgressUpdateForm = ({
 							}}
 						/>
 						<Checkbox
-							label="Mark all unseen episodes before this as watched"
 							name="animeAllEpisodesBefore"
+							label="Mark all unseen episodes before this as watched"
 						/>
 					</>
 				) : null}
@@ -1177,8 +1239,8 @@ const MetadataNewProgressUpdateForm = ({
 						>
 							<Group wrap="nowrap">
 								<NumberInput
-									description="Chapter"
 									hideControls
+									description="Chapter"
 									value={metadataToUpdate.mangaChapterNumber?.toString()}
 									onChange={(e) => {
 										setMetadataToUpdate(
@@ -1193,8 +1255,8 @@ const MetadataNewProgressUpdateForm = ({
 									OR
 								</Text>
 								<NumberInput
-									description="Volume"
 									hideControls
+									description="Volume"
 									value={metadataToUpdate.mangaVolumeNumber?.toString()}
 									onChange={(e) => {
 										setMetadataToUpdate(
@@ -1208,21 +1270,23 @@ const MetadataNewProgressUpdateForm = ({
 							</Group>
 						</Input.Wrapper>
 						<Checkbox
-							label="Mark all unread volumes/chapters before this as watched"
 							name="mangaAllChaptersOrVolumesBefore"
+							label="Mark all unread volumes/chapters before this as watched"
 						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
 						<Select
-							label="Season"
 							required
+							searchable
+							limit={50}
+							label="Season"
+							value={metadataToUpdate.showSeasonNumber?.toString()}
 							data={metadataDetails.showSpecifics?.seasons.map((s) => ({
 								label: `${s.seasonNumber}. ${s.name.toString()}`,
 								value: s.seasonNumber.toString(),
 							}))}
-							value={metadataToUpdate.showSeasonNumber?.toString()}
 							onChange={(v) => {
 								setMetadataToUpdate(
 									produce(metadataToUpdate, (draft) => {
@@ -1230,12 +1294,20 @@ const MetadataNewProgressUpdateForm = ({
 									}),
 								);
 							}}
-							searchable
-							limit={50}
 						/>
 						<Select
-							label="Episode"
+							searchable
+							limit={50}
 							required
+							label="Episode"
+							value={metadataToUpdate.showEpisodeNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showEpisodeNumber = Number(v);
+									}),
+								);
+							}}
 							data={
 								metadataDetails.showSpecifics?.seasons
 									.find(
@@ -1246,16 +1318,6 @@ const MetadataNewProgressUpdateForm = ({
 										value: e.episodeNumber.toString(),
 									})) || []
 							}
-							value={metadataToUpdate.showEpisodeNumber?.toString()}
-							onChange={(v) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.showEpisodeNumber = Number(v);
-									}),
-								);
-							}}
-							searchable
-							limit={50}
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
@@ -1275,12 +1337,14 @@ const MetadataNewProgressUpdateForm = ({
 						<Text fw="bold">Select episode</Text>
 						<Select
 							required
+							searchable
+							limit={50}
 							label="Episode"
+							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
 								label: se.title.toString(),
 								value: se.number.toString(),
 							}))}
-							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 							onChange={(v) => {
 								setMetadataToUpdate(
 									produce(metadataToUpdate, (draft) => {
@@ -1288,8 +1352,6 @@ const MetadataNewProgressUpdateForm = ({
 									}),
 								);
 							}}
-							searchable
-							limit={50}
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
@@ -1347,6 +1409,10 @@ const MetadataNewProgressUpdateForm = ({
 					type="submit"
 					variant="outline"
 					disabled={selectedDate === undefined}
+					className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
+					onClick={async () => {
+						await advanceOnboardingTourStep();
+					}}
 				>
 					Submit
 				</Button>

@@ -3,12 +3,12 @@ use std::{fs::write, path::PathBuf, sync::Arc};
 use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
 use axum::{
+    Extension, Json,
     extract::{Multipart, Path},
     http::StatusCode,
     response::{Html, IntoResponse},
-    Extension, Json,
 };
-use common_utils::{ryot_log, TEMPORARY_DIRECTORY};
+use common_utils::{TEMPORARY_DIRECTORY, ryot_log};
 use integration_service::IntegrationService;
 use nanoid::nanoid;
 use serde_json::json;

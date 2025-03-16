@@ -71,7 +71,7 @@ import {
 	queryClient,
 	queryFactory,
 	zodCommaDelimitedString,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -82,7 +82,7 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	getUserCollectionsListRaw,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -90,7 +90,10 @@ import {
 import type { Route } from "./+types/_dashboard.collections.list";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("collections.list", request);
+	const cookieName = await getSearchEnhancedCookieName(
+		"collections.list",
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ usersList }, userCollectionsList] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),

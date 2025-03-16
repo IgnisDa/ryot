@@ -56,12 +56,12 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	getCoreDetails,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -87,7 +87,10 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
 	);
-	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
+	const cookieName = await getSearchEnhancedCookieName(
+		`groups.${action}`,
+		request,
+	);
 	const schema = z.object({
 		query: z.string().optional(),
 		[pageQueryParam]: zodIntAsString.default("1"),

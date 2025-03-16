@@ -17,8 +17,8 @@ use media_models::{
 };
 use nest_struct::nest_struct;
 use reqwest::{
-    header::{HeaderValue, AUTHORIZATION},
     Client,
+    header::{AUTHORIZATION, HeaderValue},
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;

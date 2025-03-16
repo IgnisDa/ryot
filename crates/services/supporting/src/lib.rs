@@ -8,7 +8,7 @@ use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
 use common_utils::{
-    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES,
+    COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES, convert_naive_to_utc, ryot_log,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -24,10 +24,10 @@ use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
 use itertools::Itertools;
 use openidconnect::core::CoreClient;
-use rustypipe::param::{Language, LANGUAGES};
+use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::{DatabaseConnection, Iterable};
 use serde::{Deserialize, Serialize};
-use unkey::{models::VerifyKeyRequest, Client};
+use unkey::{Client, models::VerifyKeyRequest};
 
 pub struct SupportingService {
     pub db: DatabaseConnection,

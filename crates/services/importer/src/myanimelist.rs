@@ -14,9 +14,9 @@ use media_models::{
     DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItem,
     ImportOrExportMetadataItemSeen,
 };
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let anime_data = input

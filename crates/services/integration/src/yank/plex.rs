@@ -6,7 +6,7 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use external_models::plex as plex_models;
 use media_models::ImportOrExportMetadataItem;
-use reqwest::header::{HeaderName, HeaderValue, ACCEPT};
+use reqwest::header::{ACCEPT, HeaderName, HeaderValue};
 
 pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result<ImportResult> {
     let client = get_base_http_client(Some(vec![

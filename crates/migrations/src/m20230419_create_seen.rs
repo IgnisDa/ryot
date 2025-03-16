@@ -2,7 +2,7 @@ use sea_orm_migration::prelude::*;
 
 use enum_models::SeenState;
 
-use super::{m20230410_create_metadata::Metadata, m20230404_create_user::User};
+use super::{m20230404_create_user::User, m20230410_create_metadata::Metadata};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

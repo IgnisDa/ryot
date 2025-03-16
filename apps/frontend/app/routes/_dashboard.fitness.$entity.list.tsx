@@ -75,7 +75,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	pageQueryParam,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -88,7 +88,11 @@ import {
 	getExerciseDetailsQuery,
 } from "~/lib/state/fitness";
 import {
-	getEnhancedCookieName,
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -116,7 +120,10 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 		params,
 		z.object({ entity: z.nativeEnum(FitnessEntity) }),
 	);
-	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
+	const cookieName = await getSearchEnhancedCookieName(
+		`${entity}.list`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const input: UserTemplatesOrWorkoutsListInput = {
@@ -172,6 +179,8 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+
 	const isFilterChanged =
 		loaderData.query.sortBy !== defaultFilters.sortBy ||
 		loaderData.query.orderBy !== defaultFilters.orderBy;
@@ -190,7 +199,8 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
-						onClick={() => {
+						className={OnboardingTourStepTargets.AddNewWorkout}
+						onClick={async () => {
 							if (
 								!coreDetails.isServerKeyValidated &&
 								loaderData.entity === FitnessEntity.Templates
@@ -208,6 +218,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
+							await advanceOnboardingTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>

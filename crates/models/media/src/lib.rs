@@ -14,7 +14,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{EnumIter, FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 

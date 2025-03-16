@@ -37,7 +37,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr,
+    Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
 };
 use supporting_service::SupportingService;
 

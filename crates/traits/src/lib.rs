@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use application_utils::AuthContext;
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;

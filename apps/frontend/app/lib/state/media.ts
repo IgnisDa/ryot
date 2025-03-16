@@ -11,7 +11,7 @@ import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
-} from "~/lib/generals";
+} from "~/lib/common";
 
 export type UpdateProgressData = {
 	metadataId: string;

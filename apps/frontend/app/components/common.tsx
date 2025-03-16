@@ -108,7 +108,7 @@ import {
 	openConfirmationModal,
 	redirectToQueryParam,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -121,6 +121,10 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import {
+	type OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -137,6 +141,7 @@ import {
 } from "./media";
 
 export const ApplicationGrid = (props: {
+	className?: string;
 	children: ReactNode | Array<ReactNode>;
 }) => {
 	const userPreferences = useUserPreferences();
@@ -146,6 +151,7 @@ export const ApplicationGrid = (props: {
 		<SimpleGrid
 			spacing="lg"
 			ref={parent}
+			className={props.className}
 			cols={match(userPreferences.general.gridPacking)
 				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
 				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
@@ -262,10 +268,14 @@ export const MediaDetailsLayout = (props: {
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
 
 export const DebouncedSearchInput = (props: {
-	initialValue?: string;
 	queryParam?: string;
 	placeholder?: string;
+	initialValue?: string;
 	enhancedQueryParams?: string;
+	tourControl?: {
+		target: OnboardingTourStepTargets;
+		onQueryChange: (query: string) => void;
+	};
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
@@ -274,19 +284,22 @@ export const DebouncedSearchInput = (props: {
 	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced.trim());
+		const query = debounced.trim().toLowerCase();
+		setP(props.queryParam || "query", query);
+		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 
 	return (
 		<TextInput
 			name="query"
-			placeholder={props.placeholder || "Search..."}
-			leftSection={<IconSearch />}
-			onChange={(e) => setQuery(e.currentTarget.value)}
 			value={query}
-			style={{ flexGrow: 1 }}
-			autoCapitalize="none"
 			autoComplete="off"
+			autoCapitalize="none"
+			style={{ flexGrow: 1 }}
+			leftSection={<IconSearch />}
+			className={props.tourControl?.target}
+			placeholder={props.placeholder || "Search..."}
+			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (
 					<ActionIcon onClick={() => setQuery("")}>
@@ -325,6 +338,7 @@ export const BaseMediaDisplayItem = (props: {
 	progress?: string;
 	isLoading: boolean;
 	nameRight?: ReactNode;
+	imageClassName?: string;
 	imageUrl?: string | null;
 	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
@@ -354,7 +368,7 @@ export const BaseMediaDisplayItem = (props: {
 	} as const;
 
 	return (
-		<Flex justify="space-between" direction="column" ref={props.innerRef}>
+		<Flex direction="column" ref={props.innerRef} justify="space-between">
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip
@@ -366,7 +380,7 @@ export const BaseMediaDisplayItem = (props: {
 							radius="md"
 							pos="relative"
 							style={{ overflow: "hidden" }}
-							className={clsx({
+							className={clsx(props.imageClassName, {
 								[classes.highlightImage]:
 									coreDetails.isServerKeyValidated && props.highlightImage,
 							})}
@@ -1403,9 +1417,11 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId: string;
+	className?: string;
 	rightSection?: ReactNode;
 }) => {
 	const submit = useConfirmSubmit();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -1429,6 +1445,8 @@ export const DisplayListDetailsAndRefresh = (props: {
 					size="xs"
 					type="submit"
 					variant="subtle"
+					className={props.className}
+					onClick={() => advanceOnboardingTourStep()}
 					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh

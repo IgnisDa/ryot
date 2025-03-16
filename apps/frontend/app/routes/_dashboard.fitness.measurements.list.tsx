@@ -41,7 +41,7 @@ import {
 	getDateFromTimeSpan,
 	getStringAsciiValue,
 	openConfirmationModal,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -50,7 +50,7 @@ import {
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -65,7 +65,10 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 const defaultTimeSpan = TimeSpan.Last30Days;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("measurements.list", request);
+	const cookieName = await getSearchEnhancedCookieName(
+		"measurements.list",
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const now = dayjsLib();

@@ -78,7 +78,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	getDateFromTimeSpan,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,

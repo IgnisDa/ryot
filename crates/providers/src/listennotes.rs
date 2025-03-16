@@ -1,11 +1,11 @@
 use std::{collections::HashMap, env, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::SearchDetails;
-use common_utils::{convert_naive_to_utc, PAGE_SIZE};
+use common_utils::{PAGE_SIZE, convert_naive_to_utc};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ListennotesSettings, SearchResults,
 };
@@ -16,14 +16,14 @@ use media_models::{
     PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::{
-    header::{HeaderName, HeaderValue},
     Client,
+    header::{HeaderName, HeaderValue},
 };
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
+use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 

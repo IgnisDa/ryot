@@ -35,7 +35,7 @@ import {
 	toastKey,
 	zodEmptyDecimalString,
 	zodEmptyNumberString,
-} from "~/lib/generals";
+} from "~/lib/common";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -349,10 +349,19 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-export const getEnhancedCookieName = async (path: string, request: Request) => {
+export const getEnhancedCookieName = async (
+	path: string,
+	name: string,
+	request: Request,
+) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return `SearchParams__${userDetails.id}__${path}`;
+	return `${name}__${userDetails.id}__${path}`;
 };
+
+export const getSearchEnhancedCookieName = async (
+	path: string,
+	request: Request,
+) => getEnhancedCookieName(path, "SearchParams", request);
 
 export const redirectUsingEnhancedCookieSearchParams = async (
 	request: Request,

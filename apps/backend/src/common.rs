@@ -2,20 +2,20 @@ use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
 use application_utils::AuthContext;
-use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
+use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
-    extract::DefaultBodyLimit,
-    http::{header, Method},
-    routing::{get, post, Router},
     Extension,
+    extract::DefaultBodyLimit,
+    http::{Method, header},
+    routing::{Router, get, post},
 };
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::builder;
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
-use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
+use common_utils::{FRONTEND_OAUTH_ENDPOINT, ryot_log};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -30,9 +30,9 @@ use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
 use openidconnect::{
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
-    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
 use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;

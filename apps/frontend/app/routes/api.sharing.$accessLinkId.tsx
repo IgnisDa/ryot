@@ -11,7 +11,7 @@ import { redirect } from "react-router";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { $path } from "safe-routes";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/common";
 import {
 	createToastHeaders,
 	getCookiesForApplication,

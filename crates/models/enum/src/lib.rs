@@ -1,5 +1,5 @@
 use async_graphql::Enum;
-use enum_meta::{meta, Meta};
+use enum_meta::{Meta, meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;

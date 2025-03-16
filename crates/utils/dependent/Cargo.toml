@@ -1,7 +1,7 @@
 [package]
 name = "dependent-utils"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 application-utils = { path = "../application" }
@@ -14,7 +14,6 @@ config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
-either = { workspace = true }
 enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common_utils::{ryot_log, sleep_for_n_seconds, APPLICATION_JSON_HEADER, USER_AGENT_STR};
+use common_utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR, ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
 use dependent_utils::deploy_update_metadata_job;
 use enum_models::{MediaLot, MediaSource};
 use reqwest::{
-    header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT},
     Client, ClientBuilder,
+    header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT},
 };
 use sea_orm::{
     prelude::DateTimeUtc,

@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue};
+use sea_orm::{ActiveValue, entity::prelude::*};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
 #[sea_orm(table_name = "access_link")]

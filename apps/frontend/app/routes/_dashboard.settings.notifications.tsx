@@ -45,7 +45,7 @@ import {
 	dayjsLib,
 	openConfirmationModal,
 	zodCommaDelimitedString,
-} from "~/lib/generals";
+} from "~/lib/common";
 import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.notifications";

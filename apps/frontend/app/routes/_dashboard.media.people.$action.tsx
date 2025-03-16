@@ -56,11 +56,11 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -94,7 +94,10 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
 	);
-	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
+	const cookieName = await getSearchEnhancedCookieName(
+		`people.${action}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({
 		query: z.string().optional(),

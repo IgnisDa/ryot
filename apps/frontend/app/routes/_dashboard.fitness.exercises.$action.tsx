@@ -39,7 +39,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { getExerciseDetailsPath } from "~/lib/generals";
+import { getExerciseDetailsPath } from "~/lib/common";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createS3FileUploader,

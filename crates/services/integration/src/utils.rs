@@ -1,9 +1,9 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use database_models::metadata;
 use database_utils::ilike_sql;
 use enum_models::{MediaLot, MediaSource};
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
+use sea_query::{Alias, Expr, Func, extension::postgres::PgExpr};
 
 pub async fn get_show_by_episode_identifier(
     db: &DatabaseConnection,
