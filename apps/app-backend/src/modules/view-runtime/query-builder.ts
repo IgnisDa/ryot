@@ -10,7 +10,15 @@ import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
 import { buildFilterWhereClause } from "./filter-builder";
 import type { ViewRuntimeSchemaLike } from "./runtime-reference";
 import { buildSchemaMap } from "./schema-introspection";
-import type { ViewRuntimeRequest, ViewRuntimeResponse } from "./schemas";
+import type {
+	ViewRuntimeRequest,
+	ViewRuntimeResponse,
+	ViewRuntimeSemanticItem,
+	ViewRuntimeSemanticResponse,
+	ViewRuntimeTableItem,
+	ViewRuntimeTableMeta,
+	ViewRuntimeTableResponse,
+} from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
 type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
@@ -31,11 +39,6 @@ type QueryRow = {
 };
 
 type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
-type ViewRuntimeTableItem = Extract<ViewRuntimeItem, { cells: unknown }>;
-type ViewRuntimeSemanticItem = Extract<
-	ViewRuntimeItem,
-	{ resolvedProperties: unknown }
->;
 
 type PaginationInput = {
 	page: number;
@@ -151,7 +154,7 @@ export const calculatePagination = (
 
 const buildTableMeta = (
 	request: Extract<ViewRuntimeRequest, { layout: "table" }>,
-): NonNullable<ViewRuntimeResponse["meta"]["table"]> => ({
+): ViewRuntimeTableMeta => ({
 	columns: request.displayConfiguration.columns.map((column, index) => ({
 		label: column.label,
 		key: `column_${index}`,
@@ -299,15 +302,22 @@ export const executeViewRuntimeQuery = async (
 		page: request.pagination.page,
 		limit: request.pagination.limit,
 	});
-	const meta: ViewRuntimeResponse["meta"] =
-		request.layout === "table"
-			? { pagination, table: buildTableMeta(request) }
-			: { pagination };
+
+	if (request.layout === "table") {
+		return {
+			meta: { pagination, table: buildTableMeta(request) },
+			items: dataResult.rows.flatMap((row) => {
+				const item = mapQueryRowToItem(row, request.layout);
+				return item && "cells" in item ? [item] : [];
+			}),
+		} satisfies ViewRuntimeTableResponse;
+	}
 
 	return {
-		meta,
-		items: dataResult.rows.flatMap(
-			(row) => mapQueryRowToItem(row, request.layout) ?? [],
-		),
-	};
+		meta: { pagination },
+		items: dataResult.rows.flatMap((row) => {
+			const item = mapQueryRowToItem(row, request.layout);
+			return item && "resolvedProperties" in item ? [item] : [];
+		}),
+	} satisfies ViewRuntimeSemanticResponse;
 };
