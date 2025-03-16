@@ -2,11 +2,11 @@ import { Badge, Box, Card, Text } from "@mantine/core";
 
 export interface EntityCardProps {
 	name: string;
-	schemaName: string;
-	lastEvent: string;
 	image?: string;
 	rating?: string;
 	isDark?: boolean;
+	lastEvent: string;
+	schemaName: string;
 	trackerColor?: { base: string; muted: string };
 }
 
@@ -41,17 +41,17 @@ export function EntityCard(props: EntityCardProps) {
 			bg={surface}
 			radius="sm"
 			style={{
-				border: `1px solid ${border}`,
 				cursor: "pointer",
 				overflow: "hidden",
 				transition: "all 0.25s ease",
+				border: `1px solid ${border}`,
 			}}
 			styles={{
 				root: {
 					"&:hover": {
+						borderColor: borderAccent,
 						transform: "translateY(-4px)",
 						boxShadow: `0 12px 32px rgba(0, 0, 0, ${isDark ? "0.35" : "0.1"})`,
-						borderColor: borderAccent,
 					},
 				},
 			}}
@@ -60,37 +60,31 @@ export function EntityCard(props: EntityCardProps) {
 				<Box
 					h={220}
 					style={{
-						backgroundImage: `url(${props.image})`,
+						position: "relative",
 						backgroundSize: "cover",
 						backgroundPosition: "center",
-						position: "relative",
+						backgroundImage: `url(${props.image})`,
 					}}
 				>
 					<Box
 						style={{
-							position: "absolute",
 							inset: 0,
+							position: "absolute",
 							background: `linear-gradient(180deg, transparent 50%, ${isDark ? "rgba(26, 24, 22, 0.7)" : "rgba(0, 0, 0, 0.35)"} 100%)`,
 						}}
 					/>
 					{props.rating && (
-						<Box
-							style={{
-								position: "absolute",
-								top: 12,
-								right: 12,
-							}}
-						>
+						<Box style={{ top: 12, right: 12, position: "absolute" }}>
 							<Badge
 								size="lg"
 								variant="filled"
 								styles={{
 									root: {
-										backgroundColor: trackerColor.base,
 										color: "white",
-										fontFamily: '"Space Grotesk", sans-serif',
-										fontWeight: 700,
 										border: "none",
+										fontWeight: 700,
+										backgroundColor: trackerColor.base,
+										fontFamily: '"Space Grotesk", sans-serif',
 										boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
 									},
 								}}
@@ -105,10 +99,7 @@ export function EntityCard(props: EntityCardProps) {
 				<Box
 					h={220}
 					bg={surfaceHover}
-					style={{
-						display: "grid",
-						placeItems: "center",
-					}}
+					style={{ display: "grid", placeItems: "center" }}
 				>
 					<Text c={textMuted} size="sm" fw={500}>
 						No image
@@ -121,8 +112,8 @@ export function EntityCard(props: EntityCardProps) {
 					size="md"
 					mb={6}
 					style={{
-						fontFamily: '"Space Grotesk", sans-serif',
 						color: textPrimary,
+						fontFamily: '"Space Grotesk", sans-serif',
 					}}
 				>
 					{props.name}
@@ -133,11 +124,11 @@ export function EntityCard(props: EntityCardProps) {
 					mb={8}
 					styles={{
 						root: {
-							backgroundColor: trackerColor.muted,
-							color: trackerColor.base,
-							border: `1px solid ${trackerColor.base}33`,
 							fontWeight: 600,
+							color: trackerColor.base,
+							backgroundColor: trackerColor.muted,
 							fontFamily: '"Space Grotesk", sans-serif',
+							border: `1px solid ${trackerColor.base}33`,
 						},
 					}}
 				>
