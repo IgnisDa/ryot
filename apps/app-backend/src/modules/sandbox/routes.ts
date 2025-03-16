@@ -2,9 +2,9 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
+	createStandardResponses,
 	dataSchema,
-	jsonResponse,
-	payloadErrorResponse,
+	jsonBody,
 	successResponse,
 } from "~/lib/openapi";
 import { getSandboxService } from "~/lib/sandbox";
@@ -33,13 +33,11 @@ const runSandboxRoute = createAuthRoute(
 		method: "post",
 		tags: ["sandbox"],
 		summary: "Run a sandbox script",
-		request: {
-			body: { content: { "application/json": { schema: runSandboxSchema } } },
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse("Sandbox run completed", runSandboxResponseSchema),
-		},
+		request: { body: jsonBody(runSandboxSchema) },
+		responses: createStandardResponses({
+			successSchema: runSandboxResponseSchema,
+			successDescription: "Sandbox run completed",
+		}),
 	}),
 );
 
