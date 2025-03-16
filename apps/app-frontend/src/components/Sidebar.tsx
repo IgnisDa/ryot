@@ -17,7 +17,16 @@ import {
 	useMantineColorScheme,
 } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
-import { GripVertical, Home, Search, Settings } from "lucide-react";
+import {
+	GripVertical,
+	Home,
+	Pencil,
+	Plus,
+	Search,
+	Settings,
+	ToggleLeft,
+	ToggleRight,
+} from "lucide-react";
 import { useState } from "react";
 import { FacetIcon } from "#/features/facets/icons";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
@@ -43,8 +52,11 @@ function SortableFacet(props: {
 	isExpanded: boolean;
 	textPrimary: string;
 	textSecondary: string;
+	isMutationBusy: boolean;
 	isCustomizeMode: boolean;
+	onEditFacet?: (facetId: string) => void;
 	onToggleFacet: (facetId: string) => void;
+	onToggleFacetEnabled?: (facetId: string) => void;
 }) {
 	const color = getFacetColor(props.facet);
 	const {
@@ -79,6 +91,7 @@ function SortableFacet(props: {
 					root: {
 						padding: "10px 14px",
 						borderLeft: "2px solid transparent",
+						opacity: props.facet.enabled ? 1 : 0.48,
 						"&:hover": {
 							borderLeftColor: color.base,
 							backgroundColor: color.muted,
@@ -113,6 +126,46 @@ function SortableFacet(props: {
 							<FacetIcon icon={props.facet.icon} size={18} />
 						</Box>
 					</Group>
+				}
+				rightSection={
+					props.isCustomizeMode ? (
+						<Group gap={4} wrap="nowrap">
+							{props.facet.isBuiltin ? undefined : (
+								<ActionIcon
+									size="sm"
+									variant="subtle"
+									aria-label="Edit facet"
+									disabled={props.isMutationBusy}
+									onClick={(event) => {
+										event.preventDefault();
+										event.stopPropagation();
+										props.onEditFacet?.(props.facet.id);
+									}}
+								>
+									<Pencil size={14} strokeWidth={1.8} />
+								</ActionIcon>
+							)}
+							<ActionIcon
+								size="sm"
+								variant="subtle"
+								disabled={props.isMutationBusy}
+								aria-label={
+									props.facet.enabled ? "Disable facet" : "Enable facet"
+								}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									props.onToggleFacetEnabled?.(props.facet.id);
+								}}
+							>
+								{props.facet.enabled ? (
+									<ToggleRight size={14} strokeWidth={1.8} />
+								) : (
+									<ToggleLeft size={14} strokeWidth={1.8} />
+								)}
+							</ActionIcon>
+						</Group>
+					) : undefined
 				}
 			>
 				{props.facet.views?.map((view) => (
@@ -353,13 +406,39 @@ export function Sidebar(props: SidebarProps) {
 										isExpanded={isExpanded}
 										textPrimary={textPrimary}
 										textSecondary={textSecondary}
+										onEditFacet={props.onEditFacet}
 										onToggleFacet={handleToggleFacet}
 										isCustomizeMode={props.isCustomizeMode}
+										isMutationBusy={props.isMutationBusy ?? false}
+										onToggleFacetEnabled={props.onToggleFacetEnabled}
 									/>
 								);
 							})}
 						</SortableContext>
 					</DndContext>
+
+					{props.isCustomizeMode && (
+						<NavLink
+							label="Add tracker"
+							onClick={props.onCreateFacet}
+							leftSection={<Plus color={borderAccent} size={16} />}
+							styles={{
+								label: {
+									fontSize: "13px",
+									fontWeight: 500,
+									color: textPrimary,
+								},
+								root: {
+									padding: "8px 14px",
+									borderLeft: "2px solid transparent",
+									"&:hover": {
+										borderLeftColor: borderAccent,
+										backgroundColor: "rgba(212, 165, 116, 0.06)",
+									},
+								},
+							}}
+						/>
+					)}
 
 					<Box mb="sm" mt="xl">
 						<Box px="md" py="xs" style={{ borderLeft: `2px solid ${border}` }}>
