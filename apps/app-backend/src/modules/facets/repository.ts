@@ -1,10 +1,6 @@
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { db } from "~/lib/db";
-import { type FacetMode, facet, userFacet } from "~/lib/db/schema";
-
-const facetVisibleToUserClause = (userId: string) => {
-	return or(isNull(facet.userId), eq(facet.userId, userId));
-};
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { type DbClient, db } from "~/lib/db";
+import { type FacetMode, facet } from "~/lib/db/schema";
 
 export const listFacetsByUser = async (userId: string) => {
 	const rows = await db
@@ -15,28 +11,18 @@ export const listFacetsByUser = async (userId: string) => {
 			icon: facet.icon,
 			mode: facet.mode,
 			config: facet.config,
-			enabled: userFacet.enabled,
+			enabled: facet.enabled,
 			isBuiltin: facet.isBuiltin,
-			sortOrder: userFacet.sortOrder,
+			sortOrder: facet.sortOrder,
 			accentColor: facet.accentColor,
 			description: facet.description,
 		})
 		.from(facet)
-		.leftJoin(
-			userFacet,
-			and(eq(userFacet.facetId, facet.id), eq(userFacet.userId, userId)),
-		)
-		.where(facetVisibleToUserClause(userId))
-		.orderBy(
-			desc(userFacet.enabled),
-			asc(userFacet.sortOrder),
-			asc(facet.name),
-		);
+		.where(eq(facet.userId, userId))
+		.orderBy(desc(facet.enabled), asc(facet.sortOrder), asc(facet.name));
 
 	return rows.map((row) => ({
 		...row,
-		enabled: row.enabled ?? false,
-		sortOrder: row.sortOrder ?? 0,
 		description: row.description ?? null,
 	}));
 };
@@ -63,9 +49,7 @@ export const getFacetScopeForUser = async (input: {
 			isBuiltin: facet.isBuiltin,
 		})
 		.from(facet)
-		.where(
-			and(eq(facet.id, input.facetId), facetVisibleToUserClause(input.userId)),
-		)
+		.where(and(eq(facet.id, input.facetId), eq(facet.userId, input.userId)))
 		.limit(1);
 
 	return foundFacet;
@@ -78,7 +62,7 @@ export const getFacetBySlugForUser = async (input: {
 }) => {
 	const whereClauses = [
 		eq(facet.slug, input.slug),
-		facetVisibleToUserClause(input.userId),
+		eq(facet.userId, input.userId),
 	];
 
 	if (input.excludeFacetId)
@@ -122,51 +106,86 @@ export const createFacetForUser = async (input: {
 	accentColor: string;
 	description?: string;
 }) => {
-	return db.transaction(async (tx) => {
-		const [orderRow] = await tx
-			.select({
-				maxSortOrder: sql<number>`coalesce(max(${userFacet.sortOrder}), -1)`,
-			})
-			.from(userFacet)
-			.where(eq(userFacet.userId, input.userId));
+	const [orderRow] = await db
+		.select({
+			maxSortOrder: sql<number>`coalesce(max(${facet.sortOrder}), -1)`,
+		})
+		.from(facet)
+		.where(eq(facet.userId, input.userId));
 
-		const nextSortOrder = Number(orderRow?.maxSortOrder ?? -1) + 1;
+	const nextSortOrder = Number(orderRow?.maxSortOrder ?? -1) + 1;
 
-		const [createdFacet] = await tx
-			.insert(facet)
-			.values({
-				slug: input.slug,
-				name: input.name,
-				icon: input.icon,
-				mode: input.mode,
-				isBuiltin: false,
-				userId: input.userId,
-				accentColor: input.accentColor,
-				description: input.description,
-			})
-			.returning({
-				id: facet.id,
-				slug: facet.slug,
-				name: facet.name,
-				icon: facet.icon,
-				mode: facet.mode,
-				config: facet.config,
-				isBuiltin: facet.isBuiltin,
-				accentColor: facet.accentColor,
-				description: facet.description,
-			});
-
-		if (!createdFacet) throw new Error("Could not persist facet");
-
-		await tx.insert(userFacet).values({
+	const [createdFacet] = await db
+		.insert(facet)
+		.values({
 			enabled: true,
+			isBuiltin: false,
+			slug: input.slug,
+			name: input.name,
+			icon: input.icon,
+			mode: input.mode,
 			userId: input.userId,
-			facetId: createdFacet.id,
 			sortOrder: nextSortOrder,
+			accentColor: input.accentColor,
+			description: input.description,
+		})
+		.returning({
+			id: facet.id,
+			slug: facet.slug,
+			name: facet.name,
+			icon: facet.icon,
+			mode: facet.mode,
+			config: facet.config,
+			enabled: facet.enabled,
+			isBuiltin: facet.isBuiltin,
+			sortOrder: facet.sortOrder,
+			accentColor: facet.accentColor,
+			description: facet.description,
 		});
 
-		return { ...createdFacet, enabled: true, sortOrder: nextSortOrder };
-	});
+	if (!createdFacet) throw new Error("Could not persist facet");
+
+	return { ...createdFacet, description: createdFacet.description ?? null };
+};
+
+export const createBuiltinFacetsForUser = async (input: {
+	userId: string;
+	database?: DbClient;
+	facets: Array<{
+		slug: string;
+		icon: string;
+		name: string;
+		mode: FacetMode;
+		accentColor: string;
+		description?: string;
+	}>;
+}) => {
+	if (!input.facets.length) return [];
+
+	const database = input.database ?? db;
+
+	const rows = await database
+		.insert(facet)
+		.values(
+			input.facets.map((item, index) => ({
+				enabled: true,
+				isBuiltin: true,
+				slug: item.slug,
+				name: item.name,
+				icon: item.icon,
+				mode: item.mode,
+				sortOrder: index,
+				userId: input.userId,
+				accentColor: item.accentColor,
+				description: item.description,
+			})),
+		)
+		.returning({
+			id: facet.id,
+			slug: facet.slug,
+		});
+
+	return rows;
 };
 
 export const setFacetEnabledForUser = async (input: {
@@ -174,51 +193,18 @@ export const setFacetEnabledForUser = async (input: {
 	facetId: string;
 	enabled: boolean;
 }) => {
-	return db.transaction(async (tx) => {
-		const [existingUserFacet] = await tx
-			.select({ id: userFacet.id })
-			.from(userFacet)
-			.where(
-				and(
-					eq(userFacet.userId, input.userId),
-					eq(userFacet.facetId, input.facetId),
-				),
-			)
-			.limit(1)
-			.for("update");
-
-		if (existingUserFacet) {
-			await tx
-				.update(userFacet)
-				.set({ enabled: input.enabled })
-				.where(eq(userFacet.id, existingUserFacet.id));
-			return;
-		}
-
-		const [orderRow] = await tx
-			.select({
-				maxSortOrder: sql<number>`coalesce(max(${userFacet.sortOrder}), -1)`,
-			})
-			.from(userFacet)
-			.where(eq(userFacet.userId, input.userId));
-
-		const nextSortOrder = Number(orderRow?.maxSortOrder ?? -1) + 1;
-
-		await tx.insert(userFacet).values({
-			userId: input.userId,
-			facetId: input.facetId,
-			enabled: input.enabled,
-			sortOrder: nextSortOrder,
-		});
-	});
+	await db
+		.update(facet)
+		.set({ enabled: input.enabled })
+		.where(and(eq(facet.id, input.facetId), eq(facet.userId, input.userId)));
 };
 
 export const listUserFacetIdsInOrder = async (userId: string) => {
 	const rows = await db
-		.select({ facetId: userFacet.facetId })
-		.from(userFacet)
-		.where(eq(userFacet.userId, userId))
-		.orderBy(asc(userFacet.sortOrder), asc(userFacet.createdAt));
+		.select({ facetId: facet.id })
+		.from(facet)
+		.where(eq(facet.userId, userId))
+		.orderBy(asc(facet.sortOrder), asc(facet.createdAt));
 
 	return rows.map((row) => row.facetId);
 };
@@ -233,10 +219,7 @@ export const countVisibleFacetsByIdsForUser = async (input: {
 		.select({ id: facet.id })
 		.from(facet)
 		.where(
-			and(
-				inArray(facet.id, input.facetIds),
-				facetVisibleToUserClause(input.userId),
-			),
+			and(eq(facet.userId, input.userId), inArray(facet.id, input.facetIds)),
 		);
 
 	return rows.length;
@@ -246,46 +229,16 @@ export const persistFacetOrderForUser = async (input: {
 	userId: string;
 	facetIds: string[];
 }) => {
-	return db.transaction(async (tx) => {
-		const existingRows = await tx
-			.select({
-				id: userFacet.id,
-				facetId: userFacet.facetId,
-				enabled: userFacet.enabled,
-			})
-			.from(userFacet)
-			.where(
-				and(
-					eq(userFacet.userId, input.userId),
-					inArray(userFacet.facetId, input.facetIds),
-				),
-			);
-
-		const existingByFacetId = new Map(
-			existingRows.map((row) => [row.facetId, row]),
-		);
-
+	await db.transaction(async (tx) => {
 		for (const [index, facetId] of input.facetIds.entries()) {
-			const existing = existingByFacetId.get(facetId);
-
-			if (existing) {
-				await tx
-					.update(userFacet)
-					.set({ sortOrder: index })
-					.where(eq(userFacet.id, existing.id));
-				continue;
-			}
-
-			await tx.insert(userFacet).values({
-				facetId,
-				enabled: true,
-				sortOrder: index,
-				userId: input.userId,
-			});
+			await tx
+				.update(facet)
+				.set({ sortOrder: index })
+				.where(and(eq(facet.id, facetId), eq(facet.userId, input.userId)));
 		}
-
-		return input.facetIds;
 	});
+
+	return input.facetIds;
 };
 
 export const updateFacetForUser = async (input: {
@@ -314,30 +267,14 @@ export const updateFacetForUser = async (input: {
 			icon: facet.icon,
 			mode: facet.mode,
 			config: facet.config,
+			enabled: facet.enabled,
 			isBuiltin: facet.isBuiltin,
+			sortOrder: facet.sortOrder,
 			accentColor: facet.accentColor,
 			description: facet.description,
 		});
 
 	if (!updatedFacet) throw new Error("Could not update facet");
 
-	const [associatedUserFacet] = await db
-		.select({
-			enabled: userFacet.enabled,
-			sortOrder: userFacet.sortOrder,
-		})
-		.from(userFacet)
-		.where(
-			and(
-				eq(userFacet.userId, input.userId),
-				eq(userFacet.facetId, input.facetId),
-			),
-		)
-		.limit(1);
-
-	return {
-		...updatedFacet,
-		enabled: associatedUserFacet?.enabled ?? false,
-		sortOrder: associatedUserFacet?.sortOrder ?? 0,
-	};
+	return { ...updatedFacet, description: updatedFacet.description ?? null };
 };
