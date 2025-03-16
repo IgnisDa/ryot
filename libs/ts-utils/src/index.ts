@@ -165,6 +165,23 @@ export const parseParameters = <Schema extends ZodTypeAny>(
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 export {
+	type AppArrayProperty,
+	type AppObjectProperty,
+	type AppPrimitiveProperty,
+	type AppPropertyDefinition,
+	type AppPropertyPrimitiveType,
+	type AppSchema,
+	appPropertyPrimitiveTypes,
+	fromAppSchema,
+	toAppSchema,
+	toAppSchemaProperties,
+} from "./app-schema";
+export {
+	normalizeSlug,
+	resolveRequiredSlug,
+	resolveRequiredString,
+} from "./slug";
+export {
 	camelCase,
 	cloneDeep,
 	debounce,
@@ -193,22 +210,3 @@ export {
 	truncate,
 	union,
 };
-
-export {
-	type AppArrayProperty,
-	type AppObjectProperty,
-	type AppPrimitiveProperty,
-	type AppPropertyDefinition,
-	type AppPropertyPrimitiveType,
-	type AppSchema,
-	appPropertyPrimitiveTypes,
-	fromAppSchema,
-	toAppSchema,
-	toAppSchemaProperties,
-} from "./app-schema";
-
-export {
-	normalizeSlug,
-	resolveRequiredSlug,
-	resolveRequiredString,
-} from "./slug";
