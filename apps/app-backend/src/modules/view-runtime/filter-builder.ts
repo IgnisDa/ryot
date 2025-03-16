@@ -16,7 +16,6 @@ import type { FilterExpression } from "../saved-views/schemas";
 import { ViewRuntimeValidationError } from "./errors";
 import {
 	buildCastedValueExpression,
-	buildCoalescedExpression,
 	getSchemaForReference,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
@@ -96,50 +95,43 @@ const buildFilterClauseForSchema = <
 	defaultSchemaSlug: string;
 	schemaMap: Map<string, TSchema>;
 }) => {
-	const expressions = input.filter.field.flatMap((reference) => {
-		if (
-			!reference.startsWith("@") &&
-			!reference.includes(".") &&
-			input.isMultiSchema
-		) {
-			throw new ViewRuntimeValidationError(
-				"Schema-qualified filter fields are required for multi-schema requests",
-			);
-		}
+	const reference = input.filter.field;
 
-		const parsedReference = resolveRuntimeReference(
-			reference,
-			input.defaultSchemaSlug,
+	if (
+		!reference.startsWith("@") &&
+		!reference.includes(".") &&
+		input.isMultiSchema
+	) {
+		throw new ViewRuntimeValidationError(
+			"Schema-qualified filter fields are required for multi-schema requests",
 		);
+	}
 
-		if (parsedReference.type === "top-level") {
-			return [
-				buildTopLevelFilterExpression(input.alias, parsedReference.column),
-			];
-		}
+	const parsedReference = resolveRuntimeReference(
+		reference,
+		input.defaultSchemaSlug,
+	);
 
-		if (parsedReference.slug !== input.schemaSlug) {
-			getSchemaForReference(input.schemaMap, parsedReference);
-			return [];
-		}
+	if (parsedReference.type === "top-level") {
+		const expression = buildTopLevelFilterExpression(
+			input.alias,
+			parsedReference.column,
+		);
+		return buildFilterOperationClause(input.filter, expression);
+	}
 
-		return [
-			buildPropertyFilterExpression({
-				alias: input.alias,
-				schemaMap: input.schemaMap,
-				reference: parsedReference,
-			}),
-		];
-	});
-
-	if (!expressions.length) {
+	if (parsedReference.slug !== input.schemaSlug) {
+		getSchemaForReference(input.schemaMap, parsedReference);
 		return undefined;
 	}
 
-	return buildFilterOperationClause(
-		input.filter,
-		buildCoalescedExpression(expressions),
-	);
+	const expression = buildPropertyFilterExpression({
+		alias: input.alias,
+		schemaMap: input.schemaMap,
+		reference: parsedReference,
+	});
+
+	return buildFilterOperationClause(input.filter, expression);
 };
 
 export const buildFilterWhereClause = <

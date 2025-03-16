@@ -233,7 +233,7 @@ export const executeViewRuntimeQuery = async (
 	const sortExpression = buildSortExpression({
 		schemaMap,
 		defaultSchemaSlug,
-		field: request.sort.field,
+		field: request.sort.fields,
 		alias: "filtered_entities",
 	});
 	const offset = (request.pagination.page - 1) * request.pagination.limit;

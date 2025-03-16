@@ -13,7 +13,7 @@ type ReorderSavedViewsBody = NonNullable<
 const defaultQueryDefinition = {
 	filters: [],
 	entitySchemaSlugs: ["book"],
-	sort: { field: ["@name"], direction: "asc" },
+	sort: { fields: ["@name"], direction: "asc" },
 } satisfies CreateSavedViewBody["queryDefinition"];
 
 const defaultDisplayConfiguration = {
@@ -55,8 +55,8 @@ export function buildUpdatedSavedViewBody(
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDefinition: {
 			entitySchemaSlugs: ["book", "anime"],
-			sort: { field: ["@createdAt"], direction: "desc" },
-			filters: [{ op: "gte", field: ["year"], value: 2020 }],
+			sort: { fields: ["@createdAt"], direction: "desc" },
+			filters: [{ op: "gte", field: "year", value: 2020 }],
 		},
 		displayConfiguration: {
 			table: {
