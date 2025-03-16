@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -46,16 +46,17 @@ Add to `tests/src/tests/`:
 
 ## Acceptance criteria
 
-- [ ] `PUT /saved-views/{viewId}` route exists and is registered
-- [ ] Request schema requires all mutable fields (name, queryDefinition, displayConfiguration, etc.)
-- [ ] Request schema excludes immutable fields (id, isBuiltin, userId, createdAt, updatedAt)
-- [ ] Repository function `updateSavedViewByIdForUser` performs full replacement
-- [ ] Immutable fields (id, isBuiltin, userId, createdAt) are preserved after update
-- [ ] `updatedAt` is set to current timestamp
-- [ ] Returns 404 for non-existent view IDs
-- [ ] Returns 200 with updated view on success
-- [ ] E2E tests pass for all cases
-- [ ] `turbo check` passes
+- [x] `PUT /saved-views/{viewId}` route exists and is registered
+- [x] Request schema requires all mutable fields (name, queryDefinition, displayConfiguration, etc.)
+- [x] Request schema excludes immutable fields (id, isBuiltin, userId, createdAt, updatedAt)
+- [x] Repository function `updateSavedViewByIdForUser` performs full replacement
+- [x] Immutable fields (id, isBuiltin, userId, createdAt) are preserved after update
+- [x] `updatedAt` is set to current timestamp
+- [x] Returns 404 for non-existent view IDs
+- [x] Returns 400 for builtin views (protection added)
+- [x] Returns 200 with updated view on success
+- [x] E2E tests pass for all cases
+- [x] `turbo check` passes
 
 ## Blocked by
 
