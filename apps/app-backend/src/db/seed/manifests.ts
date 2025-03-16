@@ -18,7 +18,7 @@ import myanimelistMangaSearchScriptCode from "~/sandbox/scripts/myanimelist-mang
 import openLibraryBookDetailsScriptCode from "~/sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "~/sandbox/scripts/openlibrary-book-search-source.txt";
 
-const mediaEventSchemas = [
+const mediaEventSchemas = () => [
 	{
 		name: "Seen",
 		slug: "media.seen",
@@ -44,28 +44,28 @@ const mediaEventSchemas = [
 	},
 ];
 
-export const builtinEntitySchemas = [
+export const builtinEntitySchemas = () => [
 	{
 		slug: "book",
 		name: "Book",
-		eventSchemas: mediaEventSchemas,
+		eventSchemas: mediaEventSchemas(),
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
 		slug: "anime",
 		name: "Anime",
-		eventSchemas: mediaEventSchemas,
+		eventSchemas: mediaEventSchemas(),
 		propertiesSchema: animePropertiesJsonSchema,
 	},
 	{
 		slug: "manga",
 		name: "Manga",
-		eventSchemas: mediaEventSchemas,
+		eventSchemas: mediaEventSchemas(),
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 ];
 
-export const builtinSandboxScripts = [
+export const builtinSandboxScripts = () => [
 	{
 		name: "Hardcover Book Search",
 		slug: "hardcover.book.search",
@@ -148,7 +148,7 @@ export const builtinSandboxScripts = [
 	},
 ];
 
-export const entitySchemaScriptLinks = [
+export const entitySchemaScriptLinks = () => [
 	{
 		schemaSlug: "book",
 		searchScriptSlug: "openlibrary.book.search",
