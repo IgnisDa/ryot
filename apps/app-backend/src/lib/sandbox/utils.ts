@@ -1,47 +1,36 @@
-import type { spawn } from "node:child_process";
-import type { ServerResponse } from "node:http";
 import { forceKillDelayMs } from "./constants";
+
+type SandboxProcess = ReturnType<typeof Bun.spawn>;
 
 export type ProcessExit = {
 	code: number | null;
-	signal: NodeJS.Signals | null;
+	signal: string | null;
 };
 
-export const sendJson = (
-	res: ServerResponse,
-	status: number,
-	payload: Record<string, unknown>,
-) => {
-	res.statusCode = status;
-	res.setHeader("Content-Type", "application/json");
-	res.end(JSON.stringify(payload));
+export const sendJson = (status: number, payload: Record<string, unknown>) => {
+	return Response.json(payload, { status });
 };
 
-export const readStream = async (stream: NodeJS.ReadableStream | null) => {
+export const readStream = async (stream: ReadableStream | null) => {
 	if (!stream) return "";
 
-	const chunks: Array<string> = [];
-	for await (const chunk of stream)
-		chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
-
-	return chunks.join("");
+	return new Response(stream).text();
 };
 
-export const waitForExit = (proc: ReturnType<typeof spawn>) => {
-	return new Promise<ProcessExit>((resolve, reject) => {
-		proc.once("error", reject);
-		proc.once("close", (code, signal) => {
-			resolve({ code, signal });
-		});
-	});
+export const waitForExit = async (proc: SandboxProcess) => {
+	await proc.exited;
+	return {
+		code: proc.exitCode,
+		signal: proc.signalCode,
+	} satisfies ProcessExit;
 };
 
 export const attachTimeoutGuard = (
-	proc: ReturnType<typeof spawn>,
+	proc: SandboxProcess,
 	timeoutMs: number,
 	onTimeout: () => void,
 ) => {
-	let forceKillTimer: NodeJS.Timeout | null = null;
+	let forceKillTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const timeoutTimer = setTimeout(() => {
 		onTimeout();
