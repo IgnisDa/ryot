@@ -92,6 +92,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/authentication/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current user session */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Authenticated session details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                user?: unknown;
+                                session?: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/authentication/email": {
         parameters: {
             query?: never;
@@ -147,58 +199,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the current user session */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Authenticated session details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                user?: unknown;
-                                session?: unknown;
-                            };
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1541,15 +1541,15 @@ export interface components {
             /** @enum {string} */
             code: "health_check_failed";
         };
-        ValidationFailedError: {
-            message: string;
-            /** @enum {string} */
-            code: "validation_failed";
-        };
         UnauthenticatedError: {
             message: string;
             /** @enum {string} */
             code: "unauthenticated";
+        };
+        ValidationFailedError: {
+            message: string;
+            /** @enum {string} */
+            code: "validation_failed";
         };
         NotFoundError: {
             message: string;
