@@ -557,6 +557,8 @@ export interface paths {
                                 slug: string;
                                 facetId: string;
                                 isBuiltin: boolean;
+                                icon: string;
+                                accentColor: string;
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
@@ -613,7 +615,9 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
+                        icon: string;
                         facetId: string;
+                        accentColor: string;
                         propertiesSchema: {
                             [key: string]: components["schemas"]["AppPropertyDefinition"];
                         };
@@ -634,6 +638,8 @@ export interface paths {
                                 slug: string;
                                 facetId: string;
                                 isBuiltin: boolean;
+                                icon: string;
+                                accentColor: string;
                                 propertiesSchema: {
                                     [key: string]: components["schemas"]["AppPropertyDefinition"];
                                 };
