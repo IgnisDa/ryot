@@ -37,7 +37,9 @@ export const buildDefaultEntityFormValues = (
 	const properties: Record<string, unknown> = {};
 
 	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
-		if (propertyDef.required) properties[key] = getDefaultValue(propertyDef);
+		if (propertyDef.required) {
+			properties[key] = getDefaultValue(propertyDef);
+		}
 	}
 
 	return { name: "", image: null, properties };
@@ -57,8 +59,9 @@ const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 			return [];
 		case "object": {
 			const obj: Record<string, unknown> = {};
-			for (const [key, nestedDef] of Object.entries(propertyDef.properties))
+			for (const [key, nestedDef] of Object.entries(propertyDef.properties)) {
 				obj[key] = getDefaultValue(nestedDef);
+			}
 			return obj;
 		}
 		default:

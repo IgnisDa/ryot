@@ -70,18 +70,19 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 
 	it("rejects non-object root like array, string, or null", () => {
 		for (const input of [[], "hello", null]) {
-			if (Array.isArray(input))
+			if (Array.isArray(input)) {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
 					"Invalid input: expected record, received array",
 				);
-			else if (input === null)
+			} else if (input === null) {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
 					"Invalid input: expected record, received null",
 				);
-			else
+			} else {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
 					"Invalid input: expected record, received string",
 				);
+			}
 		}
 	});
 

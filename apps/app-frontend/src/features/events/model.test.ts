@@ -70,7 +70,9 @@ describe("getEventListViewState", () => {
 
 		expect(state.type).toBe("list");
 
-		if (state.type !== "list") throw new Error("Expected list state");
+		if (state.type !== "list") {
+			throw new Error("Expected list state");
+		}
 
 		expect(state.events.map((event) => event.id)).toEqual(["newer", "older"]);
 	});

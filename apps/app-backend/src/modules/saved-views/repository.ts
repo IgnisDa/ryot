@@ -47,8 +47,9 @@ export const listSavedViewsForUser = async (input: {
 }) => {
 	const whereClauses = [eq(savedView.userId, input.userId)];
 
-	if (input.trackerId)
+	if (input.trackerId) {
 		whereClauses.push(eq(savedView.trackerId, input.trackerId));
+	}
 
 	const rows = await db
 		.select(savedViewSelection)
@@ -71,7 +72,9 @@ export const getSavedViewByIdForUser = async (input: {
 		)
 		.limit(1);
 
-	if (!foundView) return undefined;
+	if (!foundView) {
+		return undefined;
+	}
 
 	return toSavedView(foundView);
 };
@@ -91,7 +94,9 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 		})
 		.returning(savedViewSelection);
 
-	if (!createdView) throw new Error("Could not persist saved view");
+	if (!createdView) {
+		throw new Error("Could not persist saved view");
+	}
 
 	return toSavedView(createdView);
 };
@@ -101,7 +106,9 @@ export const createSavedViewsForUser = async (input: {
 	database?: DbClient;
 	views: Array<Omit<SavedViewCreateInput, "userId">>;
 }) => {
-	if (!input.views.length) return;
+	if (!input.views.length) {
+		return;
+	}
 
 	const database = input.database ?? db;
 
@@ -139,7 +146,9 @@ export const updateSavedViewByIdForUser = async (input: {
 		)
 		.returning(savedViewSelection);
 
-	if (!updatedView) return undefined;
+	if (!updatedView) {
+		return undefined;
+	}
 
 	return toSavedView(updatedView);
 };
@@ -155,7 +164,9 @@ export const deleteSavedViewByIdForUser = async (input: {
 		)
 		.returning(savedViewSelection);
 
-	if (!deletedView) return undefined;
+	if (!deletedView) {
+		return undefined;
+	}
 
 	return toSavedView(deletedView);
 };
@@ -173,7 +184,9 @@ export const cloneSavedViewByIdForUser = async (input: {
 		)
 		.limit(1);
 
-	if (!sourceRow) return undefined;
+	if (!sourceRow) {
+		return undefined;
+	}
 
 	const [clonedView] = await db
 		.insert(savedView)
@@ -189,7 +202,9 @@ export const cloneSavedViewByIdForUser = async (input: {
 		})
 		.returning(savedViewSelection);
 
-	if (!clonedView) throw new Error("Could not persist cloned view");
+	if (!clonedView) {
+		throw new Error("Could not persist cloned view");
+	}
 
 	return toSavedView(clonedView);
 };

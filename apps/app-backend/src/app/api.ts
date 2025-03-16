@@ -68,17 +68,19 @@ const openApiTags = [
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
-		if (error instanceof HTTPException)
+		if (error instanceof HTTPException) {
 			return c.json(
 				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
 				error.status,
 			);
+		}
 
-		if (error instanceof Error)
+		if (error instanceof Error) {
 			return c.json(
 				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
 				500,
 			);
+		}
 
 		return c.json(
 			errorResponse(ERROR_CODES.INTERNAL_ERROR, "An unexpected error occurred"),

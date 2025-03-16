@@ -11,8 +11,12 @@ type CustomEntitySchemaAccessResult<T extends CustomEntityScope> =
 export const resolveCustomEntitySchemaAccess = <T extends CustomEntityScope>(
 	entitySchema: T | undefined,
 ): CustomEntitySchemaAccessResult<T> => {
-	if (!entitySchema) return { error: "not_found" as const };
-	if (entitySchema.isBuiltin) return { error: "builtin" as const };
+	if (!entitySchema) {
+		return { error: "not_found" as const };
+	}
+	if (entitySchema.isBuiltin) {
+		return { error: "builtin" as const };
+	}
 
 	return { entitySchema };
 };
@@ -22,11 +26,12 @@ export const resolveCustomEntityAccessError = (input: {
 	notFoundMessage: string;
 	error: CustomEntityAccessError;
 }) => {
-	if (input.error === "not_found")
+	if (input.error === "not_found") {
 		return {
 			error: "not_found" as const,
 			message: input.notFoundMessage,
 		};
+	}
 
 	return {
 		error: "builtin" as const,

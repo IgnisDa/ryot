@@ -41,10 +41,11 @@ export const validateSlugNotReserved = (slug: string): void => {
 	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
 	const reservedSlugs = builtinEntitySchemas.map((s) => s.slug);
 
-	if (reservedSlugs.includes(slug))
+	if (reservedSlugs.includes(slug)) {
 		throw new Error(
 			`Entity schema slug "${slug}" is reserved for built-in schemas`,
 		);
+	}
 };
 
 export const resolveEntitySchemaCreateInput = (

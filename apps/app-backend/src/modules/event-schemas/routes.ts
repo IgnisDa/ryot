@@ -148,8 +148,9 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() => resolveEventSchemaCreateInput(body),
 			"Event schema payload is invalid",
 		);
-		if ("status" in eventSchemaInput)
+		if ("status" in eventSchemaInput) {
 			return c.json(eventSchemaInput.body, eventSchemaInput.status);
+		}
 		const eventSchemaData = eventSchemaInput.data;
 
 		const existingEventSchema = await getEventSchemaBySlugForUser({
@@ -157,11 +158,12 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			userId: user.id,
 			slug: eventSchemaData.slug,
 		});
-		if (existingEventSchema)
+		if (existingEventSchema) {
 			return c.json(
 				duplicateSlugErrorResult.body,
 				duplicateSlugErrorResult.status,
 			);
+		}
 
 		try {
 			const createdEventSchema = await createEventSchemaForUser({
@@ -174,11 +176,12 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 			return c.json(successResponse(createdEventSchema), 200);
 		} catch (error) {
-			if (isUniqueConstraintError(error, eventSchemaUniqueConstraint))
+			if (isUniqueConstraintError(error, eventSchemaUniqueConstraint)) {
 				return c.json(
 					duplicateSlugErrorResult.body,
 					duplicateSlugErrorResult.status,
 				);
+			}
 
 			throw error;
 		}
