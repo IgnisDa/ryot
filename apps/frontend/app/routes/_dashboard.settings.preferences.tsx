@@ -53,6 +53,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
@@ -68,32 +69,37 @@ import {
 } from "~/lib/hooks";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
-import { $path } from "safe-routes";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const userPreferenceLandingPaths: Record<string, string> = {
-		Dashboard: $path("/"),
-		Analytics: $path("/analytics"),
-		Calendar: $path("/calendar"),
-		Collections: $path("/collections/list"),
-		"Fitness: Exercises": $path("/fitness/exercises/list"),
-	};
-	for (const [name, lot] of Object.entries(MediaLot)) {
-		userPreferenceLandingPaths[`Media: ${name}`] = $path(
-			"/media/:action/:lot",
-			{ lot, action: "list" },
-		);
-	}
-	for (const [name, entityType] of Object.entries(FitnessEntity)) {
-		userPreferenceLandingPaths[`Fitness: ${name}`] = $path(
-			"/fitness/:entity/list",
-			{ entity: entityType },
-		);
-	}
+	// biome-ignore lint/suspicious/noExplicitAny: can't use correct types here
+	const userPreferenceLandingPaths: any = [
+		{ label: "Dashboard", value: $path("/") },
+		{ label: "Analytics", value: $path("/analytics") },
+		{ label: "Calendar", value: $path("/calendar") },
+		{ label: "Collections", value: $path("/collections/list") },
+	];
+	userPreferenceLandingPaths.push({
+		group: "Media",
+		items: Object.values(MediaLot).map((lot) => ({
+			label: changeCase(lot),
+			value: $path("/media/:action/:lot", { lot, action: "list" }),
+		})),
+	});
+	userPreferenceLandingPaths.push({
+		group: "Fitness",
+		items: [
+			...Object.values(FitnessEntity).map((entity) => ({
+				label: changeCase(entity),
+				value: $path("/fitness/:entity/list", { entity }),
+			})),
+			{ label: "Measurements", value: $path("/fitness/measurements/list") },
+			{ label: "Exercises", value: $path("/fitness/exercises/list") },
+		],
+	});
 	const query = parseSearchQuery(request, searchSchema);
 	return { query, userPreferenceLandingPaths };
 };
@@ -178,7 +184,6 @@ export default function Page() {
 				</Affix>
 			) : null}
 			<Stack>
-				{JSON.stringify(loaderData.userPreferenceLandingPaths, null, 4)}
 				<Title>Preferences</Title>
 				{isEditDisabled ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
