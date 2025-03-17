@@ -20,6 +20,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { z } from "zod";
 import {
 	ApplicationGrid,
 	DisplaySummarySection,
@@ -43,7 +44,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
-import { z } from "zod";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
