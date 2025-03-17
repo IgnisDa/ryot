@@ -55,7 +55,11 @@ import { Fragment, useState } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/common";
+import {
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
@@ -64,14 +68,34 @@ import {
 } from "~/lib/hooks";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
+import { $path } from "safe-routes";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
+	const userPreferenceLandingPaths: Record<string, string> = {
+		Dashboard: $path("/"),
+		Analytics: $path("/analytics"),
+		Calendar: $path("/calendar"),
+		Collections: $path("/collections/list"),
+		"Fitness: Exercises": $path("/fitness/exercises/list"),
+	};
+	for (const [name, lot] of Object.entries(MediaLot)) {
+		userPreferenceLandingPaths[`Media: ${name}`] = $path(
+			"/media/:action/:lot",
+			{ lot, action: "list" },
+		);
+	}
+	for (const [name, entityType] of Object.entries(FitnessEntity)) {
+		userPreferenceLandingPaths[`Fitness: ${name}`] = $path(
+			"/fitness/:entity/list",
+			{ entity: entityType },
+		);
+	}
 	const query = parseSearchQuery(request, searchSchema);
-	return { query };
+	return { query, userPreferenceLandingPaths };
 };
 
 export const meta = () => {
@@ -154,6 +178,7 @@ export default function Page() {
 				</Affix>
 			) : null}
 			<Stack>
+				{JSON.stringify(loaderData.userPreferenceLandingPaths, null, 4)}
 				<Title>Preferences</Title>
 				{isEditDisabled ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
