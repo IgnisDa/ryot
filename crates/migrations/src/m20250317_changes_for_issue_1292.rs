@@ -9,7 +9,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-UPDATE "user" SET "preferences" = jsonb_set("preferences", '{general,landing_path}', '/');
+UPDATE "user" SET "preferences" = jsonb_set("preferences", '{general,landing_path}', '"/"');
 "#,
         )
         .await?;
