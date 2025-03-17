@@ -321,6 +321,7 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
+	const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
@@ -655,7 +656,7 @@ export default function Layout() {
 							icon={IconHome2}
 							label="Dashboard"
 							setOpened={() => {}}
-							href={$path("/")}
+							href={forcedDashboardPath}
 							toggle={toggleMobileNavbar}
 						/>
 						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
@@ -814,7 +815,7 @@ export default function Layout() {
 				</AppShell.Navbar>
 				<Flex direction="column" h="90%">
 					<Flex justify="space-between" p="md" hiddenFrom="sm">
-						<Link to={$path("/")} style={{ all: "unset" }}>
+						<Link to={forcedDashboardPath} style={{ all: "unset" }}>
 							<Group>
 								<Image
 									h={40}
