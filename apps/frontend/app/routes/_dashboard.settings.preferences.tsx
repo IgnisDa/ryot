@@ -301,6 +301,21 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="general">
 						<Stack gap="xl">
+							<Select
+								size="xs"
+								disabled={!!isEditDisabled}
+								label="Default landing page"
+								data={loaderData.userPreferenceLandingPaths}
+								defaultValue={userPreferences.general.landingPath}
+								description="The page you want to see when you first open the app"
+								onChange={(value) => {
+									if (value) {
+										updatePreference((draft) => {
+											draft.general.landingPath = value;
+										});
+									}
+								}}
+							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 								{(
 									[
