@@ -99,7 +99,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Preference | Ryot" }];
+	return [{ title: "Preferences | Ryot" }];
 };
 
 const notificationContent = {
