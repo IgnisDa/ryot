@@ -183,14 +183,22 @@ export const useApplicationEvents = () => {
 	const addToCollection = (entityLot: EntityLot) => {
 		sendEvent("Add To Collection", { entityLot });
 	};
+	const startOnboardingTour = () => {
+		sendEvent("Start Onboarding Tour", {});
+	};
+	const completeOnboardingTour = () => {
+		sendEvent("Complete Onboarding Tour", {});
+	};
 
 	return {
-		updateProgress,
 		postReview,
 		deployImport,
 		createWorkout,
-		createMeasurement,
+		updateProgress,
 		addToCollection,
+		createMeasurement,
+		startOnboardingTour,
+		completeOnboardingTour,
 	};
 };
 
