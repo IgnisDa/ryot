@@ -16,7 +16,11 @@ import type { Step } from "react-joyride";
 import { useNavigate, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { clientGqlService, forcedDashboardPath } from "../common";
-import { useDashboardLayoutData, useUserPreferences } from "../hooks";
+import {
+	useApplicationEvents,
+	useDashboardLayoutData,
+	useUserPreferences,
+} from "../hooks";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -95,6 +99,7 @@ const onboardingTourAtom = atomWithStorage<
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
 	const userPreferences = useUserPreferences();
+	const applicationEvents = useApplicationEvents();
 	const revalidator = useRevalidator();
 	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
@@ -135,6 +140,7 @@ export const useOnboardingTour = () => {
 		});
 		revalidator.revalidate();
 		setOpenedSidebarLinks(defaultSidebarLinksState);
+		applicationEvents.startOnboardingTour();
 		setTourState({ currentStepIndex: 0 });
 	};
 
@@ -145,6 +151,7 @@ export const useOnboardingTour = () => {
 			}),
 		);
 		Cookies.set(dashboardData.onboardingTourCompletedCookie, "true");
+		applicationEvents.completeOnboardingTour();
 		navigate(forcedDashboardPath);
 	};
 
