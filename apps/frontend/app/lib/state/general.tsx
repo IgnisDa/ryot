@@ -12,9 +12,8 @@ import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate } from "react-router";
-import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { clientGqlService } from "../common";
+import { clientGqlService, forcedDashboardPath } from "../common";
 import { useDashboardLayoutData } from "../hooks";
 
 type OpenedSidebarLinks = {
@@ -121,7 +120,7 @@ export const useOnboardingTour = () => {
 			}),
 		);
 		Cookies.set(dashboardData.onboardingTourCompletedCookie, "true");
-		navigate($path("/"));
+		navigate(forcedDashboardPath);
 	};
 
 	const advanceOnboardingTourStep = async (input?: {

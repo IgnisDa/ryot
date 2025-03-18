@@ -115,6 +115,7 @@ import {
 	ThreePointSmileyRating,
 	Verb,
 	convertDecimalToThreePointSmiley,
+	forcedDashboardPath,
 	getMetadataDetailsQuery,
 	getVerb,
 	refreshUserMetadataDetails,
@@ -321,7 +322,6 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
-	const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
 	const mediaLinks = [
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
