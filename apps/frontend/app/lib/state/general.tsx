@@ -109,7 +109,7 @@ export const useOnboardingTour = () => {
 		},
 	});
 
-	const startOnboardingTour = () => {
+	const startOnboardingTour = async () => {
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		setTourState({ currentStepIndex: 0 });
 	};

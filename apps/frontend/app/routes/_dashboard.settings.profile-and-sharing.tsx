@@ -265,8 +265,8 @@ export default function Page() {
 											<Divider />
 											<Button
 												variant="default"
-												onClick={() => {
-													startOnboardingTour();
+												onClick={async () => {
+													await startOnboardingTour();
 													Cookies.remove(
 														dashboardData.onboardingTourCompletedCookie,
 													);
