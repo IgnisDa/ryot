@@ -405,6 +405,8 @@ pub struct UserGeneralWatchProvider {
 pub struct UserGeneralPreferences {
     #[educe(Default = true)]
     pub display_nsfw: bool,
+    #[educe(Default = "/")]
+    pub landing_path: String,
     #[educe(Default = false)]
     pub disable_videos: bool,
     #[educe(Default = false)]

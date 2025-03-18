@@ -173,6 +173,8 @@ export const convertDecimalToThreePointSmiley = (rating: number) =>
 			? ThreePointSmileyRating.Neutral
 			: ThreePointSmileyRating.Happy;
 
+export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
+
 export const reviewYellow = "#EBE600FF";
 
 export const getSetColor = (l: SetLot) =>

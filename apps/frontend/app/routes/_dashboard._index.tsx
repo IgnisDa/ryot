@@ -8,17 +8,19 @@ import {
 	MediaLot,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
+	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils";
+import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import { useLoaderData } from "react-router";
+import { redirect, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { z } from "zod";
 import {
 	ApplicationGrid,
 	DisplaySummarySection,
@@ -43,8 +45,25 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
 
+const searchParamsSchema = z.object({
+	ignoreLandingPath: zodBoolAsString.optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+const redirectToLandingPath = (
+	request: Request,
+	preferences: UserPreferences,
+) => {
+	const query = parseSearchQuery(request, searchParamsSchema);
+	const landingPath = preferences.general.landingPath;
+	if (landingPath === "/" || query.ignoreLandingPath) return;
+	throw redirect(landingPath);
+};
+
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
+	redirectToLandingPath(request, preferences);
 	const getTake = (el: DashboardElementLot) => {
 		const t = preferences.general.dashboard.find(
 			(de) => de.section === el,

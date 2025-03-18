@@ -53,9 +53,14 @@ import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/common";
+import {
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
@@ -70,12 +75,37 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
+	// biome-ignore lint/suspicious/noExplicitAny: can't use correct types here
+	const userPreferenceLandingPaths: any = [
+		{ label: "Dashboard", value: $path("/") },
+		{ label: "Analytics", value: $path("/analytics") },
+		{ label: "Calendar", value: $path("/calendar") },
+		{ label: "Collections", value: $path("/collections/list") },
+	];
+	userPreferenceLandingPaths.push({
+		group: "Media",
+		items: Object.values(MediaLot).map((lot) => ({
+			label: changeCase(lot),
+			value: $path("/media/:action/:lot", { lot, action: "list" }),
+		})),
+	});
+	userPreferenceLandingPaths.push({
+		group: "Fitness",
+		items: [
+			...Object.values(FitnessEntity).map((entity) => ({
+				label: changeCase(entity),
+				value: $path("/fitness/:entity/list", { entity }),
+			})),
+			{ label: "Measurements", value: $path("/fitness/measurements/list") },
+			{ label: "Exercises", value: $path("/fitness/exercises/list") },
+		],
+	});
 	const query = parseSearchQuery(request, searchSchema);
-	return { query };
+	return { query, userPreferenceLandingPaths };
 };
 
 export const meta = () => {
-	return [{ title: "Preference | Ryot" }];
+	return [{ title: "Preferences | Ryot" }];
 };
 
 const notificationContent = {
@@ -328,6 +358,28 @@ export default function Page() {
 								))}
 							</SimpleGrid>
 							<Stack gap="xs">
+								<Select
+									size="xs"
+									disabled={!!isEditDisabled}
+									label="Default landing page"
+									data={loaderData.userPreferenceLandingPaths}
+									defaultValue={userPreferences.general.landingPath}
+									description="The page you want to see when you first open the app"
+									onChange={(value) => {
+										if (!coreDetails.isServerKeyValidated) {
+											notifications.show({
+												color: "red",
+												message: PRO_REQUIRED_MESSAGE,
+											});
+											return;
+										}
+										if (value) {
+											updatePreference((draft) => {
+												draft.general.landingPath = value;
+											});
+										}
+									}}
+								/>
 								<Input.Wrapper
 									label="Review scale"
 									description="Scale you want to use for reviews"

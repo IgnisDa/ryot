@@ -2557,6 +2557,7 @@ export type UserGeneralPreferences = {
   disableWatchProviders: Scalars['Boolean']['output'];
   displayNsfw: Scalars['Boolean']['output'];
   gridPacking: GridPacking;
+  landingPath: Scalars['String']['output'];
   persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['output'];
@@ -2572,6 +2573,7 @@ export type UserGeneralPreferencesInput = {
   disableWatchProviders: Scalars['Boolean']['input'];
   displayNsfw: Scalars['Boolean']['input'];
   gridPacking: GridPacking;
+  landingPath: Scalars['String']['input'];
   persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['input'];

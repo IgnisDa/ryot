@@ -15,6 +15,7 @@ query UserDetails {
 					reviewScale
 					gridPacking
 					displayNsfw
+					landingPath
 					disableVideos
 					persistQueries
 					disableReviews
