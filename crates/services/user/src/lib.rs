@@ -12,8 +12,8 @@ use database_models::{
     user,
 };
 use database_utils::{
-    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
-    revoke_access_link, server_key_validation_guard, user_by_id,
+    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, get_user_query,
+    ilike_sql, revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserDetailsResult,
@@ -169,7 +169,7 @@ impl UserService {
         let maybe_link = match input {
             ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&self.0.db).await?,
             ProcessAccessLinkInput::Username(username) => {
-                let user = User::find()
+                let user = get_user_query()
                     .filter(user::Column::Name.eq(username))
                     .one(&self.0.db)
                     .await?;
@@ -741,7 +741,7 @@ impl UserService {
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
-        let user = User::find()
+        let user = get_user_query()
             .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
             .one(&self.0.db)
             .await?

@@ -35,7 +35,7 @@ use database_models::{
 };
 use database_utils::{
     calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    entity_in_collections_with_collection_to_entity_ids, get_user_query, ilike_sql, item_reviews,
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
@@ -605,7 +605,8 @@ ORDER BY RANDOM() LIMIT 10;
                         .iter()
                         .filter(|h| {
                             h.podcast_extra_information
-                                .as_ref().is_some_and(|s| s.episode == episode.number)
+                                .as_ref()
+                                .is_some_and(|s| s.episode == episode.number)
                         })
                         .collect_vec();
                     episodes.push(UserMetadataDetailsEpisodeProgress {
@@ -969,7 +970,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -1538,7 +1539,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -2468,7 +2469,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
-        let users = User::find()
+        let users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .filter(user::Column::Id.is_in(monitored_by))
