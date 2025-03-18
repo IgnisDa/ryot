@@ -180,7 +180,7 @@ ORDER BY RANDOM() LIMIT 10;
             .set_key(
                 ApplicationCacheKey::ApplicationRecommendations,
                 ApplicationCacheValue::ApplicationRecommendations(
-                    media_items.into_iter().map(|m| m.id).collect_vec(),
+                    media_items.iter().map(|m| m.id.clone()).collect_vec(),
                 ),
             )
             .await?;
