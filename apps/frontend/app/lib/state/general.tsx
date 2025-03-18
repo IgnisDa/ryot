@@ -2,8 +2,10 @@ import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
+	MediaLot,
+	UpdateUserPreferenceDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils";
+import { cloneDeep, isNumber } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -11,10 +13,10 @@ import { atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
-import { useNavigate } from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { clientGqlService, forcedDashboardPath } from "../common";
-import { useDashboardLayoutData } from "../hooks";
+import { useDashboardLayoutData, useUserPreferences } from "../hooks";
 
 type OpenedSidebarLinks = {
 	media: boolean;
@@ -92,6 +94,8 @@ const onboardingTourAtom = atomWithStorage<
 
 export const useOnboardingTour = () => {
 	const [tourState, setTourState] = useAtom(onboardingTourAtom);
+	const userPreferences = useUserPreferences();
+	const revalidator = useRevalidator();
 	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
 	const { setOpenedSidebarLinks } = useOpenedSidebarLinks();
@@ -109,6 +113,27 @@ export const useOnboardingTour = () => {
 	});
 
 	const startOnboardingTour = async () => {
+		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
+			draft.featuresEnabled.media.enabled = true;
+			const isMoviesEnabled = draft.featuresEnabled.media.specific.findIndex(
+				(l) => l === MediaLot.Movie,
+			);
+			if (isMoviesEnabled === -1)
+				draft.featuresEnabled.media.specific.push(MediaLot.Movie);
+
+			draft.featuresEnabled.fitness.enabled = true;
+			draft.featuresEnabled.fitness.workouts = true;
+			draft.featuresEnabled.fitness.templates = true;
+			draft.featuresEnabled.fitness.measurements = true;
+
+			draft.featuresEnabled.analytics.enabled = true;
+			draft.featuresEnabled.others.calendar = true;
+			draft.featuresEnabled.others.collections = true;
+		});
+		await clientGqlService.request(UpdateUserPreferenceDocument, {
+			input: newPreferences,
+		});
+		revalidator.revalidate();
 		setOpenedSidebarLinks(defaultSidebarLinksState);
 		setTourState({ currentStepIndex: 0 });
 	};
