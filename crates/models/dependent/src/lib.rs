@@ -550,6 +550,7 @@ pub enum ApplicationCacheKey {
     IgdbSettings,
     TmdbSettings,
     ListennotesSettings,
+    ApplicationRecommendations,
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
@@ -571,6 +572,7 @@ pub enum ApplicationCacheKey {
 
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
+pub type ApplicationRecommendations = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
@@ -603,6 +605,7 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    ApplicationRecommendations(ApplicationRecommendations),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),

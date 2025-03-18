@@ -145,6 +145,7 @@ impl MiscellaneousService {
         ryot_log!(debug, "Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
+            id: String,
             lot: MediaLot,
             source: MediaSource,
             identifier: String,
@@ -152,7 +153,7 @@ impl MiscellaneousService {
         let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r#"
-SELECT "m"."lot", "m"."identifier", "m"."source"
+SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
 FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
@@ -174,6 +175,15 @@ ORDER BY RANDOM() LIMIT 10;
             "Media items selected for recommendations: {:?}",
             media_items
         );
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::ApplicationRecommendations,
+                ApplicationCacheValue::ApplicationRecommendations(
+                    media_items.into_iter().map(|m| m.id).collect_vec(),
+                ),
+            )
+            .await?;
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
