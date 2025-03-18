@@ -301,21 +301,6 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="general">
 						<Stack gap="xl">
-							<Select
-								size="xs"
-								disabled={!!isEditDisabled}
-								label="Default landing page"
-								data={loaderData.userPreferenceLandingPaths}
-								defaultValue={userPreferences.general.landingPath}
-								description="The page you want to see when you first open the app"
-								onChange={(value) => {
-									if (value) {
-										updatePreference((draft) => {
-											draft.general.landingPath = value;
-										});
-									}
-								}}
-							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 								{(
 									[
@@ -373,6 +358,21 @@ export default function Page() {
 								))}
 							</SimpleGrid>
 							<Stack gap="xs">
+								<Select
+									size="xs"
+									disabled={!!isEditDisabled}
+									label="Default landing page"
+									data={loaderData.userPreferenceLandingPaths}
+									defaultValue={userPreferences.general.landingPath}
+									description="The page you want to see when you first open the app"
+									onChange={(value) => {
+										if (value) {
+											updatePreference((draft) => {
+												draft.general.landingPath = value;
+											});
+										}
+									}}
+								/>
 								<Input.Wrapper
 									label="Review scale"
 									description="Scale you want to use for reviews"
