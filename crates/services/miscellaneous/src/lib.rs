@@ -130,7 +130,7 @@ FROM (
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
-ORDER BY RANDOM() LIMIT 10;
+ORDER BY RANDOM() LIMIT 20;
         "#,
             [
                 MediaSource::Vndb.into(),
