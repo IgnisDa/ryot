@@ -7,8 +7,8 @@ use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, integration, metadata, metadata_to_metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, MetadataToMetadata, NotificationPlatform, User},
+    access_link, integration, metadata, notification_platform,
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
     user,
 };
 use database_utils::{
@@ -22,8 +22,7 @@ use dependent_models::{
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{
-    IntegrationLot, IntegrationProvider, MetadataToMetadataRelation, NotificationPlatformLot,
-    UserLot, UserNotificationContent,
+    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationContent,
 };
 use itertools::Itertools;
 use jwt_service::sign;
@@ -81,7 +80,7 @@ impl UserService {
                 response: recommendations,
             });
         };
-        let (_, recommendations_calculated_for) = self
+        let (_, calculated_recommendations) = self
             .0
             .cache_service
             .get_value::<ApplicationRecommendations>(
@@ -89,18 +88,6 @@ impl UserService {
             )
             .await
             .unwrap_or_default();
-        let suggestions = MetadataToMetadata::find()
-            .select_only()
-            .column(metadata_to_metadata::Column::ToMetadataId)
-            .filter(
-                metadata_to_metadata::Column::FromMetadataId.is_in(recommendations_calculated_for),
-            )
-            .filter(
-                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
-            )
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
             .general
@@ -126,9 +113,12 @@ impl UserService {
                 .select_only()
                 .column(metadata::Column::Id)
                 .filter(metadata::Column::Lot.eq(*selected_lot))
-                .apply_if((suggestions.len() > 0).then_some(0), |query, _| {
-                    query.filter(metadata::Column::Id.is_in(&suggestions))
-                })
+                .apply_if(
+                    (calculated_recommendations.len() > 0).then_some(0),
+                    |query, _| {
+                        query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
+                    },
+                )
                 .order_by(
                     Expr::expr(Func::md5(
                         Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),

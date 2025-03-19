@@ -146,15 +146,6 @@ ORDER BY RANDOM() LIMIT 10;
             "Media items selected for recommendations: {:?}",
             media_items
         );
-        self.0
-            .cache_service
-            .set_key(
-                ApplicationCacheKey::ApplicationRecommendations,
-                ApplicationCacheValue::ApplicationRecommendations(
-                    media_items.iter().map(|m| m.id.clone()).collect_vec(),
-                ),
-            )
-            .await?;
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
@@ -188,6 +179,13 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::ApplicationRecommendations,
+                ApplicationCacheValue::ApplicationRecommendations(media_item_ids),
+            )
+            .await?;
         Ok(())
     }
 
