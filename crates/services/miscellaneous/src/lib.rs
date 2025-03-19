@@ -112,36 +112,7 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
-    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
-        ryot_log!(
-            debug,
-            "Updating old recommendations to not be recommendations anymore"
-        );
-        let mut metadata_stream = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .into_tuple::<String>()
-            .stream(&self.0.db)
-            .await?;
-        let mut recommendations_to_update = vec![];
-        while let Some(meta) = metadata_stream.try_next().await? {
-            let num_ute = UserToEntity::find()
-                .filter(user_to_entity::Column::MetadataId.eq(&meta))
-                .count(&self.0.db)
-                .await?;
-            if num_ute > 0 {
-                recommendations_to_update.push(meta);
-            }
-        }
-        Metadata::update_many()
-            .filter(metadata::Column::Id.is_in(recommendations_to_update))
-            .set(metadata::ActiveModel {
-                is_recommendation: ActiveValue::Set(None),
-                ..Default::default()
-            })
-            .exec(&self.0.db)
-            .await?;
+    pub async fn download_new_recommendations(&self) -> Result<()> {
         ryot_log!(debug, "Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
@@ -194,8 +165,7 @@ ORDER BY RANDOM() LIMIT 10;
             {
                 Ok(recommendations) => {
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-                    for mut rec in recommendations {
-                        rec.is_recommendation = Some(true);
+                    for rec in recommendations {
                         if let Ok(meta) = self.create_partial_metadata(rec).await {
                             let relation = metadata_to_metadata::ActiveModel {
                                 to_metadata_id: ActiveValue::Set(meta.id.clone()),
@@ -2852,9 +2822,7 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: This is called after removing useless data so that recommendations are not
         // deleted right after they are downloaded.
         ryot_log!(trace, "Downloading recommendations for users");
-        self.update_claimed_recommendations_and_download_new_ones()
-            .await
-            .trace_ok();
+        self.download_new_recommendations().await.trace_ok();
         // DEV: Invalid access tokens are revoked before being deleted, so we call this
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");

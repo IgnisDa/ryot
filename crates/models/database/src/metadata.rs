@@ -29,7 +29,6 @@ pub struct Model {
     pub source_url: Option<String>,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
-    pub is_recommendation: Option<bool>,
     pub publish_date: Option<NaiveDate>,
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
