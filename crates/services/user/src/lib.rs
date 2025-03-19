@@ -9,7 +9,7 @@ use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
     prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
-    user,
+    user, user_to_entity,
 };
 use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, get_user_query,
@@ -43,8 +43,9 @@ use openidconnect::{
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, Iterable, JoinType,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    RelationTrait,
     prelude::Expr,
     sea_query::{Func, extension::postgres::PgExpr},
 };
@@ -109,6 +110,7 @@ impl UserService {
             }
             ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
             let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
+            let cloned_user_id = user_id.clone();
             let rec = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
@@ -119,6 +121,18 @@ impl UserService {
                         query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
                     },
                 )
+                .join(
+                    JoinType::LeftJoin,
+                    metadata::Relation::UserToEntity
+                        .def()
+                        .on_condition(move |_left, right| {
+                            Condition::all().add(
+                                Expr::col((right, user_to_entity::Column::UserId))
+                                    .eq(cloned_user_id.clone()),
+                            )
+                        }),
+                )
+                .filter(user_to_entity::Column::Id.is_null())
                 .order_by(
                     Expr::expr(Func::md5(
                         Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
