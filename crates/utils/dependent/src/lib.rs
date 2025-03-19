@@ -285,7 +285,6 @@ pub async fn create_partial_metadata(
             source: ActiveValue::Set(data.source),
             is_partial: ActiveValue::Set(Some(true)),
             identifier: ActiveValue::Set(data.identifier),
-            is_recommendation: ActiveValue::Set(Some(true)),
             ..Default::default()
         };
         c.insert(db).await?
@@ -297,7 +296,6 @@ pub async fn create_partial_metadata(
         title: mode.title,
         source: mode.source,
         identifier: mode.identifier,
-        is_recommendation: mode.is_recommendation,
     };
     Ok(model)
 }

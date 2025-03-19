@@ -35,7 +35,7 @@ use database_models::{
 };
 use database_utils::{
     calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    entity_in_collections_with_collection_to_entity_ids, get_user_query, ilike_sql, item_reviews,
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
@@ -112,39 +112,11 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
-    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
-        ryot_log!(
-            debug,
-            "Updating old recommendations to not be recommendations anymore"
-        );
-        let mut metadata_stream = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .into_tuple::<String>()
-            .stream(&self.0.db)
-            .await?;
-        let mut recommendations_to_update = vec![];
-        while let Some(meta) = metadata_stream.try_next().await? {
-            let num_ute = UserToEntity::find()
-                .filter(user_to_entity::Column::MetadataId.eq(&meta))
-                .count(&self.0.db)
-                .await?;
-            if num_ute > 0 {
-                recommendations_to_update.push(meta);
-            }
-        }
-        Metadata::update_many()
-            .filter(metadata::Column::Id.is_in(recommendations_to_update))
-            .set(metadata::ActiveModel {
-                is_recommendation: ActiveValue::Set(None),
-                ..Default::default()
-            })
-            .exec(&self.0.db)
-            .await?;
+    pub async fn download_new_recommendations(&self) -> Result<()> {
         ryot_log!(debug, "Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
+            id: String,
             lot: MediaLot,
             source: MediaSource,
             identifier: String,
@@ -152,13 +124,13 @@ impl MiscellaneousService {
         let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r#"
-SELECT "m"."lot", "m"."identifier", "m"."source"
+SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
 FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
-ORDER BY RANDOM() LIMIT 10;
+ORDER BY RANDOM() LIMIT 20;
         "#,
             [
                 MediaSource::Vndb.into(),
@@ -184,9 +156,19 @@ ORDER BY RANDOM() LIMIT 10;
             {
                 Ok(recommendations) => {
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-                    for mut rec in recommendations {
-                        rec.is_recommendation = Some(true);
+                    for rec in recommendations {
                         if let Ok(meta) = self.create_partial_metadata(rec).await {
+                            let relation = metadata_to_metadata::ActiveModel {
+                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                                from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                                ..Default::default()
+                            };
+                            MetadataToMetadata::insert(relation)
+                                .on_conflict_do_nothing()
+                                .exec(&self.0.db)
+                                .await
+                                .ok();
                             media_item_ids.push(meta.id);
                         }
                     }
@@ -197,6 +179,13 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::ApplicationRecommendations,
+                ApplicationCacheValue::ApplicationRecommendations(media_item_ids),
+            )
+            .await?;
         Ok(())
     }
 
@@ -605,7 +594,8 @@ ORDER BY RANDOM() LIMIT 10;
                         .iter()
                         .filter(|h| {
                             h.podcast_extra_information
-                                .as_ref().is_some_and(|s| s.episode == episode.number)
+                                .as_ref()
+                                .is_some_and(|s| s.episode == episode.number)
                         })
                         .collect_vec();
                     episodes.push(UserMetadataDetailsEpisodeProgress {
@@ -969,7 +959,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -1538,7 +1528,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -2468,7 +2458,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
-        let users = User::find()
+        let users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .filter(user::Column::Id.is_in(monitored_by))
@@ -2830,9 +2820,7 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: This is called after removing useless data so that recommendations are not
         // deleted right after they are downloaded.
         ryot_log!(trace, "Downloading recommendations for users");
-        self.update_claimed_recommendations_and_download_new_ones()
-            .await
-            .trace_ok();
+        self.download_new_recommendations().await.trace_ok();
         // DEV: Invalid access tokens are revoked before being deleted, so we call this
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");

@@ -790,3 +790,11 @@ pub async fn schedule_user_for_workout_revision(
     ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
     Ok(())
 }
+
+pub fn get_user_query() -> Select<User> {
+    User::find().filter(
+        user::Column::IsDisabled
+            .eq(false)
+            .or(user::Column::IsDisabled.is_null()),
+    )
+}

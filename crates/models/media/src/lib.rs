@@ -732,8 +732,8 @@ pub struct SeenMangaExtraInformation {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReviewPostedEvent {
     pub obj_id: String,
-    pub obj_title: String,
     pub username: String,
+    pub obj_title: String,
     pub review_id: String,
     pub entity_lot: EntityLot,
 }
@@ -752,7 +752,6 @@ pub struct PartialMetadata {
     pub identifier: String,
     pub source: MediaSource,
     pub image: Option<String>,
-    pub is_recommendation: Option<bool>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
