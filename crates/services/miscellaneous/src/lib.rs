@@ -197,6 +197,17 @@ ORDER BY RANDOM() LIMIT 10;
                     for mut rec in recommendations {
                         rec.is_recommendation = Some(true);
                         if let Ok(meta) = self.create_partial_metadata(rec).await {
+                            let relation = metadata_to_metadata::ActiveModel {
+                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                                from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                                ..Default::default()
+                            };
+                            MetadataToMetadata::insert(relation)
+                                .on_conflict_do_nothing()
+                                .exec(&self.0.db)
+                                .await
+                                .ok();
                             media_item_ids.push(meta.id);
                         }
                     }
