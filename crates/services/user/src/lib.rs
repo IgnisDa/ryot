@@ -44,8 +44,7 @@ use openidconnect::{
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, Iterable, JoinType,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    RelationTrait,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
     sea_query::{Func, extension::postgres::PgExpr},
 };
@@ -133,12 +132,9 @@ impl UserService {
                         query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
                     },
                 )
-                .order_by(
-                    Expr::expr(Func::md5(
-                        Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
-                    )),
-                    Order::Desc,
-                )
+                .order_by_desc(Expr::expr(Func::md5(
+                    Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
+                )))
                 .into_tuple::<String>()
                 .one(&self.0.db)
                 .await?;
