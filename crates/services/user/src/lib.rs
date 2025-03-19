@@ -126,7 +126,9 @@ impl UserService {
                 .select_only()
                 .column(metadata::Column::Id)
                 .filter(metadata::Column::Lot.eq(*selected_lot))
-                .filter(metadata::Column::Id.is_in(&suggestions))
+                .apply_if((suggestions.len() > 0).then_some(0), |query, _| {
+                    query.filter(metadata::Column::Id.is_in(&suggestions))
+                })
                 .order_by(
                     Expr::expr(Func::md5(
                         Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
