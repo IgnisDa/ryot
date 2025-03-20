@@ -247,7 +247,6 @@ type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
 const usePerformTasksAfterSetConfirmed = () => {
-	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const performTask = async (setIdx: number, exerciseIdx: number) => {
@@ -268,7 +267,6 @@ const usePerformTasksAfterSetConfirmed = () => {
 				exerciseIdxToFocusOn = nextSet.exerciseIdx;
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
-					currentExercise.isShowDetailsOpen = false;
 					if (isNumber(nextSet.exerciseIdx)) {
 						const nextExercise = draft.exercises[nextSet.exerciseIdx];
 						const nextExerciseHasDetailsToShow =
@@ -276,8 +274,6 @@ const usePerformTasksAfterSetConfirmed = () => {
 							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
 						if (nextExerciseHasDetailsToShow) {
 							nextExercise.isCollapsed = false;
-							if (userPreferences.fitness.logging.showDetailsWhileEditing)
-								nextExercise.isShowDetailsOpen = true;
 						}
 					}
 				}
