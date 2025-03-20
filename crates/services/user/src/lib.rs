@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
-use application_utils::user_id_from_token;
+use application_utils::{create_oidc_client, user_id_from_token};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -38,9 +38,7 @@ use media_models::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
-    AccessTokenHash, AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
-    IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
-    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreResponseType},
+    AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse, core::CoreAuthenticationFlow,
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
@@ -732,7 +730,7 @@ impl UserService {
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        let Some(client) = self.0.oidc_client.as_ref() else {
+        let Some((_http, client)) = create_oidc_client(&self.0.config).await else {
             return Err(Error::new("OIDC client not configured"));
         };
         let (authorize_url, _, _) = client
@@ -747,12 +745,12 @@ impl UserService {
     }
 
     pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        let Some(client) = self.0.oidc_client.as_ref() else {
+        let Some((http, client)) = create_oidc_client(&self.0.config).await else {
             return Err(Error::new("OIDC client not configured"));
         };
         let token = client
-            .exchange_code(AuthorizationCode::new(code))
-            .request_async(async_http_client)
+            .exchange_code(AuthorizationCode::new(code))?
+            .request_async(&http)
             .await?;
         let id_token = token.id_token().unwrap();
         let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
-use application_utils::AuthContext;
+use application_utils::{AuthContext, create_oidc_client};
 use async_graphql::{EmptySubscription, MergedObject, Schema, extensions::Tracing};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -15,7 +15,6 @@ use bon::builder;
 use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
-use common_utils::{FRONTEND_OAUTH_ENDPOINT, ryot_log};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -29,6 +28,7 @@ use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
+use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
@@ -60,7 +60,7 @@ pub async fn create_app_services(
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,
 ) -> (Router, Arc<AppServices>) {
-    let oidc_client = create_oidc_client(&config).await;
+    let is_oidc_enabled = create_oidc_client(&config).await.is_some();
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
@@ -72,7 +72,7 @@ pub async fn create_app_services(
             .timezone(timezone)
             .config(config.clone())
             .cache_service(cache_service)
-            .maybe_oidc_client(oidc_client)
+            .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
