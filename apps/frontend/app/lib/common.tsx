@@ -415,8 +415,8 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 });
 
 const userQueryKeys = createQueryKeys("user", {
-	userPendingNotifications: () => ({
-		queryKey: ["userPendingNotifications"],
+	userMetadataRecommendations: () => ({
+		queryKey: ["userMetadataRecommendations"],
 	}),
 });
 
