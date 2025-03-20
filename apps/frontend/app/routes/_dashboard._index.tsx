@@ -13,6 +13,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
@@ -44,7 +45,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
-import { useQuery } from "@tanstack/react-query";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
