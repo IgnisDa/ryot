@@ -277,7 +277,6 @@ impl MediaProvider for AudibleService {
                 title: data.product.title,
                 source: MediaSource::Audible,
                 image: data.product.product_images.and_then(|i| i.image_2400),
-                ..Default::default()
             })
         }
         let title = data.product.title;
@@ -341,7 +340,6 @@ impl MediaProvider for AudibleService {
                     lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
                     image: sim.product_images.and_then(|i| i.image_500),
-                    ..Default::default()
                 });
             }
         }

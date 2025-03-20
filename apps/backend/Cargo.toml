@@ -41,8 +41,6 @@ logs-wheel = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }
-openidconnect = { workspace = true }
-reqwest = { workspace = true }
 router-resolver = { path = "../../crates/resolvers/router" }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }

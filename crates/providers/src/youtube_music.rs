@@ -66,7 +66,6 @@ impl MediaProvider for YoutubeMusicService {
                     lot: MediaLot::Music,
                     source: MediaSource::YoutubeMusic,
                     image: self.largest_image(&t.cover).map(|c| c.url.to_owned()),
-                    ..Default::default()
                 })
                 .collect()
         } else {
@@ -184,7 +183,6 @@ impl MediaProvider for YoutubeMusicService {
                     lot: MediaLot::Music,
                     source: MediaSource::YoutubeMusic,
                     image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
-                    ..Default::default()
                 })
                 .collect(),
         ))
@@ -238,7 +236,6 @@ impl MediaProvider for YoutubeMusicService {
                             lot: MediaLot::Music,
                             source: MediaSource::YoutubeMusic,
                             image: self.largest_image(&t.cover).map(|t| t.url.to_owned()),
-                            ..Default::default()
                         },
                         ..Default::default()
                     })

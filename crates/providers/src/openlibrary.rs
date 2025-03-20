@@ -256,7 +256,6 @@ impl MediaProvider for OpenlibraryService {
                         lot: MediaLot::Book,
                         identifier: get_key(&entry.key),
                         source: MediaSource::Openlibrary,
-                        ..Default::default()
                     },
                     ..Default::default()
                 })
@@ -432,7 +431,6 @@ impl MediaProvider for OpenlibraryService {
                     title: name,
                     lot: MediaLot::Book,
                     source: MediaSource::Openlibrary,
-                    ..Default::default()
                 });
             }
         }
