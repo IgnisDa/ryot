@@ -210,7 +210,7 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									cacheId={userMetadataRecommendationsQuery.data?.cacheId ?? ""}
+									cacheId={userMetadataRecommendationsQuery.data?.cacheId}
 									confirmationText="Are you sure you want to refresh the recommendations?"
 									onRefresh={async () => {
 										await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -264,7 +264,7 @@ export default function Page() {
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
-	cacheId: string;
+	cacheId?: string;
 	onRefresh?: () => void;
 	confirmationText?: string;
 }) => {

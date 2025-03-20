@@ -1457,7 +1457,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export const ExpireCacheKeyButton = (props: {
-	cacheId: string;
+	cacheId?: string;
 	onSubmit?: () => void;
 	confirmationText?: string;
 }) => {
