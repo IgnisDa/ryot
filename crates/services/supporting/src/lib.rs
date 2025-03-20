@@ -23,7 +23,6 @@ use enum_models::{
 use env_utils::{APP_VERSION, UNKEY_API_ID};
 use file_storage_service::FileStorageService;
 use itertools::Itertools;
-use openidconnect::core::CoreClient;
 use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::{DatabaseConnection, Iterable};
 use serde::{Deserialize, Serialize};
@@ -34,9 +33,9 @@ pub struct SupportingService {
     pub timezone: chrono_tz::Tz,
     pub cache_service: CacheService,
     pub config: Arc<config::AppConfig>,
-    pub oidc_client: Option<CoreClient>,
     pub file_storage_service: Arc<FileStorageService>,
 
+    is_oidc_enabled: bool,
     lp_application_job: MemoryStorage<LpApplicationJob>,
     hp_application_job: MemoryStorage<HpApplicationJob>,
     mp_application_job: MemoryStorage<MpApplicationJob>,
@@ -46,11 +45,11 @@ pub struct SupportingService {
 impl SupportingService {
     #[builder]
     pub async fn new(
+        is_oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
         cache_service: CacheService,
         config: Arc<config::AppConfig>,
-        oidc_client: Option<CoreClient>,
         file_storage_service: Arc<FileStorageService>,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,
@@ -59,9 +58,9 @@ impl SupportingService {
         Self {
             config,
             timezone,
-            oidc_client,
             cache_service,
             db: db.clone(),
+            is_oidc_enabled,
             file_storage_service,
             lp_application_job: lp_application_job.clone(),
             mp_application_job: mp_application_job.clone(),
@@ -138,9 +137,9 @@ impl SupportingService {
         let core_details = CoreDetails {
             page_size: PAGE_SIZE,
             version: APP_VERSION.to_owned(),
+            oidc_enabled: self.is_oidc_enabled,
             file_storage_enabled: files_enabled,
             frontend: self.config.frontend.clone(),
-            oidc_enabled: self.oidc_client.is_some(),
             website_url: "https://ryot.io".to_owned(),
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),

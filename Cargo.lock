@@ -6297,7 +6297,6 @@ dependencies = [
  "file-storage-service",
  "isolang",
  "itertools 0.14.0",
- "openidconnect",
  "rustypipe",
  "sea-orm",
  "serde",
