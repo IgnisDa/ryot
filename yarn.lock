@@ -5235,9 +5235,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-email/components@npm:0.0.33":
-  version: 0.0.33
-  resolution: "@react-email/components@npm:0.0.33"
+"@react-email/components@npm:0.0.34":
+  version: 0.0.34
+  resolution: "@react-email/components@npm:0.0.34"
   dependencies:
     "@react-email/body": "npm:0.0.11"
     "@react-email/button": "npm:0.0.19"
@@ -5258,10 +5258,10 @@ __metadata:
     "@react-email/row": "npm:0.0.12"
     "@react-email/section": "npm:0.0.16"
     "@react-email/tailwind": "npm:1.0.4"
-    "@react-email/text": "npm:0.0.11"
+    "@react-email/text": "npm:0.1.0"
   peerDependencies:
     react: ^18.0 || ^19.0 || ^19.0.0-rc
-  checksum: 10/2381a701e06603ca2ccccbb7afdecd56e51089adc98770834222a4b7397440a2271935a6da4d42c93d8e30d9dc80be4d2b7a656b2577418661821223875b765e
+  checksum: 10/e2a7bedb15e2ce46df8d5e7756304711f81e3ffaf6d77e8fc3a32b64457d175e031677485baea1cc47e39692aee840e5be1c3c5b712673d94ba9fde5ef3754e6
   languageName: node
   linkType: hard
 
@@ -5398,18 +5398,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-email/text@npm:0.0.11":
-  version: 0.0.11
-  resolution: "@react-email/text@npm:0.0.11"
+"@react-email/text@npm:0.1.0":
+  version: 0.1.0
+  resolution: "@react-email/text@npm:0.1.0"
   peerDependencies:
     react: ^18.0 || ^19.0 || ^19.0.0-rc
-  checksum: 10/b8018f44e4b8c7797905599a47e9c8b2c29d8445675a0740a45b5e6c3f0bf443aefff55d78637134e60e38cee851c342e58e3241b50dfb5e35d83e3f47ad89a6
+  checksum: 10/d11e7d24e6f05edbeef510a4b186c57d6aa449c8014bf7bfd2e06a63f03d4e7b45b786b4e486f783c9e24485b12e3c29f3de7713b29d53879fe64d1b4a56a2af
   languageName: node
   linkType: hard
 
-"@react-router/dev@npm:7.3.0":
-  version: 7.3.0
-  resolution: "@react-router/dev@npm:7.3.0"
+"@react-router/dev@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@react-router/dev@npm:7.4.0"
   dependencies:
     "@babel/core": "npm:^7.21.8"
     "@babel/generator": "npm:^7.21.5"
@@ -5420,7 +5420,7 @@ __metadata:
     "@babel/traverse": "npm:^7.23.2"
     "@babel/types": "npm:^7.22.5"
     "@npmcli/package-json": "npm:^4.0.1"
-    "@react-router/node": "npm:7.3.0"
+    "@react-router/node": "npm:7.4.0"
     arg: "npm:^5.0.1"
     babel-dead-code-elimination: "npm:^1.0.6"
     chokidar: "npm:^4.0.0"
@@ -5439,8 +5439,8 @@ __metadata:
     valibot: "npm:^0.41.0"
     vite-node: "npm:3.0.0-beta.2"
   peerDependencies:
-    "@react-router/serve": ^7.3.0
-    react-router: ^7.3.0
+    "@react-router/serve": ^7.4.0
+    react-router: ^7.4.0
     typescript: ^5.1.0
     vite: ^5.1.0 || ^6.0.0
     wrangler: ^3.28.2
@@ -5453,75 +5453,75 @@ __metadata:
       optional: true
   bin:
     react-router: bin.js
-  checksum: 10/361d1a2f6eeb67297b3d000846256f09e2f870d10fa044758b6341539ab672c5f618e190aa5f61603882914543b0935c23ff27eec768d1f0d815ee9f0dfc2818
+  checksum: 10/420fde057a671f1f5751d4ac30171b6fb814dcf09b45ff3fd125c23415d3167e2e10af331805c11a03534c20473f00edced7c322ee40021a665005a81c130919
   languageName: node
   linkType: hard
 
-"@react-router/express@npm:7.3.0":
-  version: 7.3.0
-  resolution: "@react-router/express@npm:7.3.0"
+"@react-router/express@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@react-router/express@npm:7.4.0"
   dependencies:
-    "@react-router/node": "npm:7.3.0"
+    "@react-router/node": "npm:7.4.0"
   peerDependencies:
     express: ^4.17.1 || ^5
-    react-router: 7.3.0
+    react-router: 7.4.0
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/00cbf2079c6bfc398e201bb902bd20f865177edb103d5dfc24ebece4781da9ebc7ca663a2f845b925e9edebc467b391131e043df22768343c40744246a41ba73
+  checksum: 10/0aa3b273c700595b424483e09d4928357c5d2ee894bc05d1364fe862f6d2b9160dff4ba0a952f0cefa52091d6e5cb8260811b5e2379482e4f9103da86532d851
   languageName: node
   linkType: hard
 
-"@react-router/fs-routes@npm:7.3.0":
-  version: 7.3.0
-  resolution: "@react-router/fs-routes@npm:7.3.0"
+"@react-router/fs-routes@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@react-router/fs-routes@npm:7.4.0"
   dependencies:
     minimatch: "npm:^9.0.0"
   peerDependencies:
-    "@react-router/dev": ^7.3.0
+    "@react-router/dev": ^7.4.0
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/545a719ffc3d5522a1d09cba83d60afcd3a25ac4f8b48bd0bc6929b34191cc5561dfdceb26f54d8466fba5c2c9ac284dba2d244181f5f66c784aa3508327f50f
+  checksum: 10/e8996e64eea8b1fce5da8d4c80cda659b9142ed8152d9c312400b24a36d2057b28806c97bccfc571c020d6c24c7e708c13c87bb5644952c49571661d35370939
   languageName: node
   linkType: hard
 
-"@react-router/node@npm:7.3.0":
-  version: 7.3.0
-  resolution: "@react-router/node@npm:7.3.0"
+"@react-router/node@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@react-router/node@npm:7.4.0"
   dependencies:
     "@mjackson/node-fetch-server": "npm:^0.2.0"
     source-map-support: "npm:^0.5.21"
     stream-slice: "npm:^0.1.2"
     undici: "npm:^6.19.2"
   peerDependencies:
-    react-router: 7.3.0
+    react-router: 7.4.0
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/4b7336017bf07e7c4b053b2700725186dd607732dfd488de136e84fcebfe936250de7a841a87068eba9ee093d2e1fbd2fbd101d29d68d43a4bad639f84e8982f
+  checksum: 10/e7d85f1d0a49824ddb521a6f82e6af6cad680b2115c3f75c015b895895b0ab66ffc9237498d67c7f32d082119bfbb45a0972252097c8f921b399b17f980bcfa1
   languageName: node
   linkType: hard
 
-"@react-router/serve@npm:7.3.0":
-  version: 7.3.0
-  resolution: "@react-router/serve@npm:7.3.0"
+"@react-router/serve@npm:7.4.0":
+  version: 7.4.0
+  resolution: "@react-router/serve@npm:7.4.0"
   dependencies:
-    "@react-router/express": "npm:7.3.0"
-    "@react-router/node": "npm:7.3.0"
+    "@react-router/express": "npm:7.4.0"
+    "@react-router/node": "npm:7.4.0"
     compression: "npm:^1.7.4"
     express: "npm:^4.19.2"
     get-port: "npm:5.1.1"
     morgan: "npm:^1.10.0"
     source-map-support: "npm:^0.5.21"
   peerDependencies:
-    react-router: 7.3.0
+    react-router: 7.4.0
   bin:
     react-router-serve: bin.js
-  checksum: 10/c29211dbeb5f053c1579263039c39e9755dd5925745b579b5ddb70110db607f5bfc435a9d4d82585bb686e1de068a7481ac06ae2731122f889fa61267a5b73d2
+  checksum: 10/ef20eb7fbbc0f3f251884bd07cd10efd7a15cc4d5ba595496cf1cb3fae928eecfd1d3d8f059021bfd9912057c164d4f5cb593ed6b8158e7e401b52c435f04b28
   languageName: node
   linkType: hard
 
@@ -5969,10 +5969,10 @@ __metadata:
     "@mantine/notifications": "npm:7.17.2"
     "@mjackson/file-storage": "npm:0.6.1"
     "@mjackson/form-data-parser": "npm:0.7.0"
-    "@react-router/dev": "npm:7.3.0"
-    "@react-router/fs-routes": "npm:7.3.0"
-    "@react-router/node": "npm:7.3.0"
-    "@react-router/serve": "npm:7.3.0"
+    "@react-router/dev": "npm:7.4.0"
+    "@react-router/fs-routes": "npm:7.4.0"
+    "@react-router/node": "npm:7.4.0"
+    "@react-router/serve": "npm:7.4.0"
     "@remix-pwa/dev": "npm:3.1.0"
     "@remix-pwa/sw": "npm:3.0.10"
     "@remix-pwa/worker-runtime": "npm:2.1.4"
@@ -5980,8 +5980,8 @@ __metadata:
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.17.0"
-    "@tanstack/react-query": "npm:5.68.0"
-    "@tanstack/react-query-devtools": "npm:5.68.0"
+    "@tanstack/react-query": "npm:5.69.0"
+    "@tanstack/react-query-devtools": "npm:5.69.0"
     "@types/cookie": "npm:1.0.0"
     "@types/crypto-js": "npm:4.2.2"
     "@types/howler": "npm:2.2.12"
@@ -6002,24 +6002,24 @@ __metadata:
     html2canvas: "npm:1.4.1"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.1.1"
-    isbot: "npm:5.1.23"
+    isbot: "npm:5.1.25"
     jotai: "npm:2.12.2"
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
     mantine-datatable: "npm:7.17.1"
-    nanoid: "npm:5.1.3"
+    nanoid: "npm:5.1.5"
     postcss: "npm:8.5.3"
     postcss-preset-mantine: "npm:1.17.0"
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
     react-joyride: "npm:2.9.3"
-    react-router: "npm:7.3.0"
+    react-router: "npm:7.4.0"
     react-router-devtools: "npm:1.1.6"
     react-virtuoso: "npm:4.12.5"
     recharts: "npm:2.15.1"
-    remix-utils: "npm:8.4.0"
-    safe-routes: "npm:1.0.10"
+    remix-utils: "npm:8.5.0"
+    safe-routes: "npm:1.0.11"
     tailwind-merge: "npm:3.0.2"
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.4"
@@ -6069,7 +6069,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/transactional@workspace:libs/transactional"
   dependencies:
-    "@react-email/components": "npm:0.0.33"
+    "@react-email/components": "npm:0.0.34"
     "@ryot/ts-utils": "workspace:*"
     "@types/react": "npm:18.3.18"
     "@types/react-dom": "npm:18.3.5"
@@ -6090,7 +6090,7 @@ __metadata:
     dayjs: "npm:1.11.13"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
-    react-router: "npm:7.3.0"
+    react-router: "npm:7.4.0"
     tailwind-merge: "npm:3.0.2"
     tiny-invariant: "npm:1.3.3"
     zod: "npm:3.24.2"
@@ -6110,11 +6110,11 @@ __metadata:
     "@radix-ui/react-label": "npm:2.1.2"
     "@radix-ui/react-slot": "npm:1.1.2"
     "@radix-ui/react-tooltip": "npm:1.1.8"
-    "@react-email/components": "npm:0.0.33"
-    "@react-router/dev": "npm:7.3.0"
-    "@react-router/fs-routes": "npm:7.3.0"
-    "@react-router/node": "npm:7.3.0"
-    "@react-router/serve": "npm:7.3.0"
+    "@react-email/components": "npm:0.0.34"
+    "@react-router/dev": "npm:7.4.0"
+    "@react-router/fs-routes": "npm:7.4.0"
+    "@react-router/node": "npm:7.4.0"
+    "@react-router/serve": "npm:7.4.0"
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/transactional": "workspace:*"
@@ -6132,26 +6132,26 @@ __metadata:
     clsx: "npm:2.1.1"
     dayjs: "npm:1.11.13"
     drizzle-kit: "npm:0.30.5"
-    drizzle-orm: "npm:0.40.0"
+    drizzle-orm: "npm:0.40.1"
     embla-carousel-autoplay: "npm:8.5.2"
     embla-carousel-react: "npm:8.5.2"
     graphql: "npm:16.10.0"
     graphql-request: "npm:7.1.2"
     humanize-duration-ts: "npm:2.1.1"
     input-otp: "npm:1.4.2"
-    isbot: "npm:5.1.23"
+    isbot: "npm:5.1.25"
     lodash: "npm:4.17.21"
-    lucide-react: "npm:0.482.0"
-    nanoid: "npm:5.1.3"
+    lucide-react: "npm:0.483.0"
+    nanoid: "npm:5.1.5"
     next-themes: "npm:0.4.6"
     nodemailer: "npm:6.10.0"
     openid-client: "npm:5.7.1"
     postgres: "npm:3.4.5"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
-    react-router: "npm:7.3.0"
-    remix-utils: "npm:8.4.0"
-    safe-routes: "npm:1.0.10"
+    react-router: "npm:7.4.0"
+    remix-utils: "npm:8.5.0"
+    safe-routes: "npm:1.0.11"
     sonner: "npm:2.0.1"
     tailwind-merge: "npm:3.0.2"
     tailwindcss: "npm:4.0.14"
@@ -6375,10 +6375,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/query-core@npm:5.68.0":
-  version: 5.68.0
-  resolution: "@tanstack/query-core@npm:5.68.0"
-  checksum: 10/bcb6332f59a829af86edea723510874fad75afd6c5145529467ba7b70105dd83b2e63f45fcfccccaf0a5a4032398748614327bf6d310f2c3acfb532df06fd646
+"@tanstack/query-core@npm:5.69.0":
+  version: 5.69.0
+  resolution: "@tanstack/query-core@npm:5.69.0"
+  checksum: 10/8586241e2b254d21cacf7ce595e1ee422b87c902dc70191341992cca875702073133fecee056fd6275779b2a5e748b33e03a6912f5dabd0d703f7778999ec02f
   languageName: node
   linkType: hard
 
@@ -6389,26 +6389,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/react-query-devtools@npm:5.68.0":
-  version: 5.68.0
-  resolution: "@tanstack/react-query-devtools@npm:5.68.0"
+"@tanstack/react-query-devtools@npm:5.69.0":
+  version: 5.69.0
+  resolution: "@tanstack/react-query-devtools@npm:5.69.0"
   dependencies:
     "@tanstack/query-devtools": "npm:5.67.2"
   peerDependencies:
-    "@tanstack/react-query": ^5.68.0
+    "@tanstack/react-query": ^5.69.0
     react: ^18 || ^19
-  checksum: 10/5229fe88933365848d2c22fac09cb9fd8a01dcd29ba6f2c676457a4199cd7b79fb607ec8b1c0843b308907e7185b5c8a6472e1eb7b0d491cec3f0e99d5e62d37
+  checksum: 10/c48d1f3e3dca28a4c5ff07f454e295d1c70f42405476ccf28a4542bed21d1931bd13fb23f5c8a4c0b4c61a303923f049cdd8f890c5983fd19aa96dd38e02b34b
   languageName: node
   linkType: hard
 
-"@tanstack/react-query@npm:5.68.0":
-  version: 5.68.0
-  resolution: "@tanstack/react-query@npm:5.68.0"
+"@tanstack/react-query@npm:5.69.0":
+  version: 5.69.0
+  resolution: "@tanstack/react-query@npm:5.69.0"
   dependencies:
-    "@tanstack/query-core": "npm:5.68.0"
+    "@tanstack/query-core": "npm:5.69.0"
   peerDependencies:
     react: ^18 || ^19
-  checksum: 10/867e5aaf9edb662cbab74f2e659e7799ca9359065fcb5d2f87df961cbd510f4b351cd769d1f0837f69edc9188fbe7cc1de09f5dcb696f2e1fe98fe94b4b4ca04
+  checksum: 10/9b2820e9a5119d743cac62c6249362cf29789ffeffab0e2908bdb0781377b909037fbdd00fe53ac53f56421e8e8baf091d0feff1f84621aa302463cc92071ad7
   languageName: node
   linkType: hard
 
@@ -8544,9 +8544,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-orm@npm:0.40.0":
-  version: 0.40.0
-  resolution: "drizzle-orm@npm:0.40.0"
+"drizzle-orm@npm:0.40.1":
+  version: 0.40.1
+  resolution: "drizzle-orm@npm:0.40.1"
   peerDependencies:
     "@aws-sdk/client-rds-data": ">=3"
     "@cloudflare/workers-types": ">=4"
@@ -8632,7 +8632,7 @@ __metadata:
       optional: true
     sqlite3:
       optional: true
-  checksum: 10/be055424d4e49d946d843cec269ddc9cbe1368dbc234faf0cabb7ce925f997b0354e73825fcaa7d4a506b96ace6462ea09e3dbf7e1846203a5e44da7716aec63
+  checksum: 10/30b93b5fecfdba9b0a623c80d089a77dd0364ab3e399f367bd33fdcd67a2ff86a24190afa624fa2f4400e6325189f68cfacf2b627488aa9611833bf023105ef0
   languageName: node
   linkType: hard
 
@@ -10693,10 +10693,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isbot@npm:5.1.23":
-  version: 5.1.23
-  resolution: "isbot@npm:5.1.23"
-  checksum: 10/f42fb41a8be77df1b5f51d49c5a3f95a541d31c89a62f816bcd4fe9ce6c048c0e74590cd2557847fbe765016de05a0f4466a29421674d8a2efc1082076f7b217
+"isbot@npm:5.1.25":
+  version: 5.1.25
+  resolution: "isbot@npm:5.1.25"
+  checksum: 10/4f8a309fd4edda99b2683298f38661cf9c12abbf8e80a988875439969456f78424f4691cef98c42e9fd2f21a084fa592bf818527fc3188dabef0ddb6b8ec16cc
   languageName: node
   linkType: hard
 
@@ -11285,12 +11285,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:0.482.0":
-  version: 0.482.0
-  resolution: "lucide-react@npm:0.482.0"
+"lucide-react@npm:0.483.0":
+  version: 0.483.0
+  resolution: "lucide-react@npm:0.483.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/ff8701491b3941b6e74fa6362308b5125f1d534ffe8c356957c3d2d161a38d9a86e03a1a77956cfa76720b5facb98603f8818b1af91bc88d338d7efbc89c3e78
+  checksum: 10/ecabf36ccce84b75b3ffd6c52aa636c59157da8838efca0b697a3dd3e00c21ccc7a1cb1e489f38f14db0d8042154cfe34f1dac0f43c92716b8f513039bc8f975
   languageName: node
   linkType: hard
 
@@ -11690,12 +11690,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:5.1.3":
-  version: 5.1.3
-  resolution: "nanoid@npm:5.1.3"
+"nanoid@npm:5.1.5":
+  version: 5.1.5
+  resolution: "nanoid@npm:5.1.5"
   bin:
     nanoid: bin/nanoid.js
-  checksum: 10/e294f3e6c39d75f3eb85b74fb2edfd8375c02bda5ddb97cb7af010b07bf39f314fcbc7765235ef432c856e435cd6bb67d4ef73e1867367231b1f92bcb63830b9
+  checksum: 10/6de2d006b51c983be385ef7ee285f7f2a57bd96f8c0ca881c4111461644bd81fafc2544f8e07cb834ca0f3e0f3f676c1fe78052183f008b0809efe6e273119f5
   languageName: node
   linkType: hard
 
@@ -13048,9 +13048,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router@npm:7.3.0":
-  version: 7.3.0
-  resolution: "react-router@npm:7.3.0"
+"react-router@npm:7.4.0":
+  version: 7.4.0
+  resolution: "react-router@npm:7.4.0"
   dependencies:
     "@types/cookie": "npm:^0.6.0"
     cookie: "npm:^1.0.1"
@@ -13062,7 +13062,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/f7694785f95b989e55c0ae058c36c5f523e318109aea26f4e1567a3c50dcbff769417c54451d976990c507f83499bfe7bc4ec9bea52b2fabab4e6da57d21b231
+  checksum: 10/e7c9fe14d9b624f425ba89b904f47b571087978d46d6d9d865f03619851c8ef43525f4731fccc7bf00896043da208e444a167f5449a38794e70c98aeb78bdbf8
   languageName: node
   linkType: hard
 
@@ -13282,13 +13282,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"remix-utils@npm:8.4.0":
-  version: 8.4.0
-  resolution: "remix-utils@npm:8.4.0"
+"remix-utils@npm:8.5.0":
+  version: 8.5.0
+  resolution: "remix-utils@npm:8.5.0"
   dependencies:
     type-fest: "npm:^4.37.0"
   peerDependencies:
     "@edgefirst-dev/batcher": ^1.0.0
+    "@edgefirst-dev/jwt": ^1.2.0
     "@edgefirst-dev/server-timing": ^0.0.1
     "@oslojs/crypto": ^1.0.1
     "@oslojs/encoding": ^1.1.0
@@ -13299,6 +13300,8 @@ __metadata:
     zod: ^3.22.4
   peerDependenciesMeta:
     "@edgefirst-dev/batcher":
+      optional: true
+    "@edgefirst-dev/jwt":
       optional: true
     "@edgefirst-dev/server-timing":
       optional: true
@@ -13316,7 +13319,7 @@ __metadata:
       optional: true
     zod:
       optional: true
-  checksum: 10/d37d500db05b31d9fa79fb1f9d909187f969ec2bdea8604e9a13eb8417cd7d773c1d73100a30ede570c7e466fffe6ee99cfdb0abd1626bc76ac1cb4800049ea5
+  checksum: 10/795df8d03d620608eb223c4bb727e4d59a6a648568c9bb394dba2babef03f7d59a5ec63fcc2d9e64cafc701556ea7bc842d327923736e8da5efd73a32bd1c46b
   languageName: node
   linkType: hard
 
@@ -13642,9 +13645,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"safe-routes@npm:1.0.10":
-  version: 1.0.10
-  resolution: "safe-routes@npm:1.0.10"
+"safe-routes@npm:1.0.11":
+  version: 1.0.11
+  resolution: "safe-routes@npm:1.0.11"
   dependencies:
     "@rollup/plugin-replace": "npm:^6.0.1"
     mkdirp: "npm:^3.0.1"
@@ -13652,7 +13655,7 @@ __metadata:
     vite-node: "npm:^3.0.6"
   bin:
     safe-routes: dist/cli.js
-  checksum: 10/2d795cd3a7235e29ba7b430cf2e50f5f7a3d1ff8eb92ae5ccf528aef6d6b0bf354500ed7a40fa6ba15179c160ab1a6bad4d0434c1f265d386b11263575881393
+  checksum: 10/19a6c41c54faf08aa761d0e83f18470a2bafcdf7f88616b9c2471ebf13076c13be02b318e4b5e9f20d2d98b41114a11f6a3ef3fa15afb2000bdf85f9b69147c9
   languageName: node
   linkType: hard
 
