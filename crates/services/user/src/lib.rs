@@ -126,7 +126,7 @@ impl UserService {
                 )
                 .filter(user_to_entity::Column::Id.is_null())
                 .apply_if(
-                    (calculated_recommendations.len() > 0).then_some(0),
+                    (!calculated_recommendations.is_empty()).then_some(0),
                     |query, _| {
                         query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
                     },
