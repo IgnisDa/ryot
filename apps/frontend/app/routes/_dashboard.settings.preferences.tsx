@@ -36,6 +36,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	cloneDeep,
 	cn,
 	isBoolean,
 	isNumber,
@@ -736,7 +737,7 @@ const EditDashboardElement = (props: {
 								onChange={(num) => {
 									if (isNumber(num)) {
 										const newDashboardData = Array.from(
-											userPreferences.general.dashboard,
+											cloneDeep(userPreferences.general.dashboard),
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
 										props.updatePreference((draft) => {
