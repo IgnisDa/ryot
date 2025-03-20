@@ -257,7 +257,6 @@ where id = {id};
                         source: MediaSource::Igdb,
                         identifier: g.id.to_string(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                        ..Default::default()
                     })
                 }
             })
@@ -364,7 +363,6 @@ where id = {id};
                         lot: MediaLot::VideoGame,
                         source: MediaSource::Igdb,
                         identifier: r.id.to_string(),
-                        ..Default::default()
                     },
                     ..Default::default()
                 }
@@ -380,7 +378,6 @@ where id = {id};
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                     identifier: r.id.to_string(),
-                    ..Default::default()
                 },
                 ..Default::default()
             }
@@ -644,7 +641,6 @@ impl IgdbService {
                     source: MediaSource::Igdb,
                     identifier: g.id.to_string(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
-                    ..Default::default()
                 })
                 .collect(),
             provider_rating: item.rating,
