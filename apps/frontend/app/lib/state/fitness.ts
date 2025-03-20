@@ -315,7 +315,7 @@ export const duplicateOldWorkout = async (
 	inProgress.updateWorkoutId = params.updateWorkoutId;
 	inProgress.comment = workoutInformation.comment || undefined;
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
-	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
+	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
 			convertHistorySetToCurrentSet(
 				v,
@@ -324,17 +324,15 @@ export const duplicateOldWorkout = async (
 		);
 		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
-			identifier: randomUUID(),
-			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing
-				? exerciseIdx === 0
-				: false,
 			images: [],
 			videos: [],
-			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
-			exerciseId: ex.id,
+			sets: sets,
 			lot: ex.lot,
 			notes: ex.notes,
-			sets: sets,
+			exerciseId: ex.id,
+			identifier: randomUUID(),
+			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
+			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 			openedDetailsTab: !coreDetails.isServerKeyValidated
 				? "images"
 				: (exerciseDetails.userDetails.history?.length || 0) > 0
