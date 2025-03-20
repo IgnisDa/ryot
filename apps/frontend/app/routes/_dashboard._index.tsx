@@ -1,4 +1,4 @@
-import { Alert, Container, Group, Stack, Text } from "@mantine/core";
+import { Alert, Container, Group, Skeleton, Stack, Text } from "@mantine/core";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -29,7 +29,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/common";
+import { clientGqlService, dayjsLib, queryFactory } from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -44,6 +44,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
+import { useQuery } from "@tanstack/react-query";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
@@ -137,6 +138,12 @@ export default function Page() {
 		"false",
 	);
 
+	const userMetadataRecommendationsQuery = useQuery({
+		queryKey: queryFactory.user.userMetadataRecommendations().queryKey,
+		queryFn: () =>
+			clientGqlService.request(UserMetadataRecommendationsDocument),
+	});
+
 	return (
 		<Container>
 			<Stack gap={32}>
@@ -208,24 +215,33 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									cacheId={loaderData.userMetadataRecommendations.cacheId}
 									confirmationText="Are you sure you want to refresh the recommendations?"
+									cacheId={
+										userMetadataRecommendationsQuery.data
+											?.userMetadataRecommendations.cacheId ?? ""
+									}
 								/>
-								{coreDetails.isServerKeyValidated ? (
-									<ApplicationGrid>
-										{loaderData.userMetadataRecommendations.response.map(
-											(lm) => (
-												<MetadataDisplayItem key={lm} metadataId={lm} />
-											),
+								{userMetadataRecommendationsQuery.data ? (
+									<>
+										{coreDetails.isServerKeyValidated ? (
+											<ApplicationGrid>
+												{loaderData.userMetadataRecommendations.response.map(
+													(lm) => (
+														<MetadataDisplayItem key={lm} metadataId={lm} />
+													),
+												)}
+											</ApplicationGrid>
+										) : (
+											<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 										)}
-									</ApplicationGrid>
+										{loaderData.userMetadataRecommendations.response.length ===
+										0 ? (
+											<Text c="dimmed">No recommendations available.</Text>
+										) : null}
+									</>
 								) : (
-									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+									<Skeleton height={100} />
 								)}
-								{loaderData.userMetadataRecommendations.response.length ===
-								0 ? (
-									<Text c="dimmed">No recommendations available.</Text>
-								) : null}
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
