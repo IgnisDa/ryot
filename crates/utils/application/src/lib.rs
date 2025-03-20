@@ -14,12 +14,18 @@ use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use openidconnect::{
-    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
-    core::{CoreClient, CoreProviderMetadata},
+    Client, ClientId, ClientSecret, EmptyAdditionalClaims, EndpointMaybeSet, EndpointNotSet,
+    EndpointSet, IssuerUrl, RedirectUrl, StandardErrorResponse,
+    core::{
+        CoreAuthDisplay, CoreAuthPrompt, CoreClient, CoreErrorResponseType, CoreGenderClaim,
+        CoreJsonWebKey, CoreJweContentEncryptionAlgorithm, CoreProviderMetadata,
+        CoreRevocableToken, CoreRevocationErrorResponse, CoreTokenIntrospectionResponse,
+        CoreTokenResponse,
+    },
     reqwest,
 };
 use reqwest::{
-    Client, ClientBuilder, ClientBuilder,
+    ClientBuilder,
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
 };
 use sea_orm::Order;
@@ -132,7 +138,36 @@ pub fn get_podcast_episode_number_by_name(val: &PodcastSpecifics, name: &str) ->
         .map(|e| e.number)
 }
 
-async fn create_oidc_client(config: &config::AppConfig) -> Option<(reqwest::Client, CoreClient)> {
+pub type ApplicationOidcClient<
+    HasAuthUrl = EndpointSet,
+    HasDeviceAuthUrl = EndpointNotSet,
+    HasIntrospectionUrl = EndpointNotSet,
+    HasRevocationUrl = EndpointNotSet,
+    HasTokenUrl = EndpointMaybeSet,
+    HasUserInfoUrl = EndpointMaybeSet,
+> = Client<
+    EmptyAdditionalClaims,
+    CoreAuthDisplay,
+    CoreGenderClaim,
+    CoreJweContentEncryptionAlgorithm,
+    CoreJsonWebKey,
+    CoreAuthPrompt,
+    StandardErrorResponse<CoreErrorResponseType>,
+    CoreTokenResponse,
+    CoreTokenIntrospectionResponse,
+    CoreRevocableToken,
+    CoreRevocationErrorResponse,
+    HasAuthUrl,
+    HasDeviceAuthUrl,
+    HasIntrospectionUrl,
+    HasRevocationUrl,
+    HasTokenUrl,
+    HasUserInfoUrl,
+>;
+
+pub async fn create_oidc_client(
+    config: &config::AppConfig,
+) -> Option<(reqwest::Client, ApplicationOidcClient)> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
             Ok(issuer_url) => {
