@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{SearchInput, StoredUrl};
-use derive_more::{Add, AddAssign, Sum};
+use derive_more::with_trait::{Add, AddAssign, Sum};
 use educe::Educe;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -10,7 +10,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 

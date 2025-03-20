@@ -117,7 +117,7 @@ export const sendEmail = async (
 	});
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
-	console.log(`Sending email to ${recipient} with subject ${subject}`);
+	console.log("Sending email:", { recipient, subject });
 	const resp = await client.sendMail({
 		text,
 		html,
@@ -125,7 +125,7 @@ export const sendEmail = async (
 		to: recipient,
 		from: serverVariables.SERVER_SMTP_MAILBOX,
 	});
-	console.log(`Sent email to ${recipient} with subject ${subject}`);
+	console.log("Sent email:", { recipient, subject });
 	return resp.messageId;
 };
 

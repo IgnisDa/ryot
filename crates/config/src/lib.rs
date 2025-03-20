@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
 use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
-use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
+use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {

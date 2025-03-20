@@ -4,8 +4,9 @@ use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, GetCacheKeyResponse};
-use either::Either;
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, GetCacheKeyResponse,
+};
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -52,7 +53,8 @@ impl CacheService {
                 self.config.server.progress_update_threshold
             }
 
-            ApplicationCacheKey::YoutubeMusicSongListened { .. } => 24,
+            ApplicationCacheKey::YoutubeMusicSongListened { .. }
+            | ApplicationCacheKey::ApplicationRecommendations { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
@@ -68,17 +70,33 @@ impl CacheService {
         &self,
         items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
     ) -> Result<HashMap<ApplicationCacheKey, Uuid>> {
+        if items.is_empty() {
+            return Ok(HashMap::new());
+        }
         let now = Utc::now();
         let mut response = HashMap::new();
         for (key, value) in items {
             let version = self
                 .should_respect_version(&key)
                 .then(|| self.version.to_owned());
+            let key_value = serde_json::to_value(&key).unwrap();
+
+            let user_id = key_value
+                .as_object()
+                .and_then(|obj| obj.values().next())
+                .and_then(|variant_obj| variant_obj.get("user_id"))
+                .and_then(|id| id.as_str())
+                .map(|s| format!("-{}", s))
+                .unwrap_or_default();
+
+            let sanitized_key = format!("{}{}", key, user_id);
+
             let to_insert = application_cache::ActiveModel {
+                key: ActiveValue::Set(key_value),
                 created_at: ActiveValue::Set(now),
                 version: ActiveValue::Set(version),
-                key: ActiveValue::Set(serde_json::to_value(&key).unwrap()),
-                value: ActiveValue::Set(serde_json::to_value(value).unwrap()),
+                sanitized_key: ActiveValue::Set(sanitized_key),
+                value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
                 expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
                 ..Default::default()
             };
@@ -90,6 +108,7 @@ impl CacheService {
                             application_cache::Column::Version,
                             application_cache::Column::ExpiresAt,
                             application_cache::Column::CreatedAt,
+                            application_cache::Column::SanitizedKey,
                         ])
                         .to_owned(),
                 )
@@ -155,11 +174,18 @@ impl CacheService {
         Some((value.id, db_value))
     }
 
-    pub async fn expire_key(&self, by: Either<ApplicationCacheKey, Uuid>) -> Result<bool> {
+    pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<bool> {
         let deleted = ApplicationCache::update_many()
             .filter(match by {
-                Either::Right(id) => application_cache::Column::Id.eq(id),
-                Either::Left(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
+                ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::BySanitizedKey { key, user_id } => {
+                    let sanitized_key = match (key, user_id) {
+                        (key, None) => key.to_string(),
+                        (key, Some(user_id)) => format!("{}-{}", key, user_id),
+                    };
+                    application_cache::Column::SanitizedKey.eq(sanitized_key)
+                }
             })
             .set(application_cache::ActiveModel {
                 expires_at: ActiveValue::Set(Utc::now()),

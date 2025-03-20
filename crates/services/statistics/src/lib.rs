@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, fmt::Write, sync::Arc};
+use std::{cmp::Reverse, sync::Arc};
 
 use async_graphql::Result;
 use common_models::{
@@ -16,10 +16,10 @@ use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
+    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Order, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait,
     prelude::{Date, Expr},
-    sea_query::{Alias, Func, NullOrdering},
-    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Iden, Order, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait,
+    sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
 use supporting_service::SupportingService;
 
@@ -31,7 +31,7 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
+        calculate_user_activities_and_summary(user_id, &self.0, calculate_from_beginning).await
     }
 
     pub async fn user_analytics_parameters(
@@ -78,13 +78,6 @@ impl StatisticsService {
         user_id: &String,
         input: UserAnalyticsInput,
     ) -> Result<DailyUserActivitiesResponse> {
-        // TODO: https://github.com/SeaQL/sea-query/pull/825 when merged
-        struct DateTrunc;
-        impl Iden for DateTrunc {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "DATE_TRUNC").unwrap();
-            }
-        }
         let precondition = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .apply_if(input.date_range.end_date, |query, v| {
@@ -129,14 +122,13 @@ impl StatisticsService {
                 Expr::expr(Func::cast_as(
                     match grouped_by {
                         DailyUserActivitiesResponseGroupedBy::AllTime => default_date,
-                        _ => Expr::expr(
-                            Func::cust(DateTrunc)
-                                .arg(Expr::val(grouped_by.to_string()))
-                                .arg(Func::coalesce([
-                                    Expr::col(daily_user_activity::Column::Date).into(),
-                                    Func::cast_as(default_date, date_type.clone()).into(),
-                                ])),
-                        ),
+                        _ => Expr::expr(PgFunc::date_trunc(
+                            grouped_by.into(),
+                            Func::coalesce([
+                                Expr::col(daily_user_activity::Column::Date).into(),
+                                Func::cast_as(default_date, date_type.clone()).into(),
+                            ]),
+                        )),
                     },
                     date_type,
                 )),

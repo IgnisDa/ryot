@@ -90,6 +90,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
@@ -121,7 +122,7 @@ import {
 	queryClient,
 	queryFactory,
 	sendNotificationToServiceWorker,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	forceUpdateEverySecond,
 	useApplicationEvents,
@@ -149,6 +150,12 @@ import {
 	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
+import {
+	ACTIVE_WORKOUT_REPS_TARGET,
+	ACTIVE_WORKOUT_WEIGHT_TARGET,
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
@@ -240,7 +247,6 @@ type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
 type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
 
 const usePerformTasksAfterSetConfirmed = () => {
-	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const performTask = async (setIdx: number, exerciseIdx: number) => {
@@ -261,7 +267,6 @@ const usePerformTasksAfterSetConfirmed = () => {
 				exerciseIdxToFocusOn = nextSet.exerciseIdx;
 				if (nextSet.wasLastSet) {
 					currentExercise.isCollapsed = true;
-					currentExercise.isShowDetailsOpen = false;
 					if (isNumber(nextSet.exerciseIdx)) {
 						const nextExercise = draft.exercises[nextSet.exerciseIdx];
 						const nextExerciseHasDetailsToShow =
@@ -269,8 +274,6 @@ const usePerformTasksAfterSetConfirmed = () => {
 							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
 						if (nextExerciseHasDetailsToShow) {
 							nextExercise.isCollapsed = false;
-							if (userPreferences.fitness.logging.showDetailsWhileEditing)
-								nextExercise.isShowDetailsOpen = true;
 						}
 					}
 				}
@@ -314,8 +317,10 @@ export default function Page() {
 	>(undefined);
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
+	const { advanceOnboardingTourStep, isOnboardingTourInProgress } =
+		useOnboardingTour();
 
+	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
 	const shouldDisplayWorkoutTimer = Boolean(
 		loaderData.action === FitnessAction.LogWorkout,
@@ -354,12 +359,15 @@ export default function Page() {
 					const exerciseIdx = currentWorkout?.exercises.findIndex(
 						(c) => c.identifier === triggeredBy.exerciseIdentifier,
 					);
+					const setIdx = currentWorkout?.exercises[exerciseIdx]?.sets.findIndex(
+						(s) => s.identifier === triggeredBy.setIdentifier,
+					);
 					if (
 						exerciseIdx !== -1 &&
 						exerciseIdx !== undefined &&
 						userPreferences.fitness.logging.promptForRestTimer
 					) {
-						performTasksAfterSetConfirmed(triggeredBy.setIdx, exerciseIdx);
+						performTasksAfterSetConfirmed(setIdx, exerciseIdx);
 					}
 				}
 				playCompleteTimerSound();
@@ -382,7 +390,7 @@ export default function Page() {
 	};
 	const startTimer = (
 		duration: number,
-		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
+		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
 	) => {
 		setCurrentTimer({
 			triggeredBy,
@@ -411,8 +419,13 @@ export default function Page() {
 					const exercise = draft.exercises.find(
 						(e) => e.identifier === triggeredBy.exerciseIdentifier,
 					);
-					const restTimer = exercise?.sets[triggeredBy.setIdx].restTimer;
-					if (exercise && restTimer) restTimer.hasElapsed = true;
+					if (exercise) {
+						const setIdx = exercise.sets.findIndex(
+							(s) => s.identifier === triggeredBy.setIdentifier,
+						);
+						const restTimer = exercise.sets[setIdx].restTimer;
+						if (restTimer) restTimer.hasElapsed = true;
+					}
 				}),
 			);
 		}
@@ -539,6 +552,10 @@ export default function Page() {
 											size="compact-sm"
 											loading={isSaveBtnLoading}
 											disabled={isWorkoutPaused}
+											className={clsx(
+												isOnboardingTourInProgress &&
+													OnboardingTourStepTargets.FinishWorkout,
+											)}
 											onClick={() => {
 												if (!currentWorkout.name) {
 													notifications.show({
@@ -557,6 +574,9 @@ export default function Page() {
 														: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													async () => {
 														setIsSaveBtnLoading(true);
+														if (isOnboardingTourInProgress)
+															advanceOnboardingTourStep();
+
 														await new Promise((r) => setTimeout(r, 1000));
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
@@ -689,7 +709,11 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
+										onClick={() => advanceOnboardingTourStep()}
 										to={$path("/fitness/exercises/list")}
+										className={
+											OnboardingTourStepTargets.ClickOnAddAnExerciseButton
+										}
 									>
 										Add an exercise
 									</Button>
@@ -918,10 +942,10 @@ const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
 };
 
 const StatInput = (props: {
-	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof WorkoutSetStatistic;
 	inputStep?: number;
+	exerciseIdx: number;
+	stat: keyof WorkoutSetStatistic;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -932,6 +956,18 @@ const StatInput = (props: {
 			: undefined,
 		500,
 	);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
+
+	const weightStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddWeightToExercise
+			: undefined;
+
+	const repsStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddRepsToExercise
+			: undefined;
 
 	useDidUpdate(() => {
 		if (currentWorkout)
@@ -942,6 +978,10 @@ const StatInput = (props: {
 						draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
 					if (val === null) draftSet.confirmedAt = null;
+					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET)
+						advanceOnboardingTourStep();
+					if (repsStepTourClassName && val === ACTIVE_WORKOUT_REPS_TARGET)
+						advanceOnboardingTourStep();
 				}),
 			);
 	}, [value]);
@@ -955,6 +995,7 @@ const StatInput = (props: {
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
+				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
@@ -1245,7 +1286,7 @@ const EditSupersetExerciseButton = (props: {
 
 type FuncStartTimer = (
 	duration: number,
-	triggeredBy: { exerciseIdentifier: string; setIdx: number },
+	triggeredBy: { exerciseIdentifier: string; setIdentifier: string },
 ) => void;
 
 const focusOnExercise = (idx: number) => {
@@ -1453,12 +1494,16 @@ const ExerciseDisplay = (props: {
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress && props.exerciseIdx === 0;
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
@@ -1544,7 +1589,16 @@ const ExerciseDisplay = (props: {
 									<IconChevronUp />
 								</ActionIcon>
 								<Menu.Target>
-									<ActionIcon color="blue">
+									<ActionIcon
+										color="blue"
+										onClick={() => {
+											if (isOnboardingTourStep) advanceOnboardingTourStep();
+										}}
+										className={clsx(
+											isOnboardingTourStep &&
+												OnboardingTourStepTargets.OpenExerciseMenuDetails,
+										)}
+									>
 										<IconDotsVertical size={20} />
 									</ActionIcon>
 								</Menu.Target>
@@ -1869,6 +1923,7 @@ const ExerciseDisplay = (props: {
 											draft.exercises[props.exerciseIdx].sets.push({
 												lot: setLot,
 												confirmedAt: null,
+												identifier: randomUUID(),
 												statistic: currentSet?.statistic ?? {},
 												restTimer: restTimer
 													? { duration: restTimer }
@@ -1954,6 +2009,8 @@ const SetDisplay = (props: {
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -1975,9 +2032,14 @@ const SetDisplay = (props: {
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
-		currentTimer?.triggeredBy?.setIdx === props.setIdx;
+		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress &&
+		set.confirmedAt === null &&
+		props.exerciseIdx === 0 &&
+		props.setIdx === 0;
 
 	return (
 		<>
@@ -2063,7 +2125,16 @@ const SetDisplay = (props: {
 				<Flex justify="space-between" align="center" py={4}>
 					<Menu>
 						<Menu.Target>
-							<UnstyledButton w="5%">
+							<UnstyledButton
+								w="5%"
+								onClick={() => {
+									if (isOnboardingTourStep) advanceOnboardingTourStep();
+								}}
+								className={clsx(
+									isOnboardingTourStep &&
+										OnboardingTourStepTargets.OpenSetMenuDetails,
+								)}
+							>
 								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
 									{match(set.lot)
 										.with(SetLot.Normal, () => props.setIdx + 1)
@@ -2220,32 +2291,32 @@ const SetDisplay = (props: {
 					</Box>
 					{props.durationCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="duration"
 							inputStep={0.1}
+							stat="duration"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.distanceCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
-							stat="distance"
 							inputStep={0.01}
+							stat="distance"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.weightCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="weight"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					{props.repsCol ? (
 						<StatInput
-							exerciseIdx={props.exerciseIdx}
-							setIdx={props.setIdx}
 							stat="reps"
+							setIdx={props.setIdx}
+							exerciseIdx={props.exerciseIdx}
 						/>
 					) : null}
 					<Group
@@ -2255,13 +2326,13 @@ const SetDisplay = (props: {
 					>
 						<Transition
 							mounted
+							duration={200}
+							timingFunction="ease-in-out"
 							transition={{
 								in: {},
 								out: {},
 								transitionProperty: "all",
 							}}
-							duration={200}
-							timingFunction="ease-in-out"
 						>
 							{(style) =>
 								set.displayRestTimeTrigger ? (
@@ -2272,7 +2343,7 @@ const SetDisplay = (props: {
 										onClick={() => {
 											invariant(set.restTimer);
 											props.startTimer(set.restTimer.duration, {
-												setIdx: props.setIdx,
+												setIdentifier: set.identifier,
 												exerciseIdentifier: exercise.identifier,
 											});
 											setCurrentWorkout(
@@ -2294,6 +2365,10 @@ const SetDisplay = (props: {
 										color="green"
 										style={style}
 										variant={set.confirmedAt ? "filled" : "outline"}
+										className={clsx(
+											isOnboardingTourStep &&
+												OnboardingTourStepTargets.ConfirmSetForExercise,
+										)}
 										disabled={
 											!match(exercise.lot)
 												.with(ExerciseLot.Reps, () =>
@@ -2332,16 +2407,20 @@ const SetDisplay = (props: {
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;
+											if (isOnboardingTourStep && newConfirmed)
+												advanceOnboardingTourStep();
+
 											if (
 												!newConfirmed &&
 												currentTimer?.triggeredBy?.exerciseIdentifier ===
 													exercise.identifier &&
-												currentTimer?.triggeredBy?.setIdx === props.setIdx
+												currentTimer?.triggeredBy?.setIdentifier ===
+													set.identifier
 											)
 												props.stopTimer();
 											if (set.restTimer && newConfirmed && !promptForRestTimer)
 												props.startTimer(set.restTimer.duration, {
-													setIdx: props.setIdx,
+													setIdentifier: set.identifier,
 													exerciseIdentifier: exercise.identifier,
 												});
 											setCurrentWorkout(
@@ -2764,15 +2843,15 @@ const ReorderDrawer = (props: {
 	);
 
 	useDidUpdate(() => {
-		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
-		const newOrder = exerciseElements.map((e) => e.exerciseId);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.identifier);
+		const newOrder = exerciseElements.map((e) => e.identifier);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
 				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 				produce(currentWorkout, (draft: any) => {
 					draft.exercises = exerciseElements.map((de) =>
 						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+						draft.exercises.find((e: any) => e.identifier === de.identifier),
 					);
 				}),
 			);

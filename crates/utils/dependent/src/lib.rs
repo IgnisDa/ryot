@@ -7,23 +7,24 @@ use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
-    StringIdObject, UserLevelCacheKey, UserNotificationContent,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    acquire_lock, ryot_log, sleep_for_n_seconds, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES, ryot_log,
+    sleep_for_n_seconds,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
     functions::associate_user_with_entity,
     genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-    metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
+    metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
+    person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
-        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserNotification,
+        MetadataToMetadata, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen,
         UserToEntity, Workout, WorkoutTemplate,
     },
-    review, seen, user_measurement, user_notification, user_to_entity, workout, workout_template,
+    review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
@@ -31,17 +32,16 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ImportCompletedItem, ImportResult, SearchResults, UserExercisesListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, SearchResults,
+    UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use either::Either;
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationLot, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationContent, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -66,6 +66,7 @@ use media_models::{
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
+use notification_service::send_notification;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
     audible::AudibleService,
@@ -83,16 +84,16 @@ use providers::{
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{
-    prelude::{FromPrimitive, One, ToPrimitive},
     Decimal,
+    prelude::{FromPrimitive, One, ToPrimitive},
 };
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::{DateTimeUtc, Expr},
-    sea_query::{extension::postgres::PgExpr, Alias, Func, NullOrdering, OnConflict, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
+    prelude::{DateTimeUtc, Expr},
+    sea_query::{Alias, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr},
 };
 use serde::{Deserialize, Serialize};
 use slug::slugify;
@@ -284,7 +285,6 @@ pub async fn create_partial_metadata(
             source: ActiveValue::Set(data.source),
             is_partial: ActiveValue::Set(Some(true)),
             identifier: ActiveValue::Set(data.identifier),
-            is_recommendation: ActiveValue::Set(Some(true)),
             ..Default::default()
         };
         c.insert(db).await?
@@ -296,7 +296,6 @@ pub async fn create_partial_metadata(
         title: mode.title,
         source: mode.source,
         identifier: mode.identifier,
-        is_recommendation: mode.is_recommendation,
     };
     Ok(model)
 }
@@ -660,44 +659,37 @@ pub async fn get_users_monitoring_entity(
     )
 }
 
-pub async fn create_user_notification(
-    message: &str,
+pub async fn send_notification_for_user(
     user_id: &String,
-    db: &DatabaseConnection,
-    lot: UserNotificationLot,
-) -> Result<bool> {
-    let insert_data = user_notification::ActiveModel {
-        lot: ActiveValue::Set(lot),
-        message: ActiveValue::Set(message.to_owned()),
-        user_id: ActiveValue::Set(user_id.to_owned()),
-        ..Default::default()
-    };
-    let notification = insert_data.insert(db).await?;
-    ryot_log!(
-        debug,
-        "Created user notification with id = {}",
-        notification.id
-    );
-    Ok(true)
-}
-
-pub async fn create_notification_for_user(
-    user_id: &String,
-    notification: &(String, UserNotificationContent),
-    lot: UserNotificationLot,
     ss: &Arc<SupportingService>,
+    (msg, change): &(String, UserNotificationContent),
 ) -> Result<()> {
-    let (msg, change) = notification;
-    let notification_preferences = user_by_id(user_id, ss).await?.preferences.notifications;
-    if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        create_user_notification(msg, user_id, &ss.db, lot)
-            .await
-            .trace_ok();
-    } else {
-        ryot_log!(
-            debug,
-            "User id = {user_id} has disabled notifications for {change}"
-        );
+    let notification_platforms = NotificationPlatform::find()
+        .filter(notification_platform::Column::UserId.eq(user_id))
+        .all(&ss.db)
+        .await?;
+    for platform in notification_platforms {
+        if platform.is_disabled.unwrap_or_default() {
+            ryot_log!(
+                debug,
+                "Skipping sending notification to user: {} for platform: {} since it is disabled",
+                user_id,
+                platform.lot
+            );
+            continue;
+        }
+        if !platform.configured_events.contains(change) {
+            ryot_log!(
+                debug,
+                "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
+                user_id,
+                platform.lot,
+            );
+            continue;
+        }
+        if let Err(err) = send_notification(platform.platform_specifics, msg).await {
+            ryot_log!(trace, "Error sending notification: {:?}", err);
+        }
     }
     Ok(())
 }
@@ -731,14 +723,9 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for (user_id, cte_id) in users_to_notify.iter() {
-                create_notification_for_user(
-                    user_id,
-                    &notification,
-                    UserNotificationLot::Queued,
-                    ss,
-                )
-                .await
-                .trace_ok();
+                send_notification_for_user(user_id, ss, &notification)
+                    .await
+                    .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
@@ -1322,7 +1309,6 @@ pub async fn progress_update(
     }
     ryot_log!(debug, "Input for progress_update = {:?}", input);
 
-    acquire_lock!(&ss.db, &cache_and_lock_key);
     let all_prev_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
@@ -2061,14 +2047,13 @@ pub async fn create_or_update_user_workout(
         Some(_) => schedule_user_for_workout_revision(user_id, ss).await?,
         None => {
             if input.create_workout_id.is_none() {
-                create_notification_for_user(
+                send_notification_for_user(
                     user_id,
+                    ss,
                     &(
                         format!("New workout created - {}", data.name),
                         UserNotificationContent::NewWorkoutCreated,
                     ),
-                    UserNotificationLot::Queued,
-                    ss,
                 )
                 .await?
             }
@@ -2661,7 +2646,9 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    ss.cache_service.expire_key(Either::Left(cache_key)).await?;
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
     Ok(())
 }
 
@@ -2878,11 +2865,10 @@ pub async fn user_metadata_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     metadata::Column::Id,
+                    query,
                     collection_to_entity::Column::MetadataId,
+                    v,
                 )
             },
         )
@@ -3015,11 +3001,10 @@ pub async fn user_metadata_groups_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     metadata_group::Column::Id,
+                    query,
                     collection_to_entity::Column::MetadataGroupId,
+                    v,
                 )
             },
         )
@@ -3103,11 +3088,10 @@ pub async fn user_people_list(
             input.filter.clone().and_then(|f| f.collections),
             |query, v| {
                 apply_collection_filter(
-                    query,
-                    Some(v),
-                    input.invert_collection,
                     person::Column::Id,
+                    query,
                     collection_to_entity::Column::PersonId,
+                    v,
                 )
             },
         )
@@ -3379,22 +3363,4 @@ pub async fn user_exercises_list(
         )
         .await?;
     Ok(CachedResponse { cache_id, response })
-}
-
-pub async fn get_pending_notifications_for_user(
-    user_id: &String,
-    lot: UserNotificationLot,
-    ss: &Arc<SupportingService>,
-) -> Result<Vec<user_notification::Model>> {
-    let notifications = UserNotification::find()
-        .filter(user_notification::Column::UserId.eq(user_id))
-        .filter(user_notification::Column::Lot.eq(lot))
-        .filter(
-            user_notification::Column::IsAddressed
-                .eq(false)
-                .or(user_notification::Column::IsAddressed.is_null()),
-        )
-        .all(&ss.db)
-        .await?;
-    Ok(notifications)
 }

@@ -1,11 +1,11 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
-use enum_meta::{meta, Meta};
+use enum_meta::{Meta, meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
+use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::{Display, EnumIter};
@@ -186,24 +186,6 @@ pub struct ChangeCollectionToEntityInput {
     pub information: Option<serde_json::Value>,
 }
 
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-pub enum UserNotificationContent {
-    ReviewPosted,
-    MetadataPublished,
-    NewWorkoutCreated,
-    OutdatedSeenEntries,
-    MetadataStatusChanged,
-    MetadataEpisodeReleased,
-    PersonMetadataAssociated,
-    MetadataReleaseDateChanged,
-    MetadataEpisodeNameChanged,
-    MetadataEpisodeImagesChanged,
-    PersonMetadataGroupAssociated,
-    MetadataNumberOfSeasonsChanged,
-    MetadataChaptersOrEpisodesChanged,
-    IntegrationDisabledDueToTooManyErrors,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
     pub size: i64,
@@ -251,6 +233,17 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Year,
     Month,
     AllTime,
+}
+
+impl From<DailyUserActivitiesResponseGroupedBy> for PgDateTruncUnit {
+    fn from(group: DailyUserActivitiesResponseGroupedBy) -> Self {
+        match group {
+            DailyUserActivitiesResponseGroupedBy::Day => PgDateTruncUnit::Day,
+            DailyUserActivitiesResponseGroupedBy::Year => PgDateTruncUnit::Year,
+            DailyUserActivitiesResponseGroupedBy::Month => PgDateTruncUnit::Month,
+            DailyUserActivitiesResponseGroupedBy::AllTime => unreachable!(),
+        }
+    }
 }
 
 #[skip_serializing_none]

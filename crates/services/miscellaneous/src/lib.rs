@@ -14,61 +14,58 @@ use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
     SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
-    UserNotificationContent,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, ryot_log, BULK_APPLICATION_UPDATE_CHUNK_SIZE,
-    BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES,
+    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE,
+    SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log,
 };
 use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, integration, metadata, metadata_group, metadata_group_to_person,
-    metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group, metadata_to_person,
-    monitored_entity, notification_platform, person,
+    genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Integration, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
-        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
-        NotificationPlatform, Person, Review, Seen, User, UserNotification, UserToEntity,
+        ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
+        Review, Seen, User, UserToEntity,
     },
-    review, seen, user, user_notification, user_to_entity,
+    review, seen, user, user_to_entity,
 };
 use database_utils::{
     calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    entity_in_collections_with_collection_to_entity_ids, get_user_query, ilike_sql, item_reviews,
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, GenreDetails,
-    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, ExpireCacheKeyInput,
+    GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, create_notification_for_user, create_partial_metadata, create_user_notification,
-    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, first_metadata_image_as_url,
-    get_entity_recently_consumed, get_google_books_service, get_hardcover_service,
-    get_metadata_provider, get_openlibrary_service, get_pending_notifications_for_user,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, refresh_collection_to_entity_association,
-    remove_entity_from_collection, update_metadata_and_notify_users, user_metadata_groups_list,
+    commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, first_metadata_image_as_url, get_entity_recently_consumed,
+    get_google_books_service, get_hardcover_service, get_metadata_provider,
+    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update,
+    refresh_collection_to_entity_association, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
     user_metadata_list, user_people_list,
 };
-use either::Either;
 use enum_models::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserNotificationLot,
-    UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    UserNotificationContent, UserToMediaReason,
 };
-use futures::{future::join_all, TryStreamExt};
+use futures::{TryStreamExt, future::join_all};
 use itertools::Itertools;
-use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
@@ -87,7 +84,6 @@ use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
 };
 use nanoid::nanoid;
-use notification_service::send_notification;
 use providers::{
     anilist::NonMediaAnilistService, audible::AudibleService, igdb::IgdbService,
     itunes::ITunesService, listennotes::ListennotesService, mal::NonMediaMalService,
@@ -96,14 +92,14 @@ use providers::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, query::UpdateMany, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait,
+    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement,
+    Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
+    extension::postgres::PgExpr,
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -116,39 +112,11 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
-    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
-        ryot_log!(
-            debug,
-            "Updating old recommendations to not be recommendations anymore"
-        );
-        let mut metadata_stream = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .into_tuple::<String>()
-            .stream(&self.0.db)
-            .await?;
-        let mut recommendations_to_update = vec![];
-        while let Some(meta) = metadata_stream.try_next().await? {
-            let num_ute = UserToEntity::find()
-                .filter(user_to_entity::Column::MetadataId.eq(&meta))
-                .count(&self.0.db)
-                .await?;
-            if num_ute > 0 {
-                recommendations_to_update.push(meta);
-            }
-        }
-        Metadata::update_many()
-            .filter(metadata::Column::Id.is_in(recommendations_to_update))
-            .set(metadata::ActiveModel {
-                is_recommendation: ActiveValue::Set(None),
-                ..Default::default()
-            })
-            .exec(&self.0.db)
-            .await?;
+    pub async fn download_new_recommendations(&self) -> Result<()> {
         ryot_log!(debug, "Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
+            id: String,
             lot: MediaLot,
             source: MediaSource,
             identifier: String,
@@ -156,13 +124,13 @@ impl MiscellaneousService {
         let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             r#"
-SELECT "m"."lot", "m"."identifier", "m"."source"
+SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
 FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
-ORDER BY RANDOM() LIMIT 10;
+ORDER BY RANDOM() LIMIT 20;
         "#,
             [
                 MediaSource::Vndb.into(),
@@ -188,9 +156,19 @@ ORDER BY RANDOM() LIMIT 10;
             {
                 Ok(recommendations) => {
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-                    for mut rec in recommendations {
-                        rec.is_recommendation = Some(true);
+                    for rec in recommendations {
                         if let Ok(meta) = self.create_partial_metadata(rec).await {
+                            let relation = metadata_to_metadata::ActiveModel {
+                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                                from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                                ..Default::default()
+                            };
+                            MetadataToMetadata::insert(relation)
+                                .on_conflict_do_nothing()
+                                .exec(&self.0.db)
+                                .await
+                                .ok();
                             media_item_ids.push(meta.id);
                         }
                     }
@@ -201,6 +179,13 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::ApplicationRecommendations,
+                ApplicationCacheValue::ApplicationRecommendations(media_item_ids),
+            )
+            .await?;
         Ok(())
     }
 
@@ -575,7 +560,7 @@ ORDER BY RANDOM() LIMIT 10;
                     let seen = history
                         .iter()
                         .filter(|h| {
-                            h.show_extra_information.as_ref().map_or(false, |s| {
+                            h.show_extra_information.as_ref().is_some_and(|s| {
                                 s.season == season.season_number
                                     && s.episode == episode.episode_number
                             })
@@ -610,7 +595,7 @@ ORDER BY RANDOM() LIMIT 10;
                         .filter(|h| {
                             h.podcast_extra_information
                                 .as_ref()
-                                .map_or(false, |s| s.episode == episode.number)
+                                .is_some_and(|s| s.episode == episode.number)
                         })
                         .collect_vec();
                     episodes.push(UserMetadataDetailsEpisodeProgress {
@@ -622,7 +607,7 @@ ORDER BY RANDOM() LIMIT 10;
             } else {
                 None
             };
-        let recently_consumed =
+        let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, &self.0)
                 .await?;
         Ok(UserMetadataDetails {
@@ -634,8 +619,8 @@ ORDER BY RANDOM() LIMIT 10;
             show_progress,
             average_rating,
             podcast_progress,
-            recently_consumed,
             seen_by_user_count,
+            is_recently_consumed,
             seen_by_all_count: seen_by,
             has_interacted: user_to_meta.is_some(),
             media_reason: user_to_meta.and_then(|n| n.media_reason),
@@ -650,12 +635,12 @@ ORDER BY RANDOM() LIMIT 10;
         let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
-        let recently_consumed =
+        let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
-            recently_consumed,
+            is_recently_consumed,
         })
     }
 
@@ -679,7 +664,7 @@ ORDER BY RANDOM() LIMIT 10;
             &self.0,
         )
         .await?;
-        let recently_consumed = get_entity_recently_consumed(
+        let is_recently_consumed = get_entity_recently_consumed(
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
@@ -689,7 +674,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
-            recently_consumed,
+            is_recently_consumed,
         })
     }
 
@@ -929,7 +914,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
         self.0
             .cache_service
-            .expire_key(Either::Right(cache_id))
+            .expire_key(ExpireCacheKeyInput::ById(cache_id))
             .await
     }
 
@@ -974,7 +959,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -1525,7 +1510,10 @@ ORDER BY RANDOM() LIMIT 10;
                 provider_watched_on: si.provider_watched_on.clone(),
             },
         });
-        self.0.cache_service.expire_key(Either::Left(cache)).await?;
+        self.0
+            .cache_service
+            .expire_key(ExpireCacheKeyInput::ByKey(cache))
+            .await?;
         let seen_id = si.id.clone();
         let metadata_id = si.metadata_id.clone();
         if &si.user_id != user_id {
@@ -1540,7 +1528,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = User::find()
+        let all_users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
@@ -1548,7 +1536,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap();
         for user_id in all_users {
-            calculate_user_activities_and_summary(&self.0.db, &user_id, false).await?;
+            calculate_user_activities_and_summary(&user_id, &self.0, false).await?;
         }
         Ok(())
     }
@@ -1994,11 +1982,13 @@ ORDER BY RANDOM() LIMIT 10;
                 let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
                 if get_current_date(&self.0.timezone) == reminder.reminder {
                     for user in related_users {
-                        create_user_notification(
-                            &reminder.text,
+                        send_notification_for_user(
                             &user.user_id,
-                            &self.0.db,
-                            UserNotificationLot::Queued,
+                            &self.0,
+                            &(
+                                reminder.text.clone(),
+                                UserNotificationContent::NotificationFromReminderCollection,
+                            ),
                         )
                         .await?;
                         remove_entity_from_collection(
@@ -2247,13 +2237,7 @@ ORDER BY RANDOM() LIMIT 10;
             let users_to_notify =
                 get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
-                create_notification_for_user(
-                    &user,
-                    &notification,
-                    UserNotificationLot::Queued,
-                    &self.0,
-                )
-                .await?;
+                send_notification_for_user(&user, &self.0, &notification).await?;
             }
         }
         Ok(())
@@ -2422,14 +2406,9 @@ ORDER BY RANDOM() LIMIT 10;
                     .await?;
             for notification in notifications {
                 for (user_id, cte_id) in users_to_notify.iter() {
-                    create_notification_for_user(
-                        user_id,
-                        &notification,
-                        UserNotificationLot::Queued,
-                        &self.0,
-                    )
-                    .await
-                    .trace_ok();
+                    send_notification_for_user(user_id, &self.0, &notification)
+                        .await
+                        .trace_ok();
                     refresh_collection_to_entity_association(cte_id, &self.0.db)
                         .await
                         .trace_ok();
@@ -2479,7 +2458,7 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
-        let users = User::find()
+        let users = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .filter(user::Column::Id.is_in(monitored_by))
@@ -2496,14 +2475,16 @@ ORDER BY RANDOM() LIMIT 10;
                 event.entity_lot,
                 Some("reviews"),
             );
-            create_user_notification(
-                &format!(
-                    "New review posted for {} ({}, {}) by {}.",
-                    event.obj_title, event.entity_lot, url, event.username
-                ),
+            send_notification_for_user(
                 &user_id,
-                &self.0.db,
-                UserNotificationLot::Queued,
+                &self.0,
+                &(
+                    format!(
+                        "New review posted for {} ({}, {}) by {}.",
+                        event.obj_title, event.entity_lot, url, event.username
+                    ),
+                    UserNotificationContent::ReviewPosted,
+                ),
             )
             .await?;
         }
@@ -2588,44 +2569,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn mark_integrations_with_too_many_errors_as_disabled(&self) -> Result<()> {
-        let integrations = Integration::find()
-            .filter(
-                integration::Column::IsDisabled
-                    .is_null()
-                    .or(integration::Column::IsDisabled.eq(false)),
-            )
-            .all(&self.0.db)
-            .await?;
-        let mut integrations_to_disable = vec![];
-        for int in integrations {
-            let are_all_errors = int.trigger_result.iter().take(5).all(|r| r.error.is_some());
-            if are_all_errors {
-                integrations_to_disable.push(int.id);
-                create_notification_for_user(
-                    &int.user_id,
-                    &(
-                        format!(
-                            "Integration {} has been disabled due to too many errors",
-                            int.provider
-                        ),
-                        UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
-                    ),
-                    UserNotificationLot::Display,
-                    &self.0,
-                )
-                .await
-                .trace_ok();
-            }
-        }
-        Integration::update_many()
-            .filter(integration::Column::Id.is_in(integrations_to_disable))
-            .col_expr(integration::Column::IsDisabled, Expr::value(true))
-            .exec(&self.0.db)
-            .await?;
-        Ok(())
-    }
-
     pub async fn remove_useless_data(&self) -> Result<()> {
         let metadata_to_delete = Metadata::find()
             .select_only()
@@ -2691,12 +2634,6 @@ ORDER BY RANDOM() LIMIT 10;
                 .await
                 .trace_ok();
         }
-        ryot_log!(debug, "Deleting all addressed user notifications");
-        UserNotification::delete_many()
-            .filter(user_notification::Column::IsAddressed.eq(true))
-            .exec(&self.0.db)
-            .await
-            .trace_ok();
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
@@ -2771,52 +2708,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    pub async fn send_pending_notifications(&self) -> Result<()> {
-        let users = User::find().all(&self.0.db).await?;
-        for user_details in users {
-            let notifications = get_pending_notifications_for_user(
-                &user_details.id,
-                UserNotificationLot::Queued,
-                &self.0,
-            )
-            .await?;
-            if notifications.is_empty() {
-                continue;
-            }
-            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
-            let notification_ids = notifications.iter().map(|n| n.id.clone()).collect_vec();
-            let msg = notifications
-                .into_iter()
-                .map(|n| n.message)
-                .collect::<Vec<String>>()
-                .join("\n");
-            let platforms = NotificationPlatform::find()
-                .filter(notification_platform::Column::UserId.eq(&user_details.id))
-                .all(&self.0.db)
-                .await?;
-            for notification in platforms {
-                if notification.is_disabled.unwrap_or_default() {
-                    ryot_log!(
-                        debug,
-                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
-                        user_details.id,
-                        notification.lot
-                    );
-                    continue;
-                }
-                if let Err(err) = send_notification(notification.platform_specifics, &msg).await {
-                    ryot_log!(trace, "Error sending notification: {:?}", err);
-                }
-            }
-            UserNotification::update_many()
-                .filter(user_notification::Column::Id.is_in(notification_ids))
-                .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
-                .exec(&self.0.db)
-                .await?;
-        }
-        Ok(())
-    }
-
     pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         self.0
             .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
@@ -2849,8 +2740,9 @@ ORDER BY RANDOM() LIMIT 10;
                     .to_string()
                     .to_case(Case::Title)
                     .to_case(Case::Lower);
-                create_notification_for_user(
+                send_notification_for_user(
                     &seen_item.user_id,
+                    &self.0,
                     &(
                         format!(
                             "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
@@ -2862,8 +2754,6 @@ ORDER BY RANDOM() LIMIT 10;
                         ),
                         UserNotificationContent::OutdatedSeenEntries,
                     ),
-                    UserNotificationLot::Display,
-                    &self.0,
                 )
                 .await?;
             }
@@ -2879,20 +2769,6 @@ ORDER BY RANDOM() LIMIT 10;
         User::update_many()
             .filter(user::Column::Id.eq(user_id))
             .col_expr(user::Column::LastActivityOn, Expr::value(timestamp))
-            .exec(&self.0.db)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn mark_old_display_user_notifications_as_addressed(&self) -> Result<()> {
-        let threshold = Utc::now() - Duration::days(1);
-        UserNotification::update_many()
-            .filter(user_notification::Column::CreatedOn.lt(threshold))
-            .filter(user_notification::Column::Lot.eq(UserNotificationLot::Display))
-            .col_expr(
-                user_notification::Column::IsAddressed,
-                Expr::val(true).into(),
-            )
             .exec(&self.0.db)
             .await?;
         Ok(())
@@ -2937,13 +2813,6 @@ ORDER BY RANDOM() LIMIT 10;
         self.queue_notifications_for_outdated_seen_entries()
             .await
             .trace_ok();
-        ryot_log!(
-            trace,
-            "Marking integrations with too many errors as disabled"
-        );
-        self.mark_integrations_with_too_many_errors_as_disabled()
-            .await
-            .trace_ok();
         ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
         ryot_log!(trace, "Putting entities in partial state");
@@ -2951,17 +2820,11 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: This is called after removing useless data so that recommendations are not
         // deleted right after they are downloaded.
         ryot_log!(trace, "Downloading recommendations for users");
-        self.update_claimed_recommendations_and_download_new_ones()
-            .await
-            .trace_ok();
+        self.download_new_recommendations().await.trace_ok();
         // DEV: Invalid access tokens are revoked before being deleted, so we call this
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
-        ryot_log!(trace, "Marking old display notifications as addressed");
-        self.mark_old_display_user_notifications_as_addressed()
-            .await
-            .trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())

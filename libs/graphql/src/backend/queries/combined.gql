@@ -1,526 +1,519 @@
 query GetOidcRedirectUrl {
-  getOidcRedirectUrl
+	getOidcRedirectUrl
 }
 
 query UserByOidcIssuerId($oidcIssuerId: String!) {
-  userByOidcIssuerId(oidcIssuerId: $oidcIssuerId)
+	userByOidcIssuerId(oidcIssuerId: $oidcIssuerId)
 }
 
 query GetOidcToken($code: String!) {
-  getOidcToken(code: $code) {
-    subject
-    email
-  }
+	getOidcToken(code: $code) {
+		email
+		subject
+	}
 }
 
 query GetPresignedS3Url($key: String!) {
-  getPresignedS3Url(key: $key)
+	getPresignedS3Url(key: $key)
 }
 
 query UserExports {
-  userExports {
-    url
-    key
-    size
-    endedAt
-    startedAt
-  }
+	userExports {
+		url
+		key
+		size
+		endedAt
+		startedAt
+	}
 }
 
 query UserCollectionsList {
-  userCollectionsList {
-    cacheId
-    response {
-      id
-      name
-      count
-      isDefault
-      description
-      creator {
-        id
-        name
-      }
-      collaborators {
-        extraInformation {
-          isHidden
-        }
-        collaborator {
-          id
-          name
-        }
-      }
-      informationTemplate {
-        lot
-        name
-        required
-        description
-        defaultValue
-      }
-    }
-  }
+	userCollectionsList {
+		cacheId
+		response {
+			id
+			name
+			count
+			isDefault
+			description
+			creator {
+				id
+				name
+			}
+			collaborators {
+				extraInformation {
+					isHidden
+				}
+				collaborator {
+					id
+					name
+				}
+			}
+			informationTemplate {
+				lot
+				name
+				required
+				description
+				defaultValue
+			}
+		}
+	}
 }
 
 query UserIntegrations {
-  userIntegrations {
-    id
-    lot
-    name
-    provider
-    createdOn
-    isDisabled
-    lastFinishedAt
-    maximumProgress
-    minimumProgress
-    syncToOwnedCollection
-    triggerResult {
-      error
-      finishedAt
-    }
-  }
+	userIntegrations {
+		id
+		lot
+		name
+		provider
+		createdOn
+		isDisabled
+		lastFinishedAt
+		maximumProgress
+		minimumProgress
+		syncToOwnedCollection
+		triggerResult {
+			error
+			finishedAt
+		}
+	}
 }
 
 query UserNotificationPlatforms {
-  userNotificationPlatforms {
-    id
-    lot
-    createdOn
-    isDisabled
-    description
-  }
+	userNotificationPlatforms {
+		id
+		lot
+		createdOn
+		isDisabled
+		description
+		configuredEvents
+	}
 }
 
 query UsersList($query: String) {
-  usersList(query: $query) {
-    id
-    lot
-    name
-    isDisabled
-  }
+	usersList(query: $query) {
+		id
+		lot
+		name
+		isDisabled
+	}
 }
 
 query UserMetadataRecommendations {
-  userMetadataRecommendations {
-    cacheId
-    response
-  }
+	userMetadataRecommendations {
+		cacheId
+		response
+	}
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
-  userUpcomingCalendarEvents(input: $input) {
-    ...CalendarEventPart
-  }
+	userUpcomingCalendarEvents(input: $input) {
+		...CalendarEventPart
+	}
 }
 
 query UserCalendarEvents($input: UserCalendarEventInput!) {
-  userCalendarEvents(input: $input) {
-    date
-    events {
-      ...CalendarEventPart
-    }
-  }
+	userCalendarEvents(input: $input) {
+		date
+		events {
+			...CalendarEventPart
+		}
+	}
 }
 
 query MetadataPartialDetails($metadataId: String!) {
-  metadataPartialDetails(metadataId: $metadataId) {
-    id
-    lot
-    title
-    image
-    publishYear
-  }
+	metadataPartialDetails(metadataId: $metadataId) {
+		id
+		lot
+		title
+		image
+		publishYear
+	}
 }
 
 query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
-  userMetadataGroupsList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userMetadataGroupsList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
 query UserPeopleList($input: UserPeopleListInput!) {
-  userPeopleList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userPeopleList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
 query UserAccessLinks {
-  userAccessLinks {
-    id
-    name
-    createdOn
-    expiresOn
-    timesUsed
-    isRevoked
-    maximumUses
-    isAccountDefault
-    isMutationAllowed
-  }
+	userAccessLinks {
+		id
+		name
+		createdOn
+		expiresOn
+		timesUsed
+		isRevoked
+		maximumUses
+		isAccountDefault
+		isMutationAllowed
+	}
 }
 
 query ExerciseDetails($exerciseId: String!) {
-  exerciseDetails(exerciseId: $exerciseId) {
-    id
-    lot
-    name
-    level
-    force
-    source
-    muscles
-    mechanic
-    equipment
-    createdByUserId
-    attributes {
-      instructions
-      images
-    }
-  }
+	exerciseDetails(exerciseId: $exerciseId) {
+		id
+		lot
+		name
+		level
+		force
+		source
+		muscles
+		mechanic
+		equipment
+		createdByUserId
+		attributes {
+			instructions
+			images
+		}
+	}
 }
 
 query UserExercisesList($input: UserExercisesListInput!) {
-  userExercisesList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userExercisesList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
-query ImportReports {
-  importReports {
-    id
-    source
-    progress
-    startedOn
-    finishedOn
-    wasSuccess
-    estimatedFinishTime
-    details {
-      import {
-        total
-      }
-      failedItems {
-        lot
-        step
-        error
-        identifier
-      }
-    }
-  }
+query UserImportReports {
+	userImportReports {
+		id
+		source
+		progress
+		startedOn
+		finishedOn
+		wasSuccess
+		estimatedFinishTime
+		details {
+			import {
+				total
+			}
+			failedItems {
+				lot
+				step
+				error
+				identifier
+			}
+		}
+	}
 }
 
 query GenresList($input: SearchInput!) {
-  genresList(input: $input) {
-    items
-    details {
-      total
-      nextPage
-    }
-  }
+	genresList(input: $input) {
+		items
+		details {
+			total
+			nextPage
+		}
+	}
 }
 
 query GenreDetails($input: GenreDetailsInput!) {
-  genreDetails(input: $input) {
-    details {
-      id
-      name
-      numItems
-    }
-    contents {
-      details {
-        total
-        nextPage
-      }
-      items
-    }
-  }
+	genreDetails(input: $input) {
+		details {
+			id
+			name
+			numItems
+		}
+		contents {
+			details {
+				total
+				nextPage
+			}
+			items
+		}
+	}
 }
 
 query CollectionContents($input: CollectionContentsInput!) {
-  collectionContents(input: $input) {
-    cacheId
-    response {
-      totalItems
-      user {
-        id
-        name
-      }
-      reviews {
-        ...ReviewItemPart
-      }
-      details {
-        name
-        createdOn
-        description
-      }
-      results {
-        details {
-          total
-          nextPage
-        }
-        items {
-          entityId
-          entityLot
-        }
-      }
-    }
-  }
+	collectionContents(input: $input) {
+		cacheId
+		response {
+			totalItems
+			user {
+				id
+				name
+			}
+			reviews {
+				...ReviewItemPart
+			}
+			details {
+				name
+				createdOn
+				description
+			}
+			results {
+				details {
+					total
+					nextPage
+				}
+				items {
+					entityId
+					entityLot
+				}
+			}
+		}
+	}
 }
 
 query CoreDetails {
-  coreDetails {
-    version
-    docsLink
-    pageSize
-    websiteUrl
-    smtpEnabled
-    oidcEnabled
-    signupAllowed
-    repositoryLink
-    isDemoInstance
-    disableTelemetry
-    tokenValidForDays
-    localAuthDisabled
-    fileStorageEnabled
-    peopleSearchSources
-    isServerKeyValidated
-    metadataGroupSourceLotMappings {
-      lot
-      source
-    }
-    metadataLotSourceMappings {
-      lot
-      sources
-    }
-    metadataProviderLanguages {
-      source
-      default
-      supported
-    }
-    frontend {
-      url
-      oidcButtonLabel
-      dashboardMessage
-      umami {
-        domains
-        scriptUrl
-        websiteId
-      }
-    }
-    exerciseParameters {
-      lotMapping {
-        lot
-        bests
-      }
-      filters {
-        type
-        level
-        force
-        muscle
-        mechanic
-        equipment
-      }
-    }
-  }
+	coreDetails {
+		version
+		docsLink
+		pageSize
+		websiteUrl
+		smtpEnabled
+		oidcEnabled
+		signupAllowed
+		repositoryLink
+		isDemoInstance
+		disableTelemetry
+		tokenValidForDays
+		localAuthDisabled
+		fileStorageEnabled
+		peopleSearchSources
+		isServerKeyValidated
+		metadataGroupSourceLotMappings {
+			lot
+			source
+		}
+		metadataLotSourceMappings {
+			lot
+			sources
+		}
+		metadataProviderLanguages {
+			source
+			default
+			supported
+		}
+		frontend {
+			url
+			oidcButtonLabel
+			dashboardMessage
+			umami {
+				domains
+				scriptUrl
+				websiteId
+			}
+		}
+		exerciseParameters {
+			lotMapping {
+				lot
+				bests
+			}
+			filters {
+				type
+				level
+				force
+				muscle
+				mechanic
+				equipment
+			}
+		}
+	}
 }
 
 query MetadataGroupDetails($metadataGroupId: String!) {
-  metadataGroupDetails(metadataGroupId: $metadataGroupId) {
-    contents
-    details {
-      id
-      lot
-      title
-      parts
-      source
-      isPartial
-      sourceUrl
-      identifier
-      description
-      displayImages
-    }
-  }
+	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		contents
+		details {
+			id
+			lot
+			title
+			parts
+			source
+			isPartial
+			sourceUrl
+			identifier
+			description
+			displayImages
+		}
+	}
 }
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
-  metadataGroupSearch(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      identifier
-      name
-      image
-      parts
-    }
-  }
+	metadataGroupSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			name
+			image
+			parts
+			identifier
+		}
+	}
 }
 
 query UserMetadataList($input: UserMetadataListInput!) {
-  userMetadataList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userMetadataList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
 query MetadataSearch($input: MetadataSearchInput!) {
-  metadataSearch(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      identifier
-      title
-      image
-      publishYear
-    }
-  }
+	metadataSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			title
+			image
+			identifier
+			publishYear
+		}
+	}
 }
 
 query PeopleSearch($input: PeopleSearchInput!) {
-  peopleSearch(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      identifier
-      name
-      image
-      birthYear
-    }
-  }
+	peopleSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			name
+			image
+			birthYear
+			identifier
+		}
+	}
 }
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
-  userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
-    recentlyConsumed
-    reviews {
-      ...ReviewItemPart
-    }
-    collections {
-      ...CollectionPart
-    }
-  }
+	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		isRecentlyConsumed
+		reviews {
+			...ReviewItemPart
+		}
+		collections {
+			...CollectionPart
+		}
+	}
 }
 
 query UserPersonDetails($personId: String!) {
-  userPersonDetails(personId: $personId) {
-    recentlyConsumed
-    collections {
-      ...CollectionPart
-    }
-    reviews {
-      ...ReviewItemPart
-    }
-  }
+	userPersonDetails(personId: $personId) {
+		isRecentlyConsumed
+		collections {
+			...CollectionPart
+		}
+		reviews {
+			...ReviewItemPart
+		}
+	}
 }
 
 query UserWorkoutDetails($workoutId: String!) {
-  userWorkoutDetails(workoutId: $workoutId) {
-    metadataConsumed
-    collections {
-      ...CollectionPart
-    }
-    details {
-      id
-      name
-      endTime
-      duration
-      startTime
-      templateId
-      repeatedFrom
-      caloriesBurnt
-      summary {
-        ...WorkoutSummaryPart
-      }
-      information {
-        ...WorkoutInformationPart
-      }
-    }
-  }
+	userWorkoutDetails(workoutId: $workoutId) {
+		metadataConsumed
+		collections {
+			...CollectionPart
+		}
+		details {
+			id
+			name
+			endTime
+			duration
+			startTime
+			templateId
+			repeatedFrom
+			caloriesBurnt
+			summary {
+				...WorkoutSummaryPart
+			}
+			information {
+				...WorkoutInformationPart
+			}
+		}
+	}
 }
 
 query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
-  userWorkoutsList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userWorkoutsList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
 query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
-  userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
-    collections {
-      ...CollectionPart
-    }
-    details {
-      id
-      name
-      createdOn
-      summary {
-        ...WorkoutSummaryPart
-      }
-      information {
-        ...WorkoutInformationPart
-      }
-    }
-  }
+	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
+		collections {
+			...CollectionPart
+		}
+		details {
+			id
+			name
+			createdOn
+			summary {
+				...WorkoutSummaryPart
+			}
+			information {
+				...WorkoutInformationPart
+			}
+		}
+	}
 }
 
 query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
-  userWorkoutTemplatesList(input: $input) {
-    cacheId
-    response {
-      items
-      details {
-        total
-        nextPage
-      }
-    }
-  }
+	userWorkoutTemplatesList(input: $input) {
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
+		}
+	}
 }
 
 query UserAnalyticsParameters {
-  userAnalyticsParameters {
-    endDate
-    startDate
-  }
-}
-
-query UserPendingNotifications {
-  userPendingNotifications {
-    id
-    message
-    createdOn
-  }
+	userAnalyticsParameters {
+		endDate
+		startDate
+	}
 }

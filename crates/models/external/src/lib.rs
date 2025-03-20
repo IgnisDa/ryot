@@ -2,7 +2,7 @@ use common_models::StringIdObject;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use strum::Display;
 
 pub mod audiobookshelf {

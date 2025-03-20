@@ -37,7 +37,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/common";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
@@ -65,7 +65,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	let status = undefined;
 	await match(intent)
-		.with("commitMedia", async () => {
+		.with("commitMetadata", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
 			const { commitMetadata } = await serverGqlService.authenticatedRequest(
 				request,

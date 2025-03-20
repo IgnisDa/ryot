@@ -3,23 +3,24 @@ use std::{sync::Arc, time::Duration};
 use async_graphql::{Error, Result};
 use async_trait::async_trait;
 use axum::{
-    extract::FromRequestParts,
-    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
+    extract::FromRequestParts,
+    http::{StatusCode, header::AUTHORIZATION, request::Parts},
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
-use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR};
+use common_utils::{FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR, ryot_log};
 use file_storage_service::FileStorageService;
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
 };
 use openidconnect::{
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
     core::{CoreClient, CoreProviderMetadata},
-    reqwest, ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+    reqwest,
 };
 use reqwest::{
+    Client, ClientBuilder, ClientBuilder,
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
-    Client, ClientBuilder,
 };
 use sea_orm::Order;
 
@@ -130,7 +131,6 @@ pub fn get_podcast_episode_number_by_name(val: &PodcastSpecifics, name: &str) ->
         .find(|e| e.title == name)
         .map(|e| e.number)
 }
-
 
 async fn create_oidc_client(config: &config::AppConfig) -> Option<(reqwest::Client, CoreClient)> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {

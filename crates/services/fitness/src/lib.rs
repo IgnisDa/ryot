@@ -7,11 +7,11 @@ use common_models::StoredUrl;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
-    prelude::{Exercise, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate},
+    prelude::{Exercise, UserMeasurement, UserToEntity, Workout, WorkoutTemplate},
     user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    entity_in_collections, item_reviews, schedule_user_for_workout_revision,
+    entity_in_collections, get_user_query, item_reviews, schedule_user_for_workout_revision,
     server_key_validation_guard, user_measurements_list, user_workout_details,
     user_workout_template_details,
 };
@@ -35,8 +35,8 @@ use fitness_models::{
 use futures::TryStreamExt;
 use nanoid::nanoid;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, prelude::DateTimeUtc,
 };
 use sea_query::{Expr, OnConflict};
 use supporting_service::SupportingService;
@@ -601,12 +601,15 @@ impl FitnessService {
     }
 
     pub async fn process_users_scheduled_for_workout_revision(&self) -> Result<()> {
-        let revisions = User::find()
+        let revisions = get_user_query()
             .filter(Expr::cust(
                 "(extra_information -> 'scheduled_for_workout_revision')::boolean = true",
             ))
             .all(&self.0.db)
             .await?;
+        if revisions.is_empty() {
+            return Ok(());
+        }
         for user in revisions {
             ryot_log!(debug, "Revising workouts for {}", user.id);
             self.revise_user_workouts(user.id.clone()).await?;

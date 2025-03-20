@@ -47,7 +47,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 	const { eventType, data } = eventData;
 
-	console.log(`Received event: ${eventType}`);
+	console.log("Received event:", { eventType });
 
 	if (eventType === EventName.TransactionCompleted) {
 		const paddleCustomerId = data.customerId;
@@ -55,9 +55,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return Response.json({
 				error: "No customer ID found in transaction completed event",
 			});
-		console.log(
-			`Received transaction completed event for customer id: ${paddleCustomerId}`,
-		);
+		console.log("Received transaction completed event", { paddleCustomerId });
 		let customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, paddleCustomerId),
 		});
@@ -80,9 +78,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			if (!priceId) return Response.json({ error: "Price ID not found" });
 
 			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
-			console.log(
-				`Customer ${paddleCustomerId} purchased ${productType} with plan type ${planType}`,
-			);
+			console.log("Customer purchased plan:", {
+				paddleCustomerId,
+				productType,
+				planType,
+			});
 
 			const { email, oidcIssuerId } = customer;
 			const renewOn = getRenewOnFromPlanType(planType);
@@ -148,7 +148,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		} else {
 			const renewal = getRenewOnFromPlanType(customer.planType);
 			const renewOn = renewal ? formatDateToNaiveDate(renewal) : undefined;
-			console.log(`Updating customer with renewOn: ${renewOn}`);
+			console.log("Updating customer with renewOn", { renewOn });
 			await db
 				.update(customers)
 				.set({ renewOn, hasCancelled: null })

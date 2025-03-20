@@ -3,6 +3,7 @@ import {
 	Affix,
 	Alert,
 	Avatar,
+	Box,
 	Center,
 	Checkbox,
 	Container,
@@ -68,7 +69,7 @@ import {
 	getExerciseDetailsPath,
 	openConfirmationModal,
 	pageQueryParam,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -77,14 +78,19 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
-	addExerciseToWorkout,
+	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import {
-	getEnhancedCookieName,
+	OnboardingTourStepTargets,
+	TOUR_EXERCISE_TARGET_ID,
+	useOnboardingTour,
+} from "~/lib/state/general";
+import {
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	redirectWithToast,
@@ -119,7 +125,10 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("exercises.list", request);
+	const cookieName = await getSearchEnhancedCookieName(
+		"exercises.list",
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
@@ -130,17 +139,17 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			UserExercisesListDocument,
 			{
 				input: {
+					sortBy: query.sortBy,
 					search: { page: query[pageQueryParam], query: query.query },
 					filter: {
-						equipment: query.equipment,
-						force: query.force,
-						level: query.level,
-						mechanic: query.mechanic,
-						muscle: query.muscle,
 						type: query.type,
+						level: query.level,
+						force: query.force,
+						muscle: query.muscle,
+						mechanic: query.mechanic,
+						equipment: query.equipment,
 						collection: query.collection,
 					},
-					sortBy: query.sortBy,
 				},
 			},
 		),
@@ -197,6 +206,11 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const { advanceOnboardingTourStep } = useOnboardingTour();
+
+	const replacingExerciseId =
+		currentWorkout?.replacingExerciseIdx &&
+		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== pageQueryParam && k !== "query")
@@ -204,6 +218,11 @@ export default function Page() {
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
+
+	const { data: replacingExercise } = useQuery({
+		enabled: !!replacingExerciseId,
+		...getExerciseDetailsQuery(replacingExerciseId || ""),
+	});
 
 	const allowAddingExerciseToWorkout =
 		currentWorkout &&
@@ -229,6 +248,14 @@ export default function Page() {
 						initialValue={loaderData.query.query}
 						enhancedQueryParams={loaderData.cookieName}
 						placeholder="Search for exercises by name or instructions"
+						tourControl={{
+							target: OnboardingTourStepTargets.SearchForExercise,
+							onQueryChange: (query) => {
+								if (query === TOUR_EXERCISE_TARGET_ID.toLowerCase()) {
+									advanceOnboardingTourStep();
+								}
+							},
+						}}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
@@ -246,11 +273,7 @@ export default function Page() {
 				</Group>
 				{currentWorkout?.replacingExerciseIdx ? (
 					<Alert icon={<IconAlertCircle />}>
-						You are replacing exercise:{" "}
-						{
-							currentWorkout.exercises[currentWorkout.replacingExerciseIdx]
-								.exerciseId
-						}
+						You are replacing exercise: {replacingExercise?.name}
 					</Alert>
 				) : null}
 				{mergingExercise ? (
@@ -300,24 +323,25 @@ export default function Page() {
 						total={loaderData.totalPages}
 					/>
 				</Center>
-				``
 			</Stack>
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
+						size="xl"
+						radius="xl"
 						color="blue"
 						variant="light"
-						radius="xl"
-						size="xl"
 						disabled={selectedExercises.length === 0}
+						className={OnboardingTourStepTargets.AddSelectedExerciseToWorkout}
 						onClick={async () => {
-							await addExerciseToWorkout(
+							await addExerciseToCurrentWorkout(
 								navigate,
 								currentWorkout,
 								userPreferences.fitness,
 								setCurrentWorkout,
 								selectedExercises,
 							);
+							advanceOnboardingTourStep();
 						}}
 					>
 						<IconCheck size={32} />
@@ -402,6 +426,7 @@ const ExerciseItemDisplay = (props: {
 	const submit = useSubmit();
 	const navigate = useNavigate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { ref, inViewport } = useInViewport();
 	const { data: exercise } = useQuery({
 		...getExerciseDetailsQuery(props.exerciseId),
@@ -416,97 +441,110 @@ const ExerciseItemDisplay = (props: {
 	const numTimesInteracted =
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
+	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
 
-	return exercise && userExerciseDetails ? (
-		<Flex gap="lg" align="center">
-			{props.allowAddingExerciseToWorkout ? (
-				<Checkbox
-					onChange={(e) => {
-						if (e.currentTarget.checked)
-							props.setSelectedExercises.append({
-								name: props.exerciseId,
-								lot: exercise.lot,
-							});
-						else
-							props.setSelectedExercises.filter(
-								(item) => item.name !== props.exerciseId,
-							);
-					}}
-				/>
-			) : null}
-			<Indicator
-				size={16}
-				offset={8}
-				color="grape"
-				position="top-start"
-				disabled={!numTimesInteracted}
-				label={numTimesInteracted ?? ""}
-			>
-				<Avatar
-					size="lg"
-					radius="xl"
-					imageProps={{ loading: "lazy" }}
-					src={exercise.attributes.images[0]}
-				/>
-			</Indicator>
-			<Link
-				style={{ all: "unset", cursor: "pointer" }}
-				to={getExerciseDetailsPath(props.exerciseId)}
-				onClick={(e) => {
-					if (props.allowAddingExerciseToWorkout) return;
-					if (props.mergingExercise) {
-						e.preventDefault();
-						openConfirmationModal(
-							"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
-							() => {
-								const formData = new FormData();
-								if (props.mergingExercise)
-									formData.append("mergeFrom", props.mergingExercise);
-								formData.append("mergeInto", props.exerciseId);
-								props.setMergingExercise(null);
-								submit(formData, {
-									method: "POST",
-									action: withQuery(".", {
-										intent: "mergeExercise",
+	return (
+		<Box
+			data-exercise-id={props.exerciseId}
+			className={
+				isTourTargetExercise
+					? OnboardingTourStepTargets.SelectExercise
+					: undefined
+			}
+		>
+			{exercise && userExerciseDetails ? (
+				<Flex gap="lg" align="center">
+					{props.allowAddingExerciseToWorkout ? (
+						<Checkbox
+							onChange={(e) => {
+								if (e.currentTarget.checked) {
+									props.setSelectedExercises.append({
+										name: props.exerciseId,
+										lot: exercise.lot,
+									});
+									if (isTourTargetExercise) advanceOnboardingTourStep();
+								} else
+									props.setSelectedExercises.filter(
+										(item) => item.name !== props.exerciseId,
+									);
+							}}
+						/>
+					) : null}
+					<Indicator
+						size={16}
+						offset={8}
+						color="grape"
+						position="top-start"
+						disabled={!numTimesInteracted}
+						label={numTimesInteracted ?? ""}
+					>
+						<Avatar
+							size="lg"
+							radius="xl"
+							imageProps={{ loading: "lazy" }}
+							src={exercise.attributes.images[0]}
+						/>
+					</Indicator>
+					<Link
+						style={{ all: "unset", cursor: "pointer" }}
+						to={getExerciseDetailsPath(props.exerciseId)}
+						onClick={(e) => {
+							if (props.allowAddingExerciseToWorkout) return;
+							if (props.mergingExercise) {
+								e.preventDefault();
+								openConfirmationModal(
+									"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
+									() => {
+										const formData = new FormData();
+										if (props.mergingExercise)
+											formData.append("mergeFrom", props.mergingExercise);
+										formData.append("mergeInto", props.exerciseId);
+										props.setMergingExercise(null);
+										submit(formData, {
+											method: "POST",
+											action: withQuery(".", {
+												intent: "mergeExercise",
+											}),
+										});
+									},
+								);
+								return;
+							}
+							if (currentWorkout) {
+								e.preventDefault();
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
+										draft.exercises[
+											currentWorkout.replacingExerciseIdx
+										].exerciseId = props.exerciseId;
+										draft.replacingExerciseIdx = undefined;
 									}),
-								});
-							},
-						);
-						return;
-					}
-					if (currentWorkout) {
-						e.preventDefault();
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
-								draft.exercises[
-									currentWorkout.replacingExerciseIdx
-								].exerciseId = props.exerciseId;
-								draft.replacingExerciseIdx = undefined;
-							}),
-						);
-						navigate(-1);
-						return;
-					}
-				}}
-			>
-				<Flex direction="column" justify="space-around">
-					<Text>{exercise.name}</Text>
-					<Flex>
-						{firstMuscle ? (
-							<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
-						) : null}
-						{lastUpdatedOn ? (
-							<Text size="xs" c="dimmed">
-								{firstMuscle ? "," : null}{" "}
-								{dayjsLib(lastUpdatedOn).format("D MMM")}
-							</Text>
-						) : null}
-					</Flex>
+								);
+								navigate(-1);
+								return;
+							}
+						}}
+					>
+						<Flex direction="column" justify="space-around">
+							<Text>{exercise.name}</Text>
+							<Flex>
+								{firstMuscle ? (
+									<Text size="xs">{startCase(snakeCase(firstMuscle))}</Text>
+								) : null}
+								{lastUpdatedOn ? (
+									<Text size="xs" c="dimmed">
+										{firstMuscle ? "," : null}{" "}
+										{dayjsLib(lastUpdatedOn).format("D MMM")}
+									</Text>
+								) : null}
+							</Flex>
+						</Flex>
+					</Link>
 				</Flex>
-			</Link>
-		</Flex>
-	) : (
-		<Skeleton height={56} ref={ref} />
+			) : (
+				<Skeleton height={56} ref={ref} />
+			)}
+		</Box>
 	);
 };

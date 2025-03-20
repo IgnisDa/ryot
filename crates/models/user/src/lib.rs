@@ -1,5 +1,4 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::UserNotificationContent;
 use educe::Educe;
 use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
@@ -18,27 +17,6 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
     "Hulu",
     "Crunchyroll",
 ];
-
-#[derive(
-    Eq,
-    Educe,
-    Clone,
-    Debug,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[educe(Default)]
-#[graphql(input_name = "UserNotificationsPreferencesInput")]
-pub struct UserNotificationsPreferences {
-    #[educe(Default(expression = UserNotificationContent::iter().collect()))]
-    pub to_send: Vec<UserNotificationContent>,
-    #[educe(Default = true)]
-    pub enabled: bool,
-}
 
 #[derive(
     Eq,
@@ -427,6 +405,8 @@ pub struct UserGeneralWatchProvider {
 pub struct UserGeneralPreferences {
     #[educe(Default = true)]
     pub display_nsfw: bool,
+    #[educe(Default = "/")]
+    pub landing_path: String,
     #[educe(Default = false)]
     pub disable_videos: bool,
     #[educe(Default = false)]
@@ -494,7 +474,6 @@ pub struct UserGeneralPreferences {
 pub struct UserPreferences {
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
-    pub notifications: UserNotificationsPreferences,
     pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
@@ -536,7 +515,16 @@ pub enum NotificationPlatformSpecifics {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult, InputObject, Default,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    PartialEq,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 pub struct UserExtraInformation {
     pub scheduled_for_workout_revision: bool,

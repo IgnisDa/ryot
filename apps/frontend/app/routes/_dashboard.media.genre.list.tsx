@@ -39,8 +39,8 @@ import {
 	getPartialMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/generals";
-import { pageQueryParam } from "~/lib/generals";
+} from "~/lib/common";
+import { pageQueryParam } from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -48,7 +48,7 @@ import {
 	useGetRandomMantineColor,
 } from "~/lib/hooks";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -63,7 +63,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("genre.list", request);
+	const cookieName = await getSearchEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([

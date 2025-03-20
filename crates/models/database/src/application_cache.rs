@@ -7,6 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
+    pub sanitized_key: String,
     pub key: serde_json::Value,
     pub version: Option<String>,
     pub created_at: DateTimeUtc,

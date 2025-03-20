@@ -3,12 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails, StoredUrl};
-use common_utils::{convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES};
+use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
@@ -24,8 +24,8 @@ use media_models::{
     PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics, UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
-    header::{HeaderValue, AUTHORIZATION},
     Client,
+    header::{AUTHORIZATION, HeaderValue},
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

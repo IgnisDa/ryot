@@ -13,7 +13,7 @@ import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { clientGqlService } from "../generals";
+import { clientGqlService } from "../common";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -96,7 +96,9 @@ export const useBulkEditCollection = () => {
 								);
 								if (lot)
 									return clientGqlService
-										.request(UserMetadataListDocument, { input: { lot, take } })
+										.request(UserMetadataListDocument, {
+											input: { lot, search: { take } },
+										})
 										.then((r) =>
 											r.userMetadataList.response.items.map((m) => ({
 												entityId: m,

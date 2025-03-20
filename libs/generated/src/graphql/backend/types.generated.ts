@@ -1033,8 +1033,18 @@ export type MediaCollectionContentsResults = {
   items: Array<EntityWithLot>;
 };
 
+export type MediaCollectionFilter = {
+  collectionId: Scalars['String']['input'];
+  presence: MediaCollectionPresenceFilter;
+};
+
+export enum MediaCollectionPresenceFilter {
+  NotPresentIn = 'NOT_PRESENT_IN',
+  PresentIn = 'PRESENT_IN'
+}
+
 export type MediaFilter = {
-  collections?: InputMaybe<Array<Scalars['String']['input']>>;
+  collections?: InputMaybe<Array<MediaCollectionFilter>>;
   dateRange?: InputMaybe<ApplicationDateRangeInput>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
@@ -1306,8 +1316,6 @@ export type MutationRoot = {
   loginUser: LoginResult;
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
-  /** Mark user notifications as addressed. */
-  markNotificationsAsAddressed: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
   mergeExercise: Scalars['Boolean']['output'];
   /**
@@ -1526,11 +1534,6 @@ export type MutationRootMarkEntityAsPartialArgs = {
 };
 
 
-export type MutationRootMarkNotificationsAsAddressedArgs = {
-  notificationIds: Array<Scalars['String']['input']>;
-};
-
-
 export type MutationRootMergeExerciseArgs = {
   mergeFrom: Scalars['String']['input'];
   mergeInto: Scalars['String']['input'];
@@ -1614,6 +1617,7 @@ export type MutationRootUpdateUserWorkoutAttributesArgs = {
 
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
+  configuredEvents: Array<UserNotificationContent>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -1843,8 +1847,6 @@ export type QueryRoot = {
   getOidcToken: OidcTokenOutput;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
-  /** Get all the import jobs deployed by the user. */
-  importReports: Array<ImportReport>;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -1879,6 +1881,8 @@ export type QueryRoot = {
   userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
+  /** Get all the import jobs deployed by the user. */
+  userImportReports: Array<ImportReport>;
   /** Get all the integrations for the currently logged in user. */
   userIntegrations: Array<Integration>;
   /** Get all the measurements for a user. */
@@ -1895,8 +1899,6 @@ export type QueryRoot = {
   userMetadataRecommendations: CachedUserMetadataRecommendationsResponse;
   /** Get all the notification platforms for the currently logged in user. */
   userNotificationPlatforms: Array<NotificationPlatform>;
-  /** Get all pending display notifications for the currently logged in user. */
-  userPendingNotifications: Array<UserNotification>;
   /** Get paginated list of people. */
   userPeopleList: CachedSearchIdResponse;
   /** Get details that can be displayed to a user for a creator. */
@@ -2333,6 +2335,7 @@ export type UpdateUserIntegrationInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
+  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2346,6 +2349,7 @@ export type UpdateUserWorkoutAttributesInput = {
 export type User = {
   __typename?: 'User';
   createdOn: Scalars['DateTime']['output'];
+  extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
   lot: UserLot;
@@ -2425,6 +2429,11 @@ export type UserExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
   search: SearchInput;
   sortBy?: InputMaybe<ExerciseSortBy>;
+};
+
+export type UserExtraInformation = {
+  __typename?: 'UserExtraInformation';
+  scheduledForWorkoutRevision: Scalars['Boolean']['output'];
 };
 
 export type UserFeaturesEnabledPreferences = {
@@ -2548,6 +2557,7 @@ export type UserGeneralPreferences = {
   disableWatchProviders: Scalars['Boolean']['output'];
   displayNsfw: Scalars['Boolean']['output'];
   gridPacking: GridPacking;
+  landingPath: Scalars['String']['output'];
   persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['output'];
@@ -2563,6 +2573,7 @@ export type UserGeneralPreferencesInput = {
   disableWatchProviders: Scalars['Boolean']['input'];
   displayNsfw: Scalars['Boolean']['input'];
   gridPacking: GridPacking;
+  landingPath: Scalars['String']['input'];
   persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['input'];
@@ -2762,14 +2773,14 @@ export type UserMetadataDetails = {
   history: Array<Seen>;
   /** The seen item if it is in progress. */
   inProgress?: Maybe<Seen>;
+  /** Whether this media has been recently interacted with */
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   /** The reasons why this metadata is related to this user */
   mediaReason?: Maybe<Array<UserToMediaReason>>;
   /** The next episode/chapter of this media. */
   nextEntry?: Maybe<UserMediaNextEntry>;
   /** The seen progress of this media if it is a podcast. */
   podcastProgress?: Maybe<Array<UserMetadataDetailsEpisodeProgress>>;
-  /** Whether this media has been recently interacted with */
-  recentlyConsumed: Scalars['Boolean']['output'];
   /** The public reviews of this media. */
   reviews: Array<ReviewItem>;
   /** The number of users who have seen this media. */
@@ -2796,30 +2807,21 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   collections: Array<Collection>;
-  recentlyConsumed: Scalars['Boolean']['output'];
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
 export type UserMetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };
 
 export type UserMetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
-};
-
-export type UserNotification = {
-  __typename?: 'UserNotification';
-  createdOn: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  message: Scalars['String']['output'];
 };
 
 export enum UserNotificationContent {
@@ -2833,22 +2835,12 @@ export enum UserNotificationContent {
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
   MetadataStatusChanged = 'METADATA_STATUS_CHANGED',
   NewWorkoutCreated = 'NEW_WORKOUT_CREATED',
+  NotificationFromReminderCollection = 'NOTIFICATION_FROM_REMINDER_COLLECTION',
   OutdatedSeenEntries = 'OUTDATED_SEEN_ENTRIES',
   PersonMetadataAssociated = 'PERSON_METADATA_ASSOCIATED',
   PersonMetadataGroupAssociated = 'PERSON_METADATA_GROUP_ASSOCIATED',
   ReviewPosted = 'REVIEW_POSTED'
 }
-
-export type UserNotificationsPreferences = {
-  __typename?: 'UserNotificationsPreferences';
-  enabled: Scalars['Boolean']['output'];
-  toSend: Array<UserNotificationContent>;
-};
-
-export type UserNotificationsPreferencesInput = {
-  enabled: Scalars['Boolean']['input'];
-  toSend: Array<UserNotificationContent>;
-};
 
 export type UserOthersFeaturesEnabledPreferences = {
   __typename?: 'UserOthersFeaturesEnabledPreferences';
@@ -2863,7 +2855,6 @@ export type UserOthersFeaturesEnabledPreferencesInput = {
 
 export type UserPeopleListInput = {
   filter?: InputMaybe<MediaFilter>;
-  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };
@@ -2871,7 +2862,7 @@ export type UserPeopleListInput = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   collections: Array<Collection>;
-  recentlyConsumed: Scalars['Boolean']['output'];
+  isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
 
@@ -2880,14 +2871,12 @@ export type UserPreferences = {
   featuresEnabled: UserFeaturesEnabledPreferences;
   fitness: UserFitnessPreferences;
   general: UserGeneralPreferences;
-  notifications: UserNotificationsPreferences;
 };
 
 export type UserPreferencesInput = {
   featuresEnabled: UserFeaturesEnabledPreferencesInput;
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
-  notifications: UserNotificationsPreferencesInput;
 };
 
 export enum UserReviewScale {

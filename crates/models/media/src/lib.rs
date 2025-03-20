@@ -10,11 +10,11 @@ use common_models::{
 use common_utils::deserialize_date;
 use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
-    SeenState, Visibility,
+    SeenState, UserNotificationContent, Visibility,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{EnumIter, FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -732,8 +732,8 @@ pub struct SeenMangaExtraInformation {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReviewPostedEvent {
     pub obj_id: String,
-    pub obj_title: String,
     pub username: String,
+    pub obj_title: String,
     pub review_id: String,
     pub entity_lot: EntityLot,
 }
@@ -752,7 +752,6 @@ pub struct PartialMetadata {
     pub identifier: String,
     pub source: MediaSource,
     pub image: Option<String>,
-    pub is_recommendation: Option<bool>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
@@ -1053,6 +1052,7 @@ pub struct CreateUserNotificationPlatformInput {
 pub struct UpdateUserNotificationPlatformInput {
     pub notification_id: String,
     pub is_disabled: Option<bool>,
+    pub configured_events: Option<Vec<UserNotificationContent>>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1304,11 +1304,24 @@ pub enum MediaGeneralFilter {
     Unfinished,
 }
 
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+pub enum MediaCollectionPresenceFilter {
+    #[default]
+    PresentIn,
+    NotPresentIn,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct MediaCollectionFilter {
+    pub collection_id: String,
+    pub presence: MediaCollectionPresenceFilter,
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaFilter {
-    pub collections: Option<Vec<String>>,
     pub general: Option<MediaGeneralFilter>,
     pub date_range: Option<ApplicationDateRange>,
+    pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

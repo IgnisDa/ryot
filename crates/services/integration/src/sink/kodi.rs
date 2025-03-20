@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
@@ -14,7 +14,7 @@ struct IntegrationMediaSeen {
     show_episode_number: Option<i32>,
 }
 
-pub async fn yank_progress(payload: String) -> Result<ImportResult> {
+pub async fn sink_progress(payload: String) -> Result<ImportResult> {
     let payload = match serde_json::from_str::<IntegrationMediaSeen>(&payload) {
         Ok(val) => val,
         Err(err) => bail!(err),

@@ -8,17 +8,19 @@ import {
 	MediaLot,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
+	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils";
-import { IconBackpack, IconInfoCircle } from "@tabler/icons-react";
+import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import { useLoaderData } from "react-router";
+import { redirect, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { z } from "zod";
 import {
 	ApplicationGrid,
 	DisplaySummarySection,
@@ -27,8 +29,15 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
+import { dayjsLib } from "~/lib/common";
+import {
+	useCoreDetails,
+	useIsMobile,
+	useIsOnboardingTourCompleted,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
+import { useOnboardingTour } from "~/lib/state/general";
 import {
 	getUserCollectionsList,
 	getUserPreferences,
@@ -36,8 +45,25 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
 
+const searchParamsSchema = z.object({
+	ignoreLandingPath: zodBoolAsString.optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+const redirectToLandingPath = (
+	request: Request,
+	preferences: UserPreferences,
+) => {
+	const query = parseSearchQuery(request, searchParamsSchema);
+	const landingPath = preferences.general.landingPath;
+	if (landingPath === "/" || query.ignoreLandingPath) return;
+	throw redirect(landingPath);
+};
+
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
+	redirectToLandingPath(request, preferences);
 	const getTake = (el: DashboardElementLot) => {
 		const t = preferences.general.dashboard.find(
 			(de) => de.section === el,
@@ -98,46 +124,48 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
+	const { startOnboardingTour } = useOnboardingTour();
+	const isMobile = useIsMobile();
+	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
-		`AlertDismissed-${CryptoJS.SHA256(dashboardMessage)}`,
+		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
 		"false",
 	);
-
-	const isDashboardEmpty =
-		loaderData.userUpcomingCalendarEvents.length +
-			loaderData.inProgressCollectionContents.response.results.items.length +
-			loaderData.userMetadataRecommendations.response.length +
-			Number(Boolean(latestUserSummary)) ===
-		0;
 
 	return (
 		<Container>
 			<Stack gap={32}>
 				<ClientOnly>
-					{() =>
-						dashboardMessage && isAlertDismissed === "false" ? (
-							<Alert
-								withCloseButton
-								variant="default"
-								icon={<IconInfoCircle />}
-								onClose={() => setIsAlertDismissed("true")}
-							>
-								{dashboardMessage}
-							</Alert>
-						) : null
-					}
+					{() => (
+						<>
+							{dashboardMessage && isAlertDismissed === "false" ? (
+								<Alert
+									withCloseButton
+									variant="default"
+									icon={<IconInfoCircle />}
+									onClose={() => setIsAlertDismissed("true")}
+								>
+									{dashboardMessage}
+								</Alert>
+							) : null}
+							{!isOnboardingTourCompleted && !isMobile ? (
+								<Alert
+									variant="filled"
+									icon={<IconPlayerPlay />}
+									style={{ cursor: "pointer" }}
+									onClick={startOnboardingTour}
+								>
+									Welcome to Ryot! Click here to start your onboarding tour.
+								</Alert>
+							) : null}
+						</>
+					)}
 				</ClientOnly>
-				{isDashboardEmpty ? (
-					<Alert icon={<IconBackpack />}>
-						Start by marking a few movies as watched by: clicking on the Media
-						section in the sidebar, selecting Movie, opening the search tab and
-						then typing your favorite movie!
-					</Alert>
-				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
@@ -152,14 +180,14 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
-							loaderData.inProgressCollectionContents.response.results.items
-								.length > 0 ? (
-								<Section key={v} lot={v}>
-									<SectionTitleWithRefreshIcon
-										text="In Progress"
-										cacheId={loaderData.inProgressCollectionContents.cacheId}
-									/>
+						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitleWithRefreshIcon
+									text="In Progress"
+									cacheId={loaderData.inProgressCollectionContents.cacheId}
+								/>
+								{loaderData.inProgressCollectionContents.response.results.items
+									.length > 0 ? (
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.response.results.items.map(
 											(lm) => (
@@ -171,9 +199,11 @@ export default function Page() {
 											),
 										)}
 									</ApplicationGrid>
-								</Section>
-							) : null,
-						)
+								) : (
+									<Text c="dimmed">No media in progress.</Text>
+								)}
+							</Section>
+						))
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
@@ -194,20 +224,25 @@ export default function Page() {
 								)}
 								{loaderData.userMetadataRecommendations.response.length ===
 								0 ? (
-									<Text c="dimmed">No recommendations available</Text>
+									<Text c="dimmed">No recommendations available.</Text>
 								) : null}
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], ([v, _]) =>
-							latestUserSummary ? (
-								<Section key={v} lot={v}>
-									<SectionTitle text="Summary" />
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Summary" />
+								{latestUserSummary ? (
 									<DisplaySummarySection
 										latestUserSummary={latestUserSummary}
 									/>
-								</Section>
-							) : null,
-						)
+								) : (
+									<Text c="dimmed">
+										No summary available. Please add some media to your watched
+										history.
+									</Text>
+								)}
+							</Section>
+						))
 						.otherwise(() => undefined),
 				)}
 			</Stack>

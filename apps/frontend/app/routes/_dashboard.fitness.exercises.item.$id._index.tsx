@@ -63,7 +63,6 @@ import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
@@ -79,7 +78,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	getDateFromTimeSpan,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,
@@ -88,7 +87,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	addExerciseToWorkout,
+	addExerciseToCurrentWorkout,
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
@@ -663,7 +662,7 @@ export default function Page() {
 							radius="xl"
 							size="xl"
 							onClick={async () => {
-								await addExerciseToWorkout(
+								await addExerciseToCurrentWorkout(
 									navigate,
 									currentWorkout,
 									userPreferences.fitness,
@@ -758,13 +757,10 @@ const DisplayPersonalBest = (props: {
 				<Text size="sm">{dayjsLib(data.details.endTime).format("ll")}</Text>
 				<Anchor
 					component={Link}
-					to={withFragment(
-						$path("/fitness/:entity/:id", {
-							entity: "workouts",
-							id: props.set.workoutId,
-						}),
-						props.set.exerciseIdx.toString(),
-					)}
+					to={$path("/fitness/:entity/:id", {
+						entity: "workouts",
+						id: props.set.workoutId,
+					})}
 					fw="bold"
 				>
 					<IconExternalLink size={16} />

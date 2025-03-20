@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use common_models::StringIdObject;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
@@ -89,7 +89,7 @@ fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
     }
 }
 
-pub async fn yank_progress(
+pub async fn sink_progress(
     payload: String,
     db: &DatabaseConnection,
     plex_user: Option<String>,

@@ -1,4 +1,3 @@
-import type Umami from "@bitprojects/umami-logger-typescript";
 import {
 	createQueryKeys,
 	mergeQueryKeys,
@@ -6,6 +5,8 @@ import {
 import { type MantineColor, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
+	type MediaCollectionFilter,
+	type MediaCollectionPresenceFilter,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -43,9 +44,7 @@ import { z } from "zod";
 
 declare global {
 	interface Window {
-		umami?: {
-			track: typeof Umami.trackEvent;
-		};
+		umami?: { track: (eventName: string, eventData: unknown) => void };
 	}
 }
 
@@ -71,6 +70,20 @@ export const zodEmptyDecimalString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
 	.nullable();
+
+export const zodCollectionFilter = zodCommaDelimitedString.transform(
+	(v) =>
+		(v || [])
+			.map((s) => {
+				const [collectionId, presence] = s.split(":");
+				if (!collectionId || !presence) return undefined;
+				return {
+					collectionId,
+					presence: presence as MediaCollectionPresenceFilter,
+				};
+			})
+			.filter(Boolean) as MediaCollectionFilter[],
+);
 
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
@@ -159,6 +172,8 @@ export const convertDecimalToThreePointSmiley = (rating: number) =>
 		: inRange(rating, 33.4, 66.8)
 			? ThreePointSmileyRating.Neutral
 			: ThreePointSmileyRating.Happy;
+
+export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
 
 export const reviewYellow = "#EBE600FF";
 

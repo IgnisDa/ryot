@@ -14,7 +14,6 @@ import {
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
-	MediaLot,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -23,6 +22,7 @@ import {
 	parseSearchQuery,
 	processSubmission,
 	startCase,
+	zodBoolAsString,
 	zodNumAsString,
 } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
@@ -39,10 +39,9 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/common";
 import {
 	createToastHeaders,
-	getAuthorizationCookie,
 	getCookiesForApplication,
 	getCoreDetails,
 	redirectWithToast,
@@ -51,30 +50,29 @@ import {
 import type { Route } from "./+types/auth";
 
 const searchParamsSchema = z.object({
+	autoOidcLaunch: zodBoolAsString.optional(),
 	intent: z.enum(["login", "register"]).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
+const getOidcRedirectUrl = () =>
+	serverGqlService
+		.request(GetOidcRedirectUrlDocument)
+		.then(({ getOidcRedirectUrl }) => getOidcRedirectUrl);
+
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const isAuthenticated = !!getAuthorizationCookie(request);
-	if (isAuthenticated) {
-		throw await redirectWithToast(
-			$path(
-				"/media/:action/:lot",
-				{ action: "search", lot: MediaLot.Movie },
-				{ query: "avengers" },
-			),
-			{
-				message:
-					"Welcome to Ryot! Get started by adding a movie to your watchlist!",
-				closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
-			},
-		);
-	}
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
+	if (
+		(coreDetails.oidcEnabled || true) &&
+		coreDetails.localAuthDisabled &&
+		query.autoOidcLaunch === true
+	) {
+		const url = await getOidcRedirectUrl();
+		return redirect(url);
+	}
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
@@ -147,11 +145,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			if (loginUser.__typename === "LoginResponse") {
 				const headers = await getCookiesForApplication(loginUser.apiKey);
-				if (submission[redirectToQueryParam])
-					return redirect(safeRedirect(submission[redirectToQueryParam]), {
-						headers,
-					});
-				return Response.json({}, { headers });
+				const redirectTo = submission[redirectToQueryParam];
+				return redirect(
+					redirectTo
+						? safeRedirect(submission[redirectToQueryParam])
+						: $path("/"),
+					{ headers },
+				);
 			}
 			const message = match(loginUser.error)
 				.with(
@@ -173,10 +173,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("getOidcRedirectUrl", async () => {
-			const { getOidcRedirectUrl } = await serverGqlService.request(
-				GetOidcRedirectUrlDocument,
-			);
-			return redirect(getOidcRedirectUrl);
+			const url = await getOidcRedirectUrl();
+			return redirect(url);
 		})
 		.run();
 };

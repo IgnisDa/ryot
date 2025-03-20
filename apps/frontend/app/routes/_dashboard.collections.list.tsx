@@ -71,7 +71,7 @@ import {
 	queryClient,
 	queryFactory,
 	zodCommaDelimitedString,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -82,7 +82,7 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	getUserCollectionsListRaw,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -90,7 +90,10 @@ import {
 import type { Route } from "./+types/_dashboard.collections.list";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getEnhancedCookieName("collections.list", request);
+	const cookieName = await getSearchEnhancedCookieName(
+		"collections.list",
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ usersList }, userCollectionsList] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
@@ -209,8 +212,14 @@ export default function Page() {
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput | null>(null);
 	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
+
 	const query = params.get("query") || undefined;
 	const showHidden = Boolean(params.get("showHidden"));
+	const hasHiddenCollections = collections.some(
+		(c) =>
+			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
+				?.extraInformation?.isHidden,
+	);
 
 	useEffect(() => {
 		if (transition.state !== "submitting") setToUpdateCollection(null);
@@ -259,13 +268,17 @@ export default function Page() {
 						initialValue={query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
-					<Checkbox
-						size="xs"
-						name="showHidden"
-						label="Show hidden"
-						defaultChecked={showHidden}
-						onChange={(e) => setP("showHidden", e.target.checked ? "yes" : "")}
-					/>
+					{hasHiddenCollections ? (
+						<Checkbox
+							size="xs"
+							name="showHidden"
+							label="Show hidden"
+							defaultChecked={showHidden}
+							onChange={(e) =>
+								setP("showHidden", e.target.checked ? "yes" : "")
+							}
+						/>
+					) : null}
 				</Group>
 				<Virtuoso
 					style={{ height: "80vh" }}

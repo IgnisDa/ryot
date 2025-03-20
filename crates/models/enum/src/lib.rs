@@ -1,5 +1,5 @@
 use async_graphql::Enum;
-use enum_meta::{meta, Meta};
+use enum_meta::{Meta, meta};
 use schematic::ConfigEnum;
 use sea_orm::{DeriveActiveEnum, EnumIter, FromJsonQueryResult};
 use sea_orm_migration::prelude::*;
@@ -141,19 +141,6 @@ meta! {
 pub enum UserLot {
     Admin,
     Normal,
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
-)]
-#[sea_orm(
-    rs_type = "String",
-    rename_all = "snake_case",
-    db_type = "String(StringLen::None)"
-)]
-pub enum UserNotificationLot {
-    Queued,
-    Display,
 }
 
 #[derive(
@@ -691,4 +678,40 @@ pub enum NotificationPlatformLot {
     Telegram,
     PushSafer,
     PushBullet,
+}
+
+#[derive(
+    Eq,
+    Enum,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    DeriveActiveEnum,
+)]
+#[sea_orm(
+    rs_type = "String",
+    rename_all = "PascalCase",
+    db_type = "String(StringLen::None)"
+)]
+pub enum UserNotificationContent {
+    ReviewPosted,
+    MetadataPublished,
+    NewWorkoutCreated,
+    OutdatedSeenEntries,
+    MetadataStatusChanged,
+    MetadataEpisodeReleased,
+    PersonMetadataAssociated,
+    MetadataReleaseDateChanged,
+    MetadataEpisodeNameChanged,
+    MetadataEpisodeImagesChanged,
+    PersonMetadataGroupAssociated,
+    MetadataNumberOfSeasonsChanged,
+    MetadataChaptersOrEpisodesChanged,
+    NotificationFromReminderCollection,
+    IntegrationDisabledDueToTooManyErrors,
 }

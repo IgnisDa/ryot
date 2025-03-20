@@ -3,6 +3,7 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Collapse,
 	Container,
 	Flex,
 	Group,
@@ -11,18 +12,20 @@ import {
 	Paper,
 	Select,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
 	NotificationPlatformLot,
 	TestUserNotificationPlatformsDocument,
 	UpdateUserNotificationPlatformDocument,
+	UserNotificationContent,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -30,20 +33,19 @@ import {
 	changeCase,
 	getActionIntent,
 	processSubmission,
-	zodBoolAsString,
+	zodCheckboxAsString,
 } from "@ryot/ts-utils";
-import {
-	IconPlayerPause,
-	IconPlayerPlay,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { Form, Link, useLoaderData } from "react-router";
-import { $path } from "safe-routes";
+import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib, openConfirmationModal } from "~/lib/generals";
+import {
+	dayjsLib,
+	openConfirmationModal,
+	zodCommaDelimitedString,
+} from "~/lib/common";
 import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.notifications";
@@ -137,7 +139,10 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
 	notificationId: z.string(),
-	isDisabled: zodBoolAsString.optional(),
+	isDisabled: zodCheckboxAsString,
+	configuredEvents: zodCommaDelimitedString.transform(
+		(v) => v as UserNotificationContent[],
+	),
 });
 
 export default function Page() {
@@ -294,18 +299,6 @@ export default function Page() {
 							</Button>
 						</Group>
 					</Flex>
-					<Text size="xs" ta="right">
-						For more settings, please visit the{" "}
-						<Anchor
-							component={Link}
-							to={$path("/settings/preferences", {
-								defaultTab: "notifications",
-							})}
-						>
-							notification preferences
-						</Anchor>
-						.
-					</Text>
 				</Stack>
 			</Container>
 		</>
@@ -316,68 +309,195 @@ const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
 	const submit = useConfirmSubmit();
+	const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
+		useDisclosure(false);
+	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] =
+		useDisclosure(false);
+	const [configuredEvents, configuredEventsHandler] =
+		useListState<UserNotificationContent>(props.notification.configuredEvents);
 
 	return (
-		<Paper p="xs" withBorder>
-			<Flex align="center" justify="space-between">
-				<Box w="80%">
-					<Text size="sm" truncate>
-						<Text span fw="bold">
-							{changeCase(props.notification.lot)}:
-						</Text>{" "}
-						<Text span>{props.notification.description}</Text>
-					</Text>
-					<Text size="xs">
-						Created: {dayjsLib(props.notification.createdOn).fromNow()}
-					</Text>
-				</Box>
-				<Group>
-					<Form method="POST" action={withQuery(".", { intent: "update" })}>
-						<ActionIcon color="indigo" variant="subtle" type="submit">
-							{props.notification.isDisabled ? (
-								<IconPlayerPlay />
-							) : (
-								<IconPlayerPause />
-							)}
-							<input
-								hidden
-								name="notificationId"
-								defaultValue={props.notification.id}
-							/>
-							<input
-								hidden
-								readOnly
-								name="isDisabled"
-								value={props.notification.isDisabled ? "false" : "true"}
-							/>
+		<>
+			<Modal
+				centered
+				opened={editModalOpened}
+				onClose={closeEditModal}
+				title="Edit Notification"
+			>
+				<Form method="POST" action={withQuery(".", { intent: "update" })}>
+					<input
+						hidden
+						name="notificationId"
+						defaultValue={props.notification.id}
+					/>
+					<input
+						hidden
+						name="configuredEvents"
+						value={configuredEvents.join(",")}
+					/>
+					<Stack>
+						<Switch
+							name="isDisabled"
+							label="Disable notification"
+							defaultChecked={props.notification.isDisabled ?? false}
+						/>
+						<Flex justify="end">
+							<Anchor c="blue" size="xs" onClick={toggleAdvancedSettings}>
+								{isAdvancedSettingsOpen ? "Hide" : "Show"} advanced settings
+							</Anchor>
+						</Flex>
+						<Collapse in={isAdvancedSettingsOpen}>
+							<Stack gap="xs">
+								{Object.values(UserNotificationContent).map((name) => (
+									<Switch
+										size="xs"
+										key={name}
+										defaultChecked={props.notification.configuredEvents.includes(
+											name,
+										)}
+										onChange={(value) => {
+											const checked = value.target.checked;
+											if (checked) configuredEventsHandler.append(name);
+											else
+												configuredEventsHandler.filter(
+													(event) => event !== name,
+												);
+										}}
+										label={match(name)
+											.with(
+												UserNotificationContent.OutdatedSeenEntries,
+												() => "Media has been in progress/on hold for too long",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeNameChanged,
+												() => "Name of an episode changes",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeImagesChanged,
+												() => "Images for an episode changes",
+											)
+											.with(
+												UserNotificationContent.MetadataEpisodeReleased,
+												() => "Number of episodes changes",
+											)
+											.with(
+												UserNotificationContent.MetadataPublished,
+
+												() => "A media is published",
+											)
+											.with(
+												UserNotificationContent.MetadataStatusChanged,
+												() => "Status changes",
+											)
+											.with(
+												UserNotificationContent.MetadataReleaseDateChanged,
+												() => "Release date changes",
+											)
+											.with(
+												UserNotificationContent.MetadataNumberOfSeasonsChanged,
+												() => "Number of seasons changes",
+											)
+											.with(
+												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
+												() =>
+													"Number of chapters/episodes changes for manga/anime",
+											)
+											.with(
+												UserNotificationContent.ReviewPosted,
+												() =>
+													"A new public review is posted for media/people you monitor",
+											)
+											.with(
+												UserNotificationContent.PersonMetadataAssociated,
+												() => "New media is associated with a person",
+											)
+											.with(
+												UserNotificationContent.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
+											.with(
+												UserNotificationContent.NotificationFromReminderCollection,
+												() =>
+													"When an item is added to the reminder collection",
+											)
+											.with(
+												UserNotificationContent.NewWorkoutCreated,
+												() => "A new workout is created",
+											)
+											.with(
+												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
+												() => "Integration disabled due to too many errors",
+											)
+											.exhaustive()}
+									/>
+								))}
+							</Stack>
+						</Collapse>
+						<Button type="submit" onClick={closeEditModal}>
+							Save
+						</Button>
+					</Stack>
+				</Form>
+			</Modal>
+			<Paper p="xs" withBorder>
+				<Flex align="center" justify="space-between">
+					<Box w="80%">
+						<Text size="sm" truncate>
+							<Text span fw="bold">
+								{changeCase(props.notification.lot)}:
+							</Text>{" "}
+							<Text span>{props.notification.description}</Text>
+						</Text>
+						<Text size="xs">
+							{[
+								`Created: ${dayjsLib(props.notification.createdOn).fromNow()}`,
+								props.notification.isDisabled && "Disabled",
+								props.notification.configuredEvents.length > 0 &&
+									`${props.notification.configuredEvents.length} events`,
+							]
+								.filter(Boolean)
+								.join(" • ")}
+						</Text>
+					</Box>
+					<Flex wrap="nowrap" gap={{ base: 2, md: "md" }} align="center">
+						<ActionIcon color="indigo" variant="subtle" onClick={openEditModal}>
+							<IconPencil />
 						</ActionIcon>
-					</Form>
-					<Tooltip label="Delete">
-						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
-							<input
-								hidden
-								name="notificationId"
-								defaultValue={props.notification.id}
-							/>
-							<ActionIcon
-								type="submit"
-								color="red"
-								variant="subtle"
-								onClick={(e) => {
-									const form = e.currentTarget.form;
-									e.preventDefault();
-									openConfirmationModal(
-										"Are you sure you want to delete this notification platform?",
-										() => submit(form),
-									);
+						<Tooltip label="Delete">
+							<Form
+								method="POST"
+								action={withQuery(".", { intent: "delete" })}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
 								}}
 							>
-								<IconTrash />
-							</ActionIcon>
-						</Form>
-					</Tooltip>
-				</Group>
-			</Flex>
-		</Paper>
+								<input
+									hidden
+									name="notificationId"
+									defaultValue={props.notification.id}
+								/>
+								<ActionIcon
+									type="submit"
+									color="red"
+									variant="subtle"
+									onClick={(e) => {
+										const form = e.currentTarget.form;
+										e.preventDefault();
+										openConfirmationModal(
+											"Are you sure you want to delete this notification platform?",
+											() => submit(form),
+										);
+									}}
+								>
+									<IconTrash />
+								</ActionIcon>
+							</Form>
+						</Tooltip>
+					</Flex>
+				</Flex>
+			</Paper>
+		</>
 	);
 };

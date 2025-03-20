@@ -23,7 +23,6 @@ import { atomWithStorage } from "jotai/utils";
 import type { NavigateFunction } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
 	CURRENT_WORKOUT_KEY,
@@ -33,11 +32,12 @@ import {
 	getTimeOfDay,
 	queryClient,
 	queryFactory,
-} from "~/lib/generals";
+} from "~/lib/common";
 import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	lot: SetLot;
+	identifier: string;
 	rpe?: number | null;
 	restTimerStartedAt?: string;
 	statistic: WorkoutSetStatistic;
@@ -187,6 +187,7 @@ export const convertHistorySetToCurrentSet = (
 		lot: set.lot,
 		rpe: set.rpe,
 		note: set.note,
+		identifier: randomUUID(),
 		statistic: set.statistic,
 		confirmedAt: confirmedAt ?? null,
 		restTimer: set.restTime ? { duration: set.restTime } : null,
@@ -262,7 +263,7 @@ export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
+	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
@@ -314,7 +315,7 @@ export const duplicateOldWorkout = async (
 	inProgress.updateWorkoutId = params.updateWorkoutId;
 	inProgress.comment = workoutInformation.comment || undefined;
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
-	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
+	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
 			convertHistorySetToCurrentSet(
 				v,
@@ -323,17 +324,15 @@ export const duplicateOldWorkout = async (
 		);
 		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
-			identifier: randomUUID(),
-			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing
-				? exerciseIdx === 0
-				: false,
 			images: [],
 			videos: [],
-			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
-			exerciseId: ex.id,
+			sets: sets,
 			lot: ex.lot,
 			notes: ex.notes,
-			sets: sets,
+			exerciseId: ex.id,
+			identifier: randomUUID(),
+			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
+			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 			openedDetailsTab: !coreDetails.isServerKeyValidated
 				? "images"
 				: (exerciseDetails.userDetails.history?.length || 0) > 0
@@ -376,7 +375,7 @@ export const getRestTimerForSet = async (
 	return restTime;
 };
 
-export const addExerciseToWorkout = async (
+export const addExerciseToCurrentWorkout = async (
 	navigate: NavigateFunction,
 	currentWorkout: InProgressWorkout,
 	userFitnessPreferences: UserFitnessPreferences,
@@ -384,7 +383,6 @@ export const addExerciseToWorkout = async (
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {
 	const draft = createDraft(currentWorkout);
-	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		const setLot = SetLot.Normal;
@@ -398,6 +396,7 @@ export const addExerciseToWorkout = async (
 				lot: setLot,
 				statistic: {},
 				confirmedAt: null,
+				identifier: randomUUID(),
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];
@@ -428,12 +427,5 @@ export const addExerciseToWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
-	navigate(
-		withFragment(
-			$path("/fitness/:action", {
-				action: currentWorkout.currentAction,
-			}),
-			idxOfNextExercise.toString(),
-		),
-	);
+	navigate($path("/fitness/:action", { action: currentWorkout.currentAction }));
 };

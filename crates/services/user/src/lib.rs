@@ -8,21 +8,21 @@ use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User, UserNotification},
-    user, user_notification,
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
+    user, user_to_entity,
 };
 use database_utils::{
-    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, ilike_sql,
-    revoke_access_link, server_key_validation_guard, user_by_id,
+    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, get_user_query,
+    ilike_sql, revoke_access_link, server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, UserDetailsResult,
-    UserMetadataRecommendationsResponse,
+    ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
+    UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::{create_or_update_collection, get_pending_notifications_for_user};
+use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::{
-    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationLot,
+    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationContent,
 };
 use itertools::Itertools;
 use jwt_service::sign;
@@ -38,16 +38,16 @@ use media_models::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
-    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreResponseType},
     AccessTokenHash, AuthenticationFlow, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
     IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
+    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreResponseType},
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, Iterable, JoinType,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
-    sea_query::{extension::postgres::PgExpr, Func},
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    sea_query::{Func, extension::postgres::PgExpr},
 };
 use supporting_service::SupportingService;
 use user_models::{
@@ -81,6 +81,14 @@ impl UserService {
                 response: recommendations,
             });
         };
+        let (_, calculated_recommendations) = self
+            .0
+            .cache_service
+            .get_value::<ApplicationRecommendations>(
+                ApplicationCacheKey::ApplicationRecommendations,
+            )
+            .await
+            .unwrap_or_default();
         let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let limit = preferences
             .general
@@ -102,17 +110,32 @@ impl UserService {
             }
             ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
             let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
+            let cloned_user_id = user_id.clone();
             let rec = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
                 .filter(metadata::Column::Lot.eq(*selected_lot))
-                .filter(metadata::Column::IsRecommendation.eq(true))
-                .order_by(
-                    Expr::expr(Func::md5(
-                        Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
-                    )),
-                    Order::Desc,
+                .join(
+                    JoinType::LeftJoin,
+                    metadata::Relation::UserToEntity
+                        .def()
+                        .on_condition(move |_left, right| {
+                            Condition::all().add(
+                                Expr::col((right, user_to_entity::Column::UserId))
+                                    .eq(cloned_user_id.clone()),
+                            )
+                        }),
                 )
+                .filter(user_to_entity::Column::Id.is_null())
+                .apply_if(
+                    (calculated_recommendations.len() > 0).then_some(0),
+                    |query, _| {
+                        query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
+                    },
+                )
+                .order_by_desc(Expr::expr(Func::md5(
+                    Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
+                )))
                 .into_tuple::<String>()
                 .one(&self.0.db)
                 .await?;
@@ -170,7 +193,7 @@ impl UserService {
         let maybe_link = match input {
             ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&self.0.db).await?,
             ProcessAccessLinkInput::Username(username) => {
-                let user = User::find()
+                let user = get_user_query()
                     .filter(user::Column::Name.eq(username))
                     .one(&self.0.db)
                     .await?;
@@ -190,7 +213,7 @@ impl UserService {
             None => {
                 return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
                     error: ProcessAccessLinkErrorVariant::NotFound,
-                }))
+                }));
             }
             Some(l) => l,
         };
@@ -610,8 +633,9 @@ impl UserService {
         let notification = notification_platform::ActiveModel {
             lot: ActiveValue::Set(input.lot),
             user_id: ActiveValue::Set(user_id),
-            platform_specifics: ActiveValue::Set(specifics),
             description: ActiveValue::Set(description),
+            platform_specifics: ActiveValue::Set(specifics),
+            configured_events: ActiveValue::Set(UserNotificationContent::iter().collect()),
             ..Default::default()
         };
         let new_notification_id = notification.insert(&self.0.db).await?.id;
@@ -635,6 +659,9 @@ impl UserService {
         let mut db_notification: notification_platform::ActiveModel = db_notification.into();
         if let Some(s) = input.is_disabled {
             db_notification.is_disabled = ActiveValue::Set(Some(s));
+        }
+        if let Some(e) = input.configured_events {
+            db_notification.configured_events = ActiveValue::Set(e);
         }
         db_notification.update(&self.0.db).await?;
         Ok(true)
@@ -693,16 +720,6 @@ impl UserService {
         Ok(integrations)
     }
 
-    pub async fn user_pending_notifications(
-        &self,
-        user_id: &String,
-    ) -> Result<Vec<user_notification::Model>> {
-        let notifications =
-            get_pending_notifications_for_user(user_id, UserNotificationLot::Display, &self.0)
-                .await?;
-        Ok(notifications)
-    }
-
     pub async fn user_notification_platforms(
         &self,
         user_id: &String,
@@ -748,25 +765,11 @@ impl UserService {
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
-        let user = User::find()
+        let user = get_user_query()
             .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
             .one(&self.0.db)
             .await?
             .map(|u| u.id);
         Ok(user)
-    }
-
-    pub async fn mark_notifications_as_addressed(
-        &self,
-        user_id: String,
-        notification_ids: Vec<String>,
-    ) -> Result<bool> {
-        UserNotification::update_many()
-            .filter(user_notification::Column::UserId.eq(user_id))
-            .filter(user_notification::Column::Id.is_in(notification_ids))
-            .col_expr(user_notification::Column::IsAddressed, Expr::value(true))
-            .exec(&self.0.db)
-            .await?;
-        Ok(true)
     }
 }

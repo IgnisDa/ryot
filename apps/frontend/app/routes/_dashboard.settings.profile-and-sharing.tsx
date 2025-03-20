@@ -5,6 +5,7 @@ import {
 	Button,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Indicator,
@@ -45,7 +46,8 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import { Form, useLoaderData } from "react-router";
+import Cookies from "js-cookie";
+import { Form, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -54,13 +56,16 @@ import {
 	applicationBaseUrl,
 	dayjsLib,
 	openConfirmationModal,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
+	useIsMobile,
+	useIsOnboardingTourCompleted,
 	useUserDetails,
 } from "~/lib/hooks";
+import { useOnboardingTour } from "~/lib/state/general";
 import {
 	createToastHeaders,
 	getDecodedJwt,
@@ -170,13 +175,17 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
+	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
-	const isEditDisabled = dashboardData.isDemoInstance;
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
+	const isMobile = useIsMobile();
+	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
+	const { startOnboardingTour } = useOnboardingTour();
 
+	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
 		(acl) => acl.isAccountDefault,
 	);
@@ -233,7 +242,6 @@ export default function Page() {
 													: undefined
 										}
 									/>
-
 									<Button
 										type="submit"
 										onClick={(e) => {
@@ -250,6 +258,27 @@ export default function Page() {
 									</Button>
 								</Stack>
 							</Form>
+							<ClientOnly>
+								{() =>
+									isOnboardingTourCompleted && !isMobile ? (
+										<>
+											<Divider />
+											<Button
+												variant="default"
+												onClick={async () => {
+													await startOnboardingTour();
+													Cookies.remove(
+														dashboardData.onboardingTourCompletedCookie,
+													);
+													navigate("/");
+												}}
+											>
+												Restart onboarding
+											</Button>
+										</>
+									) : null
+								}
+							</ClientOnly>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">

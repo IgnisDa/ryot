@@ -9,7 +9,6 @@ import {
 	Box,
 	Button,
 	Center,
-	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
@@ -18,9 +17,9 @@ import {
 	Loader,
 	type MantineStyleProp,
 	Modal,
-	MultiSelect,
 	Paper,
 	RingProgress,
+	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
@@ -28,13 +27,20 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import {
+	randomId,
+	useDebouncedValue,
+	useDidUpdate,
+	useDisclosure,
+	useListState,
+} from "@mantine/hooks";
 import {
 	EntityLot,
 	GridPacking,
+	type MediaCollectionFilter,
+	MediaCollectionPresenceFilter,
 	MediaLot,
 	type MediaSource,
 	type ReviewItem,
@@ -49,6 +55,7 @@ import {
 	isNumber,
 	isString,
 	snakeCase,
+	startCase,
 } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
@@ -62,6 +69,7 @@ import {
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
+	IconPlus,
 	IconRefresh,
 	IconRotateClockwise,
 	IconScaleOutline,
@@ -73,6 +81,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
+import { produce } from "immer";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
@@ -99,7 +108,7 @@ import {
 	openConfirmationModal,
 	redirectToQueryParam,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -112,6 +121,10 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import {
+	type OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -128,6 +141,7 @@ import {
 } from "./media";
 
 export const ApplicationGrid = (props: {
+	className?: string;
 	children: ReactNode | Array<ReactNode>;
 }) => {
 	const userPreferences = useUserPreferences();
@@ -137,6 +151,7 @@ export const ApplicationGrid = (props: {
 		<SimpleGrid
 			spacing="lg"
 			ref={parent}
+			className={props.className}
 			cols={match(userPreferences.general.gridPacking)
 				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
 				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
@@ -253,10 +268,14 @@ export const MediaDetailsLayout = (props: {
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
 
 export const DebouncedSearchInput = (props: {
-	initialValue?: string;
 	queryParam?: string;
 	placeholder?: string;
+	initialValue?: string;
 	enhancedQueryParams?: string;
+	tourControl?: {
+		target: OnboardingTourStepTargets;
+		onQueryChange: (query: string) => void;
+	};
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
@@ -265,19 +284,22 @@ export const DebouncedSearchInput = (props: {
 	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced.trim());
+		const query = debounced.trim().toLowerCase();
+		setP(props.queryParam || "query", query);
+		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 
 	return (
 		<TextInput
 			name="query"
-			placeholder={props.placeholder || "Search..."}
-			leftSection={<IconSearch />}
-			onChange={(e) => setQuery(e.currentTarget.value)}
 			value={query}
-			style={{ flexGrow: 1 }}
-			autoCapitalize="none"
 			autoComplete="off"
+			autoCapitalize="none"
+			style={{ flexGrow: 1 }}
+			leftSection={<IconSearch />}
+			className={props.tourControl?.target}
+			placeholder={props.placeholder || "Search..."}
+			onChange={(e) => setQuery(e.currentTarget.value)}
 			rightSection={
 				query ? (
 					<ActionIcon onClick={() => setQuery("")}>
@@ -316,6 +338,7 @@ export const BaseMediaDisplayItem = (props: {
 	progress?: string;
 	isLoading: boolean;
 	nameRight?: ReactNode;
+	imageClassName?: string;
 	imageUrl?: string | null;
 	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
@@ -345,7 +368,7 @@ export const BaseMediaDisplayItem = (props: {
 	} as const;
 
 	return (
-		<Flex justify="space-between" direction="column" ref={props.innerRef}>
+		<Flex direction="column" ref={props.innerRef} justify="space-between">
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip
@@ -357,7 +380,7 @@ export const BaseMediaDisplayItem = (props: {
 							radius="md"
 							pos="relative"
 							style={{ overflow: "hidden" }}
-							className={clsx({
+							className={clsx(props.imageClassName, {
 								[classes.highlightImage]:
 									coreDetails.isServerKeyValidated && props.highlightImage,
 							})}
@@ -505,39 +528,106 @@ export const FiltersModal = (props: {
 
 export const CollectionsFilter = (props: {
 	cookieName: string;
-	collections?: string[];
-	invertCollection?: boolean;
+	applied: MediaCollectionFilter[];
 }) => {
+	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
-	const [_, { setP }] = useAppSearchParam(props.cookieName);
+	const [parent] = useAutoAnimate();
+	const [_p, { setP }] = useAppSearchParam(props.cookieName);
+	const [filters, filtersHandlers] = useListState<
+		MediaCollectionFilter & { id: string }
+	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
+
+	useDidUpdate(() => {
+		const applicableFilters = coreDetails.isServerKeyValidated
+			? filters
+			: filters.slice(0, 1);
+		const final = applicableFilters
+			.filter((f) => f.collectionId)
+			.map((a) => `${a.collectionId}:${a.presence}`)
+			.join(",");
+		setP("collections", final);
+	}, [filters]);
 
 	return (
-		<MultiSelect
-			flex={1}
-			clearable
-			searchable
-			rightSectionWidth={rem(100)}
-			rightSectionPointerEvents="all"
-			defaultValue={props.collections}
-			placeholder="Select a collection"
-			onChange={(v) => setP("collections", v.join(","))}
-			data={[
-				{
-					group: "My collections",
-					items: collections.map((c) => ({
-						label: c.name,
-						value: c.id.toString(),
-					})),
-				},
-			]}
-			rightSection={
-				<Checkbox
-					label="Invert"
-					checked={props.invertCollection}
-					onChange={(e) => setP("invertCollection", String(e.target.checked))}
-				/>
-			}
-		/>
+		<Stack gap="xs">
+			<Group wrap="nowrap" justify="space-between">
+				<Text size="sm" c="dimmed">
+					Collection filters
+				</Text>
+				<Button
+					size="compact-xs"
+					variant="transparent"
+					leftSection={<IconPlus size={14} />}
+					onClick={() => {
+						filtersHandlers.append({
+							id: randomId(),
+							collectionId: "",
+							presence: MediaCollectionPresenceFilter.PresentIn,
+						});
+					}}
+				>
+					Add
+				</Button>
+			</Group>
+			{filters.length > 0 ? (
+				<Stack gap="xs" px={{ md: "xs" }} ref={parent}>
+					{filters.map((f, idx) => (
+						<Group key={f.id} justify="space-between" wrap="nowrap">
+							{idx !== 0 ? (
+								<Text size="xs" c="dimmed">
+									OR
+								</Text>
+							) : null}
+							<Select
+								size="xs"
+								value={f.presence}
+								data={Object.values(MediaCollectionPresenceFilter).map((o) => ({
+									value: o,
+									label: startCase(o.toLowerCase()),
+								}))}
+								onChange={(v) =>
+									filtersHandlers.setItem(
+										idx,
+										produce(f, (d) => {
+											d.presence = v as MediaCollectionPresenceFilter;
+										}),
+									)
+								}
+							/>
+							<Select
+								size="xs"
+								searchable
+								value={f.collectionId}
+								placeholder="Select a collection"
+								data={collections.map((c) => ({
+									label: c.name,
+									value: c.id.toString(),
+								}))}
+								onChange={(v) =>
+									filtersHandlers.setItem(
+										idx,
+										produce(f, (d) => {
+											d.collectionId = v || "";
+										}),
+									)
+								}
+							/>
+							<ActionIcon
+								size="xs"
+								color="red"
+								onClick={() => filtersHandlers.remove(idx)}
+							>
+								<IconX />
+							</ActionIcon>
+						</Group>
+					))}
+					{filters.length > 1 && !coreDetails.isServerKeyValidated ? (
+						<ProRequiredAlert tooltipLabel="Only the first filter will be applied" />
+					) : null}
+				</Stack>
+			) : null}
+		</Stack>
 	);
 };
 
@@ -1327,9 +1417,11 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId: string;
+	className?: string;
 	rightSection?: ReactNode;
 }) => {
 	const submit = useConfirmSubmit();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -1337,7 +1429,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 				<Text display="inline" fw="bold">
 					{props.total}
 				</Text>{" "}
-				items found
+				item{props.total === 1 ? "" : "s"} found
 				{props.rightSection}
 			</Box>
 			<Form
@@ -1353,6 +1445,8 @@ export const DisplayListDetailsAndRefresh = (props: {
 					size="xs"
 					type="submit"
 					variant="subtle"
+					className={props.className}
+					onClick={() => advanceOnboardingTourStep()}
 					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh

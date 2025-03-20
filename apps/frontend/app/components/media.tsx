@@ -14,6 +14,7 @@ import {
 import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
+	MediaLot,
 	PersonDetailsDocument,
 	SeenState,
 	UserMetadataGroupDetailsDocument,
@@ -30,7 +31,7 @@ import {
 	IconStarFilled,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -47,7 +48,7 @@ import {
 	openConfirmationModal,
 	queryFactory,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
@@ -140,7 +141,7 @@ export const MetadataDisplayItem = (props: {
 	noLeftLabel?: boolean;
 }) => {
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
+	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const userPreferences = useUserPreferences();
 	const { ref, inViewport } = useInViewport();
@@ -150,6 +151,7 @@ export const MetadataDisplayItem = (props: {
 		props.metadataId,
 		inViewport,
 	);
+
 	const averageRating = userMetadataDetails?.averageRating;
 	const completedHistory = (userMetadataDetails?.history || []).filter(
 		(h) => h.state === SeenState.Completed,
@@ -157,6 +159,37 @@ export const MetadataDisplayItem = (props: {
 	const currentProgress = userMetadataDetails?.history.find(
 		(h) => h.state === SeenState.InProgress,
 	)?.progress;
+	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
+		[
+			UserToMediaReason.Finished,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
+	);
+
+	const leftLabel = useMemo(() => {
+		if (props.noLeftLabel || !metadataDetails || !userMetadataDetails)
+			return null;
+
+		const inProgress = userMetadataDetails.inProgress;
+		if (inProgress) {
+			if (inProgress.podcastExtraInformation)
+				return `EP-${inProgress.podcastExtraInformation.episode}`;
+			if (inProgress.showExtraInformation)
+				return `S${inProgress.showExtraInformation.season}-E${inProgress.showExtraInformation.episode}`;
+		}
+
+		const nextEntry = userMetadataDetails.nextEntry;
+		if (nextEntry) {
+			if (metadataDetails.lot === MediaLot.Show)
+				return `S${nextEntry.season}-E${nextEntry.episode}`;
+			if (metadataDetails.lot === MediaLot.Podcast)
+				return `EP-${nextEntry.episode}`;
+		}
+
+		return metadataDetails.publishYear;
+	}, [metadataDetails, userMetadataDetails]);
+
 	const surroundReason = (
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
@@ -167,14 +200,6 @@ export const MetadataDisplayItem = (props: {
 			</ThemeIcon>
 		</Tooltip>
 	);
-	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
-		[
-			UserToMediaReason.Finished,
-			UserToMediaReason.Watchlist,
-			UserToMediaReason.Owned,
-		].includes(r),
-	);
-	const hasInteracted = userMetadataDetails?.hasInteracted;
 
 	return (
 		<BaseMediaDisplayItem
@@ -184,29 +209,22 @@ export const MetadataDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			name={props.name ?? metadataDetails?.title}
 			imageUrl={metadataDetails?.assets.images.at(0)}
-			highlightImage={userMetadataDetails?.recentlyConsumed}
+			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			labels={
 				metadataDetails
 					? {
-							left:
-								props.noLeftLabel !== true
-									? metadataDetails.publishYear
-									: undefined,
+							left: leftLabel,
 							right:
 								props.rightLabel ||
 								(props.rightLabelLot
 									? changeCase(snakeCase(metadataDetails.lot))
 									: undefined) ||
-								(props.rightLabelHistory ? (
-									completedHistory.length > 0 ? (
-										`${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
-									) : null
-								) : (
-									<Text c={hasInteracted ? "yellow" : undefined}>
-										{changeCase(snakeCase(metadataDetails.lot))}
-									</Text>
-								)),
+								(props.rightLabelHistory
+									? completedHistory.length > 0
+										? `${completedHistory.length} time${completedHistory.length === 1 ? "" : "s"}`
+										: null
+									: changeCase(snakeCase(metadataDetails.lot))),
 						}
 					: undefined
 			}
@@ -319,7 +337,7 @@ export const MetadataGroupDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
 			imageOverlay={{ topRight: props.topRight }}
-			highlightImage={userMetadataGroupDetails?.recentlyConsumed}
+			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
@@ -372,7 +390,7 @@ export const PersonDisplayItem = (props: {
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
-			highlightImage={userPersonDetails?.recentlyConsumed}
+			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,

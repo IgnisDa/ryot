@@ -11,7 +11,7 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let complete_data = serde_json::from_str::<CompleteExport>(&export).unwrap();
 
     let media = complete_data
-        .media
+        .metadata
         .unwrap_or_default()
         .iter_mut()
         .map(|m| {
@@ -35,7 +35,7 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     for workout in complete_data.workouts.unwrap_or_default() {
         completed.push(ImportCompletedItem::ApplicationWorkout(workout));
     }
-    for media_group in complete_data.media_groups.unwrap_or_default() {
+    for media_group in complete_data.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
     }
     Ok(ImportResult {

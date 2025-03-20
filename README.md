@@ -22,7 +22,7 @@
     <a href="https://ryot.io" target="_blank">Pro features</a> •
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Hosted version</a>
+    <a href="https://demo.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Demo</a>
 </p>
 
 <br/>

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use application_utils::{
-    get_podcast_episode_by_number, get_show_episode_by_numbers, GraphqlRepresentation,
+    GraphqlRepresentation, get_podcast_episode_by_number, get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
@@ -18,27 +18,30 @@ use database_models::{
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
+use dependent_models::{
+    ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
+};
 use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;
-use jwt_service::{verify, Claims};
+use jwt_service::{Claims, verify};
 use markdown::to_html as markdown_to_html;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
-    MusicSpecifics, PodcastSpecifics, ReviewItem, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MediaCollectionFilter,
+    MediaCollectionPresenceFilter, MovieSpecifics, MusicSpecifics, PodcastSpecifics, ReviewItem,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{NullOrdering, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
     Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    prelude::{Date, DateTimeUtc, Expr},
+    sea_query::{NullOrdering, PgFunc},
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -219,45 +222,49 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filter<E, C, D>(
-    query: Select<E>,
-    collection_id: Option<Vec<String>>,
-    invert_collection: Option<bool>,
-    entity_column: C,
-    id_column: D,
-) -> Select<E>
+pub fn apply_collection_filter<C, D, E>(
+    id_column: C,
+    query: Select<D>,
+    entity_column: E,
+    collection_filters: Vec<MediaCollectionFilter>,
+) -> Select<D>
 where
-    E: EntityTrait,
     C: ColumnTrait,
-    D: ColumnTrait,
+    D: EntityTrait,
+    E: ColumnTrait,
 {
-    query.apply_if(collection_id, |query, v| {
-        let unique_collections = v.into_iter().unique().collect_vec();
-        let count = unique_collections.len() as i32;
-        let subquery = CollectionToEntity::find()
-            .select_only()
-            .column(id_column)
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .eq(PgFunc::any(unique_collections)),
-            )
-            .filter(id_column.is_not_null())
-            .group_by(id_column)
-            .having(
-                collection_to_entity::Column::CollectionId
-                    .count()
-                    .eq(Expr::val(count)),
-            )
-            .into_query();
-        if invert_collection.unwrap_or_default() {
-            query.filter(entity_column.not_in_subquery(subquery))
-        } else {
-            query.filter(entity_column.in_subquery(subquery))
-        }
-    })
+    if collection_filters.is_empty() {
+        return query;
+    }
+    let is_in = collection_filters
+        .iter()
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::PresentIn)
+        .map(|f| f.collection_id.clone())
+        .collect_vec();
+    let is_not_in = collection_filters
+        .iter()
+        .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
+        .map(|f| f.collection_id.clone())
+        .collect_vec();
+    let subquery = CollectionToEntity::find()
+        .select_only()
+        .column(entity_column)
+        .filter(entity_column.is_not_null())
+        .filter(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                collection_to_entity::Column::CollectionId,
+            ))
+            .is_in(is_in),
+        )
+        .filter(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                collection_to_entity::Column::CollectionId,
+            ))
+            .is_not_in(is_not_in),
+        );
+    query.filter(id_column.in_subquery(subquery.into_query()))
 }
 
 pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
@@ -397,8 +404,8 @@ pub async fn item_reviews(
 }
 
 pub async fn calculate_user_activities_and_summary(
-    db: &DatabaseConnection,
     user_id: &String,
+    ss: &Arc<SupportingService>,
     calculate_from_beginning: bool,
 ) -> Result<()> {
     #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
@@ -429,7 +436,7 @@ pub async fn calculate_user_activities_and_summary(
         true => {
             DailyUserActivity::delete_many()
                 .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .exec(db)
+                .exec(&ss.db)
                 .await?;
             Date::default()
         }
@@ -440,7 +447,7 @@ pub async fn calculate_user_activities_and_summary(
                 Order::Desc,
                 NullOrdering::Last,
             )
-            .one(db)
+            .one(&ss.db)
             .await?
             .and_then(|i| i.date)
             .unwrap_or_default(),
@@ -523,7 +530,7 @@ pub async fn calculate_user_activities_and_summary(
             metadata::Column::MangaSpecifics,
         ])
         .into_model::<SeenItem>()
-        .stream(db)
+        .stream(&ss.db)
         .await?;
 
     while let Some(seen) = seen_stream.try_next().await? {
@@ -594,16 +601,16 @@ pub async fn calculate_user_activities_and_summary(
         };
     }
 
-    let exercises = Exercise::find().all(db).await.unwrap();
+    let exercises = Exercise::find().all(&ss.db).await.unwrap();
     let user_exercises = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(user_to_entity::Column::ExerciseId.is_not_null())
-        .all(db)
+        .all(&ss.db)
         .await?;
     let mut workout_stream = Workout::find()
         .filter(workout::Column::UserId.eq(user_id))
         .filter(workout::Column::EndTime.gte(start_from))
-        .stream(db)
+        .stream(&ss.db)
         .await?;
     while let Some(workout) = workout_stream.try_next().await? {
         let date = workout.end_time.date_naive();
@@ -651,7 +658,7 @@ pub async fn calculate_user_activities_and_summary(
     let mut measurement_stream = UserMeasurement::find()
         .filter(user_measurement::Column::UserId.eq(user_id))
         .filter(user_measurement::Column::Timestamp.gte(start_from))
-        .stream(db)
+        .stream(&ss.db)
         .await?;
     while let Some(measurement) = measurement_stream.try_next().await? {
         let date = measurement.timestamp.date_naive();
@@ -670,7 +677,7 @@ pub async fn calculate_user_activities_and_summary(
     let mut review_stream = Review::find()
         .filter(review::Column::UserId.eq(user_id))
         .filter(review::Column::PostedOn.gte(start_from))
-        .stream(db)
+        .stream(&ss.db)
         .await?;
     while let Some(review) = review_stream.try_next().await? {
         let date = review.posted_on.date_naive();
@@ -700,7 +707,7 @@ pub async fn calculate_user_activities_and_summary(
                 None => daily_user_activity::Column::Date.is_null(),
                 Some(date) => daily_user_activity::Column::Date.eq(date),
             })
-            .exec(db)
+            .exec(&ss.db)
             .await?;
         ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_review_count = activity.metadata_review_count
@@ -737,8 +744,17 @@ pub async fn calculate_user_activities_and_summary(
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);
         model.total_duration = ActiveValue::Set(total_duration);
-        model.insert(db).await.unwrap();
+        model.insert(&ss.db).await.unwrap();
     }
+
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserAnalytics,
+        })
+        .await?;
+
+    ryot_log!(debug, "Expired cache key for user: {:?}", user_id);
 
     Ok(())
 }
@@ -773,4 +789,12 @@ pub async fn schedule_user_for_workout_revision(
     user.update(&ss.db).await?;
     ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
     Ok(())
+}
+
+pub fn get_user_query() -> Select<User> {
+    User::find().filter(
+        user::Column::IsDisabled
+            .eq(false)
+            .or(user::Column::IsDisabled.is_null()),
+    )
 }

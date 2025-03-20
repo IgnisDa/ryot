@@ -5,7 +5,7 @@ use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 use serde::de;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
@@ -78,7 +78,7 @@ where
 {
     struct JsonStringVisitor;
 
-    impl<'de> de::Visitor<'de> for JsonStringVisitor {
+    impl de::Visitor<'_> for JsonStringVisitor {
         type Value = NaiveDate;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -126,18 +126,5 @@ macro_rules! ryot_log {
     };
     (trace, $($arg:tt)*) => {
         tracing::trace!(target: "ryot", $($arg)*);
-    };
-}
-
-#[macro_export]
-macro_rules! acquire_lock {
-    ($db:expr, $key:expr) => {
-        use sqlx::postgres::PgAdvisoryLock;
-
-        let key_string = serde_json::to_string($key).unwrap();
-        let lock = PgAdvisoryLock::new(key_string);
-        ryot_log!(debug, "Acquiring advisory lock: {:?}", lock);
-        let conn = $db.get_postgres_connection_pool().acquire().await?;
-        let acquired = lock.acquire(conn).await?;
     };
 }

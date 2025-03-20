@@ -432,9 +432,9 @@ export interface CompleteExport {
 	/** Data about user's measurements. */
 	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */
-	media: ImportOrExportMetadataItem[] | null;
+	metadata: ImportOrExportMetadataItem[] | null;
 	/** Data about user's media groups. */
-	media_groups: ImportOrExportMetadataGroupItem[] | null;
+	metadata_groups: ImportOrExportMetadataGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workout templates. */

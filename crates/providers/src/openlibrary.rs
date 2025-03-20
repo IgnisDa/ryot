@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use common_models::{PersonSourceSpecifics, SearchDetails};
-use common_utils::{ryot_log, PAGE_SIZE};
+use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::{MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};

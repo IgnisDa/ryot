@@ -4,7 +4,7 @@ use async_graphql::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
-use common_utils::{ryot_log, MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE};
+use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
 use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
@@ -19,7 +19,7 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -57,7 +57,7 @@ impl ImporterService {
         Ok(true)
     }
 
-    pub async fn import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
+    pub async fn user_import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)

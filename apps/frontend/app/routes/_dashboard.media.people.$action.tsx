@@ -4,6 +4,7 @@ import {
 	Center,
 	Checkbox,
 	Container,
+	Divider,
 	Flex,
 	Group,
 	Loader,
@@ -26,6 +27,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
@@ -54,11 +56,11 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCommaDelimitedString } from "~/lib/generals";
+import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -70,8 +72,9 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
+	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
+	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 };
 
 enum Action {
@@ -91,7 +94,10 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		params,
 		z.object({ action: z.nativeEnum(Action) }),
 	);
-	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
+	const cookieName = await getSearchEnhancedCookieName(
+		`people.${action}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({
 		query: z.string().optional(),
@@ -101,8 +107,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
-				collections: zodCommaDelimitedString,
-				invertCollection: zodBoolAsString.optional(),
+				collections: zodCollectionFilter,
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				sortBy: z
 					.nativeEnum(PersonAndMetadataGroupsSortBy)
@@ -114,7 +119,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				UserPeopleListDocument,
 				{
 					input: {
-						invertCollection: urlParse.invertCollection,
 						filter: { collections: urlParse.collections },
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 						search: { page: query[pageQueryParam], query: query.query },
@@ -181,7 +185,12 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const bulkEditingCollection = useBulkEditCollection();
+
 	const bulkEditingState = bulkEditingCollection.state;
+	const areFiltersApplied =
+		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
+		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
+		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
 		<Container>
@@ -225,12 +234,7 @@ export default function Page() {
 						<>
 							<ActionIcon
 								onClick={openFiltersModal}
-								color={
-									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-									loaderData.list?.url.sortBy !== defaultFilters.sortBy
-										? "blue"
-										: "gray"
-								}
+								color={areFiltersApplied ? "blue" : "gray"}
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
@@ -435,12 +439,12 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
+					onChange={(v) => setP("sortBy", v)}
+					defaultValue={loaderData.list.url.sortBy}
 					data={Object.values(PersonAndMetadataGroupsSortBy).map((o) => ({
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
 					}))}
-					defaultValue={loaderData.list.url.sortBy}
-					onChange={(v) => setP("sortBy", v)}
 				/>
 				<ActionIcon
 					onClick={() => {
@@ -456,10 +460,10 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
+			<Divider />
 			<CollectionsFilter
 				cookieName={loaderData.cookieName}
-				collections={loaderData.list.url.collections}
-				invertCollection={loaderData.list.url.invertCollection}
+				applied={loaderData.list.url.collections}
 			/>
 		</>
 	);

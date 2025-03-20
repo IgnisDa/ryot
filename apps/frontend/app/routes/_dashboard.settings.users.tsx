@@ -49,11 +49,11 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common";
-import { openConfirmationModal } from "~/lib/generals";
+import { openConfirmationModal } from "~/lib/common";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getEnhancedCookieName,
+	getSearchEnhancedCookieName,
 	redirectIfNotAuthenticatedOrUpdated,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -69,7 +69,10 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
-	const cookieName = await getEnhancedCookieName("settings.users", request);
+	const cookieName = await getSearchEnhancedCookieName(
+		"settings.users",
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([

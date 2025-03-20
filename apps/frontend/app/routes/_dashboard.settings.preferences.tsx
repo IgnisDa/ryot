@@ -30,7 +30,6 @@ import {
 	GridPacking,
 	MediaLot,
 	UpdateUserPreferenceDocument,
-	UserNotificationContent,
 	type UserPreferences,
 	UserReviewScale,
 	UserUnitSystem,
@@ -54,9 +53,14 @@ import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
 import { Fragment, useState } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { PRO_REQUIRED_MESSAGE, clientGqlService } from "~/lib/generals";
+import {
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
@@ -71,12 +75,37 @@ const searchSchema = z.object({
 });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
+	// biome-ignore lint/suspicious/noExplicitAny: can't use correct types here
+	const userPreferenceLandingPaths: any = [
+		{ label: "Dashboard", value: $path("/") },
+		{ label: "Analytics", value: $path("/analytics") },
+		{ label: "Calendar", value: $path("/calendar") },
+		{ label: "Collections", value: $path("/collections/list") },
+	];
+	userPreferenceLandingPaths.push({
+		group: "Media",
+		items: Object.values(MediaLot).map((lot) => ({
+			label: changeCase(lot),
+			value: $path("/media/:action/:lot", { lot, action: "list" }),
+		})),
+	});
+	userPreferenceLandingPaths.push({
+		group: "Fitness",
+		items: [
+			...Object.values(FitnessEntity).map((entity) => ({
+				label: changeCase(entity),
+				value: $path("/fitness/:entity/list", { entity }),
+			})),
+			{ label: "Measurements", value: $path("/fitness/measurements/list") },
+			{ label: "Exercises", value: $path("/fitness/exercises/list") },
+		],
+	});
 	const query = parseSearchQuery(request, searchSchema);
-	return { query };
+	return { query, userPreferenceLandingPaths };
 };
 
 export const meta = () => {
-	return [{ title: "Preference | Ryot" }];
+	return [{ title: "Preferences | Ryot" }];
 };
 
 const notificationContent = {
@@ -171,7 +200,6 @@ export default function Page() {
 						<Tabs.Tab value="dashboard">Dashboard</Tabs.Tab>
 						<Tabs.Tab value="features">Features</Tabs.Tab>
 						<Tabs.Tab value="general">General</Tabs.Tab>
-						<Tabs.Tab value="notifications">Notifications</Tabs.Tab>
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="dashboard">
@@ -330,6 +358,28 @@ export default function Page() {
 								))}
 							</SimpleGrid>
 							<Stack gap="xs">
+								<Select
+									size="xs"
+									disabled={!!isEditDisabled}
+									label="Default landing page"
+									data={loaderData.userPreferenceLandingPaths}
+									defaultValue={userPreferences.general.landingPath}
+									description="The page you want to see when you first open the app"
+									onChange={(value) => {
+										if (!coreDetails.isServerKeyValidated) {
+											notifications.show({
+												color: "red",
+												message: PRO_REQUIRED_MESSAGE,
+											});
+											return;
+										}
+										if (value) {
+											updatePreference((draft) => {
+												draft.general.landingPath = value;
+											});
+										}
+									}}
+								/>
 								<Input.Wrapper
 									label="Review scale"
 									description="Scale you want to use for reviews"
@@ -415,113 +465,6 @@ export default function Page() {
 							</Stack>
 						</Stack>
 					</Tabs.Panel>
-					<Tabs.Panel value="notifications">
-						<Stack>
-							<Switch
-								size="xs"
-								label="Whether notifications will be sent"
-								defaultChecked={userPreferences.notifications.enabled}
-								disabled={!!isEditDisabled}
-								onChange={(ev) => {
-									updatePreference((draft) => {
-										draft.notifications.enabled = ev.currentTarget.checked;
-									});
-								}}
-							/>
-							<Divider />
-							<Text>
-								The notifications you want to receive in your configured
-								providers.
-							</Text>
-							<SimpleGrid cols={{ md: 2 }}>
-								{Object.values(UserNotificationContent).map((name) => (
-									<Switch
-										size="xs"
-										key={name}
-										styles={{ track: { flex: "none" } }}
-										defaultChecked={userPreferences.notifications.toSend.includes(
-											name,
-										)}
-										disabled={
-											!!isEditDisabled || !userPreferences.notifications.enabled
-										}
-										onChange={() => {
-											const alreadyToSend = new Set(
-												changingUserPreferences.value.notifications.toSend,
-											);
-											const alreadyHas = alreadyToSend.has(name);
-											if (!alreadyHas) alreadyToSend.add(name);
-											else alreadyToSend.delete(name);
-											updatePreference((draft) => {
-												draft.notifications.toSend = Array.from(alreadyToSend);
-											});
-										}}
-										label={match(name)
-											.with(
-												UserNotificationContent.OutdatedSeenEntries,
-												() => "Media has been in progress/on hold for too long",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeNameChanged,
-												() => "Name of an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeImagesChanged,
-												() => "Images for an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeReleased,
-												() => "Number of episodes changes",
-											)
-											.with(
-												UserNotificationContent.MetadataPublished,
-
-												() => "A media is published",
-											)
-											.with(
-												UserNotificationContent.MetadataStatusChanged,
-												() => "Status changes",
-											)
-											.with(
-												UserNotificationContent.MetadataReleaseDateChanged,
-												() => "Release date changes",
-											)
-											.with(
-												UserNotificationContent.MetadataNumberOfSeasonsChanged,
-												() => "Number of seasons changes",
-											)
-											.with(
-												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
-												() =>
-													"Number of chapters/episodes changes for manga/anime",
-											)
-											.with(
-												UserNotificationContent.ReviewPosted,
-												() =>
-													"A new public review is posted for media/people you monitor",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataAssociated,
-												() => "New media is associated with a person",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataGroupAssociated,
-												() => "New media group is associated with a person",
-											)
-											.with(
-												UserNotificationContent.NewWorkoutCreated,
-												() => "A new workout is created",
-											)
-											.with(
-												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
-												() => "Integration disabled due to too many errors",
-											)
-											.exhaustive()}
-									/>
-								))}
-							</SimpleGrid>
-						</Stack>
-					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
 						<Stack>
 							<SimpleGrid
@@ -536,7 +479,7 @@ export default function Page() {
 												window.location.reload();
 											} else
 												notifications.show({
-													color: "yellow",
+													color: "green",
 													message: "You have already granted permissions",
 												});
 										}}

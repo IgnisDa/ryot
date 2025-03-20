@@ -15,8 +15,11 @@ use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service, process_import,
+    send_notification_for_user,
 };
-use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use enum_models::{
+    EntityLot, IntegrationLot, IntegrationProvider, MediaLot, UserNotificationContent,
+};
 use media_models::{IntegrationTriggerResult, SeenShowExtraInformation};
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -50,10 +53,28 @@ impl IntegrationService {
             new_trigger_result.pop_back();
         }
         new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
+        let are_all_errors = new_trigger_result.iter().take(5).all(|r| r.error.is_some());
         let mut integration: integration::ActiveModel = integration.clone().into();
         integration.last_finished_at = last_finished_at;
         integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
-        integration.update(&self.0.db).await?;
+        integration.is_disabled = ActiveValue::Set(Some(are_all_errors));
+        let integration = integration.update(&self.0.db).await?;
+
+        if are_all_errors {
+            send_notification_for_user(
+                &integration.user_id,
+                &self.0,
+                &(
+                    format!(
+                        "Integration {} has been disabled due to too many errors",
+                        integration.provider,
+                    ),
+                    UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
+                ),
+            )
+            .await
+            .trace_ok();
+        }
         Ok(())
     }
 
@@ -144,14 +165,14 @@ impl IntegrationService {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
         let maybe_progress_update = match integration.provider {
-            IntegrationProvider::Kodi => sink::kodi::yank_progress(payload).await,
-            IntegrationProvider::Emby => sink::emby::yank_progress(payload, &self.0.db).await,
-            IntegrationProvider::JellyfinSink => sink::jellyfin::yank_progress(payload).await,
+            IntegrationProvider::Kodi => sink::kodi::sink_progress(payload).await,
+            IntegrationProvider::Emby => sink::emby::sink_progress(payload, &self.0.db).await,
+            IntegrationProvider::JellyfinSink => sink::jellyfin::sink_progress(payload).await,
             IntegrationProvider::PlexSink => {
                 let specifics = integration.clone().provider_specifics.unwrap();
-                sink::plex::yank_progress(payload, &self.0.db, specifics.plex_sink_username).await
+                sink::plex::sink_progress(payload, &self.0.db, specifics.plex_sink_username).await
             }
-            IntegrationProvider::GenericJson => sink::generic_json::yank_progress(payload).await,
+            IntegrationProvider::GenericJson => sink::generic_json::sink_progress(payload).await,
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {

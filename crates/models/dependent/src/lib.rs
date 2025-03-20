@@ -37,7 +37,7 @@ use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::Display;
+use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
@@ -116,20 +116,20 @@ pub struct ImportOrExportWorkoutTemplateItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
-    /// Data about user's media.
-    pub media: Option<Vec<media_models::ImportOrExportMetadataItem>>,
-    /// Data about user's people.
-    pub people: Option<Vec<media_models::ImportOrExportPersonItem>>,
-    /// Data about user's measurements.
-    pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
-    /// Data about user's media groups.
-    pub media_groups: Option<Vec<media_models::ImportOrExportMetadataGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
+    /// Data about user's measurements.
+    pub measurements: Option<Vec<user_measurement::Model>>,
+    /// Data about user's people.
+    pub people: Option<Vec<media_models::ImportOrExportPersonItem>>,
+    /// Data about user's media.
+    pub metadata: Option<Vec<media_models::ImportOrExportMetadataItem>>,
     /// Data about user's workout templates.
     pub workout_templates: Option<Vec<ImportOrExportWorkoutTemplateItem>>,
+    /// Data about user's media groups.
+    pub metadata_groups: Option<Vec<media_models::ImportOrExportMetadataGroupItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -267,7 +267,6 @@ pub struct UserMetadataListInput {
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
     pub search: Option<SearchInput>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<MediaSortBy>>,
 }
 
@@ -275,7 +274,6 @@ pub struct UserMetadataListInput {
 pub struct UserPeopleListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
@@ -283,7 +281,6 @@ pub struct UserPeopleListInput {
 pub struct UserMetadataGroupsListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
-    pub invert_collection: Option<bool>,
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
@@ -348,15 +345,15 @@ pub struct CoreDetails {
 
 #[derive(SimpleObject)]
 pub struct UserPersonDetails {
-    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
+    pub is_recently_consumed: bool,
     pub collections: Vec<collection::Model>,
 }
 
 #[derive(SimpleObject)]
 pub struct UserMetadataGroupDetails {
-    pub recently_consumed: bool,
     pub reviews: Vec<ReviewItem>,
+    pub is_recently_consumed: bool,
     pub collections: Vec<collection::Model>,
 }
 
@@ -364,16 +361,16 @@ pub struct UserMetadataGroupDetails {
 pub struct UserMetadataDetails {
     /// Whether this media has been interacted with
     pub has_interacted: bool,
-    /// Whether this media has been recently interacted with
-    pub recently_consumed: bool,
     /// The public reviews of this media.
     pub reviews: Vec<ReviewItem>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: usize,
-    /// The number of times this user has seen this media.
-    pub seen_by_user_count: usize,
     /// The seen history of this media.
     pub history: Vec<seen::Model>,
+    /// The number of times this user has seen this media.
+    pub seen_by_user_count: usize,
+    /// Whether this media has been recently interacted with
+    pub is_recently_consumed: bool,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
     /// The seen item if it is in progress.
@@ -536,13 +533,24 @@ pub struct EmptyCacheValue {
 
 #[skip_serializing_none]
 #[derive(
-    Clone, Hash, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Display,
+    Eq,
+    Hash,
+    Debug,
+    Clone,
+    Display,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    EnumDiscriminants,
+    FromJsonQueryResult,
 )]
+#[strum_discriminants(derive(Display))]
 pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
     TmdbSettings,
     ListennotesSettings,
+    ApplicationRecommendations,
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
@@ -564,6 +572,7 @@ pub enum ApplicationCacheKey {
 
 pub type IgdbSettings = String;
 pub type YoutubeMusicSongListenedResponse = bool;
+pub type ApplicationRecommendations = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionContentsResponse = CollectionContents;
@@ -596,6 +605,7 @@ pub enum ApplicationCacheValue {
     UserAnalyticsParameters(ApplicationDateRange),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    ApplicationRecommendations(ApplicationRecommendations),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
@@ -606,4 +616,13 @@ pub enum ApplicationCacheValue {
 pub struct GetCacheKeyResponse {
     pub id: Uuid,
     pub value: ApplicationCacheValue,
+}
+
+pub enum ExpireCacheKeyInput {
+    ById(Uuid),
+    ByKey(ApplicationCacheKey),
+    BySanitizedKey {
+        user_id: Option<String>,
+        key: ApplicationCacheKeyDiscriminants,
+    },
 }

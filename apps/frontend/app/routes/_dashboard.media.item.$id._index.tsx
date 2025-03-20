@@ -8,6 +8,7 @@ import {
 	Button,
 	Container,
 	Divider,
+	Drawer,
 	Flex,
 	FocusTrap,
 	Group,
@@ -84,6 +85,7 @@ import {
 	type ReactNode,
 	type RefObject,
 	forwardRef,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -116,7 +118,7 @@ import {
 	openConfirmationModal,
 	refreshUserMetadataDetails,
 	reviewYellow,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -126,6 +128,10 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -282,11 +288,11 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
-
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -581,7 +587,12 @@ export default function Page() {
 							>
 								Overview
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							<Tabs.Tab
+								value="actions"
+								leftSection={<IconUser size={16} />}
+								onClick={() => advanceOnboardingTourStep()}
+								className={OnboardingTourStepTargets.MetadataDetailsActionsTab}
+							>
 								Actions
 							</Tabs.Tab>
 							<Tabs.Tab
@@ -1255,9 +1266,17 @@ const DisplayShowSeasonEpisodesModal = (props: {
 	openedShowSeason: number | undefined;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const title = useMemo(() => {
+		const showSpecifics = loaderData.metadataDetails.showSpecifics;
+		return isNumber(props.openedShowSeason) && showSpecifics
+			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
+			: "";
+	}, [props.openedShowSeason]);
+
 	return (
-		<Modal
-			withCloseButton={false}
+		<Drawer
+			title={title}
 			opened={props.openedShowSeason !== undefined}
 			onClose={() => props.setOpenedShowSeason(undefined)}
 		>
@@ -1267,7 +1286,7 @@ const DisplayShowSeasonEpisodesModal = (props: {
 					setOpenedShowSeason={props.setOpenedShowSeason}
 				/>
 			) : null}
-		</Modal>
+		</Drawer>
 	);
 };
 
@@ -1282,21 +1301,24 @@ const DisplayShowSeasonEpisodes = (props: {
 		loaderData.userMetadataDetails.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
-		<Stack h={600} gap="xs">
-			<Title order={3}>{getShowSeasonDisplayName(season)}</Title>
-			<Virtuoso
-				data={season.episodes}
-				itemContent={(episodeIdx, episode) => (
-					<DisplayShowEpisode
-						episode={episode}
-						episodeIdx={episodeIdx}
-						seasonNumber={season.seasonNumber}
-						seasonIdx={props.openedShowSeason}
-						episodeProgress={seasonProgress?.episodes[episodeIdx]}
-						beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
-					/>
-				)}
-			/>
+		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
+			{season.episodes.length > 0 ? (
+				<Virtuoso
+					data={season.episodes}
+					itemContent={(episodeIdx, episode) => (
+						<DisplayShowEpisode
+							episode={episode}
+							episodeIdx={episodeIdx}
+							seasonNumber={season.seasonNumber}
+							seasonIdx={props.openedShowSeason}
+							episodeProgress={seasonProgress?.episodes[episodeIdx]}
+							beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
+						/>
+					)}
+				/>
+			) : (
+				<Text>No episodes found</Text>
+			)}
 		</Stack>
 	) : null;
 };
@@ -1753,36 +1775,40 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	name: string;
 	children: ReactNode;
 	runtime?: number | null;
+	endDate?: string | null;
 	overview?: string | null;
 	displayIndicator: number;
 	onNameClick?: () => void;
+	startDate?: string | null;
 	id?: number | string | null;
 	numEpisodes?: number | null;
 	posterImages: Array<string>;
 	publishDate?: string | null;
 }) => {
 	const [parent] = useAutoAnimate();
-	const swt = (t: string) => (
-		<Text size="xs" c="dimmed">
-			{t}
-		</Text>
-	);
 	const filteredElements = [
 		props.runtime
-			? swt(
-					humanizeDuration(
-						dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
-						{ units: ["h", "m"] },
-					),
+			? humanizeDuration(
+					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
+					{ units: ["h", "m"] },
 				)
 			: null,
-		props.publishDate ? swt(dayjsLib(props.publishDate).format("ll")) : null,
-		props.numEpisodes ? swt(`${props.numEpisodes} episodes`) : null,
+		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
+		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
+		props.startDate && props.endDate
+			? `${dayjsLib(props.startDate).format("MM/YYYY")} to ${dayjsLib(
+					props.endDate,
+				).format("MM/YYYY")}`
+			: null,
 	].filter((s) => s !== null);
 	const display =
 		filteredElements.length > 0
 			? filteredElements
-					.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+					.map<ReactNode>((s, i) => (
+						<Text size="xs" key={i.toString()} c="dimmed">
+							{s}
+						</Text>
+					))
 					.reduce((prev, curr) => [prev, " • ", curr])
 			: null;
 
@@ -1791,7 +1817,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	const DisplayDetails = () => (
 		<>
 			{props.onNameClick ? (
-				<Anchor onClick={props.onNameClick} lineClamp={2}>
+				<Anchor onClick={props.onNameClick} lineClamp={2} display="inline">
 					{props.name}
 				</Anchor>
 			) : (
@@ -1885,6 +1911,8 @@ const DisplayShowSeason = (props: {
 				numEpisodes={props.season.episodes.length}
 				onNameClick={() => props.openSeasonModal()}
 				name={getShowSeasonDisplayName(props.season)}
+				endDate={props.season.episodes.at(-1)?.publishDate}
+				startDate={props.season.episodes.at(0)?.publishDate}
 				runtime={props.season.episodes
 					.map((e) => e.runtime || 0)
 					.reduce((i, a) => i + a, 0)}

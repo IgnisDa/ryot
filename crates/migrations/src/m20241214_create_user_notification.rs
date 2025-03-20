@@ -1,3 +1,4 @@
+// FIXME: Remove this migration in the next major release.
 use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;

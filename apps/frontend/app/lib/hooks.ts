@@ -15,14 +15,14 @@ import {
 } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
-import { useInterval } from "usehooks-ts";
+import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	selectRandomElement,
-} from "~/lib/generals";
+} from "~/lib/common";
 import {
 	type InProgressWorkout,
 	useCurrentWorkout,
@@ -51,7 +51,6 @@ export const useFallbackImageUrl = (text = "No Image") => {
 
 export const useAppSearchParam = (cookieKey: string) => {
 	const [searchParams, setSearchParams] = useSearchParams();
-	const coreDetails = useCoreDetails();
 
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);
@@ -59,7 +58,7 @@ export const useAppSearchParam = (cookieKey: string) => {
 		if (!value) cookieSearchParams.delete(key);
 		else cookieSearchParams.set(key, value);
 		Cookies.set(cookieKey, cookieSearchParams.toString(), {
-			expires: dayjsLib().add(coreDetails.tokenValidForDays, "day").toDate(),
+			expires: dayjsLib().add(10, "day").toDate(),
 		});
 	};
 
@@ -184,14 +183,22 @@ export const useApplicationEvents = () => {
 	const addToCollection = (entityLot: EntityLot) => {
 		sendEvent("Add To Collection", { entityLot });
 	};
+	const startOnboardingTour = () => {
+		sendEvent("Start Onboarding Tour", {});
+	};
+	const completeOnboardingTour = () => {
+		sendEvent("Complete Onboarding Tour", {});
+	};
 
 	return {
-		updateProgress,
 		postReview,
 		deployImport,
 		createWorkout,
-		createMeasurement,
+		updateProgress,
 		addToCollection,
+		createMeasurement,
+		startOnboardingTour,
+		completeOnboardingTour,
 	};
 };
 
@@ -212,4 +219,14 @@ export const useIsFitnessActionActive = () => {
 	const [currentWorkout] = useCurrentWorkout();
 	const action = currentWorkout?.currentAction;
 	return action !== undefined;
+};
+
+export const useIsMobile = () => {
+	const isMobile = useMediaQuery("(max-width: 768px)");
+	return isMobile;
+};
+
+export const useIsOnboardingTourCompleted = () => {
+	const dashboardData = useDashboardLayoutData();
+	return dashboardData.isOnboardingTourCompleted;
 };
