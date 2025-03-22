@@ -15,7 +15,7 @@ import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedTrackerSlugIndexRouteImport } from './routes/_protected/$trackerSlug/index'
 import { Route as ProtectedViewsViewIdRouteImport } from './routes/_protected/views/$viewId'
 import { Route as ProtectedLabsSavedViewRouteImport } from './routes/_protected/labs/saved-view'
-import { Route as ProtectedTrackerSlugEntityIdRouteImport } from './routes/_protected/$trackerSlug/$entityId'
+import { Route as ProtectedEntitiesEntityIdRouteImport } from './routes/_protected/entities/$entityId'
 
 const StartRoute = StartRouteImport.update({
   id: '/start',
@@ -47,17 +47,17 @@ const ProtectedLabsSavedViewRoute = ProtectedLabsSavedViewRouteImport.update({
   path: '/labs/saved-view',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedTrackerSlugEntityIdRoute =
-  ProtectedTrackerSlugEntityIdRouteImport.update({
-    id: '/$trackerSlug/$entityId',
-    path: '/$trackerSlug/$entityId',
+const ProtectedEntitiesEntityIdRoute =
+  ProtectedEntitiesEntityIdRouteImport.update({
+    id: '/entities/$entityId',
+    path: '/entities/$entityId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/start': typeof StartRoute
-  '/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
+  '/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
   '/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
@@ -65,7 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
-  '/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
+  '/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
   '/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/$trackerSlug': typeof ProtectedTrackerSlugIndexRoute
@@ -75,7 +75,7 @@ export interface FileRoutesById {
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
-  '/_protected/$trackerSlug/$entityId': typeof ProtectedTrackerSlugEntityIdRoute
+  '/_protected/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
   '/_protected/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/_protected/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/_protected/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
@@ -85,7 +85,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/start'
-    | '/$trackerSlug/$entityId'
+    | '/entities/$entityId'
     | '/labs/saved-view'
     | '/views/$viewId'
     | '/$trackerSlug/'
@@ -93,7 +93,7 @@ export interface FileRouteTypes {
   to:
     | '/start'
     | '/'
-    | '/$trackerSlug/$entityId'
+    | '/entities/$entityId'
     | '/labs/saved-view'
     | '/views/$viewId'
     | '/$trackerSlug'
@@ -102,7 +102,7 @@ export interface FileRouteTypes {
     | '/_protected'
     | '/start'
     | '/_protected/'
-    | '/_protected/$trackerSlug/$entityId'
+    | '/_protected/entities/$entityId'
     | '/_protected/labs/saved-view'
     | '/_protected/views/$viewId'
     | '/_protected/$trackerSlug/'
@@ -157,11 +157,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedLabsSavedViewRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/$trackerSlug/$entityId': {
-      id: '/_protected/$trackerSlug/$entityId'
-      path: '/$trackerSlug/$entityId'
-      fullPath: '/$trackerSlug/$entityId'
-      preLoaderRoute: typeof ProtectedTrackerSlugEntityIdRouteImport
+    '/_protected/entities/$entityId': {
+      id: '/_protected/entities/$entityId'
+      path: '/entities/$entityId'
+      fullPath: '/entities/$entityId'
+      preLoaderRoute: typeof ProtectedEntitiesEntityIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
   }
@@ -169,7 +169,7 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
-  ProtectedTrackerSlugEntityIdRoute: typeof ProtectedTrackerSlugEntityIdRoute
+  ProtectedEntitiesEntityIdRoute: typeof ProtectedEntitiesEntityIdRoute
   ProtectedLabsSavedViewRoute: typeof ProtectedLabsSavedViewRoute
   ProtectedViewsViewIdRoute: typeof ProtectedViewsViewIdRoute
   ProtectedTrackerSlugIndexRoute: typeof ProtectedTrackerSlugIndexRoute
@@ -177,7 +177,7 @@ interface ProtectedRouteRouteChildren {
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedIndexRoute: ProtectedIndexRoute,
-  ProtectedTrackerSlugEntityIdRoute: ProtectedTrackerSlugEntityIdRoute,
+  ProtectedEntitiesEntityIdRoute: ProtectedEntitiesEntityIdRoute,
   ProtectedLabsSavedViewRoute: ProtectedLabsSavedViewRoute,
   ProtectedViewsViewIdRoute: ProtectedViewsViewIdRoute,
   ProtectedTrackerSlugIndexRoute: ProtectedTrackerSlugIndexRoute,
