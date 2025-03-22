@@ -43,11 +43,10 @@ describe("View runtime E2E", () => {
 			},
 		});
 		expect(result?.meta.pagination).toEqual({
+			page: 1,
 			total: 5,
 			limit: 10,
-			offset: 0,
 			totalPages: 1,
-			currentPage: 1,
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});
@@ -295,40 +294,37 @@ describe("View runtime E2E", () => {
 			await createSingleSchemaRuntimeFixture();
 		const scenarios = [
 			{
-				page: { limit: 2, offset: 0 },
+				pagination: { page: 1, limit: 2 },
 				expectedNames: ["Alpha Phone", "Beta Tablet"],
 				expectedMeta: {
+					page: 1,
 					total: 5,
 					limit: 2,
-					offset: 0,
 					totalPages: 3,
-					currentPage: 1,
 					hasNextPage: true,
 					hasPreviousPage: false,
 				},
 			},
 			{
-				page: { limit: 2, offset: 2 },
+				pagination: { page: 2, limit: 2 },
 				expectedNames: ["Delta Watch", "Gamma Phone"],
 				expectedMeta: {
+					page: 2,
 					total: 5,
 					limit: 2,
-					offset: 2,
 					totalPages: 3,
-					currentPage: 2,
 					hasNextPage: true,
 					hasPreviousPage: true,
 				},
 			},
 			{
-				page: { limit: 1, offset: 4 },
+				pagination: { page: 5, limit: 1 },
 				expectedNames: ["Omega Prototype"],
 				expectedMeta: {
+					page: 5,
 					total: 5,
 					limit: 1,
-					offset: 4,
 					totalPages: 5,
-					currentPage: 5,
 					hasNextPage: false,
 					hasPreviousPage: true,
 				},
@@ -340,7 +336,7 @@ describe("View runtime E2E", () => {
 				client,
 				cookies,
 				buildGridRequest({
-					page: scenario.page,
+					pagination: scenario.pagination,
 					entitySchemaSlugs: [schema.slug],
 				}),
 			);
@@ -353,15 +349,15 @@ describe("View runtime E2E", () => {
 		}
 	});
 
-	it("clamps out-of-range offsets and returns zero-result pagination metadata", async () => {
+	it("returns empty out-of-range pages and zero-result pagination metadata", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
-		const clampedResult = await executeViewRuntime(
+		const emptyPageResult = await executeViewRuntime(
 			client,
 			cookies,
 			buildGridRequest({
-				page: { limit: 2, offset: 100 },
 				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 100, limit: 2 },
 			}),
 		);
 		const emptyResult = await executeViewRuntime(
@@ -373,17 +369,13 @@ describe("View runtime E2E", () => {
 			}),
 		);
 
-		expect(clampedResult.response.status).toBe(200);
-		expect(clampedResult.data?.data.items.map((item) => item.name)).toEqual([
-			"Gamma Phone",
-			"Omega Prototype",
-		]);
-		expect(clampedResult.data?.data.meta.pagination).toEqual({
+		expect(emptyPageResult.response.status).toBe(200);
+		expect(emptyPageResult.data?.data.items).toEqual([]);
+		expect(emptyPageResult.data?.data.meta.pagination).toEqual({
 			total: 5,
 			limit: 2,
-			offset: 3,
+			page: 100,
 			totalPages: 3,
-			currentPage: 2,
 			hasNextPage: false,
 			hasPreviousPage: true,
 		});
@@ -391,11 +383,10 @@ describe("View runtime E2E", () => {
 		expect(emptyResult.response.status).toBe(200);
 		expect(emptyResult.data?.data.items).toHaveLength(0);
 		expect(emptyResult.data?.data.meta.pagination).toEqual({
+			page: 1,
 			total: 0,
 			limit: 10,
-			offset: 0,
 			totalPages: 0,
-			currentPage: 1,
 			hasNextPage: false,
 			hasPreviousPage: false,
 		});

@@ -48,7 +48,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 19. As a user, I want pagination metadata (total count, current page, has next/previous), so that I can navigate through large result sets and understand how much data exists.
 
-20. As a user, I want pagination offsets to be clamped to valid ranges, so that requesting page 1000 of 3 total pages returns an empty result instead of an error.
+20. As a user, I want out-of-range pages to return an empty result instead of being silently rewritten, so that pagination state stays predictable.
 
 21. As a user, I want empty property reference arrays in display configurations to resolve to null, so that optional display fields (like subtitleProperty) can be omitted without breaking the query.
 
@@ -88,7 +88,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 39. As a developer, I want the sort field to be required in runtime requests, so that there's no ambiguity about result ordering.
 
-40. As a developer, I want zero-result queries to return `totalPages: 0` and `currentPage: 1`, so that pagination metadata remains consistent (pages are always 1-indexed).
+40. As a developer, I want zero-result queries to return `totalPages: 0`, so that empty result sets are distinguished from a partially filled first page.
 
 41. As a developer, I want the total count query to use a separate CTE instead of a correlated subquery, so that PostgreSQL can optimize the count separately from the paginated results.
 
@@ -151,7 +151,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 **Replace placeholder endpoint with full contract:**
 - Current: Accepts `entitySchemaId` (UUID), returns all entities
-- New: Accepts `{ entitySchemaSlugs, filters, sort, page, layout, displayConfiguration }`
+- New: Accepts `{ entitySchemaSlugs, filters, sort, pagination, layout, displayConfiguration }`
 - Remove built-in schema access restriction (allow both built-in and custom)
 
 **Request schema structure:**
@@ -160,7 +160,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
   entitySchemaSlugs: string[]
   filters: FilterExpression[]
   sort: { field: string[], direction: "asc" | "desc" }
-  page: { limit: number, offset: number }
+  pagination: { page: number, limit: number }
   layout: "grid" | "list" | "table"
   displayConfiguration: GridConfig | ListConfig | TableConfig
 }
@@ -186,13 +186,12 @@ Build a complete view-runtime execution engine that accepts compiled query reque
   }>
   meta: {
     pagination: {
+      page: number
       total: number
       limit: number
-      offset: number
       hasNextPage: boolean
       hasPreviousPage: boolean
       totalPages: number
-      currentPage: number
     }
   }
 }
@@ -351,14 +350,13 @@ function validateSlugNotReserved(slug: string): void
 
 ### Pagination Behavior
 
-**Offset clamping:**
-- Calculate `maxOffset = max(0, total - limit)`
-- Clamp requested offset: `clampedOffset = min(offset, maxOffset)`
-- Use clamped offset for LIMIT/OFFSET query
+**Page-based pagination:**
+- Derive SQL offset from the requested page: `(page - 1) * limit`
+- If `page > totalPages`, return `items: []` without clamping to the last page
+- Skip the second data query entirely for zero-result and out-of-range pages
 
 **Zero results:**
 - `totalPages: 0`
-- `currentPage: 1` (pages always 1-indexed)
 - `hasNextPage: false`
 - `hasPreviousPage: false`
 
@@ -366,12 +364,11 @@ function validateSlugNotReserved(slug: string): void
 ```typescript
 {
   total: entityCount,
-  limit: request.page.limit,
-  offset: clampedOffset,
-  hasNextPage: clampedOffset + limit < total,
-  hasPreviousPage: clampedOffset > 0,
-  totalPages: total === 0 ? 0 : Math.ceil(total / limit),
-  currentPage: Math.floor(clampedOffset / limit) + 1
+  page: request.pagination.page,
+  limit: request.pagination.limit,
+  hasNextPage: page < totalPages,
+  hasPreviousPage: totalPages > 0 && page > 1,
+  totalPages: total === 0 ? 0 : Math.ceil(total / limit)
 }
 ```
 
@@ -687,7 +684,7 @@ Empty result sets return `totalPages: 0` instead of `1` because:
 1. Mathematically correct: zero items / pageSize = 0 pages
 2. Consistent with pagination math: `Math.ceil(0 / 20) = 0`
 3. Distinguishes "no results" from "one empty page"
-4. `currentPage: 1` is maintained for consistency (pages always 1-indexed)
+4. The response can still preserve the requested `page` without inventing a synthetic page window
 
 ### Next Steps After Phase 1
 
