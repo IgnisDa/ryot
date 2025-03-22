@@ -79,69 +79,74 @@ impl UserService {
                 response: recommendations,
             });
         };
-        let (_, calculated_recommendations) = self
-            .0
-            .cache_service
-            .get_value::<ApplicationRecommendations>(
-                ApplicationCacheKey::ApplicationRecommendations,
-            )
-            .await
-            .unwrap_or_default();
-        let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let limit = preferences
-            .general
-            .dashboard
-            .into_iter()
-            .find(|d| d.section == DashboardElementLot::Recommendations)
-            .unwrap()
-            .num_elements
-            .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
-        let enabled = preferences.features_enabled.media.specific;
-        let started_at = Instant::now();
-        let mut recommendations = HashSet::new();
-        for i in 0.. {
-            let now = Instant::now();
-            if recommendations.len() >= limit.try_into().unwrap()
-                || now.duration_since(started_at).as_secs() > 5
-            {
-                break;
-            }
-            ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
-            let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
-            let cloned_user_id = user_id.clone();
-            let rec = Metadata::find()
-                .select_only()
-                .column(metadata::Column::Id)
-                .filter(metadata::Column::Lot.eq(*selected_lot))
-                .join(
-                    JoinType::LeftJoin,
-                    metadata::Relation::UserToEntity
-                        .def()
-                        .on_condition(move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, user_to_entity::Column::UserId))
-                                    .eq(cloned_user_id.clone()),
-                            )
-                        }),
+        let metadata_count = Metadata::find().count(&self.0.db).await?;
+        let mut recommendations = if metadata_count == 0 {
+            vec![]
+        } else {
+            let (_, calculated_recommendations) = self
+                .0
+                .cache_service
+                .get_value::<ApplicationRecommendations>(
+                    ApplicationCacheKey::ApplicationRecommendations,
                 )
-                .filter(user_to_entity::Column::Id.is_null())
-                .apply_if(
-                    (!calculated_recommendations.is_empty()).then_some(0),
-                    |query, _| {
-                        query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
-                    },
-                )
-                .order_by_desc(Expr::expr(Func::md5(
-                    Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
-                )))
-                .into_tuple::<String>()
-                .one(&self.0.db)
-                .await?;
-            if let Some(rec) = rec {
-                recommendations.insert(rec);
+                .await
+                .unwrap_or_default();
+            let preferences = user_by_id(user_id, &self.0).await?.preferences;
+            let limit = preferences
+                .general
+                .dashboard
+                .into_iter()
+                .find(|d| d.section == DashboardElementLot::Recommendations)
+                .unwrap()
+                .num_elements
+                .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
+            let enabled = preferences.features_enabled.media.specific;
+            let started_at = Instant::now();
+            let mut recommendations = HashSet::new();
+            for i in 0.. {
+                let now = Instant::now();
+                if recommendations.len() >= limit.try_into().unwrap()
+                    || now.duration_since(started_at).as_secs() > 5
+                {
+                    break;
+                }
+                ryot_log!(debug, "Recommendations loop {} for user: {}", i, user_id);
+                let selected_lot = enabled.choose(&mut rand::rng()).unwrap();
+                let cloned_user_id = user_id.clone();
+                let rec = Metadata::find()
+                    .select_only()
+                    .column(metadata::Column::Id)
+                    .filter(metadata::Column::Lot.eq(*selected_lot))
+                    .join(
+                        JoinType::LeftJoin,
+                        metadata::Relation::UserToEntity
+                            .def()
+                            .on_condition(move |_left, right| {
+                                Condition::all().add(
+                                    Expr::col((right, user_to_entity::Column::UserId))
+                                        .eq(cloned_user_id.clone()),
+                                )
+                            }),
+                    )
+                    .filter(user_to_entity::Column::Id.is_null())
+                    .apply_if(
+                        (!calculated_recommendations.is_empty()).then_some(0),
+                        |query, _| {
+                            query.filter(metadata::Column::Id.is_in(&calculated_recommendations))
+                        },
+                    )
+                    .order_by_desc(Expr::expr(Func::md5(
+                        Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
+                    )))
+                    .into_tuple::<String>()
+                    .one(&self.0.db)
+                    .await?;
+                if let Some(rec) = rec {
+                    recommendations.insert(rec);
+                }
             }
-        }
-        let mut recommendations = recommendations.into_iter().collect_vec();
+            recommendations.into_iter().collect_vec()
+        };
         recommendations.shuffle(&mut rand::rng());
         let id = cc
             .set_key(
