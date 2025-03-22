@@ -18,7 +18,7 @@ const primitivePropertySchema = z
 	})
 	.openapi("AppPrimitiveProperty");
 
-let propertyDefinitionSchema: z.ZodType<AppPropertyDefinition>;
+export let propertyDefinitionSchema: z.ZodType<AppPropertyDefinition>;
 
 const arrayPropertySchema = z
 	.strictObject({
@@ -50,8 +50,6 @@ propertyDefinitionSchema = z
 	.openapi(
 		"AppPropertyDefinition",
 	) as unknown as z.ZodType<AppPropertyDefinition>;
-
-export { propertyDefinitionSchema };
 
 export const createPropertySchemaObjectSchema = (message: string) =>
 	z
