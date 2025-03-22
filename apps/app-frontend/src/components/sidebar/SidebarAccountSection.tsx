@@ -14,7 +14,6 @@ import {
 import { useDisclosure, useHover } from "@mantine/hooks";
 import { Key, Laptop, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { useIsMobileScreen } from "#/hooks/screen";
-import { useColorScheme } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
@@ -51,7 +50,6 @@ export function SidebarAccountSection(props: {
 	account: SidebarAccount;
 }) {
 	const isMobile = useIsMobileScreen();
-	const computedColorScheme = useColorScheme();
 	const { hovered, ref } = useHover<HTMLButtonElement>();
 	const { colorScheme, setColorScheme } = useMantineColorScheme();
 	const [opened, { close, open }] = useDisclosure(false);
@@ -202,9 +200,6 @@ export function SidebarAccountSection(props: {
 												Theme follows your journal preference across the app.
 											</Text>
 										</Box>
-										<Text c={props.textMuted} size="xs" mt={2}>
-											Active: {computedColorScheme}
-										</Text>
 									</Group>
 									<SegmentedControl
 										fullWidth
