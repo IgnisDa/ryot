@@ -112,31 +112,25 @@ ORDER BY RANDOM() LIMIT 10;
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            match provider
+            let recommendations = provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
-            {
-                Ok(recommendations) => {
-                    ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-                    for rec in recommendations {
-                        if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
-                            let relation = metadata_to_metadata::ActiveModel {
-                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
-                                from_metadata_id: ActiveValue::Set(media.id.clone()),
-                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
-                                ..Default::default()
-                            };
-                            MetadataToMetadata::insert(relation)
-                                .on_conflict_do_nothing()
-                                .exec(&self.0.db)
-                                .await
-                                .ok();
-                            media_item_ids.push(meta.id);
-                        }
-                    }
-                }
-                e => {
-                    ryot_log!(warn, "Could not get recommendations {:?}", e);
+                .unwrap_or_default();
+            ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+            for rec in recommendations {
+                if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
+                    let relation = metadata_to_metadata::ActiveModel {
+                        to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                        from_metadata_id: ActiveValue::Set(media.id.clone()),
+                        relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                        ..Default::default()
+                    };
+                    MetadataToMetadata::insert(relation)
+                        .on_conflict_do_nothing()
+                        .exec(&self.0.db)
+                        .await
+                        .ok();
+                    media_item_ids.push(meta.id);
                 }
             }
         }
