@@ -182,7 +182,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .find(|d| d.section == DashboardElementLot::Recommendations)
                     .unwrap()
                     .num_elements
-                    .ok_or_else(|| Error::new("Dashboard element num elements not found"))?;
+                    .unwrap();
                 let enabled = preferences.features_enabled.media.specific;
                 let started_at = Instant::now();
                 let mut recommendations = HashSet::new();
