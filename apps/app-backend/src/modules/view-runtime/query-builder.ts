@@ -15,15 +15,18 @@ type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
 };
 
 type QueryRow = {
-	id: string;
-	name: string;
-	created_at: Date;
-	updated_at: Date;
-	entity_schema_id: string;
-	entity_schema_slug: string;
+	total: number;
+	id: string | null;
+	name: string | null;
+	created_at: Date | null;
+	updated_at: Date | null;
 	image: ImageSchemaType | null;
-	resolved_properties: Record<string, unknown>;
+	entity_schema_id: string | null;
+	entity_schema_slug: string | null;
+	resolved_properties: Record<string, unknown> | null;
 };
+
+type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
 
 type PaginationInput = {
 	page: number;
@@ -137,6 +140,31 @@ export const calculatePagination = (
 	};
 };
 
+export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
+	if (
+		row.id === null ||
+		row.name === null ||
+		row.created_at === null ||
+		row.updated_at === null ||
+		row.entity_schema_id === null ||
+		row.entity_schema_slug === null ||
+		row.resolved_properties === null
+	) {
+		return null;
+	}
+
+	return {
+		id: row.id,
+		name: row.name,
+		image: row.image,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+		entitySchemaId: row.entity_schema_id,
+		entitySchemaSlug: row.entity_schema_slug,
+		resolvedProperties: row.resolved_properties,
+	};
+};
+
 export const executeViewRuntimeQuery = async (
 	request: ViewRuntimeRequest,
 	userId: string,
@@ -166,30 +194,7 @@ export const executeViewRuntimeQuery = async (
 		field: request.sort.field,
 		alias: "filtered_entities",
 	});
-
-	const countResult = await db.execute<{ total: number }>(sql`
-		with
-			${filteredEntitiesCte},
-			entity_count as (
-				select count(*)::integer as total
-				from filtered_entities
-			)
-		select total
-		from entity_count
-	`);
-
-	const total = countResult.rows[0]?.total ?? 0;
-	const pagination = calculatePagination({
-		total,
-		page: request.pagination.page,
-		limit: request.pagination.limit,
-	});
-
-	if (total === 0 || pagination.page > pagination.totalPages) {
-		return { items: [], meta: { pagination } };
-	}
-
-	const offset = (pagination.page - 1) * pagination.limit;
+	const offset = (request.pagination.page - 1) * request.pagination.limit;
 	const resolvedProperties = buildResolvedPropertiesExpression({
 		request,
 		schemaMap,
@@ -201,24 +206,25 @@ export const executeViewRuntimeQuery = async (
 	const dataResult = await db.execute<QueryRow>(sql`
 		with
 			${filteredEntitiesCte},
-			entity_count as (
-				select count(*)::integer as total
-				from filtered_entities
-			),
 			sorted_entities as (
 				select
 					filtered_entities.*,
+					count(*) over ()::integer as total,
 					row_number() over (
 						order by ${sortExpression} ${direction} nulls last, filtered_entities.id asc
 					) as sort_index
 				from filtered_entities
+			),
+			entity_count as (
+				select coalesce(max(total), 0)::integer as total
+				from sorted_entities
 			),
 			paginated_entities as (
 				select *
 				from sorted_entities
 				order by sort_index
 				offset ${offset}
-				limit ${pagination.limit}
+				limit ${request.pagination.limit}
 			)
 		select
 			id,
@@ -228,22 +234,22 @@ export const executeViewRuntimeQuery = async (
 			updated_at,
 			entity_schema_id,
 			entity_schema_slug,
+			entity_count.total,
 			${resolvedProperties} as resolved_properties
-		from paginated_entities
+		from entity_count
+		left join paginated_entities on true
 		order by sort_index
 	`);
 
+	const total = dataResult.rows[0]?.total ?? 0;
+	const pagination = calculatePagination({
+		total,
+		page: request.pagination.page,
+		limit: request.pagination.limit,
+	});
+
 	return {
 		meta: { pagination },
-		items: dataResult.rows.map((row) => ({
-			id: row.id,
-			name: row.name,
-			image: row.image,
-			createdAt: row.created_at,
-			updatedAt: row.updated_at,
-			entitySchemaId: row.entity_schema_id,
-			entitySchemaSlug: row.entity_schema_slug,
-			resolvedProperties: row.resolved_properties,
-		})),
+		items: dataResult.rows.flatMap((row) => mapQueryRowToItem(row) ?? []),
 	};
 };
