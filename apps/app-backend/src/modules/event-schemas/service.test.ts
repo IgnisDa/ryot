@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import type { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 import {
 	createEventSchema,
 	type EventSchemaServiceDeps,
-	type EventSchemaServiceResult,
 	listEventSchemas,
 	parseEventSchemaPropertiesSchema,
 	resolveEventSchemaCreateInput,
@@ -50,14 +50,6 @@ const createDeps = (
 	],
 	...overrides,
 });
-
-const expectDataResult = <T>(result: EventSchemaServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveEventSchemaName", () => {
 	it("trims the provided name", () => {

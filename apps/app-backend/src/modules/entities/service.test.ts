@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 import {
 	createEntity,
 	type EntityServiceDeps,
-	type EntityServiceResult,
 	getEntityDetail,
 	parseEntityProperties,
 	resolveEntityCreateInput,
@@ -59,14 +59,6 @@ const createDeps = (
 	}),
 	...overrides,
 });
-
-const expectDataResult = <T>(result: EntityServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveEntityName", () => {
 	it("trims the provided name", () => {
