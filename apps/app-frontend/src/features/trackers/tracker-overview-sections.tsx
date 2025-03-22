@@ -3,17 +3,9 @@ import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import { FilePlus2, NotebookPen, Plus, Shapes } from "lucide-react";
 import type { AppSavedView } from "#/features/saved-views/model";
+import { useThemeTokens } from "#/hooks/theme";
 import { TrackerIcon } from "./icons";
 import type { AppTracker } from "./model";
-
-export function getTrackerOverviewTokens(isDark: boolean) {
-	return {
-		surface: isDark ? "var(--mantine-color-dark-8)" : "white",
-		textLink: isDark
-			? "var(--mantine-color-dark-1)"
-			: "var(--mantine-color-dark-7)",
-	};
-}
 
 export function TrackerOverviewHeader(props: {
 	tracker: AppTracker;
@@ -92,7 +84,6 @@ export function TrackerOverviewActivityItem(props: {
 }
 
 export function TrackerOverviewQuickActions(props: {
-	isDark: boolean;
 	accentColor: string;
 	canLogEvent: boolean;
 	onLogEvent: () => void;
@@ -102,7 +93,7 @@ export function TrackerOverviewQuickActions(props: {
 	entityActionLabel: string;
 	onCreateEntity: () => void;
 }) {
-	const { surface } = getTrackerOverviewTokens(props.isDark);
+	const { surface } = useThemeTokens();
 	const accentBg = `color-mix(in srgb, ${props.accentColor} 12%, transparent)`;
 
 	return (
@@ -160,12 +151,8 @@ export function TrackerOverviewQuickActions(props: {
 	);
 }
 
-export function TrackerOverviewSavedViews(props: {
-	isDark: boolean;
-	textLink: string;
-	views: AppSavedView[];
-}) {
-	const { surface } = getTrackerOverviewTokens(props.isDark);
+export function TrackerOverviewSavedViews(props: { views: AppSavedView[] }) {
+	const { surface, textLink } = useThemeTokens();
 
 	return (
 		<Paper p="md" withBorder radius="md" bg={surface}>
@@ -191,7 +178,7 @@ export function TrackerOverviewSavedViews(props: {
 								to="/views/$viewId"
 								params={{ viewId: view.id }}
 								style={{
-									color: props.textLink,
+									color: textLink,
 									fontSize: "var(--mantine-font-size-sm)",
 								}}
 							>
@@ -207,10 +194,9 @@ export function TrackerOverviewSavedViews(props: {
 
 export function TrackerOverviewEmptyPanel(props: {
 	title: string;
-	isDark: boolean;
 	description: string;
 }) {
-	const { surface } = getTrackerOverviewTokens(props.isDark);
+	const { surface } = useThemeTokens();
 
 	return (
 		<Paper p="md" withBorder radius="md" bg={surface}>
