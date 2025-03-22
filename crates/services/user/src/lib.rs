@@ -63,7 +63,10 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    async fn get_download_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
+    async fn get_metadata_to_download_recommendations_for(
+        &self,
+        user_id: &String,
+    ) -> Result<Vec<String>> {
         let cc = &self.0.cache_service;
         let key = ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
             input: (),
@@ -168,7 +171,9 @@ ORDER BY RANDOM() LIMIT 10;
         let recommendations = match metadata_count {
             0 => vec![],
             _ => {
-                let calculated_recommendations = self.get_download_recommendations(user_id).await?;
+                let calculated_recommendations = self
+                    .get_metadata_to_download_recommendations_for(user_id)
+                    .await?;
                 let preferences = user_by_id(user_id, &self.0).await?.preferences;
                 let limit = preferences
                     .general
