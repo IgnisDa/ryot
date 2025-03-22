@@ -90,6 +90,7 @@ export function Select(props: {
 				placeholder={props.placeholder}
 				options={props.values}
 				value={field.state.value}
+				onBlur={field.handleBlur}
 				onChange={(event) => field.handleChange(event.value ?? "")}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
@@ -109,6 +110,7 @@ export function Slider(props: { label: string }) {
 			<ReshapedSlider
 				name={props.label}
 				value={field.state.value}
+				onChangeCommit={field.handleBlur}
 				onChange={(event) => field.handleChange(event.value)}
 			/>
 			{field.state.meta.isTouched && <ErrorMessages errors={errors} />}
