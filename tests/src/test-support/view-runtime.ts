@@ -1,30 +1,17 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import type createClient from "openapi-fetch";
-import { createAuthenticatedClient } from "../helpers";
+import {
+	type Client,
+	createAuthenticatedClient,
+	createEntitySchema,
+	createTracker,
+} from "../helpers";
 
-type Client = ReturnType<typeof createClient<paths>>;
 type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
 type GridRequest = Extract<ExecuteViewRuntimeBody, { layout: "grid" }>;
 type ListRequest = Extract<ExecuteViewRuntimeBody, { layout: "list" }>;
 type TableRequest = Extract<ExecuteViewRuntimeBody, { layout: "table" }>;
-
-type PropertyType = "boolean" | "date" | "integer" | "number" | "string";
-type PropertiesSchema = Record<string, { type: PropertyType }>;
-
-interface EntitySchemaFixture {
-	slug: string;
-	schemaId: string;
-}
-
-interface CreateEntitySchemaOptions {
-	icon?: string;
-	name?: string;
-	slug?: string;
-	trackerId: string;
-	propertiesSchema: PropertiesSchema;
-}
 
 interface CreateEntityInput {
 	name: string;
@@ -120,53 +107,7 @@ export async function executeViewRuntime(
 	});
 }
 
-export async function createTracker(
-	client: Client,
-	cookies: string,
-	name: string,
-) {
-	const { data, response } = await client.POST("/trackers", {
-		headers: { Cookie: cookies },
-		body: {
-			name,
-			enabled: true,
-			icon: "rocket",
-			accentColor: "#FF5733",
-			description: `${name} description`,
-			slug: `tracker-${crypto.randomUUID()}`,
-		},
-	});
-
-	if (response.status !== 200 || !data?.data?.id) {
-		throw new Error(`Failed to create tracker '${name}'`);
-	}
-
-	return data.data.id;
-}
-
-export async function createEntitySchema(
-	client: Client,
-	cookies: string,
-	options: CreateEntitySchemaOptions,
-): Promise<EntitySchemaFixture> {
-	const { data, response } = await client.POST("/entity-schemas", {
-		headers: { Cookie: cookies },
-		body: {
-			accentColor: "#00AA88",
-			trackerId: options.trackerId,
-			name: options.name ?? "Device",
-			icon: options.icon ?? "smartphone",
-			propertiesSchema: options.propertiesSchema,
-			slug: options.slug ?? `view-runtime-${crypto.randomUUID()}`,
-		},
-	});
-
-	if (response.status !== 200 || !data?.data?.id || !data.data.slug) {
-		throw new Error(`Failed to create entity schema '${options.name}'`);
-	}
-
-	return { schemaId: data.data.id, slug: data.data.slug };
-}
+export { createTracker, createEntitySchema };
 
 export async function createEntity(input: CreateEntityInput) {
 	const { data, response } = await input.client.POST("/entities", {
@@ -193,7 +134,9 @@ export async function createEntity(input: CreateEntityInput) {
 
 export async function createSingleSchemaRuntimeFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
-	const trackerId = await createTracker(client, cookies, "Device Tracker");
+	const { trackerId } = await createTracker(client, cookies, {
+		name: "Device Tracker",
+	});
 	const schema = await createEntitySchema(client, cookies, {
 		trackerId,
 		name: "Device",
@@ -242,11 +185,9 @@ export async function createSingleSchemaRuntimeFixture() {
 
 export async function createCrossSchemaRuntimeFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
-	const trackerId = await createTracker(
-		client,
-		cookies,
-		"Mixed Device Tracker",
-	);
+	const { trackerId } = await createTracker(client, cookies, {
+		name: "Mixed Device Tracker",
+	});
 	const smartphoneSchema = await createEntitySchema(client, cookies, {
 		trackerId,
 		name: "Smartphone",
