@@ -1,4 +1,4 @@
-import { Alert, Container, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Container, Group, Stack, Text } from "@mantine/core";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -13,7 +13,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
@@ -30,7 +29,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { clientGqlService, dayjsLib, queryFactory } from "~/lib/common";
+import { dayjsLib } from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -81,6 +80,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	invariant(foundInProgressCollection);
 	const [
 		{ collectionContents: inProgressCollectionContents },
+		{ userMetadataRecommendations },
 		{ userUpcomingCalendarEvents },
 		{ userAnalytics },
 	] = await Promise.all([
@@ -91,6 +91,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 				collectionId: foundInProgressCollection.id,
 			},
 		}),
+		serverGqlService.authenticatedRequest(
+			request,
+			UserMetadataRecommendationsDocument,
+			{},
+		),
 		serverGqlService.authenticatedRequest(
 			request,
 			UserUpcomingCalendarEventsDocument,
@@ -106,6 +111,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		userAnalytics,
 		userUpcomingCalendarEvents,
+		userMetadataRecommendations,
 		inProgressCollectionContents,
 	};
 };
@@ -130,14 +136,6 @@ export default function Page() {
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
 		"false",
 	);
-
-	const userMetadataRecommendationsQuery = useQuery({
-		queryKey: queryFactory.user.userMetadataRecommendations().queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(UserMetadataRecommendationsDocument)
-				.then((res) => res.userMetadataRecommendations),
-	});
 
 	return (
 		<Container>
@@ -210,34 +208,24 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									cacheId={userMetadataRecommendationsQuery.data?.cacheId}
+									cacheId={loaderData.userMetadataRecommendations.cacheId}
 									confirmationText="Are you sure you want to refresh the recommendations?"
-									onRefresh={async () => {
-										await new Promise((resolve) => setTimeout(resolve, 1000));
-										userMetadataRecommendationsQuery.refetch();
-									}}
 								/>
-								{userMetadataRecommendationsQuery.data ? (
-									<>
-										{coreDetails.isServerKeyValidated ? (
-											<ApplicationGrid>
-												{userMetadataRecommendationsQuery.data.response.map(
-													(lm) => (
-														<MetadataDisplayItem key={lm} metadataId={lm} />
-													),
-												)}
-											</ApplicationGrid>
-										) : (
-											<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								{coreDetails.isServerKeyValidated ? (
+									<ApplicationGrid>
+										{loaderData.userMetadataRecommendations.response.map(
+											(lm) => (
+												<MetadataDisplayItem key={lm} metadataId={lm} />
+											),
 										)}
-										{userMetadataRecommendationsQuery.data.response.length ===
-										0 ? (
-											<Text c="dimmed">No recommendations available.</Text>
-										) : null}
-									</>
+									</ApplicationGrid>
 								) : (
-									<Skeleton height={100} />
+									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 								)}
+								{loaderData.userMetadataRecommendations.response.length ===
+								0 ? (
+									<Text c="dimmed">No recommendations available.</Text>
+								) : null}
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
@@ -264,8 +252,7 @@ export default function Page() {
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
-	cacheId?: string;
-	onRefresh?: () => void;
+	cacheId: string;
 	confirmationText?: string;
 }) => {
 	return (
@@ -273,7 +260,6 @@ const SectionTitleWithRefreshIcon = (props: {
 			<SectionTitle text={props.text} />
 			<ExpireCacheKeyButton
 				cacheId={props.cacheId}
-				onSubmit={() => props.onRefresh?.()}
 				confirmationText={props.confirmationText}
 			/>
 		</Group>

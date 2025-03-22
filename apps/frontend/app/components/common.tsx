@@ -1457,8 +1457,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export const ExpireCacheKeyButton = (props: {
-	cacheId?: string;
-	onSubmit?: () => void;
+	cacheId: string;
 	confirmationText?: string;
 }) => {
 	const submit = useConfirmSubmit();
@@ -1468,7 +1467,6 @@ export const ExpireCacheKeyButton = (props: {
 		<Form
 			replace
 			method="POST"
-			onSubmit={props.onSubmit}
 			action={withQuery($path("/actions"), {
 				intent: "expireCacheKey",
 				[redirectToQueryParam]: location.pathname,
@@ -1483,10 +1481,7 @@ export const ExpireCacheKeyButton = (props: {
 					const form = e.currentTarget.form;
 					if (form) {
 						e.preventDefault();
-						openConfirmationModal(props.confirmationText, () => {
-							submit(form);
-							props.onSubmit?.();
-						});
+						openConfirmationModal(props.confirmationText, () => submit(form));
 					}
 				}}
 			>
