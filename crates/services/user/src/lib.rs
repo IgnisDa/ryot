@@ -7,8 +7,8 @@ use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, integration, metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
+    access_link, integration, metadata, metadata_to_metadata, notification_platform,
+    prelude::{AccessLink, Integration, Metadata, MetadataToMetadata, NotificationPlatform, User},
     user, user_to_entity,
 };
 use database_utils::{
@@ -19,10 +19,13 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
     UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::create_or_update_collection;
+use dependent_utils::{
+    create_or_update_collection, create_partial_metadata, get_metadata_provider,
+};
 use enum_meta::Meta;
 use enum_models::{
-    IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot, UserNotificationContent,
+    IntegrationLot, IntegrationProvider, MediaLot, MediaSource, MetadataToMetadataRelation,
+    NotificationPlatformLot, UserLot, UserNotificationContent,
 };
 use itertools::Itertools;
 use jwt_service::sign;
@@ -42,8 +45,9 @@ use openidconnect::{
 };
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, Iterable, JoinType,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseBackend, EntityTrait,
+    FromQueryResult, Iterable, JoinType, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, Statement,
     prelude::Expr,
     sea_query::{Func, extension::postgres::PgExpr},
 };
@@ -59,6 +63,90 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
+    async fn get_download_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
+        let cc = &self.0.cache_service;
+        let key = ApplicationCacheKey::ApplicationRecommendations;
+        if let Some((_, recommendations)) = cc
+            .get_value::<ApplicationRecommendations>(key.clone())
+            .await
+        {
+            return Ok(recommendations);
+        }
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            id: String,
+            lot: MediaLot,
+            identifier: String,
+            source: MediaSource,
+        }
+        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
+FROM (
+    SELECT "user_id", "metadata_id" FROM "user_to_entity"
+    WHERE "user_id" = $1 AND "metadata_id" IS NOT NULL
+) "sub"
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5)
+ORDER BY RANDOM() LIMIT 10;
+        "#,
+            [
+                user_id.into(),
+                MediaSource::Vndb.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Custom.into(),
+                MediaSource::GoogleBooks.into(),
+            ],
+        ))
+        .all(&self.0.db)
+        .await?;
+        ryot_log!(
+            debug,
+            "Media items selected for recommendations: {:?}",
+            media_items
+        );
+        let mut media_item_ids = vec![];
+        for media in media_items.into_iter() {
+            ryot_log!(debug, "Getting recommendations: {:?}", media);
+            let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
+            match provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
+            {
+                Ok(recommendations) => {
+                    ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+                    for rec in recommendations {
+                        if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
+                            let relation = metadata_to_metadata::ActiveModel {
+                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                                from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                                ..Default::default()
+                            };
+                            MetadataToMetadata::insert(relation)
+                                .on_conflict_do_nothing()
+                                .exec(&self.0.db)
+                                .await
+                                .ok();
+                            media_item_ids.push(meta.id);
+                        }
+                    }
+                }
+                e => {
+                    ryot_log!(warn, "Could not get recommendations {:?}", e);
+                }
+            }
+        }
+        self.0
+            .cache_service
+            .set_key(
+                key,
+                ApplicationCacheValue::ApplicationRecommendations(media_item_ids.clone()),
+            )
+            .await?;
+        Ok(media_item_ids)
+    }
+
     pub async fn user_metadata_recommendations(
         &self,
         user_id: &String,
@@ -83,14 +171,7 @@ impl UserService {
         let recommendations = match metadata_count {
             0 => vec![],
             _ => {
-                let (_, calculated_recommendations) = self
-                    .0
-                    .cache_service
-                    .get_value::<ApplicationRecommendations>(
-                        ApplicationCacheKey::ApplicationRecommendations,
-                    )
-                    .await
-                    .unwrap_or_default();
+                let calculated_recommendations = self.get_download_recommendations(user_id).await?;
                 let preferences = user_by_id(user_id, &self.0).await?.preferences;
                 let limit = preferences
                     .general
