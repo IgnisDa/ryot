@@ -73,12 +73,12 @@ use media_models::{
     GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
     MediaAssociatedPersonStateChanges, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataImage, MetadataPartialDetails, MetadataVideo, MetadataVideoSource,
-    PartialMetadata, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -112,83 +112,6 @@ type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
-    pub async fn download_new_recommendations(&self) -> Result<()> {
-        ryot_log!(debug, "Downloading new recommendations for users");
-        #[derive(Debug, FromQueryResult)]
-        struct CustomQueryResponse {
-            id: String,
-            lot: MediaLot,
-            source: MediaSource,
-            identifier: String,
-        }
-        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-            DatabaseBackend::Postgres,
-            r#"
-SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
-FROM (
-    SELECT "user_id", "metadata_id" FROM "user_to_entity"
-    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
-) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3, $4)
-ORDER BY RANDOM() LIMIT 20;
-        "#,
-            [
-                MediaSource::Vndb.into(),
-                MediaSource::Itunes.into(),
-                MediaSource::Custom.into(),
-                MediaSource::GoogleBooks.into(),
-            ],
-        ))
-        .all(&self.0.db)
-        .await?;
-        ryot_log!(
-            debug,
-            "Media items selected for recommendations: {:?}",
-            media_items
-        );
-        let mut media_item_ids = vec![];
-        for media in media_items.into_iter() {
-            ryot_log!(debug, "Getting recommendations: {:?}", media);
-            let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            match provider
-                .get_recommendations_for_metadata(&media.identifier)
-                .await
-            {
-                Ok(recommendations) => {
-                    ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-                    for rec in recommendations {
-                        if let Ok(meta) = self.create_partial_metadata(rec).await {
-                            let relation = metadata_to_metadata::ActiveModel {
-                                to_metadata_id: ActiveValue::Set(meta.id.clone()),
-                                from_metadata_id: ActiveValue::Set(media.id.clone()),
-                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
-                                ..Default::default()
-                            };
-                            MetadataToMetadata::insert(relation)
-                                .on_conflict_do_nothing()
-                                .exec(&self.0.db)
-                                .await
-                                .ok();
-                            media_item_ids.push(meta.id);
-                        }
-                    }
-                }
-                e => {
-                    ryot_log!(warn, "Could not get recommendations {:?}", e);
-                }
-            }
-        }
-        ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
-        self.0
-            .cache_service
-            .set_key(
-                ApplicationCacheKey::ApplicationRecommendations,
-                ApplicationCacheValue::ApplicationRecommendations(media_item_ids),
-            )
-            .await?;
-        Ok(())
-    }
-
     pub async fn revoke_invalid_access_tokens(&self) -> Result<()> {
         let access_links = AccessLink::find()
             .select_only()
@@ -1088,13 +1011,6 @@ ORDER BY RANDOM() LIMIT 20;
             }
         }
         Ok(())
-    }
-
-    async fn create_partial_metadata(
-        &self,
-        data: PartialMetadataWithoutId,
-    ) -> Result<PartialMetadata> {
-        create_partial_metadata(data, &self.0.db).await
     }
 
     pub async fn update_seen_item(
@@ -2817,10 +2733,6 @@ ORDER BY RANDOM() LIMIT 20;
         self.remove_useless_data().await.trace_ok();
         ryot_log!(trace, "Putting entities in partial state");
         self.put_entities_in_partial_state().await.trace_ok();
-        // DEV: This is called after removing useless data so that recommendations are not
-        // deleted right after they are downloaded.
-        ryot_log!(trace, "Downloading recommendations for users");
-        self.download_new_recommendations().await.trace_ok();
         // DEV: Invalid access tokens are revoked before being deleted, so we call this
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
