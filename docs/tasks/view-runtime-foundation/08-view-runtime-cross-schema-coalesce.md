@@ -30,6 +30,7 @@ Extend display configuration resolution:
 - Grid/list: semantic keys (imageProperty, titleProperty, subtitleProperty, badgeProperty)
 - Table: index-based keys (column_0, column_1, column_2, ...)
 - `@name` resolves to top-level `name` column, `@image` resolves to top-level `image` column
+- If `@image` is null, it must behave like SQL NULL so later fallback references can win
 - Return as `jsonb_build_object(...)` in SQL
 - See PRD sections "Display Config Resolution" and "Display Configuration Property References"
 
@@ -67,6 +68,7 @@ Extend display configuration resolution:
 - [ ] Grid/list resolvedProperties use semantic keys (imageProperty, titleProperty, etc.)
 - [ ] Table resolvedProperties use index-based keys (column_0, column_1, etc.)
 - [ ] `@name` and `@image` in display config resolve to top-level columns
+- [ ] Null top-level images do not short-circuit later display fallbacks
 - [ ] Empty property reference arrays resolve to null
 - [ ] Cross-schema queries return entities from all requested schemas
 - [ ] Integration tests cover cross-schema sort, display, table, and empty array cases
