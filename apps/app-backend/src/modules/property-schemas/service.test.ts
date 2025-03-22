@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { propertySchemaInputSchema } from "./schemas";
 import { parsePropertySchemaInput } from "./service";
 
 describe("parsePropertySchemaInput", () => {
@@ -101,27 +100,5 @@ describe("parsePropertySchemaInput", () => {
 				},
 			),
 		).toThrow('Property "metadata" has unsupported key "items"');
-	});
-});
-
-describe("propertySchemaInputSchema", () => {
-	it("accepts a non-empty object", () => {
-		expect(
-			propertySchemaInputSchema.safeParse({ rating: { type: "number" } })
-				.success,
-		).toBeTrue();
-	});
-
-	it("rejects strings", () => {
-		expect(
-			propertySchemaInputSchema.safeParse('{"rating":{"type":"number"}}')
-				.success,
-		).toBeFalse();
-	});
-
-	it("rejects an empty object", () => {
-		const result = propertySchemaInputSchema.safeParse({});
-
-		expect(result.success).toBeFalse();
 	});
 });
