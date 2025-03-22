@@ -65,7 +65,10 @@ pub struct UserService(pub Arc<SupportingService>);
 impl UserService {
     async fn get_download_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
         let cc = &self.0.cache_service;
-        let key = ApplicationCacheKey::ApplicationRecommendations;
+        let key = ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
+            input: (),
+            user_id: user_id.to_owned(),
+        });
         if let Some((_, recommendations)) = cc
             .get_value::<ApplicationRecommendations>(key.clone())
             .await
@@ -141,7 +144,7 @@ ORDER BY RANDOM() LIMIT 10;
             .cache_service
             .set_key(
                 key,
-                ApplicationCacheValue::ApplicationRecommendations(media_item_ids.clone()),
+                ApplicationCacheValue::UserMetadataRecommendationsSet(media_item_ids.clone()),
             )
             .await?;
         Ok(media_item_ids)
