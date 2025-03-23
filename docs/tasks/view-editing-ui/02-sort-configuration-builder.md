@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** completed
+**Status:** done
 
 **Note:** Do not create git commits as an agent. Leave commit creation to the user.
 

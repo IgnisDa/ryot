@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** completed
+**Status:** done
 
 ## What to build
 

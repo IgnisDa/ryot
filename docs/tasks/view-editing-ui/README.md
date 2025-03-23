@@ -402,9 +402,9 @@ Basic metadata fields (name, icon, accentColor, trackerId) are already editable 
 
 | # | Task | Type | Status | Blocked By |
 |---|------|------|--------|------------|
-| 01 | [Entity Schemas Selector](./01-entity-schemas-selector.md) | AFK | completed | None |
-| 02 | [Sort Configuration Builder](./02-sort-configuration-builder.md) | AFK | completed | Task 01 |
-| 03 | [Filters Builder](./03-filters-builder.md) | AFK | completed | Task 02 |
-| 04 | [Grid Display Configuration](./04-grid-display-configuration.md) | AFK | completed | Task 03 |
-| 05 | [List and Table Display Configurations](./05-list-table-display-configurations.md) | AFK | completed | Task 04 |
-| 06 | [Built-in Protection and UX Polish](./06-builtin-protection-ux-polish.md) | AFK | completed | Task 05 |
+| 01 | [Entity Schemas Selector](./01-entity-schemas-selector.md) | AFK | done | None |
+| 02 | [Sort Configuration Builder](./02-sort-configuration-builder.md) | AFK | done | Task 01 |
+| 03 | [Filters Builder](./03-filters-builder.md) | AFK | done | Task 02 |
+| 04 | [Grid Display Configuration](./04-grid-display-configuration.md) | AFK | done | Task 03 |
+| 05 | [List and Table Display Configurations](./05-list-table-display-configurations.md) | AFK | done | Task 04 |
+| 06 | [Built-in Protection and UX Polish](./06-builtin-protection-ux-polish.md) | AFK | done | Task 05 |
