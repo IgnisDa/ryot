@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { clientGqlService, forcedDashboardPath } from "../common";
+import { clientGqlService, dayjsLib, forcedDashboardPath } from "../common";
 import {
 	useApplicationEvents,
 	useDashboardLayoutData,
@@ -150,7 +150,9 @@ export const useOnboardingTour = () => {
 				if (draft) draft.isCompleted = true;
 			}),
 		);
-		Cookies.set(dashboardData.onboardingTourCompletedCookie, "true");
+		Cookies.set(dashboardData.onboardingTourCompletedCookie, "true", {
+			expires: dayjsLib().add(1, "year").toDate(),
+		});
 		applicationEvents.completeOnboardingTour();
 		navigate(forcedDashboardPath);
 	};
