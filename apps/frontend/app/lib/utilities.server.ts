@@ -349,19 +349,19 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-export const getEnhancedCookieName = async (
-	path: string,
-	name: string,
-	request: Request,
-) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return `${name}__${userDetails.id}__${path}`;
+export const getEnhancedCookieName = async (input: {
+	name: string;
+	path?: string;
+	request: Request;
+}) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(input.request);
+	return `${input.name}__${userDetails.id}${input.path ? `__${input.path}` : ""}`;
 };
 
 export const getSearchEnhancedCookieName = async (
 	path: string,
 	request: Request,
-) => getEnhancedCookieName(path, "SearchParams", request);
+) => getEnhancedCookieName({ path, name: "SearchParams", request });
 
 export const redirectUsingEnhancedCookieSearchParams = async (
 	request: Request,

@@ -176,11 +176,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	const onboardingTourCompletedCookie = await getEnhancedCookieName(
-		"empty",
-		"OnboardingCompleted",
+	const onboardingTourCompletedCookie = await getEnhancedCookieName({
+		name: "OnboardingCompleted",
 		request,
-	);
+	});
 	const isOnboardingTourCompleted = getCookieValue(
 		request,
 		onboardingTourCompletedCookie,
