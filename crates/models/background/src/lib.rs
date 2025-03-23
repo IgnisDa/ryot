@@ -10,6 +10,7 @@ use uuid::Uuid;
 pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
+    CalculateUserMetadataRecommendations(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
