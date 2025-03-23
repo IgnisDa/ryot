@@ -1456,12 +1456,14 @@ export const DisplayListDetailsAndRefresh = (props: {
 	);
 };
 
-export const ExpireCacheKeyButton = (props: {
+export type ExpireCacheKeyButtonProps = {
 	action: {
 		cacheId: string;
 		confirmationText?: string;
 	};
-}) => {
+};
+
+export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 	const submit = useConfirmSubmit();
 	const location = useLocation();
 

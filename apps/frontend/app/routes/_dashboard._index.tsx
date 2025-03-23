@@ -25,6 +25,7 @@ import {
 	ApplicationGrid,
 	DisplaySummarySection,
 	ExpireCacheKeyButton,
+	type ExpireCacheKeyButtonProps,
 	ProRequiredAlert,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
@@ -266,10 +267,7 @@ export default function Page() {
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
-	action: {
-		cacheId: string;
-		confirmationText?: string;
-	};
+	action: ExpireCacheKeyButtonProps["action"];
 }) => {
 	return (
 		<Group justify="space-between">
