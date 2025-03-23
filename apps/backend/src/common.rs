@@ -42,6 +42,7 @@ use user_service::UserService;
 
 /// All the services that are used by the app
 pub struct AppServices {
+    pub user_service: Arc<UserService>,
     pub fitness_service: Arc<FitnessService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
@@ -154,6 +155,7 @@ pub async fn create_app_services(
     (
         app_router,
         Arc::new(AppServices {
+            user_service,
             fitness_service,
             importer_service,
             exporter_service,
