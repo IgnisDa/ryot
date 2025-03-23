@@ -20,7 +20,7 @@ export type SidebarTracker = Pick<
 	| "icon"
 	| "slug"
 	| "name"
-	| "enabled"
+	| "isDisabled"
 	| "sortOrder"
 	| "isBuiltin"
 	| "accentColor"

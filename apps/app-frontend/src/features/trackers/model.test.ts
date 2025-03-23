@@ -12,8 +12,8 @@ const mkTracker = (
 	name: string,
 	slug: string,
 	sortOrder = 1,
-	enabled = true,
-) => f({ id, name, slug, enabled, sortOrder });
+	isDisabled = false,
+) => f({ id, name, slug, isDisabled, sortOrder });
 
 describe("sortTrackersByOrder", () => {
 	it("sorts trackers by ascending sortOrder", () => {
@@ -76,7 +76,7 @@ describe("selectEnabledTrackers", () => {
 	it("filters to only enabled trackers", () => {
 		const trackers = [
 			mkTracker("1", "Media", "media"),
-			mkTracker("2", "People", "people", 2, false),
+			mkTracker("2", "People", "people", 2, true),
 			mkTracker("3", "Music", "music", 3),
 		];
 
@@ -89,8 +89,8 @@ describe("selectEnabledTrackers", () => {
 
 	it("returns empty array when no trackers are enabled", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media", 1, false),
-			mkTracker("2", "People", "people", 2, false),
+			mkTracker("1", "Media", "media", 1, true),
+			mkTracker("2", "People", "people", 2, true),
 		];
 
 		const enabled = selectEnabledTrackers(trackers);
@@ -113,8 +113,8 @@ describe("selectEnabledTrackers", () => {
 describe("findEnabledTrackerBySlug", () => {
 	it("returns tracker only when enabled", () => {
 		const trackers = [
-			mkTracker("1", "Media", "media", 1, true),
-			mkTracker("2", "Books", "books", 2, false),
+			mkTracker("1", "Media", "media", 1, false),
+			mkTracker("2", "Books", "books", 2, true),
 		];
 
 		expect(findEnabledTrackerBySlug(trackers, "media")?.id).toBe("1");
@@ -122,7 +122,7 @@ describe("findEnabledTrackerBySlug", () => {
 	});
 
 	it("returns undefined when slug is not found", () => {
-		const trackers = [mkTracker("1", "Media", "media", 1, true)];
+		const trackers = [mkTracker("1", "Media", "media", 1, false)];
 
 		expect(findEnabledTrackerBySlug(trackers, "nonexistent")).toBeUndefined();
 	});
