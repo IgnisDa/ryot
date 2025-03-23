@@ -7003,6 +7003,7 @@ dependencies = [
  "application-utils",
  "argon2",
  "async-graphql",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
