@@ -2,36 +2,35 @@ import {
 	Box,
 	Button,
 	Center,
-	Code,
-	ColorInput,
 	Container,
 	Flex,
 	Group,
 	Loader,
-	Modal,
 	Paper,
-	Select,
 	Stack,
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { EntitiesSection } from "#/features/entities/section";
+import type { CreateEntityPayload } from "#/features/entities/form";
+import { useEntityMutations } from "#/features/entities/hooks";
+import { CreateEntityModal } from "#/features/entities/section";
+import { EntitySchemaCreateModal } from "#/features/entity-schemas/create-modal";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
 import {
 	useEntitySchemaMutations,
 	useEntitySchemasQuery,
 } from "#/features/entity-schemas/hooks";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { getFacetEntitySchemaViewState } from "#/features/entity-schemas/model";
-import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/properties-builder";
-import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
-import { EventSchemasSection } from "#/features/event-schemas/section";
+import type { CreateEventSchemaPayload } from "#/features/event-schemas/form";
+import { useEventSchemaMutations } from "#/features/event-schemas/hooks";
+import { CreateEventSchemaModal } from "#/features/event-schemas/section";
 import { useFacetsQuery } from "#/features/facets/hooks";
-import { FacetIcon, facetIconSelectData } from "#/features/facets/icons";
+import { FacetIcon } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
+import { SetupGuidedFlow } from "#/features/facets/setup-guided-flow";
+import { TrackerOverview } from "#/features/facets/tracker-overview";
 
 export const Route = createFileRoute("/_protected/tracking/$facetSlug/")({
 	component: RouteComponent,
@@ -119,202 +118,56 @@ function BuiltinFacetSchemaSection() {
 	);
 }
 
-function EntitySchemaList(props: {
-	facet: AppFacet;
-	entitySchemas: AppEntitySchema[];
-}) {
-	return (
-		<Stack gap="md">
-			{props.entitySchemas.map((entitySchema) => {
-				const propertyCount = Object.keys(entitySchema.propertiesSchema).length;
-
-				return (
-					<Paper key={entitySchema.id} p="lg" withBorder radius="md">
-						<Stack gap="md">
-							<Group justify="space-between" align="flex-start">
-								<Group gap="sm" align="flex-start" wrap="nowrap">
-									<Box
-										style={{
-											paddingTop: 2,
-											display: "flex",
-											alignItems: "center",
-											color: entitySchema.accentColor,
-										}}
-									>
-										<FacetIcon icon={entitySchema.icon} size={18} />
-									</Box>
-									<Stack gap={2}>
-										<Text fw={600}>{entitySchema.name}</Text>
-										<Code>{entitySchema.slug}</Code>
-									</Stack>
-								</Group>
-								<Text c="dimmed" size="sm">
-									{propertyCount}{" "}
-									{propertyCount === 1 ? "property" : "properties"}
-								</Text>
-							</Group>
-
-							<EntitiesSection
-								entitySchema={entitySchema}
-								facetSlug={props.facet.slug}
-							/>
-
-							<EventSchemasSection entitySchema={entitySchema} />
-						</Stack>
-					</Paper>
-				);
-			})}
-		</Stack>
-	);
-}
-
-function EntitySchemaCreateModal(props: {
-	facetId: string;
-	opened: boolean;
-	isLoading: boolean;
-	onClose: () => void;
-	errorMessage: string | null;
-	onSubmit: (payload: CreateEntitySchemaPayload) => Promise<void>;
-}) {
-	const entitySchemaForm = useCreateEntitySchemaForm({
-		facetId: props.facetId,
-		onSubmit: props.onSubmit,
-	});
-
-	return (
-		<Modal
-			centered
-			size="lg"
-			title="Add schema"
-			opened={props.opened}
-			onClose={props.onClose}
-			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-		>
-			<form
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					void entitySchemaForm.handleSubmit();
-				}}
-			>
-				<entitySchemaForm.AppForm>
-					<Stack gap="md">
-						{props.errorMessage && (
-							<Text c="red" size="sm">
-								{props.errorMessage}
-							</Text>
-						)}
-
-						<entitySchemaForm.AppField
-							name="name"
-							listeners={entitySchemaForm.nameFieldListeners}
-						>
-							{(field) => (
-								<field.TextField
-									required
-									label="Name"
-									disabled={props.isLoading}
-									placeholder="Custom schema"
-								/>
-							)}
-						</entitySchemaForm.AppField>
-
-						<entitySchemaForm.AppField name="slug">
-							{(field) => (
-								<field.TextField
-									label="Slug"
-									disabled={props.isLoading}
-									placeholder="custom-schema"
-								/>
-							)}
-						</entitySchemaForm.AppField>
-
-						<Group grow align="flex-start" wrap="nowrap">
-							<entitySchemaForm.AppField name="icon">
-								{(field) => (
-									<Select
-										required
-										searchable
-										limit={100}
-										label="Icon"
-										placeholder="Select icon"
-										onBlur={field.handleBlur}
-										disabled={props.isLoading}
-										data={facetIconSelectData}
-										value={field.state.value || null}
-										leftSection={<FacetIcon icon={field.state.value} />}
-										onChange={(value) => field.handleChange(value ?? "")}
-										renderOption={({ option }) => (
-											<Group gap={8} wrap="nowrap">
-												<FacetIcon icon={option.value} />
-												<span>{option.label}</span>
-											</Group>
-										)}
-									/>
-								)}
-							</entitySchemaForm.AppField>
-
-							<entitySchemaForm.AppField name="accentColor">
-								{(field) => (
-									<ColorInput
-										required
-										label="Accent Color"
-										value={field.state.value}
-										disabled={props.isLoading}
-										placeholder="Choose color"
-										onChange={(value) => field.handleChange(value)}
-									/>
-								)}
-							</entitySchemaForm.AppField>
-						</Group>
-
-						<EntitySchemaPropertiesBuilder
-							form={entitySchemaForm}
-							isLoading={props.isLoading}
-						/>
-
-						<Group justify="flex-end" gap="md">
-							<Button
-								type="button"
-								variant="subtle"
-								onClick={props.onClose}
-								disabled={props.isLoading}
-							>
-								Cancel
-							</Button>
-							<entitySchemaForm.SubmitButton
-								label="Create schema"
-								disabled={props.isLoading}
-								pendingLabel="Creating..."
-							/>
-						</Group>
-					</Stack>
-				</entitySchemaForm.AppForm>
-			</form>
-		</Modal>
-	);
-}
-
 function CustomFacetSchemaSection(props: { facet: AppFacet }) {
-	const [opened, { close, open }] = useDisclosure(false);
+	const [openedModal, setOpenedModal] = useState<
+		"entity-schema" | "event-schema" | "entity" | null
+	>(null);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
 	);
+
 	const entitySchemasQuery = useEntitySchemasQuery(
 		props.facet.id,
 		!props.facet.isBuiltin,
 	);
 	const entitySchemaMutations = useEntitySchemaMutations(props.facet.id);
 
-	const openCreateModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		open();
-	}, [open]);
+	const primaryEntitySchema = entitySchemasQuery.entitySchemas[0];
+	const eventSchemaMutations = useEventSchemaMutations(
+		primaryEntitySchema?.id ?? "",
+	);
+	const entityMutations = useEntityMutations(primaryEntitySchema?.id ?? "");
 
-	const closeCreateModal = useCallback(() => {
+	const viewState = getFacetEntitySchemaViewState({
+		facet: props.facet,
+		entitySchemas: entitySchemasQuery.entitySchemas,
+	});
+
+	const openEntitySchemaModal = useCallback(() => {
 		setCreateErrorMessage(null);
-		close();
-	}, [close]);
+		setOpenedModal("entity-schema");
+	}, []);
+
+	const closeEntitySchemaModal = useCallback(() => {
+		setCreateErrorMessage(null);
+		setOpenedModal(null);
+	}, []);
+
+	const openEventSchemaModal = useCallback(() => {
+		setOpenedModal("event-schema");
+	}, []);
+
+	const closeEventSchemaModal = useCallback(() => {
+		setOpenedModal(null);
+	}, []);
+
+	const openEntityModal = useCallback(() => {
+		setOpenedModal("entity");
+	}, []);
+
+	const closeEntityModal = useCallback(() => {
+		setOpenedModal(null);
+	}, []);
 
 	const submitCreateSchema = useCallback(
 		async (payload: CreateEntitySchemaPayload) => {
@@ -322,99 +175,125 @@ function CustomFacetSchemaSection(props: { facet: AppFacet }) {
 
 			try {
 				await entitySchemaMutations.create.mutateAsync({ body: payload });
-				closeCreateModal();
+				closeEntitySchemaModal();
 			} catch (error) {
 				setCreateErrorMessage(getErrorMessage(error));
 			}
 		},
-		[closeCreateModal, entitySchemaMutations.create],
+		[closeEntitySchemaModal, entitySchemaMutations.create],
 	);
 
-	const viewState = getFacetEntitySchemaViewState({
-		facet: props.facet,
-		entitySchemas: entitySchemasQuery.entitySchemas,
-	});
+	const submitCreateEventSchema = useCallback(
+		async (payload: CreateEventSchemaPayload) => {
+			setCreateErrorMessage(null);
+
+			try {
+				await eventSchemaMutations.create.mutateAsync({ body: payload });
+				closeEventSchemaModal();
+			} catch (error) {
+				setCreateErrorMessage(getErrorMessage(error));
+			}
+		},
+		[closeEventSchemaModal, eventSchemaMutations.create],
+	);
+
+	const submitCreateEntity = useCallback(
+		async (payload: CreateEntityPayload) => {
+			setCreateErrorMessage(null);
+
+			try {
+				await entityMutations.create.mutateAsync({ body: payload });
+				closeEntityModal();
+			} catch (error) {
+				setCreateErrorMessage(getErrorMessage(error));
+			}
+		},
+		[closeEntityModal, entityMutations.create],
+	);
+
+	if (entitySchemasQuery.isLoading)
+		return (
+			<Center py="xl">
+				<Loader size="sm" />
+			</Center>
+		);
+
+	if (entitySchemasQuery.isError)
+		return (
+			<Paper p="lg" withBorder radius="md">
+				<Stack gap="sm">
+					<Text c="red" size="sm">
+						Failed to load schemas for this facet.
+					</Text>
+					<Group>
+						<Button
+							size="xs"
+							variant="light"
+							onClick={() => entitySchemasQuery.refetch()}
+						>
+							Retry
+						</Button>
+					</Group>
+				</Stack>
+			</Paper>
+		);
 
 	return (
 		<Stack gap="md">
-			<Group justify="space-between" align="flex-end">
-				<Stack gap={2}>
-					<Text size="sm" fw={500} c="dimmed">
-						SCHEMAS
-					</Text>
-					<Text c="dimmed" size="sm">
-						Create schemas to describe the fields tracked for this custom facet.
-					</Text>
-				</Stack>
-				<Button onClick={openCreateModal}>Add schema</Button>
-			</Group>
-
-			{createErrorMessage && !opened && (
+			{createErrorMessage && openedModal === null && (
 				<Text c="red" size="sm">
 					{createErrorMessage}
 				</Text>
 			)}
 
-			{entitySchemasQuery.isLoading && (
-				<Center py="xl">
-					<Loader size="sm" />
-				</Center>
+			{viewState.type === "empty" && (
+				<SetupGuidedFlow
+					facet={props.facet}
+					onOpenCreateEntityModal={openEntityModal}
+					entitySchemas={entitySchemasQuery.entitySchemas}
+					onOpenCreateEventSchemaModal={openEventSchemaModal}
+					onOpenCreateEntitySchemaModal={openEntitySchemaModal}
+				/>
 			)}
 
-			{entitySchemasQuery.isError && (
-				<Paper p="lg" withBorder radius="md">
-					<Stack gap="sm">
-						<Text c="red" size="sm">
-							Failed to load schemas for this facet.
-						</Text>
-						<Group>
-							<Button
-								size="xs"
-								variant="light"
-								onClick={() => entitySchemasQuery.refetch()}
-							>
-								Retry
-							</Button>
-						</Group>
-					</Stack>
-				</Paper>
+			{viewState.type === "list" && (
+				<TrackerOverview
+					facetSlug={props.facet.slug}
+					entitySchemas={viewState.entitySchemas}
+					onAddEntitySchema={openEntitySchemaModal}
+				/>
 			)}
 
-			{!entitySchemasQuery.isLoading &&
-				!entitySchemasQuery.isError &&
-				viewState.type === "empty" && (
-					<Paper
-						p="xl"
-						withBorder
-						radius="md"
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
-						<Stack gap="xs">
-							<Text fw={600}>No schemas yet</Text>
-							<Text c="dimmed" size="sm">
-								Add a schema to define the fields this tracker should capture.
-							</Text>
-						</Stack>
-					</Paper>
-				)}
-
-			{!entitySchemasQuery.isLoading &&
-				!entitySchemasQuery.isError &&
-				viewState.type === "list" && (
-					<EntitySchemaList
-						facet={props.facet}
-						entitySchemas={viewState.entitySchemas}
-					/>
-				)}
-
-			{opened && (
+			{openedModal === "entity-schema" && (
 				<EntitySchemaCreateModal
-					opened={opened}
 					facetId={props.facet.id}
-					onClose={closeCreateModal}
 					onSubmit={submitCreateSchema}
+					onClose={closeEntitySchemaModal}
 					errorMessage={createErrorMessage}
+					opened={openedModal === "entity-schema"}
 					isLoading={entitySchemaMutations.create.isPending}
+				/>
+			)}
+
+			{openedModal === "event-schema" && primaryEntitySchema && (
+				<CreateEventSchemaModal
+					onClose={closeEventSchemaModal}
+					errorMessage={createErrorMessage}
+					onSubmit={submitCreateEventSchema}
+					opened={openedModal === "event-schema"}
+					entitySchemaId={primaryEntitySchema.id}
+					isLoading={eventSchemaMutations.create.isPending}
+				/>
+			)}
+
+			{openedModal === "entity" && primaryEntitySchema && (
+				<CreateEntityModal
+					onClose={closeEntityModal}
+					onSubmit={submitCreateEntity}
+					opened={openedModal === "entity"}
+					errorMessage={createErrorMessage}
+					entitySchema={primaryEntitySchema}
+					isLoading={entityMutations.create.isPending}
 				/>
 			)}
 		</Stack>

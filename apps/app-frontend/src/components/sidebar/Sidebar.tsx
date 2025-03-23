@@ -21,6 +21,8 @@ import {
 import { useHover } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
 import {
+	ChevronDown,
+	ChevronRight,
 	GripVertical,
 	Home,
 	Pencil,
@@ -31,7 +33,15 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import { useState } from "react";
+import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
+import { toSidebarData } from "#/components/sidebar/sidebar-data";
 import { FacetIcon } from "#/features/facets/icons";
+import {
+	useFacetSidebarActions,
+	useFacetSidebarState,
+} from "#/features/facets/sidebar-context";
+import { useSavedViewsQuery } from "#/features/saved-views/hooks";
+import { useProtectedUser } from "#/hooks/protected-user";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
 import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
@@ -60,9 +70,9 @@ function SortableFacet(props: {
 	textSecondary: string;
 	isMutationBusy: boolean;
 	isCustomizeMode: boolean;
+	onNavLinkClick: () => void;
 	onEditFacet?: (facetId: string) => void;
 	onToggleFacet: (facetId: string) => void;
-	onNavLinkClick: () => void;
 	onToggleFacetEnabled?: (facetId: string) => void;
 }) {
 	const color = getFacetColor(props.facet);
@@ -84,12 +94,17 @@ function SortableFacet(props: {
 	return (
 		<Box ref={setNodeRef} style={style}>
 			<NavLink
+				component={Link}
 				label={props.facet.name}
-				opened={props.isExpanded}
-				onClick={() => props.onToggleFacet(props.facet.id)}
+				onClick={() => {
+					if (props.facet.views?.length) {
+						props.onToggleFacet(props.facet.id);
+					}
+
+					props.onNavLinkClick();
+				}}
+				to={`/tracking/${props.facet.slug}`}
 				styles={{
-					children: { padding: 0 },
-					chevron: { color: props.textPrimary },
 					label: {
 						fontSize: "14px",
 						fontWeight: 500,
@@ -111,7 +126,10 @@ function SortableFacet(props: {
 							<Box
 								component="button"
 								c={props.isDark ? "dark.4" : "stone.5"}
-								onClick={(event) => event.stopPropagation()}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+								}}
 								style={{
 									padding: 0,
 									cursor: "grab",
@@ -135,80 +153,104 @@ function SortableFacet(props: {
 					</Group>
 				}
 				rightSection={
-					props.isCustomizeMode ? (
-						<Group gap={4} wrap="nowrap">
-							{props.facet.isBuiltin ? undefined : (
+					<Group gap={4} wrap="nowrap">
+						{props.isCustomizeMode ? (
+							<Group gap={4} wrap="nowrap">
+								{props.facet.isBuiltin ? undefined : (
+									<ActionIcon
+										size="sm"
+										variant="subtle"
+										aria-label="Edit facet"
+										disabled={props.isMutationBusy}
+										onClick={(event) => {
+											event.preventDefault();
+											event.stopPropagation();
+											props.onEditFacet?.(props.facet.id);
+										}}
+									>
+										<Pencil size={14} strokeWidth={1.8} />
+									</ActionIcon>
+								)}
 								<ActionIcon
 									size="sm"
 									variant="subtle"
-									aria-label="Edit facet"
 									disabled={props.isMutationBusy}
+									aria-label={
+										props.facet.enabled ? "Disable facet" : "Enable facet"
+									}
 									onClick={(event) => {
 										event.preventDefault();
 										event.stopPropagation();
-										props.onEditFacet?.(props.facet.id);
+										props.onToggleFacetEnabled?.(props.facet.id);
 									}}
 								>
-									<Pencil size={14} strokeWidth={1.8} />
+									{props.facet.enabled ? (
+										<ToggleRight size={14} strokeWidth={1.8} />
+									) : (
+										<ToggleLeft size={14} strokeWidth={1.8} />
+									)}
 								</ActionIcon>
-							)}
-							<ActionIcon
-								size="sm"
-								variant="subtle"
-								disabled={props.isMutationBusy}
-								aria-label={
-									props.facet.enabled ? "Disable facet" : "Enable facet"
-								}
-								onClick={(event) => {
-									event.preventDefault();
-									event.stopPropagation();
-									props.onToggleFacetEnabled?.(props.facet.id);
-								}}
+							</Group>
+						) : undefined}
+						{props.facet.views?.length ? (
+							<Box
+								aria-hidden="true"
+								style={{ display: "flex", alignItems: "center" }}
 							>
-								{props.facet.enabled ? (
-									<ToggleRight size={14} strokeWidth={1.8} />
+								{props.isExpanded ? (
+									<ChevronDown size={16} strokeWidth={1.8} />
 								) : (
-									<ToggleLeft size={14} strokeWidth={1.8} />
+									<ChevronRight size={16} strokeWidth={1.8} />
 								)}
-							</ActionIcon>
-						</Group>
-					) : undefined
+							</Box>
+						) : undefined}
+					</Group>
 				}
-			>
-				{props.facet.views?.map((view) => (
-					<NavLink
-						key={view.id}
-						component={Link}
-						label={view.name}
-						onClick={props.onNavLinkClick}
-						leftSection={<ViewIcon view={view} />}
-						to={`/tracking/random-slug/views/${view.id}`}
-						styles={{
-							root: {
-								paddingLeft: "40px",
-								"&:hover": { backgroundColor: color.muted },
-							},
-							label: {
-								fontSize: "13px",
-								fontWeight: 400,
-								color: props.textSecondary,
-							},
-						}}
-					/>
-				))}
-			</NavLink>
+			/>
+			{props.isExpanded
+				? props.facet.views?.map((view) => (
+						<NavLink
+							key={view.id}
+							component={Link}
+							label={view.name}
+							onClick={props.onNavLinkClick}
+							leftSection={<ViewIcon view={view} />}
+							to={`/tracking/random-slug/views/${view.id}`}
+							styles={{
+								root: {
+									paddingLeft: "40px",
+									"&:hover": { backgroundColor: color.muted },
+								},
+								label: {
+									fontSize: "13px",
+									fontWeight: 400,
+									color: props.textSecondary,
+								},
+							}}
+						/>
+					))
+				: undefined}
 		</Box>
 	);
 }
 
 export function Sidebar(props: SidebarProps) {
+	const user = useProtectedUser();
 	const isMobile = useIsMobileScreen();
-	const { hovered, ref } = useHover<HTMLDivElement>();
+	const state = useFacetSidebarState();
+	const actions = useFacetSidebarActions();
 	const computedColorScheme = useColorScheme();
+	const savedViewsQuery = useSavedViewsQuery();
+	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(
 		{},
 	);
+	const sidebarData = toSidebarData({
+		views: savedViewsQuery.savedViews,
+		facets: state.facets,
+		isCustomizeMode: state.isCustomizeMode,
+	});
 
 	const isDark = computedColorScheme === "dark";
 	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
@@ -228,7 +270,6 @@ export function Sidebar(props: SidebarProps) {
 
 	const handleSearchChange = (value: string) => {
 		setSearchQuery(value);
-		props.onSearch?.(value);
 	};
 
 	const handleToggleFacet = (facetId: string) => {
@@ -236,29 +277,30 @@ export function Sidebar(props: SidebarProps) {
 			...current,
 			[facetId]: !(current[facetId] ?? false),
 		}));
-		props.onToggleFacet?.(facetId);
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
-		if (!props.isCustomizeMode) return;
+		if (!state.isCustomizeMode) return;
 
 		const { active, over } = event;
 		if (!over || active.id === over.id) return;
 
-		const activeIndex = props.facets.findIndex(
+		const activeIndex = sidebarData.facets.findIndex(
 			(facet) => facet.id === active.id,
 		);
-		const overIndex = props.facets.findIndex((facet) => facet.id === over.id);
+		const overIndex = sidebarData.facets.findIndex(
+			(facet) => facet.id === over.id,
+		);
 
 		if (activeIndex === -1 || overIndex === -1) return;
 
-		const nextFacets = Array.from(props.facets);
+		const nextFacets = Array.from(sidebarData.facets);
 		const movedFacet = nextFacets[activeIndex];
 		if (!movedFacet) return;
 
 		nextFacets.splice(activeIndex, 1);
 		nextFacets.splice(overIndex, 0, movedFacet);
-		props.onReorderFacets(nextFacets);
+		void actions.reorderFacetIds(nextFacets.map((facet) => facet.id));
 	};
 
 	const handleNavLinkClick = () => {
@@ -299,15 +341,15 @@ export function Sidebar(props: SidebarProps) {
 
 					<ActionIcon
 						variant="subtle"
-						onClick={props.onToggleCustomizeMode}
-						opacity={hovered || props.isCustomizeMode ? 1 : 0}
-						color={props.isCustomizeMode ? "accent.5" : undefined}
+						onClick={actions.toggleCustomizeMode}
+						opacity={hovered || state.isCustomizeMode ? 1 : 0}
+						color={state.isCustomizeMode ? "accent.5" : undefined}
 						styles={{
 							root: {
 								transition: "opacity 120ms ease",
-								color: props.isCustomizeMode ? borderAccent : textMuted,
+								color: state.isCustomizeMode ? borderAccent : textMuted,
 								pointerEvents:
-									hovered || props.isCustomizeMode ? "auto" : "none",
+									hovered || state.isCustomizeMode ? "auto" : "none",
 							},
 						}}
 					>
@@ -397,9 +439,9 @@ export function Sidebar(props: SidebarProps) {
 				>
 					<SortableContext
 						strategy={verticalListSortingStrategy}
-						items={props.facets.map((facet) => facet.id)}
+						items={sidebarData.facets.map((facet) => facet.id)}
 					>
-						{props.facets.map((facet) => {
+						{sidebarData.facets.map((facet) => {
 							const isExpanded =
 								expandedFacets[facet.id] ?? facet.isExpanded ?? false;
 
@@ -411,22 +453,24 @@ export function Sidebar(props: SidebarProps) {
 									isExpanded={isExpanded}
 									textPrimary={textPrimary}
 									textSecondary={textSecondary}
-									onEditFacet={props.onEditFacet}
+									onEditFacet={actions.openEditModal}
 									onToggleFacet={handleToggleFacet}
 									onNavLinkClick={handleNavLinkClick}
-									isCustomizeMode={props.isCustomizeMode}
-									isMutationBusy={props.isMutationBusy ?? false}
-									onToggleFacetEnabled={props.onToggleFacetEnabled}
+									isCustomizeMode={state.isCustomizeMode}
+									isMutationBusy={state.isMutationBusy}
+									onToggleFacetEnabled={(facetId) =>
+										void actions.toggleFacetById(facetId)
+									}
 								/>
 							);
 						})}
 					</SortableContext>
 				</DndContext>
 
-				{props.isCustomizeMode && (
+				{state.isCustomizeMode && (
 					<NavLink
 						label="Add tracker"
-						onClick={props.onCreateFacet}
+						onClick={actions.openCreateModal}
 						leftSection={<Plus color={borderAccent} size={16} />}
 						styles={{
 							label: {
@@ -460,7 +504,7 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 				</Box>
 
-				{props.views.map((view) => (
+				{sidebarData.views.map((view) => (
 					<NavLink
 						key={view.id}
 						label={view.name}
@@ -491,7 +535,7 @@ export function Sidebar(props: SidebarProps) {
 				border={border}
 				isDark={isDark}
 				textMuted={textMuted}
-				account={props.account}
+				account={toSidebarAccount(user)}
 				textPrimary={textPrimary}
 				borderAccent={borderAccent}
 			/>
@@ -505,7 +549,7 @@ export function Sidebar(props: SidebarProps) {
 					size={300}
 					padding={0}
 					withCloseButton={false}
-					opened={props.drawerOpened ?? false}
+					opened={props.drawerOpened}
 					onClose={() => props.onCloseDrawer?.()}
 					styles={{
 						body: {
