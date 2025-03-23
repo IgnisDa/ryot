@@ -16,9 +16,7 @@ import { useFacetsQuery } from "#/features/facets/hooks";
 import { FacetIcon } from "#/features/facets/icons";
 import { useSavedViewQuery } from "#/features/saved-views/hooks";
 
-export const Route = createFileRoute(
-	"/_protected/$facetSlug/views/$viewId",
-)({
+export const Route = createFileRoute("/_protected/$facetSlug/views/$viewId")({
 	component: RouteComponent,
 });
 
@@ -33,10 +31,10 @@ function RouteComponent() {
 	const entitySchemasQuery = useEntitySchemasQuery(
 		facet?.id ?? "",
 		!!facet && !!firstEntitySchemaId,
-	)
+	);
 	const entitySchema = entitySchemasQuery.entitySchemas.find(
 		(schema) => schema.id === firstEntitySchemaId,
-	)
+	);
 
 	if (facetsQuery.isLoading || savedViewQuery.isLoading)
 		return (
@@ -45,7 +43,7 @@ function RouteComponent() {
 					<Loader />
 				</Center>
 			</Container>
-		)
+		);
 
 	if (!facet)
 		return (
@@ -54,7 +52,7 @@ function RouteComponent() {
 					<Text c="red">Facet not found</Text>
 				</Paper>
 			</Container>
-		)
+		);
 
 	if (!savedViewQuery.savedView)
 		return (
@@ -63,7 +61,7 @@ function RouteComponent() {
 					<Text c="red">Saved view not found</Text>
 				</Paper>
 			</Container>
-		)
+		);
 
 	if (!entitySchema)
 		return (
@@ -72,7 +70,7 @@ function RouteComponent() {
 					<Text c="red">Entity schema not found</Text>
 				</Paper>
 			</Container>
-		)
+		);
 
 	return (
 		<Container size="xl" py="xl">
@@ -103,5 +101,5 @@ function RouteComponent() {
 				/>
 			</Stack>
 		</Container>
-	)
+	);
 }
