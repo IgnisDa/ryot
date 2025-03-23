@@ -1,4 +1,3 @@
-import { FacetMode } from "~/lib/db/schema";
 import anilistAnimeDetailsScriptCode from "~/lib/sandbox/scripts/anilist-anime-details-source.txt";
 import anilistAnimeSearchScriptCode from "~/lib/sandbox/scripts/anilist-anime-search-source.txt";
 import anilistMangaDetailsScriptCode from "~/lib/sandbox/scripts/anilist-manga-details-source.txt";
@@ -29,7 +28,6 @@ export const builtinFacets = () => [
 		slug: "media",
 		name: "Media",
 		accentColor: "#5B7FFF",
-		mode: FacetMode.curated,
 		description: "Track media across books, anime, and manga.",
 	},
 	{
@@ -37,7 +35,6 @@ export const builtinFacets = () => [
 		name: "Fitness",
 		icon: "dumbbell",
 		accentColor: "#2DD4BF",
-		mode: FacetMode.curated,
 		description: "Track workouts, measurements, and progress.",
 	},
 ];
