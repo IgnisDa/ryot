@@ -1,1 +1,0 @@
-ALTER TABLE "saved_view" ADD COLUMN "display_configuration" jsonb NOT NULL;
