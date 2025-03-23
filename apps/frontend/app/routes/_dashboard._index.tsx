@@ -184,7 +184,9 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="In Progress"
-									cacheId={loaderData.inProgressCollectionContents.cacheId}
+									action={{
+										cacheId: loaderData.inProgressCollectionContents.cacheId,
+									}}
 								/>
 								{loaderData.inProgressCollectionContents.response.results.items
 									.length > 0 ? (
@@ -208,8 +210,11 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									cacheId={loaderData.userMetadataRecommendations.cacheId}
-									confirmationText="Are you sure you want to refresh the recommendations?"
+									action={{
+										cacheId: loaderData.userMetadataRecommendations.cacheId,
+										confirmationText:
+											"Are you sure you want to refresh the recommendations?",
+									}}
 								/>
 								{coreDetails.isServerKeyValidated ? (
 									loaderData.userMetadataRecommendations.response.__typename ===
@@ -261,16 +266,15 @@ export default function Page() {
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
-	cacheId: string;
-	confirmationText?: string;
+	action: {
+		cacheId: string;
+		confirmationText?: string;
+	};
 }) => {
 	return (
 		<Group justify="space-between">
 			<SectionTitle text={props.text} />
-			<ExpireCacheKeyButton
-				cacheId={props.cacheId}
-				confirmationText={props.confirmationText}
-			/>
+			<ExpireCacheKeyButton action={props.action} />
 		</Group>
 	);
 };

@@ -1457,8 +1457,10 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export const ExpireCacheKeyButton = (props: {
-	cacheId: string;
-	confirmationText?: string;
+	action: {
+		cacheId: string;
+		confirmationText?: string;
+	};
 }) => {
 	const submit = useConfirmSubmit();
 	const location = useLocation();
@@ -1472,16 +1474,18 @@ export const ExpireCacheKeyButton = (props: {
 				[redirectToQueryParam]: location.pathname,
 			})}
 		>
-			<input type="hidden" name="cacheId" value={props.cacheId} />
+			<input type="hidden" name="cacheId" value={props.action.cacheId} />
 			<ActionIcon
 				type="submit"
 				variant="subtle"
 				onClick={(e) => {
-					if (!props.confirmationText) return;
+					if (!props.action.confirmationText) return;
 					const form = e.currentTarget.form;
 					if (form) {
 						e.preventDefault();
-						openConfirmationModal(props.confirmationText, () => submit(form));
+						openConfirmationModal(props.action.confirmationText, () =>
+							submit(form),
+						);
 					}
 				}}
 			>
