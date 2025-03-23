@@ -101,7 +101,7 @@ function App() {
 						{facetsQuery.enabledFacets.map((facet) => (
 							<Link
 								key={facet.slug}
-								to="/tracking/$facetSlug"
+								to="/$facetSlug"
 								params={{ facetSlug: facet.slug }}
 								style={{
 									fontWeight: 600,
