@@ -7,8 +7,8 @@ import {
 	savedViewExtendedFormSchema,
 } from "../form-extended";
 import type { AppSavedView } from "../model";
+import { DisplayConfigBuilder } from "./display-config-builder";
 import { FiltersBuilder } from "./filters-builder";
-import { GridConfigBuilder } from "./grid-config-builder";
 import { SortBuilder } from "./sort-builder";
 
 export function SavedViewExtendedForm(props: {
@@ -65,7 +65,7 @@ export function SavedViewExtendedForm(props: {
 
 					<FiltersBuilder form={form} isLoading={props.isSubmitting} />
 
-					<GridConfigBuilder form={form} isLoading={props.isSubmitting} />
+					<DisplayConfigBuilder form={form} isLoading={props.isSubmitting} />
 
 					<Group gap="md" justify="flex-end">
 						<Button
