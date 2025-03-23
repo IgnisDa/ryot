@@ -1,31 +1,16 @@
 import { describe, expect, it } from "bun:test";
+import { createEntityFixture } from "#/features/test-fixtures";
 import { getEntityListViewState, sortEntities, toAppEntity } from "./model";
-
-const createMockEntity = (overrides: {
-	id: string;
-	name: string;
-	createdAt: Date;
-}) => ({
-	image: null,
-	properties: {},
-	externalId: null,
-	id: overrides.id,
-	name: overrides.name,
-	updatedAt: new Date(),
-	entitySchemaId: "schema-1",
-	detailsSandboxScriptId: null,
-	createdAt: overrides.createdAt,
-});
 
 describe("sortEntities", () => {
 	it("sorts entities by name first", () => {
 		const entities = [
-			createMockEntity({
+			createEntityFixture({
 				id: "2",
 				name: "Zebra",
 				createdAt: new Date("2024-01-01"),
 			}),
-			createMockEntity({
+			createEntityFixture({
 				id: "1",
 				name: "Apple",
 				createdAt: new Date("2024-01-02"),
@@ -40,12 +25,12 @@ describe("sortEntities", () => {
 
 	it("sorts by createdAt when names are equal", () => {
 		const entities = [
-			createMockEntity({
+			createEntityFixture({
 				id: "2",
 				name: "Book",
 				createdAt: new Date("2024-01-02"),
 			}),
-			createMockEntity({
+			createEntityFixture({
 				id: "1",
 				name: "Book",
 				createdAt: new Date("2024-01-01"),
@@ -70,12 +55,12 @@ describe("getEntityListViewState", () => {
 
 	it("returns list state with sorted entities", () => {
 		const entities = [
-			createMockEntity({
+			createEntityFixture({
 				id: "2",
 				name: "Zebra",
 				createdAt: new Date("2024-01-01"),
 			}),
-			createMockEntity({
+			createEntityFixture({
 				id: "1",
 				name: "Apple",
 				createdAt: new Date("2024-01-02"),

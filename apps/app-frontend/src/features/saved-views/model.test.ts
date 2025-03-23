@@ -1,47 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { type AppSavedView, sortSavedViewsByOrder } from "./model";
-
-const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	table: { columns: [{ label: "Name", property: ["@name"] }] },
-	grid: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
-	},
-	list: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
-	},
-};
-
-function createSavedView(overrides: Partial<AppSavedView>): AppSavedView {
-	return {
-		id: "view-1",
-		sortOrder: 1,
-		isBuiltin: true,
-		icon: "book-open",
-		isDisabled: false,
-		name: "All Whiskeys",
-		displayConfiguration,
-		trackerId: "tracker-1",
-		accentColor: "#5B7FFF",
-		createdAt: "2026-03-20T10:00:00.000Z",
-		updatedAt: "2026-03-20T10:05:00.000Z",
-		queryDefinition: {
-			filters: [],
-			entitySchemaSlugs: ["schema-1"],
-			sort: { fields: ["@name"], direction: "asc" },
-		},
-		...overrides,
-	};
-}
+import { createSavedViewFixture } from "#/features/test-fixtures";
+import { sortSavedViewsByOrder } from "./model";
 
 describe("toAppSavedView", () => {
 	it("converts raw API response to AppSavedView", () => {
-		const result = createSavedView({});
+		const result = createSavedViewFixture({
+			name: "All Whiskeys",
+		});
 
 		expect(result.id).toBe("view-1");
 		expect(result.icon).toBe("book-open");
@@ -53,7 +18,7 @@ describe("toAppSavedView", () => {
 	});
 
 	it("handles user-created saved views", () => {
-		const result = createSavedView({
+		const result = createSavedViewFixture({
 			id: "view-2",
 			trackerId: null,
 			icon: "sparkles",
@@ -81,9 +46,9 @@ describe("toAppSavedView", () => {
 describe("sortSavedViewsByOrder", () => {
 	it("sorts saved views by ascending sortOrder", () => {
 		const views = [
-			createSavedView({ id: "view-1", name: "C", sortOrder: 3 }),
-			createSavedView({ id: "view-2", name: "A", sortOrder: 1 }),
-			createSavedView({ id: "view-3", name: "B", sortOrder: 2 }),
+			createSavedViewFixture({ id: "view-1", name: "C", sortOrder: 3 }),
+			createSavedViewFixture({ id: "view-2", name: "A", sortOrder: 1 }),
+			createSavedViewFixture({ id: "view-3", name: "B", sortOrder: 2 }),
 		];
 
 		const sorted = sortSavedViewsByOrder(views);
@@ -97,9 +62,9 @@ describe("sortSavedViewsByOrder", () => {
 
 	it("breaks ties by name ascending", () => {
 		const views = [
-			createSavedView({ id: "view-1", name: "Zebra", sortOrder: 1 }),
-			createSavedView({ id: "view-2", name: "Apple", sortOrder: 1 }),
-			createSavedView({ id: "view-3", name: "Banana", sortOrder: 1 }),
+			createSavedViewFixture({ id: "view-1", name: "Zebra", sortOrder: 1 }),
+			createSavedViewFixture({ id: "view-2", name: "Apple", sortOrder: 1 }),
+			createSavedViewFixture({ id: "view-3", name: "Banana", sortOrder: 1 }),
 		];
 
 		const sorted = sortSavedViewsByOrder(views);
