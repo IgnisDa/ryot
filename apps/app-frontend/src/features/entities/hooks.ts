@@ -1,19 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { sortEntities, toAppEntity } from "./model";
+import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
 
-export function useEntitiesQuery(entitySchemaId: string, enabled = true) {
+export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
 		"post",
 		"/view-runtime/execute",
-		{ body: { entitySchemaId } },
+		{ body: createEntityRuntimeRequest(entitySchemaSlug) },
 		{ enabled },
 	);
 
 	return {
 		...query,
-		entities: sortEntities((query.data?.data ?? []).map(toAppEntity)),
+		entities: sortEntities((query.data?.data.items ?? []).map(toAppEntity)),
 	};
 }
 
@@ -32,11 +32,11 @@ export function useEntityQuery(entityId: string, enabled = true) {
 	};
 }
 
-export function useEntityMutations(entitySchemaId: string) {
+export function useEntityMutations(entitySchemaSlug: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
 	const listQueryKey = apiClient.queryOptions("post", "/view-runtime/execute", {
-		body: { entitySchemaId },
+		body: createEntityRuntimeRequest(entitySchemaSlug),
 	}).queryKey;
 
 	const create = apiClient.useMutation(
