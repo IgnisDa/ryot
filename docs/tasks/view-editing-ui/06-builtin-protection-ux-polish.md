@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -70,21 +70,21 @@ This vertical slice delivers:
 
 ## Acceptance criteria
 
-- [ ] Built-in views show read-only message
-- [ ] Built-in views offer clone button
-- [ ] Clone button creates editable copy
-- [ ] Help text explains property path syntax clearly
-- [ ] Examples provided for common patterns
-- [ ] Operator descriptions visible (tooltips or inline)
-- [ ] COALESCE explanation included
-- [ ] Server errors display with actionable messages
-- [ ] Form disables during save
-- [ ] Save button shows loading state
-- [ ] Success feedback appears after save
-- [ ] Form sections logically organized
-- [ ] Visual hierarchy clear (headings, spacing)
-- [ ] No console warnings or errors
-- [ ] All acceptance criteria from parent README satisfied
+- [x] Built-in views show read-only message
+- [x] Built-in views offer clone button
+- [x] Clone button creates editable copy
+- [x] Help text explains property path syntax clearly
+- [x] Examples provided for common patterns
+- [x] Operator descriptions visible (tooltips or inline)
+- [x] COALESCE explanation included
+- [x] Server errors display with actionable messages
+- [x] Form disables during save
+- [x] Save button shows loading state
+- [x] Success feedback appears after save
+- [x] Form sections logically organized
+- [x] Visual hierarchy clear (headings, spacing)
+- [x] No console warnings or errors
+- [x] All acceptance criteria from parent README satisfied
 
 ## Blocked by
 
