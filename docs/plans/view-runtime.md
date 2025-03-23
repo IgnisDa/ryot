@@ -398,7 +398,7 @@ The `displayConfiguration` column stores:
 
 All three layout configurations are stored simultaneously so users can switch between layouts in the frontend without losing their configuration. Each layout specifies which entity properties to display using schema-qualified property paths (see "Display Configuration Property References" section).
 
-**Active layout is not persisted in the backend.** The currently active layout for a given view is stored in the browser's `localStorage`, keyed per user per view (e.g., `view-layout:<viewId>`). This means the backend never needs to be updated when a user switches layouts — the change is local to that user's browser session. On first load, the frontend defaults to `"grid"` if no localStorage entry exists.
+The active layout for a given view is stored in the browser's `localStorage`, keyed per user per view (e.g., `view-layout:<viewId>`). On first load, the frontend defaults to `"grid"` if no entry exists.
 
 This separation keeps query logic distinct from presentation concerns while allowing the saved-view record to align with product behavior without making `view-runtime` own persistence concerns.
 
@@ -811,7 +811,7 @@ The runtime module should query against the underlying tables and repositories i
 
 ### Display Configuration Structure
 
-**Display configurations use a discriminated union with a separate layout discriminant.** The runtime request includes both a top-level `layout` field and a `displayConfiguration` object that contains the active layout's config. The `layout` value is read from `localStorage` (key: `view-layout:<viewId>`) and is never stored in the backend:
+**Display configurations use a discriminated union with a separate layout discriminant.** The runtime request includes both a top-level `layout` field and a `displayConfiguration` object that contains the active layout's config. The `layout` value is read from `localStorage` (key: `view-layout:<viewId>`):
 
 ```typescript
 {
