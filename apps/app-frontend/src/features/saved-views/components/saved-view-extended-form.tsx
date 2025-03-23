@@ -1,4 +1,4 @@
-import { Button, Group, MultiSelect, Stack, Text } from "@mantine/core";
+import { Button, Group, Stack, Text } from "@mantine/core";
 import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import { useAppForm } from "#/hooks/forms";
 import {
@@ -14,7 +14,6 @@ export function SavedViewExtendedForm(props: {
 	isSubmitting: boolean;
 	onSubmit: (values: SavedViewExtendedFormValues) => Promise<void>;
 }) {
-	// Fetch entity schemas for the view's tracker
 	const trackerId = props.view.trackerId ?? "";
 	const { entitySchemas } = useEntitySchemasQuery(trackerId, trackerId !== "");
 
@@ -46,29 +45,17 @@ export function SavedViewExtendedForm(props: {
 					</Text>
 
 					<form.AppField name="entitySchemaSlugs" mode="array">
-						{(field) => {
-							const value = field.state.value as string[];
-							const errorMessage =
-								field.state.meta.errors.length > 0
-									? field.state.meta.errors.map((e) => e?.message).join(", ")
-									: undefined;
-							return (
-								<MultiSelect
-									required
-									searchable
-									value={value}
-									error={errorMessage}
-									label="Entity Schemas"
-									data={entitySchemaSelectData}
-									disabled={props.isSubmitting}
-									placeholder="Select entity schemas to query"
-									description="Choose which entity types this view should display"
-									onChange={(newValue) => {
-										field.handleChange(newValue);
-									}}
-								/>
-							);
-						}}
+						{(field) => (
+							<field.MultiSelectField
+								required
+								searchable
+								label="Entity Schemas"
+								data={entitySchemaSelectData}
+								disabled={props.isSubmitting}
+								placeholder="Select entity schemas to query"
+								description="Choose which entity types this view should display"
+							/>
+						)}
 					</form.AppField>
 
 					<Group gap="md" justify="flex-end">
