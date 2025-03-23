@@ -232,6 +232,35 @@ describe("validateSlugNotReserved", () => {
 });
 
 describe("listEntitySchemas", () => {
+	it("lists all accessible schemas when trackerId and slugs are both missing", async () => {
+		const result = await listEntitySchemas(
+			{ userId: "user_1" },
+			createEntitySchemaDeps({
+				listEntitySchemasForUser: async () => [
+					createListedEntitySchema({ slug: "books" }),
+					createListedEntitySchema({
+						id: "schema_2",
+						name: "Movies",
+						slug: "movies",
+						trackerId: "tracker_2",
+					}),
+				],
+			}),
+		);
+
+		expect(result).toEqual({
+			data: [
+				createListedEntitySchema({ slug: "books" }),
+				createListedEntitySchema({
+					id: "schema_2",
+					name: "Movies",
+					slug: "movies",
+					trackerId: "tracker_2",
+				}),
+			],
+		});
+	});
+
 	it("returns not found when the tracker does not exist", async () => {
 		const result = await listEntitySchemas(
 			{ trackerId: "tracker_1", userId: "user_1" },
@@ -242,6 +271,30 @@ describe("listEntitySchemas", () => {
 			error: "not_found",
 			message: "Tracker not found",
 		});
+	});
+
+	it("lists schemas by slug without tracker lookup", async () => {
+		let lookedUpTracker = false;
+		let listedSlugs: string[] | undefined;
+		const result = await listEntitySchemas(
+			{ slugs: ["books", "movies"], userId: "user_1" },
+			createEntitySchemaDeps({
+				getTrackerScopeForUser: async () => {
+					lookedUpTracker = true;
+					return undefined;
+				},
+				listEntitySchemasForUser: async (input) => {
+					listedSlugs = input.slugs;
+					return [createListedEntitySchema({ slug: "books" })];
+				},
+			}),
+		);
+
+		expect(result).toEqual({
+			data: [createListedEntitySchema({ slug: "books" })],
+		});
+		expect(lookedUpTracker).toBe(false);
+		expect(listedSlugs).toEqual(["books", "movies"]);
 	});
 });
 
