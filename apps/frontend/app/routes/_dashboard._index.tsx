@@ -211,11 +211,18 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									action={{
-										cacheId: loaderData.userMetadataRecommendations.cacheId,
-										confirmationText:
-											"Are you sure you want to refresh the recommendations?",
-									}}
+									action={
+										loaderData.userMetadataRecommendations.response
+											.__typename ===
+										"UserMetadataRecommendationsProcessingResponse"
+											? "revalidate"
+											: {
+													cacheId:
+														loaderData.userMetadataRecommendations.cacheId,
+													confirmationText:
+														"Are you sure you want to refresh the recommendations?",
+												}
+									}
 								/>
 								{coreDetails.isServerKeyValidated ? (
 									loaderData.userMetadataRecommendations.response.__typename ===

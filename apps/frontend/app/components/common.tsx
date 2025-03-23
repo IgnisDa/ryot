@@ -1457,17 +1457,26 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export type ExpireCacheKeyButtonProps = {
-	action: {
-		cacheId: string;
-		confirmationText?: string;
-	};
+	action:
+		| {
+				cacheId: string;
+				confirmationText?: string;
+		  }
+		| "revalidate";
 };
 
 export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 	const submit = useConfirmSubmit();
 	const location = useLocation();
+	const revalidator = useRevalidator();
 
-	return (
+	const action = props.action;
+
+	return action === "revalidate" ? (
+		<ActionIcon onClick={() => revalidator.revalidate()}>
+			<IconRotateClockwise />
+		</ActionIcon>
+	) : (
 		<Form
 			replace
 			method="POST"
@@ -1476,18 +1485,16 @@ export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 				[redirectToQueryParam]: location.pathname,
 			})}
 		>
-			<input type="hidden" name="cacheId" value={props.action.cacheId} />
+			<input type="hidden" name="cacheId" value={action.cacheId} />
 			<ActionIcon
 				type="submit"
 				variant="subtle"
 				onClick={(e) => {
-					if (!props.action.confirmationText) return;
+					if (!action.confirmationText) return;
 					const form = e.currentTarget.form;
 					if (form) {
 						e.preventDefault();
-						openConfirmationModal(props.action.confirmationText, () =>
-							submit(form),
-						);
+						openConfirmationModal(action.confirmationText, () => submit(form));
 					}
 				}}
 			>
