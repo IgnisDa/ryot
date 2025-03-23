@@ -1,12 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { createNoteAndRatingPropertiesSchema } from "~/lib/test-fixtures";
 import { parseAppSchemaProperties } from "./schema-validation";
 
 describe("parseAppSchemaProperties", () => {
 	it("validates properties against the provided app schema", () => {
-		const propertiesSchema = {
-			note: { type: "string" as const },
-			rating: { type: "number" as const, required: true as const },
-		};
+		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		expect(
 			parseAppSchemaProperties({
@@ -23,7 +21,7 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Entity",
 				properties: { rating: "bad" },
 				propertiesSchema: {
-					rating: { type: "number" as const, required: true as const },
+					rating: createNoteAndRatingPropertiesSchema().rating,
 				},
 			}),
 		).toThrow("Entity properties validation failed");
