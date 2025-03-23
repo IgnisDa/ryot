@@ -212,20 +212,29 @@ export default function Page() {
 									confirmationText="Are you sure you want to refresh the recommendations?"
 								/>
 								{coreDetails.isServerKeyValidated ? (
-									<ApplicationGrid>
-										{loaderData.userMetadataRecommendations.response.map(
-											(lm) => (
-												<MetadataDisplayItem key={lm} metadataId={lm} />
-											),
-										)}
-									</ApplicationGrid>
+									loaderData.userMetadataRecommendations.response.__typename ===
+									"UserMetadataRecommendationsSuccessResponse" ? (
+										loaderData.userMetadataRecommendations.response
+											.recommendations.length > 0 ? (
+											<ApplicationGrid>
+												{loaderData.userMetadataRecommendations.response.recommendations.map(
+													(lm) => (
+														<MetadataDisplayItem key={lm} metadataId={lm} />
+													),
+												)}
+											</ApplicationGrid>
+										) : (
+											<Text c="dimmed">No recommendations available.</Text>
+										)
+									) : (
+										<Text c="dimmed">
+											Recommendations are being generated. Please check back in
+											a moment.
+										</Text>
+									)
 								) : (
 									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 								)}
-								{loaderData.userMetadataRecommendations.response.length ===
-								0 ? (
-									<Text c="dimmed">No recommendations available.</Text>
-								) : null}
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
