@@ -260,7 +260,7 @@ export default function Page() {
 						</Modal>
 					</Flex>
 					<ExpireCacheKeyButton
-						cacheId={loaderData.userCollectionsList.cacheId}
+						action={{ cacheId: loaderData.userCollectionsList.cacheId }}
 					/>
 				</Group>
 				<Group wrap="nowrap">

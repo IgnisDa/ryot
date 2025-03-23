@@ -25,6 +25,7 @@ import {
 	ApplicationGrid,
 	DisplaySummarySection,
 	ExpireCacheKeyButton,
+	type ExpireCacheKeyButtonProps,
 	ProRequiredAlert,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
@@ -184,7 +185,9 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="In Progress"
-									cacheId={loaderData.inProgressCollectionContents.cacheId}
+									action={{
+										cacheId: loaderData.inProgressCollectionContents.cacheId,
+									}}
 								/>
 								{loaderData.inProgressCollectionContents.response.results.items
 									.length > 0 ? (
@@ -208,24 +211,43 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									cacheId={loaderData.userMetadataRecommendations.cacheId}
-									confirmationText="Are you sure you want to refresh the recommendations?"
+									action={
+										loaderData.userMetadataRecommendations.response
+											.__typename ===
+										"UserMetadataRecommendationsProcessingResponse"
+											? "revalidate"
+											: {
+													cacheId:
+														loaderData.userMetadataRecommendations.cacheId,
+													confirmationText:
+														"Are you sure you want to refresh the recommendations?",
+												}
+									}
 								/>
 								{coreDetails.isServerKeyValidated ? (
-									<ApplicationGrid>
-										{loaderData.userMetadataRecommendations.response.map(
-											(lm) => (
-												<MetadataDisplayItem key={lm} metadataId={lm} />
-											),
-										)}
-									</ApplicationGrid>
+									loaderData.userMetadataRecommendations.response.__typename ===
+									"UserMetadataRecommendationsSuccessResponse" ? (
+										loaderData.userMetadataRecommendations.response
+											.recommendations.length > 0 ? (
+											<ApplicationGrid>
+												{loaderData.userMetadataRecommendations.response.recommendations.map(
+													(lm) => (
+														<MetadataDisplayItem key={lm} metadataId={lm} />
+													),
+												)}
+											</ApplicationGrid>
+										) : (
+											<Text c="dimmed">No recommendations available.</Text>
+										)
+									) : (
+										<Text c="dimmed">
+											Recommendations are being generated. Please check back in
+											a moment.
+										</Text>
+									)
 								) : (
 									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 								)}
-								{loaderData.userMetadataRecommendations.response.length ===
-								0 ? (
-									<Text c="dimmed">No recommendations available.</Text>
-								) : null}
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
@@ -252,16 +274,12 @@ export default function Page() {
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
-	cacheId: string;
-	confirmationText?: string;
+	action: ExpireCacheKeyButtonProps["action"];
 }) => {
 	return (
 		<Group justify="space-between">
 			<SectionTitle text={props.text} />
-			<ExpireCacheKeyButton
-				cacheId={props.cacheId}
-				confirmationText={props.confirmationText}
-			/>
+			<ExpireCacheKeyButton action={props.action} />
 		</Group>
 	);
 };

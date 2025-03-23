@@ -1,8 +1,8 @@
-use async_graphql::{Enum, InputObject, SimpleObject};
+use async_graphql::{Enum, InputObject, SimpleObject, Union};
 use educe::Educe;
 use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
-use sea_orm::{FromJsonQueryResult, Iterable};
+use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
@@ -539,4 +539,20 @@ pub struct UpdateUserInput {
     pub username: Option<String>,
     pub is_disabled: Option<bool>,
     pub admin_access_token: Option<String>,
+}
+
+#[derive(Debug, SimpleObject, Deserialize, Eq, PartialEq, Clone, Serialize)]
+pub struct UserMetadataRecommendationsProcessingResponse {
+    pub started_at: DateTimeUtc,
+}
+
+#[derive(Debug, SimpleObject, Deserialize, Eq, PartialEq, Clone, Serialize)]
+pub struct UserMetadataRecommendationsSuccessResponse {
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Union, Deserialize, Eq, PartialEq, Clone, Serialize)]
+pub enum UserMetadataRecommendationsResponse {
+    Success(UserMetadataRecommendationsSuccessResponse),
+    Processing(UserMetadataRecommendationsProcessingResponse),
 }

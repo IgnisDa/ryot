@@ -1712,6 +1712,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.12.0",
  "strum",
+ "user-models",
  "uuid",
 ]
 
@@ -7002,6 +7003,7 @@ dependencies = [
  "application-utils",
  "argon2",
  "async-graphql",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",

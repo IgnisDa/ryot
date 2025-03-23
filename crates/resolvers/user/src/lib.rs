@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform, user};
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
+use dependent_models::{CachedResponse, UserDetailsResult};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -11,7 +11,7 @@ use media_models::{
     UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
-use user_models::{UpdateUserInput, UserPreferences};
+use user_models::{UpdateUserInput, UserMetadataRecommendationsResponse, UserPreferences};
 use user_service::UserService;
 
 #[derive(Default)]

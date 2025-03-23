@@ -3,6 +3,7 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 use application_utils::{create_oidc_client, user_id_from_token};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
+use background_models::{ApplicationJob, HpApplicationJob};
 use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
@@ -17,7 +18,7 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
-    UserDetailsResult, UserMetadataRecommendationsResponse,
+    UserDetailsResult,
 };
 use dependent_utils::{
     create_or_update_collection, create_partial_metadata, get_metadata_provider,
@@ -53,7 +54,9 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput, UserPreferences,
+    DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput,
+    UserMetadataRecommendationsProcessingResponse, UserMetadataRecommendationsResponse,
+    UserMetadataRecommendationsSuccessResponse, UserPreferences,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -147,26 +150,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(media_item_ids)
     }
 
-    pub async fn user_metadata_recommendations(
-        &self,
-        user_id: &String,
-    ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
-        let cc = &self.0.cache_service;
-        let metadata_recommendations_key =
-            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            });
-
-        if let Some((id, recommendations)) = cc
-            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
-            .await
-        {
-            return Ok(CachedResponse {
-                cache_id: id,
-                response: recommendations,
-            });
-        };
+    pub async fn calculate_user_metadata_recommendations(&self, user_id: &String) -> Result<()> {
         let metadata_count = Metadata::find().count(&self.0.db).await?;
         let recommendations = match metadata_count {
             0 => vec![],
@@ -234,15 +218,66 @@ ORDER BY RANDOM() LIMIT 10;
                 recommendations
             }
         };
+        let cc = &self.0.cache_service;
+        cc.set_key(
+            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            }),
+            ApplicationCacheValue::UserMetadataRecommendations(
+                UserMetadataRecommendationsResponse::Success(
+                    UserMetadataRecommendationsSuccessResponse {
+                        recommendations: recommendations.clone(),
+                    },
+                ),
+            ),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn user_metadata_recommendations(
+        &self,
+        user_id: &String,
+    ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
+        let cc = &self.0.cache_service;
+        let metadata_recommendations_key =
+            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            });
+
+        if let Some((id, recommendations)) = cc
+            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
+            .await
+        {
+            return Ok(CachedResponse {
+                cache_id: id,
+                response: recommendations,
+            });
+        };
+        self.0
+            .perform_application_job(ApplicationJob::Hp(
+                HpApplicationJob::CalculateUserMetadataRecommendations(user_id.to_owned()),
+            ))
+            .await?;
+        let value = UserMetadataRecommendationsResponse::Processing(
+            UserMetadataRecommendationsProcessingResponse {
+                started_at: Utc::now(),
+            },
+        );
         let id = cc
             .set_key(
-                metadata_recommendations_key,
-                ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
+                ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                    input: (),
+                    user_id: user_id.to_owned(),
+                }),
+                ApplicationCacheValue::UserMetadataRecommendations(value.clone()),
             )
             .await?;
         Ok(CachedResponse {
             cache_id: id,
-            response: recommendations,
+            response: value,
         })
     }
 

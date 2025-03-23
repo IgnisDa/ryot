@@ -43,6 +43,12 @@ pub async fn perform_hp_application_job(
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
+        HpApplicationJob::CalculateUserMetadataRecommendations(user_id) => {
+            app_services
+                .user_service
+                .calculate_user_metadata_recommendations(&user_id)
+                .await
+        }
         HpApplicationJob::SyncUserIntegrationsData(user_id) => {
             app_services
                 .integration_service

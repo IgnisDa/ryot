@@ -133,7 +133,7 @@ export type CachedSearchIdResponse = {
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
   cacheId: Scalars['UUID']['output'];
-  response: Array<Scalars['String']['output']>;
+  response: UserMetadataRecommendationsResponse;
 };
 
 export type ChangeCollectionToEntityInput = {
@@ -2822,6 +2822,18 @@ export type UserMetadataListInput = {
   lot?: InputMaybe<MediaLot>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
+};
+
+export type UserMetadataRecommendationsProcessingResponse = {
+  __typename?: 'UserMetadataRecommendationsProcessingResponse';
+  startedAt: Scalars['DateTime']['output'];
+};
+
+export type UserMetadataRecommendationsResponse = UserMetadataRecommendationsProcessingResponse | UserMetadataRecommendationsSuccessResponse;
+
+export type UserMetadataRecommendationsSuccessResponse = {
+  __typename?: 'UserMetadataRecommendationsSuccessResponse';
+  recommendations: Array<Scalars['String']['output']>;
 };
 
 export enum UserNotificationContent {
