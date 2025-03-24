@@ -39,12 +39,12 @@ use database_utils::{
     revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CoreDetails, ExpireCacheKeyInput,
-    GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
-    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
-    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
+    ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
+    CoreDetails, ExpireCacheKeyInput, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
+    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
+    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -2690,6 +2690,25 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn expire_cache_keys(&self) -> Result<()> {
+        let user_ids = get_user_query()
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?;
+        for user_id in user_ids {
+            self.0
+                .cache_service
+                .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+                    user_id: Some(user_id),
+                    key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
+                })
+                .await?;
+        }
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2737,6 +2756,8 @@ impl MiscellaneousService {
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
+        ryot_log!(trace, "Expiring cache keys");
+        self.expire_cache_keys().await.trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())
