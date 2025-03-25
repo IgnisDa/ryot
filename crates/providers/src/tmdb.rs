@@ -357,7 +357,7 @@ impl TmdbService {
 
     async fn get_trending_media(&self, media_type: &str) -> Result<Vec<PartialMetadataWithoutId>> {
         let mut trending = vec![];
-        for page in 1.. {
+        for page in 1..=3 {
             let rsp = self
                 .client
                 .get(format!("{}/trending/{}/day", URL, media_type))
@@ -971,6 +971,10 @@ impl MediaProvider for TmdbMovieService {
             parts,
         ))
     }
+
+    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
+        self.base.get_trending_media("movie").await
+    }
 }
 
 pub struct TmdbShowService {
@@ -1294,6 +1298,10 @@ impl MediaProvider for TmdbShowService {
             },
             items: resp.to_vec(),
         })
+    }
+
+    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
+        self.base.get_trending_media("tv").await
     }
 }
 
