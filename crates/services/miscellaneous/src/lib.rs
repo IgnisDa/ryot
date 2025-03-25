@@ -2712,21 +2712,25 @@ impl MiscellaneousService {
 
     async fn download_trending_metadata(&self) -> Result<()> {
         let mut trending_ids = HashSet::new();
-        for lot in MediaLot::iter() {
-            for source in lot.meta() {
-                if let Ok(provider) = get_metadata_provider(lot, source, &self.0).await {
-                    if let Ok(media) = provider.get_trending_media().await {
-                        for item in media {
-                            if let Ok(metadata) =
-                                create_partial_metadata(item.clone(), &self.0.db).await
-                            {
-                                trending_ids.insert(metadata.id);
-                            }
-                        }
-                    }
+        let provider_configs = MediaLot::iter()
+            .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
+
+        for (lot, source) in provider_configs {
+            let provider = match get_metadata_provider(lot, source, &self.0).await {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let media = match provider.get_trending_media().await {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            for item in media {
+                if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
+                    trending_ids.insert(metadata.id);
                 }
             }
         }
+
         self.0
             .cache_service
             .set_key(
