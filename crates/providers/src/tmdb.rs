@@ -354,6 +354,44 @@ impl TmdbService {
             .map_err(|e| anyhow!(e))?;
         rsp.json().await.map_err(|e| anyhow!(e))
     }
+
+    async fn get_trending_media(&self, media_type: &str) -> Result<Vec<PartialMetadataWithoutId>> {
+        let mut trending = vec![];
+        for page in 1.. {
+            let rsp = self
+                .client
+                .get(format!("{}/trending/{}/day", URL, media_type))
+                .query(&json!({
+                    "page": page,
+                    "language": self.language,
+                }))
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let data: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            for entry in data.results.into_iter() {
+                let title = match entry.title {
+                    Some(n) => n,
+                    _ => continue,
+                };
+                trending.push(PartialMetadataWithoutId {
+                    title,
+                    source: MediaSource::Tmdb,
+                    identifier: entry.id.to_string(),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    lot: match media_type {
+                        "movie" => MediaLot::Movie,
+                        "tv" => MediaLot::Show,
+                        _ => continue,
+                    },
+                });
+            }
+            if data.page >= data.total_pages {
+                break;
+            }
+        }
+        Ok(trending)
+    }
 }
 
 pub struct NonMediaTmdbService {
