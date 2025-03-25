@@ -576,8 +576,8 @@ query {{
         &self,
         query: &str,
         page: Option<i32>,
-        source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         let page = page.unwrap_or(1);
         let query_type = query_type_from_specifics(source_specifics);

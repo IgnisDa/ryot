@@ -124,8 +124,8 @@ impl MediaProvider for NonMediaAnilistService {
         &self,
         query: &str,
         page: Option<i32>,
-        source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         let is_studio = matches!(
             source_specifics,

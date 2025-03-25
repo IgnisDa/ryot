@@ -1287,8 +1287,8 @@ impl MiscellaneousService {
             .people_search(
                 &query,
                 input.search.page,
-                &input.source_specifics,
                 preferences.general.display_nsfw,
+                &input.source_specifics,
             )
             .await?;
         cc.set_key(

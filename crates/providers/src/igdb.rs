@@ -280,8 +280,8 @@ where id = {id};
         &self,
         query: &str,
         page: Option<i32>,
-        _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
+        _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         let client = self.get_client_config().await?;
         let req_body = format!(
