@@ -59,6 +59,7 @@ use dependent_utils::{
     send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
     user_metadata_list, user_people_list,
 };
+use enum_meta::Meta;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserNotificationContent, UserToMediaReason,
@@ -93,9 +94,9 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
-    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait,
-    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
-    Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
+    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    RelationTrait, Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::{
     Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
@@ -2709,6 +2710,33 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    async fn download_trending_metadata(&self) -> Result<()> {
+        let mut trending_ids = HashSet::new();
+        for lot in MediaLot::iter() {
+            for source in lot.meta() {
+                if let Ok(provider) = get_metadata_provider(lot, source, &self.0).await {
+                    if let Ok(media) = provider.get_trending_media().await {
+                        for item in media {
+                            if let Ok(metadata) =
+                                create_partial_metadata(item.clone(), &self.0.db).await
+                            {
+                                trending_ids.insert(metadata.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::TrendingMetadataIds,
+                ApplicationCacheValue::TrendingMetadataIds(trending_ids.into_iter().collect()),
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2756,6 +2784,8 @@ impl MiscellaneousService {
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
+        ryot_log!(trace, "Downloading trending metadata");
+        self.download_trending_metadata().await.trace_ok();
         ryot_log!(trace, "Expiring cache keys");
         self.expire_cache_keys().await.trace_ok();
 
