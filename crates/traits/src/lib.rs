@@ -84,6 +84,11 @@ pub trait MediaProvider {
             .await
             .map(|d| d.suggestions)
     }
+
+    /// Get trending media.
+    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
+        bail!("This provider does not support getting trending media")
+    }
 }
 
 #[async_trait]
