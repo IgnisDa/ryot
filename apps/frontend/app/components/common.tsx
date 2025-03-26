@@ -748,9 +748,12 @@ export const ReviewItemDisplay = (props: {
 											/>
 											<Text className={classes.text} fw="bold">
 												{props.review.rating}
-												{reviewScale === UserReviewScale.OutOfFive
-													? undefined
-													: "%"}
+												{reviewScale === UserReviewScale.OutOfHundred
+													? "%"
+													: undefined}
+												{reviewScale === UserReviewScale.OutOfTen
+													? "/10"
+													: undefined}
 											</Text>
 										</Flex>
 									))

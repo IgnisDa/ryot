@@ -966,6 +966,7 @@ pub async fn post_review(
             },
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
+                    UserReviewScale::OutOfTen => r * dec!(10),
                     UserReviewScale::OutOfFive => r * dec!(20),
                     UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
                 },
@@ -1548,6 +1549,7 @@ fn convert_review_into_input(
         return None;
     }
     let rating = match preferences.general.review_scale {
+        UserReviewScale::OutOfTen => review.rating.map(|rating| rating / dec!(10)),
         UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
         UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => review.rating,
     };
@@ -2790,6 +2792,7 @@ pub async fn user_metadata_list(
         .map(|a| graphql_to_db_order(a.order))
         .unwrap_or(Order::Asc);
     let review_scale = match preferences.general.review_scale {
+        UserReviewScale::OutOfTen => 10,
         UserReviewScale::OutOfFive => 20,
         UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
     };

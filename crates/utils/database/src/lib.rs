@@ -354,6 +354,7 @@ pub async fn item_reviews(
                 let preferences = user_by_id(user_id, ss).await?.preferences;
                 review.rating.map(|s| {
                     s.checked_div(match preferences.general.review_scale {
+                        UserReviewScale::OutOfTen => dec!(10),
                         UserReviewScale::OutOfFive => dec!(20),
                         UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => {
                             dec!(1)

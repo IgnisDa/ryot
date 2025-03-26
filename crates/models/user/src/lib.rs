@@ -329,6 +329,7 @@ pub enum GridPacking {
 )]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
+    OutOfTen,
     OutOfFive,
     #[default]
     OutOfHundred,

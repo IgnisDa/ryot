@@ -533,8 +533,8 @@ export default function Page() {
 								? match(userPreferences.general.reviewScale)
 										.with(UserReviewScale.ThreePointSmiley, () => (
 											<DisplayThreePointReview
-												rating={loaderData.userMetadataDetails.averageRating}
 												size={40}
+												rating={loaderData.userMetadataDetails.averageRating}
 											/>
 										))
 										.otherwise(() => (
@@ -542,9 +542,9 @@ export default function Page() {
 												p={4}
 												display="flex"
 												style={{
-													flexDirection: "column",
-													alignItems: "center",
 													gap: 6,
+													alignItems: "center",
+													flexDirection: "column",
 												}}
 											>
 												<IconStarFilled
@@ -556,9 +556,13 @@ export default function Page() {
 														loaderData.userMetadataDetails.averageRating,
 													).toFixed(1)}
 													{userPreferences.general.reviewScale ===
-													UserReviewScale.OutOfFive
-														? undefined
-														: "%"}
+													UserReviewScale.OutOfHundred
+														? "%"
+														: undefined}
+													{userPreferences.general.reviewScale ===
+													UserReviewScale.OutOfTen
+														? "/10"
+														: undefined}
 												</Text>
 											</Paper>
 										))

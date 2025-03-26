@@ -1551,6 +1551,28 @@ const ReviewEntityForm = ({
 								}
 							/>
 						))
+						.with(UserReviewScale.OutOfTen, () => (
+							<NumberInput
+								w="40%"
+								min={0}
+								max={10}
+								step={0.1}
+								hideControls
+								name="rating"
+								label="Rating"
+								rightSectionWidth={rem(60)}
+								rightSection={
+									<Text size="xs" c="dimmed">
+										Out of 10
+									</Text>
+								}
+								defaultValue={
+									entityToReview.existingReview?.rating
+										? Number(entityToReview.existingReview.rating)
+										: undefined
+								}
+							/>
+						))
 						.with(UserReviewScale.ThreePointSmiley, () => (
 							<Stack gap={4}>
 								<Text size="xs" c="dimmed">
