@@ -2894,6 +2894,7 @@ export type UserPreferencesInput = {
 export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
   OutOfHundred = 'OUT_OF_HUNDRED',
+  OutOfTen = 'OUT_OF_TEN',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
 

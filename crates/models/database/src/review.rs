@@ -18,25 +18,25 @@ use super::functions::associate_user_with_entity;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub posted_on: DateTimeUtc,
-    pub rating: Option<Decimal>,
-    pub text: Option<String>,
-    pub visibility: Visibility,
-    pub is_spoiler: bool,
     pub user_id: String,
+    pub is_spoiler: bool,
     pub entity_id: String,
-    pub metadata_id: Option<String>,
-    pub person_id: Option<String>,
+    pub text: Option<String>,
     pub entity_lot: EntityLot,
-    pub metadata_group_id: Option<String>,
-    pub collection_id: Option<String>,
+    pub posted_on: DateTimeUtc,
+    pub visibility: Visibility,
+    pub rating: Option<Decimal>,
+    pub person_id: Option<String>,
     pub exercise_id: Option<String>,
-    pub show_extra_information: Option<SeenShowExtraOptionalInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
-    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
-    pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub metadata_id: Option<String>,
+    pub collection_id: Option<String>,
+    pub metadata_group_id: Option<String>,
     #[sea_orm(column_type = "Json")]
     pub comments: Vec<ImportOrExportItemReviewComment>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub show_extra_information: Option<SeenShowExtraOptionalInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraOptionalInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

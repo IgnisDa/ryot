@@ -244,9 +244,13 @@ export const MetadataDisplayItem = (props: {
 										? Math.round(Number(averageRating)).toString()
 										: Number(averageRating).toFixed(1)}
 									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfFive
-										? null
-										: " %"}
+									UserReviewScale.OutOfHundred
+										? " %"
+										: undefined}
+									{userPreferences.general.reviewScale ===
+									UserReviewScale.OutOfTen
+										? "/10"
+										: undefined}
 								</Text>
 							</Group>
 						))
