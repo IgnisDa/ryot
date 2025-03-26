@@ -287,8 +287,8 @@ impl MediaProvider for YoutubeMusicService {
         &self,
         query: &str,
         _page: Option<i32>,
-        _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
+        _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         let data = self.client.music_search_artists(query).await?;
         Ok(SearchResults {

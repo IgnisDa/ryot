@@ -39,8 +39,8 @@ pub trait MediaProvider {
         &self,
         query: &str,
         page: Option<i32>,
-        source_specifics: &Option<PersonSourceSpecifics>,
         display_nsfw: bool,
+        source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         bail!("This provider does not support searching people")
     }
@@ -83,6 +83,11 @@ pub trait MediaProvider {
         self.metadata_details(identifier)
             .await
             .map(|d| d.suggestions)
+    }
+
+    /// Get trending media.
+    async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
+        bail!("This provider does not support getting trending media")
     }
 }
 
