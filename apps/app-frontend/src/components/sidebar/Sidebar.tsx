@@ -791,21 +791,26 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 				</Box>
 
-				<SortableStandaloneViews
-					isDark={isDark}
-					views={sidebarData.views}
-					textSecondary={textSecondary}
-					onNavLinkClick={handleNavLinkClick}
-					hoverColor="rgba(212, 165, 116, 0.06)"
-					isCustomizeMode={state.isCustomizeMode}
-					isMutationBusy={savedViewMutations.isPending}
-					onToggleViewEnabled={(viewId) =>
-						void savedViewMutations.toggleViewById(
-							viewId,
-							savedViewsQuery.savedViews,
-						)
-					}
-				/>
+				<DndContext
+					onDragEnd={handleDragEnd}
+					collisionDetection={closestCenter}
+				>
+					<SortableStandaloneViews
+						isDark={isDark}
+						views={sidebarData.views}
+						textSecondary={textSecondary}
+						onNavLinkClick={handleNavLinkClick}
+						hoverColor="rgba(212, 165, 116, 0.06)"
+						isCustomizeMode={state.isCustomizeMode}
+						isMutationBusy={savedViewMutations.isPending}
+						onToggleViewEnabled={(viewId) =>
+							void savedViewMutations.toggleViewById(
+								viewId,
+								savedViewsQuery.savedViews,
+							)
+						}
+					/>
+				</DndContext>
 			</Stack>
 
 			<SidebarAccountSection
