@@ -463,16 +463,12 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_to_entity_association(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata)
                 .await;
-        let average_rating = if reviews.is_empty() {
-            None
-        } else {
-            let total_rating = reviews.iter().flat_map(|r| r.rating).collect_vec();
-            let sum = total_rating.iter().sum::<Decimal>();
-            if sum == dec!(0) {
-                None
-            } else {
-                Some(sum / Decimal::from(total_rating.iter().len()))
-            }
+        let average_rating = match reviews.is_empty() {
+            true => None,
+            false => Some(
+                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
+                    / Decimal::from(reviews.len()),
+            ),
         };
         let seen_by_user_count = history.len();
         let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
@@ -594,12 +590,12 @@ impl MiscellaneousService {
             &self.0,
         )
         .await?;
-        let average_rating = if reviews.is_empty() {
-            None
-        } else {
-            let total_rating = reviews.iter().flat_map(|r| r.rating).collect_vec();
-            let sum = total_rating.iter().sum::<Decimal>();
-            Some(sum / Decimal::from(total_rating.iter().len()))
+        let average_rating = match reviews.is_empty() {
+            true => None,
+            false => Some(
+                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
+                    / Decimal::from(reviews.len()),
+            ),
         };
         Ok(UserMetadataGroupDetails {
             reviews,
