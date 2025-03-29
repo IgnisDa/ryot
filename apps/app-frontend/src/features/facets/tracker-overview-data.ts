@@ -4,8 +4,8 @@ import { toAppEntity } from "#/features/entities/model";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import type { AppEventSchema } from "#/features/event-schemas/model";
 import { sortEventSchemas } from "#/features/event-schemas/model";
-import type { AppEvent as RealAppEvent } from "#/features/events/model";
-import { sortEvents } from "#/features/events/model";
+import type { AppEvent } from "#/features/events/model";
+import { sortEvents, toAppEvent } from "#/features/events/model";
 import { useSavedViewsQuery } from "#/features/saved-views/hooks";
 import type { AppSavedView } from "#/features/saved-views/model";
 import { useApiClient } from "#/hooks/api";
@@ -29,7 +29,7 @@ export interface TrackerOverviewSummary {
 export interface TrackerOverviewEntityCard {
 	entity: AppEntity;
 	schema: AppEntitySchema;
-	latestEvent?: RealAppEvent;
+	latestEvent?: AppEvent;
 }
 
 export interface TrackerOverviewData {
@@ -46,30 +46,6 @@ export interface TrackerOverviewData {
 	schemaSummaries: TrackerOverviewSummary[];
 	recentActivities: TrackerOverviewActivity[];
 	recentEntities: TrackerOverviewEntityCard[];
-}
-
-function toAppEvent(event: {
-	id: string;
-	entityId: string;
-	createdAt: string;
-	updatedAt: string;
-	occurredAt: string;
-	eventSchemaId: string;
-	eventSchemaName: string;
-	eventSchemaSlug: string;
-	properties: Record<string, unknown>;
-}): RealAppEvent {
-	return {
-		id: event.id,
-		entityId: event.entityId,
-		properties: event.properties,
-		eventSchemaId: event.eventSchemaId,
-		eventSchemaName: event.eventSchemaName,
-		eventSchemaSlug: event.eventSchemaSlug,
-		createdAt: new Date(event.createdAt),
-		updatedAt: new Date(event.updatedAt),
-		occurredAt: new Date(event.occurredAt),
-	};
 }
 
 function sortEntitiesByRecent(entities: AppEntity[]) {
@@ -155,7 +131,7 @@ export function useTrackerOverviewData(input: {
 	const allEvents = allEntityEventQueries.flatMap((query) =>
 		sortEvents((query.data?.data ?? []).map((event) => toAppEvent(event))),
 	);
-	const eventsByEntityId = new Map<string, RealAppEvent[]>();
+	const eventsByEntityId = new Map<string, AppEvent[]>();
 
 	for (const event of allEvents) {
 		const existing = eventsByEntityId.get(event.entityId) ?? [];

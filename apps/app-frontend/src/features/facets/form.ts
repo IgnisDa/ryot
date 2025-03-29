@@ -6,20 +6,8 @@ import {
 	zodRequiredSlug,
 } from "@ryot/ts-utils";
 import { z } from "zod";
-import {
-	type ResolveNextSlugInput,
-	resolveNextSlug,
-} from "../../lib/slug-sync";
-
-export interface FacetFormValues {
-	name: string;
-	slug: string;
-	icon: string;
-	description: string;
-	accentColor: string;
-}
-
-export type ResolveNextFacetSlugInput = ResolveNextSlugInput;
+import type { ApiPatchRequestBody, ApiPostRequestBody } from "#/lib/api/types";
+import { resolveNextSlug } from "../../lib/slug-sync";
 
 export const createFacetFormSchema = z.object({
 	name: zodRequiredName,
@@ -32,7 +20,7 @@ export const createFacetFormSchema = z.object({
 export type CreateFacetFormValues = z.infer<typeof createFacetFormSchema>;
 
 export function buildFacetFormValues(
-	values?: Partial<FacetFormValues>,
+	values?: Partial<CreateFacetFormValues>,
 ): CreateFacetFormValues {
 	return {
 		name: values?.name ?? "",
@@ -48,21 +36,9 @@ export const defaultCreateFacetFormValues: CreateFacetFormValues =
 
 export const resolveNextFacetSlug = resolveNextSlug;
 
-export interface CreateFacetPayload {
-	icon: string;
-	name: string;
-	slug: string;
-	accentColor: string;
-	description?: string;
-}
+export type CreateFacetPayload = ApiPostRequestBody<"/facets/create">;
 
-export interface UpdateFacetPayload {
-	icon: string;
-	name: string;
-	slug: string;
-	accentColor: string;
-	description?: string | null;
-}
+export type UpdateFacetPayload = ApiPatchRequestBody<"/facets/{facetId}">;
 
 export function toCreateFacetPayload(
 	input: CreateFacetFormValues,

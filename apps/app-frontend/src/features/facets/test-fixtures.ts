@@ -11,6 +11,7 @@ export function createFacetFixture(
 		enabled: true,
 		id: "facet-id",
 		icon: "shapes",
+		isBuiltin: false,
 		accentColor: "#5B7FFF",
 		...overrides,
 	};
