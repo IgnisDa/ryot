@@ -1,4 +1,5 @@
 import { Stack, Tabs, Text } from "@mantine/core";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import type { DisplayConfigBuilderFormLike } from "./display-config-fields";
 import { GridConfigBuilder } from "./grid-config-builder";
 import { ListConfigBuilder } from "./list-config-builder";
@@ -6,6 +7,7 @@ import { TableConfigBuilder } from "./table-config-builder";
 
 type DisplayConfigBuilderProps = {
 	isLoading: boolean;
+	schemas: AppEntitySchema[];
 	form: DisplayConfigBuilderFormLike;
 };
 
@@ -30,15 +32,27 @@ export function DisplayConfigBuilder(props: DisplayConfigBuilderProps) {
 				</Tabs.List>
 
 				<Tabs.Panel value="grid" pt="md">
-					<GridConfigBuilder form={props.form} isLoading={props.isLoading} />
+					<GridConfigBuilder
+						form={props.form}
+						schemas={props.schemas}
+						isLoading={props.isLoading}
+					/>
 				</Tabs.Panel>
 
 				<Tabs.Panel value="list" pt="md">
-					<ListConfigBuilder form={props.form} isLoading={props.isLoading} />
+					<ListConfigBuilder
+						form={props.form}
+						schemas={props.schemas}
+						isLoading={props.isLoading}
+					/>
 				</Tabs.Panel>
 
 				<Tabs.Panel value="table" pt="md">
-					<TableConfigBuilder form={props.form} isLoading={props.isLoading} />
+					<TableConfigBuilder
+						form={props.form}
+						schemas={props.schemas}
+						isLoading={props.isLoading}
+					/>
 				</Tabs.Panel>
 			</Tabs>
 		</Stack>

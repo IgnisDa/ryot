@@ -9,10 +9,7 @@ import {
 	isPropertySchemaRowsValid,
 	normalizeOptionalSlug,
 	type PropertySchemaInput,
-	propertySchemaTypes,
 } from "../property-schemas/form";
-
-export const entitySchemaPropertyTypes = propertySchemaTypes;
 
 export type CreateEntitySchemaFormValues = z.infer<
 	typeof createEntitySchemaFormSchema

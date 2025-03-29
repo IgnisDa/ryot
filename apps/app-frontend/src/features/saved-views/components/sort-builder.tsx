@@ -1,10 +1,12 @@
 import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import {
 	buildDefaultSortFieldRow,
 	type SavedViewExtendedFormValues,
 	type SortFieldRow,
 } from "../form-extended";
+import { PropertyPathAutocomplete } from "./property-path-autocomplete";
 
 type SortFieldMeta = {
 	isValid: boolean;
@@ -47,6 +49,7 @@ function getErrorMessage(errors: Array<{ message?: string } | undefined>) {
 type SortBuilderProps = {
 	isLoading: boolean;
 	form: SortBuilderFormLike;
+	schemas: AppEntitySchema[];
 };
 
 export function SortBuilder(props: SortBuilderProps) {
@@ -57,15 +60,7 @@ export function SortBuilder(props: SortBuilderProps) {
 					Sort Configuration
 				</Text>
 				<Text c="dimmed" size="xs">
-					Configure how entities are sorted. Use{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						@name
-					</Text>{" "}
-					for cross-schema properties or{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						schema.property
-					</Text>{" "}
-					for schema-specific fields.
+					Multiple sort fields enable COALESCE fallback for cross-schema views.
 				</Text>
 			</Stack>
 
@@ -93,15 +88,9 @@ export function SortBuilder(props: SortBuilderProps) {
 
 					return (
 						<Stack gap="sm">
-							<Stack gap={4}>
-								<Text size="sm" fw={500}>
-									Sort Fields
-								</Text>
-								<Text c="dimmed" size="xs">
-									Multiple fields enable COALESCE fallback for cross-schema
-									views
-								</Text>
-							</Stack>
+							<Text size="sm" fw={500}>
+								Sort Fields
+							</Text>
 
 							{fields.map((field, index) => (
 								<Paper key={field.id} p="sm" withBorder radius="md">
@@ -109,11 +98,16 @@ export function SortBuilder(props: SortBuilderProps) {
 										<Box flex={1}>
 											<props.form.AppField name={`sort.fields[${index}].value`}>
 												{(valueField) => (
-													<valueField.TextField
+													<PropertyPathAutocomplete
 														required
+														excludeImage={false}
+														schemas={props.schemas}
 														disabled={props.isLoading}
 														label={`Field ${index + 1}`}
-														placeholder="e.g., @name or smartphones.year"
+														value={valueField.state.value}
+														onBlur={valueField.handleBlur}
+														error={!valueField.state.meta.isValid}
+														onChange={(value) => valueField.handleChange(value)}
 													/>
 												)}
 											</props.form.AppField>
