@@ -29,6 +29,10 @@ export const entitySchema = pgTable(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		index("entity_schema_slug_idx").on(table.slug),
@@ -50,6 +54,10 @@ export const eventSchema = pgTable(
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		index("event_schema_slug_idx").on(table.slug),
@@ -101,6 +109,10 @@ export const entitySchemaSandboxScript = pgTable(
 		detailsSandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		index("entity_schema_sandbox_script_entity_schema_id_idx").on(
@@ -184,6 +196,10 @@ export const event = pgTable(
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		index("event_user_id_idx").on(table.userId),
