@@ -8,7 +8,9 @@ import {
 	createSuccessResult,
 	createValidationServiceErrorResult,
 	jsonBody,
+	resolveValidationData,
 } from "~/lib/openapi";
+import { executeViewRuntimeBody } from "../view-runtime/schemas";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
@@ -29,6 +31,46 @@ import {
 	reorderSavedViews,
 	updateSavedView,
 } from "./service";
+
+type SavedViewRuntimeValidationInput = {
+	displayConfiguration: { grid: unknown; list: unknown; table: unknown };
+	queryDefinition: {
+		sort: unknown;
+		filters: unknown;
+		entitySchemaSlugs: unknown;
+	};
+};
+
+const preValidateSavedViewBody = <T extends SavedViewRuntimeValidationInput>(
+	body: T,
+) => {
+	const runtimeLayouts = [
+		{
+			layout: "grid",
+			displayConfiguration: body.displayConfiguration.grid,
+		},
+		{
+			layout: "list",
+			displayConfiguration: body.displayConfiguration.list,
+		},
+		{
+			layout: "table",
+			displayConfiguration: body.displayConfiguration.table,
+		},
+	] as const;
+
+	for (const runtimeLayout of runtimeLayouts) {
+		executeViewRuntimeBody.parse({
+			sort: body.queryDefinition.sort,
+			pagination: { page: 1, limit: 1 },
+			filters: body.queryDefinition.filters,
+			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
+			...runtimeLayout,
+		});
+	}
+
+	return body;
+};
 
 const listSavedViewsRoute = createAuthRoute(
 	createRoute({
@@ -179,11 +221,19 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
+		const validatedBody = resolveValidationData(
+			() => preValidateSavedViewBody(body),
+			"Saved view body is invalid",
+		);
+
+		if ("status" in validatedBody) {
+			return c.json(validatedBody.body, validatedBody.status);
+		}
 
 		const result = await updateSavedView({
-			body,
 			userId: user.id,
 			viewId: params.viewId,
+			body: validatedBody.data,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
@@ -196,8 +246,19 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
+		const validatedBody = resolveValidationData(
+			() => preValidateSavedViewBody(body),
+			"Saved view body is invalid",
+		);
 
-		const result = await createSavedView({ body, userId: user.id });
+		if ("status" in validatedBody) {
+			return c.json(validatedBody.body, validatedBody.status);
+		}
+
+		const result = await createSavedView({
+			userId: user.id,
+			body: validatedBody.data,
+		});
 		if ("error" in result) {
 			const response = createValidationServiceErrorResult(result);
 			return c.json(response.body, response.status);
