@@ -10,6 +10,10 @@ type GridRequest = Extract<ExecuteViewRuntimeBody, { layout: "grid" }>;
 type ListRequest = Extract<ExecuteViewRuntimeBody, { layout: "list" }>;
 type TableRequest = Extract<ExecuteViewRuntimeBody, { layout: "table" }>;
 
+function qualifyProperty(schemaSlug: string, property: string) {
+	return `${schemaSlug}.${property}`;
+}
+
 interface CreateEntityInput {
 	name: string;
 	client: Client;
@@ -21,24 +25,30 @@ interface CreateEntityInput {
 
 export function buildGridDisplayConfiguration(
 	overrides: Partial<GridRequest["displayConfiguration"]> = {},
+	schemaSlug?: string,
 ): GridRequest["displayConfiguration"] {
 	return {
 		titleProperty: ["@name"],
 		imageProperty: ["@image"],
-		badgeProperty: ["category"],
-		subtitleProperty: ["year"],
+		badgeProperty: schemaSlug
+			? [qualifyProperty(schemaSlug, "category")]
+			: null,
+		subtitleProperty: schemaSlug ? [qualifyProperty(schemaSlug, "year")] : null,
 		...overrides,
 	};
 }
 
 export function buildListDisplayConfiguration(
 	overrides: Partial<ListRequest["displayConfiguration"]> = {},
+	schemaSlug?: string,
 ): ListRequest["displayConfiguration"] {
 	return {
 		titleProperty: ["@name"],
 		imageProperty: ["@image"],
-		subtitleProperty: ["year"],
-		badgeProperty: ["category"],
+		subtitleProperty: schemaSlug ? [qualifyProperty(schemaSlug, "year")] : null,
+		badgeProperty: schemaSlug
+			? [qualifyProperty(schemaSlug, "category")]
+			: null,
 		...overrides,
 	};
 }
@@ -55,12 +65,14 @@ export function buildGridRequest(
 	overrides: Partial<Omit<GridRequest, "layout">> &
 		Pick<GridRequest, "entitySchemaSlugs">,
 ): GridRequest {
+	const schemaSlug = overrides.entitySchemaSlugs[0];
+
 	return {
 		filters: [],
 		layout: "grid",
 		pagination: { page: 1, limit: 10 },
 		sort: { fields: ["@name"], direction: "asc" },
-		displayConfiguration: buildGridDisplayConfiguration(),
+		displayConfiguration: buildGridDisplayConfiguration({}, schemaSlug),
 		...overrides,
 	};
 }
@@ -69,12 +81,14 @@ export function buildListRequest(
 	overrides: Partial<Omit<ListRequest, "layout">> &
 		Pick<ListRequest, "entitySchemaSlugs">,
 ): ListRequest {
+	const schemaSlug = overrides.entitySchemaSlugs[0];
+
 	return {
 		filters: [],
 		layout: "list",
 		pagination: { page: 1, limit: 10 },
 		sort: { fields: ["@name"], direction: "asc" },
-		displayConfiguration: buildListDisplayConfiguration(),
+		displayConfiguration: buildListDisplayConfiguration({}, schemaSlug),
 		...overrides,
 	};
 }

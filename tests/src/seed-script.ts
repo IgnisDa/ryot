@@ -220,6 +220,10 @@ function propertyReference(...fields: string[]) {
 	return fields;
 }
 
+function schemaField(schemaSlug: string, property: string) {
+	return `${schemaSlug}.${property}`;
+}
+
 function cardConfig(
 	imageProperty: string[] | null,
 	titleProperty: string[] | null,
@@ -802,22 +806,24 @@ async function seedSavedViews(
 			icon: "wine",
 			accentColor: "#D97706",
 			queryDefinition: {
-				filters: [{ op: "gte", field: "age", value: 18 }],
+				filters: [
+					{ op: "gte", field: schemaField("whiskey", "age"), value: 18 },
+				],
 				entitySchemaSlugs: ["whiskey"],
-				sort: sortDefinition("desc", "age"),
+				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("age"),
-					propertyReference("distillery"),
+					propertyReference(schemaField("whiskey", "age")),
+					propertyReference(schemaField("whiskey", "distillery")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Age", "age"),
-					tableColumn("Distillery", "distillery"),
-					tableColumn("Proof", "proof"),
+					tableColumn("Age", schemaField("whiskey", "age")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
 				],
 			),
 		},
@@ -827,7 +833,9 @@ async function seedSavedViews(
 			icon: "wine",
 			accentColor: "#B45309",
 			queryDefinition: {
-				filters: [{ op: "eq", field: "type", value: "Scotch" }],
+				filters: [
+					{ op: "eq", field: schemaField("whiskey", "type"), value: "Scotch" },
+				],
 				entitySchemaSlugs: ["whiskey"],
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -835,14 +843,14 @@ async function seedSavedViews(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Region", "region"),
-					tableColumn("Distillery", "distillery"),
+					tableColumn("Region", schemaField("whiskey", "region")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("type"),
-					propertyReference("region"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference(schemaField("whiskey", "region")),
 				),
 			),
 		},
@@ -852,23 +860,25 @@ async function seedSavedViews(
 			icon: "flame",
 			accentColor: "#DC2626",
 			queryDefinition: {
-				filters: [{ op: "gte", field: "proof", value: 100 }],
+				filters: [
+					{ op: "gte", field: schemaField("whiskey", "proof"), value: 100 },
+				],
 				entitySchemaSlugs: ["whiskey"],
-				sort: sortDefinition("desc", "proof"),
+				sort: sortDefinition("desc", schemaField("whiskey", "proof")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Proof", "proof"),
-					tableColumn("Type", "type"),
-					tableColumn("Age", "age"),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Age", schemaField("whiskey", "age")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("proof"),
-					propertyReference("type"),
+					propertyReference(schemaField("whiskey", "proof")),
+					propertyReference(schemaField("whiskey", "type")),
 				),
 			),
 		},
@@ -886,13 +896,13 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("type"),
-					propertyReference("distillery"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference(schemaField("whiskey", "distillery")),
 				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
-					tableColumn("Type", "type"),
+					tableColumn("Type", schemaField("whiskey", "type")),
 				],
 			),
 		},
@@ -902,21 +912,27 @@ async function seedSavedViews(
 			icon: "wine",
 			accentColor: "#DC2626",
 			queryDefinition: {
-				filters: [{ op: "eq", field: "type", value: "Japanese" }],
+				filters: [
+					{
+						op: "eq",
+						field: schemaField("whiskey", "type"),
+						value: "Japanese",
+					},
+				],
 				entitySchemaSlugs: ["whiskey"],
-				sort: sortDefinition("desc", "age"),
+				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("age"),
-					propertyReference("distillery"),
+					propertyReference(schemaField("whiskey", "age")),
+					propertyReference(schemaField("whiskey", "distillery")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Age", "age"),
-					tableColumn("Distillery", "distillery"),
+					tableColumn("Age", schemaField("whiskey", "age")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
 				],
 			),
 		},
@@ -928,21 +944,25 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["whiskey"],
-				sort: sortDefinition("asc", "region", "distillery"),
+				sort: sortDefinition(
+					"asc",
+					schemaField("whiskey", "region"),
+					schemaField("whiskey", "distillery"),
+				),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("region"),
-					propertyReference("distillery"),
+					propertyReference(schemaField("whiskey", "region")),
+					propertyReference(schemaField("whiskey", "distillery")),
 				),
 				[
-					tableColumn("Region", "region"),
-					tableColumn("Distillery", "distillery"),
+					tableColumn("Region", schemaField("whiskey", "region")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
 					tableColumn("Name", "@name"),
-					tableColumn("Type", "type"),
-					tableColumn("Proof", "proof"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
 				],
 			),
 		},
@@ -952,21 +972,27 @@ async function seedSavedViews(
 			icon: "flame",
 			accentColor: "#991B1B",
 			queryDefinition: {
-				filters: [{ op: "gte", field: "proof", value: 120 }],
+				filters: [
+					{ op: "gte", field: schemaField("whiskey", "proof"), value: 120 },
+				],
 				entitySchemaSlugs: ["whiskey"],
-				sort: sortDefinition("desc", "proof", "age"),
+				sort: sortDefinition(
+					"desc",
+					schemaField("whiskey", "proof"),
+					schemaField("whiskey", "age"),
+				),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("proof"),
-					propertyReference("region"),
+					propertyReference(schemaField("whiskey", "proof")),
+					propertyReference(schemaField("whiskey", "region")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Proof", "proof"),
-					tableColumn("Region", "region"),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+					tableColumn("Region", schemaField("whiskey", "region")),
 					tableColumn("Created", "@createdAt"),
 				],
 			),
@@ -980,7 +1006,13 @@ async function seedSavedViews(
 			icon: "utensils",
 			accentColor: "#EF4444",
 			queryDefinition: {
-				filters: [{ op: "in", field: "type", value: ["Restaurant", "Cafe"] }],
+				filters: [
+					{
+						op: "in",
+						field: schemaField("place", "type"),
+						value: ["Restaurant", "Cafe"],
+					},
+				],
 				entitySchemaSlugs: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -988,14 +1020,14 @@ async function seedSavedViews(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Type", "type"),
-					tableColumn("City", "city"),
+					tableColumn("Type", schemaField("place", "type")),
+					tableColumn("City", schemaField("place", "city")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("type"),
-					propertyReference("city"),
+					propertyReference(schemaField("place", "type")),
+					propertyReference(schemaField("place", "city")),
 				),
 			),
 		},
@@ -1008,25 +1040,25 @@ async function seedSavedViews(
 				filters: [
 					{
 						op: "in",
-						field: "type",
+						field: schemaField("place", "type"),
 						value: ["Museum", "Gallery", "Theater"],
 					},
 				],
 				entitySchemaSlugs: ["place"],
-				sort: sortDefinition("asc", "city"),
+				sort: sortDefinition("asc", schemaField("place", "city")),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("type"),
-					propertyReference("country"),
+					propertyReference(schemaField("place", "type")),
+					propertyReference(schemaField("place", "country")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Type", "type"),
-					tableColumn("City", "city"),
-					tableColumn("Country", "country"),
+					tableColumn("Type", schemaField("place", "type")),
+					tableColumn("City", schemaField("place", "city")),
+					tableColumn("Country", schemaField("place", "country")),
 				],
 			),
 		},
@@ -1036,7 +1068,9 @@ async function seedSavedViews(
 			icon: "tree",
 			accentColor: "#10B981",
 			queryDefinition: {
-				filters: [{ op: "eq", field: "type", value: "Park" }],
+				filters: [
+					{ op: "eq", field: schemaField("place", "type"), value: "Park" },
+				],
 				entitySchemaSlugs: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -1044,13 +1078,13 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("city"),
-					propertyReference("country"),
+					propertyReference(schemaField("place", "city")),
+					propertyReference(schemaField("place", "country")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("City", "city"),
-					tableColumn("Address", "address"),
+					tableColumn("City", schemaField("place", "city")),
+					tableColumn("Address", schemaField("place", "address")),
 				],
 			),
 		},
@@ -1069,13 +1103,13 @@ async function seedSavedViews(
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
-					tableColumn("Type", "type"),
+					tableColumn("Type", schemaField("place", "type")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("type"),
-					propertyReference("city"),
+					propertyReference(schemaField("place", "type")),
+					propertyReference(schemaField("place", "city")),
 				),
 			),
 		},
@@ -1087,21 +1121,25 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: sortDefinition("asc", "country", "city"),
+				sort: sortDefinition(
+					"asc",
+					schemaField("place", "country"),
+					schemaField("place", "city"),
+				),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
-					tableColumn("Country", "country"),
-					tableColumn("City", "city"),
+					tableColumn("Country", schemaField("place", "country")),
+					tableColumn("City", schemaField("place", "city")),
 					tableColumn("Name", "@name"),
-					tableColumn("Type", "type"),
+					tableColumn("Type", schemaField("place", "type")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("country"),
-					propertyReference("city"),
+					propertyReference(schemaField("place", "country")),
+					propertyReference(schemaField("place", "city")),
 				),
 			),
 		},
@@ -1113,20 +1151,20 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: sortDefinition("asc", "country", "@name"),
+				sort: sortDefinition("asc", schemaField("place", "country"), "@name"),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("city"),
-					propertyReference("address"),
+					propertyReference(schemaField("place", "city")),
+					propertyReference(schemaField("place", "address")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Latitude", "latitude"),
-					tableColumn("Longitude", "longitude"),
-					tableColumn("Address", "address"),
+					tableColumn("Latitude", schemaField("place", "latitude")),
+					tableColumn("Longitude", schemaField("place", "longitude")),
+					tableColumn("Address", schemaField("place", "address")),
 				],
 			),
 		},
@@ -1138,21 +1176,25 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: sortDefinition("asc", "city", "address"),
+				sort: sortDefinition(
+					"asc",
+					schemaField("place", "city"),
+					schemaField("place", "address"),
+				),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
-					tableColumn("City", "city"),
+					tableColumn("City", schemaField("place", "city")),
 					tableColumn("Name", "@name"),
-					tableColumn("Address", "address"),
-					tableColumn("Country", "country"),
+					tableColumn("Address", schemaField("place", "address")),
+					tableColumn("Country", schemaField("place", "country")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("country"),
-					propertyReference("address"),
+					propertyReference(schemaField("place", "country")),
+					propertyReference(schemaField("place", "address")),
 				),
 			),
 		},
@@ -1165,22 +1207,27 @@ async function seedSavedViews(
 			icon: "smartphone",
 			accentColor: "#6366F1",
 			queryDefinition: {
-				filters: [{ op: "gte", field: "year", value: 2020 }],
+				filters: [
+					{ op: "gte", field: schemaField("smartphone", "year"), value: 2020 },
+				],
 				entitySchemaSlugs: ["smartphone"],
-				sort: sortDefinition("desc", "year"),
+				sort: sortDefinition("desc", schemaField("smartphone", "year")),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("year"),
-					propertyReference("manufacturer"),
+					propertyReference(schemaField("smartphone", "year")),
+					propertyReference(schemaField("smartphone", "manufacturer")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Manufacturer", "manufacturer"),
-					tableColumn("Year", "year"),
-					tableColumn("OS", "os"),
+					tableColumn(
+						"Manufacturer",
+						schemaField("smartphone", "manufacturer"),
+					),
+					tableColumn("Year", schemaField("smartphone", "year")),
+					tableColumn("OS", schemaField("smartphone", "os")),
 				],
 			),
 		},
@@ -1288,24 +1335,33 @@ async function seedSavedViews(
 			icon: "gem",
 			accentColor: "#A855F7",
 			queryDefinition: {
-				filters: [{ op: "gte", field: "price_usd", value: 999 }],
+				filters: [
+					{
+						op: "gte",
+						field: schemaField("smartphone", "price_usd"),
+						value: 999,
+					},
+				],
 				entitySchemaSlugs: ["smartphone"],
-				sort: sortDefinition("desc", "price_usd"),
+				sort: sortDefinition("desc", schemaField("smartphone", "price_usd")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Price", "price_usd"),
-					tableColumn("Manufacturer", "manufacturer"),
-					tableColumn("Storage", "storage_gb"),
-					tableColumn("RAM", "ram_gb"),
+					tableColumn("Price", schemaField("smartphone", "price_usd")),
+					tableColumn(
+						"Manufacturer",
+						schemaField("smartphone", "manufacturer"),
+					),
+					tableColumn("Storage", schemaField("smartphone", "storage_gb")),
+					tableColumn("RAM", schemaField("smartphone", "ram_gb")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("price_usd"),
-					propertyReference("manufacturer"),
+					propertyReference(schemaField("smartphone", "price_usd")),
+					propertyReference(schemaField("smartphone", "manufacturer")),
 				),
 			),
 		},
@@ -1315,22 +1371,31 @@ async function seedSavedViews(
 			icon: "dollar-sign",
 			accentColor: "#10B981",
 			queryDefinition: {
-				filters: [{ op: "lte", field: "price_usd", value: 399 }],
+				filters: [
+					{
+						op: "lte",
+						field: schemaField("smartphone", "price_usd"),
+						value: 399,
+					},
+				],
 				entitySchemaSlugs: ["smartphone"],
-				sort: sortDefinition("asc", "price_usd"),
+				sort: sortDefinition("asc", schemaField("smartphone", "price_usd")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Price", "price_usd"),
-					tableColumn("Manufacturer", "manufacturer"),
+					tableColumn("Price", schemaField("smartphone", "price_usd")),
+					tableColumn(
+						"Manufacturer",
+						schemaField("smartphone", "manufacturer"),
+					),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("price_usd"),
-					propertyReference("manufacturer"),
+					propertyReference(schemaField("smartphone", "price_usd")),
+					propertyReference(schemaField("smartphone", "manufacturer")),
 				),
 			),
 		},
@@ -1376,22 +1441,28 @@ async function seedSavedViews(
 			icon: "signal",
 			accentColor: "#EA580C",
 			queryDefinition: {
-				filters: [{ op: "eq", field: "has_cellular", value: true }],
+				filters: [
+					{
+						op: "eq",
+						field: schemaField("tablet", "has_cellular"),
+						value: true,
+					},
+				],
 				entitySchemaSlugs: ["tablet"],
-				sort: sortDefinition("desc", "screen_size"),
+				sort: sortDefinition("desc", schemaField("tablet", "screen_size")),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("screen_size"),
-					propertyReference("manufacturer"),
+					propertyReference(schemaField("tablet", "screen_size")),
+					propertyReference(schemaField("tablet", "manufacturer")),
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Screen Size", "screen_size"),
-					tableColumn("Manufacturer", "manufacturer"),
-					tableColumn("Storage", "storage_gb"),
+					tableColumn("Screen Size", schemaField("tablet", "screen_size")),
+					tableColumn("Manufacturer", schemaField("tablet", "manufacturer")),
+					tableColumn("Storage", schemaField("tablet", "storage_gb")),
 				],
 			),
 		},
@@ -1401,23 +1472,32 @@ async function seedSavedViews(
 			icon: "camera",
 			accentColor: "#84CC16",
 			queryDefinition: {
-				filters: [{ op: "eq", field: "has_camera", value: true }],
+				filters: [
+					{
+						op: "eq",
+						field: schemaField("feature-phone", "has_camera"),
+						value: true,
+					},
+				],
 				entitySchemaSlugs: ["feature-phone"],
-				sort: sortDefinition("desc", "year"),
+				sort: sortDefinition("desc", schemaField("feature-phone", "year")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn("Manufacturer", "manufacturer"),
-					tableColumn("Year", "year"),
-					tableColumn("Battery", "battery_mah"),
+					tableColumn(
+						"Manufacturer",
+						schemaField("feature-phone", "manufacturer"),
+					),
+					tableColumn("Year", schemaField("feature-phone", "year")),
+					tableColumn("Battery", schemaField("feature-phone", "battery_mah")),
 				],
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference("year"),
-					propertyReference("manufacturer"),
+					propertyReference(schemaField("feature-phone", "year")),
+					propertyReference(schemaField("feature-phone", "manufacturer")),
 				),
 			),
 		},
