@@ -556,9 +556,17 @@ impl MiscellaneousService {
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
         let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
+        let average_rating = match reviews.is_empty() {
+            true => None,
+            false => Some(
+                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
+                    / Decimal::from(reviews.len()),
+            ),
+        };
         Ok(UserPersonDetails {
             reviews,
             collections,
+            average_rating,
             is_recently_consumed,
         })
     }

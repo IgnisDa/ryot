@@ -440,6 +440,7 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
+		averageRating
 		isRecentlyConsumed
 		collections {
 			...CollectionPart

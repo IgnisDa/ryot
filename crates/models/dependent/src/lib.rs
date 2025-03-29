@@ -348,6 +348,7 @@ pub struct CoreDetails {
 pub struct UserPersonDetails {
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
+    pub average_rating: Option<Decimal>,
     pub collections: Vec<collection::Model>,
 }
 

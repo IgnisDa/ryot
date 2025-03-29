@@ -2874,6 +2874,7 @@ export type UserPeopleListInput = {
 
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
