@@ -588,7 +588,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List entity schemas for a tracker or matching slugs */
+        /** List entity schemas with optional tracker or slug filters */
         get: {
             parameters: {
                 query?: {
@@ -601,7 +601,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Entity schemas for the requested filters */
+                /** @description Entity schemas for the requested filters or user */
                 200: {
                     headers: {
                         [name: string]: unknown;
