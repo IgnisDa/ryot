@@ -1,6 +1,6 @@
 import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
-import { dataSchema } from "~/lib/openapi";
+import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
@@ -23,10 +23,8 @@ export const listedTrackerSchema = z.object({
 	...iconAndAccentColorFields,
 });
 
-export const createTrackerResponseSchema = dataSchema(listedTrackerSchema);
-export const listTrackersResponseSchema = dataSchema(
-	z.array(listedTrackerSchema),
-);
+export const createTrackerResponseSchema = itemDataSchema(listedTrackerSchema);
+export const listTrackersResponseSchema = listDataSchema(listedTrackerSchema);
 
 export const listTrackersQuery = z.object({
 	includeDisabled: zodBoolAsString.optional().default(false),
@@ -82,7 +80,7 @@ export const reorderTrackersBody = z.object({
 	}),
 });
 
-export const reorderTrackersResponseSchema = dataSchema(
+export const reorderTrackersResponseSchema = itemDataSchema(
 	z.object({ trackerIds: z.array(z.string()) }),
 );
 
