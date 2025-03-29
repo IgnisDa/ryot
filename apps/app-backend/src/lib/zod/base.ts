@@ -13,6 +13,44 @@ export const applicationIconNameSchema = nonEmptyTrimmedStringSchema.describe(
 	"A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/",
 );
 
+export const iconAndAccentColorFields = {
+	icon: applicationIconNameSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
+} satisfies z.ZodRawShape;
+
+export const optionalIconAndAccentColorFields = {
+	icon: applicationIconNameSchema.optional(),
+	accentColor: nonEmptyTrimmedStringSchema.optional(),
+} satisfies z.ZodRawShape;
+
+export const createIdParamsSchema = <TParamName extends string>(
+	paramName: TParamName,
+) =>
+	z.object({
+		[paramName]: nonEmptyTrimmedStringSchema,
+	} as Record<TParamName, typeof nonEmptyTrimmedStringSchema>);
+
+export const createNonEmptyStringArraySchema = (message: string) =>
+	z.array(z.string()).min(1, message);
+
+export const createUniqueNonEmptyTrimmedStringArraySchema = (input: {
+	minMessage?: string;
+	duplicateMessage: string;
+}) =>
+	z
+		.array(nonEmptyTrimmedStringSchema)
+		.min(1, input.minMessage)
+		.superRefine((value, ctx) => {
+			if (new Set(value).size === value.length) {
+				return;
+			}
+
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: input.duplicateMessage,
+			});
+		});
+
 export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 	shape: TShape,
 ) =>
