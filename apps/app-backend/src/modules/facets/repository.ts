@@ -60,10 +60,7 @@ export const getVisibleFacetById = async (input: {
 	facetId: string;
 }) => {
 	const foundFacet = await getFacetScopeForUser(input);
-
-	if (!foundFacet) return foundFacet;
-
-	return { id: foundFacet.id };
+	return foundFacet ? { id: foundFacet.id } : foundFacet;
 };
 
 export const getFacetScopeForUser = async (input: {
