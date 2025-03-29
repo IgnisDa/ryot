@@ -54,7 +54,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 22. As a user, I want image fields returned as raw discriminated unions, so that the frontend can use existing utilities to convert S3 keys to URLs or display remote URLs directly.
 
-23. As a user, I want table column properties resolved using index-based keys (column_0, column_1), so that the frontend can render table cells in the correct column order.
+23. As a user, I want saved-view table columns to carry labels and runtime table responses to include ordered cells plus column metadata, so that the frontend can render headers and rows directly.
 
 24. As a user, I want grid and list properties resolved using semantic keys (imageProperty, titleProperty, subtitleProperty, badgeProperty), so that the frontend can render cards with appropriate styling.
 
@@ -142,6 +142,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 **Schema updates:**
 - `SavedViewQueryDefinition` expands to include `entitySchemaSlugs`, `filters`, `sort`
 - `DisplayConfiguration` new schema with discriminated union for layouts
+- `TableConfig.columns[*]` requires both `label` and `property`
 - Request schemas use discriminated unions for filter operators
 
 **Type casting pattern:**
@@ -183,7 +184,6 @@ Build a complete view-runtime execution engine that accepts compiled query reque
     entitySchemaSlug: string
     createdAt: Date
     updatedAt: Date
-    resolvedProperties: Record<string, any>
   }>
   meta: {
     pagination: {
@@ -194,13 +194,16 @@ Build a complete view-runtime execution engine that accepts compiled query reque
       hasPreviousPage: boolean
       totalPages: number
     }
+    table?: {
+      columns: Array<{ key: string, label: string }>
+    }
   }
 }
 ```
 
 **Resolved properties format:**
-- Grid/list: `{ imageProperty, titleProperty, subtitleProperty, badgeProperty }`
-- Table: `{ column_0, column_1, column_2, ... }` (index-based keys)
+- Grid/list: `{ imageProperty, titleProperty, subtitleProperty, badgeProperty }`, where each slot is `{ value, kind }`
+- Table items: `cells: Array<{ key, value, kind }>` in column order
 
 ### Query Builder Architecture
 
@@ -302,7 +305,7 @@ function validateSlugNotReserved(slug: string): void
     badgeProperty: null
   },
   table: {
-    columns: [{ property: ["@name"] }]
+    columns: [{ label: "Name", property: ["@name"] }]
   }
 }
 ```
@@ -668,14 +671,14 @@ Clients can implement PATCH-like behavior by fetching the view, modifying fields
 
 PostgreSQL COALESCE requires at least one argument. Empty property reference arrays like `subtitleProperty: []` must be converted to `COALESCE(NULL)` to generate valid SQL. The alternative (omitting the property entirely from SQL) would require conditional SQL generation and complicate the resolved properties structure.
 
-### Why Table Uses Index-Based Keys
+### Why Table Uses Metadata + Cells
 
-Table columns use index-based keys (`column_0`, `column_1`) instead of semantic names because:
+Table responses use `meta.table.columns` plus per-row `cells` because:
 
 1. Tables have variable numbers of columns (no fixed schema)
-2. Each column can have different property references
-3. Frontend needs to preserve column order from request
-4. Index-based keys enable simple iteration: `columns.map((col, i) => resolvedProperties[`column_${i}`])`
+2. Each column needs an explicit user-facing label
+3. Frontend needs stable keys and preserved order without reconstructing `column_${i}` lookups
+4. `cells` let the renderer map headers to values directly without additional inference
 
 ### Why Zero Pages Is Zero, Not One
 
