@@ -427,6 +427,7 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		averageRating
 		isRecentlyConsumed
 		reviews {
 			...ReviewItemPart

@@ -594,9 +594,17 @@ impl MiscellaneousService {
             &self.0,
         )
         .await?;
+        let average_rating = if reviews.is_empty() {
+            None
+        } else {
+            let total_rating = reviews.iter().flat_map(|r| r.rating).collect_vec();
+            let sum = total_rating.iter().sum::<Decimal>();
+            Some(sum / Decimal::from(total_rating.iter().len()))
+        };
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
+            average_rating,
             is_recently_consumed,
         })
     }

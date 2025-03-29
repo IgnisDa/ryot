@@ -2806,6 +2806,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
