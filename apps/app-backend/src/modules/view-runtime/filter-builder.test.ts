@@ -4,8 +4,8 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
+import { buildSchemaMap } from "~/lib/views/reference";
 import { buildFilterWhereClause } from "./filter-builder";
-import { buildSchemaMap } from "./schema-introspection";
 
 const dialect = new PgDialect();
 
