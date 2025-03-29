@@ -1357,7 +1357,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/uploads/images/presigned": {
+    "/uploads/presigned": {
         parameters: {
             query?: never;
             header?: never;
@@ -1366,7 +1366,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Get a presigned upload URL for an image */
+        /** Get a presigned upload URL for a file */
         post: {
             parameters: {
                 query?: never;
@@ -1374,9 +1374,17 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        contentType: "image/avif" | "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+                        fileName?: string;
+                    };
+                };
+            };
             responses: {
-                /** @description Presigned upload URL for an image */
+                /** @description Presigned upload URL for a file */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1391,6 +1399,17 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
                 /** @description Request is unauthenticated */
                 401: {
                     headers: {
@@ -1399,6 +1418,17 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Presigned upload URL generation failed */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["InternalServerError"];
                         };
                     };
                 };
@@ -1677,6 +1707,11 @@ export interface components {
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];
             };
+        };
+        InternalServerError: {
+            message: string;
+            /** @enum {string} */
+            code: "internal_error";
         };
     };
     responses: never;
