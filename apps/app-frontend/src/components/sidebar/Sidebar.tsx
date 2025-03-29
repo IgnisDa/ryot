@@ -70,6 +70,114 @@ function ViewIcon(props: { view: SidebarView }) {
 	);
 }
 
+function SortableView(props: {
+	view: SidebarView;
+	isDark: boolean;
+	textColor: string;
+	hoverColor: string;
+	leftPadding: string;
+	isCustomizeMode: boolean;
+	isMutationBusy: boolean;
+	onClick?: () => void;
+	onToggleViewEnabled?: (viewId: string) => void;
+}) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: props.view.id });
+
+	const style = {
+		transition,
+		opacity: isDragging ? 0.5 : 1,
+		transform: CSS.Transform.toString(transform),
+	};
+
+	return (
+		<Box ref={setNodeRef} style={style}>
+			<NavLink
+				label={props.view.name}
+				leftSection={
+					<Group gap={props.isCustomizeMode ? 8 : 0} wrap="nowrap">
+						{props.isCustomizeMode ? (
+							<Box
+								component="button"
+								c={props.isDark ? "dark.4" : "stone.5"}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+								}}
+								style={{
+									padding: 0,
+									cursor: "grab",
+									border: "none",
+									display: "flex",
+									alignItems: "center",
+									background: "transparent",
+								}}
+								{...attributes}
+								{...listeners}
+							>
+								<GripVertical size={16} />
+							</Box>
+						) : undefined}
+						<ViewIcon view={props.view} />
+					</Group>
+				}
+				onClick={props.isCustomizeMode ? undefined : props.onClick}
+				renderRoot={
+					props.isCustomizeMode
+						? undefined
+						: (rootProps) => (
+								<Link
+									{...rootProps}
+									to="/views/$viewId"
+									params={{ viewId: props.view.id }}
+								/>
+							)
+				}
+				rightSection={
+					props.isCustomizeMode ? (
+						<ActionIcon
+							size="sm"
+							variant="subtle"
+							disabled={props.isMutationBusy}
+							aria-label={
+								props.view.isDisabled ? "Enable view" : "Disable view"
+							}
+							onClick={(event) => {
+								event.preventDefault();
+								event.stopPropagation();
+								props.onToggleViewEnabled?.(props.view.id);
+							}}
+						>
+							{props.view.isDisabled ? (
+								<ToggleLeft size={14} strokeWidth={1.8} />
+							) : (
+								<ToggleRight size={14} strokeWidth={1.8} />
+							)}
+						</ActionIcon>
+					) : undefined
+				}
+				styles={{
+					root: {
+						paddingLeft: props.leftPadding,
+						"&:hover": { backgroundColor: props.hoverColor },
+					},
+					label: {
+						fontSize: "13px",
+						fontWeight: 400,
+						color: props.textColor,
+					},
+				}}
+			/>
+		</Box>
+	);
+}
+
 function SortableTracker(props: {
 	isDark: boolean;
 	isExpanded: boolean;
@@ -238,62 +346,89 @@ function SortableTracker(props: {
 					</Group>
 				}
 			/>
-			{props.isExpanded
-				? props.tracker.views?.map((view) => (
-						<NavLink
-							key={view.id}
-							label={view.name}
-							leftSection={<ViewIcon view={view} />}
-							onClick={props.isCustomizeMode ? undefined : props.onNavLinkClick}
-							renderRoot={
-								props.isCustomizeMode
-									? undefined
-									: (rootProps) => (
-											<Link
-												{...rootProps}
-												to="/views/$viewId"
-												params={{ viewId: view.id }}
-											/>
-										)
-							}
-							rightSection={
-								props.isCustomizeMode ? (
-									<ActionIcon
-										size="sm"
-										variant="subtle"
-										disabled={props.isViewMutationBusy}
-										aria-label={
-											view.isDisabled ? "Enable view" : "Disable view"
-										}
-										onClick={(event) => {
-											event.preventDefault();
-											event.stopPropagation();
-											props.onToggleViewEnabled?.(view.id);
-										}}
-									>
-										{view.isDisabled ? (
-											<ToggleLeft size={14} strokeWidth={1.8} />
-										) : (
-											<ToggleRight size={14} strokeWidth={1.8} />
-										)}
-									</ActionIcon>
-								) : undefined
-							}
-							styles={{
-								root: {
-									paddingLeft: "40px",
-									"&:hover": { backgroundColor: color.muted },
-								},
-								label: {
-									fontSize: "13px",
-									fontWeight: 400,
-									color: props.textSecondary,
-								},
-							}}
-						/>
-					))
-				: undefined}
+			{props.isExpanded ? (
+				<SortableTrackerViews
+					isDark={props.isDark}
+					tracker={props.tracker}
+					hoverColor={color.muted}
+					textSecondary={props.textSecondary}
+					onNavLinkClick={props.onNavLinkClick}
+					isCustomizeMode={props.isCustomizeMode}
+					isMutationBusy={props.isViewMutationBusy}
+					onToggleViewEnabled={props.onToggleViewEnabled}
+				/>
+			) : undefined}
 		</Box>
+	);
+}
+
+function SortableTrackerViews(props: {
+	tracker: SidebarTracker;
+	isDark: boolean;
+	textSecondary: string;
+	hoverColor: string;
+	isCustomizeMode: boolean;
+	isMutationBusy: boolean;
+	onNavLinkClick: () => void;
+	onToggleViewEnabled?: (viewId: string) => void;
+}) {
+	if (!props.tracker.views?.length) {
+		return null;
+	}
+
+	return (
+		<SortableContext
+			strategy={verticalListSortingStrategy}
+			items={props.tracker.views.map((view) => view.id)}
+		>
+			{props.tracker.views.map((view) => (
+				<SortableView
+					view={view}
+					key={view.id}
+					leftPadding="40px"
+					isDark={props.isDark}
+					hoverColor={props.hoverColor}
+					onClick={props.onNavLinkClick}
+					textColor={props.textSecondary}
+					isMutationBusy={props.isMutationBusy}
+					isCustomizeMode={props.isCustomizeMode}
+					onToggleViewEnabled={props.onToggleViewEnabled}
+				/>
+			))}
+		</SortableContext>
+	);
+}
+
+function SortableStandaloneViews(props: {
+	views: SidebarView[];
+	isDark: boolean;
+	textSecondary: string;
+	hoverColor: string;
+	isCustomizeMode: boolean;
+	isMutationBusy: boolean;
+	onNavLinkClick: () => void;
+	onToggleViewEnabled?: (viewId: string) => void;
+}) {
+	return (
+		<SortableContext
+			strategy={verticalListSortingStrategy}
+			items={props.views.map((view) => view.id)}
+		>
+			{props.views.map((view) => (
+				<SortableView
+					view={view}
+					key={view.id}
+					leftPadding="14px"
+					isDark={props.isDark}
+					hoverColor={props.hoverColor}
+					onClick={props.onNavLinkClick}
+					textColor={props.textSecondary}
+					isMutationBusy={props.isMutationBusy}
+					isCustomizeMode={props.isCustomizeMode}
+					onToggleViewEnabled={props.onToggleViewEnabled}
+				/>
+			))}
+		</SortableContext>
 	);
 }
 
@@ -359,27 +494,90 @@ export function Sidebar(props: SidebarProps) {
 		if (!over || active.id === over.id) {
 			return;
 		}
+		const activeId = String(active.id);
+		const overId = String(over.id);
 
 		const activeIndex = sidebarData.trackers.findIndex(
-			(tracker) => tracker.id === active.id,
+			(tracker) => tracker.id === activeId,
 		);
 		const overIndex = sidebarData.trackers.findIndex(
-			(tracker) => tracker.id === over.id,
+			(tracker) => tracker.id === overId,
 		);
 
-		if (activeIndex === -1 || overIndex === -1) {
+		if (activeIndex !== -1 && overIndex !== -1) {
+			const nextTrackers = Array.from(sidebarData.trackers);
+			const movedTracker = nextTrackers[activeIndex];
+			if (!movedTracker) {
+				return;
+			}
+
+			nextTrackers.splice(activeIndex, 1);
+			nextTrackers.splice(overIndex, 0, movedTracker);
+			void actions.reorderTrackerIds(nextTrackers.map((tracker) => tracker.id));
 			return;
 		}
 
-		const nextTrackers = Array.from(sidebarData.trackers);
-		const movedTracker = nextTrackers[activeIndex];
-		if (!movedTracker) {
+		const activeTracker = sidebarData.trackers.find((tracker) =>
+			tracker.views?.some((view) => view.id === activeId),
+		);
+		const overTracker = sidebarData.trackers.find((tracker) =>
+			tracker.views?.some((view) => view.id === overId),
+		);
+
+		if (
+			activeTracker !== undefined &&
+			overTracker !== undefined &&
+			activeTracker.id === overTracker.id
+		) {
+			const currentViews = activeTracker.views ?? [];
+			const activeViewIndex = currentViews.findIndex(
+				(view) => view.id === activeId,
+			);
+			const overViewIndex = currentViews.findIndex(
+				(view) => view.id === overId,
+			);
+
+			if (activeViewIndex === -1 || overViewIndex === -1) {
+				return;
+			}
+
+			const nextViews = Array.from(currentViews);
+			const movedView = nextViews[activeViewIndex];
+			if (!movedView) {
+				return;
+			}
+
+			nextViews.splice(activeViewIndex, 1);
+			nextViews.splice(overViewIndex, 0, movedView);
+			void savedViewMutations.reorderViewIds({
+				viewIds: nextViews.map((view) => view.id),
+				trackerId: activeTracker.id,
+			});
 			return;
 		}
 
-		nextTrackers.splice(activeIndex, 1);
-		nextTrackers.splice(overIndex, 0, movedTracker);
-		void actions.reorderTrackerIds(nextTrackers.map((tracker) => tracker.id));
+		const activeStandaloneIndex = sidebarData.views.findIndex(
+			(view) => view.id === activeId,
+		);
+		const overStandaloneIndex = sidebarData.views.findIndex(
+			(view) => view.id === overId,
+		);
+
+		if (activeStandaloneIndex === -1 || overStandaloneIndex === -1) {
+			return;
+		}
+
+		const nextViews = Array.from(sidebarData.views);
+		const movedView = nextViews[activeStandaloneIndex];
+		if (!movedView) {
+			return;
+		}
+
+		nextViews.splice(activeStandaloneIndex, 1);
+		nextViews.splice(overStandaloneIndex, 0, movedView);
+		void savedViewMutations.reorderViewIds({
+			viewIds: nextViews.map((view) => view.id),
+		});
 	};
 
 	const handleNavLinkClick = () => {
@@ -593,64 +791,21 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 				</Box>
 
-				{sidebarData.views.map((view) => (
-					<NavLink
-						key={view.id}
-						label={view.name}
-						leftSection={<ViewIcon view={view} />}
-						onClick={!state.isCustomizeMode ? handleNavLinkClick : undefined}
-						renderRoot={
-							!state.isCustomizeMode
-								? (rootProps) => (
-										<Link
-											{...rootProps}
-											to="/views/$viewId"
-											params={{ viewId: view.id }}
-										/>
-									)
-								: undefined
-						}
-						rightSection={
-							state.isCustomizeMode ? (
-								<ActionIcon
-									size="sm"
-									variant="subtle"
-									disabled={savedViewMutations.isPending}
-									aria-label={view.isDisabled ? "Enable view" : "Disable view"}
-									onClick={(event) => {
-										event.preventDefault();
-										event.stopPropagation();
-										void savedViewMutations.toggleViewById(
-											view.id,
-											savedViewsQuery.savedViews,
-										);
-									}}
-								>
-									{view.isDisabled ? (
-										<ToggleLeft size={14} strokeWidth={1.8} />
-									) : (
-										<ToggleRight size={14} strokeWidth={1.8} />
-									)}
-								</ActionIcon>
-							) : undefined
-						}
-						styles={{
-							label: {
-								fontSize: "13px",
-								fontWeight: 400,
-								color: textSecondary,
-							},
-							root: {
-								padding: "8px 14px",
-								borderLeft: "2px solid transparent",
-								"&:hover": {
-									borderLeftColor: borderAccent,
-									backgroundColor: "rgba(212, 165, 116, 0.06)",
-								},
-							},
-						}}
-					/>
-				))}
+				<SortableStandaloneViews
+					isDark={isDark}
+					views={sidebarData.views}
+					textSecondary={textSecondary}
+					onNavLinkClick={handleNavLinkClick}
+					hoverColor="rgba(212, 165, 116, 0.06)"
+					isCustomizeMode={state.isCustomizeMode}
+					isMutationBusy={savedViewMutations.isPending}
+					onToggleViewEnabled={(viewId) =>
+						void savedViewMutations.toggleViewById(
+							viewId,
+							savedViewsQuery.savedViews,
+						)
+					}
+				/>
 			</Stack>
 
 			<SidebarAccountSection

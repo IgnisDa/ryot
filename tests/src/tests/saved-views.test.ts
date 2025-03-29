@@ -9,6 +9,7 @@ import {
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
+	reorderSavedViews,
 	updateSavedView,
 } from "../test-support/saved-views";
 
@@ -299,6 +300,7 @@ describe("Saved views E2E", () => {
 		});
 
 		await updateSavedView(client, cookies, disabledTrackedView.id, {
+			trackerId,
 			isDisabled: true,
 		});
 
@@ -315,6 +317,130 @@ describe("Saved views E2E", () => {
 			trackerId,
 		]);
 		expect(listedViews.some((view) => view.isDisabled)).toBe(true);
+	});
+
+	it("reorders saved views only within the requested tracker scope", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: `Tracker Scoped Views ${crypto.randomUUID()}`,
+		});
+		const first = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Tracker View A ${crypto.randomUUID()}`,
+		});
+		const second = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Tracker View B ${crypto.randomUUID()}`,
+		});
+		const standalone = await createSavedView(client, cookies, {
+			name: `Standalone View ${crypto.randomUUID()}`,
+		});
+
+		const reordered = await reorderSavedViews(client, cookies, {
+			viewIds: [second.id, first.id],
+			trackerId,
+		});
+		const scopedViews = await listSavedViews(client, cookies, {
+			trackerId,
+			includeDisabled: true,
+		});
+		const topLevelViews = await listSavedViews(client, cookies, {
+			includeDisabled: true,
+		});
+
+		expect(reordered.viewIds.slice(0, 2)).toEqual([second.id, first.id]);
+		expect(scopedViews.map((view) => view.id).slice(0, 2)).toEqual([
+			second.id,
+			first.id,
+		]);
+		expect(topLevelViews.some((view) => view.id === standalone.id)).toBe(true);
+	});
+
+	it("reorders only top-level saved views when trackerId is omitted", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const first = await createSavedView(client, cookies, {
+			name: `Top View A ${crypto.randomUUID()}`,
+		});
+		const second = await createSavedView(client, cookies, {
+			name: `Top View B ${crypto.randomUUID()}`,
+		});
+		const { trackerId } = await createTracker(client, cookies, {
+			name: `Unrelated Tracker ${crypto.randomUUID()}`,
+		});
+		const tracked = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Tracked Scope View ${crypto.randomUUID()}`,
+		});
+
+		await reorderSavedViews(client, cookies, {
+			viewIds: [second.id, first.id],
+		});
+		const topLevelViews = await listSavedViews(client, cookies, {
+			includeDisabled: true,
+		});
+		const trackedViews = await listSavedViews(client, cookies, {
+			trackerId,
+			includeDisabled: true,
+		});
+		const topLevelCreatedIdsInOrder = topLevelViews
+			.filter((view) => view.id === first.id || view.id === second.id)
+			.map((view) => view.id);
+
+		expect(topLevelCreatedIdsInOrder).toEqual([second.id, first.id]);
+		expect(trackedViews.some((view) => view.id === tracked.id)).toBe(true);
+	});
+
+	it("moves a saved view to top-level when trackerId is omitted on update", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: `Move View Tracker ${crypto.randomUUID()}`,
+		});
+		const movedView = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Movable View ${crypto.randomUUID()}`,
+		});
+
+		const updatedView = await updateSavedView(client, cookies, movedView.id, {
+			trackerId: undefined,
+			name: `${movedView.name} Updated`,
+		});
+		const fetchedView = await getSavedView(client, cookies, movedView.id);
+		const topLevelViews = await listSavedViews(client, cookies, {
+			includeDisabled: true,
+		});
+		const trackerViews = await listSavedViews(client, cookies, {
+			trackerId,
+			includeDisabled: true,
+		});
+
+		expect(updatedView.trackerId).toBeNull();
+		expect(fetchedView.trackerId).toBeNull();
+		expect(topLevelViews.map((view) => view.id)).toContain(movedView.id);
+		expect(trackerViews.map((view) => view.id)).not.toContain(movedView.id);
+	});
+
+	it("rejects reorder requests containing saved views from another scope", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: `Strict Scope Tracker ${crypto.randomUUID()}`,
+		});
+		const tracked = await createSavedView(client, cookies, {
+			trackerId,
+			name: `Scoped View ${crypto.randomUUID()}`,
+		});
+		const standalone = await createSavedView(client, cookies, {
+			name: `Top Scope View ${crypto.randomUUID()}`,
+		});
+
+		const result = await client.POST("/saved-views/reorder", {
+			headers: { Cookie: cookies },
+			body: { trackerId, viewIds: [tracked.id, standalone.id] },
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toBe(
+			"Saved view ids contain unknown saved views",
+		);
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
