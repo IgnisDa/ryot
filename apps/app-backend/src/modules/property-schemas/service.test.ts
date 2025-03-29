@@ -6,10 +6,7 @@ describe("parsePropertySchemaInput", () => {
 		expect(
 			parsePropertySchemaInput(
 				{ rating: { type: "number" } },
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toEqual({ rating: { type: "number" } });
 	});
@@ -18,10 +15,7 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{},
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow("Entity schema properties must contain at least one property");
 	});
@@ -30,7 +24,6 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput([], {
 				propertiesLabel: "Event schema properties",
-				schemaLabel: "Event schema properties schema",
 			}),
 		).toThrow("Invalid input: expected record, received array");
 	});
@@ -39,7 +32,6 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput('{"rating":{"type":"number"}}', {
 				propertiesLabel: "Entity schema properties",
-				schemaLabel: "Entity schema properties schema",
 			}),
 		).toThrow("Invalid input: expected record, received string");
 	});
@@ -48,10 +40,7 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{ rating: { type: "number", items: {} } },
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow('Unrecognized key: "items"');
 	});
@@ -60,10 +49,7 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{ rating: { type: "number", required: false } },
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow("Invalid input: expected true");
 	});
@@ -78,10 +64,7 @@ describe("parsePropertySchemaInput", () => {
 						items: { type: "string" },
 					},
 				},
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow('Unrecognized key: "properties"');
 
@@ -94,10 +77,7 @@ describe("parsePropertySchemaInput", () => {
 						properties: { title: { type: "string" } },
 					},
 				},
-				{
-					propertiesLabel: "Entity schema properties",
-					schemaLabel: "Entity schema properties schema",
-				},
+				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow('Unrecognized key: "items"');
 	});

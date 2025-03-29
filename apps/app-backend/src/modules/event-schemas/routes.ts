@@ -7,12 +7,12 @@ import { isUniqueConstraintError } from "~/lib/app/postgres";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
-	createCustomEntityAccessErrorResult,
+	createNotFoundErrorResult,
 	createValidationErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -78,15 +78,22 @@ const duplicateSlugError = "Event schema slug already exists";
 const entitySchemaNotFoundError = "Entity schema not found";
 const eventSchemaUniqueConstraint =
 	"event_schema_user_entity_schema_slug_unique";
+const duplicateSlugErrorResult =
+	createValidationErrorResult(duplicateSlugError);
 
 const resolveEntitySchemaAccessError = (error: "builtin" | "not_found") => {
-	return createCustomEntityAccessErrorResult(
-		resolveCustomEntityAccessError({
-			error,
-			builtinMessage: customEntitySchemaError,
-			notFoundMessage: entitySchemaNotFoundError,
-		}),
-	);
+	const result = resolveCustomEntityAccessError({
+		error,
+		builtinMessage: customEntitySchemaError,
+		notFoundMessage: entitySchemaNotFoundError,
+	});
+	return {
+		body:
+			result.error === "not_found"
+				? createNotFoundErrorResult(result.message).body
+				: createValidationErrorResult(result.message).body,
+		status: result.error === "not_found" ? (404 as const) : (400 as const),
+	};
 };
 
 export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
@@ -137,15 +144,12 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(errorResult.body, errorResult.status);
 		}
 
-		const eventSchemaInput = resolveValidationResult(
+		const eventSchemaInput = resolveValidationData(
 			() => resolveEventSchemaCreateInput(body),
 			"Event schema payload is invalid",
 		);
-		if ("error" in eventSchemaInput)
-			return c.json(
-				createValidationErrorResult(eventSchemaInput.error).body,
-				400,
-			);
+		if ("status" in eventSchemaInput)
+			return c.json(eventSchemaInput.body, eventSchemaInput.status);
 		const eventSchemaData = eventSchemaInput.data;
 
 		const existingEventSchema = await getEventSchemaBySlugForUser({
@@ -154,7 +158,10 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 			slug: eventSchemaData.slug,
 		});
 		if (existingEventSchema)
-			return c.json(createValidationErrorResult(duplicateSlugError).body, 400);
+			return c.json(
+				duplicateSlugErrorResult.body,
+				duplicateSlugErrorResult.status,
+			);
 
 		try {
 			const createdEventSchema = await createEventSchemaForUser({
@@ -169,8 +176,8 @@ export const eventSchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		} catch (error) {
 			if (isUniqueConstraintError(error, eventSchemaUniqueConstraint))
 				return c.json(
-					createValidationErrorResult(duplicateSlugError).body,
-					400,
+					duplicateSlugErrorResult.body,
+					duplicateSlugErrorResult.status,
 				);
 
 			throw error;
