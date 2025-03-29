@@ -325,6 +325,7 @@ export const MetadataGroupDisplayItem = (props: {
 			enabled: inViewport,
 		});
 	const { data: userMetadataGroupDetails } = useQuery({
+		enabled: inViewport,
 		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
 			.queryKey,
 		queryFn: async () => {
@@ -332,7 +333,6 @@ export const MetadataGroupDisplayItem = (props: {
 				.request(UserMetadataGroupDetailsDocument, props)
 				.then((data) => data.userMetadataGroupDetails);
 		},
-		enabled: inViewport,
 	});
 
 	return (
@@ -341,11 +341,11 @@ export const MetadataGroupDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
 			imageOverlay={{ topRight: props.topRight }}
+			imageUrl={metadataDetails?.details.displayImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
-			imageUrl={metadataDetails?.details.displayImages.at(0)}
 			labels={
 				metadataDetails
 					? {
