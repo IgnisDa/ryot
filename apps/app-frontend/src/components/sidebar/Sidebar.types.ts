@@ -9,10 +9,8 @@ export type SidebarAccount = Pick<
 
 export type SidebarView = Pick<
 	AppSavedView,
-	"id" | "icon" | "name" | "trackerId" | "accentColor"
-> & {
-	trackerSlug: string | null;
-};
+	"id" | "icon" | "name" | "trackerId" | "isDisabled" | "accentColor"
+>;
 
 export type SidebarTracker = Pick<
 	AppTracker,

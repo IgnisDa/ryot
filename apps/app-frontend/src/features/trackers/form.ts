@@ -60,7 +60,7 @@ export function toCreateTrackerPayload(
 
 export function toUpdateTrackerPayload(
 	input: CreateTrackerFormValues,
-): UpdateTrackerPayload {
+): Omit<UpdateTrackerPayload, "isDisabled"> {
 	return {
 		icon: input.icon.trim(),
 		name: input.name.trim(),
