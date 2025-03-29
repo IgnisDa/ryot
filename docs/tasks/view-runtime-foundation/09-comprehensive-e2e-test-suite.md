@@ -75,7 +75,7 @@ File: `tests/src/tests/view-runtime.test.ts`
 
 **Error tests:**
 - Non-existent schema slug returns 404
-- Empty sort field returns 400
+- Empty sort fields returns 400
 - Non-existent filter property returns 400
 
 ### Test Data Strategy
