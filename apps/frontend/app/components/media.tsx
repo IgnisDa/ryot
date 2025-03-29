@@ -229,47 +229,47 @@ export const MetadataDisplayItem = (props: {
 					: undefined
 			}
 			imageOverlay={{
-				topRight: props.topRight ? (
-					props.topRight
-				) : averageRating ? (
-					match(userPreferences.general.reviewScale)
-						.with(UserReviewScale.ThreePointSmiley, () => (
-							<DisplayThreePointReview rating={averageRating} />
-						))
-						.otherwise(() => (
-							<Group gap={4}>
-								<IconStarFilled size={12} style={{ color: reviewYellow }} />
-								<Text c="white" size="xs" fw="bold" pr={4}>
-									{Number(averageRating) % 1 === 0
-										? Math.round(Number(averageRating)).toString()
-										: Number(averageRating).toFixed(1)}
-									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfHundred
-										? " %"
-										: undefined}
-									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfTen
-										? "/10"
-										: undefined}
-								</Text>
-							</Group>
-						))
-				) : (
-					<IconStarFilled
-						cursor="pointer"
-						onClick={() => {
-							if (metadataDetails)
-								setEntityToReview({
-									entityId: props.metadataId,
-									entityLot: EntityLot.Metadata,
-									metadataLot: metadataDetails.lot,
-									entityTitle: metadataDetails.title,
-								});
-						}}
-						size={18}
-						className={classes.starIcon}
-					/>
-				),
+				topRight:
+					props.topRight ||
+					(averageRating ? (
+						match(userPreferences.general.reviewScale)
+							.with(UserReviewScale.ThreePointSmiley, () => (
+								<DisplayThreePointReview rating={averageRating} />
+							))
+							.otherwise(() => (
+								<Group gap={4}>
+									<IconStarFilled size={12} style={{ color: reviewYellow }} />
+									<Text c="white" size="xs" fw="bold" pr={4}>
+										{Number(averageRating) % 1 === 0
+											? Math.round(Number(averageRating)).toString()
+											: Number(averageRating).toFixed(1)}
+										{userPreferences.general.reviewScale ===
+										UserReviewScale.OutOfHundred
+											? " %"
+											: undefined}
+										{userPreferences.general.reviewScale ===
+										UserReviewScale.OutOfTen
+											? "/10"
+											: undefined}
+									</Text>
+								</Group>
+							))
+					) : (
+						<IconStarFilled
+							size={18}
+							cursor="pointer"
+							className={classes.starIcon}
+							onClick={() => {
+								if (metadataDetails)
+									setEntityToReview({
+										entityId: props.metadataId,
+										entityLot: EntityLot.Metadata,
+										metadataLot: metadataDetails.lot,
+										entityTitle: metadataDetails.title,
+									});
+							}}
+						/>
+					)),
 				bottomLeft:
 					reasons && reasons.length > 0 ? (
 						<Group gap={3}>
@@ -297,9 +297,9 @@ export const MetadataDisplayItem = (props: {
 					<Loader color="red" size="xs" m={2} />
 				) : (
 					<ActionIcon
-						variant="transparent"
 						color="blue"
 						size="compact-md"
+						variant="transparent"
 						onClick={() =>
 							setMetadataToUpdate({ metadataId: props.metadataId }, true)
 						}
@@ -313,10 +313,10 @@ export const MetadataDisplayItem = (props: {
 };
 
 export const MetadataGroupDisplayItem = (props: {
-	metadataGroupId: string;
 	topRight?: ReactNode;
-	rightLabel?: ReactNode;
 	noLeftLabel?: boolean;
+	metadataGroupId: string;
+	rightLabel?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
