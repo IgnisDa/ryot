@@ -4,13 +4,13 @@ import { db } from "~/db";
 import {
 	entitySchema,
 	entitySchemaSandboxScript,
+	eventSchema,
 	sandboxScript,
 } from "~/db/schema";
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
 	name: string;
-	eventSchemas: unknown;
 	propertiesSchema: unknown;
 }) => {
 	const [existing] = await db
@@ -25,7 +25,6 @@ export const ensureBuiltinEntitySchema = async (input: {
 		isBuiltin: true,
 		name: input.name,
 		slug: input.slug,
-		eventSchemas: input.eventSchemas,
 		propertiesSchema: input.propertiesSchema,
 	};
 
@@ -39,6 +38,30 @@ export const ensureBuiltinEntitySchema = async (input: {
 	}
 
 	return schemaId;
+};
+
+export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
+	entitySchemaId: string;
+	eventSchemas: Array<{
+		slug: string;
+		name: string;
+		properties_schema: unknown;
+	}>;
+}) => {
+	await db
+		.delete(eventSchema)
+		.where(eq(eventSchema.entitySchemaId, input.entitySchemaId));
+
+	if (!input.eventSchemas.length) return;
+
+	await db.insert(eventSchema).values(
+		input.eventSchemas.map((schema) => ({
+			slug: schema.slug,
+			name: schema.name,
+			entitySchemaId: input.entitySchemaId,
+			propertiesSchema: schema.properties_schema,
+		})),
+	);
 };
 
 export const ensureBuiltinSandboxScript = async (input: {
