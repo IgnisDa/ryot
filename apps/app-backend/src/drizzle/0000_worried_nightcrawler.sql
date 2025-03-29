@@ -131,6 +131,7 @@ CREATE TABLE "saved_view" (
 	"query_definition" jsonb NOT NULL,
 	"display_configuration" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"tracker_id" text,
@@ -170,7 +171,6 @@ CREATE TABLE "tracker" (
 --> statement-breakpoint
 CREATE TABLE "tracker_entity_schema" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"is_disabled" boolean DEFAULT false NOT NULL,
 	"tracker_id" text NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
