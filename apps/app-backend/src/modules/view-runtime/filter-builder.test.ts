@@ -47,7 +47,7 @@ const serializeClause = (
 describe("buildFilterWhereClause", () => {
 	it("builds an eq clause for string properties", () => {
 		const clause = serializeClause([
-			{ op: "eq", field: ["smartphones.manufacturer"], value: "Apple" },
+			{ op: "eq", field: "smartphones.manufacturer", value: "Apple" },
 		]);
 
 		expect(clause.sql).toContain("entities.properties ->>");
@@ -57,7 +57,7 @@ describe("buildFilterWhereClause", () => {
 
 	it("casts integer filters before comparison", () => {
 		const clause = serializeClause([
-			{ op: "eq", field: ["smartphones.releaseYear"], value: 2023 },
+			{ op: "eq", field: "smartphones.releaseYear", value: 2023 },
 		]);
 
 		expect(clause.sql).toContain("::integer");
@@ -78,7 +78,7 @@ describe("buildFilterWhereClause", () => {
 				{
 					op: expectation.op,
 					value: expectation.value,
-					field: ["smartphones.releaseYear"],
+					field: "smartphones.releaseYear",
 				},
 			]);
 
@@ -91,7 +91,7 @@ describe("buildFilterWhereClause", () => {
 			{
 				op: "in",
 				value: ["Apple", "Samsung"],
-				field: ["smartphones.manufacturer"],
+				field: "smartphones.manufacturer",
 			},
 		]);
 
@@ -102,7 +102,7 @@ describe("buildFilterWhereClause", () => {
 
 	it("builds isNull clauses without a value", () => {
 		const clause = serializeClause([
-			{ op: "isNull", field: ["smartphones.manufacturer"] },
+			{ op: "isNull", field: "smartphones.manufacturer" },
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain(" is null");
@@ -110,10 +110,10 @@ describe("buildFilterWhereClause", () => {
 
 	it("uses top-level columns directly for shared filters", () => {
 		const nameClause = serializeClause([
-			{ op: "eq", field: ["@name"], value: "Alpha Phone" },
+			{ op: "eq", field: "@name", value: "Alpha Phone" },
 		]);
 		const createdAtClause = serializeClause([
-			{ op: "gte", field: ["@createdAt"], value: new Date("2024-01-01") },
+			{ op: "gte", field: "@createdAt", value: new Date("2024-01-01") },
 		]);
 
 		expect(nameClause.sql).toContain("entities.name");
@@ -122,9 +122,9 @@ describe("buildFilterWhereClause", () => {
 
 	it("groups filters with and within schema and or across schemas", () => {
 		const clause = serializeClause([
-			{ op: "ne", field: ["@name"], value: "Legacy" },
-			{ op: "gte", field: ["smartphones.releaseYear"], value: 2020 },
-			{ op: "eq", field: ["tablets.maker"], value: "Apple" },
+			{ op: "ne", field: "@name", value: "Legacy" },
+			{ op: "gte", field: "smartphones.releaseYear", value: 2020 },
+			{ op: "eq", field: "tablets.maker", value: "Apple" },
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain(" or ");
@@ -144,14 +144,14 @@ describe("buildFilterWhereClause", () => {
 	it("throws for missing schema properties", () => {
 		expect(() =>
 			serializeClause([
-				{ op: "eq", field: ["smartphones.unknownField"], value: "x" },
+				{ op: "eq", field: "smartphones.unknownField", value: "x" },
 			]),
 		).toThrow("Property 'unknownField' not found in schema 'smartphones'");
 	});
 
 	it("rejects unqualified property filters in multi-schema requests", () => {
 		expect(() =>
-			serializeClause([{ op: "eq", field: ["manufacturer"], value: "Apple" }]),
+			serializeClause([{ op: "eq", field: "manufacturer", value: "Apple" }]),
 		).toThrow(
 			"Schema-qualified filter fields are required for multi-schema requests",
 		);
