@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createFacetFixture } from "#/features/facets/test-fixtures";
+import { createTrackerFixture } from "#/features/trackers/test-fixtures";
 import type { AppEntitySchema } from "./model";
-import { getFacetEntitySchemaViewState } from "./model";
+import { getTrackerEntitySchemaViewState } from "./model";
 
 function createEntitySchemaFixture(
 	overrides: Partial<AppEntitySchema> = {},
@@ -12,41 +12,41 @@ function createEntitySchemaFixture(
 		id: "schema-id",
 		isBuiltin: false,
 		icon: "book-open",
-		facetId: "facet-id",
+		trackerId: "tracker-id",
 		accentColor: "#5B7FFF",
 		propertiesSchema: {},
 		...overrides,
 	};
 }
 
-describe("getFacetEntitySchemaViewState", () => {
-	it("returns builtin for built-in facets", () => {
-		const facet = createFacetFixture({ isBuiltin: true });
+describe("getTrackerEntitySchemaViewState", () => {
+	it("returns builtin for built-in trackers", () => {
+		const tracker = createTrackerFixture({ isBuiltin: true });
 
-		const state = getFacetEntitySchemaViewState({
-			facet,
+		const state = getTrackerEntitySchemaViewState({
+			tracker,
 			entitySchemas: [createEntitySchemaFixture()],
 		});
 
 		expect(state).toEqual({ type: "builtin" });
 	});
 
-	it("returns empty when a custom facet has no schemas", () => {
-		const facet = createFacetFixture({ isBuiltin: false });
+	it("returns empty when a custom tracker has no schemas", () => {
+		const tracker = createTrackerFixture({ isBuiltin: false });
 
-		const state = getFacetEntitySchemaViewState({
-			facet,
+		const state = getTrackerEntitySchemaViewState({
+			tracker,
 			entitySchemas: [],
 		});
 
 		expect(state).toEqual({ type: "empty" });
 	});
 
-	it("returns sorted schemas for custom facets with schemas", () => {
-		const facet = createFacetFixture({ isBuiltin: false });
+	it("returns sorted schemas for custom trackers with schemas", () => {
+		const tracker = createTrackerFixture({ isBuiltin: false });
 
-		const state = getFacetEntitySchemaViewState({
-			facet,
+		const state = getTrackerEntitySchemaViewState({
+			tracker,
 			entitySchemas: [
 				createEntitySchemaFixture({ id: "2", name: "Bravo", slug: "bravo" }),
 				createEntitySchemaFixture({ id: "3", name: "Alpha", slug: "zulu" }),

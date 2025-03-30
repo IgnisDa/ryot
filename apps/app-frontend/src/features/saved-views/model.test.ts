@@ -7,7 +7,7 @@ describe("toAppSavedView", () => {
 			icon: "book-open",
 			name: "All Whiskeys",
 			isBuiltin: true,
-			facetId: "facet-1",
+			trackerId: "tracker-1",
 			accentColor: "#5B7FFF",
 			queryDefinition: { entitySchemaIds: ["schema-1"] },
 		};
@@ -16,7 +16,7 @@ describe("toAppSavedView", () => {
 		expect(result.icon).toBe("book-open");
 		expect(result.name).toBe("All Whiskeys");
 		expect(result.isBuiltin).toBe(true);
-		expect(result.facetId).toBe("facet-1");
+		expect(result.trackerId).toBe("tracker-1");
 		expect(result.accentColor).toBe("#5B7FFF");
 		expect(result.queryDefinition.entitySchemaIds).toEqual(["schema-1"]);
 	});
@@ -27,14 +27,14 @@ describe("toAppSavedView", () => {
 			icon: "sparkles",
 			name: "My Custom View",
 			isBuiltin: false,
-			facetId: null,
+			trackerId: null,
 			accentColor: "#2DD4BF",
 			queryDefinition: { entitySchemaIds: ["schema-1", "schema-2"] },
 		};
 
 		expect(result.icon).toBe("sparkles");
 		expect(result.isBuiltin).toBe(false);
-		expect(result.facetId).toBeNull();
+		expect(result.trackerId).toBeNull();
 		expect(result.accentColor).toBe("#2DD4BF");
 		expect(result.queryDefinition.entitySchemaIds).toEqual([
 			"schema-1",
