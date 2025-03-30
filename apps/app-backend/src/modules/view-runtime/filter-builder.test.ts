@@ -142,4 +142,82 @@ describe("buildFilterWhereClause", () => {
 			serializeClause([{ op: "eq", field: "manufacturer", value: "Apple" }]),
 		).toThrow("Schema-qualified property references are required");
 	});
+
+	it("builds contains as ilike for string properties", () => {
+		const clause = serializeClause([
+			{ op: "contains", field: "smartphones.manufacturer", value: "Apple" },
+		]);
+
+		expect(clause.sql.toLowerCase()).toContain("ilike");
+		expect(clause.params).toContain("%Apple%");
+	});
+
+	it("builds contains as jsonb array containment for array properties", () => {
+		const clause = serializeClause([
+			{ op: "contains", field: "smartphones.tags", value: "sci-fi" },
+		]);
+
+		expect(clause.sql).toContain("@>");
+		expect(clause.params).toContain('["sci-fi"]');
+	});
+
+	it("builds contains as jsonb object containment for object properties", () => {
+		const clause = serializeClause([
+			{
+				op: "contains",
+				value: { source: "import" },
+				field: "smartphones.metadata",
+			},
+		]);
+
+		expect(clause.sql).toContain("@>");
+		expect(clause.params).toContain('{"source":"import"}');
+	});
+
+	it("builds contains as ilike for top-level @name", () => {
+		const clause = serializeClause([
+			{ op: "contains", field: "@name", value: "Pro" },
+		]);
+
+		expect(clause.sql).toContain("entities.name");
+		expect(clause.sql.toLowerCase()).toContain("ilike");
+		expect(clause.params).toContain("%Pro%");
+	});
+
+	it("escapes ilike metacharacters in the contains value", () => {
+		const clause = serializeClause([
+			{
+				op: "contains",
+				value: "50% off_sale",
+				field: "smartphones.manufacturer",
+			},
+		]);
+
+		expect(clause.sql.toLowerCase()).toContain("ilike");
+		expect(clause.params).toContain("%50\\% off\\_sale%");
+	});
+
+	it("throws for contains on integer properties", () => {
+		expect(() =>
+			serializeClause([
+				{ op: "contains", field: "smartphones.releaseYear", value: "2023" },
+			]),
+		).toThrow(
+			"Filter operator 'contains' is not supported for property type 'integer'",
+		);
+	});
+
+	it("throws for contains on array property when value is an array", () => {
+		expect(() =>
+			serializeClause([
+				{
+					op: "contains",
+					field: "smartphones.tags",
+					value: ["sci-fi", "action"],
+				},
+			]),
+		).toThrow(
+			"Filter operator 'contains' for array properties requires a scalar value",
+		);
+	});
 });

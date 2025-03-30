@@ -9,6 +9,11 @@ const smartphoneSchemaDefaults = {
 		isFoldable: { type: "boolean" as const },
 		releaseYear: { type: "integer" as const },
 		manufacturer: { type: "string" as const },
+		tags: { type: "array" as const, items: { type: "string" as const } },
+		metadata: {
+			type: "object" as const,
+			properties: { source: { type: "string" as const } },
+		},
 	},
 };
 

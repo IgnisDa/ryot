@@ -2,9 +2,12 @@ import { describe, expect, it } from "bun:test";
 import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
+	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
 	createEntity,
+	createEntitySchema,
 	createSingleSchemaRuntimeFixture,
+	createTracker,
 	executeViewRuntime,
 } from "../fixtures";
 import { registerViewRuntimePresentationAndErrorTests } from "../test-support/view-runtime-suite";
@@ -484,6 +487,209 @@ describe("View runtime E2E", () => {
 
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toContain("Sort fields are required");
+	});
+
+	it("filters with contains using ilike on string properties and @name", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+
+		const nameResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "contains", field: "@name", value: "Phone" }],
+			}),
+		);
+		const categoryResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [
+					{ op: "contains", value: "phone", field: `${schema.slug}.category` },
+				],
+			}),
+		);
+
+		expect(nameResult.response.status).toBe(200);
+		expect(nameResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+
+		expect(categoryResult.response.status).toBe(200);
+		expect(categoryResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+	});
+
+	it("filters with contains using jsonb containment for array properties", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Tag Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Movie",
+			propertiesSchema: { tags: { type: "array", items: { type: "string" } } },
+		});
+
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Sci-Fi Movie",
+			entitySchemaId: schema.schemaId,
+			properties: { tags: ["sci-fi", "action"] },
+		});
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Drama Movie",
+			entitySchemaId: schema.schemaId,
+			properties: { tags: ["drama"] },
+		});
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Action Movie",
+			entitySchemaId: schema.schemaId,
+			properties: { tags: ["action"] },
+		});
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				filters: [
+					{ op: "contains", field: `${schema.slug}.tags`, value: "action" },
+				],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Action Movie",
+			"Sci-Fi Movie",
+		]);
+	});
+
+	it("treats % and _ as literals in contains filters, not as ilike wildcards", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Metachar Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Product",
+			propertiesSchema: { sku: { type: "string" } },
+		});
+
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Percent Item",
+			properties: { sku: "A%B" },
+			entitySchemaId: schema.schemaId,
+		});
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Underscore Item",
+			properties: { sku: "A_B" },
+			entitySchemaId: schema.schemaId,
+		});
+		await createEntity({
+			client,
+			cookies,
+			image: null,
+			name: "Middle Item",
+			properties: { sku: "AXB" },
+			entitySchemaId: schema.schemaId,
+		});
+
+		const neutralDisplay = buildGridDisplayConfiguration({
+			badgeProperty: null,
+			subtitleProperty: null,
+		});
+
+		const percentResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: neutralDisplay,
+				filters: [
+					{ op: "contains", field: `${schema.slug}.sku`, value: "A%B" },
+				],
+			}),
+		);
+		const underscoreResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: neutralDisplay,
+				filters: [
+					{ op: "contains", field: `${schema.slug}.sku`, value: "A_B" },
+				],
+			}),
+		);
+
+		expect(percentResult.response.status).toBe(200);
+		expect(percentResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Percent Item",
+		]);
+
+		expect(underscoreResult.response.status).toBe(200);
+		expect(underscoreResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Underscore Item",
+		]);
+	});
+
+	it("rejects contains filter on array property when the value is itself an array", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Array Guard Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Tagged Item",
+			propertiesSchema: { tags: { type: "array", items: { type: "string" } } },
+		});
+
+		const result = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+				}),
+				filters: [
+					{
+						op: "contains",
+						field: `${schema.slug}.tags`,
+						value: ["sci-fi", "action"],
+					},
+				],
+			}),
+		);
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain("requires a scalar value");
 	});
 
 	registerViewRuntimePresentationAndErrorTests();
