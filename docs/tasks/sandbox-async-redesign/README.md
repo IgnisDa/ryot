@@ -141,16 +141,18 @@ Tests cover: every registered `functionKey` resolves to a callable factory; call
 **`SandboxService.executeQueuedRun()`**
 Tests cover: valid descriptors produce bound functions passed to `execute()`; an unknown `functionKey` throws before `execute()` is called; an empty `apiFunctionDescriptors` array results in `execute()` being called with no extra functions.
 
-**Poll endpoint (`GET /sandbox/result/:jobId`)**
-Tests cover: job not found → 404; job found but belongs to different user → 404; job in `waiting` state → `{ status: "pending" }`; job in `completed` state → `{ status: "completed", ...result }`; job in `failed` state → `{ status: "failed", error }`. Uses a mock queue/job object; no real BullMQ connection.
+**Sandbox routes (`POST /sandbox/enqueue`, `GET /sandbox/result/:jobId`)**
+No route-specific HTTP unit tests are required in this plan. HTTP-level contract coverage for these endpoints is intentionally deferred to the E2E slice in `tests/`.
 
 ### Prior art (unit tests)
 
-Look at existing route handler tests and service tests in `apps/app-backend/src` for fixture patterns (`src/lib/test-fixtures`) and how mock dependencies are injected.
+Look at existing service and helper tests in `apps/app-backend/src` for fixture patterns (`src/lib/test-fixtures`) and how mock dependencies are injected.
 
 ### E2E tests (`tests/`)
 
 E2E tests run against a real backend process with real Redis and Postgres (via `testcontainers`). They use the `openapi-fetch` typed client and follow the same patterns as `tests/src/tests/entity-schemas.test.ts` and `tests/src/tests/trackers.test.ts`.
+
+This slice owns the HTTP-level verification for `POST /sandbox/enqueue` and `GET /sandbox/result/:jobId`, including auth, cross-user access, and response-shape assertions.
 
 **Fixture file:** Add `tests/src/fixtures/sandbox.ts` with:
 
@@ -197,9 +199,9 @@ All four current host functions end up with `context: Record<string, never>` aft
 
 ## Tasks
 
-**Overall Progress:** 2 of 6 tasks completed
+**Overall Progress:** 3 of 6 tasks completed
 
-**Current Task:** [Task 03](./03-new-api-endpoints.md) (todo)
+**Current Task:** [Task 04](./04-get-entity-schemas-host-function.md) (todo)
 
 ### Task List
 
@@ -207,7 +209,7 @@ All four current host functions end up with `context: Record<string, never>` aft
 | --- | ------------------------------------------------------------------------------------------- | ---- | ------ | ------------ |
 | 01  | [Foundation: Types, Convention, and Registry](./01-foundation-types-convention-registry.md) | AFK  | done   | None         |
 | 02  | [Service and Queue Refactor](./02-service-and-queue-refactor.md)                            | AFK  | done   | Task 01      |
-| 03  | [New API Endpoints](./03-new-api-endpoints.md)                                              | AFK  | todo   | Task 02      |
+| 03  | [New API Endpoints](./03-new-api-endpoints.md)                                              | AFK  | done   | Task 02      |
 | 04  | [`getEntitySchemas` Host Function](./04-get-entity-schemas-host-function.md)                | AFK  | todo   | Tasks 01, 03 |
 | 05  | [E2E Tests](./05-e2e-tests.md)                                                              | AFK  | todo   | Task 04      |
 | 06  | [Cleanup Old Code](./06-cleanup-old-code.md)                                                | AFK  | todo   | Task 05      |
