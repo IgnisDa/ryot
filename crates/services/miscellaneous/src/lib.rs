@@ -5,7 +5,8 @@ use std::{
 };
 
 use application_utils::{
-    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
+    calculate_average_rating, get_current_date, get_podcast_episode_by_number,
+    get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
@@ -89,7 +90,6 @@ use providers::{
     itunes::ITunesService, listennotes::ListennotesService, mal::NonMediaMalService,
     manga_updates::MangaUpdatesService, vndb::VndbService, youtube_music::YoutubeMusicService,
 };
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
@@ -463,13 +463,7 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_to_entity_association(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata)
                 .await;
-        let average_rating = match reviews.is_empty() {
-            true => None,
-            false => Some(
-                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
-                    / Decimal::from(reviews.len()),
-            ),
-        };
+        let average_rating = calculate_average_rating(&reviews);
         let seen_by_user_count = history.len();
         let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
             let mut seasons = vec![];
@@ -556,13 +550,7 @@ impl MiscellaneousService {
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
         let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
-        let average_rating = match reviews.is_empty() {
-            true => None,
-            false => Some(
-                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
-                    / Decimal::from(reviews.len()),
-            ),
-        };
+        let average_rating = calculate_average_rating(&reviews);
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -598,13 +586,7 @@ impl MiscellaneousService {
             &self.0,
         )
         .await?;
-        let average_rating = match reviews.is_empty() {
-            true => None,
-            false => Some(
-                reviews.iter().flat_map(|r| r.rating).sum::<Decimal>()
-                    / Decimal::from(reviews.len()),
-            ),
-        };
+        let average_rating = calculate_average_rating(&reviews);
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
