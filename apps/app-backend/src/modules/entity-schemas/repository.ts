@@ -68,6 +68,30 @@ export const listEntitySchemasByTracker = async (input: {
 	return rows.map(toListedEntitySchema);
 };
 
+export const getEntitySchemaByIdForUser = async (input: {
+	entitySchemaId: string;
+	userId: string;
+}) => {
+	const [row] = await db
+		.select(listedEntitySchemaSelection)
+		.from(entitySchema)
+		.innerJoin(
+			trackerEntitySchema,
+			eq(trackerEntitySchema.entitySchemaId, entitySchema.id),
+		)
+		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
+		.where(
+			and(
+				eq(entitySchema.id, input.entitySchemaId),
+				eq(tracker.userId, input.userId),
+			),
+		)
+		.orderBy(asc(trackerEntitySchema.createdAt))
+		.limit(1);
+
+	return row ? toListedEntitySchema(row) : undefined;
+};
+
 export const getEntitySchemaBySlugForUser = async (input: {
 	slug: string;
 	userId: string;
