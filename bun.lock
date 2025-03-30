@@ -61,6 +61,7 @@
         "@tanstack/router-plugin": "1.167.1",
         "better-auth": "1.5.5",
         "lucide-react": "0.577.0",
+        "mantine-datatable": "8.3.13",
         "openapi-fetch": "0.17.0",
         "openapi-react-query": "0.5.4",
         "postcss": "8.5.8",
