@@ -588,6 +588,7 @@ export default function Layout() {
 				withCloseButton={false}
 				opened={entityToReview !== null}
 				onClose={() => setEntityToReview(null)}
+				title={`Reviewing "${entityToReview?.entityTitle}"`}
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
