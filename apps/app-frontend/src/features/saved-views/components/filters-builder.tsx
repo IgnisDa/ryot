@@ -9,7 +9,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { type ReactNode, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import {
 	buildDefaultFilterRow,
@@ -48,6 +48,8 @@ type FiltersBuilderFormLike = {
 		// biome-ignore lint/suspicious/noExplicitAny: TanStack Form field API has complex types
 		children: (field: any) => ReactNode;
 		mode?: TName extends "filters" ? "array" : never;
+		// biome-ignore lint/suspicious/noExplicitAny: TanStack Form listener API has complex types
+		listeners?: { onChange?: (opts: { value: any }) => void };
 	}) => ReactNode | Promise<ReactNode>;
 };
 
@@ -115,31 +117,25 @@ function FilterRowItem(props: FilterRowItemProps) {
 		allowedOps.includes(o.value),
 	);
 
-	const prevFieldRef = useRef(props.filter.field);
-	useEffect(() => {
-		if (prevFieldRef.current === props.filter.field) {
-			return;
-		}
-		prevFieldRef.current = props.filter.field;
-
-		props.setFieldValue(`filters[${props.index}].value`, "");
-		if (!allowedOps.includes(props.filter.op)) {
-			props.setFieldValue(`filters[${props.index}].op`, "eq");
-		}
-	}, [
-		allowedOps,
-		props.index,
-		props.filter.op,
-		props.filter.field,
-		props.setFieldValue,
-	]);
-
 	return (
 		<Paper p="sm" withBorder radius="md">
 			<Stack gap="sm">
 				<Group gap="sm" align="flex-start">
 					<Box flex={1}>
-						<props.form.AppField name={`filters[${props.index}].field`}>
+						<props.form.AppField
+							name={`filters[${props.index}].field`}
+							listeners={{
+								onChange: ({ value }) => {
+									props.setFieldValue(`filters[${props.index}].value`, "");
+									const newAllowedOps = getAllowedOps(
+										resolvePropertyType(value, props.schemas),
+									);
+									if (!newAllowedOps.includes(props.filter.op)) {
+										props.setFieldValue(`filters[${props.index}].op`, "eq");
+									}
+								},
+							}}
+						>
 							{(fieldField) => (
 								<PropertyPathAutocomplete
 									required
@@ -157,7 +153,13 @@ function FilterRowItem(props: FilterRowItemProps) {
 					</Box>
 
 					<Box flex={1}>
-						<props.form.AppField name={`filters[${props.index}].op`}>
+						<props.form.AppField
+							name={`filters[${props.index}].op`}
+							listeners={{
+								onChange: () =>
+									props.setFieldValue(`filters[${props.index}].value`, ""),
+							}}
+						>
 							{(opField) => (
 								<opField.SelectField
 									required
@@ -171,101 +173,106 @@ function FilterRowItem(props: FilterRowItemProps) {
 					</Box>
 				</Group>
 
-				{props.filter.op !== "isNull" && (
-					<props.form.AppField name={`filters[${props.index}].value`}>
-						{(valueField) => {
-							if (resolvedType === "number" || resolvedType === "integer") {
-								return (
-									<NumberInput
-										required
-										label="Value"
-										disabled={props.isLoading}
-										onBlur={valueField.handleBlur}
-										error={!valueField.state.meta.isValid}
-										onChange={(val) =>
-											valueField.handleChange(
-												typeof val === "number" ? val : "",
-											)
-										}
-										value={
-											typeof valueField.state.value === "number"
-												? valueField.state.value
-												: ""
-										}
-									/>
-								);
-							}
+				<props.form.AppField name={`filters[${props.index}].op`}>
+					{(opStateField) =>
+						opStateField.state.value !== "isNull" ? (
+							<props.form.AppField name={`filters[${props.index}].value`}>
+								{(valueField) => {
+									const op = opStateField.state.value;
 
-							if (resolvedType === "boolean") {
-								return (
-									<Select
-										required
-										label="Value"
-										disabled={props.isLoading}
-										error={!valueField.state.meta.isValid}
-										data={[
-											{ label: "True", value: "true" },
-											{ label: "False", value: "false" },
-										]}
-										value={
-											valueField.state.value === true
-												? "true"
-												: valueField.state.value === false
-													? "false"
-													: null
-										}
-										onChange={(val) => {
-											if (val === "true") {
-												valueField.handleChange(true);
-											} else if (val === "false") {
-												valueField.handleChange(false);
+									if (resolvedType === "number" || resolvedType === "integer") {
+										return (
+											<NumberInput
+												required
+												label="Value"
+												disabled={props.isLoading}
+												onBlur={valueField.handleBlur}
+												error={!valueField.state.meta.isValid}
+												onChange={(val) =>
+													valueField.handleChange(
+														typeof val === "number" ? val : "",
+													)
+												}
+												value={
+													typeof valueField.state.value === "number"
+														? valueField.state.value
+														: ""
+												}
+											/>
+										);
+									}
+
+									if (resolvedType === "boolean") {
+										return (
+											<Select
+												required
+												label="Value"
+												disabled={props.isLoading}
+												error={!valueField.state.meta.isValid}
+												data={[
+													{ label: "True", value: "true" },
+													{ label: "False", value: "false" },
+												]}
+												value={
+													valueField.state.value === true
+														? "true"
+														: valueField.state.value === false
+															? "false"
+															: null
+												}
+												onChange={(val) => {
+													if (val === "true") {
+														valueField.handleChange(true);
+													} else if (val === "false") {
+														valueField.handleChange(false);
+													}
+												}}
+											/>
+										);
+									}
+
+									if (resolvedType === "date") {
+										const raw = valueField.state.value;
+										const dateStr = typeof raw === "string" ? raw : "";
+										return (
+											<DateInput
+												required
+												label="Value"
+												value={dateStr || null}
+												valueFormat="YYYY-MM-DD"
+												disabled={props.isLoading}
+												error={!valueField.state.meta.isValid}
+												onChange={(val) => valueField.handleChange(val ?? "")}
+											/>
+										);
+									}
+
+									return (
+										<valueField.TextField
+											required
+											label="Value"
+											disabled={props.isLoading}
+											description={
+												op === "in"
+													? "Comma-separated values (e.g., Apple, Samsung)"
+													: op === "contains" && resolvedType === "array"
+														? "Single value to find in the list"
+														: undefined
 											}
-										}}
-									/>
-								);
-							}
-
-							if (resolvedType === "date") {
-								const raw = valueField.state.value;
-								const dateStr = typeof raw === "string" ? raw : "";
-								return (
-									<DateInput
-										required
-										label="Value"
-										value={dateStr || null}
-										valueFormat="YYYY-MM-DD"
-										disabled={props.isLoading}
-										error={!valueField.state.meta.isValid}
-										onChange={(val) => valueField.handleChange(val ?? "")}
-									/>
-								);
-							}
-
-							return (
-								<valueField.TextField
-									label="Value"
-									disabled={props.isLoading}
-									required={props.filter.op !== "isNull"}
-									description={
-										props.filter.op === "in"
-											? "Comma-separated values (e.g., Apple, Samsung)"
-											: props.filter.op === "contains" &&
-													resolvedType === "array"
-												? "Single value to find in the list"
-												: undefined
-									}
-									placeholder={
-										props.filter.op === "in"
-											? "value1, value2, value3"
-											: props.filter.op === "contains"
-												? "Enter text to search"
-												: "Enter value"
-									}
-								/>
-							);
-						}}
-					</props.form.AppField>
-				)}
+											placeholder={
+												op === "in"
+													? "value1, value2, value3"
+													: op === "contains"
+														? "Enter text to search"
+														: "Enter value"
+											}
+										/>
+									);
+								}}
+							</props.form.AppField>
+						) : null
+					}
+				</props.form.AppField>
 
 				<Button
 					fullWidth
