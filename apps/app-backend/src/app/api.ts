@@ -1,9 +1,12 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { HTTPException } from "hono/http-exception";
 import { auth, type MaybeAuthType } from "~/auth";
 import {
 	createAuthRoute,
 	dataSchema,
+	ERROR_CODES,
+	errorResponse,
 	jsonResponse,
 	successResponse,
 } from "~/lib/openapi";
@@ -40,6 +43,24 @@ const meRoute = createAuthRoute(
 );
 
 export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
+	.onError((error, c) => {
+		if (error instanceof HTTPException)
+			return c.json(
+				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
+				error.status,
+			);
+
+		if (error instanceof Error)
+			return c.json(
+				errorResponse(ERROR_CODES.INTERNAL_ERROR, error.message),
+				500,
+			);
+
+		return c.json(
+			errorResponse(ERROR_CODES.INTERNAL_ERROR, "An unexpected error occurred"),
+			500,
+		);
+	})
 	.route("/health", healthApi)
 	.openapi(meRoute, async (c) => {
 		const user = c.get("user");
