@@ -7,7 +7,7 @@ let workers: Workers | null = null;
 
 export const initializeQueues = async () => {
 	queues = createQueues();
-	await queues.sandboxScriptQueueEvents.waitUntilReady();
+	await queues.sandboxScriptQueue.waitUntilReady();
 	console.info("Queues initialized");
 	return queues;
 };
@@ -34,7 +34,6 @@ export const getWorkers = () => {
 
 export const shutdownQueues = async () => {
 	if (queues) {
-		await queues.sandboxScriptQueueEvents.close();
 		await queues.sandboxScriptQueue.close();
 		queues = null;
 		if (!workers) {
