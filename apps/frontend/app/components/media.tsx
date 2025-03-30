@@ -415,17 +415,28 @@ export const PersonDisplayItem = (props: {
 		},
 	});
 
+	const averageRating = userPersonDetails?.averageRating;
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}
+			imageOverlay={{
+				topRight: props.topRight || (
+					<DisplayAverageRatingOverlay
+						entityId={props.personId}
+						entityLot={EntityLot.Person}
+						averageRating={averageRating}
+						entityTitle={personDetails?.details.name}
+					/>
+				),
+			}}
 			labels={{
 				right: props.rightLabel,
 				left: personDetails
