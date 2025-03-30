@@ -483,10 +483,17 @@ export const getTimeOfDay = (hours: number) => {
 	return "Night";
 };
 
-export const refreshUserMetadataDetails = (metadataId: string) =>
+export const refreshEntityDetails = (metadataId: string) =>
 	setTimeout(() => {
 		queryClient.invalidateQueries({
 			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+		});
+		queryClient.invalidateQueries({
+			queryKey:
+				queryFactory.media.userMetadataGroupDetails(metadataId).queryKey,
+		});
+		queryClient.invalidateQueries({
+			queryKey: queryFactory.media.userPersonDetails(metadataId).queryKey,
 		});
 	}, 1500);
 
