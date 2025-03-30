@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
+import color from "color";
 import { useCallback, useState } from "react";
 import { getEntityDetailProperties } from "#/features/entities/detail";
 import {
@@ -19,7 +20,7 @@ import {
 	EntityDetailSidebar,
 } from "#/features/entities/detail-page";
 import { useEntityQuery } from "#/features/entities/hooks";
-import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
+import { useEntitySchemaQuery } from "#/features/entity-schemas/hooks";
 import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import type { CreateEventPayload } from "#/features/events/form";
 import { useEventMutations, useEventsQuery } from "#/features/events/hooks";
@@ -27,23 +28,9 @@ import { LogEventModal } from "#/features/events/section";
 import { useTrackersQuery } from "#/features/trackers/hooks";
 import { useColorScheme } from "#/hooks/theme";
 
-export const Route = createFileRoute("/_protected/$trackerSlug/$entityId")({
+export const Route = createFileRoute("/_protected/entities/$entityId")({
 	component: RouteComponent,
 });
-
-const TRACKER_COLORS: Record<string, { base: string; muted: string }> = {
-	media: { base: "#5B7FFF", muted: "rgba(91, 127, 255, 0.12)" },
-	fitness: { base: "#2DD4BF", muted: "rgba(45, 212, 191, 0.12)" },
-};
-
-const DEFAULT_TRACKER_COLOR = {
-	base: "#D4A574",
-	muted: "rgba(212, 165, 116, 0.12)",
-};
-
-function getTrackerColor(trackerSlug: string) {
-	return TRACKER_COLORS[trackerSlug] ?? DEFAULT_TRACKER_COLOR;
-}
 
 function LoadingState() {
 	return (
@@ -78,20 +65,14 @@ function ErrorState(props: {
 }
 
 function RouteComponent() {
-	const { entityId, trackerSlug } = Route.useParams();
-	const computedColorScheme = useColorScheme();
+	const { entityId } = Route.useParams();
 	const trackersQuery = useTrackersQuery();
+	const computedColorScheme = useColorScheme();
 	const entityQuery = useEntityQuery(entityId);
-	const tracker = trackersQuery.trackerBySlug(trackerSlug);
-	const entitySchemasQuery = useEntitySchemasQuery(
-		tracker?.id ?? "",
-		!!tracker && !tracker.isBuiltin,
+	const entitySchema = useEntitySchemaQuery(
+		entityQuery.entity?.entitySchemaId ?? "",
+		!!entityQuery.entity,
 	);
-	const entitySchema = entityQuery.entity
-		? entitySchemasQuery.entitySchemas.find(
-				(schema) => schema.id === entityQuery.entity?.entitySchemaId,
-			)
-		: undefined;
 	const eventSchemasQuery = useEventSchemasQuery(
 		entityQuery.entity?.entitySchemaId ?? "",
 		!!entityQuery.entity,
@@ -141,11 +122,7 @@ function RouteComponent() {
 		[closeLogEventModal, eventMutations.create],
 	);
 
-	if (
-		trackersQuery.isLoading ||
-		entityQuery.isLoading ||
-		(!!tracker && !tracker.isBuiltin && entitySchemasQuery.isLoading)
-	) {
+	if (trackersQuery.isLoading || entityQuery.isLoading) {
 		return <LoadingState />;
 	}
 
@@ -169,26 +146,7 @@ function RouteComponent() {
 		);
 	}
 
-	if (!tracker || tracker.isBuiltin) {
-		return (
-			<ErrorState
-				title="Entity not found"
-				description={`The custom tracker "${trackerSlug}" is not available.`}
-			/>
-		);
-	}
-
-	if (entitySchemasQuery.isError) {
-		return (
-			<ErrorState
-				title="Failed to load schema"
-				onRetry={() => entitySchemasQuery.refetch()}
-				description="We could not load the schema for this tracked entity."
-			/>
-		);
-	}
-
-	if (!entityQuery.entity || !entitySchema) {
+	if (!entityQuery.entity || !entitySchema.entitySchema) {
 		return (
 			<ErrorState
 				title="Entity not found"
@@ -198,21 +156,23 @@ function RouteComponent() {
 	}
 
 	const properties = getEntityDetailProperties(
-		entitySchema.propertiesSchema,
+		entitySchema.entitySchema.propertiesSchema,
 		entityQuery.entity.properties,
 	);
-	const trackerColor = getTrackerColor(trackerSlug);
+
+	const entitySchemaColor = {
+		base: entitySchema.entitySchema.accentColor,
+		muted: color(entitySchema.entitySchema.accentColor).lighten(0.12).hex(),
+	};
 
 	return (
 		<Box py={{ base: "lg", md: "xl" }} px={{ base: "md", md: "xl" }}>
 			<Box maw={1200} mx="auto">
 				<EntityDetailIdentityHeader
 					border={border}
-					trackerSlug={trackerSlug}
-					trackerName={tracker.name}
 					entity={entityQuery.entity}
-					trackerColor={trackerColor}
-					schemaName={entitySchema.name}
+					entitySchemaColor={entitySchemaColor}
+					schemaName={entitySchema.entitySchema.name}
 				/>
 
 				<Grid>
@@ -227,8 +187,8 @@ function RouteComponent() {
 								border={border}
 								entity={entityQuery.entity}
 								surfaceHover={surfaceHover}
-								trackerColor={trackerColor}
 								onLogEvent={openLogEventModal}
+								entitySchemaColor={entitySchemaColor}
 							/>
 						</Stack>
 					</Grid.Col>
@@ -236,9 +196,9 @@ function RouteComponent() {
 					<Grid.Col span={{ base: 12, md: 4 }}>
 						<EntityDetailSidebar
 							entity={entityQuery.entity}
-							schemaName={entitySchema.name}
 							onLogEvent={openLogEventModal}
 							eventCount={eventsQuery.events.length}
+							schemaName={entitySchema.entitySchema.name}
 						/>
 					</Grid.Col>
 				</Grid>
