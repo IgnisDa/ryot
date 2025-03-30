@@ -351,17 +351,28 @@ export const MetadataGroupDisplayItem = (props: {
 		},
 	});
 
+	const averageRating = userMetadataGroupDetails?.averageRating;
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
-			imageOverlay={{ topRight: props.topRight }}
 			imageUrl={metadataDetails?.details.displayImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
+			imageOverlay={{
+				topRight: props.topRight || (
+					<DisplayAverageRatingOverlay
+						averageRating={averageRating}
+						entityId={props.metadataGroupId}
+						entityLot={EntityLot.MetadataGroup}
+						entityTitle={metadataDetails?.details.title}
+					/>
+				),
+			}}
 			labels={
 				metadataDetails
 					? {
