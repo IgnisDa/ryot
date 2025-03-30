@@ -118,7 +118,7 @@ import {
 	forcedDashboardPath,
 	getMetadataDetailsQuery,
 	getVerb,
-	refreshUserMetadataDetails,
+	refreshEntityDetails,
 } from "~/lib/common";
 import {
 	useApplicationEvents,
@@ -1019,7 +1019,7 @@ const MetadataProgressUpdateForm = ({
 		submit(e);
 		const metadataId = metadataToUpdate.metadataId;
 		events.updateProgress(metadataDetails.title);
-		refreshUserMetadataDetails(metadataId);
+		refreshEntityDetails(metadataId);
 		closeMetadataProgressUpdateModal();
 	};
 
@@ -1489,7 +1489,7 @@ const ReviewEntityForm = ({
 			action={withQuery("/actions", { intent: "performReviewAction" })}
 			onSubmit={(e) => {
 				submit(e);
-				refreshUserMetadataDetails(entityToReview.entityId);
+				refreshEntityDetails(entityToReview.entityId);
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}
@@ -1770,7 +1770,7 @@ const AddEntityToCollectionForm = ({
 			method="POST"
 			onSubmit={(e) => {
 				submit(e);
-				refreshUserMetadataDetails(addEntityToCollectionData.entityId);
+				refreshEntityDetails(addEntityToCollectionData.entityId);
 				closeAddEntityToCollectionModal();
 			}}
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
