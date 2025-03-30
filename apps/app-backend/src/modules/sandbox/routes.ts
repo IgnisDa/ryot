@@ -24,10 +24,13 @@ const sandboxJobNotFoundResult = createNotFoundErrorResult(
 
 const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
 
-const defaultApiFunctionDescriptors: Array<ApiFunctionDescriptor> = [
+const createApiFunctionDescriptors = (
+	userId: string,
+): Array<ApiFunctionDescriptor> => [
 	{ context: {}, functionKey: "httpCall" },
 	{ context: {}, functionKey: "getAppConfigValue" },
 	{ context: {}, functionKey: "getUserConfigValue" },
+	{ context: { userId }, functionKey: "getEntitySchemas" },
 ];
 
 const enqueueSandboxRoute = createAuthRoute(
@@ -68,7 +71,7 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
 			code: body.code,
 			userId: user.id,
 			context: body.context,
-			apiFunctionDescriptors: defaultApiFunctionDescriptors,
+			apiFunctionDescriptors: createApiFunctionDescriptors(user.id),
 		});
 
 		return c.json(successResponse(result), 200);
