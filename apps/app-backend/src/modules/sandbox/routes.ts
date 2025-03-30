@@ -8,8 +8,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { getSandboxService } from "~/lib/sandbox";
-import { getAppConfigValue } from "~/lib/sandbox/host-functions/get-app-config-value";
-import { getUserConfigValue } from "~/lib/sandbox/host-functions/get-user-config-value";
+import { hostFunctionRegistry } from "~/lib/sandbox/function-registry";
 import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
 
 const runSandboxSchema = z.object({
@@ -50,7 +49,11 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 		const result = await sandbox.run({
 			userId: user.id,
 			code: parsed.code,
-			apiFunctions: { getAppConfigValue, getUserConfigValue },
+			apiFunctions: {
+				httpCall: hostFunctionRegistry.httpCall({}),
+				getAppConfigValue: hostFunctionRegistry.getAppConfigValue({}),
+				getUserConfigValue: hostFunctionRegistry.getUserConfigValue({}),
+			},
 		});
 
 		const { success, ...resultData } = result;

@@ -2,7 +2,6 @@ import { generateId } from "better-auth";
 import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
-import { httpCall } from "./host-functions/http-call";
 import {
 	type SandboxRunJobData,
 	sandboxRunJobName,
@@ -124,10 +123,7 @@ export class SandboxService {
 		const context = options.context ?? {};
 		const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 		const maxHeapMB = options.maxHeapMB ?? defaultMaxHeapMB;
-		const apiFunctions = {
-			httpCall,
-			...(options.apiFunctions ?? {}),
-		};
+		const apiFunctions = { ...(options.apiFunctions ?? {}) };
 
 		const token = generateId();
 		const executionId = generateId();
