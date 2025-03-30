@@ -91,6 +91,8 @@ This phase proves that Ryot can ship high-quality vertical experiences without b
 
 This phase turns Ryot from a product with built-in trackers into a true "track anything" platform.
 
+Current rewrite status: the custom-facet shell now matches the SOUL model. Facet root routes render generated overview pages for non-empty custom facets, empty facets stay in the guided setup flow, and schema-level browsing continues to live in saved views under the facet.
+
 #### Goals
 
 - Allow a user-created facet to own one or more schemas.
@@ -267,7 +269,7 @@ A box is checked only when the capability is clearly implemented in the current 
 - [x] Generated custom entity CRUD
 - [x] Generated custom event logging
 - [x] Generated custom entity detail pages
-- [ ] Generated custom facet overview pages
+- [x] Generated custom facet overview pages
 - [x] Default saved views for custom facets
 
 ### Saved views and query builder
