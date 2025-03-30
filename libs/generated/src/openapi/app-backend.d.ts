@@ -309,8 +309,8 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                description?: string | null;
                                 sortOrder: number;
+                                description?: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -378,8 +378,8 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                description?: string | null;
                                 sortOrder: number;
+                                description?: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -467,8 +467,8 @@ export interface paths {
                                 config?: unknown;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                description?: string | null;
                                 sortOrder: number;
+                                description?: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -887,7 +887,6 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 entitySchemaId: string;
-                                externalId: string | null;
                                 image: {
                                     key: string;
                                     /** @enum {string} */
@@ -897,6 +896,7 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "remote";
                                 } | unknown;
+                                externalId: string | null;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -978,10 +978,10 @@ export interface paths {
                             kind: "remote";
                         } | unknown;
                         name: string;
-                        entitySchemaId: string;
                         properties: {
                             [key: string]: unknown;
                         };
+                        entitySchemaId: string;
                     };
                 };
             };
@@ -1001,7 +1001,6 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 entitySchemaId: string;
-                                externalId: string | null;
                                 image: {
                                     key: string;
                                     /** @enum {string} */
@@ -1011,6 +1010,7 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "remote";
                                 } | unknown;
+                                externalId: string | null;
                                 detailsSandboxScriptId: string | null;
                                 properties: {
                                     [key: string]: unknown;
@@ -1549,8 +1549,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
@@ -1707,8 +1707,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
@@ -1825,8 +1825,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
@@ -1988,8 +1988,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
@@ -2105,8 +2105,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
@@ -2235,8 +2235,8 @@ export interface paths {
                                 updatedAt: string;
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
-                                trackerId: string | null;
                                 sortOrder: number;
+                                trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
                                         fields: string[];
