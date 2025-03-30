@@ -442,7 +442,7 @@ export default function Page() {
 											placeholder="Enter more providers"
 											onChange={(val) => {
 												if (val) {
-													const newWatchProviders = Array.from(watchProviders);
+													const newWatchProviders = cloneDeep(watchProviders);
 													let existingMediaLot = newWatchProviders.find(
 														(wp) => wp.lot === lot,
 													);
@@ -736,8 +736,8 @@ const EditDashboardElement = (props: {
 								defaultValue={focusedElement.numElements || undefined}
 								onChange={(num) => {
 									if (isNumber(num)) {
-										const newDashboardData = Array.from(
-											cloneDeep(userPreferences.general.dashboard),
+										const newDashboardData = cloneDeep(
+											userPreferences.general.dashboard,
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
 										props.updatePreference((draft) => {
