@@ -14,37 +14,28 @@ const paginationSchema = z.object({
 	limit: z.number().int().min(1),
 });
 
-const executeViewRuntimeGridBody = z.object({
+const executeViewRuntimeBaseBody = z.object({
 	sort: sortDefinitionSchema,
 	pagination: paginationSchema,
+	filters: z.array(filterExpressionSchema),
+	entitySchemaSlugs: z
+		.array(z.string())
+		.min(1, "At least one entity schema slug is required"),
+});
+
+const executeViewRuntimeGridBody = executeViewRuntimeBaseBody.extend({
 	layout: z.literal("grid"),
 	displayConfiguration: gridConfigSchema,
-	filters: z.array(filterExpressionSchema),
-	entitySchemaSlugs: z
-		.array(z.string())
-		.min(1, "At least one entity schema slug is required"),
 });
 
-const executeViewRuntimeListBody = z.object({
-	sort: sortDefinitionSchema,
-	pagination: paginationSchema,
+const executeViewRuntimeListBody = executeViewRuntimeBaseBody.extend({
 	layout: z.literal("list"),
 	displayConfiguration: listConfigSchema,
-	filters: z.array(filterExpressionSchema),
-	entitySchemaSlugs: z
-		.array(z.string())
-		.min(1, "At least one entity schema slug is required"),
 });
 
-const executeViewRuntimeTableBody = z.object({
-	sort: sortDefinitionSchema,
-	pagination: paginationSchema,
+const executeViewRuntimeTableBody = executeViewRuntimeBaseBody.extend({
 	layout: z.literal("table"),
 	displayConfiguration: tableConfigSchema,
-	filters: z.array(filterExpressionSchema),
-	entitySchemaSlugs: z
-		.array(z.string())
-		.min(1, "At least one entity schema slug is required"),
 });
 
 export const resolvedDisplayValueKindSchema = z.enum([
