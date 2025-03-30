@@ -1,1 +1,0 @@
-ALTER TABLE "entity" ADD COLUMN "image" jsonb;
