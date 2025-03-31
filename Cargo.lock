@@ -316,7 +316,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "strum 0.26.3",
+ "strum",
  "syn 2.0.100",
  "thiserror 1.0.69",
 ]
@@ -863,7 +863,7 @@ dependencies = [
  "database-models",
  "media-models",
  "serde",
- "strum 0.27.1",
+ "strum",
  "uuid",
 ]
 
@@ -1385,7 +1385,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.12.0",
- "strum 0.27.1",
+ "strum",
 ]
 
 [[package]]
@@ -1817,7 +1817,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.12.0",
- "strum 0.27.1",
+ "strum",
  "user-models",
  "uuid",
 ]
@@ -2200,7 +2200,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
- "strum 0.27.1",
+ "strum",
 ]
 
 [[package]]
@@ -2332,7 +2332,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_with 3.12.0",
- "strum 0.27.1",
+ "strum",
 ]
 
 [[package]]
@@ -4720,7 +4720,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.12.0",
- "strum 0.27.1",
+ "strum",
  "supporting-service",
  "tracing",
  "traits",
@@ -5562,7 +5562,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "strum 0.26.3",
+ "strum",
  "thiserror 2.0.12",
  "time",
  "tracing",
@@ -6418,16 +6418,7 @@ version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 dependencies = [
- "strum_macros 0.26.4",
-]
-
-[[package]]
-name = "strum"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
-dependencies = [
- "strum_macros 0.27.1",
+ "strum_macros",
 ]
 
 [[package]]
@@ -6444,19 +6435,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strum_macros"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
-dependencies = [
- "heck 0.5.0",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.100",
-]
-
-[[package]]
 name = "struson"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6464,7 +6442,7 @@ checksum = "18c68ef850864c0fa120c07a17d6369ec4df02a33cad4aa593e0e0566e031bda"
 dependencies = [
  "duplicate",
  "serde",
- "strum 0.26.3",
+ "strum",
  "thiserror 1.0.69",
 ]
 
@@ -7178,7 +7156,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.12.0",
- "strum 0.27.1",
+ "strum",
 ]
 
 [[package]]
