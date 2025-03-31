@@ -5406,9 +5406,9 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 
 [[package]]
 name = "rustypipe"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "168c46c773c0e1414b0e5c5557548dd352c7ed17407f34351611628748396546"
+checksum = "55b215d362fd897fac432f1b83ff613885da794fdd60f555881edc8cbdf14ca9"
 dependencies = [
  "data-encoding",
  "fancy-regex",
