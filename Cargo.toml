@@ -60,7 +60,7 @@ async-graphql = { version = "=7.0.16", features = [
 ] }
 async-graphql-axum = "=7.0.16"
 async-trait = "=0.1.88"
-aws-sdk-s3 = { version = "=1.81.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.76.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.3", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 bon = "=3.5.1"
