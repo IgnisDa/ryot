@@ -36,8 +36,8 @@ ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl ca-certificates procps libc6
 RUN wget http://ftp.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb && dpkg -i libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb && rm -rf libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb
 RUN rm -rf /var/lib/apt/lists/*
-COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
-RUN npm install --global concurrently@8.2.2 && concurrently --version
+COPY --from=caddy:2.9.1 /usr/bin/caddy /usr/local/bin/caddy
+RUN npm install --global concurrently@9.1.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
 WORKDIR /home/ryot
 USER ryot
