@@ -51,19 +51,19 @@ anyhow = "=1.0.97"
 apalis = { version = "=0.6.4", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.6.4"
 argon2 = "=0.6.0-pre.1"
-async-graphql = { version = "=7.0.15", features = [
+async-graphql = { version = "=7.0.16", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
     "uuid",
 ] }
-async-graphql-axum = "=7.0.15"
-async-trait = "=0.1.87"
+async-graphql-axum = "=7.0.16"
+async-trait = "=0.1.88"
 aws-sdk-s3 = { version = "=1.76.0", features = ["behavior-version-latest"] }
-axum = { version = "=0.8.1", features = ["macros", "multipart"] }
+axum = { version = "=0.8.3", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-bon = "=3.4.0"
+bon = "=3.5.1"
 chrono = "=0.4.40"
 chrono-tz = "=0.10.1"
 compile-time = "=0.2.0"
