@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use chrono_tz::Tz;
 use database_models::seen;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
 use serde::{Deserialize, Serialize};
@@ -45,10 +44,5 @@ pub enum ApplicationJob {
     Mp(MpApplicationJob),
 }
 
-pub struct ScheduledJob(pub DateTime<Tz>);
-
-impl From<DateTime<Tz>> for ScheduledJob {
-    fn from(value: DateTime<Tz>) -> Self {
-        Self(value)
-    }
-}
+#[derive(Debug, Default)]
+pub struct ScheduledJob;
