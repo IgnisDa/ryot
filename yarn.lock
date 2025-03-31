@@ -5341,9 +5341,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-router/dev@npm:7.4.0":
-  version: 7.4.0
-  resolution: "@react-router/dev@npm:7.4.0"
+"@react-router/dev@npm:7.4.1":
+  version: 7.4.1
+  resolution: "@react-router/dev@npm:7.4.1"
   dependencies:
     "@babel/core": "npm:^7.21.8"
     "@babel/generator": "npm:^7.21.5"
@@ -5354,7 +5354,7 @@ __metadata:
     "@babel/traverse": "npm:^7.23.2"
     "@babel/types": "npm:^7.22.5"
     "@npmcli/package-json": "npm:^4.0.1"
-    "@react-router/node": "npm:7.4.0"
+    "@react-router/node": "npm:7.4.1"
     arg: "npm:^5.0.1"
     babel-dead-code-elimination: "npm:^1.0.6"
     chokidar: "npm:^4.0.0"
@@ -5373,8 +5373,8 @@ __metadata:
     valibot: "npm:^0.41.0"
     vite-node: "npm:3.0.0-beta.2"
   peerDependencies:
-    "@react-router/serve": ^7.4.0
-    react-router: ^7.4.0
+    "@react-router/serve": ^7.4.1
+    react-router: ^7.4.1
     typescript: ^5.1.0
     vite: ^5.1.0 || ^6.0.0
     wrangler: ^3.28.2
@@ -5387,75 +5387,75 @@ __metadata:
       optional: true
   bin:
     react-router: bin.js
-  checksum: 10/420fde057a671f1f5751d4ac30171b6fb814dcf09b45ff3fd125c23415d3167e2e10af331805c11a03534c20473f00edced7c322ee40021a665005a81c130919
+  checksum: 10/bee51cf40d78716b766448339bfe115feb98f2683b2f14bde892d1f1b348c52da1a974ea3f74186bc80eed85293852202e9a6d8c3f3162d19797918bf932c9fe
   languageName: node
   linkType: hard
 
-"@react-router/express@npm:7.4.0":
-  version: 7.4.0
-  resolution: "@react-router/express@npm:7.4.0"
+"@react-router/express@npm:7.4.1":
+  version: 7.4.1
+  resolution: "@react-router/express@npm:7.4.1"
   dependencies:
-    "@react-router/node": "npm:7.4.0"
+    "@react-router/node": "npm:7.4.1"
   peerDependencies:
     express: ^4.17.1 || ^5
-    react-router: 7.4.0
+    react-router: 7.4.1
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/0aa3b273c700595b424483e09d4928357c5d2ee894bc05d1364fe862f6d2b9160dff4ba0a952f0cefa52091d6e5cb8260811b5e2379482e4f9103da86532d851
+  checksum: 10/ef9d9d7910db8550a04c2d8b767c843c2a4eb9509ab0783afa96380af869ee95a4b9b586416f4060679aec556f58c3ea12a6aa7b872ed25a102619b3f2f1216b
   languageName: node
   linkType: hard
 
-"@react-router/fs-routes@npm:7.4.0":
-  version: 7.4.0
-  resolution: "@react-router/fs-routes@npm:7.4.0"
+"@react-router/fs-routes@npm:7.4.1":
+  version: 7.4.1
+  resolution: "@react-router/fs-routes@npm:7.4.1"
   dependencies:
     minimatch: "npm:^9.0.0"
   peerDependencies:
-    "@react-router/dev": ^7.4.0
+    "@react-router/dev": ^7.4.1
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/e8996e64eea8b1fce5da8d4c80cda659b9142ed8152d9c312400b24a36d2057b28806c97bccfc571c020d6c24c7e708c13c87bb5644952c49571661d35370939
+  checksum: 10/4809c7451904d2a28b12afd0fecff99bf8e1418583cc4865f2208d42e9e25eba288cb33af2e0f9298c89b7ccb7f3f5ea17d1ea7e5e025fa95e0ed79d9b7d033c
   languageName: node
   linkType: hard
 
-"@react-router/node@npm:7.4.0":
-  version: 7.4.0
-  resolution: "@react-router/node@npm:7.4.0"
+"@react-router/node@npm:7.4.1":
+  version: 7.4.1
+  resolution: "@react-router/node@npm:7.4.1"
   dependencies:
     "@mjackson/node-fetch-server": "npm:^0.2.0"
     source-map-support: "npm:^0.5.21"
     stream-slice: "npm:^0.1.2"
     undici: "npm:^6.19.2"
   peerDependencies:
-    react-router: 7.4.0
+    react-router: 7.4.1
     typescript: ^5.1.0
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/e7d85f1d0a49824ddb521a6f82e6af6cad680b2115c3f75c015b895895b0ab66ffc9237498d67c7f32d082119bfbb45a0972252097c8f921b399b17f980bcfa1
+  checksum: 10/63f2abba7f29c6b2c2ffed220b57f55106aa5dad2f28aace23676b92ef178436eb3d892e95c408caa62e27b92992abf9a885e73e0f7223daa9ebf28542d0de32
   languageName: node
   linkType: hard
 
-"@react-router/serve@npm:7.4.0":
-  version: 7.4.0
-  resolution: "@react-router/serve@npm:7.4.0"
+"@react-router/serve@npm:7.4.1":
+  version: 7.4.1
+  resolution: "@react-router/serve@npm:7.4.1"
   dependencies:
-    "@react-router/express": "npm:7.4.0"
-    "@react-router/node": "npm:7.4.0"
+    "@react-router/express": "npm:7.4.1"
+    "@react-router/node": "npm:7.4.1"
     compression: "npm:^1.7.4"
     express: "npm:^4.19.2"
     get-port: "npm:5.1.1"
     morgan: "npm:^1.10.0"
     source-map-support: "npm:^0.5.21"
   peerDependencies:
-    react-router: 7.4.0
+    react-router: 7.4.1
   bin:
     react-router-serve: bin.js
-  checksum: 10/ef20eb7fbbc0f3f251884bd07cd10efd7a15cc4d5ba595496cf1cb3fae928eecfd1d3d8f059021bfd9912057c164d4f5cb593ed6b8158e7e401b52c435f04b28
+  checksum: 10/993d0641b4b3564d80dd33b8436246ad98319f690d68d916263e2a6d1b8d59ef79704125d2efac7dc4669ff030ff3cf9cedbf1f10179ca6230e497e021d77b65
   languageName: node
   linkType: hard
 
@@ -5903,10 +5903,10 @@ __metadata:
     "@mantine/notifications": "npm:7.17.2"
     "@mjackson/file-storage": "npm:0.6.1"
     "@mjackson/form-data-parser": "npm:0.7.0"
-    "@react-router/dev": "npm:7.4.0"
-    "@react-router/fs-routes": "npm:7.4.0"
-    "@react-router/node": "npm:7.4.0"
-    "@react-router/serve": "npm:7.4.0"
+    "@react-router/dev": "npm:7.4.1"
+    "@react-router/fs-routes": "npm:7.4.1"
+    "@react-router/node": "npm:7.4.1"
+    "@react-router/serve": "npm:7.4.1"
     "@remix-pwa/dev": "npm:3.1.0"
     "@remix-pwa/sw": "npm:3.0.10"
     "@remix-pwa/worker-runtime": "npm:2.1.4"
@@ -5948,8 +5948,8 @@ __metadata:
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
     react-joyride: "npm:2.9.3"
-    react-router: "npm:7.4.0"
-    react-router-devtools: "npm:1.1.6"
+    react-router: "npm:7.4.1"
+    react-router-devtools: "npm:1.1.8"
     react-virtuoso: "npm:4.12.6"
     recharts: "npm:2.15.1"
     remix-utils: "npm:8.5.0"
@@ -6024,7 +6024,7 @@ __metadata:
     dayjs: "npm:1.11.13"
     humanize-duration-ts: "npm:2.1.1"
     lodash: "npm:4.17.21"
-    react-router: "npm:7.4.0"
+    react-router: "npm:7.4.1"
     tailwind-merge: "npm:3.0.2"
     tiny-invariant: "npm:1.3.3"
     zod: "npm:3.24.2"
@@ -6045,10 +6045,10 @@ __metadata:
     "@radix-ui/react-slot": "npm:1.1.2"
     "@radix-ui/react-tooltip": "npm:1.1.8"
     "@react-email/components": "npm:0.0.34"
-    "@react-router/dev": "npm:7.4.0"
-    "@react-router/fs-routes": "npm:7.4.0"
-    "@react-router/node": "npm:7.4.0"
-    "@react-router/serve": "npm:7.4.0"
+    "@react-router/dev": "npm:7.4.1"
+    "@react-router/fs-routes": "npm:7.4.1"
+    "@react-router/node": "npm:7.4.1"
+    "@react-router/serve": "npm:7.4.1"
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@ryot/transactional": "workspace:*"
@@ -6083,7 +6083,7 @@ __metadata:
     postgres: "npm:3.4.5"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
-    react-router: "npm:7.4.0"
+    react-router: "npm:7.4.1"
     remix-utils: "npm:8.5.0"
     safe-routes: "npm:1.0.11"
     sonner: "npm:2.0.2"
@@ -12942,9 +12942,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-router-devtools@npm:1.1.6":
-  version: 1.1.6
-  resolution: "react-router-devtools@npm:1.1.6"
+"react-router-devtools@npm:1.1.8":
+  version: 1.1.8
+  resolution: "react-router-devtools@npm:1.1.8"
   dependencies:
     "@babel/core": "npm:^7.26.7"
     "@babel/generator": "npm:^7.26.5"
@@ -12978,13 +12978,13 @@ __metadata:
       optional: true
     "@rollup/rollup-linux-x64-gnu":
       optional: true
-  checksum: 10/b7fb824161f677c12d31f8d24f71a9ed31a9a0dc07bfeadc5b60067a8bf1b2d47a0a47231fb425e348b0f16f74606906c4c1cb4de83b6b3b5ea6e68aeebed28b
+  checksum: 10/5a1a571206a30386cee6e3fbecf2a9bb0958ea53affe55c99be03d090f05bebd601edf06849ccede516caa108222ecbed653d48d48adfe6bbd340f9c46698b58
   languageName: node
   linkType: hard
 
-"react-router@npm:7.4.0":
-  version: 7.4.0
-  resolution: "react-router@npm:7.4.0"
+"react-router@npm:7.4.1":
+  version: 7.4.1
+  resolution: "react-router@npm:7.4.1"
   dependencies:
     "@types/cookie": "npm:^0.6.0"
     cookie: "npm:^1.0.1"
@@ -12996,7 +12996,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/e7c9fe14d9b624f425ba89b904f47b571087978d46d6d9d865f03619851c8ef43525f4731fccc7bf00896043da208e444a167f5449a38794e70c98aeb78bdbf8
+  checksum: 10/5873187abcd1d898f4bf7c0f31af48d7a867ec35bfa030d582c03bfb390fdf6ebfb252732a200d2212771319133124279b7c8ba034df0cde77daf9140345a1c6
   languageName: node
   linkType: hard
 
