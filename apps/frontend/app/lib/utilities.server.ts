@@ -377,11 +377,20 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 
 export const redirectToFirstPageIfOnInvalidPage = async (input: {
 	request: Request;
-	pageSize: number;
 	currentPage: number;
 	totalResults: number;
+	respectCoreDetailsPageSize?: boolean;
 }) => {
-	const totalPages = Math.ceil(input.totalResults / input.pageSize);
+	const [coreDetails, userPreferences] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(input.request),
+	]);
+	const totalPages = Math.ceil(
+		input.totalResults /
+			(input.respectCoreDetailsPageSize
+				? coreDetails.pageSize
+				: userPreferences.general.listPageSize),
+	);
 	if (input.currentPage > totalPages && input.currentPage !== 1) {
 		const { searchParams } = new URL(input.request.url);
 		searchParams.set(pageQueryParam, "1");
