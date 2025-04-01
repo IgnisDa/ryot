@@ -6,7 +6,6 @@ use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
     UserLevelCacheKey,
 };
-use common_utils::PAGE_SIZE;
 use database_models::{
     collection, collection_to_entity,
     prelude::{
@@ -15,7 +14,7 @@ use database_models::{
     },
     user_to_entity,
 };
-use database_utils::{ilike_sql, item_reviews};
+use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
     CollectionContentsInput, CollectionContentsResponse, SearchResults,
@@ -173,11 +172,12 @@ impl CollectionService {
                 response: cached,
             });
         }
+        let preferences = user_by_id(user_id, &self.0).await?.preferences;
         let take = input
             .search
             .clone()
             .and_then(|s| s.take)
-            .unwrap_or(PAGE_SIZE as u64);
+            .unwrap_or(preferences.general.list_page_size as u64);
         let search = input.search.unwrap_or_default();
         let sort = input.sort.unwrap_or_default();
         let filter = input.filter.unwrap_or_default();

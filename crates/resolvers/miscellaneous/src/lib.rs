@@ -73,7 +73,8 @@ impl MiscellaneousQuery {
         input: GenreDetailsInput,
     ) -> Result<GenreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.genre_details(input).await
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.genre_details(user_id, input).await
     }
 
     /// Get details about a metadata group present in the database.
@@ -115,7 +116,8 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.genres_list(input).await
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.genres_list(user_id, input).await
     }
 
     /// Get paginated list of metadata groups.

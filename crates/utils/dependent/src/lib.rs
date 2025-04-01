@@ -10,8 +10,7 @@ use common_models::{
     StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, PAGE_SIZE, SHOW_SPECIAL_SEASON_NAMES, ryot_log,
-    sleep_for_n_seconds,
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
     collection, collection_to_entity, exercise,
@@ -2800,7 +2799,7 @@ pub async fn user_metadata_list(
         .search
         .clone()
         .and_then(|s| s.take)
-        .unwrap_or(PAGE_SIZE as u64);
+        .unwrap_or(preferences.general.list_page_size);
     let page: u64 = input
         .search
         .clone()
@@ -2963,6 +2962,8 @@ pub async fn user_metadata_groups_list(
     if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
         return Ok(CachedResponse { cache_id, response });
     }
+
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let page: u64 = input
         .search
         .clone()
@@ -2987,7 +2988,7 @@ pub async fn user_metadata_groups_list(
         .search
         .clone()
         .and_then(|s| s.take)
-        .unwrap_or(PAGE_SIZE as u64);
+        .unwrap_or(preferences.general.list_page_size);
     let paginator = MetadataGroup::find()
         .select_only()
         .column(metadata_group::Column::Id)
@@ -3055,6 +3056,8 @@ pub async fn user_people_list(
     if let Some((cache_id, response)) = cc.get_value::<UserPeopleListResponse>(key.clone()).await {
         return Ok(CachedResponse { cache_id, response });
     }
+
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let page: u64 = input
         .search
         .clone()
@@ -3082,7 +3085,7 @@ pub async fn user_people_list(
         .search
         .clone()
         .and_then(|s| s.take)
-        .unwrap_or(PAGE_SIZE as u64);
+        .unwrap_or(preferences.general.list_page_size);
     let creators_paginator = Person::find()
         .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
             query.filter(Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))))
@@ -3144,8 +3147,13 @@ pub async fn user_workouts_list(
     if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
         return Ok(CachedResponse { cache_id, response });
     }
+
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let page = input.search.page.unwrap_or(1);
-    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
+    let take = input
+        .search
+        .take
+        .unwrap_or(preferences.general.list_page_size);
     let paginator = Workout::find()
         .select_only()
         .column(workout::Column::Id)
@@ -3202,8 +3210,13 @@ pub async fn user_workout_templates_list(
     if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
         return Ok(CachedResponse { cache_id, response });
     }
+
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let page = input.search.page.unwrap_or(1);
-    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
+    let take = input
+        .search
+        .take
+        .unwrap_or(preferences.general.list_page_size);
     let paginator = WorkoutTemplate::find()
         .select_only()
         .column(workout_template::Column::Id)
@@ -3262,8 +3275,13 @@ pub async fn user_exercises_list(
     if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
         return Ok(CachedResponse { cache_id, response });
     }
+
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let user_id = user_id.to_owned();
-    let take = input.search.take.unwrap_or(PAGE_SIZE as u64);
+    let take = input
+        .search
+        .take
+        .unwrap_or(preferences.general.list_page_size);
     let page = input.search.page.unwrap_or(1);
     let ex = Alias::new("exercise");
     let etu = Alias::new("user_to_entity");

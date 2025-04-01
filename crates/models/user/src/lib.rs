@@ -409,7 +409,7 @@ pub struct UserGeneralPreferences {
     #[educe(Default = "/")]
     pub landing_path: String,
     #[educe(Default = 20)]
-    pub list_page_size: i32,
+    pub list_page_size: u64,
     #[educe(Default = false)]
     pub disable_videos: bool,
     #[educe(Default = false)]
