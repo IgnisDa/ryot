@@ -139,95 +139,99 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, mediaList, mediaSearch] = await match(action)
-		.with(Action.List, async () => {
-			const listSchema = z.object({
-				collections: zodCollectionFilter,
-				endDateRange: z.string().optional(),
-				startDateRange: z.string().optional(),
-				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
-				dateRange: z
-					.nativeEnum(ApplicationTimeRange)
-					.default(defaultFilters.mineDateRange),
-				sortOrder: z
-					.nativeEnum(GraphqlSortOrder)
-					.default(defaultFilters.mineSortOrder),
-				generalFilter: z
-					.nativeEnum(MediaGeneralFilter)
-					.default(defaultFilters.mineGeneralFilter),
-			});
-			const urlParse = parseSearchQuery(request, listSchema);
-			const { userMetadataList } = await serverGqlService.authenticatedRequest(
-				request,
-				UserMetadataListDocument,
-				{
-					input: {
-						lot,
-						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-						search: { page: query[pageQueryParam], query: query.query },
-						filter: {
-							general: urlParse.generalFilter,
-							collections: urlParse.collections,
-							dateRange: {
-								endDate: urlParse.endDateRange,
-								startDate: urlParse.startDateRange,
+	const [totalResults, mediaList, mediaSearch, respectCoreDetailsPageSize] =
+		await match(action)
+			.with(Action.List, async () => {
+				const listSchema = z.object({
+					collections: zodCollectionFilter,
+					endDateRange: z.string().optional(),
+					startDateRange: z.string().optional(),
+					sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+					dateRange: z
+						.nativeEnum(ApplicationTimeRange)
+						.default(defaultFilters.mineDateRange),
+					sortOrder: z
+						.nativeEnum(GraphqlSortOrder)
+						.default(defaultFilters.mineSortOrder),
+					generalFilter: z
+						.nativeEnum(MediaGeneralFilter)
+						.default(defaultFilters.mineGeneralFilter),
+				});
+				const urlParse = parseSearchQuery(request, listSchema);
+				const { userMetadataList } =
+					await serverGqlService.authenticatedRequest(
+						request,
+						UserMetadataListDocument,
+						{
+							input: {
+								lot,
+								sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+								search: { page: query[pageQueryParam], query: query.query },
+								filter: {
+									general: urlParse.generalFilter,
+									collections: urlParse.collections,
+									dateRange: {
+										endDate: urlParse.endDateRange,
+										startDate: urlParse.startDateRange,
+									},
+								},
 							},
 						},
-					},
-				},
-			);
-			return [
-				userMetadataList.response.details.total,
-				{ list: userMetadataList, url: urlParse },
-				undefined,
-			] as const;
-		})
-		.with(Action.Search, async () => {
-			const coreDetails = await getCoreDetails();
-			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
-				(m) => m.lot === lot,
-			);
-			invariant(metadataSourcesForLot);
-			const searchSchema = z.object({
-				source: z
-					.nativeEnum(MediaSource)
-					.default(metadataSourcesForLot.sources[0]),
-			});
-			const urlParse = parseSearchQuery(request, searchSchema);
-			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
-			try {
-				const response = await serverGqlService.authenticatedRequest(
-					request,
-					MetadataSearchDocument,
-					{
-						input: {
-							lot,
-							source: urlParse.source,
-							search: { page: query[pageQueryParam], query: query.query },
+					);
+				return [
+					userMetadataList.response.details.total,
+					{ list: userMetadataList, url: urlParse },
+					undefined,
+					false,
+				] as const;
+			})
+			.with(Action.Search, async () => {
+				const coreDetails = await getCoreDetails();
+				const metadataSourcesForLot =
+					coreDetails.metadataLotSourceMappings.find((m) => m.lot === lot);
+				invariant(metadataSourcesForLot);
+				const searchSchema = z.object({
+					source: z
+						.nativeEnum(MediaSource)
+						.default(metadataSourcesForLot.sources[0]),
+				});
+				const urlParse = parseSearchQuery(request, searchSchema);
+				let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
+				try {
+					const response = await serverGqlService.authenticatedRequest(
+						request,
+						MetadataSearchDocument,
+						{
+							input: {
+								lot,
+								source: urlParse.source,
+								search: { page: query[pageQueryParam], query: query.query },
+							},
 						},
+					);
+					metadataSearch = response.metadataSearch;
+				} catch {
+					metadataSearch = false;
+				}
+				return [
+					metadataSearch === false ? 0 : metadataSearch.details.total,
+					undefined,
+					{
+						url: urlParse,
+						search: metadataSearch,
+						mediaSources: metadataSourcesForLot.sources,
 					},
-				);
-				metadataSearch = response.metadataSearch;
-			} catch {
-				metadataSearch = false;
-			}
-			return [
-				metadataSearch === false ? 0 : metadataSearch.details.total,
-				undefined,
-				{
-					url: urlParse,
-					search: metadataSearch,
-					mediaSources: metadataSourcesForLot.sources,
-				},
-			] as const;
-		})
-		.exhaustive();
+					true,
+				] as const;
+			})
+			.exhaustive();
 	const url = new URL(request.url);
-	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
-		query[pageQueryParam],
-	);
+		respectCoreDetailsPageSize,
+		currentPage: query[pageQueryParam],
+	});
 	return {
 		lot,
 		query,
