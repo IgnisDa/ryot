@@ -359,6 +359,7 @@ export default function Page() {
 								))}
 							</SimpleGrid>
 							<Stack gap="xs">
+								<Divider />
 								<Group wrap="nowrap">
 									<Select
 										size="xs"
@@ -444,6 +445,7 @@ export default function Page() {
 										}}
 									/>
 								</Input.Wrapper>
+								<Divider />
 							</Stack>
 							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>
