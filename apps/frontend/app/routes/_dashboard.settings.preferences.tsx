@@ -387,6 +387,7 @@ export default function Page() {
 								>
 									<SegmentedControl
 										mt="xs"
+										size="xs"
 										fullWidth
 										disabled={!!isEditDisabled}
 										defaultValue={userPreferences.general.reviewScale}
@@ -409,6 +410,7 @@ export default function Page() {
 								>
 									<SegmentedControl
 										mt="xs"
+										size="xs"
 										fullWidth
 										disabled={!!isEditDisabled}
 										defaultValue={userPreferences.general.gridPacking}
