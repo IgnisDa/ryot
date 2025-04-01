@@ -408,6 +408,8 @@ pub struct UserGeneralPreferences {
     pub display_nsfw: bool,
     #[educe(Default = "/")]
     pub landing_path: String,
+    #[educe(Default = 20)]
+    pub list_page_size: i32,
     #[educe(Default = false)]
     pub disable_videos: bool,
     #[educe(Default = false)]
