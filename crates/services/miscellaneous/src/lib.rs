@@ -17,7 +17,7 @@ use common_models::{
     SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
-    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, PAGE_SIZE,
+    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE,
     SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log,
 };
 use convert_case::{Case, Casing};
@@ -1676,8 +1676,13 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn genres_list(&self, input: SearchInput) -> Result<SearchResults<String>> {
+    pub async fn genres_list(
+        &self,
+        user_id: String,
+        input: SearchInput,
+    ) -> Result<SearchResults<String>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
         let num_items = "num_items";
         let query = Genre::find()
             .column_as(
@@ -1701,7 +1706,7 @@ impl MiscellaneousService {
         let paginator = query
             .clone()
             .into_model::<GenreListItem>()
-            .paginate(&self.0.db, PAGE_SIZE.try_into().unwrap());
+            .paginate(&self.0.db, preferences.general.list_page_size);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -1803,15 +1808,20 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
+    pub async fn genre_details(
+        &self,
+        user_id: String,
+        input: GenreDetailsInput,
+    ) -> Result<GenreDetails> {
         let page = input.page.unwrap_or(1);
         let genre = Genre::find_by_id(input.genre_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
+        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
         let paginator = MetadataToGenre::find()
             .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-            .paginate(&self.0.db, PAGE_SIZE as u64);
+            .paginate(&self.0.db, preferences.general.list_page_size);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,

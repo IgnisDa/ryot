@@ -104,7 +104,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, list, search] = await match(action)
+	const [totalResults, list, search, respectCoreDetailsPageSize] = await match(
+		action,
+	)
 		.with(Action.List, async () => {
 			const listSchema = z.object({
 				collections: zodCollectionFilter,
@@ -129,6 +131,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				userPeopleList.response.details.total,
 				{ list: userPeopleList, url: urlParse },
 				undefined,
+				false,
 			] as const;
 		})
 		.with(Action.Search, async () => {
@@ -152,14 +155,16 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				peopleSearch.details.total,
 				undefined,
 				{ search: peopleSearch, url: urlParse },
+				true,
 			] as const;
 		})
 		.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
-		query[pageQueryParam],
-	);
+		respectCoreDetailsPageSize,
+		currentPage: query[pageQueryParam],
+	});
 	return {
 		list,
 		query,

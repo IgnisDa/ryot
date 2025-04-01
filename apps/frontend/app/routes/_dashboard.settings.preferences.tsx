@@ -359,34 +359,53 @@ export default function Page() {
 								))}
 							</SimpleGrid>
 							<Stack gap="xs">
-								<Select
-									size="xs"
-									disabled={!!isEditDisabled}
-									label="Default landing page"
-									data={loaderData.userPreferenceLandingPaths}
-									defaultValue={userPreferences.general.landingPath}
-									description="The page you want to see when you first open the app"
-									onChange={(value) => {
-										if (!coreDetails.isServerKeyValidated) {
-											notifications.show({
-												color: "red",
-												message: PRO_REQUIRED_MESSAGE,
-											});
-											return;
-										}
-										if (value) {
-											updatePreference((draft) => {
-												draft.general.landingPath = value;
-											});
-										}
-									}}
-								/>
+								<Divider />
+								<Group wrap="nowrap">
+									<Select
+										size="xs"
+										disabled={!!isEditDisabled}
+										label="Default landing page"
+										data={loaderData.userPreferenceLandingPaths}
+										defaultValue={userPreferences.general.landingPath}
+										description="The page you want to see when you first open the app"
+										onChange={(value) => {
+											if (!coreDetails.isServerKeyValidated) {
+												notifications.show({
+													color: "red",
+													message: PRO_REQUIRED_MESSAGE,
+												});
+												return;
+											}
+											if (value) {
+												updatePreference((draft) => {
+													draft.general.landingPath = value;
+												});
+											}
+										}}
+									/>
+									<NumberInput
+										min={5}
+										size="xs"
+										label="List page size"
+										disabled={!!isEditDisabled}
+										defaultValue={userPreferences.general.listPageSize}
+										description="The number of items to display on the list pages"
+										onChange={(val) => {
+											if (isNumber(val)) {
+												updatePreference((draft) => {
+													draft.general.listPageSize = val;
+												});
+											}
+										}}
+									/>
+								</Group>
 								<Input.Wrapper
 									label="Review scale"
 									description="Scale you want to use for reviews"
 								>
 									<SegmentedControl
 										mt="xs"
+										size="xs"
 										fullWidth
 										disabled={!!isEditDisabled}
 										defaultValue={userPreferences.general.reviewScale}
@@ -409,6 +428,7 @@ export default function Page() {
 								>
 									<SegmentedControl
 										mt="xs"
+										size="xs"
 										fullWidth
 										disabled={!!isEditDisabled}
 										defaultValue={userPreferences.general.gridPacking}
@@ -425,6 +445,7 @@ export default function Page() {
 										}}
 									/>
 								</Input.Wrapper>
+								<Divider />
 							</Stack>
 							<Stack gap="sm">
 								<Title order={3}>Watch providers</Title>

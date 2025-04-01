@@ -157,11 +157,11 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 			};
 		})
 		.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
-		displayData.details.total,
-		query[pageQueryParam],
-	);
+		currentPage: query[pageQueryParam],
+		totalResults: displayData.details.total,
+	});
 	return { query, entity, displayData, cookieName, totalPages };
 };
 

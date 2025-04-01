@@ -16,6 +16,7 @@ query UserDetails {
 					gridPacking
 					displayNsfw
 					landingPath
+					listPageSize
 					disableVideos
 					persistQueries
 					disableReviews
