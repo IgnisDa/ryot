@@ -62,10 +62,10 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
+	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
-	WorkoutRevisionScheduledAlert,
 } from "~/components/fitness";
 import {
 	FitnessAction,
