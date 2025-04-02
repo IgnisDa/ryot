@@ -126,7 +126,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Home | Ryot" }];
+	return [{ title: "Dashboard | Ryot" }];
 };
 
 export default function Page() {
@@ -153,158 +153,161 @@ export default function Page() {
 	);
 
 	return (
-		<Container>
-			<Stack gap={32}>
-				<ClientOnly>
-					{() => (
-						<>
-							{dashboardMessage && isAlertDismissed === "false" ? (
-								<Alert
-									withCloseButton
-									variant="default"
-									icon={<IconInfoCircle />}
-									onClose={() => setIsAlertDismissed("true")}
-								>
-									{dashboardMessage}
-								</Alert>
-							) : null}
-							{!isOnboardingTourCompleted && !isMobile ? (
-								<Alert
-									variant="filled"
-									icon={<IconPlayerPlay />}
-									style={{ cursor: "pointer" }}
-									onClick={startOnboardingTour}
-								>
-									Welcome to Ryot! Click here to start your onboarding tour.
-								</Alert>
-							) : null}
-						</>
-					)}
-				</ClientOnly>
-				{userPreferences.general.dashboard.map((de) =>
-					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
-							loaderData.userUpcomingCalendarEvents.length > 0 ? (
+		<>
+			<Container>
+				<Stack gap={32}>
+					<ClientOnly>
+						{() => (
+							<>
+								{dashboardMessage && isAlertDismissed === "false" ? (
+									<Alert
+										withCloseButton
+										variant="default"
+										icon={<IconInfoCircle />}
+										onClose={() => setIsAlertDismissed("true")}
+									>
+										{dashboardMessage}
+									</Alert>
+								) : null}
+								{!isOnboardingTourCompleted && !isMobile ? (
+									<Alert
+										variant="filled"
+										icon={<IconPlayerPlay />}
+										style={{ cursor: "pointer" }}
+										onClick={startOnboardingTour}
+									>
+										Welcome to Ryot! Click here to start your onboarding tour.
+									</Alert>
+								) : null}
+							</>
+						)}
+					</ClientOnly>
+					{userPreferences.general.dashboard.map((de) =>
+						match([de.section, de.hidden])
+							.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
+								loaderData.userUpcomingCalendarEvents.length > 0 ? (
+									<Section key={v} lot={v}>
+										<SectionTitle text="Upcoming" />
+										<ApplicationGrid>
+											{loaderData.userUpcomingCalendarEvents.map((um) => (
+												<UpComingMedia um={um} key={um.calendarEventId} />
+											))}
+										</ApplicationGrid>
+									</Section>
+								) : null,
+							)
+							.with([DashboardElementLot.InProgress, false], ([v, _]) => (
 								<Section key={v} lot={v}>
-									<SectionTitle text="Upcoming" />
-									<ApplicationGrid>
-										{loaderData.userUpcomingCalendarEvents.map((um) => (
-											<UpComingMedia um={um} key={um.calendarEventId} />
-										))}
-									</ApplicationGrid>
+									<SectionTitleWithRefreshIcon
+										text="In Progress"
+										action={{
+											cacheId: loaderData.inProgressCollectionContents.cacheId,
+										}}
+									/>
+									{loaderData.inProgressCollectionContents.response.results
+										.items.length > 0 ? (
+										<ApplicationGrid>
+											{loaderData.inProgressCollectionContents.response.results.items.map(
+												(lm) => (
+													<DisplayCollectionEntity
+														key={lm.entityId}
+														entityId={lm.entityId}
+														entityLot={lm.entityLot}
+													/>
+												),
+											)}
+										</ApplicationGrid>
+									) : (
+										<Text c="dimmed">No media in progress.</Text>
+									)}
 								</Section>
-							) : null,
-						)
-						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<SectionTitleWithRefreshIcon
-									text="In Progress"
-									action={{
-										cacheId: loaderData.inProgressCollectionContents.cacheId,
-									}}
-								/>
-								{loaderData.inProgressCollectionContents.response.results.items
-									.length > 0 ? (
-									<ApplicationGrid>
-										{loaderData.inProgressCollectionContents.response.results.items.map(
-											(lm) => (
-												<DisplayCollectionEntity
-													key={lm.entityId}
-													entityId={lm.entityId}
-													entityLot={lm.entityLot}
-												/>
-											),
-										)}
-									</ApplicationGrid>
-								) : (
-									<Text c="dimmed">No media in progress.</Text>
-								)}
-							</Section>
-						))
-						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<SectionTitleWithRefreshIcon
-									text="Recommendations"
-									action={
+							))
+							.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+								<Section key={v} lot={v}>
+									<SectionTitleWithRefreshIcon
+										text="Recommendations"
+										action={
+											loaderData.userMetadataRecommendations.response
+												.__typename ===
+											"UserMetadataRecommendationsProcessingResponse"
+												? "revalidate"
+												: {
+														cacheId:
+															loaderData.userMetadataRecommendations.cacheId,
+														confirmationText:
+															"Are you sure you want to refresh the recommendations?",
+													}
+										}
+									/>
+									{coreDetails.isServerKeyValidated ? (
 										loaderData.userMetadataRecommendations.response
 											.__typename ===
-										"UserMetadataRecommendationsProcessingResponse"
-											? "revalidate"
-											: {
-													cacheId:
-														loaderData.userMetadataRecommendations.cacheId,
-													confirmationText:
-														"Are you sure you want to refresh the recommendations?",
-												}
-									}
-								/>
-								{coreDetails.isServerKeyValidated ? (
-									loaderData.userMetadataRecommendations.response.__typename ===
-									"UserMetadataRecommendationsSuccessResponse" ? (
-										loaderData.userMetadataRecommendations.response
-											.recommendations.length > 0 ? (
-											<ApplicationGrid>
-												{loaderData.userMetadataRecommendations.response.recommendations.map(
-													(lm) => (
-														<MetadataDisplayItem key={lm} metadataId={lm} />
-													),
-												)}
-											</ApplicationGrid>
+										"UserMetadataRecommendationsSuccessResponse" ? (
+											loaderData.userMetadataRecommendations.response
+												.recommendations.length > 0 ? (
+												<ApplicationGrid>
+													{loaderData.userMetadataRecommendations.response.recommendations.map(
+														(lm) => (
+															<MetadataDisplayItem key={lm} metadataId={lm} />
+														),
+													)}
+												</ApplicationGrid>
+											) : (
+												<Text c="dimmed">No recommendations available.</Text>
+											)
 										) : (
-											<Text c="dimmed">No recommendations available.</Text>
+											<Text c="dimmed">
+												Recommendations are being generated. Please check back
+												in a moment.
+											</Text>
 										)
 									) : (
+										<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+									)}
+								</Section>
+							))
+							.with([DashboardElementLot.Summary, false], ([v, _]) => (
+								<Section key={v} lot={v}>
+									<SectionTitle text="Summary" />
+									{latestUserSummary ? (
+										<DisplaySummarySection
+											latestUserSummary={latestUserSummary}
+										/>
+									) : (
 										<Text c="dimmed">
-											Recommendations are being generated. Please check back in
-											a moment.
+											No summary available. Please add some media to your
+											watched history.
 										</Text>
-									)
-								) : (
-									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
-								)}
-							</Section>
-						))
-						.with([DashboardElementLot.Summary, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<SectionTitle text="Summary" />
-								{latestUserSummary ? (
-									<DisplaySummarySection
-										latestUserSummary={latestUserSummary}
-									/>
-								) : (
-									<Text c="dimmed">
-										No summary available. Please add some media to your watched
-										history.
-									</Text>
-								)}
-							</Section>
-						))
-						.with([DashboardElementLot.Trending, false], ([v, _]) => (
-							<Section key={v} lot={v}>
-								<Group justify="space-between">
-									<SectionTitle text="Trending" />
-									{loaderData.trendingMetadata.length >
-									trendingMetadataSelection.length ? (
-										<Button variant="subtle" size="xs">
-											View All
-										</Button>
-									) : null}
-								</Group>
-								{trendingMetadataSelection.length > 0 ? (
-									<ApplicationGrid>
-										{trendingMetadataSelection.map((lm) => (
-											<MetadataDisplayItem key={lm} metadataId={lm} />
-										))}
-									</ApplicationGrid>
-								) : (
-									<Text c="dimmed">No trending media available.</Text>
-								)}
-							</Section>
-						))
-						.otherwise(() => undefined),
-				)}
-			</Stack>
-		</Container>
+									)}
+								</Section>
+							))
+							.with([DashboardElementLot.Trending, false], ([v, _]) => (
+								<Section key={v} lot={v}>
+									<Group justify="space-between">
+										<SectionTitle text="Trending" />
+										{loaderData.trendingMetadata.length >
+										trendingMetadataSelection.length ? (
+											<Button variant="subtle" size="xs">
+												View All
+											</Button>
+										) : null}
+									</Group>
+									{trendingMetadataSelection.length > 0 ? (
+										<ApplicationGrid>
+											{trendingMetadataSelection.map((lm) => (
+												<MetadataDisplayItem key={lm} metadataId={lm} />
+											))}
+										</ApplicationGrid>
+									) : (
+										<Text c="dimmed">No trending media available.</Text>
+									)}
+								</Section>
+							))
+							.otherwise(() => undefined),
+					)}
+				</Stack>
+			</Container>
+		</>
 	);
 }
 
