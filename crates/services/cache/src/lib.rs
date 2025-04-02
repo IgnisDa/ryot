@@ -46,12 +46,12 @@ impl CacheService {
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
-            ApplicationCacheKey::UserCollectionsList { .. }
-            | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
-
             ApplicationCacheKey::ProgressUpdateCache { .. } => {
                 self.config.server.progress_update_threshold
             }
+
+            ApplicationCacheKey::UserCollectionsList { .. }
+            | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
             ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
