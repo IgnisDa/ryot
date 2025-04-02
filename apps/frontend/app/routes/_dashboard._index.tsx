@@ -291,10 +291,11 @@ export default function Page() {
 									) : null}
 								</Group>
 								{trendingMetadataSelection.length > 0 ? (
-									<>
-										{JSON.stringify(trendingMetadataSelection, null, 3)}
-										{/* TODO: Do stuff here */}
-									</>
+									<ApplicationGrid>
+										{trendingMetadataSelection.map((lm) => (
+											<MetadataDisplayItem key={lm} metadataId={lm} />
+										))}
+									</ApplicationGrid>
 								) : (
 									<Text c="dimmed">No trending media available.</Text>
 								)}
