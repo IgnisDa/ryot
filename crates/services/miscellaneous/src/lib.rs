@@ -43,9 +43,10 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
     CoreDetails, ExpireCacheKeyInput, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
     MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
+    PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse, UserMetadataDetails,
+    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -2374,6 +2375,24 @@ impl MiscellaneousService {
             intermediate.insert(&self.0.db).await.ok();
         }
         Ok(())
+    }
+
+    pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
+        let key = ApplicationCacheKey::TrendingMetadataIds;
+        let (_id, cached) = self
+            .0
+            .cache_service
+            .get_value::<TrendingMetadataIdsResponse>(key)
+            .await
+            .unwrap_or_default();
+        let actually_in_db = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::Id.is_in(cached))
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?;
+        Ok(actually_in_db)
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
