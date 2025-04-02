@@ -2389,6 +2389,7 @@ impl MiscellaneousService {
             .select_only()
             .column(metadata::Column::Id)
             .filter(metadata::Column::Id.is_in(cached))
+            .order_by_desc(metadata::Column::LastUpdatedOn)
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
