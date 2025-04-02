@@ -48,24 +48,24 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "=1.0.97"
-apalis = { version = "=0.6.4", features = ["catch-panic", "limit", "retry"] }
-apalis-cron = "=0.6.4"
+apalis = { version = "=0.7.0", features = ["catch-panic", "limit", "retry"] }
+apalis-cron = "=0.7.0"
 argon2 = "=0.6.0-pre.1"
-async-graphql = { version = "=7.0.15", features = [
+async-graphql = { version = "=7.0.16", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
     "uuid",
 ] }
-async-graphql-axum = "=7.0.15"
-async-trait = "=0.1.87"
+async-graphql-axum = "=7.0.16"
+async-trait = "=0.1.88"
 aws-sdk-s3 = { version = "=1.76.0", features = ["behavior-version-latest"] }
-axum = { version = "=0.8.1", features = ["macros", "multipart"] }
+axum = { version = "=0.8.3", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-bon = "=3.4.0"
+bon = "=3.5.1"
 chrono = "=0.4.40"
-chrono-tz = "=0.10.1"
+chrono-tz = "=0.10.3"
 compile-time = "=0.2.0"
 const-str = "=0.6.2"
 convert_case = "=0.8.0"
@@ -105,10 +105,10 @@ paginate = "=1.1.11"
 radarr-api-rs = "=3.0.1"
 rand = "=0.9.0"
 regex = "=1.11.1"
-rust_decimal = "=1.36.0"
-rust_decimal_macros = "=1.36.0"
+rust_decimal = "=1.37.1"
+rust_decimal_macros = "=1.37.1"
 rust_iso3166 = "=0.1.14"
-rustypipe = { version = "0.11.0", features = ["userdata"] }
+rustypipe = { version = "0.11.2", features = ["userdata"] }
 schematic = { version = "=0.18.1", features = [
     "config",
     "env",
@@ -124,7 +124,7 @@ schematic = { version = "=0.18.1", features = [
     "yaml",
 ], default-features = false }
 scraper = "=0.23.1"
-sea-orm = { version = "=1.1.7", features = [
+sea-orm = { version = "=1.1.8", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -135,8 +135,8 @@ sea-orm = { version = "=1.1.7", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.1.7"
-sea-query = "=0.32.2"
+sea-orm-migration = "=1.1.8"
+sea-query = "=0.32.3"
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
 serde_with = { version = "=3.12.0", features = ["chrono_0_4"] }
@@ -146,15 +146,15 @@ sonarr-api-rs = "=3.0.0"
 sqlx = { version = "=0.8.3", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
-reqwest = { version = "=0.12.14", features = ["json", "stream"] }
-tokio = { version = "=1.44.0", features = ["full"] }
-tokio-util = { version = "=0.7.13", features = ["codec"] }
+reqwest = { version = "=0.12.15", features = ["json", "stream"] }
+tokio = { version = "=1.44.1", features = ["full"] }
+tokio-util = { version = "=0.7.14", features = ["codec"] }
 tower = "=0.5.2"
 tower-http = { version = "=0.6.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
 tracing-subscriber = "=0.3.19"
 unkey = "=0.5.0"
-uuid = { version = "=1.15.1", features = ["v4"], default-features = false }
+uuid = { version = "=1.16.0", features = ["v4"], default-features = false }
 
 [profile.release]
 lto = true

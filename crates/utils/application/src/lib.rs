@@ -11,7 +11,8 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use common_utils::{FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR, ryot_log};
 use file_storage_service::FileStorageService;
 use media_models::{
-    GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+    GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ReviewItem, ShowEpisode, ShowSeason,
+    ShowSpecifics,
 };
 use openidconnect::{
     Client, ClientId, ClientSecret, EmptyAdditionalClaims, EndpointMaybeSet, EndpointNotSet,
@@ -28,6 +29,7 @@ use reqwest::{
     ClientBuilder,
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
 };
+use rust_decimal::Decimal;
 use sea_orm::Order;
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
@@ -200,5 +202,16 @@ pub async fn create_oidc_client(
             ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
             None
         }
+    }
+}
+
+pub fn calculate_average_rating(reviews: &[ReviewItem]) -> Option<Decimal> {
+    let reviews_with_ratings = reviews.iter().filter_map(|r| r.rating).count();
+    match reviews_with_ratings {
+        0 => None,
+        _ => Some(
+            reviews.iter().filter_map(|r| r.rating).sum::<Decimal>()
+                / Decimal::from(reviews_with_ratings),
+        ),
     }
 }

@@ -71,11 +71,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			input: { page: query[pageQueryParam], query: query.query },
 		}),
 	]);
-	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
-		genresList.details.total,
-		query[pageQueryParam],
-	);
+		currentPage: query[pageQueryParam],
+		totalResults: genresList.details.total,
+	});
 	return { query, genresList, cookieName, totalPages };
 };
 

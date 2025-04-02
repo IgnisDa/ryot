@@ -375,15 +375,24 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };
 
-export const redirectToFirstPageIfOnInvalidPage = async (
-	request: Request,
-	totalResults: number,
-	currentPage: number,
-) => {
-	const coreDetails = await getCoreDetails();
-	const totalPages = Math.ceil(totalResults / coreDetails.pageSize);
-	if (currentPage > totalPages && currentPage !== 1) {
-		const { searchParams } = new URL(request.url);
+export const redirectToFirstPageIfOnInvalidPage = async (input: {
+	request: Request;
+	currentPage: number;
+	totalResults: number;
+	respectCoreDetailsPageSize?: boolean;
+}) => {
+	const [coreDetails, userPreferences] = await Promise.all([
+		getCoreDetails(),
+		getUserPreferences(input.request),
+	]);
+	const totalPages = Math.ceil(
+		input.totalResults /
+			(input.respectCoreDetailsPageSize
+				? coreDetails.pageSize
+				: userPreferences.general.listPageSize),
+	);
+	if (input.currentPage > totalPages && input.currentPage !== 1) {
+		const { searchParams } = new URL(input.request.url);
 		searchParams.set(pageQueryParam, "1");
 		throw redirect(`?${searchParams.toString()}`);
 	}

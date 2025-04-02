@@ -130,6 +130,56 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 	);
 };
 
+const DisplayAverageRatingOverlay = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+	entityTitle?: string;
+	metadataLot?: MediaLot;
+	averageRating?: string | null;
+}) => {
+	const userPreferences = useUserPreferences();
+	const [_r, setEntityToReview] = useReviewEntity();
+
+	return props.averageRating ? (
+		match(userPreferences.general.reviewScale)
+			.with(UserReviewScale.ThreePointSmiley, () => (
+				<DisplayThreePointReview rating={props.averageRating} />
+			))
+			.otherwise(() => (
+				<Group gap={4}>
+					<IconStarFilled size={12} style={{ color: reviewYellow }} />
+					<Text c="white" size="xs" fw="bold" pr={4}>
+						{Number(props.averageRating) % 1 === 0
+							? Math.round(Number(props.averageRating)).toString()
+							: Number(props.averageRating).toFixed(1)}
+						{userPreferences.general.reviewScale ===
+						UserReviewScale.OutOfHundred
+							? " %"
+							: undefined}
+						{userPreferences.general.reviewScale === UserReviewScale.OutOfTen
+							? "/10"
+							: undefined}
+					</Text>
+				</Group>
+			))
+	) : (
+		<IconStarFilled
+			size={18}
+			cursor="pointer"
+			className={classes.starIcon}
+			onClick={() => {
+				if (props.entityTitle)
+					setEntityToReview({
+						entityId: props.entityId,
+						entityLot: props.entityLot,
+						entityTitle: props.entityTitle,
+						metadataLot: props.metadataLot,
+					});
+			}}
+		/>
+	);
+};
+
 export const MetadataDisplayItem = (props: {
 	metadataId: string;
 	name?: string;
@@ -140,10 +190,8 @@ export const MetadataDisplayItem = (props: {
 	rightLabelLot?: boolean;
 	noLeftLabel?: boolean;
 }) => {
-	const [_r, setEntityToReview] = useReviewEntity();
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
-	const userPreferences = useUserPreferences();
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -229,45 +277,13 @@ export const MetadataDisplayItem = (props: {
 					: undefined
 			}
 			imageOverlay={{
-				topRight: props.topRight ? (
-					props.topRight
-				) : averageRating ? (
-					match(userPreferences.general.reviewScale)
-						.with(UserReviewScale.ThreePointSmiley, () => (
-							<DisplayThreePointReview rating={averageRating} />
-						))
-						.otherwise(() => (
-							<Group gap={4}>
-								<IconStarFilled size={12} style={{ color: reviewYellow }} />
-								<Text c="white" size="xs" fw="bold" pr={4}>
-									{Number(averageRating) % 1 === 0
-										? Math.round(Number(averageRating)).toString()
-										: Number(averageRating).toFixed(1)}
-									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfHundred
-										? " %"
-										: undefined}
-									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfTen
-										? "/10"
-										: undefined}
-								</Text>
-							</Group>
-						))
-				) : (
-					<IconStarFilled
-						cursor="pointer"
-						onClick={() => {
-							if (metadataDetails)
-								setEntityToReview({
-									entityId: props.metadataId,
-									entityLot: EntityLot.Metadata,
-									metadataLot: metadataDetails.lot,
-									entityTitle: metadataDetails.title,
-								});
-						}}
-						size={18}
-						className={classes.starIcon}
+				topRight: props.topRight || (
+					<DisplayAverageRatingOverlay
+						entityId={props.metadataId}
+						averageRating={averageRating}
+						entityLot={EntityLot.Metadata}
+						metadataLot={metadataDetails?.lot}
+						entityTitle={metadataDetails?.title}
 					/>
 				),
 				bottomLeft:
@@ -297,9 +313,9 @@ export const MetadataDisplayItem = (props: {
 					<Loader color="red" size="xs" m={2} />
 				) : (
 					<ActionIcon
-						variant="transparent"
 						color="blue"
 						size="compact-md"
+						variant="transparent"
 						onClick={() =>
 							setMetadataToUpdate({ metadataId: props.metadataId }, true)
 						}
@@ -313,10 +329,10 @@ export const MetadataDisplayItem = (props: {
 };
 
 export const MetadataGroupDisplayItem = (props: {
-	metadataGroupId: string;
 	topRight?: ReactNode;
-	rightLabel?: ReactNode;
 	noLeftLabel?: boolean;
+	metadataGroupId: string;
+	rightLabel?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
@@ -325,6 +341,7 @@ export const MetadataGroupDisplayItem = (props: {
 			enabled: inViewport,
 		});
 	const { data: userMetadataGroupDetails } = useQuery({
+		enabled: inViewport,
 		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
 			.queryKey,
 		queryFn: async () => {
@@ -332,20 +349,30 @@ export const MetadataGroupDisplayItem = (props: {
 				.request(UserMetadataGroupDetailsDocument, props)
 				.then((data) => data.userMetadataGroupDetails);
 		},
-		enabled: inViewport,
 	});
+
+	const averageRating = userMetadataGroupDetails?.averageRating;
 
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
-			imageOverlay={{ topRight: props.topRight }}
+			imageUrl={metadataDetails?.details.displayImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
-			imageUrl={metadataDetails?.details.displayImages.at(0)}
+			imageOverlay={{
+				topRight: props.topRight || (
+					<DisplayAverageRatingOverlay
+						averageRating={averageRating}
+						entityId={props.metadataGroupId}
+						entityLot={EntityLot.MetadataGroup}
+						entityTitle={metadataDetails?.details.title}
+					/>
+				),
+			}}
 			labels={
 				metadataDetails
 					? {
@@ -388,17 +415,28 @@ export const PersonDisplayItem = (props: {
 		},
 	});
 
+	const averageRating = userPersonDetails?.averageRating;
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}
+			imageOverlay={{
+				topRight: props.topRight || (
+					<DisplayAverageRatingOverlay
+						entityId={props.personId}
+						entityLot={EntityLot.Person}
+						averageRating={averageRating}
+						entityTitle={personDetails?.details.name}
+					/>
+				),
+			}}
 			labels={{
 				right: props.rightLabel,
 				left: personDetails

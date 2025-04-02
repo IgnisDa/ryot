@@ -116,7 +116,7 @@ import {
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
-	refreshUserMetadataDetails,
+	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
@@ -368,7 +368,7 @@ export default function Page() {
 	const onSubmitProgressUpdate = (e: FormEvent<HTMLFormElement>) => {
 		submit(e);
 		events.updateProgress(loaderData.metadataDetails.title);
-		refreshUserMetadataDetails(loaderData.metadataId);
+		refreshEntityDetails(loaderData.metadataId);
 	};
 
 	const PutOnHoldMenuItem = () => {

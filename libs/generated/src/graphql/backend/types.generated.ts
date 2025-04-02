@@ -2558,6 +2558,7 @@ export type UserGeneralPreferences = {
   displayNsfw: Scalars['Boolean']['output'];
   gridPacking: GridPacking;
   landingPath: Scalars['String']['output'];
+  listPageSize: Scalars['Int']['output'];
   persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['output'];
@@ -2574,6 +2575,7 @@ export type UserGeneralPreferencesInput = {
   displayNsfw: Scalars['Boolean']['input'];
   gridPacking: GridPacking;
   landingPath: Scalars['String']['input'];
+  listPageSize: Scalars['Int']['input'];
   persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['input'];
@@ -2806,6 +2808,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
@@ -2873,6 +2876,7 @@ export type UserPeopleListInput = {
 
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
+  averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;

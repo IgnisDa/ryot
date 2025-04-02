@@ -16,6 +16,7 @@ jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
+rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
