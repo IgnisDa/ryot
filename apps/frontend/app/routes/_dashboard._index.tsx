@@ -265,6 +265,12 @@ export default function Page() {
 								)}
 							</Section>
 						))
+						.with([DashboardElementLot.Trending, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Trending" />
+								<Text>This is the section.</Text>
+							</Section>
+						))
 						.otherwise(() => undefined),
 				)}
 			</Stack>
