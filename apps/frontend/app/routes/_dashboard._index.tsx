@@ -2,11 +2,12 @@ import {
 	Alert,
 	Button,
 	Container,
+	Drawer,
 	Group,
-	Modal,
 	Stack,
 	Text,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -54,7 +55,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
-import { useDisclosure } from "@mantine/hooks";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
@@ -146,7 +146,7 @@ export default function Page() {
 	const { startOnboardingTour } = useOnboardingTour();
 	const isMobile = useIsMobile();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
-	const [isTrendingMetadataModalOpen, { toggle: toggleTrendingMetadataModal }] =
+	const [isTrendingMetadataListOpen, { toggle: toggleTrendingMetadataList }] =
 		useDisclosure(false);
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
@@ -165,19 +165,20 @@ export default function Page() {
 
 	return (
 		<>
-			{isTrendingMetadataModalOpen ? (
-				<Modal
+			{isTrendingMetadataListOpen ? (
+				<Drawer
 					size="xl"
+					position="right"
 					title="Trending Media"
-					opened={isTrendingMetadataModalOpen}
-					onClose={toggleTrendingMetadataModal}
+					opened={isTrendingMetadataListOpen}
+					onClose={toggleTrendingMetadataList}
 				>
 					<ApplicationGrid>
 						{loaderData.trendingMetadata.map((lm) => (
 							<MetadataDisplayItem key={lm} metadataId={lm} />
 						))}
 					</ApplicationGrid>
-				</Modal>
+				</Drawer>
 			) : null}
 			<Container>
 				<Stack gap={32}>
@@ -315,7 +316,7 @@ export default function Page() {
 											<Button
 												size="xs"
 												variant="subtle"
-												onClick={toggleTrendingMetadataModal}
+												onClick={toggleTrendingMetadataList}
 											>
 												View All
 											</Button>
