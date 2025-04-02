@@ -53,12 +53,12 @@ impl CacheService {
                 self.config.server.progress_update_threshold
             }
 
-            ApplicationCacheKey::TrendingMetadataIds { .. }
-            | ApplicationCacheKey::YoutubeMusicSongListened { .. }
+            ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings { .. }
             | ApplicationCacheKey::TmdbSettings { .. }
+            | ApplicationCacheKey::TrendingMetadataIds { .. }
             | ApplicationCacheKey::ListennotesSettings { .. } => 120,
         }
     }
