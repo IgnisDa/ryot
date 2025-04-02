@@ -1,4 +1,4 @@
-import { Alert, Container, Group, Stack, Text } from "@mantine/core";
+import { Alert, Button, Container, Group, Stack, Text } from "@mantine/core";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -6,6 +6,7 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
+	TrendingMetadataDocument,
 	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
 	type UserPreferences,
@@ -84,6 +85,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		{ userMetadataRecommendations },
 		{ userUpcomingCalendarEvents },
 		{ userAnalytics },
+		{ trendingMetadata },
 	] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
@@ -108,9 +110,15 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 				groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
 			},
 		}),
+		serverGqlService.authenticatedRequest(
+			request,
+			TrendingMetadataDocument,
+			{},
+		),
 	]);
 	return {
 		userAnalytics,
+		trendingMetadata,
 		userUpcomingCalendarEvents,
 		userMetadataRecommendations,
 		inProgressCollectionContents,
@@ -132,6 +140,12 @@ export default function Page() {
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
+	const trendingMetadataSelection = loaderData.trendingMetadata.slice(
+		0,
+		userPreferences.general.dashboard.find(
+			(de) => de.section === DashboardElementLot.Trending,
+		)?.numElements || 1,
+	);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
@@ -267,8 +281,23 @@ export default function Page() {
 						))
 						.with([DashboardElementLot.Trending, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<SectionTitle text="Trending" />
-								<Text>This is the section.</Text>
+								<Group justify="space-between">
+									<SectionTitle text="Trending" />
+									{loaderData.trendingMetadata.length >
+									trendingMetadataSelection.length ? (
+										<Button variant="subtle" size="xs">
+											View All
+										</Button>
+									) : null}
+								</Group>
+								{trendingMetadataSelection.length > 0 ? (
+									<>
+										{JSON.stringify(trendingMetadataSelection, null, 3)}
+										{/* TODO: Do stuff here */}
+									</>
+								) : (
+									<Text c="dimmed">No trending media available.</Text>
+								)}
 							</Section>
 						))
 						.otherwise(() => undefined),
