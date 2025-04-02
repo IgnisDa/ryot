@@ -441,6 +441,7 @@ export enum DashboardElementLot {
   InProgress = 'IN_PROGRESS',
   Recommendations = 'RECOMMENDATIONS',
   Summary = 'SUMMARY',
+  Trending = 'TRENDING',
   Upcoming = 'UPCOMING'
 }
 
