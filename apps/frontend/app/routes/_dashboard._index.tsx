@@ -15,8 +15,8 @@ import {
 	DashboardElementLot,
 	GraphqlSortOrder,
 	MediaLot,
+	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
-	UserAnalyticsDocument,
 	UserMetadataRecommendationsDocument,
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
@@ -113,12 +113,16 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 		),
-		serverGqlService.authenticatedRequest(request, UserAnalyticsDocument, {
-			input: {
-				dateRange: {},
-				groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+		serverGqlService.authenticatedRequest(
+			request,
+			MinimalUserAnalyticsDocument,
+			{
+				input: {
+					dateRange: {},
+					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+				},
 			},
-		}),
+		),
 		serverGqlService.authenticatedRequest(
 			request,
 			TrendingMetadataDocument,
