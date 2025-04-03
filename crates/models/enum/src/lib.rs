@@ -713,5 +713,6 @@ pub enum UserNotificationContent {
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
     NotificationFromReminderCollection,
+    EntityRemovedFromMonitoringCollection,
     IntegrationDisabledDueToTooManyErrors,
 }

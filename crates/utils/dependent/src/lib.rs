@@ -1,4 +1,10 @@
-use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    future::Future,
+    iter::zip,
+    sync::Arc,
+};
 
 use application_utils::{get_current_date, graphql_to_db_order};
 use async_graphql::{Enum, Error, Result};
@@ -917,6 +923,38 @@ pub async fn deploy_background_job(
     Ok(true)
 }
 
+pub async fn get_entity_title_from_id_and_lot(
+    id: &String,
+    lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let obj_title = match lot {
+        EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
+        EntityLot::MetadataGroup => {
+            MetadataGroup::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .title
+        }
+        EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Exercise => id.clone(),
+        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::WorkoutTemplate => {
+            WorkoutTemplate::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .name
+        }
+        EntityLot::Review | EntityLot::UserMeasurement => {
+            unreachable!()
+        }
+    };
+    Ok(obj_title)
+}
+
 pub async fn post_review(
     user_id: &String,
     input: CreateOrUpdateReviewInput,
@@ -1006,23 +1044,7 @@ pub async fn post_review(
     if insert.visibility.unwrap() == Visibility::Public {
         let entity_lot = insert.entity_lot.unwrap();
         let id = insert.entity_id.unwrap();
-        let obj_title = match entity_lot {
-            EntityLot::Metadata => Metadata::find_by_id(&id).one(&ss.db).await?.unwrap().title,
-            EntityLot::MetadataGroup => {
-                MetadataGroup::find_by_id(&id)
-                    .one(&ss.db)
-                    .await?
-                    .unwrap()
-                    .title
-            }
-            EntityLot::Person => Person::find_by_id(&id).one(&ss.db).await?.unwrap().name,
-            EntityLot::Collection => Collection::find_by_id(&id).one(&ss.db).await?.unwrap().name,
-            EntityLot::Exercise => id.clone(),
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => unreachable!(),
-        };
+        let obj_title = get_entity_title_from_id_and_lot(&id, entity_lot, ss).await?;
         let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
@@ -2658,6 +2680,7 @@ pub async fn create_or_update_collection(
     input: CreateOrUpdateCollectionInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
+    ryot_log!(debug, "Creating or updating collection: {:?}", input);
     let txn = ss.db.begin().await?;
     let meta = Collection::find()
         .filter(collection::Column::Name.eq(input.name.clone()))
@@ -2699,10 +2722,16 @@ pub async fn create_or_update_collection(
                 .await
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
             let id = inserted.id.unwrap();
-            let mut collaborators = vec![user_id.to_owned()];
+            let result = UserToEntity::delete_many()
+                .filter(user_to_entity::Column::CollectionId.eq(&id))
+                .exec(&txn)
+                .await?;
+            ryot_log!(debug, "Deleted old user to entity: {:?}", result);
+            let mut collaborators = HashSet::from([user_id.to_owned()]);
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
+            ryot_log!(debug, "Collaborators: {:?}", collaborators);
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
