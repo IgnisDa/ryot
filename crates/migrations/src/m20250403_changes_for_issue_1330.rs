@@ -10,17 +10,14 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE
-  "user"
+  "notification_platform"
 SET
-  preferences = JSONB_SET(
-    preferences,
-    '{notifications,to_send}',
-    (preferences -> 'notifications' -> 'to_send') || '"EntityRemovedFromMonitoringCollection"'
+  configured_events = ARRAY_APPEND(
+    configured_events,
+    'EntityRemovedFromMonitoringCollection'
   )
 where
-  NOT (
-    preferences -> 'notifications' -> 'to_send' ? 'EntityRemovedFromMonitoringCollection'
-  );
+  NOT ('EntityRemovedFromMonitoringCollection' = ANY (configured_events));
             "#,
         )
         .await?;
