@@ -53,13 +53,13 @@ use dependent_utils::{
     commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
     deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
     deploy_update_person_job, first_metadata_image_as_url, get_entity_recently_consumed,
-    get_google_books_service, get_hardcover_service, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, get_users_and_cte_monitoring_entity,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update,
-    refresh_collection_to_entity_association, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
-    user_metadata_list, user_people_list,
+    get_entity_title_from_id_and_lot, get_google_books_service, get_hardcover_service,
+    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, refresh_collection_to_entity_association,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -2478,12 +2478,18 @@ impl MiscellaneousService {
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
             id: Uuid,
+            entity_id: String,
+            collection_id: String,
+            entity_lot: EntityLot,
             created_on: DateTimeUtc,
             last_updated_on: DateTimeUtc,
         }
         let all_cte = CollectionToEntity::find()
             .select_only()
             .column(collection_to_entity::Column::Id)
+            .column(collection_to_entity::Column::EntityId)
+            .column_as(collection::Column::Id, "collection_id")
+            .column(collection_to_entity::Column::EntityLot)
             .column(collection_to_entity::Column::CreatedOn)
             .column(collection_to_entity::Column::LastUpdatedOn)
             .inner_join(Collection)
@@ -2495,14 +2501,33 @@ impl MiscellaneousService {
         for cte in all_cte {
             let delta = cte.last_updated_on - cte.created_on;
             if delta.num_days().abs() > self.0.config.media.monitoring_remove_after_days {
-                to_delete.push(cte.id);
+                to_delete.push(cte);
             }
         }
         if to_delete.is_empty() {
             return Ok(());
         }
+        for item in to_delete.iter() {
+            let users_in_this_collection = UserToEntity::find()
+                .filter(user_to_entity::Column::CollectionId.eq(&item.collection_id))
+                .all(&self.0.db)
+                .await?;
+            let title =
+                get_entity_title_from_id_and_lot(&item.entity_id, item.entity_lot, &self.0).await?;
+            for user in users_in_this_collection {
+                send_notification_for_user(
+                    &user.user_id,
+                    &self.0,
+                    &(
+                        format!("{} has been removed from the monitoring collection", title),
+                        UserNotificationContent::EntityRemovedFromMonitoringCollection,
+                    ),
+                )
+                .await?;
+            }
+        }
         let result = CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::Id.is_in(to_delete))
+            .filter(collection_to_entity::Column::Id.is_in(to_delete.into_iter().map(|c| c.id)))
             .exec(&self.0.db)
             .await?;
         ryot_log!(
