@@ -2707,7 +2707,7 @@ pub async fn create_or_update_collection(
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
             let id = inserted.id.unwrap();
             let result = UserToEntity::delete_many()
-                .filter(user_to_entity::Column::CollectionId.eq(Some(id.clone())))
+                .filter(user_to_entity::Column::CollectionId.eq(&id))
                 .exec(&txn)
                 .await?;
             ryot_log!(debug, "Deleted old user to entity: {:?}", result);
