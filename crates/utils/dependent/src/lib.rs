@@ -2706,6 +2706,11 @@ pub async fn create_or_update_collection(
                 .await
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
             let id = inserted.id.unwrap();
+            let result = UserToEntity::delete_many()
+                .filter(user_to_entity::Column::CollectionId.eq(Some(id.clone())))
+                .exec(&txn)
+                .await?;
+            ryot_log!(debug, "Deleted old user to entity: {:?}", result);
             let mut collaborators = HashSet::from([user_id.to_owned()]);
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
