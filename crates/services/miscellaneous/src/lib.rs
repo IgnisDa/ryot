@@ -2498,6 +2498,9 @@ impl MiscellaneousService {
                 to_delete.push(cte.id);
             }
         }
+        if to_delete.is_empty() {
+            return Ok(());
+        }
         let result = CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::Id.is_in(to_delete))
             .exec(&self.0.db)
