@@ -43,9 +43,10 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
     CoreDetails, ExpireCacheKeyInput, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
     MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, UserMetadataDetails, UserMetadataGroupDetails,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
+    PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse, UserMetadataDetails,
+    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    UserPersonDetails,
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
@@ -60,6 +61,7 @@ use dependent_utils::{
     send_notification_for_user, update_metadata_and_notify_users, user_metadata_groups_list,
     user_metadata_list, user_people_list,
 };
+use enum_meta::Meta;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
     UserNotificationContent, UserToMediaReason,
@@ -93,9 +95,9 @@ use providers::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
-    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait,
-    Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
-    Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
+    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    RelationTrait, Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::{
     Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
@@ -1281,8 +1283,8 @@ impl MiscellaneousService {
             .people_search(
                 &query,
                 input.search.page,
-                &input.source_specifics,
                 preferences.general.display_nsfw,
+                &input.source_specifics,
             )
             .await?;
         cc.set_key(
@@ -2375,6 +2377,25 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
+        let key = ApplicationCacheKey::TrendingMetadataIds;
+        let (_id, cached) = self
+            .0
+            .cache_service
+            .get_value::<TrendingMetadataIdsResponse>(key)
+            .await
+            .unwrap_or_default();
+        let actually_in_db = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::Id.is_in(cached))
+            .order_by_desc(metadata::Column::LastUpdatedOn)
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?;
+        Ok(actually_in_db)
+    }
+
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
@@ -2713,6 +2734,37 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    async fn download_trending_metadata(&self) -> Result<()> {
+        let mut trending_ids = HashSet::new();
+        let provider_configs = MediaLot::iter()
+            .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
+
+        for (lot, source) in provider_configs {
+            let provider = match get_metadata_provider(lot, source, &self.0).await {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let media = match provider.get_trending_media().await {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            for item in media {
+                if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
+                    trending_ids.insert(metadata.id);
+                }
+            }
+        }
+
+        self.0
+            .cache_service
+            .set_key(
+                ApplicationCacheKey::TrendingMetadataIds,
+                ApplicationCacheValue::TrendingMetadataIds(trending_ids.into_iter().collect()),
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2760,6 +2812,8 @@ impl MiscellaneousService {
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
+        ryot_log!(trace, "Downloading trending metadata");
+        self.download_trending_metadata().await.trace_ok();
         ryot_log!(trace, "Expiring cache keys");
         self.expire_cache_keys().await.trace_ok();
 

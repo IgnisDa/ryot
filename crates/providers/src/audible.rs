@@ -168,8 +168,8 @@ impl MediaProvider for AudibleService {
         &self,
         query: &str,
         page: Option<i32>,
-        _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
+        _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PeopleSearchResponse> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;

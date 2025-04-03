@@ -1,6 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Avatar,
 	Badge,
@@ -29,6 +30,7 @@ import {
 import { changeCase, isNumber, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
+	IconBellRinging,
 	IconClock,
 	IconInfoCircle,
 	type IconProps,
@@ -50,7 +52,11 @@ import {
 	getExerciseDetailsPath,
 	getSetColor,
 } from "~/lib/common";
-import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
+import {
+	useGetRandomMantineColor,
+	useUserDetails,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
@@ -503,4 +509,15 @@ export const WorkoutTemplateDisplayItem = (props: {
 			}}
 		/>
 	);
+};
+
+export const WorkoutRevisionScheduledAlert = () => {
+	const userDetails = useUserDetails();
+
+	return userDetails.extraInformation?.scheduledForWorkoutRevision ? (
+		<Alert icon={<IconBellRinging />}>
+			A workout revision has been scheduled. Workout details might be outdated
+			until revision is complete.
+		</Alert>
+	) : null;
 };

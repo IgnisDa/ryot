@@ -61,6 +61,7 @@ import { z } from "zod";
 import { DisplayCollection, ProRequiredAlert } from "~/components/common";
 import {
 	ExerciseHistory,
+	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
@@ -311,6 +312,7 @@ export default function Page() {
 			) : null}
 			<Container size="xs">
 				<Stack>
+					<WorkoutRevisionScheduledAlert />
 					<Group justify="space-between" wrap="nowrap">
 						<Title>{loaderData.entityName}</Title>
 						<Menu shadow="md" position="bottom-end">

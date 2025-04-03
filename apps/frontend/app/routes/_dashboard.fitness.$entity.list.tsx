@@ -2,7 +2,6 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Sparkline } from "@mantine/charts";
 import {
 	ActionIcon,
-	Alert,
 	Anchor,
 	Box,
 	Center,
@@ -39,7 +38,6 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
-	IconBellRinging,
 	IconChevronDown,
 	IconChevronUp,
 	IconClock,
@@ -64,6 +62,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
+	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
@@ -80,7 +79,6 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
-	useUserDetails,
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
@@ -172,7 +170,6 @@ export const meta = ({ data }: Route.MetaArgs) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const userDetails = useUserDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const [
@@ -188,12 +185,7 @@ export default function Page() {
 	return (
 		<Container size="xs">
 			<Stack>
-				{userDetails.extraInformation?.scheduledForWorkoutRevision ? (
-					<Alert icon={<IconBellRinging />}>
-						You have scheduled a workout revision. They might be outdated until
-						revision is completed.
-					</Alert>
-				) : null}
+				<WorkoutRevisionScheduledAlert />
 				<Flex align="center" gap="md">
 					<Title>{changeCase(loaderData.entity)}</Title>
 					<ActionIcon

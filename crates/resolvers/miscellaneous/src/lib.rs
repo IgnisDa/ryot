@@ -8,9 +8,9 @@ use common_models::{
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
-    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
-    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
+    TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
@@ -219,6 +219,15 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(&user_id, input).await
+    }
+
+    /// Get trending media items.
+    async fn trending_metadata(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<TrendingMetadataIdsResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.trending_metadata().await
     }
 }
 

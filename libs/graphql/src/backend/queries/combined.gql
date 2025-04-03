@@ -527,3 +527,7 @@ query UserAnalyticsParameters {
 		startDate
 	}
 }
+
+query TrendingMetadata {
+	trendingMetadata
+}

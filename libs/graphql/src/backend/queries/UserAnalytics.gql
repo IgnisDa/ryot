@@ -3,7 +3,6 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 		hours {
 			hour
 			entities {
-				entityId
 				entityLot
 				metadataLot
 			}
@@ -13,41 +12,7 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 			totalCount
 			totalDuration
 			items {
-				day
-				bookCount
-				showCount
-				totalCount
-				movieCount
-				musicCount
-				animeCount
-				mangaCount
-				workoutCount
-				podcastCount
-				totalDuration
-				totalBookPages
-				audioBookCount
-				videoGameCount
-				totalReviewCount
-				visualNovelCount
-				totalWorkoutReps
-				totalShowDuration
-				totalMovieDuration
-				totalMusicDuration
-				totalMetadataCount
-				totalWorkoutWeight
-				totalPodcastDuration
-				totalWorkoutDistance
-				totalWorkoutRestTime
-				totalWorkoutDuration
-				userMeasurementCount
-				totalVideoGameDuration
-				totalAudioBookDuration
-				totalPersonReviewCount
-				totalVisualNovelDuration
-				totalMetadataReviewCount
-				totalWorkoutPersonalBests
-				totalCollectionReviewCount
-				totalMetadataGroupReviewCount
+				...DailyUserActivityItemPart
 			}
 		}
 		fitness {
@@ -71,6 +36,16 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 			workoutEquipments {
 				count
 				equipment
+			}
+		}
+	}
+}
+
+query MinimalUserAnalytics($input: UserAnalyticsInput!) {
+	userAnalytics(input: $input) {
+		activities {
+			items {
+				...DailyUserActivityItemPart
 			}
 		}
 	}
