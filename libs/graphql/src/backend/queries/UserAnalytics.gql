@@ -40,3 +40,13 @@ query UserAnalytics($input: UserAnalyticsInput!) {
 		}
 	}
 }
+
+query MinimalUserAnalytics($input: UserAnalyticsInput!) {
+	userAnalytics(input: $input) {
+		activities {
+			items {
+				...DailyUserActivityItemPart
+			}
+		}
+	}
+}
