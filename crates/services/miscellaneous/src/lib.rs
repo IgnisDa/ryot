@@ -2530,11 +2530,7 @@ impl MiscellaneousService {
             .filter(collection_to_entity::Column::Id.is_in(to_delete.into_iter().map(|c| c.id)))
             .exec(&self.0.db)
             .await?;
-        ryot_log!(
-            debug,
-            "Deleted {} collection to entity associations",
-            result.rows_affected
-        );
+        ryot_log!(debug, "Deleted collection to entity: {:#?}", result);
         Ok(())
     }
 
