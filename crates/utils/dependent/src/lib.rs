@@ -923,6 +923,38 @@ pub async fn deploy_background_job(
     Ok(true)
 }
 
+pub async fn get_entity_title_from_id_and_lot(
+    id: &String,
+    lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let obj_title = match lot {
+        EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
+        EntityLot::MetadataGroup => {
+            MetadataGroup::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .title
+        }
+        EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Exercise => id.clone(),
+        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::WorkoutTemplate => {
+            WorkoutTemplate::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .unwrap()
+                .name
+        }
+        EntityLot::Review | EntityLot::UserMeasurement => {
+            unreachable!()
+        }
+    };
+    Ok(obj_title)
+}
+
 pub async fn post_review(
     user_id: &String,
     input: CreateOrUpdateReviewInput,
@@ -1012,23 +1044,7 @@ pub async fn post_review(
     if insert.visibility.unwrap() == Visibility::Public {
         let entity_lot = insert.entity_lot.unwrap();
         let id = insert.entity_id.unwrap();
-        let obj_title = match entity_lot {
-            EntityLot::Metadata => Metadata::find_by_id(&id).one(&ss.db).await?.unwrap().title,
-            EntityLot::MetadataGroup => {
-                MetadataGroup::find_by_id(&id)
-                    .one(&ss.db)
-                    .await?
-                    .unwrap()
-                    .title
-            }
-            EntityLot::Person => Person::find_by_id(&id).one(&ss.db).await?.unwrap().name,
-            EntityLot::Collection => Collection::find_by_id(&id).one(&ss.db).await?.unwrap().name,
-            EntityLot::Exercise => id.clone(),
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => unreachable!(),
-        };
+        let obj_title = get_entity_title_from_id_and_lot(&id, entity_lot, ss).await?;
         let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
