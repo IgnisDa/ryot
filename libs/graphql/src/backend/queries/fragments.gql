@@ -226,3 +226,41 @@ fragment PersonDetailsGroupedByRolePart on PersonDetailsGroupedByRole {
 		character
 	}
 }
+
+fragment DailyUserActivityItemPart on DailyUserActivityItem {
+	day
+	totalCount
+	totalDuration
+	totalBookPages
+	totalReviewCount
+	totalMetadataCount
+	totalShowDuration
+	totalMovieDuration
+	totalMusicDuration
+	totalWorkoutReps
+	totalWorkoutWeight
+	totalWorkoutDistance
+	totalWorkoutRestTime
+	totalWorkoutDuration
+	totalPodcastDuration
+	totalVideoGameDuration
+	totalAudioBookDuration
+	totalVisualNovelDuration
+	totalPersonReviewCount
+	totalMetadataReviewCount
+	totalWorkoutPersonalBests
+	totalCollectionReviewCount
+	totalMetadataGroupReviewCount
+	userMeasurementCount
+	bookCount
+	showCount
+	movieCount
+	musicCount
+	animeCount
+	mangaCount
+	workoutCount
+	podcastCount
+	audioBookCount
+	videoGameCount
+	visualNovelCount
+}
