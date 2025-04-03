@@ -2658,6 +2658,7 @@ pub async fn create_or_update_collection(
     input: CreateOrUpdateCollectionInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
+    ryot_log!(debug, "Creating or updating collection: {:?}", input);
     let txn = ss.db.begin().await?;
     let meta = Collection::find()
         .filter(collection::Column::Name.eq(input.name.clone()))
@@ -2703,6 +2704,7 @@ pub async fn create_or_update_collection(
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
+            ryot_log!(debug, "Collaborators: {:?}", collaborators);
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
