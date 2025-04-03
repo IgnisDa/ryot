@@ -1,4 +1,10 @@
-use std::{cmp::Reverse, collections::HashMap, future::Future, iter::zip, sync::Arc};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    future::Future,
+    iter::zip,
+    sync::Arc,
+};
 
 use application_utils::{get_current_date, graphql_to_db_order};
 use async_graphql::{Enum, Error, Result};
@@ -2700,7 +2706,7 @@ pub async fn create_or_update_collection(
                 .await
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
             let id = inserted.id.unwrap();
-            let mut collaborators = vec![user_id.to_owned()];
+            let mut collaborators = HashSet::from([user_id.to_owned()]);
             if let Some(input_collaborators) = input.collaborators {
                 collaborators.extend(input_collaborators);
             }
