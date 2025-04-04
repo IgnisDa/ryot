@@ -2379,12 +2379,46 @@ impl MiscellaneousService {
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
         let key = ApplicationCacheKey::TrendingMetadataIds;
-        let (_id, cached) = self
-            .0
-            .cache_service
-            .get_value::<TrendingMetadataIdsResponse>(key)
-            .await
-            .unwrap_or_default();
+        let (_id, cached) = 'calc: {
+            if let Some(x) = self
+                .0
+                .cache_service
+                .get_value::<TrendingMetadataIdsResponse>(key)
+                .await
+            {
+                break 'calc x;
+            }
+            let mut trending_ids = HashSet::new();
+            let provider_configs = MediaLot::iter()
+                .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
+
+            for (lot, source) in provider_configs {
+                let provider = match get_metadata_provider(lot, source, &self.0).await {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                let media = match provider.get_trending_media().await {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                for item in media {
+                    if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
+                        trending_ids.insert(metadata.id);
+                    }
+                }
+            }
+
+            let vec = trending_ids.into_iter().collect_vec();
+            let id = self
+                .0
+                .cache_service
+                .set_key(
+                    ApplicationCacheKey::TrendingMetadataIds,
+                    ApplicationCacheValue::TrendingMetadataIds(vec.clone()),
+                )
+                .await?;
+            (id, vec)
+        };
         let actually_in_db = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
@@ -2758,37 +2792,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn download_trending_metadata(&self) -> Result<()> {
-        let mut trending_ids = HashSet::new();
-        let provider_configs = MediaLot::iter()
-            .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
-
-        for (lot, source) in provider_configs {
-            let provider = match get_metadata_provider(lot, source, &self.0).await {
-                Ok(p) => p,
-                Err(_) => continue,
-            };
-            let media = match provider.get_trending_media().await {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-            for item in media {
-                if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
-                    trending_ids.insert(metadata.id);
-                }
-            }
-        }
-
-        self.0
-            .cache_service
-            .set_key(
-                ApplicationCacheKey::TrendingMetadataIds,
-                ApplicationCacheValue::TrendingMetadataIds(trending_ids.into_iter().collect()),
-            )
-            .await?;
-        Ok(())
-    }
-
     pub async fn perform_background_jobs(&self) -> Result<()> {
         ryot_log!(debug, "Starting background jobs...");
 
@@ -2836,8 +2839,6 @@ impl MiscellaneousService {
         // function after removing useless data.
         ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
-        ryot_log!(trace, "Downloading trending metadata");
-        self.download_trending_metadata().await.trace_ok();
         ryot_log!(trace, "Expiring cache keys");
         self.expire_cache_keys().await.trace_ok();
 
