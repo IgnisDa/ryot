@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
 database-models = { path = "../database" }
 media-models = { path = "../media" }
 serde = { workspace = true }

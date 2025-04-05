@@ -53,12 +53,12 @@ impl CacheService {
             ApplicationCacheKey::UserCollectionsList { .. }
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
-            ApplicationCacheKey::YoutubeMusicSongListened { .. }
+            ApplicationCacheKey::TrendingMetadataIds { .. }
+            | ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings { .. }
             | ApplicationCacheKey::TmdbSettings { .. }
-            | ApplicationCacheKey::TrendingMetadataIds { .. }
             | ApplicationCacheKey::ListennotesSettings { .. } => 120,
         }
     }

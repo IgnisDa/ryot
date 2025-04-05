@@ -7,7 +7,6 @@ edition = "2024"
 argon2 = { workspace = true }
 async-graphql = { workspace = true }
 application-utils = { path = "../../utils/application" }
-background-models = { path = "../../models/background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }

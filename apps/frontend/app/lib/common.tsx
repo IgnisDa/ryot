@@ -391,6 +391,12 @@ const mediaQueryKeys = createQueryKeys("media", {
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
 	}),
+	trendingMetadata: () => ({
+		queryKey: ["trendingMetadata"],
+	}),
+	userMetadataRecommendations: () => ({
+		queryKey: ["userMetadataRecommendations"],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
@@ -414,12 +420,6 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
-const userQueryKeys = createQueryKeys("user", {
-	userPendingNotifications: () => ({
-		queryKey: ["userPendingNotifications"],
-	}),
-});
-
 const analyticsQueryKeys = createQueryKeys("analytics", {
 	user: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["user", input],
@@ -427,7 +427,6 @@ const analyticsQueryKeys = createQueryKeys("analytics", {
 });
 
 export const queryFactory = mergeQueryKeys(
-	userQueryKeys,
 	mediaQueryKeys,
 	fitnessQueryKeys,
 	analyticsQueryKeys,

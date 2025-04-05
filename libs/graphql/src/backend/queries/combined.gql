@@ -102,15 +102,7 @@ query UsersList($query: String) {
 query UserMetadataRecommendations {
 	userMetadataRecommendations {
 		cacheId
-		response {
-			__typename
-			... on UserMetadataRecommendationsSuccessResponse {
-				recommendations
-			}
-			... on UserMetadataRecommendationsProcessingResponse {
-				startedAt
-			}
-		}
+		response
 	}
 }
 
