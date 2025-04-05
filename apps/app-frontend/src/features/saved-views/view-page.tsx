@@ -23,6 +23,8 @@ import { useApiClient } from "#/hooks/api";
 import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { getAccentMuted } from "#/lib/theme";
+import { SavedViewExtendedForm } from "./components/saved-view-extended-form";
+import { useSavedViewMutations } from "./hooks";
 import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledViewRuntimeRequest,
@@ -49,6 +51,7 @@ export function SavedViewPage(props: {
 		defaultValue: "grid",
 	});
 	const [page, setPage] = useState(1);
+	const savedViewMutations = useSavedViewMutations();
 
 	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
 		params: { path: { viewId: props.viewId } },
@@ -298,19 +301,19 @@ export function SavedViewPage(props: {
 						content: { backgroundColor: surface },
 					}}
 				>
-					<Stack gap="md">
-						<Text fw={600} ff="var(--mantine-headings-font-family)">
-							Under Construction
-						</Text>
-						<Text size="sm" c="dimmed">
-							Editing saved views is out of scope for this first phase. This
-							screen currently supports backend-backed rendering and layout
-							switching only.
-						</Text>
-						<Button variant="light" onClick={drawer.close}>
-							Close
-						</Button>
-					</Stack>
+					<SavedViewExtendedForm
+						view={savedView}
+						onCancel={drawer.close}
+						isSubmitting={savedViewMutations.isPending}
+						onSubmit={async (values) => {
+							await savedViewMutations.updateViewExtendedById(
+								savedView,
+								values,
+							);
+							await savedViewQuery.refetch();
+							drawer.close();
+						}}
+					/>
 				</Drawer>
 			</Stack>
 		</Container>
