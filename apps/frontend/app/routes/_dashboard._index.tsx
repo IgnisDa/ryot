@@ -23,6 +23,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
 import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
@@ -55,7 +56,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
-import { useQuery } from "@tanstack/react-query";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
@@ -151,8 +151,6 @@ export default function Page() {
 	const { startOnboardingTour } = useOnboardingTour();
 	const isMobile = useIsMobile();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
-	const [isTrendingMetadataListOpen, { toggle: toggleTrendingMetadataList }] =
-		useDisclosure(false);
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
@@ -163,164 +161,149 @@ export default function Page() {
 	);
 
 	return (
-		<>
-			{isTrendingMetadataListOpen ? (
-				<Drawer
-					size="xl"
-					position="right"
-					title="Trending Media"
-					opened={isTrendingMetadataListOpen}
-					onClose={toggleTrendingMetadataList}
-				>
-					<ApplicationGrid>
-						{loaderData.trendingMetadata.map((lm) => (
-							<MetadataDisplayItem key={lm} metadataId={lm} />
-						))}
-					</ApplicationGrid>
-				</Drawer>
-			) : null}
-			<Container>
-				<Stack gap={32}>
-					<ClientOnly>
-						{() => (
-							<>
-								{dashboardMessage && isAlertDismissed === "false" ? (
-									<Alert
-										withCloseButton
-										variant="default"
-										icon={<IconInfoCircle />}
-										onClose={() => setIsAlertDismissed("true")}
-									>
-										{dashboardMessage}
-									</Alert>
-								) : null}
-								{!isOnboardingTourCompleted && !isMobile ? (
-									<Alert
-										variant="filled"
-										icon={<IconPlayerPlay />}
-										style={{ cursor: "pointer" }}
-										onClick={startOnboardingTour}
-									>
-										Welcome to Ryot! Click here to start your onboarding tour.
-									</Alert>
-								) : null}
-							</>
-						)}
-					</ClientOnly>
-					{userPreferences.general.dashboard.map((de) =>
-						match([de.section, de.hidden])
-							.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
-								loaderData.userUpcomingCalendarEvents.length > 0 ? (
-									<Section key={v} lot={v}>
-										<SectionTitle text="Upcoming" />
-										<ApplicationGrid>
-											{loaderData.userUpcomingCalendarEvents.map((um) => (
-												<UpComingMedia um={um} key={um.calendarEventId} />
-											))}
-										</ApplicationGrid>
-									</Section>
-								) : null,
-							)
-							.with([DashboardElementLot.InProgress, false], ([v, _]) => (
+		<Container>
+			<Stack gap={32}>
+				<ClientOnly>
+					{() => (
+						<>
+							{dashboardMessage && isAlertDismissed === "false" ? (
+								<Alert
+									withCloseButton
+									variant="default"
+									icon={<IconInfoCircle />}
+									onClose={() => setIsAlertDismissed("true")}
+								>
+									{dashboardMessage}
+								</Alert>
+							) : null}
+							{!isOnboardingTourCompleted && !isMobile ? (
+								<Alert
+									variant="filled"
+									icon={<IconPlayerPlay />}
+									style={{ cursor: "pointer" }}
+									onClick={startOnboardingTour}
+								>
+									Welcome to Ryot! Click here to start your onboarding tour.
+								</Alert>
+							) : null}
+						</>
+					)}
+				</ClientOnly>
+				{userPreferences.general.dashboard.map((de) =>
+					match([de.section, de.hidden])
+						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
+							loaderData.userUpcomingCalendarEvents.length > 0 ? (
 								<Section key={v} lot={v}>
-									<SectionTitleWithRefreshIcon
-										text="In Progress"
-										action={{
-											cacheId: loaderData.inProgressCollectionContents.cacheId,
-										}}
-									/>
-									{loaderData.inProgressCollectionContents.response.results
-										.items.length > 0 ? (
-										<ApplicationGrid>
-											{loaderData.inProgressCollectionContents.response.results.items.map(
-												(lm) => (
-													<DisplayCollectionEntity
-														key={lm.entityId}
-														entityId={lm.entityId}
-														entityLot={lm.entityLot}
-													/>
-												),
-											)}
-										</ApplicationGrid>
-									) : (
-										<Text c="dimmed">No media in progress.</Text>
-									)}
+									<SectionTitle text="Upcoming" />
+									<ApplicationGrid>
+										{loaderData.userUpcomingCalendarEvents.map((um) => (
+											<UpComingMedia um={um} key={um.calendarEventId} />
+										))}
+									</ApplicationGrid>
 								</Section>
-							))
-							.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
-								<Section key={v} lot={v}>
-									<SectionTitleWithRefreshIcon
-										text="Recommendations"
-										action={
-											loaderData.userMetadataRecommendations.response
-												.__typename ===
-											"UserMetadataRecommendationsProcessingResponse"
-												? "revalidate"
-												: {
-														cacheId:
-															loaderData.userMetadataRecommendations.cacheId,
-														confirmationText:
-															"Are you sure you want to refresh the recommendations?",
-													}
-										}
-									/>
-									{coreDetails.isServerKeyValidated ? (
+							) : null,
+						)
+						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitleWithRefreshIcon
+									text="In Progress"
+									action={{
+										cacheId: loaderData.inProgressCollectionContents.cacheId,
+									}}
+								/>
+								{loaderData.inProgressCollectionContents.response.results.items
+									.length > 0 ? (
+									<ApplicationGrid>
+										{loaderData.inProgressCollectionContents.response.results.items.map(
+											(lm) => (
+												<DisplayCollectionEntity
+													key={lm.entityId}
+													entityId={lm.entityId}
+													entityLot={lm.entityLot}
+												/>
+											),
+										)}
+									</ApplicationGrid>
+								) : (
+									<Text c="dimmed">No media in progress.</Text>
+								)}
+							</Section>
+						))
+						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitleWithRefreshIcon
+									text="Recommendations"
+									action={
 										loaderData.userMetadataRecommendations.response
 											.__typename ===
-										"UserMetadataRecommendationsSuccessResponse" ? (
-											loaderData.userMetadataRecommendations.response
-												.recommendations.length > 0 ? (
-												<ApplicationGrid>
-													{loaderData.userMetadataRecommendations.response.recommendations.map(
-														(lm) => (
-															<MetadataDisplayItem key={lm} metadataId={lm} />
-														),
-													)}
-												</ApplicationGrid>
-											) : (
-												<Text c="dimmed">No recommendations available.</Text>
-											)
+										"UserMetadataRecommendationsProcessingResponse"
+											? "revalidate"
+											: {
+													cacheId:
+														loaderData.userMetadataRecommendations.cacheId,
+													confirmationText:
+														"Are you sure you want to refresh the recommendations?",
+												}
+									}
+								/>
+								{coreDetails.isServerKeyValidated ? (
+									loaderData.userMetadataRecommendations.response.__typename ===
+									"UserMetadataRecommendationsSuccessResponse" ? (
+										loaderData.userMetadataRecommendations.response
+											.recommendations.length > 0 ? (
+											<ApplicationGrid>
+												{loaderData.userMetadataRecommendations.response.recommendations.map(
+													(lm) => (
+														<MetadataDisplayItem key={lm} metadataId={lm} />
+													),
+												)}
+											</ApplicationGrid>
 										) : (
-											<Text c="dimmed">
-												Recommendations are being generated. Please check back
-												in a moment.
-											</Text>
+											<Text c="dimmed">No recommendations available.</Text>
 										)
 									) : (
-										<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
-									)}
-								</Section>
-							))
-							.with([DashboardElementLot.Summary, false], ([v, _]) => (
-								<Section key={v} lot={v}>
-									<SectionTitle text="Summary" />
-									{latestUserSummary ? (
-										<DisplaySummarySection
-											latestUserSummary={latestUserSummary}
-										/>
-									) : (
 										<Text c="dimmed">
-											No summary available. Please add some media to your
-											watched history.
+											Recommendations are being generated. Please check back in
+											a moment.
 										</Text>
-									)}
-								</Section>
-							))
-							.with([DashboardElementLot.Trending, false], ([v, _]) => (
-								<Section key={v} lot={v}>
-									<TrendingSection />
-								</Section>
-							))
-							.otherwise(() => undefined),
-					)}
-				</Stack>
-			</Container>
-		</>
+									)
+								) : (
+									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								)}
+							</Section>
+						))
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Summary" />
+								{latestUserSummary ? (
+									<DisplaySummarySection
+										latestUserSummary={latestUserSummary}
+									/>
+								) : (
+									<Text c="dimmed">
+										No summary available. Please add some media to your watched
+										history.
+									</Text>
+								)}
+							</Section>
+						))
+						.with([DashboardElementLot.Trending, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<TrendingSection />
+							</Section>
+						))
+						.otherwise(() => undefined),
+				)}
+			</Stack>
+		</Container>
 	);
 }
 
 const TrendingSection = () => {
 	const userPreferences = useUserPreferences();
+
+	const [isTrendingMetadataListOpen, { toggle: toggleTrendingMetadataList }] =
+		useDisclosure(false);
 
 	const trendingMetadata = useQuery({
 		queryKey: ["trendingMetadata"],
@@ -337,6 +320,21 @@ const TrendingSection = () => {
 
 	return (
 		<>
+			{isTrendingMetadataListOpen ? (
+				<Drawer
+					size="xl"
+					position="right"
+					title="Trending Media"
+					opened={isTrendingMetadataListOpen}
+					onClose={toggleTrendingMetadataList}
+				>
+					<ApplicationGrid>
+						{trendingMetadata.data?.trendingMetadata.map((lm) => (
+							<MetadataDisplayItem key={lm} metadataId={lm} />
+						))}
+					</ApplicationGrid>
+				</Drawer>
+			) : null}
 			<Group justify="space-between">
 				<SectionTitle text="Trending" />
 				{(trendingMetadata.data?.trendingMetadata.length || 0) >
@@ -350,9 +348,9 @@ const TrendingSection = () => {
 					</Button>
 				) : null}
 			</Group>
-			{trendingMetadataSelection.length > 0 ? (
+			{(trendingMetadataSelection?.length || 0) > 0 ? (
 				<ApplicationGrid>
-					{trendingMetadataSelection.map((lm) => (
+					{trendingMetadataSelection?.map((lm) => (
 						<MetadataDisplayItem key={lm} metadataId={lm} />
 					))}
 				</ApplicationGrid>
