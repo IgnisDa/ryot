@@ -29,6 +29,7 @@ import {
 	SimpleGrid,
 	Slider,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Textarea,
@@ -1744,8 +1745,8 @@ const AddEntityToCollectionForm = ({
 	const submit = useConfirmSubmit();
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
 	const [addEntityToCollectionData, _] = useAddEntityToCollection();
+	const [dateInputValue, setDateInputValue] = useState<Date | null>();
 	const [numArrayElements, setNumArrayElements] = useCounter(1);
 
 	if (!addEntityToCollectionData) return null;
@@ -1768,12 +1769,12 @@ const AddEntityToCollectionForm = ({
 	return (
 		<Form
 			method="POST"
+			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 			onSubmit={(e) => {
 				submit(e);
 				refreshEntityDetails(addEntityToCollectionData.entityId);
 				closeAddEntityToCollectionModal();
 			}}
-			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
 				hidden
@@ -1827,6 +1828,14 @@ const AddEntityToCollectionForm = ({
 											defaultValue={template.defaultValue || undefined}
 										/>
 									))
+									.with(CollectionExtraInformationLot.Boolean, () => (
+										<Switch
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											name={`information.${template.name}`}
+										/>
+									))
 									.with(CollectionExtraInformationLot.Number, () => (
 										<NumberInput
 											label={template.name}
@@ -1843,8 +1852,8 @@ const AddEntityToCollectionForm = ({
 									.with(CollectionExtraInformationLot.Date, () => (
 										<>
 											<DateInput
-												value={ownedOn}
-												onChange={setOwnedOn}
+												value={dateInputValue}
+												onChange={setDateInputValue}
 												label={template.name}
 												required={!!template.required}
 												description={template.description}
@@ -1854,12 +1863,12 @@ const AddEntityToCollectionForm = ({
 														: undefined
 												}
 											/>
-											{ownedOn ? (
+											{dateInputValue ? (
 												<input
 													hidden
 													readOnly
 													name={`information.${template.name}`}
-													value={formatDateToNaiveDate(ownedOn)}
+													value={formatDateToNaiveDate(dateInputValue)}
 												/>
 											) : null}
 										</>
