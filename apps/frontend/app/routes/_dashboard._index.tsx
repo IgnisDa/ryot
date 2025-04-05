@@ -1,4 +1,5 @@
 import {
+	ActionIcon,
 	Alert,
 	Button,
 	Container,
@@ -14,6 +15,7 @@ import {
 	CollectionContentsDocument,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
+	ExpireCacheKeyDocument,
 	GraphqlSortOrder,
 	MediaLot,
 	MinimalUserAnalyticsDocument,
@@ -23,8 +25,12 @@ import {
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
-import { IconInfoCircle, IconPlayerPlay } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import {
+	IconInfoCircle,
+	IconPlayerPlay,
+	IconRotateClockwise,
+} from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
@@ -42,7 +48,12 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { clientGqlService, dayjsLib, queryFactory } from "~/lib/common";
+import {
+	clientGqlService,
+	dayjsLib,
+	openConfirmationModal,
+	queryFactory,
+} from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -257,17 +268,33 @@ const RecommendationsSection = () => {
 			clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
 
+	const expireCacheKey = useMutation({
+		mutationFn: () =>
+			clientGqlService.request(ExpireCacheKeyDocument, {
+				cacheId:
+					recommendations.data?.userMetadataRecommendations.cacheId ?? "",
+			}),
+	});
+
 	return (
 		<>
-			<SectionTitleWithRefreshIcon
-				text="Recommendations"
-				action={{
-					cacheId:
-						recommendations.data?.userMetadataRecommendations.cacheId ?? "",
-					confirmationText:
-						"Are you sure you want to refresh the recommendations?",
-				}}
-			/>
+			<Group justify="space-between">
+				<SectionTitle text="Recommendations" />
+				<ActionIcon
+					variant="subtle"
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to refresh the recommendations?",
+							async () => {
+								await expireCacheKey.mutateAsync();
+								recommendations.refetch();
+							},
+						);
+					}}
+				>
+					<IconRotateClockwise />
+				</ActionIcon>
+			</Group>
 			{recommendations.data ? (
 				coreDetails.isServerKeyValidated ? (
 					recommendations.data.userMetadataRecommendations.response.length >
@@ -291,6 +318,7 @@ const RecommendationsSection = () => {
 		</>
 	);
 };
+
 const TrendingSection = () => {
 	const userPreferences = useUserPreferences();
 
