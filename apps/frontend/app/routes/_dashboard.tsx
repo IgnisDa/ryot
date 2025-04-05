@@ -1748,6 +1748,7 @@ const AddEntityToCollectionForm = ({
 	const [addEntityToCollectionData, _] = useAddEntityToCollection();
 	const [dateInputValue, setDateInputValue] = useState<Date | null>();
 	const [numArrayElements, setNumArrayElements] = useCounter(1);
+	const [booleanValue, setBooleanValue] = useState("false");
 
 	if (!addEntityToCollectionData) return null;
 
@@ -1829,12 +1830,24 @@ const AddEntityToCollectionForm = ({
 										/>
 									))
 									.with(CollectionExtraInformationLot.Boolean, () => (
-										<Switch
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											name={`information.${template.name}`}
-										/>
+										<>
+											<Switch
+												label={template.name}
+												required={!!template.required}
+												checked={booleanValue === "true"}
+												description={template.description}
+												onChange={(e) => {
+													setBooleanValue(
+														e.currentTarget.checked ? "true" : "false",
+													);
+												}}
+											/>
+											<input
+												type="hidden"
+												value={booleanValue}
+												name={`information.${template.name}`}
+											/>
+										</>
 									))
 									.with(CollectionExtraInformationLot.Number, () => (
 										<NumberInput
