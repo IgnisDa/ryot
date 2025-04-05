@@ -225,29 +225,7 @@ export default function Page() {
 						))
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<SectionTitleWithRefreshIcon
-									text="Recommendations"
-									action={{
-										cacheId: loaderData.userMetadataRecommendations.cacheId,
-										confirmationText:
-											"Are you sure you want to refresh the recommendations?",
-									}}
-								/>
-								{coreDetails.isServerKeyValidated ? (
-									loaderData.userMetadataRecommendations.response.length > 0 ? (
-										<ApplicationGrid>
-											{loaderData.userMetadataRecommendations.response.map(
-												(lm) => (
-													<MetadataDisplayItem key={lm} metadataId={lm} />
-												),
-											)}
-										</ApplicationGrid>
-									) : (
-										<Text c="dimmed">No recommendations available.</Text>
-									)
-								) : (
-									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
-								)}
+								<RecommendationsSection />
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
@@ -277,6 +255,36 @@ export default function Page() {
 	);
 }
 
+const RecommendationsSection = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
+
+	return (
+		<>
+			<SectionTitleWithRefreshIcon
+				text="Recommendations"
+				action={{
+					cacheId: loaderData.userMetadataRecommendations.cacheId,
+					confirmationText:
+						"Are you sure you want to refresh the recommendations?",
+				}}
+			/>
+			{coreDetails.isServerKeyValidated ? (
+				loaderData.userMetadataRecommendations.response.length > 0 ? (
+					<ApplicationGrid>
+						{loaderData.userMetadataRecommendations.response.map((lm) => (
+							<MetadataDisplayItem key={lm} metadataId={lm} />
+						))}
+					</ApplicationGrid>
+				) : (
+					<Text c="dimmed">No recommendations available.</Text>
+				)
+			) : (
+				<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+			)}
+		</>
+	);
+};
 const TrendingSection = () => {
 	const userPreferences = useUserPreferences();
 
