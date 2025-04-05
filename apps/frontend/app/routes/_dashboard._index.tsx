@@ -42,7 +42,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { clientGqlService, dayjsLib } from "~/lib/common";
+import { clientGqlService, dayjsLib, queryFactory } from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -300,8 +300,8 @@ const TrendingSection = () => {
 		useDisclosure(false);
 
 	const trendingMetadata = useQuery({
-		queryKey: ["trendingMetadata"],
-		queryFn: () => clientGqlService.request(TrendingMetadataDocument, {}),
+		queryKey: queryFactory.media.trendingMetadata().queryKey,
+		queryFn: () => clientGqlService.request(TrendingMetadataDocument),
 	});
 
 	const trendingMetadataSelection =

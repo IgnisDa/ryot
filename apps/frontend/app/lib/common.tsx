@@ -391,6 +391,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
 	}),
+	trendingMetadata: () => ({
+		queryKey: ["trendingMetadata"],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
