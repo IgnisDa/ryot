@@ -1,3 +1,5 @@
+import { Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import {
 	createFileRoute,
 	useCanGoBack,
@@ -34,26 +36,31 @@ function RouteComponent() {
 		}
 	};
 
-	const handleDelete = async () => {
+	const handleDelete = () => {
 		setActionError(null);
-		const confirmed = window.confirm(
-			"Delete this saved view? This cannot be undone.",
-		);
-		if (!confirmed) {
-			return;
-		}
+		modals.openConfirmModal({
+			title: "Delete saved view",
+			confirmProps: { color: "red" },
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			children: (
+				<Text size="sm">Delete this saved view? This cannot be undone.</Text>
+			),
+			onConfirm: async () => {
+				try {
+					await savedViewMutations.deleteViewById(viewId);
+					if (canGoBack) {
+						router.history.back();
+						return;
+					}
 
-		try {
-			await savedViewMutations.deleteViewById(viewId);
-			if (canGoBack) {
-				router.history.back();
-				return;
-			}
-
-			await navigate({ to: "/" });
-		} catch (error) {
-			setActionError(getErrorMessage(error, "Failed to delete saved view."));
-		}
+					await navigate({ to: "/" });
+				} catch (error) {
+					setActionError(
+						getErrorMessage(error, "Failed to delete saved view."),
+					);
+				}
+			},
+		});
 	};
 
 	return (
