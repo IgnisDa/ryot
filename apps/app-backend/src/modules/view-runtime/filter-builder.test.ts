@@ -1,28 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import { PgDialect } from "drizzle-orm/pg-core";
+import {
+	createSmartphoneSchema,
+	createTabletSchema,
+} from "~/lib/test-fixtures";
 import { buildFilterWhereClause } from "./filter-builder";
 import { buildSchemaMap } from "./schema-introspection";
 
 const dialect = new PgDialect();
 
-const smartphoneSchema = {
-	slug: "smartphones",
-	propertiesSchema: {
-		announcedAt: { type: "date" as const },
-		screenSize: { type: "number" as const },
-		isFoldable: { type: "boolean" as const },
-		manufacturer: { type: "string" as const },
-		releaseYear: { type: "integer" as const },
-	},
-};
+const smartphoneSchema = createSmartphoneSchema();
 
-const tabletSchema = {
-	slug: "tablets",
-	propertiesSchema: {
-		maker: { type: "string" as const },
-		releaseYear: { type: "integer" as const },
-	},
-};
+const tabletSchema = createTabletSchema();
 
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
 
