@@ -40,7 +40,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/common";
+import { clientGqlService, dayjsLib } from "~/lib/common";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -55,6 +55,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
+import { useQuery } from "@tanstack/react-query";
 
 const searchParamsSchema = z.object({
 	ignoreLandingPath: zodBoolAsString.optional(),
@@ -155,12 +156,6 @@ export default function Page() {
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
 	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
-	const trendingMetadataSelection = loaderData.trendingMetadata.slice(
-		0,
-		userPreferences.general.dashboard.find(
-			(de) => de.section === DashboardElementLot.Trending,
-		)?.numElements || 1,
-	);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
@@ -313,28 +308,7 @@ export default function Page() {
 							))
 							.with([DashboardElementLot.Trending, false], ([v, _]) => (
 								<Section key={v} lot={v}>
-									<Group justify="space-between">
-										<SectionTitle text="Trending" />
-										{loaderData.trendingMetadata.length >
-										trendingMetadataSelection.length ? (
-											<Button
-												size="xs"
-												variant="subtle"
-												onClick={toggleTrendingMetadataList}
-											>
-												View All
-											</Button>
-										) : null}
-									</Group>
-									{trendingMetadataSelection.length > 0 ? (
-										<ApplicationGrid>
-											{trendingMetadataSelection.map((lm) => (
-												<MetadataDisplayItem key={lm} metadataId={lm} />
-											))}
-										</ApplicationGrid>
-									) : (
-										<Text c="dimmed">No trending media available.</Text>
-									)}
+									<TrendingSection />
 								</Section>
 							))
 							.otherwise(() => undefined),
@@ -344,6 +318,50 @@ export default function Page() {
 		</>
 	);
 }
+
+const TrendingSection = () => {
+	const userPreferences = useUserPreferences();
+
+	const trendingMetadata = useQuery({
+		queryKey: ["trendingMetadata"],
+		queryFn: () => clientGqlService.request(TrendingMetadataDocument, {}),
+	});
+
+	const trendingMetadataSelection =
+		trendingMetadata.data?.trendingMetadata.slice(
+			0,
+			userPreferences.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.Trending,
+			)?.numElements || 1,
+		);
+
+	return (
+		<>
+			<Group justify="space-between">
+				<SectionTitle text="Trending" />
+				{(trendingMetadata.data?.trendingMetadata.length || 0) >
+				(trendingMetadataSelection?.length || 0) ? (
+					<Button
+						size="xs"
+						variant="subtle"
+						onClick={toggleTrendingMetadataList}
+					>
+						View All
+					</Button>
+				) : null}
+			</Group>
+			{trendingMetadataSelection.length > 0 ? (
+				<ApplicationGrid>
+					{trendingMetadataSelection.map((lm) => (
+						<MetadataDisplayItem key={lm} metadataId={lm} />
+					))}
+				</ApplicationGrid>
+			) : (
+				<Text c="dimmed">No trending media available.</Text>
+			)}
+		</>
+	);
+};
 
 const SectionTitleWithRefreshIcon = (props: {
 	text: string;
