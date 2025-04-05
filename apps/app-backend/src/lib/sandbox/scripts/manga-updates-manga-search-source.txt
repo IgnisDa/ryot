@@ -76,11 +76,21 @@ const items = results
 		const title =
 			hitTitle || (typeof record.title === "string" ? record.title : "");
 
+		const image = pickImage(record);
+		const publishYear = parsePublishYear(record.year);
+
 		return {
-			title,
 			identifier: String(seriesId),
-			image: pickImage(record),
-			publishYear: parsePublishYear(record.year),
+			badgeProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: title },
+			subtitleProperty:
+				publishYear === null
+					? { kind: "null", value: null }
+					: { kind: "number", value: publishYear },
+			imageProperty:
+				image === null
+					? { kind: "null", value: null }
+					: { kind: "image", value: { kind: "remote", url: image } },
 		};
 	})
 	.filter((item) => item !== null);
