@@ -206,6 +206,7 @@ export type CollectionExtraInformationInput = {
 };
 
 export enum CollectionExtraInformationLot {
+  Boolean = 'BOOLEAN',
   Date = 'DATE',
   DateTime = 'DATE_TIME',
   Number = 'NUMBER',

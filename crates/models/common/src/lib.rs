@@ -51,6 +51,7 @@ pub enum CollectionExtraInformationLot {
     Number,
     #[default]
     String,
+    Boolean,
     DateTime,
     StringArray,
 }
