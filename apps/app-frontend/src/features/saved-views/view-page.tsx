@@ -20,7 +20,7 @@ import { useResolvedImageUrls } from "#/features/entities/image";
 import { type AppEntityImage, toAppEntity } from "#/features/entities/model";
 import { TrackerIcon } from "#/features/trackers/icons";
 import { useApiClient } from "#/hooks/api";
-import { useColorScheme } from "#/hooks/theme";
+import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { SavedViewResults } from "./view-page-sections";
 import {
@@ -34,8 +34,7 @@ import {
 
 export function SavedViewPage(props: { viewId: string }) {
 	const apiClient = useApiClient();
-	const colorScheme = useColorScheme();
-	const isDark = colorScheme === "dark";
+	const { surface, textPrimary, textSecondary } = useThemeTokens();
 	const [drawerOpened, drawer] = useDisclosure(false);
 	const [layout, setLayout] = useLocalStorage<ViewLayout>({
 		key: `${STORAGE_KEYS.viewLayout}:${props.viewId}`,
@@ -129,13 +128,6 @@ export function SavedViewPage(props: { viewId: string }) {
 		);
 	}
 
-	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
-	const textPrimary = isDark
-		? "var(--mantine-color-dark-0)"
-		: "var(--mantine-color-dark-9)";
-	const textSecondary = isDark
-		? "var(--mantine-color-dark-2)"
-		: "var(--mantine-color-dark-6)";
 	const accentColor = savedView.accentColor;
 	const accentMuted = `color-mix(in srgb, ${accentColor} 15%, transparent)`;
 	const schemaSummary = savedView.queryDefinition.entitySchemaSlugs.join(", ");
@@ -235,11 +227,8 @@ export function SavedViewPage(props: { viewId: string }) {
 						meta={meta}
 						items={items}
 						layout={layout}
-						isDark={isDark}
 						accentColor={accentColor}
 						accentMuted={accentMuted}
-						textPrimary={textPrimary}
-						textSecondary={textSecondary}
 						imageUrlById={imageUrls.imageUrlByEntityId}
 					/>
 				)}

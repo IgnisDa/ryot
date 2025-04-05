@@ -14,6 +14,7 @@ import {
 import { useDisclosure, useHover } from "@mantine/hooks";
 import { Key, Laptop, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { useThemeTokens } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
@@ -41,18 +42,13 @@ function AccountMetaItem(props: { label: string; value: string }) {
 	);
 }
 
-export function SidebarAccountSection(props: {
-	border: string;
-	isDark: boolean;
-	textMuted: string;
-	textPrimary: string;
-	borderAccent: string;
-	account: SidebarAccount;
-}) {
+export function SidebarAccountSection(props: { account: SidebarAccount }) {
 	const isMobile = useIsMobileScreen();
 	const { hovered, ref } = useHover<HTMLButtonElement>();
 	const { colorScheme, setColorScheme } = useMantineColorScheme();
 	const [opened, { close, open }] = useDisclosure(false);
+	const { isDark, border, textMuted, textPrimary } = useThemeTokens();
+	const borderAccent = "var(--mantine-color-accent-5)";
 	const initials = getSidebarAccountInitials(
 		props.account.name,
 		props.account.email,
@@ -65,7 +61,7 @@ export function SidebarAccountSection(props: {
 
 	return (
 		<>
-			<Box p="md" style={{ borderTop: `1px solid ${props.border}` }}>
+			<Box p="md" style={{ borderTop: `1px solid ${border}` }}>
 				<Box
 					ref={ref}
 					onClick={open}
@@ -78,13 +74,13 @@ export function SidebarAccountSection(props: {
 						textAlign: "left",
 						borderRadius: "10px",
 						background: hovered
-							? props.isDark
+							? isDark
 								? "rgba(212, 165, 116, 0.08)"
 								: "rgba(212, 165, 116, 0.09)"
 							: "transparent",
 						transition: "all 140ms ease",
 						borderLeft: hovered
-							? `2px solid ${props.borderAccent}`
+							? `2px solid ${borderAccent}`
 							: "2px solid transparent",
 					}}
 				>
@@ -98,10 +94,10 @@ export function SidebarAccountSection(props: {
 							{initials}
 						</Avatar>
 						<Box miw={0} style={{ flex: 1 }}>
-							<Text c={props.textPrimary} fw={500} size="sm" truncate="end">
+							<Text c={textPrimary} fw={500} size="sm" truncate="end">
 								{props.account.name}
 							</Text>
-							<Text c={props.textMuted} size="xs" truncate="end">
+							<Text c={textMuted} size="xs" truncate="end">
 								{props.account.email}
 							</Text>
 						</Box>
@@ -134,7 +130,7 @@ export function SidebarAccountSection(props: {
 							paddingRight: isMobile ? "0" : "24px",
 							marginBottom: isMobile ? "20px" : "0",
 							minWidth: isMobile ? "auto" : "150px",
-							borderRight: isMobile ? "none" : `1px solid ${props.border}`,
+							borderRight: isMobile ? "none" : `1px solid ${border}`,
 						}}
 					>
 						<Tabs.Tab value="general" leftSection={<Settings size={16} />}>
@@ -166,7 +162,7 @@ export function SidebarAccountSection(props: {
 									>
 										{props.account.name}
 									</Text>
-									<Text c={props.textMuted} size="sm" mt={4} truncate="end">
+									<Text c={textMuted} size="sm" mt={4} truncate="end">
 										{props.account.email}
 									</Text>
 								</Box>
@@ -176,8 +172,8 @@ export function SidebarAccountSection(props: {
 								p="md"
 								style={{
 									borderRadius: "14px",
-									border: `1px solid ${props.border}`,
-									background: props.isDark
+									border: `1px solid ${border}`,
+									background: isDark
 										? "rgba(255, 255, 255, 0.02)"
 										: "rgba(255, 255, 255, 0.82)",
 								}}
@@ -196,7 +192,7 @@ export function SidebarAccountSection(props: {
 											>
 												Appearance
 											</Text>
-											<Text c={props.textMuted} size="sm" mt={4}>
+											<Text c={textMuted} size="sm" mt={4}>
 												Theme follows your journal preference across the app.
 											</Text>
 										</Box>
@@ -243,7 +239,7 @@ export function SidebarAccountSection(props: {
 									p="lg"
 									style={{
 										borderRadius: "14px",
-										border: `1px solid ${props.border}`,
+										border: `1px solid ${border}`,
 									}}
 								>
 									<AccountMetaItem
@@ -255,7 +251,7 @@ export function SidebarAccountSection(props: {
 									p="lg"
 									style={{
 										borderRadius: "14px",
-										border: `1px solid ${props.border}`,
+										border: `1px solid ${border}`,
 									}}
 								>
 									<AccountMetaItem
@@ -278,12 +274,7 @@ export function SidebarAccountSection(props: {
 					</Tabs.Panel>
 
 					<Tabs.Panel value="api-keys" style={{ flex: 1 }}>
-						<SidebarApiKeysSection
-							opened={opened}
-							border={props.border}
-							isDark={props.isDark}
-							textMuted={props.textMuted}
-						/>
+						<SidebarApiKeysSection opened={opened} />
 					</Tabs.Panel>
 				</Tabs>
 			</Modal>
