@@ -95,7 +95,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		{ userMetadataRecommendations },
 		{ userUpcomingCalendarEvents },
 		{ userAnalytics },
-		{ trendingMetadata },
 	] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
@@ -124,15 +123,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 				},
 			},
 		),
-		serverGqlService.authenticatedRequest(
-			request,
-			TrendingMetadataDocument,
-			{},
-		),
 	]);
 	return {
 		userAnalytics,
-		trendingMetadata,
 		userUpcomingCalendarEvents,
 		userMetadataRecommendations,
 		inProgressCollectionContents,
