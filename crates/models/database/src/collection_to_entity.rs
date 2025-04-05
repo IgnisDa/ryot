@@ -10,18 +10,18 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
-    pub created_on: DateTimeUtc,
-    pub last_updated_on: DateTimeUtc,
-    pub collection_id: String,
     pub entity_id: String,
     pub entity_lot: EntityLot,
-    pub metadata_id: Option<String>,
+    pub collection_id: String,
+    pub created_on: DateTimeUtc,
     pub person_id: Option<String>,
-    pub metadata_group_id: Option<String>,
-    pub exercise_id: Option<String>,
     pub workout_id: Option<String>,
-    pub information: Option<serde_json::Value>,
+    pub metadata_id: Option<String>,
+    pub exercise_id: Option<String>,
+    pub last_updated_on: DateTimeUtc,
+    pub metadata_group_id: Option<String>,
     pub workout_template_id: Option<String>,
+    pub information: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

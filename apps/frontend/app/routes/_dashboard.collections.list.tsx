@@ -691,7 +691,7 @@ const CreateOrUpdateModal = (props: {
 					value={props.toUpdateCollection?.id}
 					name={props.toUpdateCollection ? "updateId" : undefined}
 				>
-					{props.toUpdateCollection ? "Update" : "Create"}
+					{props.toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
 			</Stack>
 		</Box>
