@@ -15,6 +15,7 @@ const listedEntitySchemaDefaults: ListedEntitySchema = {
 	id: "schema_1",
 	icon: "book-open",
 	isBuiltin: false,
+	searchProviders: [],
 	trackerId: "tracker_1",
 	accentColor: "#5B7FFF",
 	propertiesSchema: createOptionalTitlePropertiesSchema(),
