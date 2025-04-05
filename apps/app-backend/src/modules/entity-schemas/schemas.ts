@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginatedSchema } from "~/lib/openapi";
+import { dataSchema, paginatedSchema } from "~/lib/openapi";
 import {
 	createImportEnvelopeSchema,
 	nonEmptyTrimmedStringSchema,
@@ -38,3 +38,36 @@ export type ParsedImportPayload = {
 	externalId: string;
 	properties: Record<string, unknown>;
 };
+
+const scriptPairSchema = z.object({
+	searchScriptId: z.string(),
+	detailsScriptId: z.string(),
+	searchScriptName: z.string(),
+	detailsScriptName: z.string(),
+});
+
+export type ScriptPair = z.infer<typeof scriptPairSchema>;
+
+const eventSchemaSchema = z.object({
+	id: z.string(),
+	slug: z.string(),
+	name: z.string(),
+});
+
+export type EventSchema = z.infer<typeof eventSchemaSchema>;
+
+const listedEntitySchema = z.object({
+	id: z.string(),
+	slug: z.string(),
+	name: z.string(),
+	scriptPairs: z.array(scriptPairSchema),
+	eventSchemas: z.array(eventSchemaSchema),
+});
+
+export const listEntitySchemasResponseSchema = dataSchema(
+	z.array(listedEntitySchema),
+);
+
+export const schemaImportResponseSchema = dataSchema(
+	z.object({ created: z.boolean(), entityId: z.string() }),
+);
