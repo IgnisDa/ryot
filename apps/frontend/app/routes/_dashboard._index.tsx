@@ -227,39 +227,23 @@ export default function Page() {
 							<Section key={v} lot={v}>
 								<SectionTitleWithRefreshIcon
 									text="Recommendations"
-									action={
-										loaderData.userMetadataRecommendations.response
-											.__typename ===
-										"UserMetadataRecommendationsProcessingResponse"
-											? "revalidate"
-											: {
-													cacheId:
-														loaderData.userMetadataRecommendations.cacheId,
-													confirmationText:
-														"Are you sure you want to refresh the recommendations?",
-												}
-									}
+									action={{
+										cacheId: loaderData.userMetadataRecommendations.cacheId,
+										confirmationText:
+											"Are you sure you want to refresh the recommendations?",
+									}}
 								/>
 								{coreDetails.isServerKeyValidated ? (
-									loaderData.userMetadataRecommendations.response.__typename ===
-									"UserMetadataRecommendationsSuccessResponse" ? (
-										loaderData.userMetadataRecommendations.response
-											.recommendations.length > 0 ? (
-											<ApplicationGrid>
-												{loaderData.userMetadataRecommendations.response.recommendations.map(
-													(lm) => (
-														<MetadataDisplayItem key={lm} metadataId={lm} />
-													),
-												)}
-											</ApplicationGrid>
-										) : (
-											<Text c="dimmed">No recommendations available.</Text>
-										)
+									loaderData.userMetadataRecommendations.response.length > 0 ? (
+										<ApplicationGrid>
+											{loaderData.userMetadataRecommendations.response.map(
+												(lm) => (
+													<MetadataDisplayItem key={lm} metadataId={lm} />
+												),
+											)}
+										</ApplicationGrid>
 									) : (
-										<Text c="dimmed">
-											Recommendations are being generated. Please check back in
-											a moment.
-										</Text>
+										<Text c="dimmed">No recommendations available.</Text>
 									)
 								) : (
 									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />

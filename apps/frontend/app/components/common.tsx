@@ -1460,26 +1460,19 @@ export const DisplayListDetailsAndRefresh = (props: {
 };
 
 export type ExpireCacheKeyButtonProps = {
-	action:
-		| {
-				cacheId: string;
-				confirmationText?: string;
-		  }
-		| "revalidate";
+	action: {
+		cacheId: string;
+		confirmationText?: string;
+	};
 };
 
 export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 	const submit = useConfirmSubmit();
 	const location = useLocation();
-	const revalidator = useRevalidator();
 
 	const action = props.action;
 
-	return action === "revalidate" ? (
-		<ActionIcon onClick={() => revalidator.revalidate()}>
-			<IconRotateClockwise />
-		</ActionIcon>
-	) : (
+	return (
 		<Form
 			replace
 			method="POST"
