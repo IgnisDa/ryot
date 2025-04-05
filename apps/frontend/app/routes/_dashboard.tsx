@@ -1820,19 +1820,19 @@ const AddEntityToCollectionForm = ({
 								{match(template.lot)
 									.with(CollectionExtraInformationLot.String, () => (
 										<TextInput
-											name={`information.${template.name}`}
 											label={template.name}
-											description={template.description}
 											required={!!template.required}
+											description={template.description}
+											name={`information.${template.name}`}
 											defaultValue={template.defaultValue || undefined}
 										/>
 									))
 									.with(CollectionExtraInformationLot.Number, () => (
 										<NumberInput
-											name={`information.${template.name}`}
 											label={template.name}
-											description={template.description}
 											required={!!template.required}
+											description={template.description}
+											name={`information.${template.name}`}
 											defaultValue={
 												template.defaultValue
 													? Number(template.defaultValue)
@@ -1843,11 +1843,11 @@ const AddEntityToCollectionForm = ({
 									.with(CollectionExtraInformationLot.Date, () => (
 										<>
 											<DateInput
-												label={template.name}
-												description={template.description}
-												required={!!template.required}
-												onChange={setOwnedOn}
 												value={ownedOn}
+												onChange={setOwnedOn}
+												label={template.name}
+												required={!!template.required}
+												description={template.description}
 												defaultValue={
 													template.defaultValue
 														? new Date(template.defaultValue)
@@ -1866,10 +1866,10 @@ const AddEntityToCollectionForm = ({
 									))
 									.with(CollectionExtraInformationLot.DateTime, () => (
 										<DateTimePicker
-											name={`information.${template.name}`}
 											label={template.name}
-											description={template.description}
 											required={!!template.required}
+											description={template.description}
+											name={`information.${template.name}`}
 										/>
 									))
 									.with(CollectionExtraInformationLot.StringArray, () => (
@@ -1894,8 +1894,8 @@ const AddEntityToCollectionForm = ({
 													(_, i) => (
 														<Group key={i.toString()}>
 															<TextInput
-																name={`information.${template.name}[${i}]`}
 																flex={1}
+																name={`information.${template.name}[${i}]`}
 																defaultValue={
 																	template.defaultValue || undefined
 																}
@@ -1919,9 +1919,9 @@ const AddEntityToCollectionForm = ({
 					</>
 				) : null}
 				<Button
-					disabled={!selectedCollection}
-					variant="outline"
 					type="submit"
+					variant="outline"
+					disabled={!selectedCollection}
 					onClick={() =>
 						events.addToCollection(addEntityToCollectionData.entityLot)
 					}
@@ -1929,8 +1929,8 @@ const AddEntityToCollectionForm = ({
 					Set
 				</Button>
 				<Button
-					variant="outline"
 					color="red"
+					variant="outline"
 					onClick={closeAddEntityToCollectionModal}
 				>
 					Cancel
