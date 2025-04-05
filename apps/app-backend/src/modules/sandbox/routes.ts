@@ -1,5 +1,8 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { eq } from "drizzle-orm";
 import type { AuthType } from "~/lib/auth";
+import { db } from "~/lib/db";
+import { sandboxScript } from "~/lib/db/schema/tables";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
@@ -10,6 +13,7 @@ import {
 import { getSandboxService } from "~/lib/sandbox";
 import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
 import type { ApiFunctionDescriptor } from "~/lib/sandbox/types";
+import { canUserRunScript } from "./access-control";
 import {
 	enqueueSandboxBody,
 	enqueueSandboxResponseSchema,
@@ -19,6 +23,10 @@ import {
 
 const sandboxJobNotFoundResult = createNotFoundErrorResult(
 	"Sandbox job not found",
+);
+
+const sandboxScriptNotFoundResult = createNotFoundErrorResult(
+	"Sandbox script not found",
 );
 
 const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
@@ -42,6 +50,7 @@ const enqueueSandboxRoute = createAuthRoute(
 		responses: createStandardResponses({
 			successSchema: enqueueSandboxResponseSchema,
 			successDescription: "Sandbox script enqueued",
+			notFoundDescription: "Sandbox script not found",
 		}),
 	}),
 );
@@ -65,6 +74,35 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(enqueueSandboxRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
+
+		if (body.kind === "script") {
+			const [found] = await db
+				.select({
+					code: sandboxScript.code,
+					userId: sandboxScript.userId,
+					isBuiltin: sandboxScript.isBuiltin,
+				})
+				.from(sandboxScript)
+				.where(eq(sandboxScript.id, body.scriptId))
+				.limit(1);
+
+			if (!found || !canUserRunScript({ userId: user.id, script: found })) {
+				return c.json(
+					sandboxScriptNotFoundResult.body,
+					sandboxScriptNotFoundResult.status,
+				);
+			}
+
+			const result = await getSandboxService().enqueue({
+				userId: user.id,
+				code: found.code,
+				context: body.context,
+				scriptId: body.scriptId,
+				apiFunctionDescriptors: createApiFunctionDescriptors(user.id),
+			});
+
+			return c.json(successResponse(result), 200);
+		}
 
 		const result = await getSandboxService().enqueue({
 			code: body.code,
