@@ -10,6 +10,7 @@ const getSession = createClientOnlyFn(
 );
 
 export const Route = createFileRoute("/_protected")({
+	ssr: false,
 	component: RouteComponent,
 	beforeLoad: async ({ context, location }) => {
 		const { data } = await getSession(context.authClientInstance);
