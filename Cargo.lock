@@ -847,7 +847,6 @@ name = "background-models"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "chrono-tz",
  "database-models",
  "media-models",
  "serde",
@@ -1275,7 +1274,6 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -1742,7 +1740,6 @@ dependencies = [
  "serde_json",
  "serde_with 3.12.0",
  "strum",
- "user-models",
  "uuid",
 ]
 
@@ -7034,7 +7031,6 @@ dependencies = [
  "application-utils",
  "argon2",
  "async-graphql",
- "background-models",
  "chrono",
  "common-models",
  "common-utils",

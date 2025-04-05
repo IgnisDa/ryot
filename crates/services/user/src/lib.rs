@@ -3,7 +3,6 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 use application_utils::{create_oidc_client, user_id_from_token};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, HpApplicationJob};
 use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::ryot_log;
@@ -18,7 +17,7 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
-    UserDetailsResult,
+    UserDetailsResult, UserMetadataRecommendationsResponse,
 };
 use dependent_utils::{
     create_or_update_collection, create_partial_metadata, get_metadata_provider,
@@ -54,9 +53,7 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput,
-    UserMetadataRecommendationsProcessingResponse, UserMetadataRecommendationsResponse,
-    UserMetadataRecommendationsSuccessResponse, UserPreferences,
+    DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput, UserPreferences,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -66,31 +63,54 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    async fn get_metadata_to_download_recommendations_for(
+    pub async fn user_metadata_recommendations(
         &self,
         user_id: &String,
-    ) -> Result<Vec<String>> {
+    ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
         let cc = &self.0.cache_service;
-        let key = ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
-            input: (),
-            user_id: user_id.to_owned(),
-        });
-        if let Some((_, recommendations)) = cc
-            .get_value::<ApplicationRecommendations>(key.clone())
+        let metadata_recommendations_key =
+            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            });
+
+        if let Some((id, recommendations)) = cc
+            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
             .await
         {
-            return Ok(recommendations);
-        }
-        #[derive(Debug, FromQueryResult)]
-        struct CustomQueryResponse {
-            id: String,
-            lot: MediaLot,
-            identifier: String,
-            source: MediaSource,
-        }
-        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-            DatabaseBackend::Postgres,
-            r#"
+            return Ok(CachedResponse {
+                cache_id: id,
+                response: recommendations,
+            });
+        };
+        let metadata_count = Metadata::find().count(&self.0.db).await?;
+        let recommendations = match metadata_count {
+            0 => vec![],
+            _ => {
+                let calculated_recommendations = 'calc: {
+                    let cc = &self.0.cache_service;
+                    let key =
+                        ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
+                            input: (),
+                            user_id: user_id.to_owned(),
+                        });
+                    if let Some((_, recommendations)) = cc
+                        .get_value::<ApplicationRecommendations>(key.clone())
+                        .await
+                    {
+                        break 'calc recommendations;
+                    }
+                    #[derive(Debug, FromQueryResult)]
+                    struct CustomQueryResponse {
+                        id: String,
+                        lot: MediaLot,
+                        identifier: String,
+                        source: MediaSource,
+                    }
+                    let media_items =
+                        CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+                            DatabaseBackend::Postgres,
+                            r#"
 SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
 FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
@@ -99,65 +119,61 @@ FROM (
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5)
 ORDER BY RANDOM() LIMIT 10;
         "#,
-            [
-                user_id.into(),
-                MediaSource::Vndb.into(),
-                MediaSource::Itunes.into(),
-                MediaSource::Custom.into(),
-                MediaSource::GoogleBooks.into(),
-            ],
-        ))
-        .all(&self.0.db)
-        .await?;
-        ryot_log!(
-            debug,
-            "Media items selected for recommendations: {:?}",
-            media_items
-        );
-        let mut media_item_ids = vec![];
-        for media in media_items.into_iter() {
-            ryot_log!(debug, "Getting recommendations: {:?}", media);
-            let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            let recommendations = provider
-                .get_recommendations_for_metadata(&media.identifier)
-                .await
-                .unwrap_or_default();
-            ryot_log!(debug, "Found recommendations: {:?}", recommendations);
-            for rec in recommendations {
-                if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
-                    let relation = metadata_to_metadata::ActiveModel {
-                        to_metadata_id: ActiveValue::Set(meta.id.clone()),
-                        from_metadata_id: ActiveValue::Set(media.id.clone()),
-                        relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
-                        ..Default::default()
-                    };
-                    MetadataToMetadata::insert(relation)
-                        .on_conflict_do_nothing()
-                        .exec(&self.0.db)
-                        .await
-                        .ok();
-                    media_item_ids.push(meta.id);
-                }
-            }
-        }
-        self.0
-            .cache_service
-            .set_key(
-                key,
-                ApplicationCacheValue::UserMetadataRecommendationsSet(media_item_ids.clone()),
-            )
-            .await?;
-        Ok(media_item_ids)
-    }
-
-    pub async fn calculate_user_metadata_recommendations(&self, user_id: &String) -> Result<()> {
-        let metadata_count = Metadata::find().count(&self.0.db).await?;
-        let recommendations = match metadata_count {
-            0 => vec![],
-            _ => {
-                let calculated_recommendations = self
-                    .get_metadata_to_download_recommendations_for(user_id)
-                    .await?;
+                            [
+                                user_id.into(),
+                                MediaSource::Vndb.into(),
+                                MediaSource::Itunes.into(),
+                                MediaSource::Custom.into(),
+                                MediaSource::GoogleBooks.into(),
+                            ],
+                        ))
+                        .all(&self.0.db)
+                        .await?;
+                    ryot_log!(
+                        debug,
+                        "Media items selected for recommendations: {:?}",
+                        media_items
+                    );
+                    let mut media_item_ids = vec![];
+                    for media in media_items.into_iter() {
+                        ryot_log!(debug, "Getting recommendations: {:?}", media);
+                        let provider =
+                            get_metadata_provider(media.lot, media.source, &self.0).await?;
+                        let recommendations = provider
+                            .get_recommendations_for_metadata(&media.identifier)
+                            .await
+                            .unwrap_or_default();
+                        ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+                        for rec in recommendations {
+                            if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
+                                let relation = metadata_to_metadata::ActiveModel {
+                                    to_metadata_id: ActiveValue::Set(meta.id.clone()),
+                                    from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                    relation: ActiveValue::Set(
+                                        MetadataToMetadataRelation::Suggestion,
+                                    ),
+                                    ..Default::default()
+                                };
+                                MetadataToMetadata::insert(relation)
+                                    .on_conflict_do_nothing()
+                                    .exec(&self.0.db)
+                                    .await
+                                    .ok();
+                                media_item_ids.push(meta.id);
+                            }
+                        }
+                    }
+                    self.0
+                        .cache_service
+                        .set_key(
+                            key,
+                            ApplicationCacheValue::UserMetadataRecommendationsSet(
+                                media_item_ids.clone(),
+                            ),
+                        )
+                        .await?;
+                    media_item_ids
+                };
                 let preferences = user_by_id(user_id, &self.0).await?.preferences;
                 let limit = preferences
                     .general
@@ -219,65 +235,15 @@ ORDER BY RANDOM() LIMIT 10;
             }
         };
         let cc = &self.0.cache_service;
-        cc.set_key(
-            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            }),
-            ApplicationCacheValue::UserMetadataRecommendations(
-                UserMetadataRecommendationsResponse::Success(
-                    UserMetadataRecommendationsSuccessResponse {
-                        recommendations: recommendations.clone(),
-                    },
-                ),
-            ),
-        )
-        .await?;
-        Ok(())
-    }
-
-    pub async fn user_metadata_recommendations(
-        &self,
-        user_id: &String,
-    ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
-        let cc = &self.0.cache_service;
-        let metadata_recommendations_key =
-            ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            });
-
-        if let Some((id, recommendations)) = cc
-            .get_value::<UserMetadataRecommendationsResponse>(metadata_recommendations_key.clone())
-            .await
-        {
-            return Ok(CachedResponse {
-                cache_id: id,
-                response: recommendations,
-            });
-        };
-        self.0
-            .perform_application_job(ApplicationJob::Hp(
-                HpApplicationJob::CalculateUserMetadataRecommendations(user_id.to_owned()),
-            ))
-            .await?;
-        let value = UserMetadataRecommendationsResponse::Processing(
-            UserMetadataRecommendationsProcessingResponse {
-                started_at: Utc::now(),
-            },
-        );
         let id = cc
             .set_key(
-                ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.to_owned(),
-                }),
-                ApplicationCacheValue::UserMetadataRecommendations(value.clone()),
+                metadata_recommendations_key,
+                ApplicationCacheValue::UserMetadataRecommendations(recommendations.clone()),
             )
             .await?;
         Ok(CachedResponse {
             cache_id: id,
-            response: value,
+            response: recommendations,
         })
     }
 
