@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/health": {
+    "/system/health": {
         parameters: {
             query?: never;
             header?: never;
@@ -56,7 +56,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/metrics": {
+    "/system/metrics": {
         parameters: {
             query?: never;
             header?: never;
