@@ -4,6 +4,7 @@ import {
 	Container,
 	Drawer,
 	Group,
+	Skeleton,
 	Stack,
 	Text,
 } from "@mantine/core";
@@ -330,8 +331,10 @@ const TrendingSection = () => {
 			) : null}
 			<Group justify="space-between">
 				<SectionTitle text="Trending" />
-				{(trendingMetadata.data?.trendingMetadata.length || 0) >
-				(trendingMetadataSelection?.length || 0) ? (
+				{trendingMetadata.data &&
+				trendingMetadataSelection &&
+				trendingMetadata.data.trendingMetadata.length >
+					trendingMetadataSelection.length ? (
 					<Button
 						size="xs"
 						variant="subtle"
@@ -341,14 +344,18 @@ const TrendingSection = () => {
 					</Button>
 				) : null}
 			</Group>
-			{(trendingMetadataSelection?.length || 0) > 0 ? (
-				<ApplicationGrid>
-					{trendingMetadataSelection?.map((lm) => (
-						<MetadataDisplayItem key={lm} metadataId={lm} />
-					))}
-				</ApplicationGrid>
+			{trendingMetadataSelection ? (
+				trendingMetadataSelection.length > 0 ? (
+					<ApplicationGrid>
+						{trendingMetadataSelection.map((lm) => (
+							<MetadataDisplayItem key={lm} metadataId={lm} />
+						))}
+					</ApplicationGrid>
+				) : (
+					<Text c="dimmed">No trending media available.</Text>
+				)
 			) : (
-				<Text c="dimmed">No trending media available.</Text>
+				<Skeleton height={100} />
 			)}
 		</>
 	);
