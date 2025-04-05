@@ -36,7 +36,7 @@ export const defaultCreateTrackerFormValues: CreateTrackerFormValues =
 
 export const resolveNextTrackerSlug = resolveNextSlug;
 
-export type CreateTrackerPayload = ApiPostRequestBody<"/trackers/create">;
+export type CreateTrackerPayload = ApiPostRequestBody<"/trackers">;
 
 export type UpdateTrackerPayload = ApiPatchRequestBody<"/trackers/{trackerId}">;
 
