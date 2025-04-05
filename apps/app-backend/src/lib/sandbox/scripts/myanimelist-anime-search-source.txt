@@ -9,46 +9,64 @@ const currentPage = Number.isFinite(Number(context?.page))
 	: 1;
 const query = typeof context?.query === "string" ? context.query.trim() : "";
 
-if (!query) throw new Error("query is required");
+if (!query) {
+	throw new Error("query is required");
+}
 
 const configValueResponse = await getAppConfigValue(
 	"ANIME_AND_MANGA_MAL_CLIENT_ID",
 );
-if (!configValueResponse?.success)
+if (!configValueResponse?.success) {
 	throw new Error(
 		configValueResponse?.error ?? "Could not load MyAnimeList client ID",
 	);
+}
 
 const clientId =
 	typeof configValueResponse.data === "string"
 		? configValueResponse.data.trim()
 		: "";
-if (!clientId)
+if (!clientId) {
 	throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+}
 
 const parsePublishYear = (startDate) => {
-	if (typeof startDate !== "string") return null;
+	if (typeof startDate !== "string") {
+		return null;
+	}
 
 	const trimmedDate = startDate.trim();
-	if (!trimmedDate) return null;
+	if (!trimmedDate) {
+		return null;
+	}
 
 	const yearToken = trimmedDate.split("-")[0];
-	if (!/^\d{4}$/.test(yearToken)) return null;
+	if (!/^\d{4}$/.test(yearToken)) {
+		return null;
+	}
 
 	const year = Number(yearToken);
-	if (!Number.isFinite(year)) return null;
+	if (!Number.isFinite(year)) {
+		return null;
+	}
 
 	return year;
 };
 
 const pickImage = (mainPicture) => {
-	if (!mainPicture || typeof mainPicture !== "object") return null;
+	if (!mainPicture || typeof mainPicture !== "object") {
+		return null;
+	}
 
 	const candidates = [mainPicture.large, mainPicture.medium];
 	for (const candidate of candidates) {
-		if (typeof candidate !== "string") continue;
+		if (typeof candidate !== "string") {
+			continue;
+		}
 		const trimmedCandidate = candidate.trim();
-		if (trimmedCandidate) return trimmedCandidate;
+		if (trimmedCandidate) {
+			return trimmedCandidate;
+		}
 	}
 
 	return null;
@@ -67,8 +85,9 @@ const response = await httpCall(
 	{ headers: { "X-MAL-CLIENT-ID": clientId } },
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "MyAnimeList anime search request failed");
+}
 
 let payload;
 try {
@@ -83,14 +102,19 @@ const hasNextPage =
 const data = Array.isArray(payload?.data) ? payload.data : [];
 const items = data
 	.map((entry) => {
-		const node = entry?.node && typeof entry.node === "object" ? entry.node : null;
-		if (!node) return null;
+		const node =
+			entry?.node && typeof entry.node === "object" ? entry.node : null;
+		if (!node) {
+			return null;
+		}
 
 		const nodeId =
 			typeof node.id === "number" && Number.isFinite(node.id)
 				? Math.trunc(node.id)
 				: null;
-		if (nodeId === null || nodeId <= 0) return null;
+		if (nodeId === null || nodeId <= 0) {
+			return null;
+		}
 
 		const title = typeof node.title === "string" ? node.title : "";
 

@@ -19,60 +19,86 @@ const toTitleCase = (value) => {
 };
 
 const parsePublishYear = (startDate) => {
-	if (typeof startDate !== "string") return null;
+	if (typeof startDate !== "string") {
+		return null;
+	}
 
 	const trimmedDate = startDate.trim();
-	if (!trimmedDate) return null;
+	if (!trimmedDate) {
+		return null;
+	}
 
 	const yearToken = trimmedDate.split("-")[0];
-	if (!/^\d{4}$/.test(yearToken)) return null;
+	if (!/^\d{4}$/.test(yearToken)) {
+		return null;
+	}
 
 	const year = Number(yearToken);
-	if (!Number.isFinite(year)) return null;
+	if (!Number.isFinite(year)) {
+		return null;
+	}
 
 	return year;
 };
 
 const parseIsNsfw = (nsfw) => {
-	if (typeof nsfw !== "string" || !nsfw.trim()) return null;
+	if (typeof nsfw !== "string" || !nsfw.trim()) {
+		return null;
+	}
 	return nsfw.trim().toLowerCase() !== "white";
 };
 
 const collectImages = (mainPicture) => {
-	if (!mainPicture || typeof mainPicture !== "object") return [];
+	if (!mainPicture || typeof mainPicture !== "object") {
+		return [];
+	}
 
 	const imageSet = new Set();
 	const candidates = [mainPicture.large, mainPicture.medium];
 
 	for (const candidate of candidates) {
-		if (typeof candidate !== "string") continue;
+		if (typeof candidate !== "string") {
+			continue;
+		}
 		const trimmedCandidate = candidate.trim();
-		if (trimmedCandidate) imageSet.add(trimmedCandidate);
+		if (trimmedCandidate) {
+			imageSet.add(trimmedCandidate);
+		}
 	}
 
 	return [...imageSet];
 };
 
 const collectGenres = (genres) => {
-	if (!Array.isArray(genres)) return [];
+	if (!Array.isArray(genres)) {
+		return [];
+	}
 
 	const genreSet = new Set();
 	for (const genre of genres) {
 		const name = typeof genre?.name === "string" ? genre.name.trim() : "";
-		if (name) genreSet.add(name);
+		if (name) {
+			genreSet.add(name);
+		}
 	}
 
 	return [...genreSet];
 };
 
 const parseAiringSchedule = (startDate) => {
-	if (typeof startDate !== "string") return null;
+	if (typeof startDate !== "string") {
+		return null;
+	}
 
 	const trimmedDate = startDate.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+		return null;
+	}
 
 	const scheduleDate = new Date(`${trimmedDate}T00:00:00Z`);
-	if (Number.isNaN(scheduleDate.valueOf())) return null;
+	if (Number.isNaN(scheduleDate.valueOf())) {
+		return null;
+	}
 
 	return [{ episode: 1, airingAt: scheduleDate.toISOString() }];
 };
@@ -80,24 +106,29 @@ const parseAiringSchedule = (startDate) => {
 const configValueResponse = await getAppConfigValue(
 	"ANIME_AND_MANGA_MAL_CLIENT_ID",
 );
-if (!configValueResponse?.success)
+if (!configValueResponse?.success) {
 	throw new Error(
 		configValueResponse?.error ?? "Could not load MyAnimeList client ID",
 	);
+}
 
 const clientId =
 	typeof configValueResponse.data === "string"
 		? configValueResponse.data.trim()
 		: "";
-if (!clientId)
+if (!clientId) {
 	throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+}
 
 const contextIdentifier =
 	typeof context?.identifier === "string" ? context.identifier.trim() : "";
-if (!contextIdentifier) throw new Error("identifier is required");
+if (!contextIdentifier) {
+	throw new Error("identifier is required");
+}
 
 const params = new URLSearchParams({
-	fields: "start_date,synopsis,genres,status,num_episodes,mean,nsfw,main_picture",
+	fields:
+		"start_date,synopsis,genres,status,num_episodes,mean,nsfw,main_picture",
 });
 
 const response = await httpCall(
@@ -106,8 +137,11 @@ const response = await httpCall(
 	{ headers: { "X-MAL-CLIENT-ID": clientId } },
 );
 
-if (!response?.success)
-	throw new Error(response?.error ?? "MyAnimeList anime details request failed");
+if (!response?.success) {
+	throw new Error(
+		response?.error ?? "MyAnimeList anime details request failed",
+	);
+}
 
 const payload = parseJsonResponse(response.data.body);
 
@@ -117,7 +151,9 @@ const payloadIdentifier =
 		: contextIdentifier;
 
 const title = typeof payload?.title === "string" ? payload.title : "";
-if (!title) throw new Error("MyAnimeList anime payload is missing title");
+if (!title) {
+	throw new Error("MyAnimeList anime payload is missing title");
+}
 
 const episodes =
 	typeof payload?.num_episodes === "number" &&
