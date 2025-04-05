@@ -6,7 +6,7 @@ import {
 	createEntity,
 	createSingleSchemaRuntimeFixture,
 	executeViewRuntime,
-} from "../test-support/view-runtime";
+} from "../fixtures";
 import { registerViewRuntimePresentationAndErrorTests } from "../test-support/view-runtime-suite";
 
 describe("View runtime E2E", () => {
