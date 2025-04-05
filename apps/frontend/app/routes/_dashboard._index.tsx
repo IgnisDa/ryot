@@ -93,7 +93,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	invariant(foundInProgressCollection);
 	const [
 		{ collectionContents: inProgressCollectionContents },
-		{ userMetadataRecommendations },
 		{ userUpcomingCalendarEvents },
 		{ userAnalytics },
 	] = await Promise.all([
@@ -104,11 +103,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 				collectionId: foundInProgressCollection.id,
 			},
 		}),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserMetadataRecommendationsDocument,
-			{},
-		),
 		serverGqlService.authenticatedRequest(
 			request,
 			UserUpcomingCalendarEventsDocument,
@@ -128,7 +122,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		userAnalytics,
 		userUpcomingCalendarEvents,
-		userMetadataRecommendations,
 		inProgressCollectionContents,
 	};
 };
@@ -256,31 +249,44 @@ export default function Page() {
 }
 
 const RecommendationsSection = () => {
-	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+
+	const recommendations = useQuery({
+		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
+		queryFn: () =>
+			clientGqlService.request(UserMetadataRecommendationsDocument),
+	});
 
 	return (
 		<>
 			<SectionTitleWithRefreshIcon
 				text="Recommendations"
 				action={{
-					cacheId: loaderData.userMetadataRecommendations.cacheId,
+					cacheId:
+						recommendations.data?.userMetadataRecommendations.cacheId ?? "",
 					confirmationText:
 						"Are you sure you want to refresh the recommendations?",
 				}}
 			/>
-			{coreDetails.isServerKeyValidated ? (
-				loaderData.userMetadataRecommendations.response.length > 0 ? (
-					<ApplicationGrid>
-						{loaderData.userMetadataRecommendations.response.map((lm) => (
-							<MetadataDisplayItem key={lm} metadataId={lm} />
-						))}
-					</ApplicationGrid>
+			{recommendations.data ? (
+				coreDetails.isServerKeyValidated ? (
+					recommendations.data.userMetadataRecommendations.response.length >
+					0 ? (
+						<ApplicationGrid>
+							{recommendations.data.userMetadataRecommendations.response.map(
+								(lm) => (
+									<MetadataDisplayItem key={lm} metadataId={lm} />
+								),
+							)}
+						</ApplicationGrid>
+					) : (
+						<Text c="dimmed">No recommendations available.</Text>
+					)
 				) : (
-					<Text c="dimmed">No recommendations available.</Text>
+					<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 				)
 			) : (
-				<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+				<Skeleton height={100} />
 			)}
 		</>
 	);

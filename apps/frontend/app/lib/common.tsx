@@ -394,6 +394,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	trendingMetadata: () => ({
 		queryKey: ["trendingMetadata"],
 	}),
+	userMetadataRecommendations: () => ({
+		queryKey: ["userMetadataRecommendations"],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
