@@ -1,10 +1,10 @@
 import {
 	createCreatedAt,
-	createNoteAndRatingPropertiesSchema,
 	createOccurredAt,
 	createUpdatedAt,
 	withOverrides,
-} from "~/lib/test-fixtures/shared";
+} from "~/lib/test-fixtures/fixture-helpers";
+import { createNoteAndRatingPropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type { CreateEventBody, ListedEvent } from "~/modules/events/schemas";
 import type { EventServiceDeps } from "~/modules/events/service";
 

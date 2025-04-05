@@ -1,8 +1,8 @@
+import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import {
 	createFlatTitlePagesPropertySchema,
 	createOptionalTitlePropertiesSchema,
-	withOverrides,
-} from "~/lib/test-fixtures/shared";
+} from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEntitySchemaBody,
 	ListedEntitySchema,
