@@ -26,8 +26,8 @@ use database_models::{
     person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
-        MetadataToMetadata, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen,
-        UserToEntity, Workout, WorkoutTemplate,
+        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity,
+        NotificationPlatform, Person, Seen, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
@@ -631,6 +631,47 @@ pub async fn update_metadata(
         }
     };
     Ok(notifications)
+}
+
+pub async fn update_metadata_group(
+    metadata_group_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+        .one(&ss.db)
+        .await?
+        .ok_or(Error::new("Group not found"))?;
+    if !metadata_group.is_partial.unwrap_or_default() {
+        return Ok(());
+    }
+    let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
+    let (group_details, associated_items) = provider
+        .metadata_group_details(&metadata_group.identifier)
+        .await?;
+    let mut eg: metadata_group::ActiveModel = metadata_group.into();
+    eg.is_partial = ActiveValue::Set(None);
+    eg.title = ActiveValue::Set(group_details.title);
+    eg.parts = ActiveValue::Set(group_details.parts);
+    eg.source_url = ActiveValue::Set(group_details.source_url);
+    eg.description = ActiveValue::Set(group_details.description);
+    eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
+    let eg = eg.update(&ss.db).await?;
+    for (idx, media) in associated_items.into_iter().enumerate() {
+        let db_partial_metadata = create_partial_metadata(media, &ss.db).await?;
+        MetadataToMetadataGroup::delete_many()
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
+            .exec(&ss.db)
+            .await
+            .ok();
+        let intermediate = metadata_to_metadata_group::ActiveModel {
+            metadata_group_id: ActiveValue::Set(eg.id.clone()),
+            metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+        };
+        intermediate.insert(&ss.db).await.ok();
+    }
+    Ok(())
 }
 
 pub async fn get_users_and_cte_monitoring_entity(

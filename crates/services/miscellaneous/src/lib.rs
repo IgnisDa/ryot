@@ -59,7 +59,7 @@ use dependent_utils::{
     handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
     post_review, progress_update, refresh_collection_to_entity_association,
     remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    update_metadata_group, user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -2342,40 +2342,7 @@ impl MiscellaneousService {
     }
 
     pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
-        let eg = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or(Error::new("Group not found"))?;
-        if !eg.is_partial.unwrap_or_default() {
-            return Ok(());
-        }
-        let provider = get_metadata_provider(eg.lot, eg.source, &self.0).await?;
-        let (group_details, associated_items) =
-            provider.metadata_group_details(&eg.identifier).await?;
-        let mut eg: metadata_group::ActiveModel = eg.into();
-        eg.is_partial = ActiveValue::Set(None);
-        eg.title = ActiveValue::Set(group_details.title);
-        eg.parts = ActiveValue::Set(group_details.parts);
-        eg.source_url = ActiveValue::Set(group_details.source_url);
-        eg.description = ActiveValue::Set(group_details.description);
-        eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
-        let eg = eg.update(&self.0.db).await?;
-        for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
-            MetadataToMetadataGroup::delete_many()
-                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
-                .exec(&self.0.db)
-                .await
-                .ok();
-            let intermediate = metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(eg.id.clone()),
-                metadata_id: ActiveValue::Set(db_partial_metadata.id),
-                part: ActiveValue::Set((idx + 1).try_into().unwrap()),
-            };
-            intermediate.insert(&self.0.db).await.ok();
-        }
-        Ok(())
+        update_metadata_group(metadata_group_id, &self.0).await
     }
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
