@@ -29,6 +29,21 @@ export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 	};
 }
 
+export function useEntitySchemasBySlugQuery(slugs: string[], enabled = true) {
+	const apiClient = useApiClient();
+	const query = apiClient.useQuery(
+		"get",
+		"/entity-schemas",
+		{ params: { query: { slugs } } },
+		{ enabled: enabled && slugs.length > 0 },
+	);
+
+	return {
+		...query,
+		entitySchemas: sortEntitySchemas(query.data?.data ?? []),
+	};
+}
+
 export function useEntitySchemaMutations(trackerId: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
