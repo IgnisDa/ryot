@@ -128,3 +128,16 @@ macro_rules! ryot_log {
         tracing::trace!(target: "ryot", $($arg)*);
     };
 }
+
+#[macro_export]
+macro_rules! acquire_lock {
+    ($db:expr, $key:expr) => {
+        use sqlx::postgres::PgAdvisoryLock;
+
+        let key_string = serde_json::to_string($key).unwrap();
+        let lock = PgAdvisoryLock::new(key_string);
+        ryot_log!(debug, "Acquiring advisory lock: {:?}", lock);
+        let conn = $db.get_postgres_connection_pool().acquire().await?;
+        let acquired = lock.acquire(conn).await?;
+    };
+}
