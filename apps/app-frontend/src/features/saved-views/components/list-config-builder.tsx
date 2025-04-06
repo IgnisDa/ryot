@@ -5,20 +5,20 @@ import {
 	PropertyArrayEditor,
 } from "./display-config-fields";
 
-type GridConfigBuilderProps = {
+type ListConfigBuilderProps = {
 	isLoading: boolean;
 	form: DisplayConfigBuilderFormLike;
 };
 
-export function GridConfigBuilder(props: GridConfigBuilderProps) {
+export function ListConfigBuilder(props: ListConfigBuilderProps) {
 	return (
 		<Stack gap="lg">
 			<Stack gap={2}>
 				<Text fw={500} size="sm">
-					Grid Display Configuration
+					List Display Configuration
 				</Text>
 				<Text c="dimmed" size="xs">
-					Configure how entities display in grid view. Property paths use
+					Configure how entities display in list view. Property paths use
 					COALESCE resolution (first non-null value wins). Use{" "}
 					<Text span c="gray.7" ff="var(--font-family-monospace)">
 						@name
@@ -36,8 +36,8 @@ export function GridConfigBuilder(props: GridConfigBuilderProps) {
 				label="Image Property"
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
-				name="displayConfiguration.grid.imageProperty"
-				description="Property paths for card image (COALESCE fallback order)"
+				name="displayConfiguration.list.imageProperty"
+				description="Property paths for list image (COALESCE fallback order)"
 			/>
 
 			<PropertyArrayEditor
@@ -45,8 +45,8 @@ export function GridConfigBuilder(props: GridConfigBuilderProps) {
 				label="Title Property"
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
-				name="displayConfiguration.grid.titleProperty"
-				description="Property paths for card title (COALESCE fallback order)"
+				name="displayConfiguration.list.titleProperty"
+				description="Property paths for list title (COALESCE fallback order)"
 			/>
 
 			<PropertyArrayEditor
@@ -54,8 +54,8 @@ export function GridConfigBuilder(props: GridConfigBuilderProps) {
 				label="Subtitle Property"
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
-				name="displayConfiguration.grid.subtitleProperty"
-				description="Property paths for card subtitle (COALESCE fallback order)"
+				name="displayConfiguration.list.subtitleProperty"
+				description="Property paths for list subtitle (COALESCE fallback order)"
 			/>
 
 			<PropertyArrayEditor
@@ -63,8 +63,8 @@ export function GridConfigBuilder(props: GridConfigBuilderProps) {
 				label="Badge Property"
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
-				name="displayConfiguration.grid.badgeProperty"
-				description="Property paths for card badge (COALESCE fallback order)"
+				name="displayConfiguration.list.badgeProperty"
+				description="Property paths for list badge (COALESCE fallback order)"
 			/>
 		</Stack>
 	);
