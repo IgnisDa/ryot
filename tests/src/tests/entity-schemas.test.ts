@@ -63,9 +63,9 @@ describe("GET /entity-schemas", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.GET("/entity-schemas", {
-			params: { query: { trackerId: nonExistentId } },
+		const { response, error } = await client.POST("/entity-schemas/list", {
 			headers: { Cookie: cookies },
+			body: { trackerId: nonExistentId },
 		});
 
 		expect(response.status).toBe(404);
@@ -96,9 +96,9 @@ describe("GET /entity-schemas", () => {
 			name: "User 1 Tracker",
 		});
 
-		const { response, error } = await client2.GET("/entity-schemas", {
+		const { response, error } = await client2.POST("/entity-schemas/list", {
+			body: { trackerId },
 			headers: { Cookie: cookies2 },
-			params: { query: { trackerId } },
 		});
 
 		expect(response.status).toBe(404);
@@ -151,9 +151,9 @@ describe("GET /entity-schemas", () => {
 			slug: "only-schema",
 		});
 
-		const { data, response } = await client.GET("/entity-schemas", {
+		const { data, response } = await client.POST("/entity-schemas/list", {
 			headers: { Cookie: cookies },
-			params: { query: { slugs: ["only-schema"] } },
+			body: { slugs: ["only-schema"] },
 		});
 
 		expect(response.status).toBe(200);
@@ -215,8 +215,8 @@ describe("GET /entity-schemas", () => {
 			slug: "custom-entry",
 		});
 
-		const { data, response } = await client.GET("/entity-schemas", {
-			params: { query: {} },
+		const { data, response } = await client.POST("/entity-schemas/list", {
+			body: {},
 			headers: { Cookie: cookies },
 		});
 
