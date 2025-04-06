@@ -325,20 +325,19 @@ pub async fn change_metadata_associations(
     }
 
     for name in genres {
-        let db_genre = if let Some(c) = Genre::find()
-            .filter(genre::Column::Name.eq(&name))
-            .one(&ss.db)
-            .await
-            .unwrap()
-        {
-            c
-        } else {
-            let c = genre::ActiveModel {
-                name: ActiveValue::Set(name),
-                ..Default::default()
-            };
-            c.insert(&ss.db).await.unwrap()
+        let genre = genre::ActiveModel {
+            id: ActiveValue::Set(format!("gen_{}", nanoid!(12))),
+            name: ActiveValue::Set(name.clone()),
         };
+        let db_genre = Genre::insert(genre)
+            .on_conflict(
+                OnConflict::column(genre::Column::Name)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .exec_with_returning(&ss.db)
+            .await?;
+
         let intermediate = metadata_to_genre::ActiveModel {
             genre_id: ActiveValue::Set(db_genre.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
