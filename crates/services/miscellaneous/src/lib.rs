@@ -2781,14 +2781,12 @@ impl MiscellaneousService {
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        all_keys.extend(
-            user_ids
-                .into_iter()
-                .map(|user_id| ExpireCacheKeyInput::BySanitizedKey {
-                    user_id: Some(user_id),
-                    key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
-                }),
-        );
+        for user_id in user_ids {
+            all_keys.push(ExpireCacheKeyInput::BySanitizedKey {
+                user_id: Some(user_id),
+                key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
+            });
+        }
         all_keys.push(ExpireCacheKeyInput::ByKey(
             ApplicationCacheKey::TrendingMetadataIds,
         ));
