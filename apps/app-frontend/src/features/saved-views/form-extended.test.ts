@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createSavedViewFixture,
+	defaultSavedViewDisplayConfiguration,
+} from "#/features/test-fixtures";
+import {
 	buildDefaultFilterRow,
 	buildSavedViewExtendedFormValues,
 	buildSavedViewExtendedUpdatePayload,
 	savedViewExtendedFormSchema,
 } from "./form-extended";
-import type { AppSavedView } from "./model";
 
 describe("savedViewExtendedFormSchema", () => {
 	it("rejects empty entitySchemaSlugs array", () => {
@@ -77,38 +80,18 @@ describe("savedViewExtendedFormSchema", () => {
 
 describe("buildSavedViewExtendedFormValues", () => {
 	it("extracts queryDefinition and displayConfiguration from view", () => {
-		const view: AppSavedView = {
-			id: "view-1",
+		const view = createSavedViewFixture({
 			icon: "star",
-			sortOrder: 1,
-			isBuiltin: false,
 			name: "Test View",
-			isDisabled: false,
-			accentColor: "#2DD4BF",
 			trackerId: "tracker-1",
-			createdAt: "2026-03-20T10:00:00.000Z",
-			updatedAt: "2026-03-20T10:05:00.000Z",
+			isBuiltin: false,
+			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["smartphones", "tablets"],
 				sort: { direction: "asc", fields: ["@name"] },
 			},
-			displayConfiguration: {
-				table: { columns: [{ label: "Name", property: ["@name"] }] },
-				grid: {
-					badgeProperty: null,
-					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image"],
-				},
-				list: {
-					badgeProperty: null,
-					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image"],
-				},
-			},
-		};
+		});
 
 		const values = buildSavedViewExtendedFormValues(view);
 
@@ -201,38 +184,18 @@ describe("buildDefaultFilterRow", () => {
 
 describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("combines view metadata with updated queryDefinition and displayConfiguration", () => {
-		const view: AppSavedView = {
-			id: "view-1",
+		const view = createSavedViewFixture({
 			icon: "star",
-			sortOrder: 1,
-			isBuiltin: false,
-			isDisabled: false,
 			name: "Original View",
-			accentColor: "#2DD4BF",
 			trackerId: "tracker-1",
-			createdAt: "2026-03-20T10:00:00.000Z",
-			updatedAt: "2026-03-20T10:05:00.000Z",
+			isBuiltin: false,
+			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["old-schema"],
 				sort: { direction: "asc", fields: ["@name"] },
 			},
-			displayConfiguration: {
-				table: { columns: [{ label: "Name", property: ["@name"] }] },
-				grid: {
-					badgeProperty: null,
-					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image"],
-				},
-				list: {
-					badgeProperty: null,
-					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image"],
-				},
-			},
-		};
+		});
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones", "tablets"],
@@ -298,14 +261,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	});
 
 	it("converts isNull operator filter with null value", () => {
-		const view: AppSavedView = {
-			id: "view-1",
-			sortOrder: 1,
+		const view = createSavedViewFixture({
 			icon: "filter",
+			name: "Test View",
 			trackerId: null,
 			isBuiltin: false,
-			isDisabled: false,
-			name: "Test View",
 			accentColor: "#2DD4BF",
 			createdAt: "2026-03-22T10:00:00.000Z",
 			updatedAt: "2026-03-22T10:00:00.000Z",
@@ -315,6 +275,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 				sort: { fields: ["@name"], direction: "asc" },
 			},
 			displayConfiguration: {
+				...defaultSavedViewDisplayConfiguration,
 				table: { columns: [] },
 				grid: {
 					imageProperty: null,
@@ -329,7 +290,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					titleProperty: ["@name"],
 				},
 			},
-		};
+		});
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
@@ -351,14 +312,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	});
 
 	it("converts in operator filter to array", () => {
-		const view: AppSavedView = {
-			id: "view-1",
-			sortOrder: 1,
+		const view = createSavedViewFixture({
 			icon: "filter",
+			name: "Test View",
 			trackerId: null,
 			isBuiltin: false,
-			isDisabled: false,
-			name: "Test View",
 			accentColor: "#2DD4BF",
 			createdAt: "2026-03-22T10:00:00.000Z",
 			updatedAt: "2026-03-22T10:00:00.000Z",
@@ -368,6 +326,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 				sort: { fields: ["@name"], direction: "asc" },
 			},
 			displayConfiguration: {
+				...defaultSavedViewDisplayConfiguration,
 				table: { columns: [] },
 				grid: {
 					imageProperty: null,
@@ -382,7 +341,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					titleProperty: ["@name"],
 				},
 			},
-		};
+		});
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
@@ -409,23 +368,14 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	});
 
 	it("omits trackerId when view has null trackerId", () => {
-		const view: AppSavedView = {
-			id: "view-1",
-			sortOrder: 1,
+		const view = createSavedViewFixture({
 			icon: "globe",
+			name: "Standalone View",
 			trackerId: null,
 			isBuiltin: false,
-			isDisabled: false,
 			accentColor: "#FF5733",
-			name: "Standalone View",
-			createdAt: "2026-03-20T10:00:00.000Z",
-			updatedAt: "2026-03-20T10:05:00.000Z",
-			queryDefinition: {
-				filters: [],
-				entitySchemaSlugs: ["schema-1"],
-				sort: { fields: ["@name"], direction: "asc" },
-			},
 			displayConfiguration: {
+				...defaultSavedViewDisplayConfiguration,
 				table: { columns: [] },
 				grid: {
 					imageProperty: null,
@@ -440,7 +390,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					titleProperty: ["@name"],
 				},
 			},
-		};
+		});
 
 		const formValues = {
 			filters: [],

@@ -1,54 +1,31 @@
 import { describe, expect, it } from "bun:test";
+import { createSavedViewFixture } from "#/features/test-fixtures";
 import { applySavedViewReorderPatch } from "./cache";
-import type { AppSavedView } from "./model";
-
-const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	table: { columns: [{ label: "Name", property: ["@name"] }] },
-	grid: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
-	},
-	list: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
-	},
-};
-
-function view(
-	id: string,
-	sortOrder: number,
-	trackerId: string | null,
-): AppSavedView {
-	return {
-		id,
-		name: id,
-		sortOrder,
-		trackerId,
-		isBuiltin: false,
-		isDisabled: false,
-		icon: "book-open",
-		accentColor: "#5B7FFF",
-		createdAt: "2026-03-20T10:00:00.000Z",
-		updatedAt: "2026-03-20T10:05:00.000Z",
-		queryDefinition: {
-			filters: [],
-			entitySchemaSlugs: ["schema-1"],
-			sort: { fields: ["@name"], direction: "asc" },
-		},
-		displayConfiguration,
-	};
-}
 
 describe("applySavedViewReorderPatch", () => {
 	it("reorders only the targeted tracker scope", () => {
 		const views = [
-			view("view-1", 1, "tracker-1"),
-			view("view-2", 2, "tracker-1"),
-			view("view-3", 1, "tracker-2"),
+			createSavedViewFixture({
+				id: "view-1",
+				name: "view-1",
+				sortOrder: 1,
+				trackerId: "tracker-1",
+				isBuiltin: false,
+			}),
+			createSavedViewFixture({
+				id: "view-2",
+				name: "view-2",
+				sortOrder: 2,
+				trackerId: "tracker-1",
+				isBuiltin: false,
+			}),
+			createSavedViewFixture({
+				id: "view-3",
+				name: "view-3",
+				sortOrder: 1,
+				trackerId: "tracker-2",
+				isBuiltin: false,
+			}),
 		];
 
 		const result = applySavedViewReorderPatch(views, {
@@ -63,9 +40,27 @@ describe("applySavedViewReorderPatch", () => {
 
 	it("reorders only top-level views when trackerId is omitted", () => {
 		const views = [
-			view("view-1", 1, null),
-			view("view-2", 2, null),
-			view("view-3", 1, "tracker-1"),
+			createSavedViewFixture({
+				id: "view-1",
+				name: "view-1",
+				sortOrder: 1,
+				trackerId: null,
+				isBuiltin: false,
+			}),
+			createSavedViewFixture({
+				id: "view-2",
+				name: "view-2",
+				sortOrder: 2,
+				trackerId: null,
+				isBuiltin: false,
+			}),
+			createSavedViewFixture({
+				id: "view-3",
+				name: "view-3",
+				sortOrder: 1,
+				trackerId: "tracker-1",
+				isBuiltin: false,
+			}),
 		];
 
 		const result = applySavedViewReorderPatch(views, {
