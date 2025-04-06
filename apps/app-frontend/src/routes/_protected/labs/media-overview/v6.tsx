@@ -46,6 +46,7 @@ import {
 	Text,
 	Textarea,
 	TextInput,
+	ThemeIcon,
 	Tooltip,
 	UnstyledButton,
 } from "@mantine/core";
@@ -77,6 +78,60 @@ export const Route = createFileRoute("/_protected/labs/media-overview/v6")({
 });
 
 const GOLD = "#C9943A";
+const STONE = "#8C7560";
+
+const SECTION_ACCENTS = {
+	activity: "#6F8B75",
+	continue: GOLD,
+	library: STONE,
+	queue: "#8E6A4D",
+	review: "#D38D5A",
+};
+
+function withAlpha(hex: string, alpha: number) {
+	const raw = hex.replace("#", "");
+	const normalized =
+		raw.length === 3
+			? raw
+					.split("")
+					.map((char) => `${char}${char}`)
+					.join("")
+			: raw;
+	const r = Number.parseInt(normalized.slice(0, 2), 16);
+	const g = Number.parseInt(normalized.slice(2, 4), 16);
+	const b = Number.parseInt(normalized.slice(4, 6), 16);
+	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getQueueNote(item: BacklogItem, rank: number) {
+	if (rank === 0) {
+		return "Pick tonight";
+	}
+	if (item.addedDate.includes("d")) {
+		return "Freshly queued";
+	}
+	if (["Podcast", "Music"].includes(item.type)) {
+		return "Low-friction pick";
+	}
+	if (["Show", "Anime"].includes(item.type)) {
+		return "Easy to resume";
+	}
+	if (["Book", "Manga"].includes(item.type)) {
+		return "Settle in with this";
+	}
+	return "Waiting in the wings";
+}
+
+function getSectionBackground(props: {
+	accent: string;
+	isDark: boolean;
+	surface: string;
+}) {
+	if (props.isDark) {
+		return `linear-gradient(180deg, ${withAlpha(props.accent, 0.18)} 0%, ${props.surface} 22%, ${props.surface} 100%)`;
+	}
+	return `linear-gradient(180deg, ${withAlpha(props.accent, 0.08)} 0%, ${withAlpha(props.accent, 0.03)} 18%, ${props.surface} 40%, ${props.surface} 100%)`;
+}
 
 type MediaType =
 	| "Book"
@@ -1291,22 +1346,192 @@ const DEFAULT_ITEM_STATE: ItemActionState = {
 // --- Components ---
 
 function SectionHeader(props: {
+	accentColor: string;
+	eyebrow?: string;
+	subtitle?: string;
 	title: string;
 	right?: React.ReactNode;
 	textPrimary: string;
+	textMuted: string;
 }) {
 	return (
-		<Group justify="space-between" mb="sm">
-			<Text
-				ff="var(--mantine-headings-font-family)"
-				fw={700}
-				fz="lg"
-				c={props.textPrimary}
-			>
-				{props.title}
-			</Text>
-			{props.right}
+		<Group justify="space-between" align="flex-end" mb="md" gap="sm">
+			<Stack gap={4}>
+				{props.eyebrow ? (
+					<Group gap={8}>
+						<Box
+							w={18}
+							h={2}
+							style={{
+								borderRadius: 999,
+								backgroundColor: props.accentColor,
+							}}
+						/>
+						<Text
+							fz={10}
+							fw={700}
+							c={props.accentColor}
+							ff="var(--mantine-headings-font-family)"
+							tt="uppercase"
+							style={{ letterSpacing: "1px" }}
+						>
+							{props.eyebrow}
+						</Text>
+					</Group>
+				) : null}
+				<Text
+					ff="var(--mantine-headings-font-family)"
+					fw={700}
+					fz="xl"
+					c={props.textPrimary}
+					lh={1.1}
+				>
+					{props.title}
+				</Text>
+				{props.subtitle ? (
+					<Text fz="sm" c={props.textMuted} maw={460}>
+						{props.subtitle}
+					</Text>
+				) : null}
+			</Stack>
+			{props.right ? <Box>{props.right}</Box> : null}
 		</Group>
+	);
+}
+
+function SectionFrame(props: {
+	accentColor: string;
+	children: React.ReactNode;
+	border: string;
+	isDark: boolean;
+	surface: string;
+}) {
+	return (
+		<Paper
+			p="md"
+			radius="sm"
+			style={{
+				background: getSectionBackground({
+					accent: props.accentColor,
+					isDark: props.isDark,
+					surface: props.surface,
+				}),
+				border: `1px solid ${props.border}`,
+				boxShadow: props.isDark
+					? `0 12px 32px ${withAlpha("#000000", 0.22)}`
+					: `0 10px 30px ${withAlpha(props.accentColor, 0.08)}`,
+				overflow: "hidden",
+				position: "relative",
+			}}
+		>
+			<Box
+				style={{
+					background: `linear-gradient(90deg, ${props.accentColor} 0%, ${withAlpha(props.accentColor, 0)} 100%)`,
+					height: 3,
+					left: 0,
+					top: 0,
+					position: "absolute",
+					width: "100%",
+				}}
+			/>
+			{props.children}
+		</Paper>
+	);
+}
+
+function Artwork(props: {
+	height: number;
+	note?: string;
+	radius?: number;
+	title: string;
+	type: MediaType;
+	url?: string;
+	width?: number;
+}) {
+	const [hasError, setHasError] = useState(!props.url);
+	const color = TYPE_COLORS[props.type];
+	const Icon = TYPE_ICONS[props.type];
+
+	return (
+		<Box
+			w={props.width}
+			h={props.height}
+			style={{
+				background: `linear-gradient(160deg, ${withAlpha(color, 0.2)} 0%, ${withAlpha(STONE, 0.08)} 100%)`,
+				borderRadius: props.radius ?? 8,
+				overflow: "hidden",
+				position: "relative",
+			}}
+		>
+			{props.url && !hasError ? (
+				<Box
+					component="img"
+					src={props.url}
+					alt={props.title}
+					w="100%"
+					h="100%"
+					onError={() => setHasError(true)}
+					style={{ objectFit: "cover" }}
+				/>
+			) : (
+				<Stack
+					gap={8}
+					align="center"
+					justify="center"
+					h="100%"
+					p="sm"
+					style={{
+						background: `linear-gradient(180deg, ${withAlpha(color, 0.28)} 0%, ${withAlpha(STONE, 0.08)} 100%)`,
+					}}
+				>
+					<ThemeIcon
+						size={32}
+						radius="xl"
+						variant="light"
+						style={{
+							backgroundColor: withAlpha(color, 0.16),
+							color,
+						}}
+					>
+						<Icon size={16} />
+					</ThemeIcon>
+					<Text
+						fz={10}
+						fw={600}
+						c={withAlpha("#2D241D", 0.84)}
+						ff="var(--mantine-headings-font-family)"
+						ta="center"
+						lineClamp={3}
+					>
+						{props.title}
+					</Text>
+				</Stack>
+			)}
+
+			<Box
+				style={{
+					background:
+						"linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.6) 100%)",
+					inset: 0,
+					position: "absolute",
+				}}
+			/>
+			{props.note ? (
+				<Badge
+					size="xs"
+					variant="filled"
+					style={{
+						backgroundColor: withAlpha("#201812", 0.72),
+						bottom: 8,
+						color: "white",
+						left: 8,
+						position: "absolute",
+					}}
+				>
+					{props.note}
+				</Badge>
+			) : null}
+		</Box>
 	);
 }
 
@@ -1319,7 +1544,6 @@ function ContinueCard(props: {
 	textMuted: string;
 }) {
 	const color = TYPE_COLORS[props.item.type];
-	const Icon = TYPE_ICONS[props.item.type];
 	const pct =
 		props.item.total > 0
 			? Math.round((props.item.current / props.item.total) * 100)
@@ -1333,34 +1557,51 @@ function ContinueCard(props: {
 		<Paper
 			radius="sm"
 			style={{
-				background: props.surface,
+				background: `linear-gradient(180deg, ${withAlpha(color, 0.08)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
 				border: `1px solid ${props.border}`,
+				boxShadow: `0 10px 24px ${withAlpha(color, 0.08)}`,
 				overflow: "hidden",
+			}}
+			styles={{
+				root: {
+					"&:hover": {
+						background: `linear-gradient(180deg, ${withAlpha(color, 0.1)} 0%, ${props.surfaceHover} 30%, ${props.surfaceHover} 100%)`,
+						transform: "translateY(-2px)",
+					},
+					transition: "all 0.18s ease",
+				},
 			}}
 		>
 			<Group gap={0} align="stretch" wrap="nowrap">
-				<Box
-					w={72}
-					style={{
-						flexShrink: 0,
-						minHeight: 120,
-						backgroundImage: `url(${props.item.coverUrl})`,
-						backgroundSize: "cover",
-						backgroundPosition: "center",
-					}}
+				<Artwork
+					height={132}
+					note={pct !== null ? `${pct}% done` : props.item.unit}
+					radius={0}
+					title={props.item.title}
+					type={props.item.type}
+					url={props.item.coverUrl}
+					width={84}
 				/>
-				<Stack gap={6} p="sm" style={{ flex: 1, minWidth: 0 }}>
+				<Stack gap={8} p="sm" style={{ flex: 1, minWidth: 0 }}>
 					<Group gap={6} wrap="nowrap">
-						<Icon size={12} color={color} />
-						<Text
-							fz={10}
-							fw={600}
-							c={color}
-							ff="var(--mantine-headings-font-family)"
-							tt="uppercase"
-							style={{ letterSpacing: "0.6px" }}
+						<Badge
+							size="xs"
+							variant="light"
+							style={{
+								backgroundColor: withAlpha(color, 0.12),
+								color,
+							}}
 						>
 							{props.item.type}
+						</Badge>
+						<Text
+							fz={10}
+							c={props.textMuted}
+							ff="var(--mantine-headings-font-family)"
+							tt="uppercase"
+							style={{ letterSpacing: "0.8px" }}
+						>
+							Resume
 						</Text>
 						<Box style={{ flex: 1 }} />
 						<Text fz={10} c={props.textMuted}>
@@ -1381,6 +1622,9 @@ function ContinueCard(props: {
 					<Text fz="xs" c={props.textMuted} lineClamp={1}>
 						{props.item.sub}
 					</Text>
+					<Text fz={11} c={props.textMuted}>
+						Return to where you left off.
+					</Text>
 
 					<Box mt={2}>
 						<Group gap={6} mb={4}>
@@ -1391,7 +1635,7 @@ function ContinueCard(props: {
 							>
 								{progressLabel}
 							</Text>
-							{pct !== null && (
+							{pct !== null ? (
 								<Text
 									fz={10}
 									ff="var(--mantine-font-family-monospace)"
@@ -1400,17 +1644,17 @@ function ContinueCard(props: {
 								>
 									{pct}%
 								</Text>
-							)}
+							) : null}
 						</Group>
-						{pct !== null && (
+						{pct !== null ? (
 							<Progress
 								value={pct}
-								size={4}
+								size={5}
 								radius="xl"
 								color={color}
 								bg={props.border}
 							/>
-						)}
+						) : null}
 					</Box>
 
 					<Button
@@ -1419,10 +1663,10 @@ function ContinueCard(props: {
 						mt={4}
 						leftSection={<Play size={10} />}
 						style={{
-							backgroundColor: `${color}18`,
-							color,
-							border: "none",
 							alignSelf: "flex-start",
+							backgroundColor: withAlpha(color, 0.12),
+							border: "none",
+							color,
 						}}
 						onClick={() =>
 							console.log(`[v6] ${props.item.actionLabel}:`, props.item.title)
@@ -1439,53 +1683,75 @@ function ContinueCard(props: {
 function BacklogCard(props: {
 	item: BacklogItem;
 	surface: string;
+	surfaceHover: string;
 	border: string;
 	textPrimary: string;
 	textMuted: string;
+	rank: number;
 }) {
 	const color = TYPE_COLORS[props.item.type];
+	const note = getQueueNote(props.item, props.rank);
 	return (
 		<UnstyledButton
 			onClick={() => console.log("[v6] Start:", props.item.title)}
 			style={{ flexShrink: 0 }}
 		>
 			<Paper
-				w={140}
+				w={164}
 				radius="sm"
 				style={{
-					background: props.surface,
+					background: `linear-gradient(180deg, ${withAlpha(color, 0.08)} 0%, ${props.surface} 26%, ${props.surface} 100%)`,
 					border: `1px solid ${props.border}`,
+					boxShadow: `0 10px 26px ${withAlpha(color, 0.08)}`,
 					overflow: "hidden",
 				}}
+				styles={{
+					root: {
+						"&:hover": {
+							background: `linear-gradient(180deg, ${withAlpha(color, 0.1)} 0%, ${props.surfaceHover} 24%, ${props.surfaceHover} 100%)`,
+							transform: "translateY(-2px)",
+						},
+						transition: "all 0.18s ease",
+					},
+				}}
 			>
-				<Box
-					h={180}
-					style={{
-						backgroundImage: `url(${props.item.coverUrl})`,
-						backgroundSize: "cover",
-						backgroundPosition: "center",
-						position: "relative",
-					}}
-				>
+				<Box p={8} pb={0} style={{ position: "relative" }}>
+					<Artwork
+						height={220}
+						note={note}
+						title={props.item.title}
+						type={props.item.type}
+						url={props.item.coverUrl}
+					/>
 					<Badge
 						size="xs"
-						variant="filled"
+						variant="light"
 						style={{
+							backgroundColor: withAlpha(color, 0.12),
+							color,
+							left: 14,
 							position: "absolute",
-							top: 6,
-							left: 6,
-							backgroundColor: color,
-							color: "white",
+							top: 14,
 						}}
 					>
 						{props.item.type}
 					</Badge>
 				</Box>
-				<Stack gap={2} p="xs">
+				<Stack gap={4} p="sm" pt="xs">
+					<Text
+						fz={10}
+						fw={700}
+						c={color}
+						ff="var(--mantine-headings-font-family)"
+						tt="uppercase"
+						style={{ letterSpacing: "0.9px" }}
+					>
+						{note}
+					</Text>
 					<Text
 						ff="var(--mantine-headings-font-family)"
 						fw={600}
-						fz="xs"
+						fz="sm"
 						c={props.textPrimary}
 						lineClamp={2}
 						lh={1.3}
@@ -1498,6 +1764,9 @@ function BacklogCard(props: {
 					<Text fz={10} c={props.textMuted}>
 						Added {props.item.addedDate}
 					</Text>
+					<Text fz={11} c={props.textMuted}>
+						Ready when you want something easy to pick.
+					</Text>
 				</Stack>
 			</Paper>
 		</UnstyledButton>
@@ -1507,6 +1776,7 @@ function BacklogCard(props: {
 function RateCard(props: {
 	item: UnratedItem;
 	surface: string;
+	surfaceHover: string;
 	border: string;
 	textPrimary: string;
 	textMuted: string;
@@ -1519,29 +1789,37 @@ function RateCard(props: {
 		<Paper
 			radius="sm"
 			style={{
-				background: props.surface,
+				background: `linear-gradient(180deg, ${withAlpha(GOLD, 0.09)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
 				border: `1px solid ${props.border}`,
+				boxShadow: `0 10px 26px ${withAlpha(GOLD, 0.08)}`,
 				overflow: "hidden",
 			}}
+			styles={{
+				root: {
+					"&:hover": {
+						background: `linear-gradient(180deg, ${withAlpha(GOLD, 0.11)} 0%, ${props.surfaceHover} 34%, ${props.surfaceHover} 100%)`,
+						transform: "translateY(-2px)",
+					},
+					transition: "all 0.18s ease",
+				},
+			}}
 		>
+			<Box h={3} bg={GOLD} />
 			<Group gap="sm" wrap="nowrap" p="sm">
-				<Box
-					w={48}
-					h={64}
-					style={{
-						flexShrink: 0,
-						borderRadius: 4,
-						backgroundImage: `url(${props.item.coverUrl})`,
-						backgroundSize: "cover",
-						backgroundPosition: "center",
-					}}
+				<Artwork
+					height={86}
+					radius={8}
+					title={props.item.title}
+					type={props.item.type}
+					url={props.item.coverUrl}
+					width={64}
 				/>
 				<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
 					<Group gap={6}>
 						<Badge
 							size="xs"
 							variant="light"
-							style={{ backgroundColor: `${color}18`, color }}
+							style={{ backgroundColor: withAlpha(color, 0.12), color }}
 						>
 							{props.item.type}
 						</Badge>
@@ -1561,11 +1839,24 @@ function RateCard(props: {
 					<Text fz="xs" c={props.textMuted}>
 						{props.item.sub}
 					</Text>
-					<Group gap={2} mt={2}>
+					<Text fz={11} c={props.textMuted}>
+						Still needs your take.
+					</Text>
+					<Group
+						gap={4}
+						mt={2}
+						px={6}
+						py={5}
+						style={{
+							alignSelf: "flex-start",
+							backgroundColor: withAlpha(GOLD, 0.08),
+							borderRadius: 999,
+						}}
+					>
 						{[1, 2, 3, 4, 5].map((star) => (
 							<Tooltip key={star} label={`${star} star${star > 1 ? "s" : ""}`}>
 								<ActionIcon
-									size="xs"
+									size="sm"
 									variant="transparent"
 									onMouseEnter={() => setHovered(star)}
 									onMouseLeave={() => setHovered(0)}
@@ -1577,7 +1868,7 @@ function RateCard(props: {
 									}}
 								>
 									<Star
-										size={14}
+										size={18}
 										color={GOLD}
 										fill={star <= (hovered || selected) ? GOLD : "transparent"}
 									/>
@@ -1590,7 +1881,7 @@ function RateCard(props: {
 								fw={600}
 								c={GOLD}
 								ff="var(--mantine-font-family-monospace)"
-								ml={4}
+								ml={2}
 							>
 								{selected}/5
 							</Text>
@@ -1604,30 +1895,39 @@ function RateCard(props: {
 
 function WeekStrip(props: {
 	days: WeekDay[];
-	surface: string;
+	accentColor: string;
 	border: string;
 	textPrimary: string;
 	textMuted: string;
 }) {
 	const maxCount = Math.max(...props.days.map((d) => d.count), 1);
+	const activeDays = props.days.filter((day) => day.count > 0).length;
 	return (
-		<Paper
-			p="md"
-			radius="sm"
-			style={{
-				background: props.surface,
-				border: `1px solid ${props.border}`,
-			}}
-		>
-			<Group justify="space-between" mb="sm">
-				<Text
-					ff="var(--mantine-headings-font-family)"
-					fw={600}
-					fz="sm"
-					c={props.textPrimary}
-				>
-					This Week
-				</Text>
+		<Stack gap="md">
+			<Group justify="space-between" align="flex-start" gap="sm">
+				<Stack gap={4}>
+					<Text
+						fz={10}
+						fw={700}
+						c={props.accentColor}
+						ff="var(--mantine-headings-font-family)"
+						tt="uppercase"
+						style={{ letterSpacing: "1px" }}
+					>
+						Weekly rhythm
+					</Text>
+					<Text
+						ff="var(--mantine-headings-font-family)"
+						fw={600}
+						fz="sm"
+						c={props.textPrimary}
+					>
+						You showed up {activeDays} of 7 days.
+					</Text>
+					<Text fz="xs" c={props.textMuted}>
+						A quick pulse of how the week has been moving.
+					</Text>
+				</Stack>
 				<Text fz="xs" c={props.textMuted}>
 					{LIBRARY_STATS.thisWeekCompleted} completed &middot;{" "}
 					{LIBRARY_STATS.thisWeekHours}h tracked
@@ -1635,7 +1935,7 @@ function WeekStrip(props: {
 			</Group>
 			<Group gap="xs" justify="space-between">
 				{props.days.map((day) => {
-					const h = day.count > 0 ? 8 + (day.count / maxCount) * 24 : 4;
+					const h = day.count > 0 ? 10 + (day.count / maxCount) * 28 : 6;
 					return (
 						<Stack key={day.day} gap={4} align="center" style={{ flex: 1 }}>
 							<Tooltip
@@ -1645,8 +1945,9 @@ function WeekStrip(props: {
 									w="100%"
 									h={h}
 									style={{
-										borderRadius: 2,
-										backgroundColor: day.count > 0 ? GOLD : `${props.border}`,
+										borderRadius: 999,
+										backgroundColor:
+											day.count > 0 ? props.accentColor : `${props.border}`,
 										opacity:
 											day.count > 0 ? 0.4 + (day.count / maxCount) * 0.6 : 1,
 										transition: "height 0.2s ease",
@@ -1660,7 +1961,7 @@ function WeekStrip(props: {
 					);
 				})}
 			</Group>
-		</Paper>
+		</Stack>
 	);
 }
 
@@ -1677,34 +1978,40 @@ function EventRow(props: {
 			gap="sm"
 			wrap="nowrap"
 			align="flex-start"
-			py={8}
+			py={10}
 			style={{
 				borderBottom: props.isLast ? "none" : `1px solid ${props.border}`,
+				borderLeft: `3px solid ${color}`,
+				paddingLeft: 12,
 			}}
 		>
-			<Box
-				w={32}
-				h={42}
-				style={{
-					flexShrink: 0,
-					borderRadius: 4,
-					backgroundImage: `url(${props.event.coverUrl})`,
-					backgroundSize: "cover",
-					backgroundPosition: "center",
-				}}
+			<Artwork
+				height={48}
+				radius={6}
+				title={props.event.title}
+				type={props.event.type}
+				url={props.event.coverUrl}
+				width={36}
 			/>
 			<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
 				<Text
 					ff="var(--mantine-headings-font-family)"
 					fw={600}
-					fz="xs"
+					fz="sm"
 					c={props.textPrimary}
 					lineClamp={1}
 				>
 					{props.event.title}
 				</Text>
-				<Group gap={4}>
-					<Text fz={10} fw={500} c={color}>
+				<Group gap={6} wrap="wrap">
+					<Badge
+						size="xs"
+						variant="light"
+						style={{ backgroundColor: withAlpha(color, 0.12), color }}
+					>
+						{props.event.type}
+					</Badge>
+					<Text fz={10} fw={600} c={color}>
 						{props.event.action}
 					</Text>
 					<Text fz={10} c={props.textMuted}>
@@ -1798,24 +2105,36 @@ function StatChip(props: {
 	return (
 		<Paper
 			px="md"
-			py="xs"
+			py="sm"
 			radius="sm"
 			style={{
-				background: props.surface,
+				background: `linear-gradient(180deg, ${withAlpha(props.color ?? STONE, 0.08)} 0%, ${props.surface} 100%)`,
 				border: `1px solid ${props.border}`,
+				borderTop: `3px solid ${props.color ?? STONE}`,
 			}}
 		>
 			<Text
+				fz={10}
+				c={props.textMuted}
+				fw={700}
+				ff="var(--mantine-headings-font-family)"
+				tt="uppercase"
+				style={{ letterSpacing: "0.9px" }}
+			>
+				{props.label}
+			</Text>
+			<Text
 				ff="var(--mantine-font-family-monospace)"
 				fw={700}
-				fz="lg"
+				fz="xl"
 				c={props.color ?? props.textPrimary}
 				lh={1.2}
+				mt={6}
 			>
 				{props.value}
 			</Text>
-			<Text fz={10} c={props.textMuted} fw={500}>
-				{props.label}
+			<Text fz={10} c={props.textMuted} fw={500} mt={2}>
+				In your library
 			</Text>
 		</Paper>
 	);
@@ -2666,36 +2985,83 @@ function RouteComponent() {
 		},
 		{},
 	);
+	const weekTotalEvents = WEEK_ACTIVITY.reduce(
+		(total, day) => total + day.count,
+		0,
+	);
 
 	return (
 		<Box bg={bgPage} mih="100vh">
 			<Container size="lg" py="xl">
 				<Stack gap="xl">
-					{/* Header — minimal, the content speaks for itself */}
-					<Group justify="space-between" align="center">
-						<Text
-							ff="var(--mantine-headings-font-family)"
-							fw={700}
-							fz={24}
-							c={t.textPrimary}
-						>
-							Media
-						</Text>
+					<Group justify="space-between" align="flex-end" gap="sm">
+						<Stack gap={6} maw={640}>
+							<Text
+								ff="var(--mantine-headings-font-family)"
+								fw={700}
+								fz={30}
+								c={t.textPrimary}
+								lh={1}
+							>
+								Media
+							</Text>
+							<Text fz="sm" c={t.textMuted}>
+								A quiet snapshot of what already has momentum, what deserves a
+								next spot in the queue, and what still needs your reaction.
+							</Text>
+							<Group gap="xs" wrap="wrap">
+								<Badge
+									variant="light"
+									style={{
+										backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
+										color: SECTION_ACCENTS.continue,
+									}}
+								>
+									{IN_PROGRESS.length} in progress
+								</Badge>
+								<Badge
+									variant="light"
+									style={{
+										backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
+										color: SECTION_ACCENTS.queue,
+									}}
+								>
+									{BACKLOG.length} queued next
+								</Badge>
+								<Badge
+									variant="light"
+									style={{
+										backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
+										color: SECTION_ACCENTS.review,
+									}}
+								>
+									{UNRATED.length} still unrated
+								</Badge>
+							</Group>
+						</Stack>
 						<Button
-							size="compact-sm"
+							size="sm"
 							leftSection={<Plus size={14} />}
 							style={{ backgroundColor: GOLD, color: "white" }}
 							onClick={addModalHandlers.open}
 						>
-							Add
+							Add media
 						</Button>
 					</Group>
 
-					{/* Section 1: Continue — the most useful section */}
-					<Box>
+					<SectionFrame
+						accentColor={SECTION_ACCENTS.continue}
+						border={t.border}
+						isDark={t.isDark}
+						surface={t.surface}
+					>
 						<SectionHeader
+							accentColor={SECTION_ACCENTS.continue}
+							eyebrow="In motion"
+							subtitle="Lead with the things that already have your attention, and make returning to them feel obvious."
 							title="Continue"
 							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
 							right={
 								<Group gap={4}>
 									<Clock size={12} color={t.textMuted} />
@@ -2718,7 +3084,7 @@ function RouteComponent() {
 								/>
 							))}
 						</SimpleGrid>
-						{IN_PROGRESS.length > 6 && (
+						{IN_PROGRESS.length > 6 ? (
 							<UnstyledButton
 								mt="sm"
 								onClick={() => console.log("[v6] View all in-progress")}
@@ -2730,14 +3096,22 @@ function RouteComponent() {
 									<ChevronRight size={12} color={GOLD} />
 								</Group>
 							</UnstyledButton>
-						)}
-					</Box>
+						) : null}
+					</SectionFrame>
 
-					{/* Section 2: Up Next — your backlog */}
-					<Box>
+					<SectionFrame
+						accentColor={SECTION_ACCENTS.queue}
+						border={t.border}
+						isDark={t.isDark}
+						surface={t.surface}
+					>
 						<SectionHeader
+							accentColor={SECTION_ACCENTS.queue}
+							eyebrow="Queued with intent"
+							subtitle="The backlog reads better when it feels curated instead of endless. Keep the next few picks visible and human."
 							title="Up Next"
 							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
 							right={
 								<Text fz="xs" c={t.textMuted}>
 									{BACKLOG.length} queued
@@ -2746,26 +3120,40 @@ function RouteComponent() {
 						/>
 						<ScrollArea scrollbarSize={4} type="hover">
 							<Group gap="sm" wrap="nowrap" pb={4}>
-								{BACKLOG.map((item) => (
+								{BACKLOG.map((item, index) => (
 									<BacklogCard
 										key={item.id}
 										item={item}
 										surface={t.surface}
+										surfaceHover={t.surfaceHover}
 										border={t.border}
+										rank={index}
 										textPrimary={t.textPrimary}
 										textMuted={t.textMuted}
 									/>
 								))}
 							</Group>
 						</ScrollArea>
-					</Box>
+						<Text fz={11} c={t.textMuted} mt="sm">
+							A smaller queue feels warmer and more deliberate than an infinite
+							wish list.
+						</Text>
+					</SectionFrame>
 
-					{/* Section 3: Rate These — only if there are unrated completions */}
 					{UNRATED.length > 0 && (
-						<Box>
+						<SectionFrame
+							accentColor={SECTION_ACCENTS.review}
+							border={t.border}
+							isDark={t.isDark}
+							surface={t.surface}
+						>
 							<SectionHeader
+								accentColor={SECTION_ACCENTS.review}
+								eyebrow="Leave a trace"
+								subtitle="Finished things are only half-done until you leave a quick reaction behind."
 								title="Rate These"
 								textPrimary={t.textPrimary}
+								textMuted={t.textMuted}
 								right={
 									<Text fz="xs" c={t.textMuted}>
 										{UNRATED.length} unrated
@@ -2778,20 +3166,29 @@ function RouteComponent() {
 										key={item.id}
 										item={item}
 										surface={t.surface}
+										surfaceHover={t.surfaceHover}
 										border={t.border}
 										textPrimary={t.textPrimary}
 										textMuted={t.textMuted}
 									/>
 								))}
 							</SimpleGrid>
-						</Box>
+						</SectionFrame>
 					)}
 
-					{/* Section 4: This Week + Recent Activity */}
-					<Box>
+					<SectionFrame
+						accentColor={SECTION_ACCENTS.activity}
+						border={t.border}
+						isDark={t.isDark}
+						surface={t.surface}
+					>
 						<SectionHeader
+							accentColor={SECTION_ACCENTS.activity}
+							eyebrow="Recent rhythm"
+							subtitle="The weekly pulse and the event log should read like one page from the same journal."
 							title="Activity"
 							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
 							right={
 								<UnstyledButton
 									onClick={() => console.log("[v6] View full activity log")}
@@ -2805,56 +3202,80 @@ function RouteComponent() {
 								</UnstyledButton>
 							}
 						/>
-						<Stack gap="sm">
+						<Paper
+							p="md"
+							radius="sm"
+							style={{
+								background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
+								border: `1px solid ${t.border}`,
+							}}
+						>
 							<WeekStrip
 								days={WEEK_ACTIVITY}
-								surface={t.surface}
+								accentColor={SECTION_ACCENTS.activity}
 								border={t.border}
 								textPrimary={t.textPrimary}
 								textMuted={t.textMuted}
 							/>
-							{Object.entries(dateGroups).map(([date, events]) => (
-								<Box key={date}>
-									<Text
-										fz={10}
-										fw={700}
-										c={t.textMuted}
-										mb={6}
-										ff="var(--mantine-headings-font-family)"
-										tt="uppercase"
-										style={{ letterSpacing: "1px" }}
-									>
-										{date}
-									</Text>
-									<Paper
-										px="sm"
-										radius="sm"
-										style={{
-											background: t.surface,
-											border: `1px solid ${t.border}`,
-										}}
-									>
-										{events.map((event, i) => (
-											<EventRow
-												key={event.id}
-												event={event}
-												isLast={i === events.length - 1}
-												border={t.border}
-												textPrimary={t.textPrimary}
-												textMuted={t.textMuted}
-											/>
-										))}
-									</Paper>
-								</Box>
-							))}
-						</Stack>
-					</Box>
+							<Group gap="xs" mt="md" mb="sm">
+								<Badge
+									variant="light"
+									style={{
+										backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
+										color: SECTION_ACCENTS.activity,
+									}}
+								>
+									{weekTotalEvents} events this week
+								</Badge>
+								<Text fz={11} c={t.textMuted}>
+									A denser line, but still calm enough to scan quickly.
+								</Text>
+							</Group>
+							<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
+								{Object.entries(dateGroups).map(([date, events]) => (
+									<Box key={date}>
+										<Text
+											fz={10}
+											fw={700}
+											c={t.textMuted}
+											mb={6}
+											ff="var(--mantine-headings-font-family)"
+											tt="uppercase"
+											style={{ letterSpacing: "1px" }}
+										>
+											{date}
+										</Text>
+										<Box px="xs">
+											{events.map((event, i) => (
+												<EventRow
+													key={event.id}
+													event={event}
+													isLast={i === events.length - 1}
+													border={t.border}
+													textPrimary={t.textPrimary}
+													textMuted={t.textMuted}
+												/>
+											))}
+										</Box>
+									</Box>
+								))}
+							</Box>
+						</Paper>
+					</SectionFrame>
 
-					{/* Section 5: Library at a Glance — compact, de-emphasized */}
-					<Box>
+					<SectionFrame
+						accentColor={SECTION_ACCENTS.library}
+						border={t.border}
+						isDark={t.isDark}
+						surface={t.surface}
+					>
 						<SectionHeader
+							accentColor={SECTION_ACCENTS.library}
+							eyebrow="At a glance"
+							subtitle="Keep the numbers grounded and compact so they support the page instead of taking it over."
 							title="Library"
 							textPrimary={t.textPrimary}
+							textMuted={t.textMuted}
 							right={
 								<Text fz="xs" c={t.textMuted}>
 									{LIBRARY_STATS.total} total entries
@@ -2912,7 +3333,7 @@ function RouteComponent() {
 								p="md"
 								radius="sm"
 								style={{
-									background: t.surface,
+									background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
 									border: `1px solid ${t.border}`,
 								}}
 							>
@@ -2933,7 +3354,7 @@ function RouteComponent() {
 								/>
 							</Paper>
 						</Stack>
-					</Box>
+					</SectionFrame>
 				</Stack>
 			</Container>
 			<AddMediaModal opened={addModalOpened} onClose={addModalHandlers.close} />
