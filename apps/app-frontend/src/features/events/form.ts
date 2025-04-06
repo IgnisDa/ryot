@@ -85,6 +85,8 @@ export type CreateEventFormValues = z.infer<typeof createEventFormSchema>;
 
 export type CreateEventPayload = ApiPostRequestBody<"/events">;
 
+export type CreateEventSinglePayload = CreateEventPayload[number];
+
 export function getSelectedEventSchema(
 	eventSchemas: AppEventSchema[],
 	eventSchemaId?: string,
@@ -345,10 +347,12 @@ export function toCreateEventPayload(
 			)
 		: input.properties;
 
-	return {
+	const item: CreateEventSinglePayload = {
 		properties,
 		entityId: entityId.trim(),
 		eventSchemaId: input.eventSchemaId.trim(),
 		occurredAt: normalizeOccurredAtInputValue(input.occurredAt),
 	};
+
+	return [item];
 }

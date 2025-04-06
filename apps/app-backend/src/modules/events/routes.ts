@@ -8,12 +8,12 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 import {
-	createEventBody,
-	createEventResponseSchema,
+	createEventBulkBody,
+	createEventBulkResponseSchema,
 	listEventsQuery,
 	listEventsResponseSchema,
 } from "./schemas";
-import { createEvent, listEntityEvents } from "./service";
+import { createEvents, listEntityEvents } from "./service";
 
 const listEventsRoute = createAuthRoute(
 	createRoute({
@@ -36,10 +36,10 @@ const createEventRoute = createAuthRoute(
 		method: "post",
 		tags: ["events"],
 		summary: "Create an event for a custom entity",
-		request: { body: jsonBody(createEventBody) },
+		request: { body: jsonBody(createEventBulkBody) },
 		responses: createStandardResponses({
-			successDescription: "Event was created",
-			successSchema: createEventResponseSchema,
+			successSchema: createEventBulkResponseSchema,
+			successDescription: "Number of events created",
 			notFoundDescription:
 				"Entity or event schema does not exist for this user",
 		}),
@@ -67,7 +67,7 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const result = await createEvent({ body, userId: user.id });
+		const result = await createEvents({ body, userId: user.id });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
