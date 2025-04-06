@@ -67,7 +67,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
-		serverGqlService.request(GenresListDocument, {
+		serverGqlService.authenticatedRequest(request, GenresListDocument, {
 			input: { page: query[pageQueryParam], query: query.query },
 		}),
 	]);
