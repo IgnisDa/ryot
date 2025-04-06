@@ -14,14 +14,8 @@ import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedTrackerSlugIndexRouteImport } from './routes/_protected/$trackerSlug/index'
 import { Route as ProtectedViewsViewIdRouteImport } from './routes/_protected/views/$viewId'
-import { Route as ProtectedLabsSavedViewRouteImport } from './routes/_protected/labs/saved-view'
 import { Route as ProtectedEntitiesEntityIdRouteImport } from './routes/_protected/entities/$entityId'
 import { Route as ProtectedLabsMediaOverviewV6RouteImport } from './routes/_protected/labs/media-overview/v6'
-import { Route as ProtectedLabsMediaOverviewV5RouteImport } from './routes/_protected/labs/media-overview/v5'
-import { Route as ProtectedLabsMediaOverviewV4RouteImport } from './routes/_protected/labs/media-overview/v4'
-import { Route as ProtectedLabsMediaOverviewV3RouteImport } from './routes/_protected/labs/media-overview/v3'
-import { Route as ProtectedLabsMediaOverviewV2RouteImport } from './routes/_protected/labs/media-overview/v2'
-import { Route as ProtectedLabsMediaOverviewV1RouteImport } from './routes/_protected/labs/media-overview/v1'
 
 const StartRoute = StartRouteImport.update({
   id: '/start',
@@ -48,11 +42,6 @@ const ProtectedViewsViewIdRoute = ProtectedViewsViewIdRouteImport.update({
   path: '/views/$viewId',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedLabsSavedViewRoute = ProtectedLabsSavedViewRouteImport.update({
-  id: '/labs/saved-view',
-  path: '/labs/saved-view',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
 const ProtectedEntitiesEntityIdRoute =
   ProtectedEntitiesEntityIdRouteImport.update({
     id: '/entities/$entityId',
@@ -65,63 +54,21 @@ const ProtectedLabsMediaOverviewV6Route =
     path: '/labs/media-overview/v6',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
-const ProtectedLabsMediaOverviewV5Route =
-  ProtectedLabsMediaOverviewV5RouteImport.update({
-    id: '/labs/media-overview/v5',
-    path: '/labs/media-overview/v5',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedLabsMediaOverviewV4Route =
-  ProtectedLabsMediaOverviewV4RouteImport.update({
-    id: '/labs/media-overview/v4',
-    path: '/labs/media-overview/v4',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedLabsMediaOverviewV3Route =
-  ProtectedLabsMediaOverviewV3RouteImport.update({
-    id: '/labs/media-overview/v3',
-    path: '/labs/media-overview/v3',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedLabsMediaOverviewV2Route =
-  ProtectedLabsMediaOverviewV2RouteImport.update({
-    id: '/labs/media-overview/v2',
-    path: '/labs/media-overview/v2',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
-const ProtectedLabsMediaOverviewV1Route =
-  ProtectedLabsMediaOverviewV1RouteImport.update({
-    id: '/labs/media-overview/v1',
-    path: '/labs/media-overview/v1',
-    getParentRoute: () => ProtectedRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/start': typeof StartRoute
   '/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
-  '/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
-  '/labs/media-overview/v1': typeof ProtectedLabsMediaOverviewV1Route
-  '/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
-  '/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
-  '/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
-  '/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
   '/labs/media-overview/v6': typeof ProtectedLabsMediaOverviewV6Route
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
   '/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
-  '/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/$trackerSlug': typeof ProtectedTrackerSlugIndexRoute
-  '/labs/media-overview/v1': typeof ProtectedLabsMediaOverviewV1Route
-  '/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
-  '/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
-  '/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
-  '/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
   '/labs/media-overview/v6': typeof ProtectedLabsMediaOverviewV6Route
 }
 export interface FileRoutesById {
@@ -130,14 +77,8 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/entities/$entityId': typeof ProtectedEntitiesEntityIdRoute
-  '/_protected/labs/saved-view': typeof ProtectedLabsSavedViewRoute
   '/_protected/views/$viewId': typeof ProtectedViewsViewIdRoute
   '/_protected/$trackerSlug/': typeof ProtectedTrackerSlugIndexRoute
-  '/_protected/labs/media-overview/v1': typeof ProtectedLabsMediaOverviewV1Route
-  '/_protected/labs/media-overview/v2': typeof ProtectedLabsMediaOverviewV2Route
-  '/_protected/labs/media-overview/v3': typeof ProtectedLabsMediaOverviewV3Route
-  '/_protected/labs/media-overview/v4': typeof ProtectedLabsMediaOverviewV4Route
-  '/_protected/labs/media-overview/v5': typeof ProtectedLabsMediaOverviewV5Route
   '/_protected/labs/media-overview/v6': typeof ProtectedLabsMediaOverviewV6Route
 }
 export interface FileRouteTypes {
@@ -146,28 +87,16 @@ export interface FileRouteTypes {
     | '/'
     | '/start'
     | '/entities/$entityId'
-    | '/labs/saved-view'
     | '/views/$viewId'
     | '/$trackerSlug/'
-    | '/labs/media-overview/v1'
-    | '/labs/media-overview/v2'
-    | '/labs/media-overview/v3'
-    | '/labs/media-overview/v4'
-    | '/labs/media-overview/v5'
     | '/labs/media-overview/v6'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/start'
     | '/'
     | '/entities/$entityId'
-    | '/labs/saved-view'
     | '/views/$viewId'
     | '/$trackerSlug'
-    | '/labs/media-overview/v1'
-    | '/labs/media-overview/v2'
-    | '/labs/media-overview/v3'
-    | '/labs/media-overview/v4'
-    | '/labs/media-overview/v5'
     | '/labs/media-overview/v6'
   id:
     | '__root__'
@@ -175,14 +104,8 @@ export interface FileRouteTypes {
     | '/start'
     | '/_protected/'
     | '/_protected/entities/$entityId'
-    | '/_protected/labs/saved-view'
     | '/_protected/views/$viewId'
     | '/_protected/$trackerSlug/'
-    | '/_protected/labs/media-overview/v1'
-    | '/_protected/labs/media-overview/v2'
-    | '/_protected/labs/media-overview/v3'
-    | '/_protected/labs/media-overview/v4'
-    | '/_protected/labs/media-overview/v5'
     | '/_protected/labs/media-overview/v6'
   fileRoutesById: FileRoutesById
 }
@@ -228,13 +151,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedViewsViewIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/labs/saved-view': {
-      id: '/_protected/labs/saved-view'
-      path: '/labs/saved-view'
-      fullPath: '/labs/saved-view'
-      preLoaderRoute: typeof ProtectedLabsSavedViewRouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
     '/_protected/entities/$entityId': {
       id: '/_protected/entities/$entityId'
       path: '/entities/$entityId'
@@ -249,69 +165,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedLabsMediaOverviewV6RouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/labs/media-overview/v5': {
-      id: '/_protected/labs/media-overview/v5'
-      path: '/labs/media-overview/v5'
-      fullPath: '/labs/media-overview/v5'
-      preLoaderRoute: typeof ProtectedLabsMediaOverviewV5RouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
-    '/_protected/labs/media-overview/v4': {
-      id: '/_protected/labs/media-overview/v4'
-      path: '/labs/media-overview/v4'
-      fullPath: '/labs/media-overview/v4'
-      preLoaderRoute: typeof ProtectedLabsMediaOverviewV4RouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
-    '/_protected/labs/media-overview/v3': {
-      id: '/_protected/labs/media-overview/v3'
-      path: '/labs/media-overview/v3'
-      fullPath: '/labs/media-overview/v3'
-      preLoaderRoute: typeof ProtectedLabsMediaOverviewV3RouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
-    '/_protected/labs/media-overview/v2': {
-      id: '/_protected/labs/media-overview/v2'
-      path: '/labs/media-overview/v2'
-      fullPath: '/labs/media-overview/v2'
-      preLoaderRoute: typeof ProtectedLabsMediaOverviewV2RouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
-    '/_protected/labs/media-overview/v1': {
-      id: '/_protected/labs/media-overview/v1'
-      path: '/labs/media-overview/v1'
-      fullPath: '/labs/media-overview/v1'
-      preLoaderRoute: typeof ProtectedLabsMediaOverviewV1RouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
   }
 }
 
 interface ProtectedRouteRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedEntitiesEntityIdRoute: typeof ProtectedEntitiesEntityIdRoute
-  ProtectedLabsSavedViewRoute: typeof ProtectedLabsSavedViewRoute
   ProtectedViewsViewIdRoute: typeof ProtectedViewsViewIdRoute
   ProtectedTrackerSlugIndexRoute: typeof ProtectedTrackerSlugIndexRoute
-  ProtectedLabsMediaOverviewV1Route: typeof ProtectedLabsMediaOverviewV1Route
-  ProtectedLabsMediaOverviewV2Route: typeof ProtectedLabsMediaOverviewV2Route
-  ProtectedLabsMediaOverviewV3Route: typeof ProtectedLabsMediaOverviewV3Route
-  ProtectedLabsMediaOverviewV4Route: typeof ProtectedLabsMediaOverviewV4Route
-  ProtectedLabsMediaOverviewV5Route: typeof ProtectedLabsMediaOverviewV5Route
   ProtectedLabsMediaOverviewV6Route: typeof ProtectedLabsMediaOverviewV6Route
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedEntitiesEntityIdRoute: ProtectedEntitiesEntityIdRoute,
-  ProtectedLabsSavedViewRoute: ProtectedLabsSavedViewRoute,
   ProtectedViewsViewIdRoute: ProtectedViewsViewIdRoute,
   ProtectedTrackerSlugIndexRoute: ProtectedTrackerSlugIndexRoute,
-  ProtectedLabsMediaOverviewV1Route: ProtectedLabsMediaOverviewV1Route,
-  ProtectedLabsMediaOverviewV2Route: ProtectedLabsMediaOverviewV2Route,
-  ProtectedLabsMediaOverviewV3Route: ProtectedLabsMediaOverviewV3Route,
-  ProtectedLabsMediaOverviewV4Route: ProtectedLabsMediaOverviewV4Route,
-  ProtectedLabsMediaOverviewV5Route: ProtectedLabsMediaOverviewV5Route,
   ProtectedLabsMediaOverviewV6Route: ProtectedLabsMediaOverviewV6Route,
 }
 
