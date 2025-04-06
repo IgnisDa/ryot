@@ -287,7 +287,9 @@ pub async fn change_metadata_associations(
     groups: Vec<CommitMediaInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
-) -> Result<()> {
+) -> Result<UpdateMediaEntityResult> {
+    let mut result = UpdateMediaEntityResult::default();
+
     MetadataToPerson::delete_many()
         .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
         .exec(&ss.db)
@@ -348,12 +350,14 @@ pub async fn change_metadata_associations(
     for data in suggestions {
         let db_partial_metadata = create_partial_metadata(data, &ss.db).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
-            to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
         };
-        intermediate.insert(&ss.db).await.ok();
+        if let Ok(_e) = intermediate.insert(&ss.db).await {
+            result.suggestions.push(db_partial_metadata.id);
+        }
     }
 
     for metadata_group in groups {
@@ -366,7 +370,7 @@ pub async fn change_metadata_associations(
         intermediate.insert(&ss.db).await.ok();
     }
 
-    Ok(())
+    Ok(result)
 }
 
 async fn update_metadata(
