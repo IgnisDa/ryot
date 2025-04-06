@@ -61,7 +61,7 @@ Suggested request shape:
 
 - `entitySchemaIds: string[]`
 - `filters: []` or another validated filter structure
-- `sort: { key: string, direction: "asc" | "desc" }`
+- `sort: { field: string, direction: "asc" | "desc" }`
 - `page: { limit: number, offset: number }`
 - `fields: string[]` — which entity property keys to return in `propertyValues`
 - `include: { latestEvent?: boolean, eventCount?: boolean, schemaMeta?: boolean }`
@@ -75,7 +75,7 @@ Suggested response shape:
 
 Each item should include at least:
 
-- core entity fields (id, name, createdAt, etc.)
+- core entity fields (id, name, createdAt, etc.) — note that `name` is a top-level entity attribute, not in `propertyValues`
 - `propertyValues` — filtered to requested fields from the `fields` parameter
 - `entitySchemaId`
 - optional schema metadata when runtime spans multiple schemas
@@ -109,7 +109,7 @@ The saved view schema should include:
 - `name: string` — view name
 - `icon?: string` — optional icon identifier
 - `accentColor?: string` — optional accent color
-- `trackerId?: string` — optional tracker FK for sidebar grouping (purely display-related)
+- `trackerId?: string` — optional tracker FK
 - `isBuiltIn: boolean` — whether this is a built-in protected view
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
@@ -118,7 +118,7 @@ The `queryDefinition` column stores:
 
 - `entitySchemaIds: string[]` — which schemas to query
 - `filters: FilterExpression[]` — attribute filters to apply
-- `sort: { key: string, direction: "asc" | "desc" }` — how to order results
+- `sort: { field: string, direction: "asc" | "desc" }` — how to order results
 - `eventConditions: []` — event-based conditions (future)
 
 The `displayConfiguration` column stores:
@@ -250,11 +250,11 @@ When the frontend loads View 1:
     ],
     "sort": { "field": "year", "direction": "desc" },
     "page": { "limit": 6, "offset": 0 },
-    "fields": ["name", "manufacturer", "year", "price_usd", "product_image"]
+    "fields": ["manufacturer", "year", "price_usd", "product_image"]
   }
   ```
 
-  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `titleProperty`, `subtitleProperties`, and `badgeProperty`.
+  The `fields` parameter is derived from the active layout's config (grid in this case): `imageProperty`, `subtitleProperties`, and `badgeProperty`. Note that `titleProperty` references `name`, which is a top-level entity attribute and doesn't need to be included in `fields`.
 
 4. `POST /view-runtime/execute` → returns only requested properties in `propertyValues`
 5. Frontend renders using `layout` and the appropriate layout config from `displayConfiguration`
