@@ -111,7 +111,7 @@ Collections are not constrained to a single tracker. A "Trip to Japan" collectio
 
 Structurally, a collection is itself an entity (with a "collection" entity schema), and membership is modeled as relationships. This keeps collections within the unified data model rather than introducing a parallel system.
 
-The Collections page in the sidebar is a built-in saved view that lists all collection entities. It follows the same pattern as "Movies" or "TV Shows" — clicking "Collections" navigates to a saved view with `queryDefinition: { entity_schema: "collection" }`. This means collections get the same browsing, filtering, and sorting capabilities as any other entity type, rendered through the unified saved view component.
+The Collections page in the sidebar is a built-in saved view that lists all collection entities. It follows the same pattern as "Movies" or "TV Shows" — clicking "Collections" navigates to a built-in saved view querying the collection entity schema. This means collections get the same browsing, filtering, and sorting capabilities as any other entity type, rendered through the unified saved view component.
 
 For rendering mixed-entity collections, items display in a uniform card format: entity name, schema type as a colored badge, thumbnail if available, and most recent event summary. This is intentionally less rich than a tracker-specific view — the value of a cross-tracker collection is seeing the breadth of what's in it, not the depth of each item.
 
@@ -163,7 +163,7 @@ This means there is no separate "entity list page" component. The saved view ren
 
 In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable.
 
-The Collections page in the LIBRARY section follows this exact pattern. Since collections are entities (with a "collection" entity schema), the Collections page is simply a built-in saved view with `isBuiltin = true` and `queryDefinition: { entity_schema: "collection" }`. This architectural consistency means collections benefit from the same filtering, sorting, and browsing capabilities as any other entity type.
+The Collections page in the LIBRARY section follows this exact pattern. Since collections are entities (with a "collection" entity schema), the Collections page is simply a built-in saved view querying the collection entity schema. This architectural consistency means collections benefit from the same filtering, sorting, and browsing capabilities as any other entity type.
 
 A saved view carries two pieces of configuration:
 
@@ -222,7 +222,7 @@ The sidebar is the primary navigation mechanism and is persistent across all scr
 1. **Top**: Home (cross-tracker dashboard) and Global Search.
 2. **TRACKING**: dynamically populated list of active trackers. Built-in trackers (Media, Fitness) are expandable with sub-items (Movies, TV Shows, etc.). Custom trackers appear as single items. A "+ Add Tracker" link at the bottom is the entry point to create new trackers.
 3. **LIBRARY**: Collections and Saved Views. These are always visible regardless of which trackers are active because they are cross-tracker features.
-   - **Collections**: Navigates to a built-in saved view (`isBuiltin: true`) that lists all collection entities with `queryDefinition: { entity_schema: "collection" }`. Uses the same saved view renderer as entity list pages.
+   - **Collections**: Navigates to a built-in saved view that lists all collection entities. Uses the same saved view renderer as entity list pages.
    - **Saved Views**: Navigates to a management page that lists user-created saved views (`isBuiltin: false`), allowing users to browse, edit, and delete their custom views created via the query builder.
 
 On mobile, the sidebar collapses into a bottom tab bar with the most-used items and a "More" overflow.
