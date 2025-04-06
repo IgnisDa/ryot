@@ -2774,20 +2774,27 @@ impl MiscellaneousService {
     }
 
     pub async fn expire_cache_keys(&self) -> Result<()> {
+        let mut all_keys = vec![];
         let user_ids = get_user_query()
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for user_id in user_ids {
-            self.0
-                .cache_service
-                .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+        all_keys.extend(
+            user_ids
+                .into_iter()
+                .map(|user_id| ExpireCacheKeyInput::BySanitizedKey {
                     user_id: Some(user_id),
                     key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
-                })
-                .await?;
+                }),
+        );
+        all_keys.push(ExpireCacheKeyInput::ByKey(
+            ApplicationCacheKey::TrendingMetadataIds,
+        ));
+
+        for key in all_keys {
+            self.0.cache_service.expire_key(key).await?;
         }
         Ok(())
     }
