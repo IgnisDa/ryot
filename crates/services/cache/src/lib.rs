@@ -175,7 +175,7 @@ impl CacheService {
         Some((value.id, db_value))
     }
 
-    pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<bool> {
+    pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {
         let deleted = ApplicationCache::update_many()
             .filter(match by {
                 ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
@@ -194,6 +194,7 @@ impl CacheService {
             })
             .exec(&self.db)
             .await?;
-        Ok(deleted.rows_affected > 0)
+        ryot_log!(debug, "Expired application cache: {deleted:?}");
+        Ok(())
     }
 }
