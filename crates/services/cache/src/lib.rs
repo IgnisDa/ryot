@@ -55,7 +55,8 @@ impl CacheService {
 
             ApplicationCacheKey::TrendingMetadataIds { .. }
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
-            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
+            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. }
+            | ApplicationCacheKey::CollectionRecommendedMetadataIds { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings { .. }
             | ApplicationCacheKey::TmdbSettings { .. }

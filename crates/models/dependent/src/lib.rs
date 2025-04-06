@@ -534,6 +534,12 @@ pub struct EmptyCacheValue {
 }
 
 #[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CollectionRecommendedMetadataIdsInput {
+    pub collection_id: String,
+}
+
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -569,6 +575,7 @@ pub enum ApplicationCacheKey {
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
+    CollectionRecommendedMetadataIds(CollectionRecommendedMetadataIdsInput),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
 }
@@ -585,6 +592,7 @@ pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
+pub type CollectionRecommendedMetadataIdsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
@@ -616,6 +624,7 @@ pub enum ApplicationCacheValue {
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
+    CollectionRecommendedMetadataIds(CollectionRecommendedMetadataIdsResponse),
 }
 
 pub struct GetCacheKeyResponse {
