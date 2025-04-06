@@ -13,7 +13,7 @@ import {
 	shutdownSandboxService,
 } from "~/lib/sandbox";
 import { initializeMetrics } from "~/modules/system/service";
-import { app } from "./server";
+import { getServer } from "./server";
 
 export const startServer = async () => {
 	initializeMetrics();
@@ -23,6 +23,7 @@ export const startServer = async () => {
 	await initializeSandboxService();
 	await initializeWorkers();
 
+	const app = getServer();
 	const server = serve({ port: config.PORT, fetch: app.fetch }, (c) => {
 		console.info(`Server listening on port ${c.port}...`);
 	});
