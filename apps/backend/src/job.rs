@@ -111,7 +111,7 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
             app_services
                 .miscellaneous_service
-                .update_metadata_group(&metadata_group_id)
+                .update_metadata_group_and_notify_users(metadata_group_id)
                 .await
         }
         MpApplicationJob::UpdateGithubExercises => {

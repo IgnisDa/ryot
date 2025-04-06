@@ -56,9 +56,9 @@ use dependent_utils::{
     get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
     get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
     metadata_images_as_urls, post_review, progress_update, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users, update_metadata_group,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    send_notification_for_user, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -2136,8 +2136,11 @@ impl MiscellaneousService {
         update_person_and_notify_users(person_id, &self.0).await
     }
 
-    pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
-        update_metadata_group(metadata_group_id, &self.0).await
+    pub async fn update_metadata_group_and_notify_users(
+        &self,
+        metadata_group_id: String,
+    ) -> Result<()> {
+        update_metadata_group_and_notify_users(&metadata_group_id, &self.0).await
     }
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {

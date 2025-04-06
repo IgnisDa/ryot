@@ -663,10 +663,7 @@ async fn update_metadata(
     Ok(notifications)
 }
 
-pub async fn update_metadata_group(
-    metadata_group_id: &str,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
+async fn update_metadata_group(metadata_group_id: &str, ss: &Arc<SupportingService>) -> Result<()> {
     let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
         .one(&ss.db)
         .await?
@@ -981,6 +978,14 @@ pub async fn update_person_and_notify_users(
             }
         }
     }
+    Ok(())
+}
+
+pub async fn update_metadata_group_and_notify_users(
+    metadata_group_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    let _notifications = update_metadata_group(metadata_group_id, ss).await?;
     Ok(())
 }
 
