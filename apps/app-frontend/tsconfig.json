@@ -19,8 +19,7 @@
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
 			"#/*": ["./src/*"],
-			"@/*": ["./src/*"],
-			"@ryot/app-backend/*": ["../app-backend/src/*"]
+			"@/*": ["./src/*"]
 		}
 	}
 }
