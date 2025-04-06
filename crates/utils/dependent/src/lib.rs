@@ -660,7 +660,10 @@ async fn update_metadata(
             vec![]
         }
     };
-    Ok(UpdateMediaEntityResult { notifications })
+    Ok(UpdateMediaEntityResult {
+        notifications,
+        ..Default::default()
+    })
 }
 
 async fn update_metadata_group(
@@ -852,7 +855,10 @@ async fn update_person(
     }
     to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
     to_update_person.update(&ss.db).await.unwrap();
-    Ok(UpdateMediaEntityResult { notifications })
+    Ok(UpdateMediaEntityResult {
+        notifications,
+        ..Default::default()
+    })
 }
 
 pub async fn get_users_and_cte_monitoring_entity(
