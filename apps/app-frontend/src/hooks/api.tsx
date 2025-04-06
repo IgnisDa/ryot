@@ -1,7 +1,14 @@
-import { hcWithType } from "@ryot/app-backend/hc";
+import createFetchClient from "openapi-fetch";
+import createClient from "openapi-react-query";
 import { createContext, type ReactNode, useContext } from "react";
+import type { paths } from "@/lib/api/openapi";
 
-const api = hcWithType("/api");
+const fetchClient = createFetchClient<paths>({
+	baseUrl: "/api",
+	credentials: "include",
+});
+
+const api = createClient(fetchClient);
 
 const ApiClientContext = createContext<typeof api | undefined>(undefined);
 
