@@ -410,7 +410,7 @@ pub async fn change_metadata_associations(
     Ok(())
 }
 
-pub async fn update_metadata(
+async fn update_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, UserNotificationContent)>> {
@@ -704,7 +704,7 @@ pub async fn update_metadata_group(
     Ok(())
 }
 
-pub async fn update_person(
+async fn update_person(
     person_id: String,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, UserNotificationContent)>> {
