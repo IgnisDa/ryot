@@ -239,61 +239,6 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
-async fn associate_person_with_metadata(
-    metadata_id: &str,
-    person: PartialMetadataPerson,
-    index: usize,
-    db: &DatabaseConnection,
-) -> Result<()> {
-    let role = person.role.clone();
-    let db_person = commit_person(
-        CommitPersonInput {
-            name: person.name,
-            source: person.source,
-            identifier: person.identifier.clone(),
-            source_specifics: person.source_specifics,
-        },
-        db,
-    )
-    .await?;
-    let intermediate = metadata_to_person::ActiveModel {
-        role: ActiveValue::Set(role),
-        person_id: ActiveValue::Set(db_person.id),
-        character: ActiveValue::Set(person.character),
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-        index: ActiveValue::Set(Some(index.try_into().unwrap())),
-    };
-    intermediate.insert(db).await.ok();
-    Ok(())
-}
-
-async fn associate_genre_with_metadata(
-    name: String,
-    metadata_id: &str,
-    db: &DatabaseConnection,
-) -> Result<()> {
-    let db_genre = if let Some(c) = Genre::find()
-        .filter(genre::Column::Name.eq(&name))
-        .one(db)
-        .await
-        .unwrap()
-    {
-        c
-    } else {
-        let c = genre::ActiveModel {
-            name: ActiveValue::Set(name),
-            ..Default::default()
-        };
-        c.insert(db).await.unwrap()
-    };
-    let intermediate = metadata_to_genre::ActiveModel {
-        genre_id: ActiveValue::Set(db_genre.id),
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-    };
-    intermediate.insert(db).await.ok();
-    Ok(())
-}
-
 pub async fn create_partial_metadata(
     data: PartialMetadataWithoutId,
     db: &DatabaseConnection,
@@ -335,37 +280,6 @@ pub async fn create_partial_metadata(
     Ok(model)
 }
 
-async fn associate_suggestion_with_metadata(
-    data: PartialMetadataWithoutId,
-    metadata_id: &str,
-    db: &DatabaseConnection,
-) -> Result<()> {
-    let db_partial_metadata = create_partial_metadata(data, db).await?;
-    let intermediate = metadata_to_metadata::ActiveModel {
-        to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-        from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-        relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
-        ..Default::default()
-    };
-    intermediate.insert(db).await.ok();
-    Ok(())
-}
-
-async fn associate_metadata_group_with_metadata(
-    metadata_id: &String,
-    metadata_group: CommitMediaInput,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let db_group = commit_metadata_group(metadata_group, ss).await?;
-    let intermediate = metadata_to_metadata_group::ActiveModel {
-        part: ActiveValue::Set(0),
-        metadata_group_id: ActiveValue::Set(db_group.id),
-        metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-    };
-    intermediate.insert(&ss.db).await.ok();
-    Ok(())
-}
-
 pub async fn change_metadata_associations(
     metadata_id: &String,
     genres: Vec<String>,
@@ -387,26 +301,72 @@ pub async fn change_metadata_associations(
         .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
         .exec(&ss.db)
         .await?;
-    for (index, creator) in people.into_iter().enumerate() {
-        associate_person_with_metadata(metadata_id, creator, index, &ss.db)
-            .await
-            .ok();
+
+    for (index, person) in people.into_iter().enumerate() {
+        let role = person.role.clone();
+        let db_person = commit_person(
+            CommitPersonInput {
+                name: person.name,
+                source: person.source,
+                identifier: person.identifier.clone(),
+                source_specifics: person.source_specifics,
+            },
+            &ss.db,
+        )
+        .await?;
+        let intermediate = metadata_to_person::ActiveModel {
+            role: ActiveValue::Set(role),
+            person_id: ActiveValue::Set(db_person.id),
+            character: ActiveValue::Set(person.character),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            index: ActiveValue::Set(Some(index.try_into().unwrap())),
+        };
+        intermediate.insert(&ss.db).await.ok();
     }
-    for genre in genres {
-        associate_genre_with_metadata(genre, metadata_id, &ss.db)
+
+    for name in genres {
+        let db_genre = if let Some(c) = Genre::find()
+            .filter(genre::Column::Name.eq(&name))
+            .one(&ss.db)
             .await
-            .ok();
+            .unwrap()
+        {
+            c
+        } else {
+            let c = genre::ActiveModel {
+                name: ActiveValue::Set(name),
+                ..Default::default()
+            };
+            c.insert(&ss.db).await.unwrap()
+        };
+        let intermediate = metadata_to_genre::ActiveModel {
+            genre_id: ActiveValue::Set(db_genre.id),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        };
+        intermediate.insert(&ss.db).await.ok();
     }
-    for suggestion in suggestions {
-        associate_suggestion_with_metadata(suggestion, metadata_id, &ss.db)
-            .await
-            .ok();
+
+    for data in suggestions {
+        let db_partial_metadata = create_partial_metadata(data, &ss.db).await?;
+        let intermediate = metadata_to_metadata::ActiveModel {
+            to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
+            from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+            ..Default::default()
+        };
+        intermediate.insert(&ss.db).await.ok();
     }
-    for group in groups {
-        associate_metadata_group_with_metadata(metadata_id, group, ss)
-            .await
-            .ok();
+
+    for metadata_group in groups {
+        let db_group = commit_metadata_group(metadata_group, ss).await?;
+        let intermediate = metadata_to_metadata_group::ActiveModel {
+            part: ActiveValue::Set(0),
+            metadata_group_id: ActiveValue::Set(db_group.id),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        };
+        intermediate.insert(&ss.db).await.ok();
     }
+
     Ok(())
 }
 
