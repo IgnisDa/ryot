@@ -60,7 +60,7 @@ The runtime request should grow into a compiled contract that can support both b
 Suggested request shape:
 
 - `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
-- `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic deferred to Phase 2)
+- `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic in Phase 2)
 - `sort: { field: string[], direction: "asc" | "desc" }` — how to order results (field is an array for COALESCE across schemas)
 - `page: { limit: number, offset: number }` — pagination parameters
 - `fields: string[]` — schema-qualified property paths to return (e.g., `["smartphones.manufacturer", "tablets.maker"]`)
@@ -85,14 +85,22 @@ Suggested response shape:
 - `total: number`
 - `limit: number`
 - `offset: number`
+- `hasNextPage: boolean`
+- `hasPreviousPage: boolean`
+- `totalPages: number`
+- `currentPage: number`
 
 Each item should include at least:
 
-- core entity fields (id, name, image, createdAt, etc.) — note that `name` and `image` are top-level entity columns, not in `propertyValues` (see "Entity Structure: Top-Level vs PropertyValues" section)
-- `propertyValues` — filtered to requested fields from the `fields` parameter
-- `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
+- `id` — entity primary key
+- `name` — entity name (top-level column)
+- `image` — entity image URL (top-level column)
 - `entitySchemaId` — the UUID foreign key to the entity schema
 - `entitySchemaSlug` — the human-readable schema slug (e.g., "smartphones", "movies")
+- `propertyValues` — filtered to requested fields from the `fields` parameter
+- `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
+- `createdAt` — entity creation timestamp
+- `updatedAt` — entity update timestamp
 - optional schema metadata when runtime spans multiple schemas (included when `include.schemaMeta: true`)
 
 **Note**: Event-related fields (lastEventDate, eventCount, averageRating) are intentionally excluded from Phase 1. These will be added in Phase 2 alongside event-based filtering capabilities.
@@ -116,7 +124,7 @@ The `resolvedProperties` object contains the resolved values for each displayCon
   "resolvedProperties": {
     "imageProperty": "https://...",
     "titleProperty": "iPhone 15 Pro",
-    "subtitleProperties": ["Apple", "2023"],
+    "subtitleProperty": "Apple",
     "badgeProperty": "999"
   }
 }
@@ -205,10 +213,7 @@ Single-schema view:
   "displayConfiguration": {
     "imageProperty": ["smartphones.product_image"],
     "titleProperty": ["@name"],
-    "subtitleProperties": [
-      ["smartphones.manufacturer"],
-      ["smartphones.year"]
-    ]
+    "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
   }
 }
 ```
@@ -229,9 +234,7 @@ Cross-schema view:
   "displayConfiguration": {
     "imageProperty": ["smartphones.product_image", "tablets.device_image"],
     "titleProperty": ["@name"],
-    "subtitleProperties": [
-      ["smartphones.manufacturer", "tablets.maker"]
-    ]
+    "subtitleProperty": ["smartphones.manufacturer", "tablets.maker"]
   }
 }
 ```
@@ -278,16 +281,12 @@ Display configurations use the schema-qualified property syntax with one key add
 {
   "imageProperty": ["smartphones.product_image", "tablets.device_image"],
   "titleProperty": ["@name"],
-  "subtitleProperties": [
-    ["smartphones.manufacturer", "tablets.maker"],
-    ["smartphones.year", "tablets.release_year"]
-  ],
-  "badgeProperty": ["smartphones.price_usd", "tablets.price_usd"]
+  "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
+  "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
 }
 ```
 
-- `imageProperty` / `titleProperty` / `badgeProperty`: Arrays of schema-qualified paths
-- `subtitleProperties`: Array of arrays — each inner array is a COALESCE chain for that subtitle slot
+All property references are flat arrays of schema-qualified paths. The backend resolves each using COALESCE to return the first non-null value.
 
 Even for single-schema views, the array format is required for consistency:
 
@@ -295,10 +294,7 @@ Even for single-schema views, the array format is required for consistency:
 {
   "imageProperty": ["smartphones.product_image"],
   "titleProperty": ["@name"],
-  "subtitleProperties": [
-    ["smartphones.manufacturer"],
-    ["smartphones.year"]
-  ]
+  "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
 }
 ```
 
@@ -313,7 +309,7 @@ Example: A "Smartphones" schema with properties `[manufacturer, year, os, screen
 
 The saved view should store which properties matter for that view's purpose. The runtime request requires a `fields` parameter that specifies which property keys to return, avoiding waste when entities have large propertyValues objects.
 
-The `fields` parameter sent to the runtime is derived from the active layout's displayConfiguration by extracting all unique schema-qualified property paths (excluding top-level column references like `@name`).
+The `fields` parameter sent to the runtime is derived from the active layout's displayConfiguration by extracting all schema-qualified property paths from the property reference arrays (excluding top-level column references like `@name`).
 
 This makes field selection explicit and forces callers to think about what data they actually need.
 
@@ -340,7 +336,7 @@ The saved view schema should include:
 The `queryDefinition` column stores:
 
 - `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
-- `filters: FilterExpression[]` — flat array of attribute filters using the schema-qualified property syntax (AND within each schema, OR across schemas)
+- `filters: FilterExpression[]` — flat array of filters using the schema-qualified property syntax (filters are implicitly AND'd within each schema group and OR'd across schema boundaries, since an entity belongs to exactly one schema and only its schema's filters apply)
 - `sort: { field: string[], direction: "asc" | "desc" }` — ordering (field is an array for COALESCE across schemas)
 
 Event-based filtering (e.g., "movies I rated >8", "shows watched in 2024") is deferred to Phase 2 and will be added as an `eventConditions` field once event integration is implemented in the runtime.
@@ -392,20 +388,13 @@ Consider a "Smartphones" entity schema with properties:
     "grid": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.manufacturer"],
-        ["smartphones.year"]
-      ],
+      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
       "badgeProperty": ["smartphones.price_usd"]
     },
     "list": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.manufacturer"],
-        ["smartphones.year"],
-        ["smartphones.price_usd"]
-      ],
+      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year", "smartphones.price_usd"],
       "badgeProperty": null
     },
     "table": {
@@ -442,20 +431,13 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
     "grid": {
       "imageProperty": ["smartphones.product_image", "tablets.device_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.manufacturer", "tablets.maker"],
-        ["smartphones.year", "tablets.release_year"]
-      ],
-      "badgeProperty": ["smartphones.price_usd", "tablets.price_usd"]
+      "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
+      "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
     },
     "list": {
       "imageProperty": ["smartphones.product_image", "tablets.device_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.manufacturer", "tablets.maker"],
-        ["smartphones.year", "tablets.release_year"],
-        ["smartphones.price_usd", "tablets.price_usd"]
-      ],
+      "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year", "smartphones.price_usd", "tablets.retail_price"],
       "badgeProperty": null
     },
     "table": {
@@ -463,7 +445,7 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
         { "property": ["@name"] },
         { "property": ["smartphones.manufacturer", "tablets.maker"] },
         { "property": ["smartphones.year", "tablets.release_year"] },
-        { "property": ["smartphones.price_usd", "tablets.price_usd"] }
+        { "property": ["smartphones.price_usd", "tablets.retail_price"] }
       ]
     }
   }
@@ -472,17 +454,19 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
 
 **Backend resolution:**
 
+For each property reference array, the backend uses COALESCE to return the first non-null value.
+
 For a smartphone entity, the backend resolves:
 
 - `imageProperty`: `smartphones.product_image` (non-null) → returns this value
-- `subtitleProperties[0]`: `smartphones.manufacturer` (non-null) → returns this value
-- `subtitleProperties[1]`: `smartphones.year` (non-null) → returns this value
+- `subtitleProperty`: COALESCE → `"Apple"` (first non-null: smartphones.manufacturer)
+- `badgeProperty`: COALESCE → `"999"` (first non-null: smartphones.price_usd)
 
 For a tablet entity, the backend resolves:
 
-- `imageProperty`: `tablets.device_image` (non-null) → returns this value (smartphone property is null)
-- `subtitleProperties[0]`: `tablets.maker` (non-null) → returns this value
-- `subtitleProperties[1]`: `tablets.release_year` (non-null) → returns this value
+- `imageProperty`: COALESCE → tablets.device_image (non-null, smartphone property is null)
+- `subtitleProperty`: COALESCE → `"Samsung"` (first non-null: tablets.maker)
+- `badgeProperty`: COALESCE → `"599"` (first non-null: tablets.retail_price)
 
 This allows both entity types to render properly in the same unified list despite having different schema-defined properties.
 
@@ -507,7 +491,28 @@ WHERE es.slug IN ('smartphones', 'tablets')
   )
 ```
 
-Top-level filters (`@name`, `@image`) apply to all entities regardless of schema and are AND'd at the outer level. Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally.
+Top-level filters (`@name`, `@image`) apply to all entities regardless of schema and are AND'd at the outer level:
+
+```json
+"filters": [
+  { "field": "@name", "op": "contains", "value": "Pro" },
+  { "field": "smartphones.year", "op": "gte", "value": 2020 },
+  { "field": "tablets.release_year", "op": "gte", "value": 2020 }
+]
+```
+
+```sql
+JOIN entity_schemas es ON es.id = e.entity_schema_id
+WHERE es.slug IN ('smartphones', 'tablets')
+  AND e.name ILIKE '%Pro%'  -- top-level filter applied to all entities
+  AND (
+    (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
+    OR
+    (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
+  )
+```
+
+Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally.
 
 **Sort behavior:**
 
@@ -543,20 +548,13 @@ This allows unified sorting across schemas even when property names differ.
     "grid": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.os"],
-        ["smartphones.year"]
-      ],
+      "subtitleProperty": ["smartphones.os", "smartphones.year"],
       "badgeProperty": ["smartphones.screen_size"]
     },
     "list": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.os"],
-        ["smartphones.year"],
-        ["smartphones.screen_size"]
-      ],
+      "subtitleProperty": ["smartphones.os", "smartphones.year", "smartphones.screen_size"],
       "badgeProperty": null
     },
     "table": {
@@ -597,10 +595,7 @@ When the frontend loads View 1:
     "displayConfiguration": {
       "imageProperty": ["smartphones.product_image"],
       "titleProperty": ["@name"],
-      "subtitleProperties": [
-        ["smartphones.manufacturer"],
-        ["smartphones.year"]
-      ],
+      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
       "badgeProperty": ["smartphones.price_usd"]
     }
   }
@@ -639,6 +634,125 @@ When the user switches from grid to list view in the UI, the frontend simply cha
 
 **Key constraint**: The saved view explicitly stores all three layout configurations. The backend makes no assumptions - clients must be explicit about what data they need and how to present it.
 
+### Complete SQL Query Example
+
+Here is a complete SQL query demonstrating how the view-runtime translates a cross-schema request into PostgreSQL.
+
+**Note**: This shows the **compiled runtime payload** sent to `POST /view-runtime/execute`, not the saved view definition. The frontend extracts the active layout's configuration from the saved view and compiles it into this request format.
+
+**Runtime request:**
+
+```json
+{
+  "entitySchemaSlugs": ["smartphones", "tablets"],
+  "filters": [
+    { "field": "@name", "op": "contains", "value": "Pro" },
+    { "field": "smartphones.year", "op": "gte", "value": 2020 },
+    { "field": "tablets.release_year", "op": "gte", "value": 2020 }
+  ],
+  "sort": { "field": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
+  "page": { "limit": 20, "offset": 0 },
+  "fields": ["smartphones.product_image", "tablets.device_image", "smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year", "smartphones.price_usd", "tablets.retail_price"],
+  "displayConfiguration": {
+    "imageProperty": ["smartphones.product_image", "tablets.device_image"],
+    "titleProperty": ["@name"],
+    "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
+    "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
+  }
+}
+```
+
+**Generated SQL:**
+
+```sql
+WITH filtered_entities AS (
+  SELECT
+    e.id,
+    e.name,
+    e.image,
+    e.entity_schema_id,
+    e.property_values,
+    e.created_at,
+    e.updated_at,
+    es.slug as entity_schema_slug
+  FROM entities e
+  JOIN entity_schemas es ON es.id = e.entity_schema_id
+  WHERE es.slug IN ('smartphones', 'tablets')
+    AND e.name ILIKE '%Pro%'
+    AND (
+      (es.slug = 'smartphones' AND (e.property_values->>'year')::integer >= 2020)
+      OR
+      (es.slug = 'tablets' AND (e.property_values->>'release_year')::integer >= 2020)
+    )
+),
+sorted_entities AS (
+  SELECT *,
+    COALESCE(
+      (property_values->>'year')::integer,
+      (property_values->>'release_year')::integer
+    ) as sort_value
+  FROM filtered_entities
+  ORDER BY sort_value DESC
+),
+paginated_entities AS (
+  SELECT * FROM sorted_entities
+  ORDER BY sort_value DESC
+  LIMIT 20 OFFSET 0
+)
+SELECT
+  pe.id,
+  pe.name,
+  pe.image,
+  pe.entity_schema_id,
+  pe.entity_schema_slug,
+  pe.created_at,
+  pe.updated_at,
+  jsonb_build_object(
+    'product_image', pe.property_values->'product_image',
+    'device_image', pe.property_values->'device_image',
+    'manufacturer', pe.property_values->'manufacturer',
+    'maker', pe.property_values->'maker',
+    'year', pe.property_values->'year',
+    'release_year', pe.property_values->'release_year',
+    'price_usd', pe.property_values->'price_usd',
+    'retail_price', pe.property_values->'retail_price'
+  ) as property_values,
+  jsonb_build_object(
+    'imageProperty', COALESCE(pe.property_values->>'product_image', pe.property_values->>'device_image'),
+    'titleProperty', pe.name,
+    'subtitleProperty', COALESCE(pe.property_values->>'manufacturer', pe.property_values->>'maker', (pe.property_values->>'year')::text, (pe.property_values->>'release_year')::text),
+    'badgeProperty', COALESCE((pe.property_values->>'price_usd')::text, (pe.property_values->>'retail_price')::text)
+  ) as resolved_properties,
+  (SELECT COUNT(*) FROM filtered_entities) as total_count
+FROM paginated_entities pe;
+```
+
+**Key SQL patterns:**
+
+1. **Schema validation**: `WHERE es.slug IN ('smartphones', 'tablets')` filters to requested schemas
+2. **Top-level filters**: `AND e.name ILIKE '%Pro%'` applies to all entities regardless of schema
+3. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
+4. **COALESCE for sorting**: Handles different property names across schemas
+5. **Field selection**: `jsonb_build_object` extracts only requested fields from `property_values`
+6. **Resolved properties**: Backend performs COALESCE resolution for each display property reference
+7. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
+8. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
+
+The response would include pagination metadata:
+
+```json
+{
+  "items": [ /* entities with resolved_properties */ ],
+  "total": 47,
+  "limit": 20,
+  "offset": 0,
+  "hasNextPage": true,
+  "hasPreviousPage": false,
+  "totalPages": 3,
+  "currentPage": 1
+}
+```
+
 ## Proposed Endpoints
 
 ### View Runtime
@@ -660,7 +774,7 @@ The existing module needs a fuller API surface so the frontend can support real 
 - `DELETE /saved-views/{viewId}`
 - `POST /saved-views/{viewId}/clone`
 
-`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltin: false` (so cloned views are deletable), and appends " (Copy)" to the name. If users want to customize the cloned view, they immediately edit it via `PATCH /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
+`POST /saved-views/{viewId}/clone` is preferred over implementing clone purely in the frontend because clone is now a first-class action in the product. The clone operation is a pure copy with no request body — it duplicates the entire saved view record with a new ID, sets `isBuiltin: false` (so cloned views are deletable), and appends " (Copy)" to the name (always the same suffix, no smart numbering). If users want to customize the cloned view or rename it, they immediately edit it via `PATCH /saved-views/{viewId}` after cloning. This keeps the clone operation simple and predictable.
 
 ## Existing Endpoints That Need Changes
 
