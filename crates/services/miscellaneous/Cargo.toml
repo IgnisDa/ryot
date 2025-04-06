@@ -23,7 +23,6 @@ markdown = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
-providers = { path = "../../providers" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }

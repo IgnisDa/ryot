@@ -3807,7 +3807,6 @@ dependencies = [
  "media-models",
  "migrations",
  "nanoid",
- "providers",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
