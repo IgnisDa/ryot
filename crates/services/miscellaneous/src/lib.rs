@@ -2783,9 +2783,15 @@ impl MiscellaneousService {
             .await?;
         for user_id in user_ids {
             all_keys.push(ExpireCacheKeyInput::BySanitizedKey {
-                user_id: Some(user_id),
+                user_id: Some(user_id.clone()),
                 key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
             });
+            all_keys.push(ExpireCacheKeyInput::ByKey(
+                ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
+                    input: (),
+                    user_id: user_id.clone(),
+                }),
+            ));
         }
         all_keys.push(ExpireCacheKeyInput::ByKey(
             ApplicationCacheKey::TrendingMetadataIds,
