@@ -834,7 +834,8 @@ impl MiscellaneousService {
         self.0
             .cache_service
             .expire_key(ExpireCacheKeyInput::ById(cache_id))
-            .await
+            .await?;
+        Ok(true)
     }
 
     pub async fn deploy_background_job(
