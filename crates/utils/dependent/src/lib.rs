@@ -69,7 +69,7 @@ use media_models::{
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -413,14 +413,14 @@ pub async fn change_metadata_associations(
 async fn update_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<Vec<(String, UserNotificationContent)>> {
+) -> Result<UpdateMediaEntityResult> {
     let metadata = Metadata::find_by_id(metadata_id)
         .one(&ss.db)
         .await
         .unwrap()
         .unwrap();
     if !metadata.is_partial.unwrap_or_default() {
-        return Ok(vec![]);
+        return Ok(UpdateMediaEntityResult::default());
     }
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
@@ -660,16 +660,19 @@ async fn update_metadata(
             vec![]
         }
     };
-    Ok(notifications)
+    Ok(UpdateMediaEntityResult { notifications })
 }
 
-async fn update_metadata_group(metadata_group_id: &str, ss: &Arc<SupportingService>) -> Result<()> {
+async fn update_metadata_group(
+    metadata_group_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<UpdateMediaEntityResult> {
     let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
         .one(&ss.db)
         .await?
         .ok_or(Error::new("Group not found"))?;
     if !metadata_group.is_partial.unwrap_or_default() {
-        return Ok(());
+        return Ok(UpdateMediaEntityResult::default());
     }
     let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
     let (group_details, associated_items) = provider
@@ -698,19 +701,19 @@ async fn update_metadata_group(metadata_group_id: &str, ss: &Arc<SupportingServi
         };
         intermediate.insert(&ss.db).await.ok();
     }
-    Ok(())
+    Ok(UpdateMediaEntityResult::default())
 }
 
 async fn update_person(
     person_id: String,
     ss: &Arc<SupportingService>,
-) -> Result<Vec<(String, UserNotificationContent)>> {
+) -> Result<UpdateMediaEntityResult> {
     let person = Person::find_by_id(person_id.clone())
         .one(&ss.db)
         .await?
         .unwrap();
     if !person.is_partial.unwrap_or_default() {
-        return Ok(vec![]);
+        return Ok(UpdateMediaEntityResult::default());
     }
     let mut notifications = vec![];
     let provider = get_non_metadata_provider(person.source, ss).await?;
@@ -849,7 +852,7 @@ async fn update_person(
     }
     to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
     to_update_person.update(&ss.db).await.unwrap();
-    Ok(notifications)
+    Ok(UpdateMediaEntityResult { notifications })
 }
 
 pub async fn get_users_and_cte_monitoring_entity(
@@ -940,12 +943,12 @@ pub async fn refresh_collection_to_entity_association(
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let notifications = update_metadata(metadata_id, ss).await?;
-    if !notifications.is_empty() {
+) -> Result<UpdateMediaEntityResult> {
+    let result = update_metadata(metadata_id, ss).await?;
+    if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
-        for notification in notifications {
+        for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, &notification)
                     .await
@@ -956,18 +959,18 @@ pub async fn update_metadata_and_notify_users(
             }
         }
     }
-    Ok(())
+    Ok(result)
 }
 
 pub async fn update_person_and_notify_users(
     person_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let notifications = update_person(person_id.clone(), ss).await?;
-    if !notifications.is_empty() {
+) -> Result<UpdateMediaEntityResult> {
+    let result = update_person(person_id.clone(), ss).await?;
+    if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &ss.db).await?;
-        for notification in notifications {
+        for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, &notification)
                     .await
@@ -978,15 +981,33 @@ pub async fn update_person_and_notify_users(
             }
         }
     }
-    Ok(())
+    Ok(result)
 }
 
 pub async fn update_metadata_group_and_notify_users(
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let _notifications = update_metadata_group(metadata_group_id, ss).await?;
-    Ok(())
+) -> Result<UpdateMediaEntityResult> {
+    let result = update_metadata_group(metadata_group_id, ss).await?;
+    if !result.notifications.is_empty() {
+        let users_to_notify = get_users_and_cte_monitoring_entity(
+            metadata_group_id,
+            EntityLot::MetadataGroup,
+            &ss.db,
+        )
+        .await?;
+        for notification in result.notifications.iter() {
+            for (user_id, cte_id) in users_to_notify.iter() {
+                send_notification_for_user(user_id, ss, &notification)
+                    .await
+                    .trace_ok();
+                refresh_collection_to_entity_association(cte_id, &ss.db)
+                    .await
+                    .trace_ok();
+            }
+        }
+    }
+    Ok(result)
 }
 
 pub async fn commit_metadata_group(

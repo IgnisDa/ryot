@@ -2129,18 +2129,21 @@ impl MiscellaneousService {
     }
 
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
-        update_metadata_and_notify_users(metadata_id, &self.0).await
+        update_metadata_and_notify_users(metadata_id, &self.0).await?;
+        Ok(())
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: &String) -> Result<()> {
-        update_person_and_notify_users(person_id, &self.0).await
+        update_person_and_notify_users(person_id, &self.0).await?;
+        Ok(())
     }
 
     pub async fn update_metadata_group_and_notify_users(
         &self,
         metadata_group_id: String,
     ) -> Result<()> {
-        update_metadata_group_and_notify_users(&metadata_group_id, &self.0).await
+        update_metadata_group_and_notify_users(&metadata_group_id, &self.0).await?;
+        Ok(())
     }
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
