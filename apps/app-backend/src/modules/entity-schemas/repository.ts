@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
@@ -52,8 +52,14 @@ const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
 });
 
 export const listEntitySchemasByTracker = async (input: {
+	slugs?: string[];
 	trackerId: string;
 }) => {
+	const whereClauses = [eq(tracker.id, input.trackerId)];
+	if (input.slugs?.length) {
+		whereClauses.push(inArray(entitySchema.slug, input.slugs));
+	}
+
 	const rows = await db
 		.select(listedEntitySchemaSelection)
 		.from(trackerEntitySchema)
@@ -62,7 +68,34 @@ export const listEntitySchemasByTracker = async (input: {
 			entitySchema,
 			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
 		)
-		.where(eq(tracker.id, input.trackerId))
+		.where(and(...whereClauses))
+		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
+
+	return rows.map(toListedEntitySchema);
+};
+
+export const listEntitySchemasForUser = async (input: {
+	userId: string;
+	slugs?: string[];
+	trackerId?: string;
+}) => {
+	const whereClauses = [eq(tracker.userId, input.userId)];
+	if (input.slugs?.length) {
+		whereClauses.push(inArray(entitySchema.slug, input.slugs));
+	}
+	if (input.trackerId) {
+		whereClauses.push(eq(tracker.id, input.trackerId));
+	}
+
+	const rows = await db
+		.select(listedEntitySchemaSelection)
+		.from(trackerEntitySchema)
+		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
+		.innerJoin(
+			entitySchema,
+			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
+		)
+		.where(and(...whereClauses))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
 	return rows.map(toListedEntitySchema);
