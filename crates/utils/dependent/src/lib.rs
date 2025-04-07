@@ -334,7 +334,7 @@ pub async fn change_metadata_associations(
         let db_genre = Genre::insert(genre)
             .on_conflict(
                 OnConflict::column(genre::Column::Name)
-                    .do_nothing()
+                    .update_column(genre::Column::Name)
                     .to_owned(),
             )
             .exec_with_returning(&ss.db)
