@@ -248,7 +248,7 @@ pub async fn create_partial_metadata(
     data: PartialMetadataWithoutId,
     db: &DatabaseConnection,
 ) -> Result<PartialMetadata> {
-    let mode = if let Some(c) = Metadata::find()
+    let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
         .filter(metadata::Column::Lot.eq(data.lot))
         .filter(metadata::Column::Source.eq(data.source))
@@ -256,23 +256,24 @@ pub async fn create_partial_metadata(
         .await
         .unwrap()
     {
-        c
-    } else {
-        let image = data.image.clone().map(|i| {
-            vec![MetadataImage {
-                url: StoredUrl::Url(i),
-            }]
-        });
-        let c = metadata::ActiveModel {
-            images: ActiveValue::Set(image),
-            lot: ActiveValue::Set(data.lot),
-            title: ActiveValue::Set(data.title),
-            source: ActiveValue::Set(data.source),
-            is_partial: ActiveValue::Set(Some(true)),
-            identifier: ActiveValue::Set(data.identifier),
-            ..Default::default()
-        };
-        c.insert(db).await?
+        Some(c) => c,
+        None => {
+            let image = data.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                }]
+            });
+            let c = metadata::ActiveModel {
+                images: ActiveValue::Set(image),
+                lot: ActiveValue::Set(data.lot),
+                title: ActiveValue::Set(data.title),
+                source: ActiveValue::Set(data.source),
+                is_partial: ActiveValue::Set(Some(true)),
+                identifier: ActiveValue::Set(data.identifier),
+                ..Default::default()
+            };
+            c.insert(db).await?
+        }
     };
     let model = PartialMetadata {
         id: mode.id,
@@ -560,16 +561,16 @@ async fn update_metadata(
             images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
                 url: StoredUrl::S3(i.image),
             }));
-            let free_creators = if details.creators.is_empty() {
-                None
-            } else {
-                Some(details.creators)
-            };
-            let watch_providers = if details.watch_providers.is_empty() {
-                None
-            } else {
-                Some(details.watch_providers)
-            };
+            let free_creators = details
+                .creators
+                .is_empty()
+                .then_some(())
+                .map_or(None, |_| Some(details.creators));
+            let watch_providers = details
+                .watch_providers
+                .is_empty()
+                .then_some(())
+                .map_or(None, |_| Some(details.watch_providers));
 
             let mut meta: metadata::ActiveModel = meta.into();
             meta.last_updated_on = ActiveValue::Set(Utc::now());
@@ -579,10 +580,6 @@ async fn update_metadata(
             meta.source_url = ActiveValue::Set(details.source_url);
             meta.provider_rating = ActiveValue::Set(details.provider_rating);
             meta.description = ActiveValue::Set(details.description);
-            meta.images = ActiveValue::Set(match images.is_empty() {
-                true => None,
-                false => Some(images),
-            });
             meta.videos = ActiveValue::Set(Some(details.videos));
             meta.production_status = ActiveValue::Set(details.production_status);
             meta.original_language = ActiveValue::Set(details.original_language);
@@ -601,6 +598,10 @@ async fn update_metadata(
             meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
             meta.music_specifics = ActiveValue::Set(details.music_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
+            meta.images = ActiveValue::Set(match images.is_empty() {
+                true => None,
+                false => Some(images),
+            });
             let metadata = meta.update(&ss.db).await.unwrap();
 
             change_metadata_associations(
