@@ -525,5 +525,11 @@ query TrendingMetadata {
 }
 
 query CollectionRecommendations($input: CollectionRecommendationsInput!) {
-	collectionRecommendations(input: $input)
+	collectionRecommendations(input: $input) {
+		items
+		details {
+			total
+			nextPage
+		}
+	}
 }

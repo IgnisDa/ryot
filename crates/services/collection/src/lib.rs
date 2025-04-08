@@ -8,7 +8,7 @@ use common_models::{
 };
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
-    collection, collection_to_entity,
+    collection, collection_to_entity, metadata,
     prelude::{
         Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, User,
         UserToEntity, Workout,
@@ -19,8 +19,7 @@ use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
     CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsCachedInput,
-    CollectionRecommendationsInput, CollectionRecommendationsResponse, SearchResults,
-    UserCollectionsListResponse,
+    CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, generic_metadata,
@@ -321,7 +320,7 @@ impl CollectionService {
         &self,
         _user_id: &String,
         input: CollectionRecommendationsInput,
-    ) -> Result<CollectionRecommendationsResponse> {
+    ) -> Result<SearchResults<String>> {
         let cc = &self.0.cache_service;
         let cache_key =
             ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
@@ -370,7 +369,38 @@ ORDER BY RANDOM() LIMIT 10;
         };
         ryot_log!(debug, "Required set: {:?}", required_set);
 
-        Ok(vec![])
+        let preferences = user_by_id(_user_id, &self.0).await?.preferences;
+        let search = input.search.unwrap_or_default();
+        let take = search
+            .take
+            .unwrap_or(preferences.general.list_page_size as u64);
+        let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
+
+        let paginator = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::Id.is_in(required_set))
+            .into_tuple::<String>()
+            .paginate(&self.0.db, take);
+
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+
+        let items = paginator.fetch_page(page - 1).await?;
+
+        Ok(SearchResults {
+            items,
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
+        })
     }
 
     pub async fn create_or_update_collection(

@@ -1841,7 +1841,7 @@ export type QueryRoot = {
   /** Get the contents of a collection and respect visibility. */
   collectionContents: CachedCollectionContentsResponse;
   /** Get recommendations for a collection. */
-  collectionRecommendations: Array<Scalars['String']['output']>;
+  collectionRecommendations: IdResults;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
