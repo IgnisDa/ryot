@@ -385,6 +385,7 @@ async fn update_metadata(
     if !metadata.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
+    let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
@@ -393,7 +394,7 @@ async fn update_metadata(
         .await?;
     let maybe_details =
         details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
-    let notifications = match maybe_details {
+    match maybe_details {
         Ok(details) => {
             let mut notifications = vec![];
             let meta = Metadata::find_by_id(metadata_id)
@@ -601,7 +602,7 @@ async fn update_metadata(
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
             let metadata = meta.update(&ss.db).await.unwrap();
 
-            change_metadata_associations(
+            let associations = change_metadata_associations(
                 &metadata.id,
                 details.genres,
                 details.suggestions,
@@ -611,7 +612,8 @@ async fn update_metadata(
             )
             .await?;
             ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
-            notifications
+            result.suggestions.extend(associations.suggestions);
+            result.notifications.extend(notifications);
         }
         Err(e) => {
             ryot_log!(
@@ -620,13 +622,9 @@ async fn update_metadata(
                 metadata_id,
                 e
             );
-            vec![]
         }
     };
-    Ok(UpdateMediaEntityResult {
-        notifications,
-        ..Default::default()
-    })
+    Ok(result)
 }
 
 async fn update_metadata_group(
