@@ -6,6 +6,7 @@ use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
     UserLevelCacheKey,
 };
+use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
     collection, collection_to_entity,
     prelude::{
@@ -17,11 +18,13 @@ use database_models::{
 use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsInput,
-    CollectionRecommendationsResponse, SearchResults, UserCollectionsListResponse,
+    CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsCachedInput,
+    CollectionRecommendationsInput, CollectionRecommendationsResponse, SearchResults,
+    UserCollectionsListResponse,
 };
 use dependent_utils::{
-    add_entity_to_collection, create_or_update_collection, remove_entity_from_collection,
+    add_entity_to_collection, create_or_update_collection, generic_metadata,
+    remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::EntityLot;
 use media_models::{
@@ -32,8 +35,9 @@ use migrations::{
     AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::{
-    ColumnTrait, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable,
+    JoinType, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    Statement,
 };
 use sea_query::{
     Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
@@ -318,7 +322,50 @@ impl CollectionService {
         user_id: &String,
         input: CollectionRecommendationsInput,
     ) -> Result<CollectionRecommendationsResponse> {
-        todo!()
+        let cc = &self.0.cache_service;
+        let cache_key =
+            ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
+                collection_id: input.collection_id.clone(),
+            });
+        let required_set = 'calc: {
+            if let Some((_cache_id, response)) = cc.get_value(cache_key.clone()).await {
+                break 'calc response;
+            }
+            let mut data = vec![];
+            #[derive(Debug, FromQueryResult)]
+            struct CustomQueryResponse {
+                id: String,
+            }
+            let mut args = vec![input.collection_id.into()];
+            args.extend(
+                MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
+                    .into_iter()
+                    .map(|s| s.into()),
+            );
+            let media_items =
+                CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    r#"
+SELECT "cte"."id"
+FROM "collection_to_entity" "cte"
+WHERE "cte"."collection_id" = $1 AND "cte"."metadata_id" IS NOT NULL
+ORDER BY RANDOM() LIMIT 10;
+        "#,
+                    args,
+                ))
+                .all(&self.0.db)
+                .await?;
+            ryot_log!(debug, "Media items: {:?}", media_items);
+            for item in media_items {
+                update_metadata_and_notify_users(&item.id, &self.0).await?;
+                let generic = generic_metadata(&item.id, &self.0).await?;
+                data.extend(generic.suggestions);
+            }
+            data
+        };
+        ryot_log!(debug, "Required set: {:?}", required_set);
+
+        Ok(vec![])
     }
 
     pub async fn create_or_update_collection(
