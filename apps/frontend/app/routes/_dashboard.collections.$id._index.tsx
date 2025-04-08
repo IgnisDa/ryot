@@ -34,6 +34,7 @@ import {
 	IconMessageCircle2,
 	IconSortAscending,
 	IconSortDescending,
+	IconStar,
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
@@ -158,6 +159,12 @@ export default function Page() {
 						>
 							Contents
 						</Tabs.Tab>
+						<Tabs.Tab
+							value="recommendations"
+							leftSection={<IconStar size={16} />}
+						>
+							Recommendations
+						</Tabs.Tab>
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
 						</Tabs.Tab>
@@ -244,6 +251,9 @@ export default function Page() {
 								</Center>
 							) : null}
 						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="recommendations">
+						<RecommendationsSection />
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">
 						<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
@@ -382,4 +392,8 @@ const FiltersModalForm = () => {
 			) : null}
 		</>
 	);
+};
+
+const RecommendationsSection = () => {
+	return <div>Recommendations</div>;
 };
