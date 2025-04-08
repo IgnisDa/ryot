@@ -25,12 +25,12 @@ use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
+    metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
         ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
-        MetadataToMetadata, MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person,
-        Review, Seen, User, UserToEntity,
+        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person, Review, Seen, User,
+        UserToEntity,
     },
     review, seen, user, user_to_entity,
 };
@@ -52,28 +52,25 @@ use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
     deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, first_metadata_image_as_url, get_entity_recently_consumed,
-    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users,
+    deploy_update_person_job, first_metadata_image_as_url, generic_metadata,
+    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
+    get_non_metadata_provider, get_users_monitoring_entity, handle_after_media_seen_tasks,
+    is_metadata_finished_by_user, metadata_images_as_urls, post_review, progress_update,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
-    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
-    UserNotificationContent, UserToMediaReason,
+    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, UserToMediaReason,
 };
 use futures::{TryStreamExt, future::join_all};
 use itertools::Itertools;
-use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
-    GroupedCalendarEvent, ImportOrExportItemReviewComment, MarkEntityAsPartialInput,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataImage,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
     MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PersonDetailsGroupedByRole,
     PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
@@ -130,136 +127,6 @@ impl MiscellaneousService {
         self.0.core_details().await
     }
 
-    async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
-        let images = metadata_images_as_urls(&meta.images, &self.0.file_storage_service).await;
-        let mut videos = vec![];
-        if let Some(vids) = &meta.videos {
-            for v in vids.clone() {
-                let url = self
-                    .0
-                    .file_storage_service
-                    .get_stored_asset(v.identifier)
-                    .await;
-                videos.push(GraphqlVideoAsset {
-                    source: v.source,
-                    video_id: url,
-                })
-            }
-        }
-        Ok(GraphqlMediaAssets { images, videos })
-    }
-
-    async fn generic_metadata(&self, metadata_id: &String) -> Result<MetadataBaseData> {
-        let Some(mut meta) = Metadata::find_by_id(metadata_id)
-            .one(&self.0.db)
-            .await
-            .unwrap()
-        else {
-            return Err(Error::new("The record does not exist".to_owned()));
-        };
-        let genres = meta
-            .find_related(Genre)
-            .order_by_asc(genre::Column::Name)
-            .into_model::<GenreListItem>()
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        #[derive(Debug, FromQueryResult)]
-        struct PartialCreator {
-            id: String,
-            name: String,
-            images: Option<Vec<MetadataImage>>,
-            role: String,
-            character: Option<String>,
-        }
-        let crts = MetadataToPerson::find()
-            .expr(Expr::col(Asterisk))
-            .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
-            .join(
-                JoinType::Join,
-                metadata_to_person::Relation::Person
-                    .def()
-                    .on_condition(|left, right| {
-                        Condition::all().add(
-                            Expr::col((left, metadata_to_person::Column::PersonId))
-                                .equals((right, person::Column::Id)),
-                        )
-                    }),
-            )
-            .order_by_asc(metadata_to_person::Column::Index)
-            .into_model::<PartialCreator>()
-            .all(&self.0.db)
-            .await?;
-        let mut creators: HashMap<String, Vec<_>> = HashMap::new();
-        for cr in crts {
-            let image = first_metadata_image_as_url(&cr.images, &self.0.file_storage_service).await;
-            let creator = MetadataCreator {
-                image,
-                name: cr.name,
-                id: Some(cr.id),
-                character: cr.character,
-            };
-            creators
-                .entry(cr.role)
-                .and_modify(|e| {
-                    e.push(creator.clone());
-                })
-                .or_insert(vec![creator.clone()]);
-        }
-        if let Some(free_creators) = &meta.free_creators {
-            for cr in free_creators.clone() {
-                let creator = MetadataCreator {
-                    name: cr.name,
-                    image: cr.image,
-                    ..Default::default()
-                };
-                creators
-                    .entry(cr.role)
-                    .and_modify(|e| {
-                        e.push(creator.clone());
-                    })
-                    .or_insert(vec![creator.clone()]);
-            }
-        }
-        if let Some(ref mut d) = meta.description {
-            *d = markdown_to_html_opts(
-                d,
-                &Options {
-                    compile: CompileOptions {
-                        allow_dangerous_html: true,
-                        allow_dangerous_protocol: true,
-                        ..CompileOptions::default()
-                    },
-                    ..Options::default()
-                },
-            )
-            .unwrap();
-        }
-        let creators = creators
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
-            .collect_vec();
-        let suggestions = MetadataToMetadata::find()
-            .select_only()
-            .column(metadata_to_metadata::Column::ToMetadataId)
-            .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
-            .filter(
-                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
-            )
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        let assets = self.metadata_assets(&meta).await.unwrap();
-        Ok(MetadataBaseData {
-            model: meta,
-            creators,
-            assets,
-            genres,
-            suggestions,
-        })
-    }
-
     pub async fn metadata_partial_details(
         &self,
         metadata_id: &String,
@@ -294,7 +161,7 @@ impl MiscellaneousService {
             assets,
             genres,
             suggestions,
-        } = self.generic_metadata(metadata_id).await?;
+        } = generic_metadata(metadata_id, &self.0).await?;
 
         let mut group = vec![];
         let associations = MetadataToMetadataGroup::find()
@@ -355,7 +222,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let media_details = self.generic_metadata(&metadata_id).await?;
+        let media_details = generic_metadata(&metadata_id, &self.0).await?;
         let collections =
             entity_in_collections(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
         let reviews =

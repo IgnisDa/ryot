@@ -38,7 +38,7 @@ use database_utils::{
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, SearchResults,
+    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData, SearchResults,
     UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
     UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
@@ -61,15 +61,18 @@ use fitness_models::{
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy,
-    MetadataDetails, MetadataImage, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
+    GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset, ImportOrExportItemRating,
+    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
+    MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
+    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    UpdateMediaEntityResult,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -97,10 +100,12 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
+    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
     prelude::{DateTimeUtc, Expr},
-    sea_query::{Alias, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr},
+    sea_query::{
+        Alias, Asterisk, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr,
+    },
 };
 use serde::{Deserialize, Serialize};
 use slug::slugify;
@@ -287,9 +292,7 @@ pub async fn change_metadata_associations(
     groups: Vec<CommitMediaInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
-) -> Result<UpdateMediaEntityResult> {
-    let mut result = UpdateMediaEntityResult::default();
-
+) -> Result<()> {
     MetadataToPerson::delete_many()
         .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
         .exec(&ss.db)
@@ -355,9 +358,7 @@ pub async fn change_metadata_associations(
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
         };
-        if let Ok(_e) = intermediate.insert(&ss.db).await {
-            result.suggestions.push(db_partial_metadata.id);
-        }
+        intermediate.insert(&ss.db).await.ok();
     }
 
     for metadata_group in groups {
@@ -370,7 +371,7 @@ pub async fn change_metadata_associations(
         intermediate.insert(&ss.db).await.ok();
     }
 
-    Ok(result)
+    Ok(())
 }
 
 async fn update_metadata(
@@ -602,7 +603,7 @@ async fn update_metadata(
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
             let metadata = meta.update(&ss.db).await.unwrap();
 
-            let associations = change_metadata_associations(
+            change_metadata_associations(
                 &metadata.id,
                 details.genres,
                 details.suggestions,
@@ -612,7 +613,6 @@ async fn update_metadata(
             )
             .await?;
             ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
-            result.suggestions.extend(associations.suggestions);
             result.notifications.extend(notifications);
         }
         Err(e) => {
@@ -3650,4 +3650,130 @@ pub async fn user_exercises_list(
         )
         .await?;
     Ok(CachedResponse { cache_id, response })
+}
+
+async fn metadata_assets(
+    meta: &metadata::Model,
+    ss: &Arc<SupportingService>,
+) -> Result<GraphqlMediaAssets> {
+    let images = metadata_images_as_urls(&meta.images, &ss.file_storage_service).await;
+    let mut videos = vec![];
+    if let Some(vids) = &meta.videos {
+        for v in vids.clone() {
+            let url = ss.file_storage_service.get_stored_asset(v.identifier).await;
+            videos.push(GraphqlVideoAsset {
+                source: v.source,
+                video_id: url,
+            })
+        }
+    }
+    Ok(GraphqlMediaAssets { images, videos })
+}
+
+pub async fn generic_metadata(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<MetadataBaseData> {
+    let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
+        return Err(Error::new("The record does not exist".to_owned()));
+    };
+    let genres = meta
+        .find_related(Genre)
+        .order_by_asc(genre::Column::Name)
+        .into_model::<GenreListItem>()
+        .all(&ss.db)
+        .await
+        .unwrap();
+    #[derive(Debug, FromQueryResult)]
+    struct PartialCreator {
+        id: String,
+        name: String,
+        images: Option<Vec<MetadataImage>>,
+        role: String,
+        character: Option<String>,
+    }
+    let crts = MetadataToPerson::find()
+        .expr(Expr::col(Asterisk))
+        .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
+        .join(
+            JoinType::Join,
+            metadata_to_person::Relation::Person
+                .def()
+                .on_condition(|left, right| {
+                    Condition::all().add(
+                        Expr::col((left, metadata_to_person::Column::PersonId))
+                            .equals((right, person::Column::Id)),
+                    )
+                }),
+        )
+        .order_by_asc(metadata_to_person::Column::Index)
+        .into_model::<PartialCreator>()
+        .all(&ss.db)
+        .await?;
+    let mut creators: HashMap<String, Vec<_>> = HashMap::new();
+    for cr in crts {
+        let image = first_metadata_image_as_url(&cr.images, &ss.file_storage_service).await;
+        let creator = MetadataCreator {
+            image,
+            name: cr.name,
+            id: Some(cr.id),
+            character: cr.character,
+        };
+        creators
+            .entry(cr.role)
+            .and_modify(|e| {
+                e.push(creator.clone());
+            })
+            .or_insert(vec![creator.clone()]);
+    }
+    if let Some(free_creators) = &meta.free_creators {
+        for cr in free_creators.clone() {
+            let creator = MetadataCreator {
+                name: cr.name,
+                image: cr.image,
+                ..Default::default()
+            };
+            creators
+                .entry(cr.role)
+                .and_modify(|e| {
+                    e.push(creator.clone());
+                })
+                .or_insert(vec![creator.clone()]);
+        }
+    }
+    if let Some(ref mut d) = meta.description {
+        *d = markdown_to_html_opts(
+            d,
+            &Options {
+                compile: CompileOptions {
+                    allow_dangerous_html: true,
+                    allow_dangerous_protocol: true,
+                    ..CompileOptions::default()
+                },
+                ..Options::default()
+            },
+        )
+        .unwrap();
+    }
+    let creators = creators
+        .into_iter()
+        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
+        .collect_vec();
+    let suggestions = MetadataToMetadata::find()
+        .select_only()
+        .column(metadata_to_metadata::Column::ToMetadataId)
+        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
+        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
+    let assets = metadata_assets(&meta, ss).await.unwrap();
+    Ok(MetadataBaseData {
+        model: meta,
+        creators,
+        assets,
+        genres,
+        suggestions,
+    })
 }

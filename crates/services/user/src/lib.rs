@@ -19,7 +19,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
     UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::{create_or_update_collection, update_metadata_and_notify_users};
+use dependent_utils::{
+    create_or_update_collection, generic_metadata, update_metadata_and_notify_users,
+};
 use enum_meta::Meta;
 use enum_models::{
     IntegrationLot, IntegrationProvider, MediaSource, MetadataToMetadataRelation,
@@ -132,9 +134,9 @@ ORDER BY RANDOM() LIMIT 10;
                     let mut media_item_ids = vec![];
                     for media in media_items.into_iter() {
                         ryot_log!(debug, "Getting recommendations: {:?}", media);
-                        let recommendations = update_metadata_and_notify_users(&media.id, &self.0)
-                            .await?
-                            .suggestions;
+                        update_metadata_and_notify_users(&media.id, &self.0).await?;
+                        let recommendations =
+                            generic_metadata(&media.id, &self.0).await?.suggestions;
                         ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                         for rec in recommendations {
                             let relation = metadata_to_metadata::ActiveModel {

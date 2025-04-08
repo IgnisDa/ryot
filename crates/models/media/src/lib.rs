@@ -1473,6 +1473,5 @@ pub enum ProcessAccessLinkResult {
 
 #[derive(Debug, Default)]
 pub struct UpdateMediaEntityResult {
-    pub suggestions: Vec<String>,
     pub notifications: Vec<(String, UserNotificationContent)>,
 }

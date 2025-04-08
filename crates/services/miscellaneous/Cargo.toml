@@ -19,7 +19,6 @@ enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-markdown = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
