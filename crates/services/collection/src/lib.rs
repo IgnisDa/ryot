@@ -319,7 +319,7 @@ impl CollectionService {
 
     pub async fn collection_recommendations(
         &self,
-        user_id: &String,
+        _user_id: &String,
         input: CollectionRecommendationsInput,
     ) -> Result<CollectionRecommendationsResponse> {
         let cc = &self.0.cache_service;
