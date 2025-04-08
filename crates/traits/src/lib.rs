@@ -75,16 +75,6 @@ pub trait MediaProvider {
         bail!("This provider does not support getting group details")
     }
 
-    /// Get recommendations for a media item.
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.metadata_details(identifier)
-            .await
-            .map(|d| d.suggestions)
-    }
-
     /// Get trending media.
     async fn get_trending_media(&self) -> Result<Vec<PartialMetadataWithoutId>> {
         bail!("This provider does not support getting trending media")
