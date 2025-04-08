@@ -361,6 +361,11 @@ ORDER BY RANDOM() LIMIT 10;
                 let generic = generic_metadata(&item.id, &self.0).await?;
                 data.extend(generic.suggestions);
             }
+            cc.set_key(
+                cache_key,
+                ApplicationCacheValue::CollectionRecommendations(data.clone()),
+            )
+            .await?;
             data
         };
         ryot_log!(debug, "Required set: {:?}", required_set);
