@@ -17,8 +17,8 @@ use database_models::{
 use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsInput, CollectionContentsResponse, SearchResults,
-    UserCollectionsListResponse,
+    CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsInput,
+    CollectionRecommendationsResponse, SearchResults, UserCollectionsListResponse,
 };
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, remove_entity_from_collection,
@@ -311,6 +311,14 @@ impl CollectionService {
             )
             .await?;
         Ok(CachedResponse { response, cache_id })
+    }
+
+    pub async fn collection_recommendations(
+        &self,
+        user_id: &String,
+        input: CollectionRecommendationsInput,
+    ) -> Result<CollectionRecommendationsResponse> {
+        todo!()
     }
 
     pub async fn create_or_update_collection(

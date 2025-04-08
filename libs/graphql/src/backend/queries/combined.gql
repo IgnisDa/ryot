@@ -523,3 +523,7 @@ query UserAnalyticsParameters {
 query TrendingMetadata {
 	trendingMetadata
 }
+
+query CollectionRecommendations($input: CollectionRecommendationsInput!) {
+	collectionRecommendations(input: $input)
+}

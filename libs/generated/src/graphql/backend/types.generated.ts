@@ -232,6 +232,11 @@ export type CollectionItemCollaboratorInformation = {
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
+export type CollectionRecommendationsInput = {
+  collectionId: Scalars['String']['input'];
+  search?: InputMaybe<SearchInput>;
+};
+
 export type CommitMediaInput = {
   name: Scalars['String']['input'];
   unique: UniqueMediaIdentifier;
@@ -1835,6 +1840,8 @@ export type QueryRoot = {
   __typename?: 'QueryRoot';
   /** Get the contents of a collection and respect visibility. */
   collectionContents: CachedCollectionContentsResponse;
+  /** Get recommendations for a collection. */
+  collectionRecommendations: Array<Scalars['String']['output']>;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
@@ -1924,6 +1931,11 @@ export type QueryRoot = {
 
 export type QueryRootCollectionContentsArgs = {
   input: CollectionContentsInput;
+};
+
+
+export type QueryRootCollectionRecommendationsArgs = {
+  input: CollectionRecommendationsInput;
 };
 
 
