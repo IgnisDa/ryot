@@ -1476,10 +1476,3 @@ pub struct UpdateMediaEntityResult {
     pub suggestions: Vec<String>,
     pub notifications: Vec<(String, UserNotificationContent)>,
 }
-
-impl std::ops::AddAssign for UpdateMediaEntityResult {
-    fn add_assign(&mut self, other: Self) {
-        self.suggestions.extend(other.suggestions);
-        self.notifications.extend(other.notifications);
-    }
-}
