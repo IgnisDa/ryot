@@ -5,7 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
-use common_utils::ryot_log;
+use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
     access_link, integration, metadata, metadata_to_metadata, notification_platform,
     prelude::{AccessLink, Integration, Metadata, MetadataToMetadata, NotificationPlatform, User},
@@ -24,8 +24,8 @@ use dependent_utils::{
 };
 use enum_meta::Meta;
 use enum_models::{
-    IntegrationLot, IntegrationProvider, MediaSource, MetadataToMetadataRelation,
-    NotificationPlatformLot, UserLot, UserNotificationContent,
+    IntegrationLot, IntegrationProvider, MetadataToMetadataRelation, NotificationPlatformLot,
+    UserLot, UserNotificationContent,
 };
 use itertools::Itertools;
 use jwt_service::sign;
@@ -104,6 +104,12 @@ impl UserService {
                     struct CustomQueryResponse {
                         id: String,
                     }
+                    let mut args = vec![user_id.into()];
+                    args.extend(
+                        MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
+                            .into_iter()
+                            .map(|s| s.into()),
+                    );
                     let media_items =
                         CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
                             DatabaseBackend::Postgres,
@@ -116,13 +122,7 @@ FROM (
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5)
 ORDER BY RANDOM() LIMIT 10;
         "#,
-                            [
-                                user_id.into(),
-                                MediaSource::Vndb.into(),
-                                MediaSource::Itunes.into(),
-                                MediaSource::Custom.into(),
-                                MediaSource::GoogleBooks.into(),
-                            ],
+                            args,
                         ))
                         .all(&self.0.db)
                         .await?;
