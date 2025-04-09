@@ -39,6 +39,7 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -67,7 +68,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
-import { useQuery } from "@tanstack/react-query";
 
 const DEFAULT_TAB = "contents";
 
