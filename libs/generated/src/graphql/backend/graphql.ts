@@ -252,6 +252,11 @@ export type CollectionItemCollaboratorInformation = {
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
+export type CollectionRecommendationsInput = {
+  collectionId: Scalars['String']['input'];
+  search?: InputMaybe<SearchInput>;
+};
+
 export type CommitMediaInput = {
   name: Scalars['String']['input'];
   unique: UniqueMediaIdentifier;
@@ -1785,6 +1790,8 @@ export type ProviderLanguageInformation = {
 export type QueryRoot = {
   /** Get the contents of a collection and respect visibility. */
   collectionContents: CachedCollectionContentsResponse;
+  /** Get recommendations for a collection. */
+  collectionRecommendations: IdResults;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
   /** Get details about an exercise. */
@@ -1874,6 +1881,11 @@ export type QueryRoot = {
 
 export type QueryRootCollectionContentsArgs = {
   input: CollectionContentsInput;
+};
+
+
+export type QueryRootCollectionRecommendationsArgs = {
+  input: CollectionRecommendationsInput;
 };
 
 
@@ -3767,6 +3779,13 @@ export type TrendingMetadataQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type TrendingMetadataQuery = { trendingMetadata: Array<string> };
 
+export type CollectionRecommendationsQueryVariables = Exact<{
+  input: CollectionRecommendationsInput;
+}>;
+
+
+export type CollectionRecommendationsQuery = { collectionRecommendations: { items: Array<string>, details: { total: number, nextPage?: number | null } } };
+
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
 export type SeenShowExtraInformationPartFragment = { episode: number, season: number };
@@ -3919,3 +3938,4 @@ export const UserWorkoutTemplateDetailsDocument = {"kind":"Document","definition
 export const UserWorkoutTemplatesListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserWorkoutTemplatesList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserTemplatesOrWorkoutsListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userWorkoutTemplatesList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cacheId"}},{"kind":"Field","name":{"kind":"Name","value":"response"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}}]}}]}}]}}]} as unknown as DocumentNode<UserWorkoutTemplatesListQuery, UserWorkoutTemplatesListQueryVariables>;
 export const UserAnalyticsParametersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserAnalyticsParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userAnalyticsParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}}]}}]}}]} as unknown as DocumentNode<UserAnalyticsParametersQuery, UserAnalyticsParametersQueryVariables>;
 export const TrendingMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"TrendingMetadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"trendingMetadata"}}]}}]} as unknown as DocumentNode<TrendingMetadataQuery, TrendingMetadataQueryVariables>;
+export const CollectionRecommendationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CollectionRecommendations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionRecommendationsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionRecommendations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionRecommendationsQuery, CollectionRecommendationsQueryVariables>;

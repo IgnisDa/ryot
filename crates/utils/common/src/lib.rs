@@ -47,6 +47,13 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Hardcover,
 ];
 
+pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 4] = [
+    MediaSource::Vndb,
+    MediaSource::Itunes,
+    MediaSource::Custom,
+    MediaSource::GoogleBooks,
+];
+
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let last_day = NaiveDate::from_ymd_opt(year, month + 1, 1)

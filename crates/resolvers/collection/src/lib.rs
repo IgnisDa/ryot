@@ -5,7 +5,7 @@ use collection_service::CollectionService;
 use common_models::{ChangeCollectionToEntityInput, StringIdObject};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
-    UserCollectionsListResponse,
+    CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use media_models::CreateOrUpdateCollectionInput;
 use traits::AuthProvider;
@@ -36,6 +36,17 @@ impl CollectionQuery {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.collection_contents(&user_id, input).await
+    }
+
+    /// Get recommendations for a collection.
+    async fn collection_recommendations(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CollectionRecommendationsInput,
+    ) -> Result<SearchResults<String>> {
+        let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.collection_recommendations(&user_id, input).await
     }
 }
 

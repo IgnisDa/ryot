@@ -1274,6 +1274,7 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "common-models",
+ "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -1284,6 +1285,7 @@ dependencies = [
  "sea-orm",
  "sea-query",
  "supporting-service",
+ "tracing",
 ]
 
 [[package]]
@@ -1763,6 +1765,7 @@ dependencies = [
  "fitness-models",
  "importer-models",
  "itertools 0.14.0",
+ "markdown",
  "media-models",
  "migrations",
  "nanoid",
@@ -3803,11 +3806,9 @@ dependencies = [
  "enum_meta",
  "futures",
  "itertools 0.14.0",
- "markdown",
  "media-models",
  "migrations",
  "nanoid",
- "providers",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",

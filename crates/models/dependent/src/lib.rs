@@ -262,6 +262,12 @@ pub struct CollectionContentsInput {
     pub sort: Option<SortInput<CollectionContentsSortBy>>,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize, InputObject)]
+pub struct CollectionRecommendationsInput {
+    pub collection_id: String,
+    pub search: Option<SearchInput>,
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserMetadataListInput {
     pub lot: Option<MediaLot>,
@@ -534,6 +540,12 @@ pub struct EmptyCacheValue {
 }
 
 #[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CollectionRecommendationsCachedInput {
+    pub collection_id: String,
+}
+
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -563,6 +575,7 @@ pub enum ApplicationCacheKey {
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
+    CollectionRecommendations(CollectionRecommendationsCachedInput),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
@@ -579,6 +592,7 @@ pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
 pub type UserPeopleListResponse = SearchResults<String>;
+pub type CollectionRecommendationsResponse = Vec<String>;
 pub type CollectionContentsResponse = CollectionContents;
 pub type UserWorkoutsListResponse = SearchResults<String>;
 pub type UserMetadataListResponse = SearchResults<String>;
@@ -615,6 +629,7 @@ pub enum ApplicationCacheValue {
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
+    CollectionRecommendations(CollectionRecommendationsResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
 }
 

@@ -5,6 +5,7 @@ import {
 import { type MantineColor, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
+	type CollectionRecommendationsInput,
 	type MediaCollectionFilter,
 	type MediaCollectionPresenceFilter,
 	MediaLot,
@@ -402,6 +403,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 const collectionQueryKeys = createQueryKeys("collections", {
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
+	}),
+	recommendations: (input: CollectionRecommendationsInput) => ({
+		queryKey: ["collectionRecommendations", input],
 	}),
 });
 

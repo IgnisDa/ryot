@@ -5,7 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
-use common_utils::ryot_log;
+use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
     access_link, integration, metadata, metadata_to_metadata, notification_platform,
     prelude::{AccessLink, Integration, Metadata, MetadataToMetadata, NotificationPlatform, User},
@@ -20,12 +20,12 @@ use dependent_models::{
     UserDetailsResult, UserMetadataRecommendationsResponse,
 };
 use dependent_utils::{
-    create_or_update_collection, create_partial_metadata, get_metadata_provider,
+    create_or_update_collection, generic_metadata, update_metadata_and_notify_users,
 };
 use enum_meta::Meta;
 use enum_models::{
-    IntegrationLot, IntegrationProvider, MediaLot, MediaSource, MetadataToMetadataRelation,
-    NotificationPlatformLot, UserLot, UserNotificationContent,
+    IntegrationLot, IntegrationProvider, MetadataToMetadataRelation, NotificationPlatformLot,
+    UserLot, UserNotificationContent,
 };
 use itertools::Itertools;
 use jwt_service::sign;
@@ -103,15 +103,18 @@ impl UserService {
                     #[derive(Debug, FromQueryResult)]
                     struct CustomQueryResponse {
                         id: String,
-                        lot: MediaLot,
-                        identifier: String,
-                        source: MediaSource,
                     }
+                    let mut args = vec![user_id.into()];
+                    args.extend(
+                        MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
+                            .into_iter()
+                            .map(|s| s.into()),
+                    );
                     let media_items =
                         CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
                             DatabaseBackend::Postgres,
                             r#"
-SELECT "m"."id", "m"."lot", "m"."identifier", "m"."source"
+SELECT "m"."id"
 FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" = $1 AND "metadata_id" IS NOT NULL
@@ -119,13 +122,7 @@ FROM (
 JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5)
 ORDER BY RANDOM() LIMIT 10;
         "#,
-                            [
-                                user_id.into(),
-                                MediaSource::Vndb.into(),
-                                MediaSource::Itunes.into(),
-                                MediaSource::Custom.into(),
-                                MediaSource::GoogleBooks.into(),
-                            ],
+                            args,
                         ))
                         .all(&self.0.db)
                         .await?;
@@ -137,30 +134,23 @@ ORDER BY RANDOM() LIMIT 10;
                     let mut media_item_ids = vec![];
                     for media in media_items.into_iter() {
                         ryot_log!(debug, "Getting recommendations: {:?}", media);
-                        let provider =
-                            get_metadata_provider(media.lot, media.source, &self.0).await?;
-                        let recommendations = provider
-                            .get_recommendations_for_metadata(&media.identifier)
-                            .await
-                            .unwrap_or_default();
+                        update_metadata_and_notify_users(&media.id, &self.0).await?;
+                        let recommendations =
+                            generic_metadata(&media.id, &self.0).await?.suggestions;
                         ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                         for rec in recommendations {
-                            if let Ok(meta) = create_partial_metadata(rec, &self.0.db).await {
-                                let relation = metadata_to_metadata::ActiveModel {
-                                    to_metadata_id: ActiveValue::Set(meta.id.clone()),
-                                    from_metadata_id: ActiveValue::Set(media.id.clone()),
-                                    relation: ActiveValue::Set(
-                                        MetadataToMetadataRelation::Suggestion,
-                                    ),
-                                    ..Default::default()
-                                };
-                                MetadataToMetadata::insert(relation)
-                                    .on_conflict_do_nothing()
-                                    .exec(&self.0.db)
-                                    .await
-                                    .ok();
-                                media_item_ids.push(meta.id);
-                            }
+                            let relation = metadata_to_metadata::ActiveModel {
+                                to_metadata_id: ActiveValue::Set(rec.clone()),
+                                from_metadata_id: ActiveValue::Set(media.id.clone()),
+                                relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                                ..Default::default()
+                            };
+                            MetadataToMetadata::insert(relation)
+                                .on_conflict_do_nothing()
+                                .exec(&self.0.db)
+                                .await
+                                .ok();
+                            media_item_ids.push(rec);
                         }
                     }
                     self.0

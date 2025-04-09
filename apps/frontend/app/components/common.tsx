@@ -272,6 +272,7 @@ export const DebouncedSearchInput = (props: {
 	placeholder?: string;
 	initialValue?: string;
 	enhancedQueryParams?: string;
+	onChange?: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
@@ -285,6 +286,10 @@ export const DebouncedSearchInput = (props: {
 
 	useDidUpdate(() => {
 		const query = debounced.trim().toLowerCase();
+		if (props.onChange) {
+			props.onChange(query);
+			return;
+		}
 		setP(props.queryParam || "query", query);
 		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
@@ -1419,7 +1424,7 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
-	cacheId: string;
+	cacheId?: string;
 	className?: string;
 	rightSection?: ReactNode;
 }) => {
@@ -1435,26 +1440,28 @@ export const DisplayListDetailsAndRefresh = (props: {
 				item{props.total === 1 ? "" : "s"} found
 				{props.rightSection}
 			</Box>
-			<Form
-				replace
-				method="POST"
-				onSubmit={(e) => submit(e)}
-				action={withQuery($path("/actions"), {
-					intent: "expireCacheKey",
-				})}
-			>
-				<input type="hidden" name="cacheId" value={props.cacheId} />
-				<Button
-					size="xs"
-					type="submit"
-					variant="subtle"
-					className={props.className}
-					onClick={() => advanceOnboardingTourStep()}
-					leftSection={<IconArrowsShuffle size={20} />}
+			{props.cacheId ? (
+				<Form
+					replace
+					method="POST"
+					onSubmit={(e) => submit(e)}
+					action={withQuery($path("/actions"), {
+						intent: "expireCacheKey",
+					})}
 				>
-					Refresh
-				</Button>
-			</Form>
+					<input type="hidden" name="cacheId" value={props.cacheId} />
+					<Button
+						size="xs"
+						type="submit"
+						variant="subtle"
+						className={props.className}
+						onClick={() => advanceOnboardingTourStep()}
+						leftSection={<IconArrowsShuffle size={20} />}
+					>
+						Refresh
+					</Button>
+				</Form>
+			) : null}
 		</Group>
 	);
 };

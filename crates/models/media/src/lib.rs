@@ -1470,3 +1470,8 @@ pub enum ProcessAccessLinkResult {
     Ok(ProcessAccessLinkResponse),
     Error(ProcessAccessLinkError),
 }
+
+#[derive(Debug, Default)]
+pub struct UpdateMediaEntityResult {
+    pub notifications: Vec<(String, UserNotificationContent)>,
+}

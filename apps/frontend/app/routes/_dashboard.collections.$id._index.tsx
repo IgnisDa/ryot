@@ -9,6 +9,7 @@ import {
 	Pagination,
 	Select,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Tabs,
 	Text,
@@ -18,6 +19,8 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	CollectionRecommendationsDocument,
+	type CollectionRecommendationsInput,
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
@@ -34,12 +37,15 @@ import {
 	IconMessageCircle2,
 	IconSortAscending,
 	IconSortDescending,
+	IconStar,
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
@@ -49,7 +55,13 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { dayjsLib, pageQueryParam } from "~/lib/common";
+import { MetadataDisplayItem } from "~/components/media";
+import {
+	clientGqlService,
+	dayjsLib,
+	pageQueryParam,
+	queryFactory,
+} from "~/lib/common";
 import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
@@ -150,13 +162,19 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{details.details.description}</Text>
-				<Tabs value={tab} onChange={setTab}>
+				<Tabs value={tab} onChange={setTab} keepMounted={false}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
 							leftSection={<IconBucketDroplet size={16} />}
 						>
 							Contents
+						</Tabs.Tab>
+						<Tabs.Tab
+							value="recommendations"
+							leftSection={<IconStar size={16} />}
+						>
+							Recommendations
 						</Tabs.Tab>
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
@@ -244,6 +262,9 @@ export default function Page() {
 								</Center>
 							) : null}
 						</Stack>
+					</Tabs.Panel>
+					<Tabs.Panel value="recommendations">
+						<RecommendationsSection />
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">
 						<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
@@ -381,5 +402,62 @@ const FiltersModalForm = () => {
 				/>
 			) : null}
 		</>
+	);
+};
+
+const RecommendationsSection = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+
+	const [searchInput, setSearchInput] = useLocalStorage(
+		"CollectionRecommendationsSearchInput",
+		{ page: 1, query: "" },
+	);
+
+	const input: CollectionRecommendationsInput = {
+		collectionId: loaderData.collectionId,
+		search: searchInput,
+	};
+
+	const recommendations = useQuery({
+		queryKey: queryFactory.collections.recommendations(input).queryKey,
+		queryFn: () =>
+			clientGqlService.request(CollectionRecommendationsDocument, { input }),
+	});
+
+	return (
+		<Stack gap="xs">
+			<DebouncedSearchInput
+				initialValue={searchInput.query}
+				onChange={(query) => setSearchInput({ ...searchInput, query })}
+			/>
+			{recommendations.data ? (
+				<>
+					<DisplayListDetailsAndRefresh
+						total={
+							recommendations.data?.collectionRecommendations.details.total
+						}
+					/>
+					<ApplicationGrid>
+						{recommendations.data.collectionRecommendations.items.map((r) => (
+							<MetadataDisplayItem key={r} metadataId={r} />
+						))}
+					</ApplicationGrid>
+					<Center>
+						<Pagination
+							size="sm"
+							value={searchInput.page}
+							onChange={(v) => setSearchInput({ ...searchInput, page: v })}
+							total={Math.ceil(
+								recommendations.data.collectionRecommendations.details.total /
+									userPreferences.general.listPageSize,
+							)}
+						/>
+					</Center>
+				</>
+			) : (
+				<Skeleton height={100} />
+			)}
+		</Stack>
 	);
 };
