@@ -12,6 +12,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
+	type SearchInput,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
@@ -402,6 +403,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 const collectionQueryKeys = createQueryKeys("collections", {
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
+	}),
+	recommendations: (collectionId: string, searchInput: SearchInput) => ({
+		queryKey: ["collectionRecommendations", collectionId, searchInput],
 	}),
 });
 

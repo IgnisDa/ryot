@@ -18,6 +18,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	CollectionRecommendationsDocument,
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
@@ -50,7 +51,12 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { dayjsLib, pageQueryParam } from "~/lib/common";
+import {
+	clientGqlService,
+	dayjsLib,
+	pageQueryParam,
+	queryFactory,
+} from "~/lib/common";
 import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
@@ -61,6 +67,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
+import { useQuery } from "@tanstack/react-query";
 
 const DEFAULT_TAB = "contents";
 
@@ -151,7 +158,7 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{details.details.description}</Text>
-				<Tabs value={tab} onChange={setTab}>
+				<Tabs value={tab} onChange={setTab} keepMounted={false}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
@@ -395,5 +402,25 @@ const FiltersModalForm = () => {
 };
 
 const RecommendationsSection = () => {
-	return <div>Recommendations</div>;
+	const loaderData = useLoaderData<typeof loader>();
+
+	const [searchInput, setSearchInput] = useState({ page: 1, query: "" });
+
+	const recommendations = useQuery({
+		queryKey: queryFactory.collections.recommendations(
+			loaderData.collectionId,
+			searchInput,
+		).queryKey,
+		queryFn: () =>
+			clientGqlService.request(CollectionRecommendationsDocument, {
+				input: { collectionId: loaderData.collectionId, search: searchInput },
+			}),
+	});
+
+	return (
+		<div>
+			<Text>Recommendations</Text>
+			{JSON.stringify(recommendations.data, null, 4)}
+		</div>
+	);
 };
