@@ -9,6 +9,7 @@ import {
 	Pagination,
 	Select,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Tabs,
 	Text,
@@ -68,6 +69,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
+import { MetadataDisplayItem } from "~/components/media";
 
 const DEFAULT_TAB = "contents";
 
@@ -403,6 +405,7 @@ const FiltersModalForm = () => {
 
 const RecommendationsSection = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 
 	const [searchInput, setSearchInput] = useState({ page: 1, query: "" });
 
@@ -423,8 +426,33 @@ const RecommendationsSection = () => {
 				initialValue={searchInput.query}
 				onChange={(query) => setSearchInput({ ...searchInput, query })}
 			/>
-			{JSON.stringify(recommendations.data, null, 4)}
-			{JSON.stringify(searchInput, null, 4)}
+			{recommendations.data ? (
+				<>
+					<DisplayListDetailsAndRefresh
+						total={
+							recommendations.data?.collectionRecommendations.details.total
+						}
+					/>
+					<ApplicationGrid>
+						{recommendations.data.collectionRecommendations.items.map((r) => (
+							<MetadataDisplayItem key={r} metadataId={r} />
+						))}
+					</ApplicationGrid>
+					<Center>
+						<Pagination
+							size="sm"
+							value={searchInput.page}
+							onChange={(v) => setSearchInput({ ...searchInput, page: v })}
+							total={Math.ceil(
+								recommendations.data.collectionRecommendations.details.total /
+									userPreferences.general.listPageSize,
+							)}
+						/>
+					</Center>
+				</>
+			) : (
+				<Skeleton height={100} />
+			)}
 		</Stack>
 	);
 };
