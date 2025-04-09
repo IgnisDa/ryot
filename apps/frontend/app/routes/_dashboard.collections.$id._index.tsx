@@ -53,6 +53,7 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
+import { MetadataDisplayItem } from "~/components/media";
 import {
 	clientGqlService,
 	dayjsLib,
@@ -69,7 +70,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
-import { MetadataDisplayItem } from "~/components/media";
 
 const DEFAULT_TAB = "contents";
 
