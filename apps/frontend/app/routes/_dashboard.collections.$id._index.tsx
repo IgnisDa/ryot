@@ -70,6 +70,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
+import { useLocalStorage } from "usehooks-ts";
 
 const DEFAULT_TAB = "contents";
 
@@ -407,7 +408,10 @@ const RecommendationsSection = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 
-	const [searchInput, setSearchInput] = useState({ page: 1, query: "" });
+	const [searchInput, setSearchInput] = useLocalStorage(
+		"CollectionRecommendationsSearchInput",
+		{ page: 1, query: "" },
+	);
 
 	const recommendations = useQuery({
 		queryKey: queryFactory.collections.recommendations(
