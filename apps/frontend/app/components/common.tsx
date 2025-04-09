@@ -272,6 +272,7 @@ export const DebouncedSearchInput = (props: {
 	placeholder?: string;
 	initialValue?: string;
 	enhancedQueryParams?: string;
+	onChange?: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
@@ -285,6 +286,10 @@ export const DebouncedSearchInput = (props: {
 
 	useDidUpdate(() => {
 		const query = debounced.trim().toLowerCase();
+		if (props.onChange) {
+			props.onChange(query);
+			return;
+		}
 		setP(props.queryParam || "query", query);
 		props.tourControl?.onQueryChange(query);
 	}, [debounced]);

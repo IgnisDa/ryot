@@ -418,9 +418,13 @@ const RecommendationsSection = () => {
 	});
 
 	return (
-		<div>
-			<Text>Recommendations</Text>
+		<Stack gap="xs">
+			<DebouncedSearchInput
+				initialValue={searchInput.query}
+				onChange={(query) => setSearchInput({ ...searchInput, query })}
+			/>
 			{JSON.stringify(recommendations.data, null, 4)}
-		</div>
+			{JSON.stringify(searchInput, null, 4)}
+		</Stack>
 	);
 };
