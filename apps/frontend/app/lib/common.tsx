@@ -5,6 +5,7 @@ import {
 import { type MantineColor, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
+	type CollectionRecommendationsInput,
 	type MediaCollectionFilter,
 	type MediaCollectionPresenceFilter,
 	MediaLot,
@@ -12,7 +13,6 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
-	type SearchInput,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
@@ -404,8 +404,8 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
-	recommendations: (collectionId: string, searchInput: SearchInput) => ({
-		queryKey: ["collectionRecommendations", collectionId, searchInput],
+	recommendations: (input: CollectionRecommendationsInput) => ({
+		queryKey: ["collectionRecommendations", input],
 	}),
 });
 

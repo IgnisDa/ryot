@@ -20,6 +20,7 @@ import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
 	CollectionRecommendationsDocument,
+	type CollectionRecommendationsInput,
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
@@ -413,15 +414,15 @@ const RecommendationsSection = () => {
 		{ page: 1, query: "" },
 	);
 
+	const input: CollectionRecommendationsInput = {
+		collectionId: loaderData.collectionId,
+		search: searchInput,
+	};
+
 	const recommendations = useQuery({
-		queryKey: queryFactory.collections.recommendations(
-			loaderData.collectionId,
-			searchInput,
-		).queryKey,
+		queryKey: queryFactory.collections.recommendations(input).queryKey,
 		queryFn: () =>
-			clientGqlService.request(CollectionRecommendationsDocument, {
-				input: { collectionId: loaderData.collectionId, search: searchInput },
-			}),
+			clientGqlService.request(CollectionRecommendationsDocument, { input }),
 	});
 
 	return (
