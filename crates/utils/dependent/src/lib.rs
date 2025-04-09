@@ -565,12 +565,12 @@ async fn update_metadata(
                 .creators
                 .is_empty()
                 .then_some(())
-                .map_or(None, |_| Some(details.creators));
+                .map(|_| details.creators);
             let watch_providers = details
                 .watch_providers
                 .is_empty()
                 .then_some(())
-                .map_or(None, |_| Some(details.watch_providers));
+                .map(|_| details.watch_providers);
 
             let mut meta: metadata::ActiveModel = meta.into();
             meta.last_updated_on = ActiveValue::Set(Utc::now());
@@ -817,10 +817,7 @@ async fn update_person(
     }
     to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
     to_update_person.update(&ss.db).await.unwrap();
-    Ok(UpdateMediaEntityResult {
-        notifications,
-        ..Default::default()
-    })
+    Ok(UpdateMediaEntityResult { notifications })
 }
 
 pub async fn get_users_and_cte_monitoring_entity(
