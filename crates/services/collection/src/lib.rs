@@ -380,6 +380,13 @@ ORDER BY RANDOM() LIMIT 10;
             .select_only()
             .column(metadata::Column::Id)
             .filter(metadata::Column::Id.is_in(required_set))
+            .apply_if(search.query, |query, v| {
+                query.filter(
+                    Condition::any()
+                        .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
+                        .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
+                )
+            })
             .into_tuple::<String>()
             .paginate(&self.0.db, take);
 
