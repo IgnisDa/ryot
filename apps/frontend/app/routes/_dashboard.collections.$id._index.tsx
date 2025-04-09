@@ -45,6 +45,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
@@ -71,7 +72,6 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
-import { useLocalStorage } from "usehooks-ts";
 
 const DEFAULT_TAB = "contents";
 
