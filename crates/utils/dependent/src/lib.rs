@@ -244,7 +244,7 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
-pub async fn create_partial_metadata(
+pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
     db: &DatabaseConnection,
 ) -> Result<PartialMetadata> {
@@ -354,7 +354,7 @@ pub async fn change_metadata_associations(
     }
 
     for data in suggestions {
-        let db_partial_metadata = create_partial_metadata(data, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(data, &ss.db).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
@@ -654,7 +654,7 @@ async fn update_metadata_group(
     eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = create_partial_metadata(media, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(media, &ss.db).await?;
         MetadataToMetadataGroup::delete_many()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -715,7 +715,7 @@ async fn update_person(
     to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
-        let pm = create_partial_metadata(data.metadata, &ss.db).await?;
+        let pm = commit_metadata(data.metadata, &ss.db).await?;
         let already_intermediate = MetadataToPerson::find()
             .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -2426,7 +2426,7 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = match create_partial_metadata(
+                let db_metadata_id = match commit_metadata(
                     PartialMetadataWithoutId {
                         lot: metadata.lot,
                         source: metadata.source,

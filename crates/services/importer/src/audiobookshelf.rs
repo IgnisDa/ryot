@@ -6,7 +6,7 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::{create_partial_metadata, get_identifier_from_book_isbn};
+use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
@@ -122,7 +122,7 @@ pub async fn import(
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                create_partial_metadata(
+                                commit_metadata(
                                     PartialMetadataWithoutId {
                                         lot,
                                         source,

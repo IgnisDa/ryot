@@ -49,8 +49,8 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, change_metadata_associations, commit_metadata_group, commit_person,
-    create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
+    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
+    commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
     first_metadata_image_as_url, generic_metadata, get_entity_recently_consumed,
     get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
@@ -1039,7 +1039,7 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let id = create_partial_metadata(
+        let id = commit_metadata(
             PartialMetadataWithoutId {
                 title: input.name,
                 lot: input.unique.lot,
@@ -1124,7 +1124,7 @@ impl MiscellaneousService {
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
         let promises = results.items.iter().map(|i| {
-            create_partial_metadata(
+            commit_metadata(
                 PartialMetadataWithoutId {
                     lot: input.lot,
                     source: input.source,
@@ -2064,7 +2064,7 @@ impl MiscellaneousService {
                     Err(_) => continue,
                 };
                 for item in media {
-                    if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
+                    if let Ok(metadata) = commit_metadata(item, &self.0.db).await {
                         trending_ids.insert(metadata.id);
                     }
                 }
