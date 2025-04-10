@@ -129,7 +129,7 @@ pub async fn import(
                                         identifier: itunes_id.clone(),
                                         ..Default::default()
                                     },
-                                    &ss,
+                                    ss,
                                 )
                                 .await?;
                                 let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;

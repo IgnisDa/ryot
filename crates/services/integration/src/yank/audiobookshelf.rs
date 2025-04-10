@@ -77,7 +77,7 @@ pub async fn yank_progress(
                         identifier: itunes_id.clone(),
                         ..Default::default()
                     },
-                    &ss,
+                    ss,
                 )
                 .await
                 .unwrap();

@@ -319,7 +319,7 @@ pub async fn change_metadata_associations(
                 identifier: person.identifier.clone(),
                 source_specifics: person.source_specifics,
             },
-            &ss,
+            ss,
         )
         .await?;
         let intermediate = metadata_to_person::ActiveModel {
@@ -354,7 +354,7 @@ pub async fn change_metadata_associations(
     }
 
     for data in suggestions {
-        let db_partial_metadata = commit_metadata(data, &ss).await?;
+        let db_partial_metadata = commit_metadata(data, ss).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
@@ -654,7 +654,7 @@ async fn update_metadata_group(
     eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = commit_metadata(media, &ss).await?;
+        let db_partial_metadata = commit_metadata(media, ss).await?;
         MetadataToMetadataGroup::delete_many()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -715,7 +715,7 @@ async fn update_person(
     to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
-        let pm = commit_metadata(data.metadata, &ss).await?;
+        let pm = commit_metadata(data.metadata, ss).await?;
         let already_intermediate = MetadataToPerson::find()
             .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -2434,7 +2434,7 @@ where
                         identifier: metadata.identifier.clone(),
                         ..Default::default()
                     },
-                    &ss,
+                    ss,
                 )
                 .await
                 {
@@ -2602,7 +2602,7 @@ where
                         identifier: person.identifier.clone(),
                         source_specifics: person.source_specifics.clone(),
                     },
-                    &ss,
+                    ss,
                 )
                 .await
                 {
@@ -2708,7 +2708,7 @@ where
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) = create_user_measurement(user_id, measurement.clone(), &ss).await {
+                if let Err(err) = create_user_measurement(user_id, measurement.clone(), ss).await {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
                         step: ImportFailStep::DatabaseCommit,
