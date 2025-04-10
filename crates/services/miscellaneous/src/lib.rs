@@ -1173,19 +1173,28 @@ impl MiscellaneousService {
                 CommitPersonInput {
                     name: i.name.clone(),
                     source: input.source,
+                    image: i.image.clone(),
                     identifier: i.identifier.clone(),
                     source_specifics: input.source_specifics.clone(),
                 },
                 &self.0,
             )
         });
-        let person_items = join_all(promises).await;
+        let person_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            items: person_items,
+            details: results.details,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::PeopleSearch(results.clone()),
+            ApplicationCacheValue::PeopleSearch(response.clone()),
         )
         .await?;
-        Ok(results)
+        Ok(response)
     }
 
     pub async fn metadata_group_search(

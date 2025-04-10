@@ -318,6 +318,7 @@ pub async fn change_metadata_associations(
                 source: person.source,
                 identifier: person.identifier.clone(),
                 source_specifics: person.source_specifics,
+                ..Default::default()
             },
             ss,
         )
@@ -1022,7 +1023,13 @@ pub async fn commit_person(
     {
         Some(p) => Ok(p),
         None => {
+            let image = input.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                }]
+            });
             let person = person::ActiveModel {
+                images: ActiveValue::Set(image),
                 name: ActiveValue::Set(input.name),
                 source: ActiveValue::Set(input.source),
                 is_partial: ActiveValue::Set(Some(true)),
@@ -2601,6 +2608,7 @@ where
                         name: person.name.clone(),
                         identifier: person.identifier.clone(),
                         source_specifics: person.source_specifics.clone(),
+                        ..Default::default()
                     },
                     ss,
                 )

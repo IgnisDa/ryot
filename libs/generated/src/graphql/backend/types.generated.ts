@@ -244,6 +244,7 @@ export type CommitMediaInput = {
 
 export type CommitPersonInput = {
   identifier: Scalars['String']['input'];
+  image?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   source: MediaSource;
   sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
@@ -1644,20 +1645,6 @@ export type PeopleSearchInput = {
   sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
 };
 
-export type PeopleSearchItem = {
-  __typename?: 'PeopleSearchItem';
-  birthYear?: Maybe<Scalars['Int']['output']>;
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-export type PeopleSearchResults = {
-  __typename?: 'PeopleSearchResults';
-  details: SearchDetails;
-  items: Array<PeopleSearchItem>;
-};
-
 export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
@@ -1846,7 +1833,7 @@ export type QueryRoot = {
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
-  peopleSearch: PeopleSearchResults;
+  peopleSearch: IdResults;
   /** Get details about a creator present in the database. */
   personDetails: GraphqlPersonDetails;
   /** Get trending media items. */

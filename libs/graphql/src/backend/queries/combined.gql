@@ -399,15 +399,10 @@ query MetadataSearch($input: MetadataSearchInput!) {
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			name
-			image
-			birthYear
-			identifier
 		}
 	}
 }

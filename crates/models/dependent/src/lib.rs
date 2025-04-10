@@ -28,9 +28,8 @@ use media_models::{
     GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
     MetadataCreatorGroupedByRole, MetadataGroupSearchItem, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -45,7 +44,6 @@ use uuid::Uuid;
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)
 ))]
-#[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
 #[graphql(concrete(
     name = "MetadataGroupSearchResults",
     params(media_models::MetadataGroupSearchItem)
@@ -587,6 +585,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type PeopleSearchResponse = SearchResults<String>;
 pub type MetadataSearchResponse = SearchResults<String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionRecommendationsResponse = Vec<String>;
@@ -596,7 +595,6 @@ pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
-pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;

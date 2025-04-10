@@ -767,11 +767,12 @@ pub struct MetadataPartialDetails {
     pub publish_year: Option<i32>,
 }
 
-#[derive(Debug, InputObject)]
+#[derive(Debug, Default, InputObject)]
 pub struct CommitPersonInput {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    pub image: Option<String>,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
