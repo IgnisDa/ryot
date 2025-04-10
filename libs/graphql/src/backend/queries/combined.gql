@@ -389,15 +389,10 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			title
-			image
-			identifier
-			publishYear
 		}
 	}
 }

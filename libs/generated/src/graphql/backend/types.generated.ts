@@ -1194,20 +1194,6 @@ export type MetadataSearchInput = {
   source: MediaSource;
 };
 
-export type MetadataSearchItem = {
-  __typename?: 'MetadataSearchItem';
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  title: Scalars['String']['output'];
-};
-
-export type MetadataSearchResults = {
-  __typename?: 'MetadataSearchResults';
-  details: SearchDetails;
-  items: Array<MetadataSearchItem>;
-};
-
 export enum MetadataVideoSource {
   Custom = 'CUSTOM',
   Dailymotion = 'DAILYMOTION',
@@ -1865,7 +1851,7 @@ export type QueryRoot = {
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
-  metadataSearch: MetadataSearchResults;
+  metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
   peopleSearch: PeopleSearchResults;
   /** Get details about a creator present in the database. */

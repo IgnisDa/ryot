@@ -64,7 +64,10 @@ use enum_meta::Meta;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, UserToMediaReason,
 };
-use futures::{TryStreamExt, future::join_all};
+use futures::{
+    TryStreamExt,
+    future::{join_all, try_join_all},
+};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
@@ -1137,13 +1140,21 @@ impl MiscellaneousService {
                 &self.0,
             )
         });
-        let metadata_items = join_all(promises).await;
+        let metadata_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            items: metadata_items,
+            details: results.details,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::MetadataSearch(results.clone()),
+            ApplicationCacheValue::MetadataSearch(response.clone()),
         )
         .await?;
-        Ok(results)
+        Ok(response)
     }
 
     pub async fn people_search(

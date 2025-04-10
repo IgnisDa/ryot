@@ -27,10 +27,10 @@ use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
-    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole, ReviewItem,
+    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -44,10 +44,6 @@ use uuid::Uuid;
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)
-))]
-#[graphql(concrete(
-    name = "MetadataSearchResults",
-    params(media_models::MetadataSearchItem)
 ))]
 #[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
 #[graphql(concrete(
@@ -591,6 +587,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type MetadataSearchResponse = SearchResults<String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionRecommendationsResponse = Vec<String>;
 pub type CollectionContentsResponse = CollectionContents;
@@ -602,7 +599,6 @@ pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
-pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
 pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]

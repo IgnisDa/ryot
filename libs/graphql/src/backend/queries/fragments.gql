@@ -59,13 +59,6 @@ fragment SeenPart on Seen {
 	}
 }
 
-fragment MetadataSearchItemPart on MetadataSearchItem {
-	title
-	image
-	identifier
-	publishYear
-}
-
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
 	reps
 	weight
