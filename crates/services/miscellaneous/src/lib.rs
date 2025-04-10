@@ -71,12 +71,12 @@ use media_models::{
     CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -1111,6 +1111,20 @@ impl MiscellaneousService {
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
+        let promises = results.items.iter().map(|i| {
+            create_partial_metadata(
+                PartialMetadataWithoutId {
+                    lot: input.lot,
+                    source: input.source,
+                    title: i.title.clone(),
+                    image: i.image.clone(),
+                    publish_year: i.publish_year,
+                    identifier: i.identifier.clone(),
+                },
+                &self.0.db,
+            )
+        });
+        let metadata_items = join_all(promises).await;
         cc.set_key(
             cache_key,
             ApplicationCacheValue::MetadataSearch(results.clone()),
