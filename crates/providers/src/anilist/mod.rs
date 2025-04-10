@@ -280,6 +280,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 studio_query::MediaType::MANGA => MediaLot::Manga,
                                 studio_query::MediaType::Other(_) => unreachable!(),
                             },
+                            ..Default::default()
                         },
                         ..Default::default()
                     }
@@ -370,6 +371,7 @@ impl MediaProvider for NonMediaAnilistService {
                                         staff_query::MediaType::MANGA => MediaLot::Manga,
                                         staff_query::MediaType::Other(_) => unreachable!(),
                                     },
+                                    ..Default::default()
                                 },
                             })
                         }
@@ -398,6 +400,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 staff_query::MediaType::MANGA => MediaLot::Manga,
                                 staff_query::MediaType::Other(_) => unreachable!(),
                             },
+                            ..Default::default()
                         },
                         ..Default::default()
                     }
@@ -655,6 +658,7 @@ async fn media_details(
                         media_details_query::MediaType::MANGA => MediaLot::Manga,
                         media_details_query::MediaType::Other(_) => unreachable!(),
                     },
+                    ..Default::default()
                 }
             })
         })

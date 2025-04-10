@@ -270,6 +270,7 @@ pub async fn create_partial_metadata(
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
+                publish_year: ActiveValue::Set(data.publish_year),
                 ..Default::default()
             };
             c.insert(db).await?
@@ -282,6 +283,7 @@ pub async fn create_partial_metadata(
         title: mode.title,
         source: mode.source,
         identifier: mode.identifier,
+        publish_year: mode.publish_year,
     };
     Ok(model)
 }

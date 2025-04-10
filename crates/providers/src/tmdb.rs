@@ -272,6 +272,7 @@ impl TmdbService {
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    ..Default::default()
                 });
             }
             if new_recs.page >= new_recs.total_pages {
@@ -384,6 +385,7 @@ impl TmdbService {
                         "tv" => MediaLot::Show,
                         _ => continue,
                     },
+                    ..Default::default()
                 });
             }
             if data.page >= data.total_pages {
@@ -526,6 +528,7 @@ impl MediaProvider for NonMediaTmdbService {
                         "tv" => MediaLot::Show,
                         _ => continue,
                     },
+                    ..Default::default()
                 };
                 related_metadata.push(MetadataPersonRelated {
                     role,
@@ -561,6 +564,7 @@ impl MediaProvider for NonMediaTmdbService {
                                     "tv" => MediaLot::Show,
                                     _ => unreachable!(),
                                 },
+                                ..Default::default()
                             },
                             ..Default::default()
                         }
@@ -942,6 +946,7 @@ impl MediaProvider for TmdbMovieService {
                 source: MediaSource::Tmdb,
                 identifier: p.id.to_string(),
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
+                ..Default::default()
             })
             .collect_vec();
         let title = replace_from_end(data.name, " Collection", "");

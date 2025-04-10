@@ -743,7 +743,7 @@ pub struct ReviewPostedEvent {
     "PartialMetadataWithoutId",
     "#[derive(Clone, Default, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
 ))]
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Eq, Default, PartialEq, Debug, Serialize, Deserialize, Hash)]
 pub struct PartialMetadata {
     #[boilermates(not_in("PartialMetadataWithoutId"))]
     pub id: String,
@@ -752,6 +752,7 @@ pub struct PartialMetadata {
     pub identifier: String,
     pub source: MediaSource,
     pub image: Option<String>,
+    pub publish_year: Option<i32>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]

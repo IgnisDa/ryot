@@ -309,6 +309,7 @@ impl MediaProvider for MangaUpdatesService {
                     source: MediaSource::MangaUpdates,
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),
+                    ..Default::default()
                 });
             }
         }
