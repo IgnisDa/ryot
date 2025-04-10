@@ -181,14 +181,14 @@ const DisplayAverageRatingOverlay = (props: {
 };
 
 export const MetadataDisplayItem = (props: {
-	metadataId: string;
 	name?: string;
 	altName?: string;
+	metadataId: string;
 	topRight?: ReactNode;
-	rightLabel?: ReactNode;
-	rightLabelHistory?: boolean;
-	rightLabelLot?: boolean;
 	noLeftLabel?: boolean;
+	rightLabel?: ReactNode;
+	rightLabelLot?: boolean;
+	rightLabelHistory?: boolean;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();

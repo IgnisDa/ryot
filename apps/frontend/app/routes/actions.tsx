@@ -2,7 +2,6 @@ import { setTimeout } from "node:timers/promises";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	AddEntityToCollectionDocument,
-	CommitMetadataDocument,
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
 	CreateOrUpdateReviewDocument,
@@ -65,24 +64,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	let status = undefined;
 	await match(intent)
-		.with("commitMetadata", async () => {
-			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadata } = await serverGqlService.authenticatedRequest(
-				request,
-				CommitMetadataDocument,
-				{
-					input: {
-						name: submission.name,
-						unique: {
-							lot: submission.lot,
-							source: submission.source,
-							identifier: submission.identifier,
-						},
-					},
-				},
-			);
-			returnData = { commitMedia: commitMetadata };
-		})
 		.with("uploadWorkoutAsset", async () => {
 			const uploader = createS3FileUploader("workouts");
 			const formData = await parseFormData(request, uploader);
