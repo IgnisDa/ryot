@@ -19,7 +19,6 @@ import {
 	GraphqlSortOrder,
 	MediaSource,
 	MetadataGroupSearchDocument,
-	type MetadataGroupSearchQuery,
 	PersonAndMetadataGroupsSortBy,
 	UserMetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -320,7 +319,10 @@ export default function Page() {
 						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.search.search.items.map((group) => (
-									<GroupSearchItem item={group} key={group} />
+									<MetadataGroupDisplayItem
+										key={group}
+										metadataGroupId={group}
+									/>
 								))}
 							</ApplicationGrid>
 						) : (
@@ -340,12 +342,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const GroupSearchItem = (props: {
-	item: MetadataGroupSearchQuery["metadataGroupSearch"]["items"][number];
-}) => {
-	return <MetadataGroupDisplayItem metadataGroupId={props.item} />;
-};
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();

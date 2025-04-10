@@ -20,7 +20,6 @@ import {
 	GraphqlSortOrder,
 	MediaSource,
 	PeopleSearchDocument,
-	type PeopleSearchQuery,
 	PersonAndMetadataGroupsSortBy,
 	UserPeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -350,7 +349,7 @@ export default function Page() {
 						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.search.search.items.map((person) => (
-									<PersonSearchItem item={person} key={person} />
+									<PersonDisplayItem key={person} personId={person} />
 								))}
 							</ApplicationGrid>
 						) : (
@@ -370,12 +369,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const PersonSearchItem = (props: {
-	item: PeopleSearchQuery["peopleSearch"]["items"][number];
-}) => {
-	return <PersonDisplayItem personId={props.item} />;
-};
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
