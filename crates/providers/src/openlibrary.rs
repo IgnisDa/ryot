@@ -5,7 +5,7 @@ use chrono::{Datelike, NaiveDate};
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
-use dependent_models::{MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults};
+use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -163,7 +163,7 @@ impl MediaProvider for OpenlibraryService {
         page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
         let rsp = self
             .client

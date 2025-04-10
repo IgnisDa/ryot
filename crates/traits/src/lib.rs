@@ -8,10 +8,10 @@ use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
-use dependent_models::{
-    MetadataGroupSearchResponse, PeopleSearchResponse, PersonDetails, SearchResults,
+use dependent_models::{MetadataGroupSearchResponse, PersonDetails, SearchResults};
+use media_models::{
+    MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
 };
-use media_models::{MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId};
 use supporting_service::SupportingService;
 
 #[async_trait]
@@ -41,7 +41,7 @@ pub trait MediaProvider {
         page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         bail!("This provider does not support searching people")
     }
 

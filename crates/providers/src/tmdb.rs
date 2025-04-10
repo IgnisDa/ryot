@@ -12,7 +12,7 @@ use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_stri
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
-    PeopleSearchResponse, PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
+    PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
 };
 use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
@@ -416,7 +416,7 @@ impl MediaProvider for NonMediaTmdbService {
         page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let language = &self
             .base
             .supporting_service
