@@ -237,11 +237,6 @@ export type CollectionRecommendationsInput = {
   search?: InputMaybe<SearchInput>;
 };
 
-export type CommitMediaInput = {
-  name: Scalars['String']['input'];
-  unique: UniqueMediaIdentifier;
-};
-
 export type CoreDetails = {
   __typename?: 'CoreDetails';
   backendErrors: Array<BackendError>;
@@ -1205,8 +1200,6 @@ export type MutationRoot = {
   __typename?: 'MutationRoot';
   /** Add a entity to a collection if it is not there, otherwise do nothing. */
   addEntityToCollection: Scalars['Boolean']['output'];
-  /** Fetch details about a media group and create a media group item in the database. */
-  commitMetadataGroup: StringIdObject;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1329,11 +1322,6 @@ export type MutationRoot = {
 
 export type MutationRootAddEntityToCollectionArgs = {
   input: ChangeCollectionToEntityInput;
-};
-
-
-export type MutationRootCommitMetadataGroupArgs = {
-  input: CommitMediaInput;
 };
 
 
@@ -2229,12 +2217,6 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
-};
-
-export type UniqueMediaIdentifier = {
-  identifier: Scalars['String']['input'];
-  lot: MediaLot;
-  source: MediaSource;
 };
 
 export type UpdateCustomExerciseInput = {

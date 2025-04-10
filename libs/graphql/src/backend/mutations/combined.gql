@@ -26,12 +26,6 @@ mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
 	addEntityToCollection(input: $input)
 }
 
-mutation CommitMetadataGroup($input: CommitMediaInput!) {
-	commitMetadataGroup(input: $input) {
-		id
-	}
-}
-
 mutation CreateCustomExercise($input: ExerciseInput!) {
 	createCustomExercise(input: $input)
 }

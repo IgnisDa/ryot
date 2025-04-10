@@ -1245,10 +1245,6 @@ impl MiscellaneousService {
         Ok(response)
     }
 
-    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        commit_metadata_group(input, &self.0).await
-    }
-
     pub async fn create_or_update_review(
         &self,
         user_id: &String,
