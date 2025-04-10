@@ -49,14 +49,14 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, first_metadata_image_as_url, generic_metadata,
-    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
-    get_non_metadata_provider, get_users_monitoring_entity, handle_after_media_seen_tasks,
-    is_metadata_finished_by_user, metadata_images_as_urls, post_review, progress_update,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    add_entity_to_collection, change_metadata_associations, commit_metadata_group, commit_person,
+    create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
+    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
+    first_metadata_image_as_url, generic_metadata, get_entity_recently_consumed,
+    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
@@ -1039,7 +1039,19 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        commit_metadata(input, &self.0).await
+        let id = create_partial_metadata(
+            PartialMetadataWithoutId {
+                title: input.name,
+                lot: input.unique.lot,
+                source: input.unique.source,
+                identifier: input.unique.identifier,
+                ..Default::default()
+            },
+            &self.0.db,
+        )
+        .await?
+        .id;
+        Ok(StringIdObject { id })
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {

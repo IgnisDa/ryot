@@ -1036,34 +1036,6 @@ pub async fn commit_person(
     }
 }
 
-pub async fn commit_metadata(
-    input: CommitMediaInput,
-    ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
-    match Metadata::find()
-        .filter(metadata::Column::Identifier.eq(&input.unique.identifier))
-        .filter(metadata::Column::Lot.eq(input.unique.lot))
-        .filter(metadata::Column::Source.eq(input.unique.source))
-        .one(&ss.db)
-        .await?
-        .map(|m| StringIdObject { id: m.id })
-    {
-        Some(m) => Ok(m),
-        None => {
-            let new_metadata = metadata::ActiveModel {
-                title: ActiveValue::Set(input.name),
-                lot: ActiveValue::Set(input.unique.lot),
-                is_partial: ActiveValue::Set(Some(true)),
-                source: ActiveValue::Set(input.unique.source),
-                identifier: ActiveValue::Set(input.unique.identifier.clone()),
-                ..Default::default()
-            };
-            let new_metadata = new_metadata.insert(&ss.db).await?.id;
-            Ok(StringIdObject { id: new_metadata })
-        }
-    }
-}
-
 pub async fn deploy_update_metadata_job(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
@@ -2454,16 +2426,15 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = match commit_metadata(
-                    CommitMediaInput {
-                        name: metadata.source_id.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata.lot,
-                            source: metadata.source,
-                            identifier: metadata.identifier.clone(),
-                        },
+                let db_metadata_id = match create_partial_metadata(
+                    PartialMetadataWithoutId {
+                        lot: metadata.lot,
+                        source: metadata.source,
+                        title: metadata.source_id.clone(),
+                        identifier: metadata.identifier.clone(),
+                        ..Default::default()
                     },
-                    ss,
+                    &ss.db,
                 )
                 .await
                 {

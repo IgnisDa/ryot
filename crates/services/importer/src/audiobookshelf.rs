@@ -6,13 +6,13 @@ use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
+use dependent_utils::{create_partial_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    PartialMetadataWithoutId,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -122,16 +122,14 @@ pub async fn import(
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
-                                commit_metadata(
-                                    CommitMediaInput {
-                                        name: "Loading...".to_owned(),
-                                        unique: UniqueMediaIdentifier {
-                                            lot,
-                                            source,
-                                            identifier: itunes_id.clone(),
-                                        },
+                                create_partial_metadata(
+                                    PartialMetadataWithoutId {
+                                        lot,
+                                        source,
+                                        identifier: itunes_id.clone(),
+                                        ..Default::default()
                                     },
-                                    ss,
+                                    &ss.db,
                                 )
                                 .await?;
                                 let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
