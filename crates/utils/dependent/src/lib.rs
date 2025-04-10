@@ -246,13 +246,13 @@ pub async fn details_from_provider(
 
 pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<PartialMetadata> {
     let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
         .filter(metadata::Column::Lot.eq(data.lot))
         .filter(metadata::Column::Source.eq(data.source))
-        .one(db)
+        .one(&ss.db)
         .await
         .unwrap()
     {
@@ -273,7 +273,7 @@ pub async fn commit_metadata(
                 publish_year: ActiveValue::Set(data.publish_year),
                 ..Default::default()
             };
-            c.insert(db).await?
+            c.insert(&ss.db).await?
         }
     };
     let model = PartialMetadata {
@@ -319,7 +319,7 @@ pub async fn change_metadata_associations(
                 identifier: person.identifier.clone(),
                 source_specifics: person.source_specifics,
             },
-            &ss.db,
+            &ss,
         )
         .await?;
         let intermediate = metadata_to_person::ActiveModel {
@@ -354,7 +354,7 @@ pub async fn change_metadata_associations(
     }
 
     for data in suggestions {
-        let db_partial_metadata = commit_metadata(data, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(data, &ss).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
@@ -654,7 +654,7 @@ async fn update_metadata_group(
     eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = commit_metadata(media, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(media, &ss).await?;
         MetadataToMetadataGroup::delete_many()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -715,7 +715,7 @@ async fn update_person(
     to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
-        let pm = commit_metadata(data.metadata, &ss.db).await?;
+        let pm = commit_metadata(data.metadata, &ss).await?;
         let already_intermediate = MetadataToPerson::find()
             .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -1007,7 +1007,7 @@ pub async fn commit_metadata_group(
 
 pub async fn commit_person(
     input: CommitPersonInput,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match Person::find()
         .filter(person::Column::Source.eq(input.source))
@@ -1016,7 +1016,7 @@ pub async fn commit_person(
             None => person::Column::SourceSpecifics.is_null(),
             Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
         })
-        .one(db)
+        .one(&ss.db)
         .await?
         .map(|p| StringIdObject { id: p.id })
     {
@@ -1030,7 +1030,7 @@ pub async fn commit_person(
                 source_specifics: ActiveValue::Set(input.source_specifics),
                 ..Default::default()
             };
-            let person = person.insert(db).await?;
+            let person = person.insert(&ss.db).await?;
             Ok(StringIdObject { id: person.id })
         }
     }
@@ -1805,11 +1805,11 @@ fn convert_review_into_input(
 pub async fn create_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<DateTimeUtc> {
     input.user_id = user_id.to_owned();
     let um: user_measurement::ActiveModel = input.into();
-    let um = um.insert(db).await?;
+    let um = um.insert(&ss.db).await?;
     Ok(um.timestamp)
 }
 
@@ -2434,7 +2434,7 @@ where
                         identifier: metadata.identifier.clone(),
                         ..Default::default()
                     },
-                    &ss.db,
+                    &ss,
                 )
                 .await
                 {
@@ -2602,7 +2602,7 @@ where
                         identifier: person.identifier.clone(),
                         source_specifics: person.source_specifics.clone(),
                     },
-                    &ss.db,
+                    &ss,
                 )
                 .await
                 {
@@ -2708,9 +2708,7 @@ where
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) =
-                    create_user_measurement(user_id, measurement.clone(), &ss.db).await
-                {
+                if let Err(err) = create_user_measurement(user_id, measurement.clone(), &ss).await {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
                         step: ImportFailStep::DatabaseCommit,

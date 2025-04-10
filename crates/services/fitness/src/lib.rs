@@ -333,7 +333,7 @@ impl FitnessService {
         user_id: &String,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        create_user_measurement(user_id, input, &self.0.db).await
+        create_user_measurement(user_id, input, &self.0).await
     }
 
     pub async fn delete_user_measurement(

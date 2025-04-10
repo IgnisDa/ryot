@@ -1048,7 +1048,7 @@ impl MiscellaneousService {
                 identifier: input.unique.identifier,
                 ..Default::default()
             },
-            &self.0.db,
+            &self.0,
         )
         .await?
         .id;
@@ -1056,7 +1056,7 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
-        commit_person(input, &self.0.db).await
+        commit_person(input, &self.0).await
     }
 
     pub async fn disassociate_metadata(
@@ -1134,7 +1134,7 @@ impl MiscellaneousService {
                     publish_year: i.publish_year,
                     identifier: i.identifier.clone(),
                 },
-                &self.0.db,
+                &self.0,
             )
         });
         let metadata_items = join_all(promises).await;
@@ -1181,7 +1181,7 @@ impl MiscellaneousService {
                     identifier: i.identifier.clone(),
                     source_specifics: input.source_specifics.clone(),
                 },
-                &self.0.db,
+                &self.0,
             )
         });
         let person_items = join_all(promises).await;
@@ -2091,7 +2091,7 @@ impl MiscellaneousService {
                     Err(_) => continue,
                 };
                 for item in media {
-                    if let Ok(metadata) = commit_metadata(item, &self.0.db).await {
+                    if let Ok(metadata) = commit_metadata(item, &self.0).await {
                         trending_ids.insert(metadata.id);
                     }
                 }
