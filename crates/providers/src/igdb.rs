@@ -8,8 +8,8 @@ use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails,
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse,
-    MetadataPersonRelated, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataPersonRelated, PersonDetails,
+    SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -180,7 +180,7 @@ impl MediaProvider for IgdbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"

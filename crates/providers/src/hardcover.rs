@@ -5,9 +5,7 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{
-    MetadataGroupSearchResponse, MetadataPersonRelated, PersonDetails, SearchResults,
-};
+use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     BookSpecifics, CommitMediaInput, MetadataDetails, MetadataGroupSearchItem,
@@ -405,7 +403,7 @@ query {{
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "series", &self.client).await?;
         let items = response
@@ -418,7 +416,8 @@ query {{
                 image: h.document.image.and_then(|i| i.url),
             })
             .collect();
-        let resp = MetadataGroupSearchResponse {
+        let resp = SearchResults {
+            items,
             details: SearchDetails {
                 total: response.found,
                 next_page: if page < response.found / PAGE_SIZE {
@@ -427,7 +426,6 @@ query {{
                     None
                 },
             },
-            items,
         };
         Ok(resp)
     }

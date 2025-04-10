@@ -11,8 +11,8 @@ use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails,
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
-    PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
+    ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails,
+    SearchResults, TmdbLanguage, TmdbSettings,
 };
 use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
@@ -863,7 +863,7 @@ impl MediaProvider for TmdbMovieService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
         let rsp = self
             .base

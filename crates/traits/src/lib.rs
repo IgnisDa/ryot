@@ -8,9 +8,10 @@ use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
-use dependent_models::{MetadataGroupSearchResponse, PersonDetails, SearchResults};
+use dependent_models::{PersonDetails, SearchResults};
 use media_models::{
-    MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem,
+    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
+    PeopleSearchItem,
 };
 use supporting_service::SupportingService;
 
@@ -62,7 +63,7 @@ pub trait MediaProvider {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         bail!("This provider does not support searching metadata groups")
     }
 

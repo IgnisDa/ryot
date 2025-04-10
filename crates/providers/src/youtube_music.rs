@@ -4,8 +4,7 @@ use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMPORARY_DIRECTORY;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    MetadataGroupPersonRelated, MetadataGroupSearchResponse, MetadataPersonRelated, PersonDetails,
-    SearchResults,
+    MetadataGroupPersonRelated, MetadataPersonRelated, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -195,7 +194,7 @@ impl MediaProvider for YoutubeMusicService {
         query: &str,
         _page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let data = self.client.music_search_albums(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
