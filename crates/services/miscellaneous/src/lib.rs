@@ -70,9 +70,9 @@ use futures::{
 };
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
-    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
+    CommitMetadataGroupInput, CommitPersonInput, CreateCustomMetadataInput,
+    CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
+    GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
     MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
@@ -1218,7 +1218,9 @@ impl MiscellaneousService {
         let promises = results.items.iter().map(|i| {
             commit_metadata_group(
                 CommitMetadataGroupInput {
+                    parts: i.parts,
                     name: i.name.clone(),
+                    image: i.image.clone(),
                     unique: UniqueMediaIdentifier {
                         lot: input.lot,
                         source: input.source,

@@ -983,21 +983,28 @@ pub async fn commit_metadata_group(
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match MetadataGroup::find()
-        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
         .filter(metadata_group::Column::Lot.eq(input.unique.lot))
         .filter(metadata_group::Column::Source.eq(input.unique.source))
+        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
         .one(&ss.db)
         .await?
         .map(|m| StringIdObject { id: m.id })
     {
         Some(m) => Ok(m),
         None => {
+            let image = input.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                }]
+            });
             let new_group = metadata_group::ActiveModel {
+                images: ActiveValue::Set(image),
                 title: ActiveValue::Set(input.name),
                 lot: ActiveValue::Set(input.unique.lot),
                 is_partial: ActiveValue::Set(Some(true)),
                 source: ActiveValue::Set(input.unique.source),
                 identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                parts: ActiveValue::Set(input.parts.unwrap_or_default().try_into().unwrap()),
                 ..Default::default()
             };
             let new_group = new_group.insert(&ss.db).await?;
@@ -2555,6 +2562,7 @@ where
                             source: metadata_group.source,
                             identifier: metadata_group.identifier.clone(),
                         },
+                        ..Default::default()
                     },
                     ss,
                 )

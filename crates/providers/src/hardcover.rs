@@ -272,6 +272,7 @@ query {{
                             identifier: r.id.to_string(),
                             source: MediaSource::Hardcover,
                         },
+                        ..Default::default()
                     })
                 })
                 .collect(),

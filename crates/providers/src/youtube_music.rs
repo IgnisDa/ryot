@@ -89,6 +89,7 @@ impl MediaProvider for YoutubeMusicService {
                         lot: MediaLot::Music,
                         source: MediaSource::YoutubeMusic,
                     },
+                    ..Default::default()
                 })
                 .collect(),
             source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),

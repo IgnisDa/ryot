@@ -853,6 +853,7 @@ impl MediaProvider for TmdbMovieService {
                         source: MediaSource::Tmdb,
                         identifier: c.id.to_string(),
                     },
+                    ..Default::default()
                 })
                 .collect(),
             ..Default::default()

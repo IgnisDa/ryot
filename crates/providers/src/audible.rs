@@ -318,6 +318,7 @@ impl MediaProvider for AudibleService {
                     identifier: s.asin,
                     source: MediaSource::Audible,
                 },
+                ..Default::default()
             });
         }
         for sim_type in AudibleSimilarityType::iter() {

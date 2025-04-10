@@ -809,6 +809,8 @@ pub struct UniqueMediaIdentifier {
 )]
 pub struct CommitMetadataGroupInput {
     pub name: String,
+    pub parts: Option<usize>,
+    pub image: Option<String>,
     pub unique: UniqueMediaIdentifier,
 }
 

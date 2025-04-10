@@ -14,9 +14,10 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
+    MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    VideoGameSpecifics,
 };
 use reqwest::{
     Client,
@@ -434,6 +435,7 @@ where id = {id};
                     source: MediaSource::Igdb,
                     identifier: c.id.to_string(),
                 },
+                ..Default::default()
             }],
             None => vec![],
         };
