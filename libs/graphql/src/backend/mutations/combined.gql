@@ -32,12 +32,6 @@ mutation CommitMetadataGroup($input: CommitMediaInput!) {
 	}
 }
 
-mutation CommitPerson($input: CommitPersonInput!) {
-	commitPerson(input: $input) {
-		id
-	}
-}
-
 mutation CreateCustomExercise($input: ExerciseInput!) {
 	createCustomExercise(input: $input)
 }

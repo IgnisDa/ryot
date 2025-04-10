@@ -242,14 +242,6 @@ export type CommitMediaInput = {
   unique: UniqueMediaIdentifier;
 };
 
-export type CommitPersonInput = {
-  identifier: Scalars['String']['input'];
-  image?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  source: MediaSource;
-  sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
-};
-
 export type CoreDetails = {
   __typename?: 'CoreDetails';
   backendErrors: Array<BackendError>;
@@ -1229,8 +1221,6 @@ export type MutationRoot = {
   addEntityToCollection: Scalars['Boolean']['output'];
   /** Fetch details about a media group and create a media group item in the database. */
   commitMetadataGroup: StringIdObject;
-  /** Fetches details about a person and creates a person item in the database. */
-  commitPerson: StringIdObject;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1358,11 +1348,6 @@ export type MutationRootAddEntityToCollectionArgs = {
 
 export type MutationRootCommitMetadataGroupArgs = {
   input: CommitMediaInput;
-};
-
-
-export type MutationRootCommitPersonArgs = {
-  input: CommitPersonInput;
 };
 
 

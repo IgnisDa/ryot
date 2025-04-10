@@ -1042,10 +1042,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
-        commit_person(input, &self.0).await
-    }
-
     pub async fn disassociate_metadata(
         &self,
         user_id: String,
