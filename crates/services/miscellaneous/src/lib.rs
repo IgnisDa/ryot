@@ -1042,22 +1042,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let id = commit_metadata(
-            PartialMetadataWithoutId {
-                title: input.name,
-                lot: input.unique.lot,
-                source: input.unique.source,
-                identifier: input.unique.identifier,
-                ..Default::default()
-            },
-            &self.0,
-        )
-        .await?
-        .id;
-        Ok(StringIdObject { id })
-    }
-
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
         commit_person(input, &self.0).await
     }

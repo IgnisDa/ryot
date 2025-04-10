@@ -1226,8 +1226,6 @@ export type MutationRoot = {
   __typename?: 'MutationRoot';
   /** Add a entity to a collection if it is not there, otherwise do nothing. */
   addEntityToCollection: Scalars['Boolean']['output'];
-  /** Fetch details about a media and create a media item in the database. */
-  commitMetadata: StringIdObject;
   /** Fetch details about a media group and create a media group item in the database. */
   commitMetadataGroup: StringIdObject;
   /** Fetches details about a person and creates a person item in the database. */
@@ -1354,11 +1352,6 @@ export type MutationRoot = {
 
 export type MutationRootAddEntityToCollectionArgs = {
   input: ChangeCollectionToEntityInput;
-};
-
-
-export type MutationRootCommitMetadataArgs = {
-  input: CommitMediaInput;
 };
 
 

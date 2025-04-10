@@ -26,12 +26,6 @@ mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
 	addEntityToCollection(input: $input)
 }
 
-mutation CommitMetadata($input: CommitMediaInput!) {
-	commitMetadata(input: $input) {
-		id
-	}
-}
-
 mutation CommitMetadataGroup($input: CommitMediaInput!) {
 	commitMetadataGroup(input: $input) {
 		id
