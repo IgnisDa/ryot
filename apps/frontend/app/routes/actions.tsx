@@ -2,7 +2,6 @@ import { setTimeout } from "node:timers/promises";
 import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	AddEntityToCollectionDocument,
-	CommitMetadataGroupDocument,
 	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
 	CreateUserMeasurementDocument,
@@ -13,7 +12,6 @@ import {
 	ExpireCacheKeyDocument,
 	MarkEntityAsPartialDocument,
 	MediaLot,
-	MediaSource,
 	MetadataDetailsDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
@@ -77,25 +75,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				{ key },
 			);
 			returnData = { success: deleteS3Object };
-		})
-		.with("commitMetadataGroup", async () => {
-			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadataGroup } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					CommitMetadataGroupDocument,
-					{
-						input: {
-							name: submission.name,
-							unique: {
-								lot: submission.lot,
-								source: submission.source,
-								identifier: submission.identifier,
-							},
-						},
-					},
-				);
-			returnData = { commitMetadataGroup };
 		})
 		.with("toggleColorScheme", async () => {
 			const currentColorScheme = await colorSchemeCookie.parse(
@@ -462,13 +441,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	}
 	return Response.json(returnData, { headers, status });
 };
-
-const commitMediaSchema = z.object({
-	name: z.string(),
-	identifier: z.string(),
-	lot: z.nativeEnum(MediaLot),
-	source: z.nativeEnum(MediaSource),
-});
 
 const reviewCommentSchema = z.object({
 	reviewId: z.string(),
