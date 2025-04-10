@@ -74,9 +74,10 @@ use media_models::{
     MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId,
     PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
     ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -1172,6 +1173,18 @@ impl MiscellaneousService {
                 &input.source_specifics,
             )
             .await?;
+        let promises = results.items.iter().map(|i| {
+            commit_person(
+                CommitPersonInput {
+                    name: i.name.clone(),
+                    source: input.source,
+                    identifier: i.identifier.clone(),
+                    source_specifics: input.source_specifics.clone(),
+                },
+                &self.0.db,
+            )
+        });
+        let person_items = join_all(promises).await;
         cc.set_key(
             cache_key,
             ApplicationCacheValue::PeopleSearch(results.clone()),
@@ -1202,6 +1215,20 @@ impl MiscellaneousService {
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
+        let promises = results.items.iter().map(|i| {
+            commit_metadata_group(
+                CommitMediaInput {
+                    name: i.name.clone(),
+                    unique: UniqueMediaIdentifier {
+                        lot: input.lot,
+                        source: input.source,
+                        identifier: i.identifier.clone(),
+                    },
+                },
+                &self.0,
+            )
+        });
+        let metadata_group_items = join_all(promises).await;
         cc.set_key(
             cache_key,
             ApplicationCacheValue::MetadataGroupSearch(results.clone()),
