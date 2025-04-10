@@ -8,7 +8,7 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    BookSpecifics, CommitMediaInput, MetadataDetails, MetadataGroupSearchItem,
+    BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
     MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
@@ -265,7 +265,7 @@ query {{
                 .into_iter()
                 .flatten()
                 .filter_map(|s| {
-                    s.series.map(|r| CommitMediaInput {
+                    s.series.map(|r| CommitMetadataGroupInput {
                         name: r.name,
                         unique: UniqueMediaIdentifier {
                             lot: MediaLot::Book,

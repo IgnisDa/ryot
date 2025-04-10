@@ -10,7 +10,7 @@ use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMediaInput, MetadataDetails, MetadataFreeCreator,
+    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
     MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
@@ -311,7 +311,7 @@ impl MediaProvider for AudibleService {
         let mut suggestions = vec![];
         let mut groups = vec![];
         for s in data.product.series.unwrap_or_default() {
-            groups.push(CommitMediaInput {
+            groups.push(CommitMetadataGroupInput {
                 name: s.title,
                 unique: UniqueMediaIdentifier {
                     lot: item.lot,

@@ -443,7 +443,7 @@ pub struct MetadataDetails {
     pub videos: Vec<MetadataVideo>,
     pub source_url: Option<String>,
     pub description: Option<String>,
-    pub groups: Vec<CommitMediaInput>,
+    pub groups: Vec<CommitMetadataGroupInput>,
     pub publish_date: Option<NaiveDate>,
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
@@ -805,18 +805,9 @@ pub struct UniqueMediaIdentifier {
 
 #[skip_serializing_none]
 #[derive(
-    Eq,
-    Hash,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    FromJsonQueryResult,
+    Eq, Hash, Clone, Debug, Default, PartialEq, Serialize, Deserialize, FromJsonQueryResult,
 )]
-pub struct CommitMediaInput {
+pub struct CommitMetadataGroupInput {
     pub name: String,
     pub unique: UniqueMediaIdentifier,
 }

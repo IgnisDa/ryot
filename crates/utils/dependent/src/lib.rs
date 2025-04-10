@@ -63,10 +63,10 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset, ImportOrExportItemRating,
-    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
+    CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
+    CreateOrUpdateReviewInput, GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset,
+    ImportOrExportItemRating, MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
     ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
@@ -292,7 +292,7 @@ pub async fn change_metadata_associations(
     metadata_id: &String,
     genres: Vec<String>,
     suggestions: Vec<PartialMetadataWithoutId>,
-    groups: Vec<CommitMediaInput>,
+    groups: Vec<CommitMetadataGroupInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -979,7 +979,7 @@ pub async fn update_metadata_group_and_notify_users(
 }
 
 pub async fn commit_metadata_group(
-    input: CommitMediaInput,
+    input: CommitMetadataGroupInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match MetadataGroup::find()
@@ -2548,7 +2548,7 @@ where
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let db_metadata_group_id = match commit_metadata_group(
-                    CommitMediaInput {
+                    CommitMetadataGroupInput {
                         name: metadata_group.title.clone(),
                         unique: UniqueMediaIdentifier {
                             lot: metadata_group.lot,

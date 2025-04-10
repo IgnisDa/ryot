@@ -18,10 +18,11 @@ use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
-    MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics, UniqueMediaIdentifier, WatchProvider,
+    CommitMetadataGroupInput, MetadataDetails, MetadataExternalIdentifiers,
+    MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     Client,
@@ -845,7 +846,7 @@ impl MediaProvider for TmdbMovieService {
                 .map(|av| av * dec!(10)),
             groups: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
-                .map(|c| CommitMediaInput {
+                .map(|c| CommitMetadataGroupInput {
                     name: "Loading...".to_string(),
                     unique: UniqueMediaIdentifier {
                         lot: MediaLot::Movie,

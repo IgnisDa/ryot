@@ -14,7 +14,7 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
     MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
 };
@@ -427,7 +427,7 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![CommitMediaInput {
+            Some(c) => vec![CommitMetadataGroupInput {
                 name: "Loading...".to_string(),
                 unique: UniqueMediaIdentifier {
                     lot: MediaLot::VideoGame,

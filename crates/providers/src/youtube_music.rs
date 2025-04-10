@@ -9,7 +9,7 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
@@ -82,7 +82,7 @@ impl MediaProvider for YoutubeMusicService {
                 .track
                 .album
                 .into_iter()
-                .map(|a| CommitMediaInput {
+                .map(|a| CommitMetadataGroupInput {
                     name: a.name,
                     unique: UniqueMediaIdentifier {
                         identifier: a.id,
