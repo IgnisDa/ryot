@@ -1228,13 +1228,21 @@ impl MiscellaneousService {
                 &self.0,
             )
         });
-        let metadata_group_items = join_all(promises).await;
+        let metadata_group_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            details: results.details,
+            items: metadata_group_items,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+            ApplicationCacheValue::MetadataGroupSearch(response.clone()),
         )
         .await?;
-        Ok(results)
+        Ok(response)
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {

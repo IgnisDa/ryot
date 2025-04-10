@@ -1146,20 +1146,6 @@ export type MetadataGroupSearchInput = {
   source: MediaSource;
 };
 
-export type MetadataGroupSearchItem = {
-  __typename?: 'MetadataGroupSearchItem';
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-  parts?: Maybe<Scalars['Int']['output']>;
-};
-
-export type MetadataGroupSearchResults = {
-  __typename?: 'MetadataGroupSearchResults';
-  details: SearchDetails;
-  items: Array<MetadataGroupSearchItem>;
-};
-
 export type MetadataGroupSourceLotMapping = {
   __typename?: 'MetadataGroupSourceLotMapping';
   lot: MediaLot;
@@ -1812,7 +1798,7 @@ export type QueryRoot = {
   /** Get details about a metadata group present in the database. */
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
-  metadataGroupSearch: MetadataGroupSearchResults;
+  metadataGroupSearch: IdResults;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */

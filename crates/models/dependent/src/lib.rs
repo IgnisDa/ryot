@@ -27,9 +27,9 @@ use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
-    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, PartialMetadataWithoutId,
-    PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataCreatorGroupedByRole, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -43,10 +43,6 @@ use uuid::Uuid;
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)
-))]
-#[graphql(concrete(
-    name = "MetadataGroupSearchResults",
-    params(media_models::MetadataGroupSearchItem)
 ))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
@@ -595,9 +591,9 @@ pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
+pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
-pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {

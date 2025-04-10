@@ -361,15 +361,10 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			name
-			image
-			parts
-			identifier
 		}
 	}
 }
