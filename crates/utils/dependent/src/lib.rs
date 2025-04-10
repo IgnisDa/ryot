@@ -63,10 +63,10 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset, ImportOrExportItemRating,
-    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
+    CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
+    CreateOrUpdateReviewInput, GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset,
+    ImportOrExportItemRating, MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
     ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
@@ -244,15 +244,15 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
-pub async fn create_partial_metadata(
+pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<PartialMetadata> {
     let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
         .filter(metadata::Column::Lot.eq(data.lot))
         .filter(metadata::Column::Source.eq(data.source))
-        .one(db)
+        .one(&ss.db)
         .await
         .unwrap()
     {
@@ -270,9 +270,10 @@ pub async fn create_partial_metadata(
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
+                publish_year: ActiveValue::Set(data.publish_year),
                 ..Default::default()
             };
-            c.insert(db).await?
+            c.insert(&ss.db).await?
         }
     };
     let model = PartialMetadata {
@@ -282,6 +283,7 @@ pub async fn create_partial_metadata(
         title: mode.title,
         source: mode.source,
         identifier: mode.identifier,
+        publish_year: mode.publish_year,
     };
     Ok(model)
 }
@@ -290,7 +292,7 @@ pub async fn change_metadata_associations(
     metadata_id: &String,
     genres: Vec<String>,
     suggestions: Vec<PartialMetadataWithoutId>,
-    groups: Vec<CommitMediaInput>,
+    groups: Vec<CommitMetadataGroupInput>,
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -316,8 +318,9 @@ pub async fn change_metadata_associations(
                 source: person.source,
                 identifier: person.identifier.clone(),
                 source_specifics: person.source_specifics,
+                ..Default::default()
             },
-            &ss.db,
+            ss,
         )
         .await?;
         let intermediate = metadata_to_person::ActiveModel {
@@ -352,7 +355,7 @@ pub async fn change_metadata_associations(
     }
 
     for data in suggestions {
-        let db_partial_metadata = create_partial_metadata(data, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(data, ss).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
@@ -652,7 +655,7 @@ async fn update_metadata_group(
     eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = create_partial_metadata(media, &ss.db).await?;
+        let db_partial_metadata = commit_metadata(media, ss).await?;
         MetadataToMetadataGroup::delete_many()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -713,7 +716,7 @@ async fn update_person(
     to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
-        let pm = create_partial_metadata(data.metadata, &ss.db).await?;
+        let pm = commit_metadata(data.metadata, ss).await?;
         let already_intermediate = MetadataToPerson::find()
             .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -976,25 +979,32 @@ pub async fn update_metadata_group_and_notify_users(
 }
 
 pub async fn commit_metadata_group(
-    input: CommitMediaInput,
+    input: CommitMetadataGroupInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match MetadataGroup::find()
-        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
         .filter(metadata_group::Column::Lot.eq(input.unique.lot))
         .filter(metadata_group::Column::Source.eq(input.unique.source))
+        .filter(metadata_group::Column::Identifier.eq(&input.unique.identifier))
         .one(&ss.db)
         .await?
         .map(|m| StringIdObject { id: m.id })
     {
         Some(m) => Ok(m),
         None => {
+            let image = input.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                }]
+            });
             let new_group = metadata_group::ActiveModel {
+                images: ActiveValue::Set(image),
                 title: ActiveValue::Set(input.name),
                 lot: ActiveValue::Set(input.unique.lot),
                 is_partial: ActiveValue::Set(Some(true)),
                 source: ActiveValue::Set(input.unique.source),
                 identifier: ActiveValue::Set(input.unique.identifier.clone()),
+                parts: ActiveValue::Set(input.parts.unwrap_or_default().try_into().unwrap()),
                 ..Default::default()
             };
             let new_group = new_group.insert(&ss.db).await?;
@@ -1005,7 +1015,7 @@ pub async fn commit_metadata_group(
 
 pub async fn commit_person(
     input: CommitPersonInput,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match Person::find()
         .filter(person::Column::Source.eq(input.source))
@@ -1014,13 +1024,19 @@ pub async fn commit_person(
             None => person::Column::SourceSpecifics.is_null(),
             Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
         })
-        .one(db)
+        .one(&ss.db)
         .await?
         .map(|p| StringIdObject { id: p.id })
     {
         Some(p) => Ok(p),
         None => {
+            let image = input.image.clone().map(|i| {
+                vec![MetadataImage {
+                    url: StoredUrl::Url(i),
+                }]
+            });
             let person = person::ActiveModel {
+                images: ActiveValue::Set(image),
                 name: ActiveValue::Set(input.name),
                 source: ActiveValue::Set(input.source),
                 is_partial: ActiveValue::Set(Some(true)),
@@ -1028,36 +1044,8 @@ pub async fn commit_person(
                 source_specifics: ActiveValue::Set(input.source_specifics),
                 ..Default::default()
             };
-            let person = person.insert(db).await?;
+            let person = person.insert(&ss.db).await?;
             Ok(StringIdObject { id: person.id })
-        }
-    }
-}
-
-pub async fn commit_metadata(
-    input: CommitMediaInput,
-    ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
-    match Metadata::find()
-        .filter(metadata::Column::Identifier.eq(&input.unique.identifier))
-        .filter(metadata::Column::Lot.eq(input.unique.lot))
-        .filter(metadata::Column::Source.eq(input.unique.source))
-        .one(&ss.db)
-        .await?
-        .map(|m| StringIdObject { id: m.id })
-    {
-        Some(m) => Ok(m),
-        None => {
-            let new_metadata = metadata::ActiveModel {
-                title: ActiveValue::Set(input.name),
-                lot: ActiveValue::Set(input.unique.lot),
-                is_partial: ActiveValue::Set(Some(true)),
-                source: ActiveValue::Set(input.unique.source),
-                identifier: ActiveValue::Set(input.unique.identifier.clone()),
-                ..Default::default()
-            };
-            let new_metadata = new_metadata.insert(&ss.db).await?.id;
-            Ok(StringIdObject { id: new_metadata })
         }
     }
 }
@@ -1831,11 +1819,11 @@ fn convert_review_into_input(
 pub async fn create_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<DateTimeUtc> {
     input.user_id = user_id.to_owned();
     let um: user_measurement::ActiveModel = input.into();
-    let um = um.insert(db).await?;
+    let um = um.insert(&ss.db).await?;
     Ok(um.timestamp)
 }
 
@@ -2453,13 +2441,12 @@ where
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
                 let db_metadata_id = match commit_metadata(
-                    CommitMediaInput {
-                        name: metadata.source_id.clone(),
-                        unique: UniqueMediaIdentifier {
-                            lot: metadata.lot,
-                            source: metadata.source,
-                            identifier: metadata.identifier.clone(),
-                        },
+                    PartialMetadataWithoutId {
+                        lot: metadata.lot,
+                        source: metadata.source,
+                        title: metadata.source_id.clone(),
+                        identifier: metadata.identifier.clone(),
+                        ..Default::default()
                     },
                     ss,
                 )
@@ -2568,13 +2555,14 @@ where
             }
             ImportCompletedItem::MetadataGroup(metadata_group) => {
                 let db_metadata_group_id = match commit_metadata_group(
-                    CommitMediaInput {
+                    CommitMetadataGroupInput {
                         name: metadata_group.title.clone(),
                         unique: UniqueMediaIdentifier {
                             lot: metadata_group.lot,
                             source: metadata_group.source,
                             identifier: metadata_group.identifier.clone(),
                         },
+                        ..Default::default()
                     },
                     ss,
                 )
@@ -2628,8 +2616,9 @@ where
                         name: person.name.clone(),
                         identifier: person.identifier.clone(),
                         source_specifics: person.source_specifics.clone(),
+                        ..Default::default()
                     },
-                    &ss.db,
+                    ss,
                 )
                 .await
                 {
@@ -2735,9 +2724,7 @@ where
                 }
             }
             ImportCompletedItem::Measurement(measurement) => {
-                if let Err(err) =
-                    create_user_measurement(user_id, measurement.clone(), &ss.db).await
-                {
+                if let Err(err) = create_user_measurement(user_id, measurement.clone(), ss).await {
                     import.failed.push(ImportFailedItem {
                         error: Some(err.message),
                         step: ImportFailStep::DatabaseCommit,

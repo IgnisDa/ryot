@@ -7,7 +7,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Loader,
 	Pagination,
 	Select,
 	Stack,
@@ -21,7 +20,6 @@ import {
 	GraphqlSortOrder,
 	MediaSource,
 	PeopleSearchDocument,
-	type PeopleSearchQuery,
 	PersonAndMetadataGroupsSortBy,
 	UserPeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -42,7 +40,6 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -54,7 +51,6 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import { BaseMediaDisplayItem } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
 import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
@@ -353,7 +349,7 @@ export default function Page() {
 						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.search.search.items.map((person) => (
-									<PersonSearchItem item={person} key={person.identifier} />
+									<PersonDisplayItem key={person} personId={person} />
 								))}
 							</ApplicationGrid>
 						) : (
@@ -373,65 +369,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const PersonSearchItem = (props: {
-	item: PeopleSearchQuery["peopleSearch"]["items"][number];
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const navigate = useNavigate();
-	const [isLoading, setIsLoading] = useState(false);
-
-	return (
-		<BaseMediaDisplayItem
-			isLoading={false}
-			name={props.item.name}
-			imageUrl={props.item.image}
-			imageOverlay={{
-				topLeft: isLoading ? (
-					<Loader color="red" variant="bars" size="sm" m={2} />
-				) : null,
-			}}
-			onImageClickBehavior={async () => {
-				if (loaderData.search) {
-					setIsLoading(true);
-					const id = await commitPerson(
-						props.item.name,
-						props.item.identifier,
-						loaderData.search.url,
-					);
-					setIsLoading(false);
-					return navigate($path("/media/people/item/:id", { id }));
-				}
-			}}
-		/>
-	);
-};
-
-const commitPerson = async (
-	name: string,
-	identifier: string,
-	additionalData: z.infer<typeof searchSchema>,
-) => {
-	const data = new FormData();
-	data.append("identifier", identifier);
-	data.append("source", additionalData.source);
-	if (name) data.append("name", name);
-	if (additionalData.isTmdbCompany)
-		data.append("isTmdbCompany", String(additionalData.isTmdbCompany));
-	if (additionalData.isAnilistStudio)
-		data.append("isAnilistStudio", String(additionalData.isAnilistStudio));
-	if (additionalData.isHardcoverPublisher)
-		data.append(
-			"isHardcoverPublisher",
-			String(additionalData.isHardcoverPublisher),
-		);
-	const resp = await fetch($path("/actions", { intent: "commitPerson" }), {
-		method: "POST",
-		body: data,
-	});
-	const json = await resp.json();
-	return json.commitPerson.id;
-};
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();

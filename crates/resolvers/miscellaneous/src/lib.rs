@@ -13,9 +13,9 @@ use dependent_models::{
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
-    CreateReviewCommentInput, GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
+    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
+    GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
+    MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
     UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
@@ -365,36 +365,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.disassociate_metadata(user_id, metadata_id).await
-    }
-
-    /// Fetch details about a media and create a media item in the database.
-    async fn commit_metadata(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CommitMediaInput,
-    ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_metadata(input).await
-    }
-
-    /// Fetches details about a person and creates a person item in the database.
-    async fn commit_person(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CommitPersonInput,
-    ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_person(input).await
-    }
-
-    /// Fetch details about a media group and create a media group item in the database.
-    async fn commit_metadata_group(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CommitMediaInput,
-    ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_metadata_group(input).await
     }
 
     /// Create, like or delete a comment on a review.

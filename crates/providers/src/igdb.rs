@@ -8,15 +8,16 @@ use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails,
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataGroupSearchResponse,
-    MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataPersonRelated, PersonDetails,
+    SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
+    MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    VideoGameSpecifics,
 };
 use reqwest::{
     Client,
@@ -180,7 +181,7 @@ impl MediaProvider for IgdbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -257,6 +258,7 @@ where id = {id};
                         source: MediaSource::Igdb,
                         identifier: g.id.to_string(),
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                        ..Default::default()
                     })
                 }
             })
@@ -282,7 +284,7 @@ where id = {id};
         page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
@@ -363,6 +365,7 @@ where id = {id};
                         lot: MediaLot::VideoGame,
                         source: MediaSource::Igdb,
                         identifier: r.id.to_string(),
+                        ..Default::default()
                     },
                     ..Default::default()
                 }
@@ -378,6 +381,7 @@ where id = {id};
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                     identifier: r.id.to_string(),
+                    ..Default::default()
                 },
                 ..Default::default()
             }
@@ -424,13 +428,14 @@ where id = {id};
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
         let groups = match detail.collection.as_ref() {
-            Some(c) => vec![CommitMediaInput {
+            Some(c) => vec![CommitMetadataGroupInput {
                 name: "Loading...".to_string(),
                 unique: UniqueMediaIdentifier {
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
                     identifier: c.id.to_string(),
                 },
+                ..Default::default()
             }],
             None => vec![],
         };
@@ -641,6 +646,7 @@ impl IgdbService {
                     source: MediaSource::Igdb,
                     identifier: g.id.to_string(),
                     image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                    ..Default::default()
                 })
                 .collect(),
             provider_rating: item.rating,

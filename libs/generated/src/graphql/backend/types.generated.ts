@@ -237,18 +237,6 @@ export type CollectionRecommendationsInput = {
   search?: InputMaybe<SearchInput>;
 };
 
-export type CommitMediaInput = {
-  name: Scalars['String']['input'];
-  unique: UniqueMediaIdentifier;
-};
-
-export type CommitPersonInput = {
-  identifier: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  source: MediaSource;
-  sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
-};
-
 export type CoreDetails = {
   __typename?: 'CoreDetails';
   backendErrors: Array<BackendError>;
@@ -1153,20 +1141,6 @@ export type MetadataGroupSearchInput = {
   source: MediaSource;
 };
 
-export type MetadataGroupSearchItem = {
-  __typename?: 'MetadataGroupSearchItem';
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-  parts?: Maybe<Scalars['Int']['output']>;
-};
-
-export type MetadataGroupSearchResults = {
-  __typename?: 'MetadataGroupSearchResults';
-  details: SearchDetails;
-  items: Array<MetadataGroupSearchItem>;
-};
-
 export type MetadataGroupSourceLotMapping = {
   __typename?: 'MetadataGroupSourceLotMapping';
   lot: MediaLot;
@@ -1192,20 +1166,6 @@ export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
-};
-
-export type MetadataSearchItem = {
-  __typename?: 'MetadataSearchItem';
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  title: Scalars['String']['output'];
-};
-
-export type MetadataSearchResults = {
-  __typename?: 'MetadataSearchResults';
-  details: SearchDetails;
-  items: Array<MetadataSearchItem>;
 };
 
 export enum MetadataVideoSource {
@@ -1240,12 +1200,6 @@ export type MutationRoot = {
   __typename?: 'MutationRoot';
   /** Add a entity to a collection if it is not there, otherwise do nothing. */
   addEntityToCollection: Scalars['Boolean']['output'];
-  /** Fetch details about a media and create a media item in the database. */
-  commitMetadata: StringIdObject;
-  /** Fetch details about a media group and create a media group item in the database. */
-  commitMetadataGroup: StringIdObject;
-  /** Fetches details about a person and creates a person item in the database. */
-  commitPerson: StringIdObject;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1368,21 +1322,6 @@ export type MutationRoot = {
 
 export type MutationRootAddEntityToCollectionArgs = {
   input: ChangeCollectionToEntityInput;
-};
-
-
-export type MutationRootCommitMetadataArgs = {
-  input: CommitMediaInput;
-};
-
-
-export type MutationRootCommitMetadataGroupArgs = {
-  input: CommitMediaInput;
-};
-
-
-export type MutationRootCommitPersonArgs = {
-  input: CommitPersonInput;
 };
 
 
@@ -1665,20 +1604,6 @@ export type PeopleSearchInput = {
   sourceSpecifics?: InputMaybe<PersonSourceSpecificsInput>;
 };
 
-export type PeopleSearchItem = {
-  __typename?: 'PeopleSearchItem';
-  birthYear?: Maybe<Scalars['Int']['output']>;
-  identifier: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
-  name: Scalars['String']['output'];
-};
-
-export type PeopleSearchResults = {
-  __typename?: 'PeopleSearchResults';
-  details: SearchDetails;
-  items: Array<PeopleSearchItem>;
-};
-
 export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
@@ -1861,13 +1786,13 @@ export type QueryRoot = {
   /** Get details about a metadata group present in the database. */
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
-  metadataGroupSearch: MetadataGroupSearchResults;
+  metadataGroupSearch: IdResults;
   /** Get partial details about a media present in the database. */
   metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
-  metadataSearch: MetadataSearchResults;
+  metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
-  peopleSearch: PeopleSearchResults;
+  peopleSearch: IdResults;
   /** Get details about a creator present in the database. */
   personDetails: GraphqlPersonDetails;
   /** Get trending media items. */
@@ -2292,12 +2217,6 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
-};
-
-export type UniqueMediaIdentifier = {
-  identifier: Scalars['String']['input'];
-  lot: MediaLot;
-  source: MediaSource;
 };
 
 export type UpdateCustomExerciseInput = {

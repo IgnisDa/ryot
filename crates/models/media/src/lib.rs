@@ -443,7 +443,7 @@ pub struct MetadataDetails {
     pub videos: Vec<MetadataVideo>,
     pub source_url: Option<String>,
     pub description: Option<String>,
-    pub groups: Vec<CommitMediaInput>,
+    pub groups: Vec<CommitMetadataGroupInput>,
     pub publish_date: Option<NaiveDate>,
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
@@ -743,7 +743,7 @@ pub struct ReviewPostedEvent {
     "PartialMetadataWithoutId",
     "#[derive(Clone, Default, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
 ))]
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Eq, Default, PartialEq, Debug, Serialize, Deserialize, Hash)]
 pub struct PartialMetadata {
     #[boilermates(not_in("PartialMetadataWithoutId"))]
     pub id: String,
@@ -752,6 +752,7 @@ pub struct PartialMetadata {
     pub identifier: String,
     pub source: MediaSource,
     pub image: Option<String>,
+    pub publish_year: Option<i32>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
@@ -766,11 +767,12 @@ pub struct MetadataPartialDetails {
     pub publish_year: Option<i32>,
 }
 
-#[derive(Debug, InputObject)]
+#[derive(Debug, Default, InputObject)]
 pub struct CommitPersonInput {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    pub image: Option<String>,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
@@ -803,19 +805,12 @@ pub struct UniqueMediaIdentifier {
 
 #[skip_serializing_none]
 #[derive(
-    Eq,
-    Hash,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    FromJsonQueryResult,
+    Eq, Hash, Clone, Debug, Default, PartialEq, Serialize, Deserialize, FromJsonQueryResult,
 )]
-pub struct CommitMediaInput {
+pub struct CommitMetadataGroupInput {
     pub name: String,
+    pub parts: Option<usize>,
+    pub image: Option<String>,
     pub unique: UniqueMediaIdentifier,
 }
 

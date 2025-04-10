@@ -90,6 +90,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MediaLot::Podcast,
                 source: MediaSource::Listennotes,
+                ..Default::default()
             })
             .collect();
 

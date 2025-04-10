@@ -6,7 +6,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Loader,
 	Pagination,
 	Select,
 	Stack,
@@ -18,10 +17,8 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	type MediaLot,
 	MediaSource,
 	MetadataGroupSearchDocument,
-	type MetadataGroupSearchQuery,
 	PersonAndMetadataGroupsSortBy,
 	UserMetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -41,7 +38,6 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -54,7 +50,6 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import { BaseMediaDisplayItem } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
 import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
@@ -324,7 +319,10 @@ export default function Page() {
 						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.search.search.items.map((group) => (
-									<GroupSearchItem item={group} key={group.identifier} />
+									<MetadataGroupDisplayItem
+										key={group}
+										metadataGroupId={group}
+									/>
 								))}
 							</ApplicationGrid>
 						) : (
@@ -344,62 +342,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const GroupSearchItem = (props: {
-	item: MetadataGroupSearchQuery["metadataGroupSearch"]["items"][number];
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const navigate = useNavigate();
-	const [isLoading, setIsLoading] = useState(false);
-
-	return (
-		<BaseMediaDisplayItem
-			isLoading={false}
-			name={props.item.name}
-			imageUrl={props.item.image}
-			imageOverlay={{
-				topLeft: isLoading ? (
-					<Loader color="red" variant="bars" size="sm" m={2} />
-				) : null,
-			}}
-			labels={{
-				left: props.item.parts ? `${props.item.parts} items` : undefined,
-			}}
-			onImageClickBehavior={async () => {
-				if (loaderData.search) {
-					setIsLoading(true);
-					const id = await commitGroup(
-						props.item.name,
-						props.item.identifier,
-						loaderData.search.url.source,
-						loaderData.search.lot,
-					);
-					setIsLoading(false);
-					return navigate($path("/media/groups/item/:id", { id }));
-				}
-			}}
-		/>
-	);
-};
-
-const commitGroup = async (
-	name: string,
-	identifier: string,
-	source: MediaSource,
-	lot: MediaLot,
-) => {
-	const data = new FormData();
-	data.append("name", name);
-	data.append("identifier", identifier);
-	data.append("source", source);
-	data.append("lot", lot);
-	const resp = await fetch(
-		$path("/actions", { intent: "commitMetadataGroup" }),
-		{ method: "POST", body: data },
-	);
-	const json = await resp.json();
-	return json.commitMetadataGroup.id;
-};
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();

@@ -5,12 +5,12 @@ use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{PeopleSearchResponse, PersonDetails, SearchResults};
+use dependent_models::{PersonDetails, SearchResults};
 use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, CommitMediaInput, MetadataDetails, MetadataFreeCreator,
+    AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
     MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
@@ -170,7 +170,7 @@ impl MediaProvider for AudibleService {
         page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
         let client = Client::new();
@@ -277,7 +277,8 @@ impl MediaProvider for AudibleService {
                 title: data.product.title,
                 source: MediaSource::Audible,
                 image: data.product.product_images.and_then(|i| i.image_2400),
-            })
+                ..Default::default()
+            });
         }
         let title = data.product.title;
         Ok((
@@ -310,13 +311,14 @@ impl MediaProvider for AudibleService {
         let mut suggestions = vec![];
         let mut groups = vec![];
         for s in data.product.series.unwrap_or_default() {
-            groups.push(CommitMediaInput {
+            groups.push(CommitMetadataGroupInput {
                 name: s.title,
                 unique: UniqueMediaIdentifier {
                     lot: item.lot,
                     identifier: s.asin,
                     source: MediaSource::Audible,
                 },
+                ..Default::default()
             });
         }
         for sim_type in AudibleSimilarityType::iter() {
@@ -340,6 +342,7 @@ impl MediaProvider for AudibleService {
                     lot: MediaLot::AudioBook,
                     source: MediaSource::Audible,
                     image: sim.product_images.and_then(|i| i.image_500),
+                    ..Default::default()
                 });
             }
         }

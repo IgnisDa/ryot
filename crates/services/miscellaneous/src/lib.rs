@@ -50,13 +50,13 @@ use dependent_models::{
 };
 use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, create_partial_metadata, deploy_after_handle_media_seen_tasks,
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, first_metadata_image_as_url, generic_metadata,
-    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
-    get_non_metadata_provider, get_users_monitoring_entity, handle_after_media_seen_tasks,
-    is_metadata_finished_by_user, metadata_images_as_urls, post_review, progress_update,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
+    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
+    first_metadata_image_as_url, generic_metadata, get_entity_recently_consumed,
+    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    metadata_images_as_urls, post_review, progress_update, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
@@ -64,18 +64,22 @@ use enum_meta::Meta;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, UserToMediaReason,
 };
-use futures::{TryStreamExt, future::join_all};
+use futures::{
+    TryStreamExt,
+    future::{join_all, try_join_all},
+};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
-    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
+    CommitMetadataGroupInput, CommitPersonInput, CreateCustomMetadataInput,
+    CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
+    GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
+    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -1038,14 +1042,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        commit_metadata(input, &self.0).await
-    }
-
-    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
-        commit_person(input, &self.0.db).await
-    }
-
     pub async fn disassociate_metadata(
         &self,
         user_id: String,
@@ -1111,12 +1107,34 @@ impl MiscellaneousService {
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
+        let promises = results.items.iter().map(|i| {
+            commit_metadata(
+                PartialMetadataWithoutId {
+                    lot: input.lot,
+                    source: input.source,
+                    title: i.title.clone(),
+                    image: i.image.clone(),
+                    publish_year: i.publish_year,
+                    identifier: i.identifier.clone(),
+                },
+                &self.0,
+            )
+        });
+        let metadata_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            items: metadata_items,
+            details: results.details,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::MetadataSearch(results.clone()),
+            ApplicationCacheValue::MetadataSearch(response.clone()),
         )
         .await?;
-        Ok(results)
+        Ok(response)
     }
 
     pub async fn people_search(
@@ -1146,12 +1164,33 @@ impl MiscellaneousService {
                 &input.source_specifics,
             )
             .await?;
+        let promises = results.items.iter().map(|i| {
+            commit_person(
+                CommitPersonInput {
+                    name: i.name.clone(),
+                    source: input.source,
+                    image: i.image.clone(),
+                    identifier: i.identifier.clone(),
+                    source_specifics: input.source_specifics.clone(),
+                },
+                &self.0,
+            )
+        });
+        let person_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            items: person_items,
+            details: results.details,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::PeopleSearch(results.clone()),
+            ApplicationCacheValue::PeopleSearch(response.clone()),
         )
         .await?;
-        Ok(results)
+        Ok(response)
     }
 
     pub async fn metadata_group_search(
@@ -1176,16 +1215,36 @@ impl MiscellaneousService {
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
+        let promises = results.items.iter().map(|i| {
+            commit_metadata_group(
+                CommitMetadataGroupInput {
+                    parts: i.parts,
+                    name: i.name.clone(),
+                    image: i.image.clone(),
+                    unique: UniqueMediaIdentifier {
+                        lot: input.lot,
+                        source: input.source,
+                        identifier: i.identifier.clone(),
+                    },
+                },
+                &self.0,
+            )
+        });
+        let metadata_group_items = try_join_all(promises)
+            .await?
+            .into_iter()
+            .map(|i| i.id)
+            .collect_vec();
+        let response = SearchResults {
+            details: results.details,
+            items: metadata_group_items,
+        };
         cc.set_key(
             cache_key,
-            ApplicationCacheValue::MetadataGroupSearch(results.clone()),
+            ApplicationCacheValue::MetadataGroupSearch(response.clone()),
         )
         .await?;
-        Ok(results)
-    }
-
-    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        commit_metadata_group(input, &self.0).await
+        Ok(response)
     }
 
     pub async fn create_or_update_review(
@@ -2038,7 +2097,7 @@ impl MiscellaneousService {
                     Err(_) => continue,
                 };
                 for item in media {
-                    if let Ok(metadata) = create_partial_metadata(item, &self.0.db).await {
+                    if let Ok(metadata) = commit_metadata(item, &self.0).await {
                         trending_ids.insert(metadata.id);
                     }
                 }

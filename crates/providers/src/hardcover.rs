@@ -5,13 +5,10 @@ use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{
-    MetadataGroupSearchResponse, MetadataPersonRelated, PeopleSearchResponse, PersonDetails,
-    SearchResults,
-};
+use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    BookSpecifics, CommitMediaInput, MetadataDetails, MetadataGroupSearchItem,
+    BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
     MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
@@ -268,13 +265,14 @@ query {{
                 .into_iter()
                 .flatten()
                 .filter_map(|s| {
-                    s.series.map(|r| CommitMediaInput {
+                    s.series.map(|r| CommitMetadataGroupInput {
                         name: r.name,
                         unique: UniqueMediaIdentifier {
                             lot: MediaLot::Book,
                             identifier: r.id.to_string(),
                             source: MediaSource::Hardcover,
                         },
+                        ..Default::default()
                     })
                 })
                 .collect(),
@@ -406,7 +404,7 @@ query {{
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "series", &self.client).await?;
         let items = response
@@ -419,7 +417,8 @@ query {{
                 image: h.document.image.and_then(|i| i.url),
             })
             .collect();
-        let resp = MetadataGroupSearchResponse {
+        let resp = SearchResults {
+            items,
             details: SearchDetails {
                 total: response.found,
                 next_page: if page < response.found / PAGE_SIZE {
@@ -428,7 +427,6 @@ query {{
                     None
                 },
             },
-            items,
         };
         Ok(resp)
     }
@@ -578,7 +576,7 @@ query {{
         page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
         let query_type = query_type_from_specifics(source_specifics);
         let response = get_search_response(query, page, &query_type, &self.client).await?;

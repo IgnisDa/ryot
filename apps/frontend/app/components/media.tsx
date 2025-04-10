@@ -32,7 +32,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useMemo } from "react";
-import { Form, Link } from "react-router";
+import { Form, Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -181,18 +181,22 @@ const DisplayAverageRatingOverlay = (props: {
 };
 
 export const MetadataDisplayItem = (props: {
-	metadataId: string;
 	name?: string;
 	altName?: string;
+	metadataId: string;
 	topRight?: ReactNode;
-	rightLabel?: ReactNode;
-	rightLabelHistory?: boolean;
-	rightLabelLot?: boolean;
+	nameRight?: ReactNode;
 	noLeftLabel?: boolean;
+	rightLabel?: ReactNode;
+	rightLabelLot?: boolean;
+	rightLabelHistory?: boolean;
+	onImageClickBehavior?: () => void;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
+	const navigate = useNavigate();
+
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
@@ -254,11 +258,15 @@ export const MetadataDisplayItem = (props: {
 			innerRef={ref}
 			altName={props.altName}
 			progress={currentProgress}
+			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
 			name={props.name ?? metadataDetails?.title}
 			imageUrl={metadataDetails?.assets.images.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
-			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
+			onImageClickBehavior={async () => {
+				props.onImageClickBehavior?.();
+				navigate($path("/media/item/:id", { id: props.metadataId }));
+			}}
 			labels={
 				metadataDetails
 					? {

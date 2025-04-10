@@ -27,8 +27,7 @@ use media_models::{
     CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
     GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
     ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
-    MetadataCreatorGroupedByRole, MetadataGroupSearchItem, MetadataSearchItem,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
+    MetadataCreatorGroupedByRole, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
     PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
@@ -44,15 +43,6 @@ use uuid::Uuid;
 #[graphql(concrete(
     name = "MediaCollectionContentsResults",
     params(media_models::EntityWithLot)
-))]
-#[graphql(concrete(
-    name = "MetadataSearchResults",
-    params(media_models::MetadataSearchItem)
-))]
-#[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
-#[graphql(concrete(
-    name = "MetadataGroupSearchResults",
-    params(media_models::MetadataGroupSearchItem)
 ))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
@@ -591,6 +581,8 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type PeopleSearchResponse = SearchResults<String>;
+pub type MetadataSearchResponse = SearchResults<String>;
 pub type UserPeopleListResponse = SearchResults<String>;
 pub type CollectionRecommendationsResponse = Vec<String>;
 pub type CollectionContentsResponse = CollectionContents;
@@ -599,11 +591,9 @@ pub type UserMetadataListResponse = SearchResults<String>;
 pub type UserCollectionsListResponse = Vec<CollectionItem>;
 pub type UserExercisesListResponse = SearchResults<String>;
 pub type UserMetadataRecommendationsResponse = Vec<String>;
-pub type PeopleSearchResponse = SearchResults<PeopleSearchItem>;
+pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
-pub type MetadataSearchResponse = SearchResults<MetadataSearchItem>;
-pub type MetadataGroupSearchResponse = SearchResults<MetadataGroupSearchItem>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {

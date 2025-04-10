@@ -10,8 +10,7 @@ use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    CommitMediaInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    UniqueMediaIdentifier,
+    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -72,13 +71,11 @@ pub async fn yank_progress(
                 let lot = MediaLot::Podcast;
                 let source = MediaSource::Itunes;
                 commit_metadata(
-                    CommitMediaInput {
-                        name: "Loading...".to_owned(),
-                        unique: UniqueMediaIdentifier {
-                            lot,
-                            source,
-                            identifier: itunes_id.clone(),
-                        },
+                    PartialMetadataWithoutId {
+                        lot,
+                        source,
+                        identifier: itunes_id.clone(),
+                        ..Default::default()
                     },
                     ss,
                 )

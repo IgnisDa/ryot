@@ -11,8 +11,8 @@ use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
-    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    PartialMetadataWithoutId,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -123,13 +123,11 @@ pub async fn import(
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
                                 commit_metadata(
-                                    CommitMediaInput {
-                                        name: "Loading...".to_owned(),
-                                        unique: UniqueMediaIdentifier {
-                                            lot,
-                                            source,
-                                            identifier: itunes_id.clone(),
-                                        },
+                                    PartialMetadataWithoutId {
+                                        lot,
+                                        source,
+                                        identifier: itunes_id.clone(),
+                                        ..Default::default()
                                     },
                                     ss,
                                 )

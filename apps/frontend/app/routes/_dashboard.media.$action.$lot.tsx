@@ -7,7 +7,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Loader,
 	Menu,
 	Pagination,
 	Select,
@@ -18,7 +17,6 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	DeployUpdateMetadataJobDocument,
 	EntityLot,
 	GraphqlSortOrder,
 	GridPacking,
@@ -35,7 +33,6 @@ import {
 	isEqual,
 	parseParameters,
 	parseSearchQuery,
-	snakeCase,
 	startCase,
 	zodIntAsString,
 } from "@ryot/ts-utils";
@@ -50,7 +47,6 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -59,7 +55,6 @@ import { withoutHost } from "ufo";
 import { z } from "zod";
 import {
 	ApplicationGrid,
-	BaseMediaDisplayItem,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -70,7 +65,6 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
-	clientGqlService,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
@@ -465,10 +459,9 @@ export default function Page() {
 								<ApplicationGrid>
 									{mediaSearch.search.items.map((b, index) => (
 										<MediaSearchItem
+											key={b}
 											item={b}
-											key={b.identifier}
 											isFirstItem={index === 0}
-											source={mediaSearch.url.source}
 											isEligibleForNextTourStep={isEligibleForNextTourStep}
 										/>
 									))}
@@ -495,16 +488,13 @@ export default function Page() {
 }
 
 const MediaSearchItem = (props: {
-	source: MediaSource;
 	isFirstItem: boolean;
 	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
-	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -527,51 +517,14 @@ const MediaSearchItem = (props: {
 		? OnboardingTourStepTargets.GoToMoviesSectionAgain
 		: undefined;
 
-	const basicCommit = async () => {
-		setIsLoading(true);
-		const data = new FormData();
-		data.append("name", props.item.title);
-		data.append("identifier", props.item.identifier);
-		data.append("lot", loaderData.lot);
-		data.append("source", props.source);
-		const resp = await fetch($path("/actions", { intent: "commitMetadata" }), {
-			method: "POST",
-			body: data,
-		});
-		const json = await resp.json();
-		const metadataId = json.commitMedia.id;
-		await Promise.all([
-			clientGqlService.request(DeployUpdateMetadataJobDocument, { metadataId }),
-			new Promise((resolve) => setTimeout(resolve, 2000)),
-		]);
-		setIsLoading(false);
-		return metadataId;
-	};
-
 	return (
 		<Box>
-			<BaseMediaDisplayItem
-				isLoading={false}
-				name={props.item.title}
-				imageUrl={props.item.image}
-				imageClassName={tourControlThree}
-				labels={{
-					left: props.item.publishYear,
-					right: changeCase(snakeCase(loaderData.lot)),
-				}}
-				imageOverlay={{
-					topLeft: isLoading ? (
-						<Loader color="red" variant="bars" size="sm" m={2} />
-					) : null,
-				}}
-				onImageClickBehavior={async () => {
-					setIsLoading(true);
-					const id = await basicCommit();
-					setIsLoading(false);
+			<MetadataDisplayItem
+				metadataId={props.item}
+				onImageClickBehavior={() => {
 					if (tourControlThree) {
 						advanceOnboardingTourStep();
 					}
-					navigate($path("/media/item/:id", { id }));
 				}}
 				nameRight={
 					<Menu shadow="md">
@@ -583,10 +536,9 @@ const MediaSearchItem = (props: {
 						<Menu.Dropdown>
 							<Menu.Item
 								leftSection={<IconBoxMultiple size={14} />}
-								onClick={async () => {
-									const id = await basicCommit();
+								onClick={() => {
 									setAddEntityToCollectionData({
-										entityId: id,
+										entityId: props.item,
 										entityLot: EntityLot.Metadata,
 									});
 								}}
@@ -604,8 +556,7 @@ const MediaSearchItem = (props: {
 					size={buttonSize}
 					className={tourControlTwo}
 					onClick={async () => {
-						const metadataId = await basicCommit();
-						setMetadataToUpdate({ metadataId });
+						setMetadataToUpdate({ metadataId: props.item });
 						if (tourControlTwo) {
 							advanceOnboardingTourStep();
 						}
@@ -620,10 +571,8 @@ const MediaSearchItem = (props: {
 					size={buttonSize}
 					className={tourControlOne}
 					onClick={async () => {
-						setIsLoading(true);
-						const id = await basicCommit();
 						const form = new FormData();
-						form.append("entityId", id);
+						form.append("entityId", props.item);
 						form.append("entityLot", EntityLot.Metadata);
 						form.append("creatorUserId", userDetails.id);
 						form.append("collectionName", "Watchlist");
@@ -636,7 +585,6 @@ const MediaSearchItem = (props: {
 							},
 						);
 						events.addToCollection(EntityLot.Metadata);
-						setIsLoading(false);
 						revalidator.revalidate();
 						if (tourControlOne) {
 							advanceOnboardingTourStep();

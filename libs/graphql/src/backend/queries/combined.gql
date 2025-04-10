@@ -361,15 +361,10 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			name
-			image
-			parts
-			identifier
 		}
 	}
 }
@@ -389,30 +384,20 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			title
-			image
-			identifier
-			publishYear
 		}
 	}
 }
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
+		items
 		details {
 			total
 			nextPage
-		}
-		items {
-			name
-			image
-			birthYear
-			identifier
 		}
 	}
 }

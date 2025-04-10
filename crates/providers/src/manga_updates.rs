@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
-use dependent_models::{MetadataPersonRelated, PeopleSearchResponse, PersonDetails, SearchResults};
+use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -161,7 +161,7 @@ impl MediaProvider for MangaUpdatesService {
         page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post(format!("{}/authors/search", URL))
@@ -309,6 +309,7 @@ impl MediaProvider for MangaUpdatesService {
                     source: MediaSource::MangaUpdates,
                     image: data.image.unwrap().url.original,
                     identifier: data.series_id.unwrap().to_string(),
+                    ..Default::default()
                 });
             }
         }

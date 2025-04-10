@@ -11,17 +11,18 @@ use common_models::{IdObject, NamedObject, PersonSourceSpecifics, SearchDetails,
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse, MetadataPersonRelated,
-    PeopleSearchResponse, PersonDetails, SearchResults, TmdbLanguage, TmdbSettings,
+    ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails,
+    SearchResults, TmdbLanguage, TmdbSettings,
 };
 use enum_models::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, MetadataDetails, MetadataExternalIdentifiers, MetadataGroupSearchItem,
-    MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics, UniqueMediaIdentifier, WatchProvider,
+    CommitMetadataGroupInput, MetadataDetails, MetadataExternalIdentifiers,
+    MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataSearchItem,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     Client,
@@ -272,6 +273,7 @@ impl TmdbService {
                     source: MediaSource::Tmdb,
                     identifier: entry.id.to_string(),
                     image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    ..Default::default()
                 });
             }
             if new_recs.page >= new_recs.total_pages {
@@ -384,6 +386,7 @@ impl TmdbService {
                         "tv" => MediaLot::Show,
                         _ => continue,
                     },
+                    ..Default::default()
                 });
             }
             if data.page >= data.total_pages {
@@ -414,7 +417,7 @@ impl MediaProvider for NonMediaTmdbService {
         page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<SearchResults<PeopleSearchItem>> {
         let language = &self
             .base
             .supporting_service
@@ -526,6 +529,7 @@ impl MediaProvider for NonMediaTmdbService {
                         "tv" => MediaLot::Show,
                         _ => continue,
                     },
+                    ..Default::default()
                 };
                 related_metadata.push(MetadataPersonRelated {
                     role,
@@ -561,6 +565,7 @@ impl MediaProvider for NonMediaTmdbService {
                                     "tv" => MediaLot::Show,
                                     _ => unreachable!(),
                                 },
+                                ..Default::default()
                             },
                             ..Default::default()
                         }
@@ -841,13 +846,14 @@ impl MediaProvider for TmdbMovieService {
                 .map(|av| av * dec!(10)),
             groups: Vec::from_iter(data.belongs_to_collection)
                 .into_iter()
-                .map(|c| CommitMediaInput {
+                .map(|c| CommitMetadataGroupInput {
                     name: "Loading...".to_string(),
                     unique: UniqueMediaIdentifier {
                         lot: MediaLot::Movie,
                         source: MediaSource::Tmdb,
                         identifier: c.id.to_string(),
                     },
+                    ..Default::default()
                 })
                 .collect(),
             ..Default::default()
@@ -859,7 +865,7 @@ impl MediaProvider for TmdbMovieService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
         let rsp = self
             .base
@@ -942,6 +948,7 @@ impl MediaProvider for TmdbMovieService {
                 source: MediaSource::Tmdb,
                 identifier: p.id.to_string(),
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
+                ..Default::default()
             })
             .collect_vec();
         let title = replace_from_end(data.name, " Collection", "");

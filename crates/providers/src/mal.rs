@@ -221,6 +221,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             source: MediaSource::Mal,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
@@ -230,6 +231,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             source: MediaSource::Mal,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {
@@ -239,6 +241,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             source: MediaSource::Mal,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
+            ..Default::default()
         });
     }
     suggestions.shuffle(&mut rng());
