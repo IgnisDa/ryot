@@ -99,6 +99,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 		id
 		lot
 		numSets
+		unitSystem
 		bestSet {
 			...WorkoutSetRecordPart
 		}

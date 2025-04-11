@@ -3138,6 +3138,7 @@ export type WorkoutSummaryExercise = {
   id: Scalars['String']['output'];
   lot?: Maybe<ExerciseLot>;
   numSets: Scalars['Int']['output'];
+  unitSystem?: Maybe<UserUnitSystem>;
 };
 
 export type WorkoutSupersetsInformation = {

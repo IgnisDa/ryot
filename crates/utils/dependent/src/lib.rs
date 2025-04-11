@@ -2278,6 +2278,7 @@ pub async fn create_or_update_user_workout(
                     lot: Some(lot),
                     id: e.id.clone(),
                     num_sets: e.sets.len(),
+                    unit_system: e.unit_system,
                 })
                 .collect(),
         },

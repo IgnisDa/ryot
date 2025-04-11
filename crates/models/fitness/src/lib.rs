@@ -479,6 +479,7 @@ pub struct WorkoutSummaryExercise {
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
     pub best_set: Option<WorkoutSetRecord>,
+    pub unit_system: Option<UserUnitSystem>,
 }
 
 #[derive(
