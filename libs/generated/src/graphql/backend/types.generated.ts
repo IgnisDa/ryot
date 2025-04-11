@@ -1738,6 +1738,7 @@ export type ProcessedExercise = {
   notes: Array<Scalars['String']['output']>;
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
+  unitSystem?: Maybe<UserUnitSystem>;
 };
 
 export type ProgressUpdateInput = {
@@ -2358,6 +2359,7 @@ export type UserExerciseInput = {
   exerciseId: Scalars['String']['input'];
   notes: Array<Scalars['String']['input']>;
   sets: Array<UserWorkoutSetRecord>;
+  unitSystem?: InputMaybe<UserUnitSystem>;
 };
 
 export type UserExercisesListInput = {
@@ -3136,6 +3138,7 @@ export type WorkoutSummaryExercise = {
   id: Scalars['String']['output'];
   lot?: Maybe<ExerciseLot>;
   numSets: Scalars['Int']['output'];
+  unitSystem?: Maybe<UserUnitSystem>;
 };
 
 export type WorkoutSupersetsInformation = {

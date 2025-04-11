@@ -520,6 +520,7 @@ const MediaSearchItem = (props: {
 	return (
 		<Box>
 			<MetadataDisplayItem
+				shouldHighlightNameIfInteracted
 				metadataId={props.item}
 				onImageClickBehavior={() => {
 					if (tourControlThree) {

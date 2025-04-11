@@ -2233,6 +2233,7 @@ pub async fn create_or_update_user_workout(
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
+                unit_system: ex.unit_system.clone(),
             },
         ));
     }
@@ -2277,6 +2278,7 @@ pub async fn create_or_update_user_workout(
                     lot: Some(lot),
                     id: e.id.clone(),
                     num_sets: e.sets.len(),
+                    unit_system: e.unit_system,
                 })
                 .collect(),
         },
@@ -2771,7 +2773,10 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .exercises
             .into_iter()
             .map(|e| UserExerciseInput {
+                notes: e.notes,
+                assets: e.assets,
                 exercise_id: e.id,
+                unit_system: e.unit_system,
                 sets: e
                     .sets
                     .into_iter()
@@ -2785,8 +2790,6 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         rest_timer_started_at: s.rest_timer_started_at,
                     })
                     .collect(),
-                notes: e.notes,
-                assets: e.assets,
             })
             .collect(),
         ..Default::default()

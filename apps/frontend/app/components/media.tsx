@@ -191,6 +191,7 @@ export const MetadataDisplayItem = (props: {
 	rightLabelLot?: boolean;
 	rightLabelHistory?: boolean;
 	onImageClickBehavior?: () => void;
+	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
@@ -263,6 +264,10 @@ export const MetadataDisplayItem = (props: {
 			name={props.name ?? metadataDetails?.title}
 			imageUrl={metadataDetails?.assets.images.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
+			highlightName={
+				props.shouldHighlightNameIfInteracted &&
+				userMetadataDetails?.hasInteracted
+			}
 			onImageClickBehavior={async () => {
 				props.onImageClickBehavior?.();
 				navigate($path("/media/item/:id", { id: props.metadataId }));
