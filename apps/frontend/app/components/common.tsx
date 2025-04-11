@@ -345,6 +345,7 @@ export const BaseMediaDisplayItem = (props: {
 	nameRight?: ReactNode;
 	imageClassName?: string;
 	imageUrl?: string | null;
+	highlightName?: boolean;
 	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
 	labels?: { right?: ReactNode; left?: ReactNode };
@@ -485,7 +486,12 @@ export const BaseMediaDisplayItem = (props: {
 						</Text>
 					</Flex>
 					<Flex mb="xs" align="center" justify="space-between">
-						<Text w="100%" truncate fw="bold">
+						<Text
+							w="100%"
+							truncate
+							fw="bold"
+							c={props.highlightName ? "yellow" : undefined}
+						>
 							{props.altName ?? props.name}
 						</Text>
 						{props.nameRight}
