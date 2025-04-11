@@ -184,6 +184,7 @@ fragment WorkoutInformationPart on WorkoutInformation {
 		id
 		lot
 		notes
+		unitSystem
 		total {
 			...WorkoutOrExerciseTotalsPart
 		}

@@ -285,6 +285,8 @@ export interface WorkoutOrExerciseTotals {
 	weight: string;
 }
 
+export type UserUnitSystem = 'metric' | 'imperial';
+
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
@@ -297,6 +299,8 @@ export interface ProcessedExercise {
 	notes: string[];
 	sets: WorkoutSetRecord[];
 	total: WorkoutOrExerciseTotals | null;
+	/** @default 'metric' */
+	unit_system: UserUnitSystem | null;
 }
 
 export interface WorkoutSupersetsInformation {

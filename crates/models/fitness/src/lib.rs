@@ -368,21 +368,22 @@ pub struct ProcessedExercise {
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
     pub assets: Option<EntityAssets>,
+    pub unit_system: Option<UserUnitSystem>,
     pub total: Option<WorkoutOrExerciseTotals>,
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
+    Eq,
+    Copy,
     Enum,
     Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
+    Debug,
     Default,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 pub enum UserUnitSystem {
     #[default]
@@ -630,6 +631,7 @@ pub struct UserExerciseInput {
     pub exercise_id: String,
     pub assets: Option<EntityAssets>,
     pub sets: Vec<UserWorkoutSetRecord>,
+    pub unit_system: Option<UserUnitSystem>,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize, InputObject)]
