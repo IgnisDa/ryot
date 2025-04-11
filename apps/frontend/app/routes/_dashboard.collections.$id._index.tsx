@@ -440,7 +440,11 @@ const RecommendationsSection = () => {
 					/>
 					<ApplicationGrid>
 						{recommendations.data.collectionRecommendations.items.map((r) => (
-							<MetadataDisplayItem key={r} metadataId={r} />
+							<MetadataDisplayItem
+								key={r}
+								metadataId={r}
+								shouldHighlightNameIfInteracted
+							/>
 						))}
 					</ApplicationGrid>
 					<Center>
