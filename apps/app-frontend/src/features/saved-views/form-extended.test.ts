@@ -499,20 +499,54 @@ describe("savedViewExtendedFormSchema - filters", () => {
 		expect(result.success).toBe(false);
 	});
 
-	it("accepts empty filters array", () => {
+	it("accepts filter with contains operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
-			filters: [],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			filters: [
+				{
+					id: "1",
+					op: "contains",
+					value: "waterproof",
+					field: schemaField("smartphones", "description"),
+				},
+			],
 			displayConfiguration: {
+				table: { columns: [] },
 				list: {
 					imageProperty: null,
 					titleProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
 				},
-				table: {
-					columns: [],
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.filters[0]?.op).toBe("contains");
+			expect(result.data.filters[0]?.value).toBe("waterproof");
+		}
+	});
+
+	it("accepts empty filters array", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			displayConfiguration: {
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
 				},
 				grid: {
 					imageProperty: null,
@@ -560,9 +594,9 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			filters: [
 				{
 					id: "1",
-					field: schemaField("smartphones", "year"),
-					op: "gte" as const,
 					value: 2020,
+					op: "gte" as const,
+					field: schemaField("smartphones", "year"),
 				},
 			],
 			sort: {
@@ -639,9 +673,9 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("converts isNull operator filter with null value", () => {
 		const view = createSavedViewFixture({
 			icon: "filter",
-			name: "Test View",
 			trackerId: null,
 			isBuiltin: false,
+			name: "Test View",
 			accentColor: "#2DD4BF",
 			createdAt: "2026-03-22T10:00:00.000Z",
 			updatedAt: "2026-03-22T10:00:00.000Z",
@@ -865,6 +899,37 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 
 		expect(payload.queryDefinition.filters).toEqual([
 			{ field: schemaField("smartphones", "name"), op: "isNull", value: null },
+		]);
+	});
+
+	it("passes contains filter value through as-is", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			entitySchemaSlugs: ["smartphones"],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
+			filters: [
+				{
+					id: "1",
+					value: "waterproof",
+					op: "contains" as const,
+					field: schemaField("smartphones", "description"),
+				},
+			],
+		};
+
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{
+				op: "contains",
+				value: "waterproof",
+				field: schemaField("smartphones", "description"),
+			},
 		]);
 	});
 
