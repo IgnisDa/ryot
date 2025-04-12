@@ -199,9 +199,9 @@ All four current host functions end up with `context: Record<string, never>` aft
 
 ## Tasks
 
-**Overall Progress:** 4 of 6 tasks completed
+**Overall Progress:** 5 of 6 tasks completed
 
-**Current Task:** [Task 05](./05-e2e-tests.md) (todo)
+**Current Task:** [Task 06](./06-cleanup-old-code.md) (todo)
 
 ### Task List
 
@@ -211,5 +211,5 @@ All four current host functions end up with `context: Record<string, never>` aft
 | 02  | [Service and Queue Refactor](./02-service-and-queue-refactor.md)                            | AFK  | done   | Task 01      |
 | 03  | [New API Endpoints](./03-new-api-endpoints.md)                                              | AFK  | done   | Task 02      |
 | 04  | [`getEntitySchemas` Host Function](./04-get-entity-schemas-host-function.md)                | AFK  | done   | Tasks 01, 03 |
-| 05  | [E2E Tests](./05-e2e-tests.md)                                                              | AFK  | todo   | Task 04      |
+| 05  | [E2E Tests](./05-e2e-tests.md)                                                              | AFK  | done   | Task 04      |
 | 06  | [Cleanup Old Code](./06-cleanup-old-code.md)                                                | AFK  | todo   | Task 05      |
