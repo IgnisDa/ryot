@@ -102,6 +102,7 @@ import { match } from "ts-pattern";
 import { useInterval, useOnClickOutside } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
+import { ProRequiredAlert } from "~/components/common";
 import {
 	DisplaySetStatistics,
 	ExerciseHistory,
@@ -156,7 +157,6 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
-import { ProRequiredAlert } from "~/components/common";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 

@@ -33,7 +33,6 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/common";
-import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	lot: SetLot;
@@ -62,7 +61,6 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	isShowDetailsOpen: boolean;
 	scrollMarginRemoved?: true;
-	openedDetailsTab?: "images" | "history";
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
@@ -298,8 +296,6 @@ export const duplicateOldWorkout = async (
 	fitnessEntity: FitnessAction,
 	caloriesBurnt: number | undefined,
 	workoutInformation: WorkoutInformation,
-	coreDetails: ReturnType<typeof useCoreDetails>,
-	userFitnessPreferences: UserFitnessPreferences,
 	params: {
 		templateId?: string;
 		repeatedFromId?: string;
@@ -322,7 +318,6 @@ export const duplicateOldWorkout = async (
 				params.updateWorkoutId ? v.confirmedAt : undefined,
 			),
 		);
-		const exerciseDetails = await getExerciseDetails(ex.id);
 		inProgress.exercises.push({
 			images: [],
 			videos: [],
@@ -331,13 +326,8 @@ export const duplicateOldWorkout = async (
 			notes: ex.notes,
 			exerciseId: ex.id,
 			identifier: randomUUID(),
-			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
+			isShowDetailsOpen: false,
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
-			openedDetailsTab: !coreDetails.isServerKeyValidated
-				? "images"
-				: (exerciseDetails.userDetails.history?.length || 0) > 0
-					? "history"
-					: "images",
 		});
 	}
 	const supersets = workoutInformation.supersets.map((sup) => ({
@@ -410,19 +400,15 @@ export const addExerciseToCurrentWorkout = async (
 			alreadyDoneSets = sets.map((s) => ({ statistic: s.statistic }));
 		}
 		draft.exercises.push({
-			identifier: randomUUID(),
-			isShowDetailsOpen: userFitnessPreferences.logging.showDetailsWhileEditing,
-			exerciseId: ex.name,
-			lot: ex.lot,
 			sets,
-			alreadyDoneSets,
 			notes: [],
 			images: [],
 			videos: [],
-			openedDetailsTab:
-				(exerciseDetails.userDetails.history?.length || 0) > 0
-					? "history"
-					: "images",
+			lot: ex.lot,
+			alreadyDoneSets,
+			exerciseId: ex.name,
+			identifier: randomUUID(),
+			isShowDetailsOpen: false,
 		});
 	}
 	const finishedDraft = finishDraft(draft);
