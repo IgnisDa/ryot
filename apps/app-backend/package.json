@@ -16,6 +16,7 @@
 		"better-auth": "1.5.0",
 		"bullmq": "5.70.0",
 		"drizzle-orm": "0.45.1",
+		"graphile-worker": "0.16.6",
 		"hono": "4.12.1",
 		"ioredis": "5.9.3",
 		"pg": "8.18.0",
