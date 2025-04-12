@@ -1,5 +1,5 @@
 import { Button, Group, Stack } from "@mantine/core";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useAppForm } from "#/hooks/forms";
 import { createNameFieldListeners } from "#/lib/slug-sync";
 import {
@@ -44,13 +44,6 @@ export function TrackerForm() {
 			await actions.submitModal(toUpdateTrackerPayload(value));
 		},
 	});
-
-	useEffect(() => {
-		previousDerivedSlug.current = resolveNextTrackerSlug({
-			slug: "",
-			name: activeTracker?.name ?? "",
-		});
-	}, [activeTracker?.name]);
 
 	return (
 		<form
