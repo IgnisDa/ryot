@@ -2423,6 +2423,7 @@ export interface paths {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                         };
+                        search?: string;
                         pagination: {
                             page: number;
                             limit: number;
@@ -2458,6 +2459,7 @@ export interface paths {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                         };
+                        search?: string;
                         pagination: {
                             page: number;
                             limit: number;
@@ -2493,6 +2495,7 @@ export interface paths {
                             /** @enum {string} */
                             direction: "asc" | "desc";
                         };
+                        search?: string;
                         pagination: {
                             page: number;
                             limit: number;
