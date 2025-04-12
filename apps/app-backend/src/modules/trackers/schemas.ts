@@ -9,6 +9,7 @@ import {
 	nonEmptyTrimmedStringSchema,
 	nullableStringSchema,
 	optionalIconAndAccentColorFields,
+	sortOrderSchema,
 } from "~/lib/zod/base";
 
 export const listedTrackerSchema = z.object({
@@ -18,8 +19,8 @@ export const listedTrackerSchema = z.object({
 	config: z.unknown(),
 	isBuiltin: z.boolean(),
 	isDisabled: z.boolean(),
+	sortOrder: sortOrderSchema,
 	description: nullableStringSchema,
-	sortOrder: z.number().int().nonnegative(),
 	...iconAndAccentColorFields,
 });
 
