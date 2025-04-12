@@ -1,13 +1,14 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
-import type { GridConfig, ListConfig } from "../saved-views/schemas";
-import { ViewRuntimeValidationError } from "./errors";
+import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import {
+	getPropertyType,
 	getSchemaForReference,
+	type PropertyType,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
-} from "./runtime-reference";
-import { getPropertyType, type PropertyType } from "./schema-introspection";
+} from "~/lib/views/reference";
+import type { GridConfig, ListConfig } from "../saved-views/schemas";
 import type { ResolvedDisplayValue, ViewRuntimeRequest } from "./schemas";
 
 type SqlExpression = ReturnType<typeof sql>;
