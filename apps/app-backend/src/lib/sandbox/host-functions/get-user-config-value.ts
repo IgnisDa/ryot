@@ -2,10 +2,12 @@ import {
 	apiFailure,
 	apiSuccess,
 	type ConfigValueResult,
+	type HostFunction,
 } from "~/lib/sandbox/types";
 
-export const getUserConfigValue = async (
-	key: unknown,
+export const getUserConfigValue: HostFunction<Record<string, never>> = async (
+	_context,
+	key,
 ): Promise<ConfigValueResult> => {
 	if (typeof key !== "string" || !key.trim()) {
 		return apiFailure("getUserConfigValue expects a non-empty key string");
