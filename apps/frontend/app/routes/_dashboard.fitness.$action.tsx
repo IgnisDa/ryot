@@ -1556,6 +1556,7 @@ const ExerciseDisplay = (props: {
 				size="lg"
 				opened={exercise.isShowDetailsOpen}
 				onClose={() => toggleShowExerciseDetails()}
+				title={`Exercise details for ${exerciseDetails?.name}`}
 			>
 				<Stack>
 					<ScrollArea type="scroll">
