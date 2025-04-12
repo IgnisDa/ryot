@@ -1,11 +1,13 @@
 import { afterAll, beforeAll } from "bun:test";
 import { type ChildProcess, spawn } from "node:child_process";
+import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	PostgreSqlContainer,
 	type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { config } from "dotenv";
 import getPort from "get-port";
+import createClient from "openapi-fetch";
 import {
 	GenericContainer,
 	type StartedTestContainer,
@@ -111,4 +113,9 @@ afterAll(async () => {
 
 export function getBackendUrl() {
 	return `http://127.0.0.1:${backendPort}/api`;
+}
+
+export function getBackendClient() {
+	const client = createClient<paths>({ baseUrl: getBackendUrl() });
+	return client;
 }
