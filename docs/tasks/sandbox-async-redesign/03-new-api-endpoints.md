@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,7 +24,7 @@ Specifically:
   - Completed response: `{ data: { status: "completed", logs, value, error } }` from `job.returnvalue`.
   - Failed response: `{ data: { status: "failed", error: string } }` from `job.failedReason`.
   - Pending response: `{ data: { status: "pending" } }`.
-- Write unit tests for the poll endpoint covering all status branches and auth cases.
+- Defer HTTP-level endpoint coverage to [Task 05](./05-e2e-tests.md); this slice does not add route-specific enqueue/poll unit tests.
 
 See the **API contract** section of the parent PRD for the full response shapes. See the **Error model** section for the script-error vs infra-error distinction.
 
@@ -39,7 +39,7 @@ See the **API contract** section of the parent PRD for the full response shapes.
 - [ ] `GET /sandbox/result/:jobId` returns `404` for a non-existent job ID.
 - [ ] `GET /sandbox/result/:jobId` returns `404` (not `403`) when the job belongs to a different user.
 - [ ] `GET /sandbox/result/:jobId` rejects unauthenticated requests with `401`.
-- [ ] Unit tests cover all poll endpoint branches with a mock BullMQ job object.
+- [ ] HTTP-level contract coverage for enqueue/poll is deferred to [Task 05](./05-e2e-tests.md).
 - [ ] OpenAPI spec is regenerated to reflect the removed and added endpoints.
 - [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 

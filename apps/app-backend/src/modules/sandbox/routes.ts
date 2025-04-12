@@ -1,65 +1,131 @@
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
+	createNotFoundErrorResult,
 	createStandardResponses,
-	dataSchema,
 	jsonBody,
 	successResponse,
 } from "~/lib/openapi";
+import { getQueues } from "~/lib/queue";
 import { getSandboxService } from "~/lib/sandbox";
-import { hostFunctionRegistry } from "~/lib/sandbox/function-registry";
-import { nonEmptyStringSchema, nullableStringSchema } from "~/lib/zod/base";
+import { sandboxRunJobData, sandboxRunJobResult } from "~/lib/sandbox/jobs";
+import type { ApiFunctionDescriptor } from "~/lib/sandbox/types";
+import {
+	enqueueSandboxBody,
+	enqueueSandboxResponseSchema,
+	pollSandboxResultResponseSchema,
+	sandboxJobParams,
+} from "./schemas";
 
-const runSandboxSchema = z.object({
-	code: nonEmptyStringSchema.max(20_000),
-});
-
-const runSandboxResponseSchema = dataSchema(
-	z.object({
-		logs: nullableStringSchema,
-		error: nullableStringSchema,
-		value: z.unknown().optional(),
-		durationMs: z.number().int().nonnegative(),
-	}),
+const sandboxJobNotFoundResult = createNotFoundErrorResult(
+	"Sandbox job not found",
 );
 
-const runSandboxRoute = createAuthRoute(
+const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
+
+const defaultApiFunctionDescriptors: Array<ApiFunctionDescriptor> = [
+	{ context: {}, functionKey: "httpCall" },
+	{ context: {}, functionKey: "getAppConfigValue" },
+	{ context: {}, functionKey: "getUserConfigValue" },
+];
+
+const enqueueSandboxRoute = createAuthRoute(
 	createRoute({
-		path: "/run",
 		method: "post",
+		path: "/enqueue",
 		tags: ["sandbox"],
-		summary: "Run a sandbox script",
-		request: { body: jsonBody(runSandboxSchema) },
+		summary: "Enqueue a sandbox script",
+		request: { body: jsonBody(enqueueSandboxBody) },
 		responses: createStandardResponses({
-			successSchema: runSandboxResponseSchema,
-			successDescription: "Sandbox run completed",
+			successSchema: enqueueSandboxResponseSchema,
+			successDescription: "Sandbox script enqueued",
 		}),
 	}),
 );
 
-export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
-	runSandboxRoute,
-	async (c) => {
-		const user = c.get("user");
-		const parsed = c.req.valid("json");
+const getSandboxResultRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["sandbox"],
+		path: "/result/{jobId}",
+		request: { params: sandboxJobParams },
+		summary: "Get a sandbox script result",
+		responses: createStandardResponses({
+			successDescription: "Sandbox script result",
+			notFoundDescription: "Sandbox job not found",
+			successSchema: pollSandboxResultResponseSchema,
+		}),
+	}),
+);
 
-		const startedAt = Date.now();
-		const sandbox = getSandboxService();
-		const result = await sandbox.run({
+export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(enqueueSandboxRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await getSandboxService().enqueue({
+			code: body.code,
 			userId: user.id,
-			code: parsed.code,
-			apiFunctions: {
-				httpCall: hostFunctionRegistry.httpCall({}),
-				getAppConfigValue: hostFunctionRegistry.getAppConfigValue({}),
-				getUserConfigValue: hostFunctionRegistry.getUserConfigValue({}),
-			},
+			context: body.context,
+			apiFunctionDescriptors: defaultApiFunctionDescriptors,
 		});
 
-		const { success, ...resultData } = result;
-		return c.json(
-			successResponse({ ...resultData, durationMs: Date.now() - startedAt }),
-			200,
-		);
-	},
-);
+		return c.json(successResponse(result), 200);
+	})
+	.openapi(getSandboxResultRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const job = await getQueues().sandboxScriptQueue.getJob(params.jobId);
+		if (!job) {
+			return c.json(
+				sandboxJobNotFoundResult.body,
+				sandboxJobNotFoundResult.status,
+			);
+		}
+
+		const jobData = sandboxRunJobData.safeParse(job.data);
+		if (!jobData.success || jobData.data.userId !== user.id) {
+			return c.json(
+				sandboxJobNotFoundResult.body,
+				sandboxJobNotFoundResult.status,
+			);
+		}
+
+		const state = await job.getState();
+		if (state === "completed") {
+			const result = sandboxRunJobResult.safeParse(job.returnvalue);
+			if (!result.success) {
+				return c.json(
+					successResponse({
+						error: sandboxJobResultUnavailableMessage,
+						status: "failed",
+					}),
+					200,
+				);
+			}
+
+			return c.json(
+				successResponse({
+					status: "completed",
+					logs: result.data.logs ?? null,
+					error: result.data.error ?? null,
+					value: result.data.value === undefined ? null : result.data.value,
+				}),
+				200,
+			);
+		}
+
+		if (state === "failed") {
+			return c.json(
+				successResponse({
+					status: "failed",
+					error: job.failedReason || "Sandbox job failed",
+				}),
+				200,
+			);
+		}
+
+		return c.json(successResponse({ status: "pending" }), 200);
+	});
