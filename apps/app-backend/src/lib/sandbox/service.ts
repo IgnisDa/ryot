@@ -2,7 +2,7 @@ import { generateId } from "better-auth";
 import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
-import { httpCall } from "./host-functions";
+import { httpCall } from "./host-functions/http-call";
 import {
 	type SandboxRunJobData,
 	sandboxRunJobName,
