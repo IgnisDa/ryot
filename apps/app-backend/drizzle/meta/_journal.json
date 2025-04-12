@@ -8,6 +8,13 @@
 			"when": 1772449296544,
 			"tag": "0000_perfect_avengers",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1772593863981,
+			"tag": "0001_far_santa_claus",
+			"breakpoints": true
 		}
 	]
 }
