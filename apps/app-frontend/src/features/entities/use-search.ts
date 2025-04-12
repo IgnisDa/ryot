@@ -276,6 +276,8 @@ export function useEntitySearch(props: {
 
 	const search = useCallback(() => void runSearch(1), [runSearch]);
 
+	const clearSearch = useCallback(() => setSearchState(initialSearchState), []);
+
 	const goToPage = useCallback(
 		(newPage: number) => void runSearch(newPage),
 		[runSearch],
@@ -366,6 +368,7 @@ export function useEntitySearch(props: {
 		goToPage,
 		addStatus,
 		isSearching,
+		clearSearch,
 		selectedProviderIndex,
 		page: searchState.page,
 		setSelectedProviderIndex,
