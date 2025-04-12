@@ -70,7 +70,6 @@ import {
 	IconCheck,
 	IconChevronUp,
 	IconClipboard,
-	IconClock,
 	IconDeviceWatch,
 	IconDeviceWatchCancel,
 	IconDeviceWatchPause,
@@ -157,6 +156,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
+import { ProRequiredAlert } from "~/components/common";
 
 const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
@@ -1486,7 +1486,6 @@ const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const coreDetails = useCoreDetails();
-	const [detailsParent] = useAutoAnimate();
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
 	);
@@ -1542,8 +1541,92 @@ const ExerciseDisplay = (props: {
 		);
 	};
 
+	const toggleShowExerciseDetails = () => {
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.exercises[props.exerciseIdx].isShowDetailsOpen =
+					!exercise.isShowDetailsOpen;
+			}),
+		);
+	};
+
 	return (
 		<>
+			<Modal
+				size="lg"
+				opened={exercise.isShowDetailsOpen}
+				onClose={() => toggleShowExerciseDetails()}
+			>
+				<Stack>
+					<ScrollArea type="scroll">
+						<Group wrap="nowrap">
+							{exerciseDetails?.attributes.images.map((i) => (
+								<Image key={i} src={i} h={200} w={350} radius="md" />
+							))}
+						</Group>
+					</ScrollArea>
+					{coreDetails.isServerKeyValidated ? (
+						<Carousel
+							align="start"
+							slideGap="md"
+							withControls={false}
+							style={{ userSelect: "none" }}
+							onSlideChange={setActiveHistoryIdx}
+							slideSize={{ base: "100%", md: "50%" }}
+						>
+							{exerciseHistory?.map((history, idx) => (
+								<Carousel.Slide key={`${history.workoutId}-${history.idx}`}>
+									{getSurroundingElements(
+										exerciseHistory,
+										activeHistoryIdx,
+									).includes(idx) ? (
+										<ExerciseHistory
+											hideExerciseDetails
+											hideExtraDetailsButton
+											exerciseIdx={history.idx}
+											entityId={history.workoutId}
+											entityType={FitnessEntity.Workouts}
+											onCopyButtonClick={async () => {
+												if (!coreDetails.isServerKeyValidated) {
+													notifications.show({
+														color: "red",
+														message:
+															"Ryot Pro required to copy sets from other workouts",
+													});
+													return;
+												}
+												const workout = await getWorkoutDetails(
+													history.workoutId,
+												);
+												openConfirmationModal(
+													`Are you sure you want to copy all sets from "${workout.details.name}"?`,
+													() => {
+														const sets =
+															workout.details.information.exercises[history.idx]
+																.sets;
+														const converted = sets.map((set) =>
+															convertHistorySetToCurrentSet(set),
+														);
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.exercises[props.exerciseIdx].sets.push(
+																	...converted,
+																);
+															}),
+														);
+													},
+												);
+											}}
+										/>
+									) : null}
+								</Carousel.Slide>
+							))}
+						</Carousel>
+					) : (
+						<ProRequiredAlert />
+					)}
+				</Stack>
+			</Modal>
 			<Paper
 				pl="sm"
 				radius={0}
@@ -1662,14 +1745,7 @@ const ExerciseDisplay = (props: {
 							) ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
-									onClick={() => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].isShowDetailsOpen =
-													!exercise.isShowDetailsOpen;
-											}),
-										);
-									}}
+									onClick={() => toggleShowExerciseDetails()}
 								>
 									{exercise.isShowDetailsOpen ? "Hide" : "Show"} details
 								</Menu.Item>
@@ -1726,123 +1802,6 @@ const ExerciseDisplay = (props: {
 									key={`${exercise.identifier}-${idx}`}
 								/>
 							))}
-							{exercise.isShowDetailsOpen ? (
-								<Box ref={detailsParent} pos="relative">
-									{match(exercise.openedDetailsTab)
-										.with("images", undefined, () => (
-											<ScrollArea type="scroll">
-												<Group wrap="nowrap">
-													{exerciseDetails?.attributes.images.map((i) => (
-														<Image
-															key={i}
-															src={i}
-															h={200}
-															w={350}
-															radius="md"
-														/>
-													))}
-												</Group>
-											</ScrollArea>
-										))
-										.with("history", () => (
-											<Carousel
-												align="start"
-												slideGap="md"
-												withControls={false}
-												style={{ userSelect: "none" }}
-												onSlideChange={setActiveHistoryIdx}
-												slideSize={{ base: "100%", md: "50%" }}
-											>
-												{exerciseHistory?.map((history, idx) => (
-													<Carousel.Slide
-														key={`${history.workoutId}-${history.idx}`}
-													>
-														{getSurroundingElements(
-															exerciseHistory,
-															activeHistoryIdx,
-														).includes(idx) ? (
-															<ExerciseHistory
-																hideExerciseDetails
-																hideExtraDetailsButton
-																exerciseIdx={history.idx}
-																entityId={history.workoutId}
-																entityType={FitnessEntity.Workouts}
-																onCopyButtonClick={async () => {
-																	if (!coreDetails.isServerKeyValidated) {
-																		notifications.show({
-																			color: "red",
-																			message:
-																				"Ryot Pro required to copy sets from other workouts",
-																		});
-																		return;
-																	}
-																	const workout = await getWorkoutDetails(
-																		history.workoutId,
-																	);
-																	openConfirmationModal(
-																		`Are you sure you want to copy all sets from "${workout.details.name}"?`,
-																		() => {
-																			const sets =
-																				workout.details.information.exercises[
-																					history.idx
-																				].sets;
-																			const converted = sets.map((set) =>
-																				convertHistorySetToCurrentSet(set),
-																			);
-																			setCurrentWorkout(
-																				produce(currentWorkout, (draft) => {
-																					draft.exercises[
-																						props.exerciseIdx
-																					].sets.push(...converted);
-																				}),
-																			);
-																		},
-																	);
-																}}
-															/>
-														) : null}
-													</Carousel.Slide>
-												))}
-											</Carousel>
-										))
-										.exhaustive()}
-									{(userExerciseDetails?.history?.length || 0) > 0 ? (
-										<ActionIcon
-											p={2}
-											size="sm"
-											right={10}
-											bottom={10}
-											color="red"
-											pos="absolute"
-											variant="filled"
-											onClick={() => {
-												if (!coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message: PRO_REQUIRED_MESSAGE,
-													});
-													return;
-												}
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														draft.exercises[
-															props.exerciseIdx
-														].openedDetailsTab =
-															exercise.openedDetailsTab === "images"
-																? "history"
-																: "images";
-													}),
-												);
-											}}
-										>
-											{match(exercise.openedDetailsTab)
-												.with("images", undefined, () => <IconPhoto />)
-												.with("history", () => <IconClock />)
-												.exhaustive()}
-										</ActionIcon>
-									) : null}
-								</Box>
-							) : null}
 							<Flex justify="space-between" align="center">
 								<Text size="xs" w="5%" ta="center">
 									SET
