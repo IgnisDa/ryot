@@ -18,11 +18,6 @@ const tsvector = customType<{ data: string }>({
 	dataType: () => "tsvector",
 });
 
-export enum EntitySchemaSandboxScriptKind {
-	search = "search",
-	details = "details",
-}
-
 const remoteImageUrlSchema = z
 	.string()
 	.trim()
@@ -208,7 +203,6 @@ export const entitySchemaSandboxScript = pgTable(
 	"entity_schema_sandbox_script",
 	{
 		createdAt: timestamp().defaultNow().notNull(),
-		kind: text().$type<EntitySchemaSandboxScriptKind>().notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -216,7 +210,10 @@ export const entitySchemaSandboxScript = pgTable(
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		sandboxScriptId: text()
+		searchSandboxScriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		detailsSandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
@@ -225,18 +222,19 @@ export const entitySchemaSandboxScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("entity_schema_sandbox_script_entity_schema_id_kind_idx").on(
+		index("entity_schema_sandbox_script_entity_schema_id_idx").on(
 			table.entitySchemaId,
-			table.kind,
 		),
-		index("entity_schema_sandbox_script_script_id_kind_idx").on(
-			table.sandboxScriptId,
-			table.kind,
+		index("entity_schema_sandbox_script_search_script_id_idx").on(
+			table.searchSandboxScriptId,
+		),
+		index("entity_schema_sandbox_script_details_script_id_idx").on(
+			table.detailsSandboxScriptId,
 		),
 		unique("entity_schema_sandbox_script_unique").on(
 			table.entitySchemaId,
-			table.kind,
-			table.sandboxScriptId,
+			table.searchSandboxScriptId,
+			table.detailsSandboxScriptId,
 		),
 	],
 );
