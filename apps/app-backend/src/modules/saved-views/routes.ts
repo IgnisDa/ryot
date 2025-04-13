@@ -15,6 +15,7 @@ import {
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
 	listSavedViewsForUser,
+	updateSavedViewByIdForUser,
 } from "./repository";
 import {
 	createSavedViewBody,
@@ -23,6 +24,8 @@ import {
 	listSavedViewsQuery,
 	listSavedViewsResponseSchema,
 	savedViewParams,
+	updateSavedViewBody,
+	updateSavedViewResponseSchema,
 } from "./schemas";
 import { resolveIsBuiltinProtected, resolveSavedViewName } from "./service";
 
@@ -81,6 +84,29 @@ const getSavedViewByIdRoute = createAuthRoute(
 	}),
 );
 
+const updateSavedViewRoute = createAuthRoute(
+	createRoute({
+		method: "put",
+		path: "/{viewId}",
+		tags: ["saved-views"],
+		summary: "Update a user-defined saved view by ID",
+		request: {
+			params: savedViewParams,
+			body: {
+				content: { "application/json": { schema: updateSavedViewBody } },
+			},
+		},
+		responses: {
+			400: payloadErrorResponse(),
+			404: notFoundResponse("Saved view not found"),
+			200: jsonResponse(
+				"Saved view was updated",
+				updateSavedViewResponseSchema,
+			),
+		},
+	}),
+);
+
 const deleteSavedViewRoute = createAuthRoute(
 	createRoute({
 		method: "delete",
@@ -99,7 +125,7 @@ const deleteSavedViewRoute = createAuthRoute(
 	}),
 );
 
-const builtinViewError = "Cannot delete built-in saved views";
+const builtinViewError = "Cannot modify built-in saved views";
 const builtinViewErrorResult = createValidationErrorResult(builtinViewError);
 const savedViewNotFoundResult = createNotFoundErrorResult(
 	"Saved view not found",
@@ -133,6 +159,47 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			);
 
 		return c.json(successResponse(view), 200);
+	})
+	.openapi(updateSavedViewRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+		const params = c.req.valid("param");
+
+		const existingView = await getSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+		});
+
+		if (!existingView)
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+
+		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
+		if (protection.protected)
+			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
+
+		const nameResult = resolveValidationData(
+			() => resolveSavedViewName(body.name),
+			"Saved view name is invalid",
+		);
+		if ("status" in nameResult)
+			return c.json(nameResult.body, nameResult.status);
+
+		const updatedView = await updateSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+			data: { ...body, name: nameResult.data },
+		});
+
+		if (!updatedView)
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+
+		return c.json(successResponse(updatedView), 200);
 	})
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");

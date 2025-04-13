@@ -6,6 +6,7 @@ import type {
 	DisplayConfiguration,
 	ListedSavedView,
 	SavedViewQueryDefinition,
+	UpdateSavedViewBody,
 } from "./schemas";
 
 type SavedViewCreateInput = CreateSavedViewBody & {
@@ -27,6 +28,8 @@ const savedViewSelection = {
 	name: savedView.name,
 	trackerId: savedView.trackerId,
 	isBuiltin: savedView.isBuiltin,
+	createdAt: savedView.createdAt,
+	updatedAt: savedView.updatedAt,
 	accentColor: savedView.accentColor,
 	queryDefinition: savedView.queryDefinition,
 	displayConfiguration: savedView.displayConfiguration,
@@ -114,6 +117,31 @@ export const createSavedViewsForUser = async (input: {
 			displayConfiguration: view.displayConfiguration,
 		})),
 	);
+};
+
+export const updateSavedViewByIdForUser = async (input: {
+	userId: string;
+	viewId: string;
+	data: UpdateSavedViewBody;
+}) => {
+	const [updatedView] = await db
+		.update(savedView)
+		.set({
+			icon: input.data.icon,
+			name: input.data.name,
+			trackerId: input.data.trackerId,
+			accentColor: input.data.accentColor,
+			queryDefinition: input.data.queryDefinition,
+			displayConfiguration: input.data.displayConfiguration,
+		})
+		.where(
+			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
+		)
+		.returning(savedViewSelection);
+
+	if (!updatedView) return undefined;
+
+	return toSavedView(updatedView);
 };
 
 export const deleteSavedViewByIdForUser = async (input: {
