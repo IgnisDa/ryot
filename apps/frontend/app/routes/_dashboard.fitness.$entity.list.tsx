@@ -437,7 +437,6 @@ const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
-	const unitSystem = useUserUnitSystem();
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(props.exercise.id),
 	);
@@ -448,7 +447,7 @@ const ExerciseDisplay = (props: {
 			const [stat] = getSetStatisticsTextToDisplay(
 				props.exercise.lot,
 				value.statistic,
-				unitSystem,
+				props.exercise.unitSystem,
 			);
 			return stat;
 		});
