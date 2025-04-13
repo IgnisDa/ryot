@@ -6,6 +6,7 @@ import {
 	type SetRestTimersSettings,
 	UserExerciseDetailsDocument,
 	type UserFitnessPreferences,
+	type UserUnitSystem,
 	UserWorkoutDetailsDocument,
 	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
@@ -61,6 +62,7 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	isShowDetailsOpen: boolean;
 	scrollMarginRemoved?: true;
+	unitSystem?: UserUnitSystem;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
@@ -243,16 +245,16 @@ export const currentWorkoutToCreateWorkoutInput = (
 		if (!isCreatingTemplate && sets.length === 0) continue;
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
-		const toAdd = {
+		input.input.exercises.push({
 			sets,
 			notes,
+			unitSystem: exercise.unitSystem,
 			exerciseId: exercise.exerciseId,
 			assets: {
 				images: exercise.images.map((m) => m.key),
 				videos: exercise.videos.map((m) => m.key),
 			},
-		};
-		input.input.exercises.push(toAdd);
+		});
 	}
 	return input;
 };
@@ -327,6 +329,7 @@ export const duplicateOldWorkout = async (
 			exerciseId: ex.id,
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
+			unitSystem: ex.unitSystem || undefined,
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
 	}
