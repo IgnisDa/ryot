@@ -276,19 +276,16 @@ describe("Events bulk POST", () => {
 					entityId,
 					eventSchemaId,
 					properties: { rating: 4 },
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 				{
 					entityId,
 					eventSchemaId,
 					properties: { rating: 5 },
-					occurredAt: "2026-01-02T10:00:00.000Z",
 				},
 				{
 					entityId,
 					eventSchemaId,
 					properties: { rating: 3 },
-					occurredAt: "2026-01-03T10:00:00.000Z",
 				},
 			],
 		});
@@ -321,7 +318,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					eventSchemaId,
 					properties: { status: "draft" },
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 			],
 		});
@@ -336,7 +332,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					eventSchemaId,
 					properties: { status: "completed" },
-					occurredAt: "2026-01-02T10:00:00.000Z",
 				},
 			],
 		});
@@ -359,7 +354,6 @@ describe("Events bulk POST", () => {
 						status: "completed",
 						progressPercent: 75,
 					},
-					occurredAt: "2026-01-03T10:00:00.000Z",
 				},
 			],
 		});
@@ -389,7 +383,6 @@ describe("Events bulk POST", () => {
 					properties: {},
 					entityId: crypto.randomUUID(),
 					eventSchemaId: crypto.randomUUID(),
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 			],
 		});
@@ -409,13 +402,11 @@ describe("Events bulk POST", () => {
 					entityId,
 					eventSchemaId,
 					properties: { rating: 4 },
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 				{
 					entityId,
 					eventSchemaId,
 					properties: { rating: 5 },
-					occurredAt: "2026-01-02T10:00:00.000Z",
 				},
 			],
 		});
@@ -441,13 +432,11 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: {},
 					eventSchemaId: backlogEventSchemaId,
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 				{
 					entityId,
 					properties: {},
 					eventSchemaId: backlogEventSchemaId,
-					occurredAt: "2026-01-02T10:00:00.000Z",
 				},
 			],
 		});
@@ -483,7 +472,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: {},
 					eventSchemaId: mismatchedEventSchemaId,
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 			],
 		});
@@ -505,13 +493,11 @@ describe("Events bulk POST", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					occurredAt: "2026-01-01T10:00:00.000Z",
 					properties: { progressPercent: 25.555 },
 				},
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					occurredAt: "2026-01-02T10:00:00.000Z",
 					properties: { progressPercent: 50.444 },
 				},
 			],
@@ -549,13 +535,11 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: {},
 					eventSchemaId: completeEventSchemaId,
-					occurredAt: "2026-01-03T10:00:00.000Z",
 				},
 				{
 					entityId,
 					properties: {},
 					eventSchemaId: completeEventSchemaId,
-					occurredAt: "2026-01-04T10:00:00.000Z",
 				},
 			],
 		});
@@ -591,7 +575,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: { note: "not allowed" },
 					eventSchemaId: completeEventSchemaId,
-					occurredAt: "2026-01-05T10:00:00.000Z",
 				},
 			],
 		});
@@ -614,7 +597,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: { progressPercent: 100 },
 					eventSchemaId: progressEventSchemaId,
-					occurredAt: "2026-01-01T10:00:00.000Z",
 				},
 			],
 		});
@@ -637,12 +619,10 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: { rating: 4 },
 					eventSchemaId: reviewEventSchemaId,
-					occurredAt: "2026-01-06T10:00:00.000Z",
 				},
 				{
 					entityId,
 					eventSchemaId: reviewEventSchemaId,
-					occurredAt: "2026-01-07T10:00:00.000Z",
 					properties: { review: "Even better", rating: 5 },
 				},
 			],
@@ -679,7 +659,6 @@ describe("Events bulk POST", () => {
 					entityId,
 					properties: { rating: 6 },
 					eventSchemaId: reviewEventSchemaId,
-					occurredAt: "2026-01-08T10:00:00.000Z",
 				},
 			],
 		});
