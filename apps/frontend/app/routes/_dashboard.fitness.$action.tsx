@@ -1767,7 +1767,7 @@ const ExerciseDisplay = (props: {
 									leftSection={<IconInfoCircle size={14} />}
 									onClick={() => toggleShowExerciseDetails()}
 								>
-									{exercise.isShowDetailsOpen ? "Hide" : "Show"} details
+									Edit details
 								</Menu.Item>
 							) : null}
 							<Menu.Item
