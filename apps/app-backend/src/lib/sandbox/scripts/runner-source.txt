@@ -15,7 +15,9 @@ const writeStderr = (value) => {
 };
 
 const formatArg = (value) => {
-	if (typeof value === "string") return value;
+	if (typeof value === "string") {
+		return value;
+	}
 	try {
 		return JSON.stringify(value);
 	} catch {
@@ -41,14 +43,16 @@ const createApiStub = (fnName) => {
 			method: "POST",
 			body: JSON.stringify({ args }),
 			headers: {
-				Authorization: "Bearer " + token,
+				Authorization: `Bearer ${token}`,
 				"Content-Type": "application/json",
 			},
 		});
 
 		const body = await response.json();
 
-		if (!response.ok) throw new Error(body.error ?? "API call failed");
+		if (!response.ok) {
+			throw new Error(body.error ?? "API call failed");
+		}
 
 		return body.result;
 	};
