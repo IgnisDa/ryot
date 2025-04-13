@@ -299,8 +299,11 @@ export interface ProcessedExercise {
 	notes: string[];
 	sets: WorkoutSetRecord[];
 	total: WorkoutOrExerciseTotals | null;
-	/** @default 'metric' */
-	unit_system: UserUnitSystem | null;
+	/**
+	 * @default 'metric'
+	 * @type {'metric' | 'imperial'}
+	 */
+	unit_system: UserUnitSystem;
 }
 
 export interface WorkoutSupersetsInformation {
@@ -326,8 +329,11 @@ export interface WorkoutSummaryExercise {
 	/** @default 'reps_and_weight' */
 	lot: ExerciseLot | null;
 	num_sets: number;
-	/** @default 'metric' */
-	unit_system: UserUnitSystem | null;
+	/**
+	 * @default 'metric'
+	 * @type {'metric' | 'imperial'}
+	 */
+	unit_system: UserUnitSystem;
 }
 
 export type ExerciseEquipment = 'bands' | 'cable' | 'other' | 'barbell' | 'machine' | 'body_only' | 'dumbbell' | 'foam_roll' | 'ez_curl_bar' | 'kettlebells' | 'exercise_ball' | 'medicine_ball';

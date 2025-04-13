@@ -367,8 +367,8 @@ pub struct ProcessedExercise {
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
+    pub unit_system: UserUnitSystem,
     pub assets: Option<EntityAssets>,
-    pub unit_system: Option<UserUnitSystem>,
     pub total: Option<WorkoutOrExerciseTotals>,
 }
 
@@ -478,8 +478,8 @@ pub struct WorkoutSummaryExercise {
     pub id: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
+    pub unit_system: UserUnitSystem,
     pub best_set: Option<WorkoutSetRecord>,
-    pub unit_system: Option<UserUnitSystem>,
 }
 
 #[derive(
@@ -630,9 +630,9 @@ pub struct UserWorkoutSetRecord {
 pub struct UserExerciseInput {
     pub notes: Vec<String>,
     pub exercise_id: String,
+    pub unit_system: UserUnitSystem,
     pub assets: Option<EntityAssets>,
     pub sets: Vec<UserWorkoutSetRecord>,
-    pub unit_system: Option<UserUnitSystem>,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize, InputObject)]
