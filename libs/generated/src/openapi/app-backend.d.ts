@@ -1437,9 +1437,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                trackerId: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
+                                trackerId: string | null;
                                 accentColor: string;
                                 queryDefinition: {
                                     sort: {
@@ -1530,7 +1530,6 @@ export interface paths {
                         icon: string;
                         name: string;
                         accentColor: string;
-                        trackerId?: string;
                         queryDefinition: {
                             sort: {
                                 field: string[];
@@ -1576,6 +1575,7 @@ export interface paths {
                             /** @enum {string} */
                             layout: "grid" | "list" | "table";
                         };
+                        trackerId?: string;
                     };
                 };
             };
@@ -1591,9 +1591,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                trackerId: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
+                                trackerId: string | null;
                                 accentColor: string;
                                 queryDefinition: {
                                     sort: {
@@ -1681,7 +1681,106 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get a saved view by ID */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    viewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Saved view was retrieved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                isBuiltin: boolean;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                trackerId: string | null;
+                                accentColor: string;
+                                queryDefinition: {
+                                    sort: {
+                                        field: string[];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
+                                    entitySchemaSlugs: string[];
+                                    filters: ({
+                                        /** @enum {string} */
+                                        op: "in";
+                                        field: string[];
+                                        value: unknown[];
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNull";
+                                        field: string[];
+                                    } | {
+                                        value?: unknown;
+                                        field: string[];
+                                        /** @enum {string} */
+                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                    })[];
+                                };
+                                displayConfiguration: {
+                                    grid: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    list: {
+                                        imageProperty: string[] | null;
+                                        titleProperty: string[] | null;
+                                        badgeProperty: string[] | null;
+                                        subtitleProperty: string[] | null;
+                                    };
+                                    table: {
+                                        columns: {
+                                            property: string[];
+                                        }[];
+                                    };
+                                    /** @enum {string} */
+                                    layout: "grid" | "list" | "table";
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Saved view not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         /** Delete a user-defined saved view */
@@ -1707,9 +1806,9 @@ export interface paths {
                                 id: string;
                                 name: string;
                                 isBuiltin: boolean;
-                                trackerId: string | null;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
+                                trackerId: string | null;
                                 accentColor: string;
                                 queryDefinition: {
                                     sort: {
