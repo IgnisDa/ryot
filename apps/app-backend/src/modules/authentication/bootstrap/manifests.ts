@@ -1,6 +1,7 @@
-import { animePropertiesJsonSchema } from "~/lib/zod/media/anime";
-import { bookPropertiesJsonSchema } from "~/lib/zod/media/book";
-import { mangaPropertiesJsonSchema } from "~/lib/zod/media/manga";
+import { animePropertiesJsonSchema } from "~/lib/media/anime";
+import { bookPropertiesJsonSchema } from "~/lib/media/book";
+import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
+import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import {
 	createDefaultQueryDefinition,
 	defaultDisplayConfiguration,
@@ -25,7 +26,13 @@ export const authenticationBuiltinTrackers = () => [
 
 const mediaLifecycleEventSchemas = () => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: {} },
-	{ name: "Progress", slug: "progress", propertiesSchema: {} },
+	{
+		name: "Progress",
+		slug: "progress",
+		propertiesSchema: {
+			progressPercent: { type: "number" as const, required: true as const },
+		},
+	},
 	{ name: "Complete", slug: "complete", propertiesSchema: {} },
 	{ name: "Review", slug: "review", propertiesSchema: {} },
 ];
@@ -61,24 +68,17 @@ export const authenticationBuiltinEntitySchemas = () => [
 ];
 
 export const authenticationBuiltinSavedViews = () => [
-	{
-		name: "All Books",
+	...builtinMediaEntitySchemaSlugs.map((slug) => ({
 		trackerSlug: "media",
-		entitySchemaSlug: "book",
 		displayConfiguration: defaultDisplayConfiguration,
-	},
-	{
-		name: "All Animes",
-		trackerSlug: "media",
-		entitySchemaSlug: "anime",
-		displayConfiguration: defaultDisplayConfiguration,
-	},
-	{
-		name: "All Mangas",
-		trackerSlug: "media",
-		entitySchemaSlug: "manga",
-		displayConfiguration: defaultDisplayConfiguration,
-	},
+		entitySchemaSlug: slug,
+		name:
+			slug === "book"
+				? "All Books"
+				: slug === "anime"
+					? "All Anime"
+					: "All Manga",
+	})),
 	{
 		icon: "folders",
 		name: "Collections",
