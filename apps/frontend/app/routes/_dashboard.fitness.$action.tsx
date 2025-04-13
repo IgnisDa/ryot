@@ -1485,6 +1485,7 @@ const ExerciseDisplay = (props: {
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
+	const selectedUnitSystem = exercise.unitSystem || unitSystem;
 	const coreDetails = useCoreDetails();
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
@@ -1562,7 +1563,7 @@ const ExerciseDisplay = (props: {
 					<Select
 						size="sm"
 						label="Unit system"
-						defaultValue={unitSystem}
+						value={selectedUnitSystem}
 						data={Object.values(UserUnitSystem).map((c) => ({
 							value: c,
 							label: startCase(c.toLowerCase()),
@@ -1841,7 +1842,7 @@ const ExerciseDisplay = (props: {
 								{distanceCol ? (
 									<Text size="xs" style={{ flex: 1 }} ta="center">
 										DISTANCE (
-										{match(unitSystem)
+										{match(selectedUnitSystem)
 											.with(UserUnitSystem.Metric, () => "KM")
 											.with(UserUnitSystem.Imperial, () => "MI")
 											.exhaustive()}
@@ -1851,7 +1852,7 @@ const ExerciseDisplay = (props: {
 								{weightCol ? (
 									<Text size="xs" style={{ flex: 1 }} ta="center">
 										WEIGHT (
-										{match(unitSystem)
+										{match(selectedUnitSystem)
 											.with(UserUnitSystem.Metric, () => "KG")
 											.with(UserUnitSystem.Imperial, () => "LB")
 											.exhaustive()}
