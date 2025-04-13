@@ -11,6 +11,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { redis } from "~/lib/redis";
+import { addJob, DEMO_JOB } from "~/worker/tasks";
 
 const healthResponseSchema = dataSchema(
 	z.object({
@@ -55,6 +56,12 @@ export const healthApi = new OpenAPIHono().openapi(healthRoute, async (c) => {
 			),
 			503,
 		);
+	}
+
+	try {
+		await addJob(DEMO_JOB, { message: "Health check test" });
+	} catch (error) {
+		console.error("Failed to enqueue demo job:", error);
 	}
 
 	return c.json(successResponse({ status: "healthy" as const }), 200);
