@@ -1652,7 +1652,7 @@ const ExerciseDisplay = (props: {
 								component={Link}
 								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
-								{exerciseDetails?.name}
+								{exerciseDetails?.name || "Loading..."}
 							</Anchor>
 							<Group wrap="nowrap" mr={-10}>
 								{didExerciseActivateTimer ? (
