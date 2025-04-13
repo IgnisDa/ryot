@@ -1624,7 +1624,9 @@ const ExerciseDisplay = (props: {
 							))}
 						</Carousel>
 					) : (
-						<ProRequiredAlert />
+						<ProRequiredAlert
+							alertText={`${PRO_REQUIRED_MESSAGE}: inline workout history.`}
+						/>
 					)}
 				</Stack>
 			</Modal>
