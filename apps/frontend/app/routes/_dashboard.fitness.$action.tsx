@@ -2258,10 +2258,11 @@ const SetDisplay = (props: {
 								style={{ cursor: "pointer" }}
 							>
 								<DisplaySetStatistics
-									statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
-									lot={exercise.lot}
 									hideExtras
 									centerText
+									lot={exercise.lot}
+									unitSystem={exercise.unitSystem}
+									statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
 								/>
 							</Box>
 						) : (
