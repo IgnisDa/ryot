@@ -118,6 +118,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			trackerId: body.trackerId,
 			accentColor: body.accentColor,
 			queryDefinition: body.queryDefinition,
+			displayConfiguration: body.displayConfiguration,
 		});
 
 		return c.json(successResponse(createdView), 200);

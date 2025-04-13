@@ -6,6 +6,10 @@ import {
 	tracker,
 	trackerEntitySchema,
 } from "~/lib/db/schema";
+import {
+	createDefaultQueryDefinition,
+	defaultDisplayConfiguration,
+} from "../saved-views/constants";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
 import type { ListedEntitySchema } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
@@ -169,7 +173,10 @@ export const createEntitySchemaForUser = async (input: {
 				trackerId: input.trackerId,
 				accentColor: input.accentColor,
 				name: buildBuiltinSavedViewName(input.name),
-				queryDefinition: { entitySchemaIds: [createdEntitySchema.id] },
+				displayConfiguration: defaultDisplayConfiguration,
+				queryDefinition: createDefaultQueryDefinition([
+					createdEntitySchema.slug,
+				]),
 			})
 			.returning({ id: savedView.id });
 
