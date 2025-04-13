@@ -1562,11 +1562,11 @@ const ExerciseDisplay = (props: {
 					<Select
 						size="sm"
 						label="Unit system"
+						defaultValue={unitSystem}
 						data={Object.values(UserUnitSystem).map((c) => ({
 							value: c,
 							label: startCase(c.toLowerCase()),
 						}))}
-						defaultValue={userPreferences.fitness.exercises.unitSystem}
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
