@@ -718,7 +718,7 @@ async function main() {
 	const minutes = Math.floor(duration / 60);
 	const seconds = duration % 60;
 
-	console.log("\n" + "━".repeat(50));
+	console.log(`\n${"━".repeat(50)}`);
 	console.log("📊 Summary:");
 	console.log("  Trackers: 3");
 	console.log("  Entity Schemas: 5 (1 whiskey + 1 place + 3 phones)");

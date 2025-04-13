@@ -18,14 +18,18 @@ export type EventListViewState =
 export function sortEvents(events: AppEvent[]) {
 	return [...events].sort((a, b) => {
 		const occurredAtDiff = b.occurredAt.getTime() - a.occurredAt.getTime();
-		if (occurredAtDiff !== 0) return occurredAtDiff;
+		if (occurredAtDiff !== 0) {
+			return occurredAtDiff;
+		}
 
 		return b.createdAt.getTime() - a.createdAt.getTime();
 	});
 }
 
 export function getEventListViewState(events: AppEvent[]): EventListViewState {
-	if (events.length === 0) return { type: "empty" };
+	if (events.length === 0) {
+		return { type: "empty" };
+	}
 
 	return { type: "list", events: sortEvents(events) };
 }

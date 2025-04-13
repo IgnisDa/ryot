@@ -29,7 +29,9 @@ export async function createTestUser() {
 	}
 
 	const cookies = signInResponse.headers.get("set-cookie");
-	if (!cookies) throw new Error("Failed to get auth cookies");
+	if (!cookies) {
+		throw new Error("Failed to get auth cookies");
+	}
 
 	return { cookies, email, password };
 }

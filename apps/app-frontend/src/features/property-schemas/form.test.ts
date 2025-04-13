@@ -26,7 +26,9 @@ describe("buildPropertySchemaFormValues", () => {
 		const values = buildPropertySchemaFormValues();
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a default property row");
+		if (!row) {
+			throw new Error("Expected a default property row");
+		}
 
 		expect(values.name).toBe("");
 		expect(values.slug).toBe("");

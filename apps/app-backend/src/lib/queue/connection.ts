@@ -5,7 +5,9 @@ import { config } from "~/lib/config";
 let sharedRedisConnection: Redis | null = null;
 
 export const getRedisConnection = () => {
-	if (sharedRedisConnection) return sharedRedisConnection as ConnectionOptions;
+	if (sharedRedisConnection) {
+		return sharedRedisConnection as ConnectionOptions;
+	}
 
 	const redisUrl = config.REDIS_URL;
 	sharedRedisConnection = new Redis(redisUrl, {
@@ -16,7 +18,9 @@ export const getRedisConnection = () => {
 };
 
 export const shutdownQueueRedisConnection = async () => {
-	if (!sharedRedisConnection) return;
+	if (!sharedRedisConnection) {
+		return;
+	}
 
 	await sharedRedisConnection.quit();
 	sharedRedisConnection = null;

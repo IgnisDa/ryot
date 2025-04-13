@@ -10,8 +10,9 @@ export const resolveNextSlug = (input: ResolveNextSlugInput) => {
 	if (
 		input.slug.trim() !== "" &&
 		input.slug.trim() !== input.previousDerivedSlug?.trim()
-	)
+	) {
 		return input.slug;
+	}
 
 	return normalizeSlug(input.name);
 };
@@ -35,7 +36,9 @@ export function syncSlugOnNameChange(props: {
 		previousDerivedSlug: props.previousDerivedSlug,
 	});
 
-	if (nextSlug === slug) return isAutoDerivedSlug;
+	if (nextSlug === slug) {
+		return isAutoDerivedSlug;
+	}
 
 	props.form.setFieldValue("slug", nextSlug);
 
@@ -53,7 +56,9 @@ export function createNameFieldListeners(props: {
 				form: props.form,
 				previousDerivedSlug: props.previousDerivedSlug.current,
 			});
-			if (!shouldTrackDerivedSlug) return;
+			if (!shouldTrackDerivedSlug) {
+				return;
+			}
 			props.previousDerivedSlug.current = resolveNextSlug({
 				slug: "",
 				name: value,

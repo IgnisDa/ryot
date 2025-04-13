@@ -2,7 +2,9 @@ export const isUniqueConstraintError = (
 	error: unknown,
 	constraintName: string,
 ) => {
-	if (!error || typeof error !== "object") return false;
+	if (!error || typeof error !== "object") {
+		return false;
+	}
 
 	const code = "code" in error ? error.code : undefined;
 	const constraint = "constraint" in error ? error.constraint : undefined;

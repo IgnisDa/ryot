@@ -37,8 +37,9 @@ async function waitForHealthCheck(
 			// Ignore and retry
 		}
 
-		if (i < maxRetries - 1)
+		if (i < maxRetries - 1) {
 			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		}
 	}
 	throw new Error(`Health check failed for ${url} after ${maxRetries} retries`);
 }
