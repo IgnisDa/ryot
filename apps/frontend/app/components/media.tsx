@@ -189,6 +189,7 @@ export const MetadataDisplayItem = (props: {
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
 	rightLabelLot?: boolean;
+	imageClassName?: string;
 	rightLabelHistory?: boolean;
 	onImageClickBehavior?: () => void;
 	shouldHighlightNameIfInteracted?: boolean;
@@ -261,6 +262,7 @@ export const MetadataDisplayItem = (props: {
 			progress={currentProgress}
 			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
+			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
 			imageUrl={metadataDetails?.assets.images.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}

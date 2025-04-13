@@ -1411,10 +1411,8 @@ const MetadataNewProgressUpdateForm = ({
 					type="submit"
 					variant="outline"
 					disabled={selectedDate === undefined}
+					onClick={() => advanceOnboardingTourStep()}
 					className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
-					onClick={async () => {
-						await advanceOnboardingTourStep();
-					}}
 				>
 					Submit
 				</Button>
