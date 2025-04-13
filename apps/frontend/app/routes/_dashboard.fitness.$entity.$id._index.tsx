@@ -261,8 +261,6 @@ export default function Page() {
 			params.action,
 			loaderData.caloriesBurnt ? Number(loaderData.caloriesBurnt) : undefined,
 			loaderData.information,
-			coreDetails,
-			userPreferences.fitness,
 			params,
 		);
 		startWorkout(workout, params.action);

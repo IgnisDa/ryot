@@ -367,22 +367,23 @@ pub struct ProcessedExercise {
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
+    pub unit_system: UserUnitSystem,
     pub assets: Option<EntityAssets>,
     pub total: Option<WorkoutOrExerciseTotals>,
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
+    Eq,
+    Copy,
     Enum,
     Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
+    Debug,
     Default,
+    PartialEq,
+    Serialize,
     ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
 )]
 pub enum UserUnitSystem {
     #[default]
@@ -477,6 +478,7 @@ pub struct WorkoutSummaryExercise {
     pub id: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
+    pub unit_system: UserUnitSystem,
     pub best_set: Option<WorkoutSetRecord>,
 }
 
@@ -628,6 +630,7 @@ pub struct UserWorkoutSetRecord {
 pub struct UserExerciseInput {
     pub notes: Vec<String>,
     pub exercise_id: String,
+    pub unit_system: UserUnitSystem,
     pub assets: Option<EntityAssets>,
     pub sets: Vec<UserWorkoutSetRecord>,
 }

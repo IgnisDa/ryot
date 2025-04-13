@@ -285,6 +285,8 @@ export interface WorkoutOrExerciseTotals {
 	weight: string;
 }
 
+export type UserUnitSystem = 'metric' | 'imperial';
+
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
@@ -297,6 +299,11 @@ export interface ProcessedExercise {
 	notes: string[];
 	sets: WorkoutSetRecord[];
 	total: WorkoutOrExerciseTotals | null;
+	/**
+	 * @default 'metric'
+	 * @type {'metric' | 'imperial'}
+	 */
+	unit_system: UserUnitSystem;
 }
 
 export interface WorkoutSupersetsInformation {
@@ -322,6 +329,11 @@ export interface WorkoutSummaryExercise {
 	/** @default 'reps_and_weight' */
 	lot: ExerciseLot | null;
 	num_sets: number;
+	/**
+	 * @default 'metric'
+	 * @type {'metric' | 'imperial'}
+	 */
+	unit_system: UserUnitSystem;
 }
 
 export type ExerciseEquipment = 'bands' | 'cable' | 'other' | 'barbell' | 'machine' | 'body_only' | 'dumbbell' | 'foam_roll' | 'ez_curl_bar' | 'kettlebells' | 'exercise_ball' | 'medicine_ball';

@@ -52,11 +52,7 @@ import {
 	getExerciseDetailsPath,
 	getSetColor,
 } from "~/lib/common";
-import {
-	useGetRandomMantineColor,
-	useUserDetails,
-	useUserUnitSystem,
-} from "~/lib/hooks";
+import { useGetRandomMantineColor, useUserDetails } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
@@ -135,15 +131,15 @@ export const displayDistanceWithUnit = (
  **/
 export const DisplaySetStatistics = (props: {
 	lot: ExerciseLot;
-	statistic: WorkoutSetStatistic;
 	hideExtras?: boolean;
 	centerText?: boolean;
+	unitSystem: UserUnitSystem;
+	statistic: WorkoutSetStatistic;
 }) => {
-	const unitSystem = useUserUnitSystem();
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
-		unitSystem,
+		props.unitSystem,
 	);
 
 	return (
@@ -175,6 +171,7 @@ export const DisplaySet = (props: {
 	set: Set;
 	idx: number;
 	exerciseLot: ExerciseLot;
+	unitSystem: UserUnitSystem;
 }) => {
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -220,6 +217,7 @@ export const DisplaySet = (props: {
 				) : null}
 				<DisplaySetStatistics
 					lot={props.exerciseLot}
+					unitSystem={props.unitSystem}
 					statistic={props.set.statistic}
 				/>
 			</Flex>
@@ -242,7 +240,6 @@ export const ExerciseHistory = (props: {
 	supersetInformation?: WorkoutSupersetsInformation[];
 }) => {
 	const theme = useMantineTheme();
-	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
@@ -342,7 +339,7 @@ export const ExerciseHistory = (props: {
 												icon={IconWeight}
 												quantity={exercise.total.weight}
 												value={displayWeightWithUnit(
-													unitSystem,
+													exercise.unitSystem,
 													exercise.total.weight,
 												)}
 											/>
@@ -351,7 +348,7 @@ export const ExerciseHistory = (props: {
 												label="distance"
 												quantity={exercise.total.distance}
 												value={displayDistanceWithUnit(
-													unitSystem,
+													exercise.unitSystem,
 													exercise.total.distance,
 												)}
 											/>
@@ -395,6 +392,7 @@ export const ExerciseHistory = (props: {
 							set={set}
 							idx={idx}
 							exerciseLot={exercise.lot}
+							unitSystem={exercise.unitSystem}
 							key={`${set.confirmedAt}-${idx}`}
 						/>
 					))}

@@ -46,7 +46,6 @@ query UserDetails {
 						muteSounds
 						caloriesBurntUnit
 						promptForRestTimer
-						showDetailsWhileEditing
 					}
 					measurements {
 						custom {

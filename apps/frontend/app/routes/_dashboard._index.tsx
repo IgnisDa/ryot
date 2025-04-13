@@ -302,7 +302,11 @@ const RecommendationsSection = () => {
 						<ApplicationGrid>
 							{recommendations.data.userMetadataRecommendations.response.map(
 								(lm) => (
-									<MetadataDisplayItem key={lm} metadataId={lm} />
+									<MetadataDisplayItem
+										key={lm}
+										metadataId={lm}
+										shouldHighlightNameIfInteracted
+									/>
 								),
 							)}
 						</ApplicationGrid>
@@ -350,7 +354,11 @@ const TrendingSection = () => {
 				>
 					<ApplicationGrid>
 						{trendingMetadata.data?.trendingMetadata.map((lm) => (
-							<MetadataDisplayItem key={lm} metadataId={lm} />
+							<MetadataDisplayItem
+								key={lm}
+								metadataId={lm}
+								shouldHighlightNameIfInteracted
+							/>
 						))}
 					</ApplicationGrid>
 				</Drawer>
@@ -374,7 +382,11 @@ const TrendingSection = () => {
 				trendingMetadataSelection.length > 0 ? (
 					<ApplicationGrid>
 						{trendingMetadataSelection.map((lm) => (
-							<MetadataDisplayItem key={lm} metadataId={lm} />
+							<MetadataDisplayItem
+								key={lm}
+								metadataId={lm}
+								shouldHighlightNameIfInteracted
+							/>
 						))}
 					</ApplicationGrid>
 				) : (
@@ -411,9 +423,9 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 
 	return (
 		<MetadataDisplayItem
+			noLeftLabel
 			altName={um.metadataText}
 			metadataId={um.metadataId}
-			noLeftLabel
 			rightLabel={`${match(um.metadataLot)
 				.with(
 					MediaLot.Show,

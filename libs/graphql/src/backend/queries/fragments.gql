@@ -99,6 +99,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 		id
 		lot
 		numSets
+		unitSystem
 		bestSet {
 			...WorkoutSetRecordPart
 		}
@@ -184,6 +185,7 @@ fragment WorkoutInformationPart on WorkoutInformation {
 		id
 		lot
 		notes
+		unitSystem
 		total {
 			...WorkoutOrExerciseTotalsPart
 		}

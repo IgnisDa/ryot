@@ -1738,6 +1738,7 @@ export type ProcessedExercise = {
   notes: Array<Scalars['String']['output']>;
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
+  unitSystem: UserUnitSystem;
 };
 
 export type ProgressUpdateInput = {
@@ -2358,6 +2359,7 @@ export type UserExerciseInput = {
   exerciseId: Scalars['String']['input'];
   notes: Array<Scalars['String']['input']>;
   sets: Array<UserWorkoutSetRecord>;
+  unitSystem: UserUnitSystem;
 };
 
 export type UserExercisesListInput = {
@@ -2433,14 +2435,12 @@ export type UserFitnessLoggingPreferences = {
   caloriesBurntUnit: Scalars['String']['output'];
   muteSounds: Scalars['Boolean']['output'];
   promptForRestTimer: Scalars['Boolean']['output'];
-  showDetailsWhileEditing: Scalars['Boolean']['output'];
 };
 
 export type UserFitnessLoggingPreferencesInput = {
   caloriesBurntUnit: Scalars['String']['input'];
   muteSounds: Scalars['Boolean']['input'];
   promptForRestTimer: Scalars['Boolean']['input'];
-  showDetailsWhileEditing: Scalars['Boolean']['input'];
 };
 
 export type UserFitnessMeasurementsPreferences = {
@@ -3136,6 +3136,7 @@ export type WorkoutSummaryExercise = {
   id: Scalars['String']['output'];
   lot?: Maybe<ExerciseLot>;
   numSets: Scalars['Int']['output'];
+  unitSystem: UserUnitSystem;
 };
 
 export type WorkoutSupersetsInformation = {

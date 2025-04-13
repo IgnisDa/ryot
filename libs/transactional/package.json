@@ -2,14 +2,14 @@
 	"name": "@ryot/transactional",
 	"private": true,
 	"dependencies": {
-		"@react-email/components": "0.0.34",
+		"@react-email/components": "0.0.36",
 		"@ryot/ts-utils": "workspace:*",
 		"react": "19.1.0",
 		"react-dom": "19.1.0",
-		"react-email": "4.0.2"
+		"react-email": "4.0.7"
 	},
 	"devDependencies": {
-		"@types/react": "19.0.12",
-		"@types/react-dom": "19.0.4"
+		"@types/react": "19.1.1",
+		"@types/react-dom": "19.1.2"
 	}
 }
