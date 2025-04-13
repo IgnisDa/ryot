@@ -1478,14 +1478,12 @@ const ExerciseDisplay = (props: {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
 	const userPreferences = useUserPreferences();
-	const unitSystem = useUserUnitSystem();
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
-	const selectedUnitSystem = exercise.unitSystem || unitSystem;
 	const coreDetails = useCoreDetails();
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
@@ -1502,9 +1500,10 @@ const ExerciseDisplay = (props: {
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
 	};
 
+	const selectedUnitSystem = exercise.unitSystem;
+	const exerciseHistory = userExerciseDetails?.history;
 	const isOnboardingTourStep =
 		isOnboardingTourInProgress && props.exerciseIdx === 0;
-	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])

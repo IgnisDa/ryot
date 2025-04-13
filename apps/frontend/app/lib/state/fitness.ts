@@ -62,7 +62,7 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	isShowDetailsOpen: boolean;
 	scrollMarginRemoved?: true;
-	unitSystem?: UserUnitSystem;
+	unitSystem: UserUnitSystem;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
@@ -329,7 +329,7 @@ export const duplicateOldWorkout = async (
 			exerciseId: ex.id,
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
-			unitSystem: ex.unitSystem || undefined,
+			unitSystem: ex.unitSystem,
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
 	}
@@ -412,6 +412,7 @@ export const addExerciseToCurrentWorkout = async (
 			exerciseId: ex.name,
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
+			unitSystem: userFitnessPreferences.exercises.unitSystem,
 		});
 	}
 	const finishedDraft = finishDraft(draft);
