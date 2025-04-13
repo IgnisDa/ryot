@@ -56,7 +56,7 @@ async function createImageFallbackFixture() {
 	const schema = await createEntitySchema(client, cookies, {
 		trackerId,
 		name: "Fallback Image Device",
-		propertiesSchema: { category: { type: "string" } },
+		propertiesSchema: { fields: { category: { type: "string" } } },
 	});
 
 	await createRuntimeEntity({
