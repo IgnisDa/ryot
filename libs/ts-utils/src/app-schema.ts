@@ -6,6 +6,7 @@ export const appPropertyPrimitiveTypes = [
 	"integer",
 	"boolean",
 	"date",
+	"datetime",
 ] as const;
 
 export type AppPropertyPrimitiveType =
@@ -75,12 +76,17 @@ export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	type: "date";
 };
 
+export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
+	type: "datetime";
+};
+
 export type AppPrimitiveProperty =
 	| AppDateProperty
 	| AppStringProperty
 	| AppNumberProperty
 	| AppIntegerProperty
-	| AppBooleanProperty;
+	| AppBooleanProperty
+	| AppDateTimeProperty;
 
 export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	type: "array";
@@ -419,7 +425,7 @@ const toAppSchemaInternal = (
 	}
 
 	if (value.constructor.name === "ZodISODateTime") {
-		return applyRequiredValidation({ type: "date" });
+		return applyRequiredValidation({ type: "datetime" });
 	}
 
 	if (value instanceof z.ZodArray) {
@@ -464,6 +470,8 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 			return applyStringValidation(z.string(), property.validation);
 		case "date":
 			return z.iso.date();
+		case "datetime":
+			return z.iso.datetime();
 		case "boolean":
 			return z.boolean();
 		case "number": {

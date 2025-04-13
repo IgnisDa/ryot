@@ -2950,13 +2950,21 @@ export interface components {
             /** @enum {string} */
             operator: "not_in";
         };
-        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"];
+        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppDateTimeProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"];
         AppDateProperty: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "date";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
+        };
+        AppDateTimeProperty: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "datetime";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         AppRequiredPropertyValidation: {
