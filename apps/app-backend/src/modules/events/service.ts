@@ -3,8 +3,6 @@ import { chunk } from "lodash";
 import { z } from "zod";
 import { resolveEntitySchemaReadAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
-
-import { normalizeBuiltinMediaEventProperties } from "~/lib/media-lifecycle-validation";
 import {
 	type ServiceResult,
 	serviceData,
@@ -169,9 +167,6 @@ export const resolveEventCreateAccess = (
 
 export const resolveEventCreateInput = (
 	input: CreateEventBody & {
-		isBuiltin: boolean;
-		eventSchemaSlug: string;
-		entitySchemaSlug: string;
 		propertiesSchema: AppSchema;
 	},
 ) => {
@@ -182,21 +177,12 @@ export const resolveEventCreateInput = (
 		properties: input.properties,
 		propertiesSchema: input.propertiesSchema,
 	});
-	const properties = normalizeBuiltinMediaEventProperties({
-		isBuiltin: input.isBuiltin,
-		properties: parsedProperties,
-		eventSchemaSlug: input.eventSchemaSlug,
-		entitySchemaSlug: input.entitySchemaSlug,
-	});
 
-	return { entityId, occurredAt, properties, eventSchemaId };
+	return { entityId, occurredAt, properties: parsedProperties, eventSchemaId };
 };
 
 const resolveEventCreateInputResult = (
 	input: CreateEventBody & {
-		isBuiltin: boolean;
-		eventSchemaSlug: string;
-		entitySchemaSlug: string;
 		propertiesSchema: AppSchema;
 	},
 ) =>
@@ -275,10 +261,7 @@ export const createEvent = async (
 		entityId: input.body.entityId,
 		occurredAt: input.body.occurredAt,
 		properties: input.body.properties,
-		isBuiltin: foundScope.access.isBuiltin,
 		eventSchemaId: input.body.eventSchemaId,
-		eventSchemaSlug: foundScope.access.eventSchemaSlug,
-		entitySchemaSlug: foundScope.access.entitySchemaSlug,
 		propertiesSchema: foundScope.access.propertiesSchema,
 	});
 	if ("error" in eventInput) {
