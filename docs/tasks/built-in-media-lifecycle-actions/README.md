@@ -326,16 +326,16 @@ integer `rating` plus optional `review` text for `review`.
 
 ## Tasks
 
-**Overall Progress:** 1 of 6 tasks completed
+**Overall Progress:** 2 of 6 tasks completed
 
-**Current Task:** [Task 02](./02-backlog-events-for-built-in-media.md) (todo)
+**Current Task:** [Task 03](./03-progress-events-for-built-in-media.md) (todo)
 
 ### Task List
 
 | # | Task | Type | Status | Blocked By |
 |---|------|------|--------|------------|
 | 01 | [Clean Up Built-in Event Schema Foundation](./01-clean-up-built-in-event-schema-foundation.md) | AFK | done | None |
-| 02 | [Backlog Events for Built-in Media](./02-backlog-events-for-built-in-media.md) | AFK | todo | Task 01 |
+| 02 | [Backlog Events for Built-in Media](./02-backlog-events-for-built-in-media.md) | AFK | done | Task 01 |
 | 03 | [Progress Events for Built-in Media](./03-progress-events-for-built-in-media.md) | AFK | todo | Task 01 |
 | 04 | [Complete Events for Built-in Media](./04-complete-events-for-built-in-media.md) | AFK | todo | Task 01 |
 | 05 | [Review Events for Built-in Media](./05-review-events-for-built-in-media.md) | AFK | todo | Task 01 |
