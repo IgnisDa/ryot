@@ -74,7 +74,7 @@ pub async fn delete_user(
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    let admin_count = users_list(ss, None)
+    let admin_count = users_list(&admin_user_id, None, ss)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)
