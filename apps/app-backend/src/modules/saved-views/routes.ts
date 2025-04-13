@@ -11,6 +11,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import {
+	cloneSavedViewByIdForUser,
 	createSavedViewForUser,
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
@@ -121,6 +122,21 @@ const deleteSavedViewRoute = createAuthRoute(
 				"Saved view was deleted",
 				createSavedViewResponseSchema,
 			),
+		},
+	}),
+);
+
+const cloneSavedViewRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		tags: ["saved-views"],
+		path: "/{viewId}/clone",
+		request: { params: savedViewParams },
+		summary: "Clone an existing saved view",
+		responses: {
+			400: payloadErrorResponse(),
+			404: notFoundResponse("Saved view not found"),
+			200: jsonResponse("Saved view was cloned", createSavedViewResponseSchema),
 		},
 	}),
 );
@@ -256,4 +272,41 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			);
 
 		return c.json(successResponse(deletedView), 200);
+	})
+	.openapi(cloneSavedViewRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const sourceView = await getSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+		});
+
+		if (!sourceView)
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+
+		const clonedName = `${sourceView.name} (Copy)`;
+		const nameResult = resolveValidationData(
+			() => resolveSavedViewName(clonedName),
+			"Cloned view name is invalid",
+		);
+		if ("status" in nameResult)
+			return c.json(nameResult.body, nameResult.status);
+
+		const clonedView = await cloneSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+			clonedName: nameResult.data,
+		});
+
+		if (!clonedView)
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+
+		return c.json(successResponse(clonedView), 200);
 	});
