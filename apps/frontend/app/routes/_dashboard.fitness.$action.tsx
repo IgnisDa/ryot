@@ -1559,6 +1559,23 @@ const ExerciseDisplay = (props: {
 				title={`Exercise details for ${exerciseDetails?.name}`}
 			>
 				<Stack>
+					<Select
+						size="sm"
+						label="Unit system"
+						data={Object.values(UserUnitSystem).map((c) => ({
+							value: c,
+							label: startCase(c.toLowerCase()),
+						}))}
+						defaultValue={userPreferences.fitness.exercises.unitSystem}
+						onChange={(v) => {
+							setCurrentWorkout(
+								produce(currentWorkout, (draft) => {
+									draft.exercises[props.exerciseIdx].unitSystem =
+										v as UserUnitSystem;
+								}),
+							);
+						}}
+					/>
 					<ScrollArea type="scroll">
 						<Group wrap="nowrap">
 							{exerciseDetails?.attributes.images.map((i) => (
