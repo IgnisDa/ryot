@@ -929,6 +929,7 @@ export type Integration = {
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   name?: Maybe<Scalars['String']['output']>;
   provider: IntegrationProvider;
+  providerSpecifics?: Maybe<IntegrationProviderSpecifics>;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
   triggerResult: Array<IntegrationTriggerResult>;
 };
@@ -953,6 +954,34 @@ export enum IntegrationProvider {
   Sonarr = 'SONARR',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
+
+export type IntegrationProviderSpecifics = {
+  __typename?: 'IntegrationProviderSpecifics';
+  audiobookshelfBaseUrl?: Maybe<Scalars['String']['output']>;
+  audiobookshelfToken?: Maybe<Scalars['String']['output']>;
+  jellyfinPushBaseUrl?: Maybe<Scalars['String']['output']>;
+  jellyfinPushPassword?: Maybe<Scalars['String']['output']>;
+  jellyfinPushUsername?: Maybe<Scalars['String']['output']>;
+  komgaBaseUrl?: Maybe<Scalars['String']['output']>;
+  komgaPassword?: Maybe<Scalars['String']['output']>;
+  komgaProvider?: Maybe<MediaSource>;
+  komgaUsername?: Maybe<Scalars['String']['output']>;
+  plexSinkUsername?: Maybe<Scalars['String']['output']>;
+  plexYankBaseUrl?: Maybe<Scalars['String']['output']>;
+  plexYankToken?: Maybe<Scalars['String']['output']>;
+  radarrApiKey?: Maybe<Scalars['String']['output']>;
+  radarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  radarrProfileId?: Maybe<Scalars['Int']['output']>;
+  radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  sonarrApiKey?: Maybe<Scalars['String']['output']>;
+  sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  sonarrProfileId?: Maybe<Scalars['Int']['output']>;
+  sonarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  sonarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  youtubeMusicAuthCookie?: Maybe<Scalars['String']['output']>;
+  youtubeMusicTimezone?: Maybe<Scalars['String']['output']>;
+};
 
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;

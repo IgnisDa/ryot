@@ -76,6 +76,32 @@ query UserIntegrations {
 			error
 			finishedAt
 		}
+		providerSpecifics {
+			plexYankToken
+			plexYankBaseUrl
+			plexSinkUsername
+			audiobookshelfToken
+			audiobookshelfBaseUrl
+			komgaBaseUrl
+			komgaUsername
+			komgaPassword
+			komgaProvider
+			radarrBaseUrl
+			radarrApiKey
+			radarrProfileId
+			radarrRootFolderPath
+			radarrSyncCollectionIds
+			sonarrProfileId
+			sonarrApiKey
+			sonarrBaseUrl
+			sonarrRootFolderPath
+			sonarrSyncCollectionIds
+			jellyfinPushBaseUrl
+			jellyfinPushUsername
+			jellyfinPushPassword
+			youtubeMusicTimezone
+			youtubeMusicAuthCookie
+		}
 	}
 }
 
