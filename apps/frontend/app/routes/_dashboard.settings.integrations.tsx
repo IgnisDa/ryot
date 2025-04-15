@@ -232,10 +232,10 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const [
-		createIntegrationModalOpened,
+		createOrUpdateIntegrationModalOpened,
 		{
 			open: openCreateUserYankIntegrationModal,
-			close: closeCreateIntegrationModal,
+			close: closeCreateOrUpdateIntegrationModal,
 		},
 	] = useDisclosure(false);
 	const [updateIntegrationModalData, setUpdateIntegrationModalData] =
@@ -283,9 +283,9 @@ export default function Page() {
 							Add new integration
 						</Button>
 					</Group>
-					<CreateIntegrationModal
-						createModalOpened={createIntegrationModalOpened}
-						closeIntegrationModal={closeCreateIntegrationModal}
+					<CreateOrUpdateIntegrationModal
+						close={closeCreateOrUpdateIntegrationModal}
+						opened={createOrUpdateIntegrationModalOpened}
 					/>
 					<UpdateIntegrationModal
 						updateIntegrationData={updateIntegrationModalData}
@@ -461,9 +461,9 @@ const DisplayIntegration = (props: {
 	);
 };
 
-const CreateIntegrationModal = (props: {
-	createModalOpened: boolean;
-	closeIntegrationModal: () => void;
+const CreateOrUpdateIntegrationModal = (props: {
+	opened: boolean;
+	close: () => void;
 }) => {
 	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider>();
@@ -476,14 +476,14 @@ const CreateIntegrationModal = (props: {
 	return (
 		<Modal
 			centered
+			opened={props.opened}
+			onClose={props.close}
 			withCloseButton={false}
-			opened={props.createModalOpened}
-			onClose={props.closeIntegrationModal}
 		>
 			<Form
 				replace
 				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
+				onSubmit={() => props.close()}
 				action={withQuery(".", { intent: "create" })}
 			>
 				<Stack>
