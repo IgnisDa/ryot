@@ -31,12 +31,12 @@ use itertools::Itertools;
 use jwt_service::sign;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
-    ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
-    ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
-    UserDetailsError, UserDetailsErrorVariant,
+    CreateOrUpdateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError,
+    LoginErrorVariant, LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput,
+    ProcessAccessLinkError, ProcessAccessLinkErrorVariant, ProcessAccessLinkInput,
+    ProcessAccessLinkResponse, ProcessAccessLinkResult, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput, UpdateUserIntegrationInput,
+    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -588,11 +588,11 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn create_user_integration(
+    pub async fn create_or_update_user_integration(
         &self,
         user_id: String,
-        input: CreateUserIntegrationInput,
-    ) -> Result<StringIdObject> {
+        input: CreateOrUpdateUserIntegrationInput,
+    ) -> Result<bool> {
         match input.provider {
             IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
                 server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
@@ -614,19 +614,25 @@ ORDER BY RANDOM() LIMIT 10;
             | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
+        let id = match input.integration_id {
+            None => ActiveValue::NotSet,
+            Some(id) => ActiveValue::Set(id),
+        };
         let to_insert = integration::ActiveModel {
+            id,
             lot: ActiveValue::Set(lot),
             name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
             provider: ActiveValue::Set(input.provider),
+            is_disabled: ActiveValue::Set(input.is_disabled),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
             provider_specifics: ActiveValue::Set(input.provider_specifics),
             sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             ..Default::default()
         };
-        let integration = to_insert.insert(&self.0.db).await?;
-        Ok(StringIdObject { id: integration.id })
+        to_insert.save(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn delete_user_integration(

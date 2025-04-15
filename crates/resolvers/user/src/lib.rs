@@ -5,7 +5,7 @@ use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform, user};
 use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
 use media_models::{
-    AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
+    AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserIntegrationInput,
     UpdateUserNotificationPlatformInput,
@@ -184,15 +184,17 @@ impl UserMutation {
         service.update_user_preference(user_id, input).await
     }
 
-    /// Create an integration for the currently logged in user.
-    async fn create_user_integration(
+    /// Create or update an integration for the currently logged in user.
+    async fn create_or_update_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateUserIntegrationInput,
-    ) -> Result<StringIdObject> {
+        input: CreateOrUpdateUserIntegrationInput,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_integration(user_id, input).await
+        service
+            .create_or_update_user_integration(user_id, input)
+            .await
     }
 
     /// Update an integration for the currently logged in user.

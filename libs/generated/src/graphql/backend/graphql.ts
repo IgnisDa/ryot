@@ -339,6 +339,17 @@ export type CreateOrUpdateReviewInput = {
   visibility?: InputMaybe<Visibility>;
 };
 
+export type CreateOrUpdateUserIntegrationInput = {
+  integrationId?: InputMaybe<Scalars['String']['input']>;
+  isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  provider: IntegrationProvider;
+  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
+  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type CreateReviewCommentInput = {
   commentId?: InputMaybe<Scalars['String']['input']>;
   decrementLikes?: InputMaybe<Scalars['Boolean']['input']>;
@@ -347,15 +358,6 @@ export type CreateReviewCommentInput = {
   reviewId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
   text?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateUserIntegrationInput = {
-  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  provider: IntegrationProvider;
-  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
-  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type CreateUserNotificationPlatformInput = {
@@ -1179,14 +1181,14 @@ export type MutationRoot = {
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
   createOrUpdateReview: StringIdObject;
+  /** Create or update an integration for the currently logged in user. */
+  createOrUpdateUserIntegration: Scalars['Boolean']['output'];
   /** Take a user workout, process it and commit it to database. */
   createOrUpdateUserWorkout: Scalars['String']['output'];
   /** Create or update a workout template. */
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
-  /** Create an integration for the currently logged in user. */
-  createUserIntegration: StringIdObject;
   /** Create a user measurement. */
   createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
@@ -1319,6 +1321,11 @@ export type MutationRootCreateOrUpdateReviewArgs = {
 };
 
 
+export type MutationRootCreateOrUpdateUserIntegrationArgs = {
+  input: CreateOrUpdateUserIntegrationInput;
+};
+
+
 export type MutationRootCreateOrUpdateUserWorkoutArgs = {
   input: UserWorkoutInput;
 };
@@ -1331,11 +1338,6 @@ export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
 
 export type MutationRootCreateReviewCommentArgs = {
   input: CreateReviewCommentInput;
-};
-
-
-export type MutationRootCreateUserIntegrationArgs = {
-  input: CreateUserIntegrationInput;
 };
 
 
@@ -3131,12 +3133,12 @@ export type CreateUserNotificationPlatformMutationVariables = Exact<{
 
 export type CreateUserNotificationPlatformMutation = { createUserNotificationPlatform: string };
 
-export type CreateUserIntegrationMutationVariables = Exact<{
-  input: CreateUserIntegrationInput;
+export type CreateOrUpdateUserIntegrationMutationVariables = Exact<{
+  input: CreateOrUpdateUserIntegrationInput;
 }>;
 
 
-export type CreateUserIntegrationMutation = { createUserIntegration: { id: string } };
+export type CreateOrUpdateUserIntegrationMutation = { createOrUpdateUserIntegration: boolean };
 
 export type CreateOrUpdateUserWorkoutMutationVariables = Exact<{
   input: UserWorkoutInput;
@@ -3754,7 +3756,7 @@ export const CreateOrUpdateCollectionDocument = {"kind":"Document","definitions"
 export const CreateReviewCommentDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateReviewComment"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateReviewCommentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createReviewComment"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateReviewCommentMutation, CreateReviewCommentMutationVariables>;
 export const CreateUserMeasurementDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserMeasurement"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserMeasurementInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserMeasurement"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserMeasurementMutation, CreateUserMeasurementMutationVariables>;
 export const CreateUserNotificationPlatformDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserNotificationPlatform"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserNotificationPlatformInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserNotificationPlatform"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateUserNotificationPlatformMutation, CreateUserNotificationPlatformMutationVariables>;
-export const CreateUserIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateUserIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateUserIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createUserIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateUserIntegrationMutation, CreateUserIntegrationMutationVariables>;
+export const CreateOrUpdateUserIntegrationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateUserIntegration"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateOrUpdateUserIntegrationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateUserIntegration"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateOrUpdateUserIntegrationMutation, CreateOrUpdateUserIntegrationMutationVariables>;
 export const CreateOrUpdateUserWorkoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateUserWorkout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserWorkoutInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateUserWorkout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateOrUpdateUserWorkoutMutation, CreateOrUpdateUserWorkoutMutationVariables>;
 export const CreateOrUpdateUserWorkoutTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateUserWorkoutTemplate"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserWorkoutInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateUserWorkoutTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateOrUpdateUserWorkoutTemplateMutation, CreateOrUpdateUserWorkoutTemplateMutationVariables>;
 export const DeleteCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"collectionName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"collectionName"}}}]}]}}]} as unknown as DocumentNode<DeleteCollectionMutation, DeleteCollectionMutationVariables>;

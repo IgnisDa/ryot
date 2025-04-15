@@ -320,6 +320,17 @@ export type CreateOrUpdateReviewInput = {
   visibility?: InputMaybe<Visibility>;
 };
 
+export type CreateOrUpdateUserIntegrationInput = {
+  integrationId?: InputMaybe<Scalars['String']['input']>;
+  isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  provider: IntegrationProvider;
+  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
+  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type CreateReviewCommentInput = {
   commentId?: InputMaybe<Scalars['String']['input']>;
   decrementLikes?: InputMaybe<Scalars['Boolean']['input']>;
@@ -328,15 +339,6 @@ export type CreateReviewCommentInput = {
   reviewId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
   text?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateUserIntegrationInput = {
-  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  provider: IntegrationProvider;
-  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
-  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type CreateUserNotificationPlatformInput = {
@@ -1210,14 +1212,14 @@ export type MutationRoot = {
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
   createOrUpdateReview: StringIdObject;
+  /** Create or update an integration for the currently logged in user. */
+  createOrUpdateUserIntegration: Scalars['Boolean']['output'];
   /** Take a user workout, process it and commit it to database. */
   createOrUpdateUserWorkout: Scalars['String']['output'];
   /** Create or update a workout template. */
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
-  /** Create an integration for the currently logged in user. */
-  createUserIntegration: StringIdObject;
   /** Create a user measurement. */
   createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
@@ -1350,6 +1352,11 @@ export type MutationRootCreateOrUpdateReviewArgs = {
 };
 
 
+export type MutationRootCreateOrUpdateUserIntegrationArgs = {
+  input: CreateOrUpdateUserIntegrationInput;
+};
+
+
 export type MutationRootCreateOrUpdateUserWorkoutArgs = {
   input: UserWorkoutInput;
 };
@@ -1362,11 +1369,6 @@ export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
 
 export type MutationRootCreateReviewCommentArgs = {
   input: CreateReviewCommentInput;
-};
-
-
-export type MutationRootCreateUserIntegrationArgs = {
-  input: CreateUserIntegrationInput;
 };
 
 

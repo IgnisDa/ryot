@@ -68,10 +68,8 @@ mutation CreateUserNotificationPlatform(
 	createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserIntegration($input: CreateUserIntegrationInput!) {
-	createUserIntegration(input: $input) {
-		id
-	}
+mutation CreateOrUpdateUserIntegration($input: CreateOrUpdateUserIntegrationInput!) {
+	createOrUpdateUserIntegration(input: $input)
 }
 
 mutation CreateOrUpdateUserWorkout($input: UserWorkoutInput!) {
