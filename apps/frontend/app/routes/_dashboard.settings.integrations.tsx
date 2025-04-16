@@ -129,7 +129,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			);
 		})
 		.with("create", async () => {
-			const submission = processSubmission(formData, createSchema);
+			const submission = processSubmission(formData, createOrUpdateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
 			submission.isDisabled = submission.isDisabled === true;
 			await serverGqlService.authenticatedRequest(
@@ -177,7 +177,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
-const createSchema = z.object({
+const createOrUpdateSchema = z.object({
 	name: z.string().optional(),
 	integrationId: z.string().optional(),
 	minimumProgress: z.string().optional(),
