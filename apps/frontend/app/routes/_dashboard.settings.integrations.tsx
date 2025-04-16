@@ -257,6 +257,7 @@ export default function Page() {
 						</Button>
 					</Group>
 					<CreateOrUpdateModal
+						key={createOrUpdateData?.id}
 						integrationData={createOrUpdateData}
 						close={() => setCreateOrUpdateData(undefined)}
 					/>
@@ -489,14 +490,22 @@ const CreateOrUpdateModal = (props: {
 						.with(IntegrationProvider.Audiobookshelf, () => (
 							<>
 								<TextInput
-									label="Base Url"
 									required
+									label="Base Url"
 									name="providerSpecifics.audiobookshelfBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.audiobookshelfBaseUrl || undefined
+									}
 								/>
 								<TextInput
 									label="Token"
 									required
 									name="providerSpecifics.audiobookshelfToken"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.audiobookshelfToken || undefined
+									}
 								/>
 							</>
 						))
@@ -506,21 +515,37 @@ const CreateOrUpdateModal = (props: {
 									label="Base Url"
 									required
 									name="providerSpecifics.komgaBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaBaseUrl ||
+										undefined
+									}
 								/>
 								<TextInput
 									label="Username"
 									required
 									name="providerSpecifics.komgaUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaUsername ||
+										undefined
+									}
 								/>
 								<TextInput
 									label="Password"
 									required
 									name="providerSpecifics.komgaPassword"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaPassword ||
+										undefined
+									}
 								/>
 								<Select
-									label="Select a provider"
-									name="providerSpecifics.komgaProvider"
 									required
+									label="Provider"
+									name="providerSpecifics.komgaProvider"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaProvider ||
+										undefined
+									}
 									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
 										label: changeCase(is),
 										value: is,
@@ -534,11 +559,19 @@ const CreateOrUpdateModal = (props: {
 									required
 									label="Base URL"
 									name="providerSpecifics.plexYankBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.plexYankBaseUrl ||
+										undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Plex token"
 									name="providerSpecifics.plexYankToken"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.plexYankToken ||
+										undefined
+									}
 								/>
 							</>
 						))
@@ -558,6 +591,10 @@ const CreateOrUpdateModal = (props: {
 									required
 									label="Auth Cookie"
 									name="providerSpecifics.youtubeMusicAuthCookie"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.youtubeMusicAuthCookie || undefined
+									}
 									description={
 										<Text size="xs" c="dimmed">
 											Please follow the{" "}
@@ -579,6 +616,10 @@ const CreateOrUpdateModal = (props: {
 								<TextInput
 									label="Username"
 									name="providerSpecifics.plexSinkUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.plexSinkUsername || undefined
+									}
 								/>
 							</>
 						))
@@ -588,21 +629,69 @@ const CreateOrUpdateModal = (props: {
 									required
 									label="Base URL"
 									name="providerSpecifics.jellyfinPushBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushBaseUrl || undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Username"
 									name="providerSpecifics.jellyfinPushUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushUsername || undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Password"
 									name="providerSpecifics.jellyfinPushPassword"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushPassword || undefined
+									}
 								/>
 							</>
 						))
-						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
-						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
+						.with(IntegrationProvider.Radarr, () => (
+							<ArrInputs
+								name="radarr"
+								defaults={{
+									baseUrl:
+										props.integrationData?.providerSpecifics?.radarrBaseUrl,
+									apiKey:
+										props.integrationData?.providerSpecifics?.radarrApiKey,
+									profileId:
+										props.integrationData?.providerSpecifics?.radarrProfileId,
+									rootFolderPath:
+										props.integrationData?.providerSpecifics
+											?.radarrRootFolderPath,
+									syncCollectionIds:
+										props.integrationData?.providerSpecifics
+											?.radarrSyncCollectionIds,
+								}}
+							/>
+						))
+						.with(IntegrationProvider.Sonarr, () => (
+							<ArrInputs
+								name="sonarr"
+								defaults={{
+									baseUrl:
+										props.integrationData?.providerSpecifics?.sonarrBaseUrl,
+									apiKey:
+										props.integrationData?.providerSpecifics?.sonarrApiKey,
+									profileId:
+										props.integrationData?.providerSpecifics?.sonarrProfileId,
+									rootFolderPath:
+										props.integrationData?.providerSpecifics
+											?.sonarrRootFolderPath,
+									syncCollectionIds:
+										props.integrationData?.providerSpecifics
+											?.sonarrSyncCollectionIds,
+								}}
+							/>
+						))
 						.otherwise(() => undefined)}
 					{provider && (
 						<Group justify="end">
@@ -692,7 +781,16 @@ const CreateOrUpdateModal = (props: {
 	);
 };
 
-const ArrInputs = (props: { name: string }) => {
+const ArrInputs = (props: {
+	name: string;
+	defaults?: {
+		apiKey: string | null | undefined;
+		baseUrl: string | null | undefined;
+		profileId: number | null | undefined;
+		rootFolderPath: string | null | undefined;
+		syncCollectionIds: string[] | null | undefined;
+	};
+}) => {
 	const collections = useNonHiddenUserCollections();
 
 	return (
@@ -701,29 +799,33 @@ const ArrInputs = (props: { name: string }) => {
 				required
 				label="Base Url"
 				name={`providerSpecifics.${props.name}BaseUrl`}
+				defaultValue={props.defaults?.baseUrl || undefined}
 			/>
 			<TextInput
 				required
 				label="Token"
 				name={`providerSpecifics.${props.name}ApiKey`}
+				defaultValue={props.defaults?.apiKey || undefined}
 			/>
 			<NumberInput
 				required
 				hideControls
-				defaultValue={1}
 				label="Profile ID"
 				name={`providerSpecifics.${props.name}ProfileId`}
+				defaultValue={props.defaults?.profileId || undefined}
 			/>
 			<TextInput
 				required
 				label="Root Folder"
 				name={`providerSpecifics.${props.name}RootFolderPath`}
+				defaultValue={props.defaults?.rootFolderPath || undefined}
 			/>
 			<MultiSelect
 				required
 				searchable
 				label="Collections"
 				name={`providerSpecifics.${props.name}SyncCollectionIds`}
+				defaultValue={props.defaults?.syncCollectionIds || undefined}
 				data={collections.map((c) => ({
 					label: c.name,
 					value: c.id,
