@@ -207,7 +207,7 @@ const deleteSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
-	const [createOrUpdateModalData, setCreateOrUpdateModalData] = useState<
+	const [createOrUpdateData, setCreateOrUpdateData] = useState<
 		Integration | null | undefined
 	>();
 
@@ -220,7 +220,7 @@ export default function Page() {
 						<DisplayIntegration
 							integration={i}
 							key={`${i.id}-${idx}`}
-							setCreateOrUpdateModalData={setCreateOrUpdateModalData}
+							setCreateOrUpdateData={setCreateOrUpdateData}
 						/>
 					))
 				) : (
@@ -249,16 +249,15 @@ export default function Page() {
 							variant="light"
 							radius="md"
 							onClick={() => {
-								setCreateOrUpdateModalData(null);
+								setCreateOrUpdateData(null);
 							}}
 						>
 							Add new integration
 						</Button>
 					</Group>
 					<CreateOrUpdateModal
-						integrationData={createOrUpdateModalData}
-						opened={createOrUpdateModalData !== undefined}
-						close={() => setCreateOrUpdateModalData(undefined)}
+						integrationData={createOrUpdateData}
+						close={() => setCreateOrUpdateData(undefined)}
 					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
@@ -299,7 +298,7 @@ type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
 const DisplayIntegration = (props: {
 	integration: Integration;
-	setCreateOrUpdateModalData: (data: Integration | null) => void;
+	setCreateOrUpdateData: (data: Integration | null) => void;
 }) => {
 	const [parent] = useAutoAnimate();
 	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
@@ -387,7 +386,7 @@ const DisplayIntegration = (props: {
 								color="indigo"
 								variant="subtle"
 								onClick={() => {
-									props.setCreateOrUpdateModalData(props.integration);
+									props.setCreateOrUpdateData(props.integration);
 								}}
 							>
 								<IconPencil />
@@ -431,7 +430,6 @@ const DisplayIntegration = (props: {
 };
 
 const CreateOrUpdateModal = (props: {
-	opened: boolean;
 	close: () => void;
 	integrationData: Integration | null | undefined;
 }) => {
@@ -449,9 +447,9 @@ const CreateOrUpdateModal = (props: {
 	return (
 		<Modal
 			centered
-			opened={props.opened}
 			onClose={props.close}
 			withCloseButton={false}
+			opened={props.integrationData !== undefined}
 		>
 			<Form
 				replace
