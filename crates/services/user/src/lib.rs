@@ -556,37 +556,43 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: CreateOrUpdateUserIntegrationInput,
     ) -> Result<bool> {
-        match input.provider {
-            IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
-                server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+        let mut lot = ActiveValue::NotSet;
+        let mut provider = ActiveValue::NotSet;
+        if let Some(p) = input.provider {
+            match p {
+                IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                }
+                _ => {}
             }
-            _ => {}
-        }
+            let l = match p {
+                IntegrationProvider::Komga
+                | IntegrationProvider::PlexYank
+                | IntegrationProvider::YoutubeMusic
+                | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+                IntegrationProvider::Radarr
+                | IntegrationProvider::Sonarr
+                | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
+                _ => IntegrationLot::Sink,
+            };
+            lot = ActiveValue::Set(l);
+            provider = ActiveValue::Set(p);
+        };
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
                 "Minimum progress cannot be greater than maximum progress",
             ));
         }
-        let lot = match input.provider {
-            IntegrationProvider::Komga
-            | IntegrationProvider::PlexYank
-            | IntegrationProvider::YoutubeMusic
-            | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Radarr
-            | IntegrationProvider::Sonarr
-            | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
-            _ => IntegrationLot::Sink,
-        };
         let id = match input.integration_id {
             None => ActiveValue::NotSet,
             Some(id) => ActiveValue::Set(id),
         };
         let to_insert = integration::ActiveModel {
             id,
-            lot: ActiveValue::Set(lot),
+            lot,
+            provider,
             name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
-            provider: ActiveValue::Set(input.provider),
             is_disabled: ActiveValue::Set(input.is_disabled),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),

@@ -1015,10 +1015,10 @@ pub struct UpdateCustomMetadataInput {
 pub struct CreateOrUpdateUserIntegrationInput {
     pub name: Option<String>,
     pub is_disabled: Option<bool>,
-    pub provider: IntegrationProvider,
     pub integration_id: Option<String>,
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
+    pub provider: Option<IntegrationProvider>,
     pub sync_to_owned_collection: Option<bool>,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }

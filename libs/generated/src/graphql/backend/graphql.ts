@@ -345,7 +345,7 @@ export type CreateOrUpdateUserIntegrationInput = {
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
-  provider: IntegrationProvider;
+  provider?: InputMaybe<IntegrationProvider>;
   providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
   syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
