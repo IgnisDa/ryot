@@ -31,7 +31,6 @@ import {
 	GenerateAuthTokenDocument,
 	IntegrationProvider,
 	MediaSource,
-	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -128,7 +127,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				},
 			);
 		})
-		.with("create", async () => {
+		.with("createOrUpdate", async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
 			submission.isDisabled = submission.isDisabled === true;
@@ -137,31 +136,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateOrUpdateUserIntegrationDocument,
 				{ input: submission },
 			);
+
+			const isUpdate = Boolean(submission.integrationId);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
 				{
 					headers: await createToastHeaders({
 						type: "success",
-						message: "Integration created successfully",
+						message: `Integration ${isUpdate ? "updated" : "created"} successfully`,
 					}),
 				},
 			);
-		})
-		.with("update", async () => {
-			const submission = processSubmission(formData, updateSchema);
-			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
-			submission.isDisabled = submission.isDisabled === true;
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateUserIntegrationDocument,
-				{ input: submission },
-			);
-			return data({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Integration updated successfully",
-				}),
-			});
 		})
 		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
@@ -217,15 +202,6 @@ const createOrUpdateSchema = z.object({
 
 const deleteSchema = z.object({
 	integrationId: z.string(),
-});
-
-const updateSchema = z.object({
-	integrationId: z.string(),
-	name: z.string().optional(),
-	minimumProgress: z.string().optional(),
-	maximumProgress: z.string().optional(),
-	isDisabled: zodCheckboxAsString.optional(),
-	syncToOwnedCollection: zodCheckboxAsString.optional(),
 });
 
 export default function Page() {
@@ -481,7 +457,7 @@ const CreateOrUpdateModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.close()}
-				action={withQuery(".", { intent: isUpdating ? "update" : "create" })}
+				action={withQuery(".", { intent: "createOrUpdate" })}
 			>
 				{isUpdating && props.integrationData && (
 					<input
