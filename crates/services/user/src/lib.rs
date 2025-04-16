@@ -35,8 +35,8 @@ use media_models::{
     LoginErrorVariant, LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput,
     ProcessAccessLinkError, ProcessAccessLinkErrorVariant, ProcessAccessLinkInput,
     ProcessAccessLinkResponse, ProcessAccessLinkResult, RegisterError, RegisterErrorVariant,
-    RegisterResult, RegisterUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
+    RegisterResult, RegisterUserInput, UpdateUserNotificationPlatformInput, UserDetailsError,
+    UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -548,43 +548,6 @@ ORDER BY RANDOM() LIMIT 10;
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(input);
         user_model.update(&self.0.db).await?;
-        Ok(true)
-    }
-
-    pub async fn update_user_integration(
-        &self,
-        user_id: String,
-        input: UpdateUserIntegrationInput,
-    ) -> Result<bool> {
-        let db_integration = Integration::find_by_id(input.integration_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
-        if db_integration.user_id != user_id {
-            return Err(Error::new("Integration does not belong to the user"));
-        }
-        if input.minimum_progress > input.maximum_progress {
-            return Err(Error::new(
-                "Minimum progress cannot be greater than maximum progress",
-            ));
-        }
-        let mut db_integration: integration::ActiveModel = db_integration.into();
-        if let Some(n) = input.name {
-            db_integration.name = ActiveValue::Set(Some(n));
-        }
-        if let Some(s) = input.minimum_progress {
-            db_integration.minimum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(s) = input.maximum_progress {
-            db_integration.maximum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(d) = input.is_disabled {
-            db_integration.is_disabled = ActiveValue::Set(Some(d));
-        }
-        if let Some(d) = input.sync_to_owned_collection {
-            db_integration.sync_to_owned_collection = ActiveValue::Set(Some(d));
-        }
-        db_integration.update(&self.0.db).await?;
         Ok(true)
     }
 

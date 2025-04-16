@@ -1024,16 +1024,6 @@ pub struct CreateOrUpdateUserIntegrationInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct UpdateUserIntegrationInput {
-    pub name: Option<String>,
-    pub integration_id: String,
-    pub is_disabled: Option<bool>,
-    pub minimum_progress: Option<Decimal>,
-    pub maximum_progress: Option<Decimal>,
-    pub sync_to_owned_collection: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserNotificationPlatformInput {
     pub lot: NotificationPlatformLot,
     pub base_url: Option<String>,

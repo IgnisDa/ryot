@@ -1340,8 +1340,6 @@ export type MutationRoot = {
   updateUser: StringIdObject;
   /** Update a user's exercise settings. */
   updateUserExerciseSettings: Scalars['Boolean']['output'];
-  /** Update an integration for the currently logged in user. */
-  updateUserIntegration: Scalars['Boolean']['output'];
   /** Edit a notification platform for the currently logged in user. */
   updateUserNotificationPlatform: Scalars['Boolean']['output'];
   /** Change a user's preferences. */
@@ -1570,11 +1568,6 @@ export type MutationRootUpdateUserArgs = {
 
 export type MutationRootUpdateUserExerciseSettingsArgs = {
   input: UpdateUserExerciseSettings;
-};
-
-
-export type MutationRootUpdateUserIntegrationArgs = {
-  input: UpdateUserIntegrationInput;
 };
 
 
@@ -2290,15 +2283,6 @@ export type UpdateUserInput = {
   password?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type UpdateUserIntegrationInput = {
-  integrationId: Scalars['String']['input'];
-  isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
-  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type UpdateUserNotificationPlatformInput = {

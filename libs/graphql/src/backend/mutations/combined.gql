@@ -34,10 +34,6 @@ mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
 	updateCustomExercise(input: $input)
 }
 
-mutation UpdateUserIntegration($input: UpdateUserIntegrationInput!) {
-	updateUserIntegration(input: $input)
-}
-
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
 	createCustomMetadata(input: $input) {
 		id

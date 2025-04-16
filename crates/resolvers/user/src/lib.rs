@@ -7,7 +7,7 @@ use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommenda
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserIntegrationInput,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
@@ -195,17 +195,6 @@ impl UserMutation {
         service
             .create_or_update_user_integration(user_id, input)
             .await
-    }
-
-    /// Update an integration for the currently logged in user.
-    async fn update_user_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: UpdateUserIntegrationInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
