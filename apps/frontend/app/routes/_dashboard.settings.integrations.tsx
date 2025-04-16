@@ -6,6 +6,7 @@ import {
 	Box,
 	Button,
 	Checkbox,
+	Collapse,
 	Container,
 	CopyButton,
 	Drawer,
@@ -437,6 +438,8 @@ const CreateOrUpdateModal = (props: {
 	const [provider, setProvider] = useState<IntegrationProvider | undefined>(
 		props.integrationData?.provider,
 	);
+	const [isAdvancedSettingsOpened, { toggle: toggleAdvancedSettings }] =
+		useDisclosure(false);
 
 	const isUpdating = Boolean(props.integrationData?.id);
 	const disableCreationButtonBecauseProRequired =
@@ -457,7 +460,7 @@ const CreateOrUpdateModal = (props: {
 				onSubmit={() => props.close()}
 				action={withQuery(".", { intent: "createOrUpdate" })}
 			>
-				{isUpdating && props.integrationData && (
+				{props.integrationData && (
 					<input
 						type="hidden"
 						name="integrationId"
@@ -482,217 +485,207 @@ const CreateOrUpdateModal = (props: {
 							}))}
 						/>
 					) : null}
-					<TextInput
-						name="name"
-						label="Name"
-						defaultValue={props.integrationData?.name || undefined}
-					/>
-					{(!isUpdating &&
-						provider &&
-						!NO_PROGRESS_ADJUSTMENT.includes(provider)) ||
-					(isUpdating &&
-						props.integrationData &&
-						!NO_PROGRESS_ADJUSTMENT.includes(
-							props.integrationData.provider,
-						)) ? (
-						<Group wrap="nowrap">
-							<NumberInput
-								min={0}
-								required={!isUpdating}
-								max={100}
-								size="xs"
-								name="minimumProgress"
-								label="Minimum progress"
-								defaultValue={
-									props.integrationData?.minimumProgress || MINIMUM_PROGRESS
-								}
-								description="Progress will not be synced below this value"
-							/>
-							<NumberInput
-								min={0}
-								required={!isUpdating}
-								max={100}
-								size="xs"
-								name="maximumProgress"
-								label="Maximum progress"
-								defaultValue={
-									props.integrationData?.maximumProgress || MAXIMUM_PROGRESS
-								}
-								description="After this value, progress will be marked as completed"
-							/>
-						</Group>
-					) : null}
-					{!isUpdating &&
-						match(provider)
-							.with(IntegrationProvider.Audiobookshelf, () => (
-								<>
-									<TextInput
-										label="Base Url"
-										required
-										name="providerSpecifics.audiobookshelfBaseUrl"
-									/>
-									<TextInput
-										label="Token"
-										required
-										name="providerSpecifics.audiobookshelfToken"
-									/>
-								</>
-							))
-							.with(IntegrationProvider.Komga, () => (
-								<>
-									<TextInput
-										label="Base Url"
-										required
-										name="providerSpecifics.komgaBaseUrl"
-									/>
-									<TextInput
-										label="Username"
-										required
-										name="providerSpecifics.komgaUsername"
-									/>
-									<TextInput
-										label="Password"
-										required
-										name="providerSpecifics.komgaPassword"
-									/>
-									<Select
-										label="Select a provider"
-										name="providerSpecifics.komgaProvider"
-										required
-										data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
-											label: changeCase(is),
-											value: is,
-										}))}
-									/>
-								</>
-							))
-							.with(IntegrationProvider.PlexYank, () => (
-								<>
-									<TextInput
-										required
-										label="Base URL"
-										name="providerSpecifics.plexYankBaseUrl"
-									/>
-									<TextInput
-										required
-										label="Plex token"
-										name="providerSpecifics.plexYankToken"
-									/>
-								</>
-							))
-							.with(IntegrationProvider.YoutubeMusic, () => (
-								<>
-									<Select
-										required
-										searchable
-										label="Timezone"
-										name="providerSpecifics.youtubeMusicTimezone"
-										data={Intl.supportedValuesOf("timeZone")}
-										defaultValue={
-											Intl.DateTimeFormat().resolvedOptions().timeZone
-										}
-									/>
-									<TextInput
-										required
-										label="Auth Cookie"
-										name="providerSpecifics.youtubeMusicAuthCookie"
-										description={
-											<Text size="xs" c="dimmed">
-												Please follow the{" "}
-												<Anchor
-													target="_blank"
-													rel="noreferrer noopener"
-													href="https://docs.ryot.io/integrations#youtube-music"
-												>
-													docs
-												</Anchor>{" "}
-												to get the correct cookie
-											</Text>
-										}
-									/>
-								</>
-							))
-							.with(IntegrationProvider.PlexSink, () => (
-								<>
-									<TextInput
-										label="Username"
-										name="providerSpecifics.plexSinkUsername"
-									/>
-								</>
-							))
-							.with(IntegrationProvider.JellyfinPush, () => (
-								<>
-									<TextInput
-										required
-										label="Base URL"
-										name="providerSpecifics.jellyfinPushBaseUrl"
-									/>
-									<TextInput
-										required
-										label="Username"
-										name="providerSpecifics.jellyfinPushUsername"
-									/>
-									<TextInput
-										required
-										label="Password"
-										name="providerSpecifics.jellyfinPushPassword"
-									/>
-								</>
-							))
-							.with(IntegrationProvider.Radarr, () => (
-								<ArrInputs name="radarr" />
-							))
-							.with(IntegrationProvider.Sonarr, () => (
-								<ArrInputs name="sonarr" />
-							))
-							.otherwise(() => undefined)}
-					{(isUpdating &&
-						props.integrationData &&
-						SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
-							props.integrationData.provider,
-						)) ||
-					(!isUpdating &&
-						provider &&
-						SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider)) ? (
-						<Tooltip
-							label="Only available for Pro users"
-							disabled={coreDetails.isServerKeyValidated}
-						>
-							<Checkbox
-								name="syncToOwnedCollection"
-								label="Sync to Owned collection"
-								disabled={!coreDetails.isServerKeyValidated}
-								styles={{ body: { display: "flex", alignItems: "center" } }}
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
-								defaultChecked={
-									props.integrationData?.syncToOwnedCollection || undefined
-								}
-							/>
-						</Tooltip>
-					) : undefined}
-					{!isUpdating && (
-						<Tooltip
-							label={PRO_REQUIRED_MESSAGE}
-							disabled={!disableCreationButtonBecauseProRequired}
-						>
+					{match(provider)
+						.with(IntegrationProvider.Audiobookshelf, () => (
+							<>
+								<TextInput
+									label="Base Url"
+									required
+									name="providerSpecifics.audiobookshelfBaseUrl"
+								/>
+								<TextInput
+									label="Token"
+									required
+									name="providerSpecifics.audiobookshelfToken"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.Komga, () => (
+							<>
+								<TextInput
+									label="Base Url"
+									required
+									name="providerSpecifics.komgaBaseUrl"
+								/>
+								<TextInput
+									label="Username"
+									required
+									name="providerSpecifics.komgaUsername"
+								/>
+								<TextInput
+									label="Password"
+									required
+									name="providerSpecifics.komgaPassword"
+								/>
+								<Select
+									label="Select a provider"
+									name="providerSpecifics.komgaProvider"
+									required
+									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
+										label: changeCase(is),
+										value: is,
+									}))}
+								/>
+							</>
+						))
+						.with(IntegrationProvider.PlexYank, () => (
+							<>
+								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.plexYankBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Plex token"
+									name="providerSpecifics.plexYankToken"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.YoutubeMusic, () => (
+							<>
+								<Select
+									required
+									searchable
+									label="Timezone"
+									name="providerSpecifics.youtubeMusicTimezone"
+									data={Intl.supportedValuesOf("timeZone")}
+									defaultValue={
+										Intl.DateTimeFormat().resolvedOptions().timeZone
+									}
+								/>
+								<TextInput
+									required
+									label="Auth Cookie"
+									name="providerSpecifics.youtubeMusicAuthCookie"
+									description={
+										<Text size="xs" c="dimmed">
+											Please follow the{" "}
+											<Anchor
+												target="_blank"
+												rel="noreferrer noopener"
+												href="https://docs.ryot.io/integrations#youtube-music"
+											>
+												docs
+											</Anchor>{" "}
+											to get the correct cookie
+										</Text>
+									}
+								/>
+							</>
+						))
+						.with(IntegrationProvider.PlexSink, () => (
+							<>
+								<TextInput
+									label="Username"
+									name="providerSpecifics.plexSinkUsername"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.JellyfinPush, () => (
+							<>
+								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.jellyfinPushBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Username"
+									name="providerSpecifics.jellyfinPushUsername"
+								/>
+								<TextInput
+									required
+									label="Password"
+									name="providerSpecifics.jellyfinPushPassword"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
+						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
+						.otherwise(() => undefined)}
+					{provider && (
+						<Group justify="end">
 							<Button
-								type="submit"
-								disabled={disableCreationButtonBecauseProRequired}
+								size="compact-xs"
+								variant="subtle"
+								onClick={toggleAdvancedSettings}
 							>
-								Submit
+								{isAdvancedSettingsOpened ? "Hide" : "Show"} advanced settings
 							</Button>
-						</Tooltip>
+						</Group>
 					)}
-					{isUpdating && props.integrationData && (
-						<>
+					<Collapse in={isAdvancedSettingsOpened}>
+						<Stack>
+							<TextInput
+								name="name"
+								label="Name"
+								defaultValue={props.integrationData?.name || undefined}
+							/>
+							{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
+								<Group wrap="nowrap">
+									<NumberInput
+										min={0}
+										size="xs"
+										max={100}
+										required
+										name="minimumProgress"
+										label="Minimum progress"
+										description="Progress will not be synced below this value"
+										defaultValue={
+											props.integrationData?.minimumProgress || MINIMUM_PROGRESS
+										}
+									/>
+									<NumberInput
+										min={0}
+										size="xs"
+										max={100}
+										required
+										name="maximumProgress"
+										label="Maximum progress"
+										description="After this value, progress will be marked as completed"
+										defaultValue={
+											props.integrationData?.maximumProgress || MAXIMUM_PROGRESS
+										}
+									/>
+								</Group>
+							) : null}
+							{provider &&
+							SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
+								<Tooltip
+									label="Only available for Pro users"
+									disabled={coreDetails.isServerKeyValidated}
+								>
+									<Checkbox
+										name="syncToOwnedCollection"
+										label="Sync to Owned collection"
+										disabled={!coreDetails.isServerKeyValidated}
+										styles={{ body: { display: "flex", alignItems: "center" } }}
+										description={`Checking this will also sync items in your library to the "Owned" collection`}
+										defaultChecked={
+											props.integrationData?.syncToOwnedCollection || undefined
+										}
+									/>
+								</Tooltip>
+							) : undefined}
 							<Checkbox
 								name="isDisabled"
 								label="Pause integration"
-								defaultChecked={props.integrationData.isDisabled || undefined}
+								defaultChecked={props.integrationData?.isDisabled || undefined}
 							/>
-							<Button type="submit">Update</Button>
-						</>
-					)}
+						</Stack>
+					</Collapse>
+					<Tooltip
+						label={PRO_REQUIRED_MESSAGE}
+						disabled={!disableCreationButtonBecauseProRequired}
+					>
+						<Button
+							type="submit"
+							disabled={disableCreationButtonBecauseProRequired}
+						>
+							{isUpdating ? "Update" : "Create"}
+						</Button>
+					</Tooltip>
 				</Stack>
 			</Form>
 		</Modal>
