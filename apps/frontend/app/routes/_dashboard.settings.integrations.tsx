@@ -231,15 +231,9 @@ const updateSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
-	const [
-		createOrUpdateIntegrationModalOpened,
-		{
-			open: openCreateUserYankIntegrationModal,
-			close: closeCreateOrUpdateIntegrationModal,
-		},
-	] = useDisclosure(false);
-	const [updateIntegrationModalData, setUpdateIntegrationModalData] =
-		useState<Integration | null>(null);
+	const [createOrUpdateModalData, setCreateOrUpdateModalData] = useState<
+		Integration | null | undefined
+	>();
 
 	return (
 		<Container size="xs">
@@ -250,7 +244,7 @@ export default function Page() {
 						<DisplayIntegration
 							integration={i}
 							key={`${i.id}-${idx}`}
-							setUpdateIntegrationModalData={setUpdateIntegrationModalData}
+							setCreateOrUpdateModalData={setCreateOrUpdateModalData}
 						/>
 					))
 				) : (
@@ -278,18 +272,17 @@ export default function Page() {
 							size="xs"
 							variant="light"
 							radius="md"
-							onClick={openCreateUserYankIntegrationModal}
+							onClick={() => {
+								setCreateOrUpdateModalData(null);
+							}}
 						>
 							Add new integration
 						</Button>
 					</Group>
-					<CreateOrUpdateIntegrationModal
-						close={closeCreateOrUpdateIntegrationModal}
-						opened={createOrUpdateIntegrationModalOpened}
-					/>
-					<UpdateIntegrationModal
-						updateIntegrationData={updateIntegrationModalData}
-						closeIntegrationModal={() => setUpdateIntegrationModalData(null)}
+					<CreateOrUpdateModal
+						integrationData={createOrUpdateModalData}
+						opened={createOrUpdateModalData !== undefined}
+						close={() => setCreateOrUpdateModalData(undefined)}
 					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
@@ -330,7 +323,7 @@ type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
 const DisplayIntegration = (props: {
 	integration: Integration;
-	setUpdateIntegrationModalData: (data: Integration | null) => void;
+	setCreateOrUpdateModalData: (data: Integration | null) => void;
 }) => {
 	const [parent] = useAutoAnimate();
 	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
@@ -417,9 +410,9 @@ const DisplayIntegration = (props: {
 							<ActionIcon
 								color="indigo"
 								variant="subtle"
-								onClick={() =>
-									props.setUpdateIntegrationModalData(props.integration)
-								}
+								onClick={() => {
+									props.setCreateOrUpdateModalData(props.integration);
+								}}
 							>
 								<IconPencil />
 							</ActionIcon>
@@ -461,13 +454,17 @@ const DisplayIntegration = (props: {
 	);
 };
 
-const CreateOrUpdateIntegrationModal = (props: {
+const CreateOrUpdateModal = (props: {
 	opened: boolean;
 	close: () => void;
+	integrationData: Integration | null | undefined;
 }) => {
 	const coreDetails = useCoreDetails();
-	const [provider, setProvider] = useState<IntegrationProvider>();
+	const [provider, setProvider] = useState<IntegrationProvider | undefined>(
+		props.integrationData?.provider,
+	);
 
+	const isUpdating = Boolean(props.integrationData?.id);
 	const disableCreationButtonBecauseProRequired =
 		!coreDetails.isServerKeyValidated &&
 		provider &&
@@ -484,166 +481,205 @@ const CreateOrUpdateIntegrationModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.close()}
-				action={withQuery(".", { intent: "create" })}
+				action={withQuery(".", { intent: isUpdating ? "update" : "create" })}
 			>
-				<Stack>
-					<Select
-						required
-						searchable
-						name="provider"
-						label="Select a provider"
-						onChange={(e) => setProvider(e as IntegrationProvider)}
-						data={Object.values(IntegrationProvider).map((is) => ({
-							value: is,
-							label: changeCase(is),
-						}))}
+				{isUpdating && props.integrationData && (
+					<input
+						type="hidden"
+						name="integrationId"
+						defaultValue={props.integrationData.id}
 					/>
-					<TextInput name="name" label="Name" />
-					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
+				)}
+				<Stack>
+					<Title order={3}>
+						{isUpdating ? "Update" : "Create"} integration
+					</Title>
+					{!isUpdating ? (
+						<Select
+							required
+							searchable
+							name="provider"
+							label="Select a provider"
+							defaultValue={props.integrationData?.provider}
+							onChange={(e) => setProvider(e as IntegrationProvider)}
+							data={Object.values(IntegrationProvider).map((is) => ({
+								value: is,
+								label: changeCase(is),
+							}))}
+						/>
+					) : null}
+					<TextInput
+						name="name"
+						label="Name"
+						defaultValue={props.integrationData?.name || undefined}
+					/>
+					{(!isUpdating &&
+						provider &&
+						!NO_PROGRESS_ADJUSTMENT.includes(provider)) ||
+					(isUpdating &&
+						props.integrationData &&
+						!NO_PROGRESS_ADJUSTMENT.includes(
+							props.integrationData.provider,
+						)) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								min={0}
-								required
+								required={!isUpdating}
 								max={100}
 								size="xs"
 								name="minimumProgress"
 								label="Minimum progress"
-								defaultValue={MINIMUM_PROGRESS}
+								defaultValue={
+									props.integrationData?.minimumProgress || MINIMUM_PROGRESS
+								}
 								description="Progress will not be synced below this value"
 							/>
 							<NumberInput
 								min={0}
-								required
+								required={!isUpdating}
 								max={100}
 								size="xs"
 								name="maximumProgress"
 								label="Maximum progress"
-								defaultValue={MAXIMUM_PROGRESS}
+								defaultValue={
+									props.integrationData?.maximumProgress || MAXIMUM_PROGRESS
+								}
 								description="After this value, progress will be marked as completed"
 							/>
 						</Group>
 					) : null}
-					{match(provider)
-						.with(IntegrationProvider.Audiobookshelf, () => (
-							<>
-								<TextInput
-									label="Base Url"
-									required
-									name="providerSpecifics.audiobookshelfBaseUrl"
-								/>
-								<TextInput
-									label="Token"
-									required
-									name="providerSpecifics.audiobookshelfToken"
-								/>
-							</>
-						))
-						.with(IntegrationProvider.Komga, () => (
-							<>
-								<TextInput
-									label="Base Url"
-									required
-									name="providerSpecifics.komgaBaseUrl"
-								/>
-								<TextInput
-									label="Username"
-									required
-									name="providerSpecifics.komgaUsername"
-								/>
-								<TextInput
-									label="Password"
-									required
-									name="providerSpecifics.komgaPassword"
-								/>
-								<Select
-									label="Select a provider"
-									name="providerSpecifics.komgaProvider"
-									required
-									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.PlexYank, () => (
-							<>
-								<TextInput
-									required
-									label="Base URL"
-									name="providerSpecifics.plexYankBaseUrl"
-								/>
-								<TextInput
-									required
-									label="Plex token"
-									name="providerSpecifics.plexYankToken"
-								/>
-							</>
-						))
-						.with(IntegrationProvider.YoutubeMusic, () => (
-							<>
-								<Select
-									required
-									searchable
-									label="Timezone"
-									name="providerSpecifics.youtubeMusicTimezone"
-									data={Intl.supportedValuesOf("timeZone")}
-									defaultValue={
-										Intl.DateTimeFormat().resolvedOptions().timeZone
-									}
-								/>
-								<TextInput
-									required
-									label="Auth Cookie"
-									name="providerSpecifics.youtubeMusicAuthCookie"
-									description={
-										<Text size="xs" c="dimmed">
-											Please follow the{" "}
-											<Anchor
-												target="_blank"
-												rel="noreferrer noopener"
-												href="https://docs.ryot.io/integrations#youtube-music"
-											>
-												docs
-											</Anchor>{" "}
-											to get the correct cookie
-										</Text>
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.PlexSink, () => (
-							<>
-								<TextInput
-									label="Username"
-									name="providerSpecifics.plexSinkUsername"
-								/>
-							</>
-						))
-						.with(IntegrationProvider.JellyfinPush, () => (
-							<>
-								<TextInput
-									required
-									label="Base URL"
-									name="providerSpecifics.jellyfinPushBaseUrl"
-								/>
-								<TextInput
-									required
-									label="Username"
-									name="providerSpecifics.jellyfinPushUsername"
-								/>
-								<TextInput
-									required
-									label="Password"
-									name="providerSpecifics.jellyfinPushPassword"
-								/>
-							</>
-						))
-						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
-						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
-						.otherwise(() => undefined)}
-					{provider &&
-					SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
+					{!isUpdating &&
+						match(provider)
+							.with(IntegrationProvider.Audiobookshelf, () => (
+								<>
+									<TextInput
+										label="Base Url"
+										required
+										name="providerSpecifics.audiobookshelfBaseUrl"
+									/>
+									<TextInput
+										label="Token"
+										required
+										name="providerSpecifics.audiobookshelfToken"
+									/>
+								</>
+							))
+							.with(IntegrationProvider.Komga, () => (
+								<>
+									<TextInput
+										label="Base Url"
+										required
+										name="providerSpecifics.komgaBaseUrl"
+									/>
+									<TextInput
+										label="Username"
+										required
+										name="providerSpecifics.komgaUsername"
+									/>
+									<TextInput
+										label="Password"
+										required
+										name="providerSpecifics.komgaPassword"
+									/>
+									<Select
+										label="Select a provider"
+										name="providerSpecifics.komgaProvider"
+										required
+										data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
+											label: changeCase(is),
+											value: is,
+										}))}
+									/>
+								</>
+							))
+							.with(IntegrationProvider.PlexYank, () => (
+								<>
+									<TextInput
+										required
+										label="Base URL"
+										name="providerSpecifics.plexYankBaseUrl"
+									/>
+									<TextInput
+										required
+										label="Plex token"
+										name="providerSpecifics.plexYankToken"
+									/>
+								</>
+							))
+							.with(IntegrationProvider.YoutubeMusic, () => (
+								<>
+									<Select
+										required
+										searchable
+										label="Timezone"
+										name="providerSpecifics.youtubeMusicTimezone"
+										data={Intl.supportedValuesOf("timeZone")}
+										defaultValue={
+											Intl.DateTimeFormat().resolvedOptions().timeZone
+										}
+									/>
+									<TextInput
+										required
+										label="Auth Cookie"
+										name="providerSpecifics.youtubeMusicAuthCookie"
+										description={
+											<Text size="xs" c="dimmed">
+												Please follow the{" "}
+												<Anchor
+													target="_blank"
+													rel="noreferrer noopener"
+													href="https://docs.ryot.io/integrations#youtube-music"
+												>
+													docs
+												</Anchor>{" "}
+												to get the correct cookie
+											</Text>
+										}
+									/>
+								</>
+							))
+							.with(IntegrationProvider.PlexSink, () => (
+								<>
+									<TextInput
+										label="Username"
+										name="providerSpecifics.plexSinkUsername"
+									/>
+								</>
+							))
+							.with(IntegrationProvider.JellyfinPush, () => (
+								<>
+									<TextInput
+										required
+										label="Base URL"
+										name="providerSpecifics.jellyfinPushBaseUrl"
+									/>
+									<TextInput
+										required
+										label="Username"
+										name="providerSpecifics.jellyfinPushUsername"
+									/>
+									<TextInput
+										required
+										label="Password"
+										name="providerSpecifics.jellyfinPushPassword"
+									/>
+								</>
+							))
+							.with(IntegrationProvider.Radarr, () => (
+								<ArrInputs name="radarr" />
+							))
+							.with(IntegrationProvider.Sonarr, () => (
+								<ArrInputs name="sonarr" />
+							))
+							.otherwise(() => undefined)}
+					{(isUpdating &&
+						props.integrationData &&
+						SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
+							props.integrationData.provider,
+						)) ||
+					(!isUpdating &&
+						provider &&
+						SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider)) ? (
 						<Tooltip
 							label="Only available for Pro users"
 							disabled={coreDetails.isServerKeyValidated}
@@ -654,20 +690,35 @@ const CreateOrUpdateIntegrationModal = (props: {
 								disabled={!coreDetails.isServerKeyValidated}
 								styles={{ body: { display: "flex", alignItems: "center" } }}
 								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								defaultChecked={
+									props.integrationData?.syncToOwnedCollection || undefined
+								}
 							/>
 						</Tooltip>
 					) : undefined}
-					<Tooltip
-						label={PRO_REQUIRED_MESSAGE}
-						disabled={!disableCreationButtonBecauseProRequired}
-					>
-						<Button
-							type="submit"
-							disabled={disableCreationButtonBecauseProRequired}
+					{!isUpdating && (
+						<Tooltip
+							label={PRO_REQUIRED_MESSAGE}
+							disabled={!disableCreationButtonBecauseProRequired}
 						>
-							Submit
-						</Button>
-					</Tooltip>
+							<Button
+								type="submit"
+								disabled={disableCreationButtonBecauseProRequired}
+							>
+								Submit
+							</Button>
+						</Tooltip>
+					)}
+					{isUpdating && props.integrationData && (
+						<>
+							<Checkbox
+								name="isDisabled"
+								label="Pause integration"
+								defaultChecked={props.integrationData.isDisabled || undefined}
+							/>
+							<Button type="submit">Update</Button>
+						</>
+					)}
 				</Stack>
 			</Form>
 		</Modal>
@@ -712,86 +763,5 @@ const ArrInputs = (props: { name: string }) => {
 				}))}
 			/>
 		</>
-	);
-};
-
-const UpdateIntegrationModal = (props: {
-	updateIntegrationData: Integration | null;
-	closeIntegrationModal: () => void;
-}) => {
-	return (
-		<Modal
-			opened={props.updateIntegrationData !== null}
-			onClose={props.closeIntegrationModal}
-			centered
-			withCloseButton={false}
-		>
-			{props.updateIntegrationData ? (
-				<Form
-					replace
-					method="POST"
-					onSubmit={() => props.closeIntegrationModal()}
-					action={withQuery(".", { intent: "update" })}
-				>
-					<input
-						type="hidden"
-						name="integrationId"
-						defaultValue={props.updateIntegrationData.id}
-					/>
-					<Stack>
-						<TextInput
-							name="name"
-							label="Name"
-							defaultValue={props.updateIntegrationData.name || undefined}
-						/>
-						{!NO_PROGRESS_ADJUSTMENT.includes(
-							props.updateIntegrationData.provider,
-						) ? (
-							<Group wrap="nowrap">
-								<NumberInput
-									size="xs"
-									label="Minimum progress"
-									description="Progress will not be synced below this value"
-									name="minimumProgress"
-									defaultValue={
-										props.updateIntegrationData.minimumProgress || undefined
-									}
-								/>
-								<NumberInput
-									size="xs"
-									label="Maximum progress"
-									description="After this value, progress will be marked as completed"
-									name="maximumProgress"
-									defaultValue={
-										props.updateIntegrationData.maximumProgress || undefined
-									}
-								/>
-							</Group>
-						) : null}
-						<Checkbox
-							name="isDisabled"
-							label="Pause integration"
-							defaultChecked={
-								props.updateIntegrationData.isDisabled || undefined
-							}
-						/>
-						{SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
-							props.updateIntegrationData.provider,
-						) ? (
-							<Checkbox
-								label="Sync to Owned collection"
-								name="syncToOwnedCollection"
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
-								styles={{ body: { display: "flex", alignItems: "center" } }}
-								defaultChecked={
-									props.updateIntegrationData.syncToOwnedCollection || undefined
-								}
-							/>
-						) : null}
-						<Button type="submit">Submit</Button>
-					</Stack>
-				</Form>
-			) : null}
-		</Modal>
 	);
 };
