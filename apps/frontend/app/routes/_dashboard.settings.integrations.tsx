@@ -325,7 +325,7 @@ const DisplayIntegration = (props: {
 			{integrationDisplayName}
 		</Text>,
 		props.integration.isDisabled ? (
-			<Text size="sm" key="isPaused">
+			<Text size="xs" key="isPaused">
 				Paused
 			</Text>
 		) : undefined,
@@ -387,9 +387,7 @@ const DisplayIntegration = (props: {
 							<ActionIcon
 								color="indigo"
 								variant="subtle"
-								onClick={() => {
-									props.setCreateOrUpdateData(props.integration);
-								}}
+								onClick={() => props.setCreateOrUpdateData(props.integration)}
 							>
 								<IconPencil />
 							</ActionIcon>
@@ -400,10 +398,10 @@ const DisplayIntegration = (props: {
 									defaultValue={props.integration.id}
 								/>
 								<ActionIcon
-									type="submit"
-									color="red"
-									variant="subtle"
 									mt={4}
+									color="red"
+									type="submit"
+									variant="subtle"
 									onClick={(e) => {
 										const form = e.currentTarget.form;
 										e.preventDefault();
