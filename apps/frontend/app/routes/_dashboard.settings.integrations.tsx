@@ -168,8 +168,8 @@ const createOrUpdateSchema = z.object({
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zodCheckboxAsString.optional(),
-	provider: z.nativeEnum(IntegrationProvider),
 	syncToOwnedCollection: zodCheckboxAsString.optional(),
+	provider: z.nativeEnum(IntegrationProvider).optional(),
 	providerSpecifics: z
 		.object({
 			plexYankBaseUrl: z.string().optional(),
