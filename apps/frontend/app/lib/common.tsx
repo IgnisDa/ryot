@@ -486,17 +486,16 @@ export const getTimeOfDay = (hours: number) => {
 	return "Night";
 };
 
-export const refreshEntityDetails = (metadataId: string) =>
+export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(() => {
 		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+			queryKey: queryFactory.media.userMetadataDetails(entityId).queryKey,
 		});
 		queryClient.invalidateQueries({
-			queryKey:
-				queryFactory.media.userMetadataGroupDetails(metadataId).queryKey,
+			queryKey: queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
 		});
 		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userPersonDetails(metadataId).queryKey,
+			queryKey: queryFactory.media.userPersonDetails(entityId).queryKey,
 		});
 	}, 1500);
 
