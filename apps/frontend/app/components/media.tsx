@@ -346,8 +346,9 @@ export const MetadataDisplayItem = (props: {
 export const MetadataGroupDisplayItem = (props: {
 	topRight?: ReactNode;
 	noLeftLabel?: boolean;
-	metadataGroupId: string;
 	rightLabel?: ReactNode;
+	metadataGroupId: string;
+	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
@@ -378,6 +379,10 @@ export const MetadataGroupDisplayItem = (props: {
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
 			})}
+			highlightName={
+				props.shouldHighlightNameIfInteracted &&
+				userMetadataGroupDetails?.hasInteracted
+			}
 			imageOverlay={{
 				topRight: props.topRight || (
 					<DisplayAverageRatingOverlay
@@ -409,6 +414,7 @@ export const PersonDisplayItem = (props: {
 	personId: string;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
+	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
@@ -442,6 +448,10 @@ export const PersonDisplayItem = (props: {
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}
+			highlightName={
+				props.shouldHighlightNameIfInteracted &&
+				userPersonDetails?.hasInteracted
+			}
 			imageOverlay={{
 				topRight: props.topRight || (
 					<DisplayAverageRatingOverlay

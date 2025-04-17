@@ -349,7 +349,11 @@ export default function Page() {
 						{loaderData.search.search.details.total > 0 ? (
 							<ApplicationGrid>
 								{loaderData.search.search.items.map((person) => (
-									<PersonDisplayItem key={person} personId={person} />
+									<PersonDisplayItem
+										key={person}
+										personId={person}
+										shouldHighlightNameIfInteracted
+									/>
 								))}
 							</ApplicationGrid>
 						) : (

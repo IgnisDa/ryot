@@ -322,6 +322,7 @@ export default function Page() {
 									<MetadataGroupDisplayItem
 										key={group}
 										metadataGroupId={group}
+										shouldHighlightNameIfInteracted
 									/>
 								))}
 							</ApplicationGrid>
