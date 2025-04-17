@@ -49,6 +49,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	BulkEditingAffix,
 	DebouncedSearchInput,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
@@ -152,185 +153,188 @@ export default function Page() {
 	const state = bulkEditingCollection.state;
 
 	return (
-		<Container>
-			<Stack>
-				<Box>
-					<Title>{details.details.name}</Title>
-					<Text size="sm">
-						{details.totalItems} items, created by {details.user.name}{" "}
-						{dayjsLib(details.details.createdOn).fromNow()}
-					</Text>
-				</Box>
-				<Text>{details.details.description}</Text>
-				<Tabs value={tab} onChange={setTab} keepMounted={false}>
-					<Tabs.List mb="xs">
-						<Tabs.Tab
-							value="contents"
-							leftSection={<IconBucketDroplet size={16} />}
-						>
-							Contents
-						</Tabs.Tab>
-						<Tabs.Tab
-							value="recommendations"
-							leftSection={<IconStar size={16} />}
-						>
-							Recommendations
-						</Tabs.Tab>
-						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
-							Actions
-						</Tabs.Tab>
-						{!userPreferences.general.disableReviews ? (
+		<>
+			<BulkEditingAffix />
+			<Container>
+				<Stack>
+					<Box>
+						<Title>{details.details.name}</Title>
+						<Text size="sm">
+							{details.totalItems} items, created by {details.user.name}{" "}
+							{dayjsLib(details.details.createdOn).fromNow()}
+						</Text>
+					</Box>
+					<Text>{details.details.description}</Text>
+					<Tabs value={tab} onChange={setTab} keepMounted={false}>
+						<Tabs.List mb="xs">
 							<Tabs.Tab
-								value="reviews"
-								leftSection={<IconMessageCircle2 size={16} />}
+								value="contents"
+								leftSection={<IconBucketDroplet size={16} />}
 							>
-								Reviews
+								Contents
 							</Tabs.Tab>
-						) : null}
-					</Tabs.List>
-					<Tabs.Panel value="contents">
-						<Stack gap="xs">
-							<Group wrap="nowrap">
-								<DebouncedSearchInput
-									initialValue={loaderData.query.query}
-									placeholder="Search in the collection"
-									enhancedQueryParams={loaderData.cookieName}
-								/>
-								<ActionIcon
-									onClick={() => openFiltersModal()}
-									color={
-										loaderData.query.entityLot !== undefined ||
-										loaderData.query.metadataLot !== undefined ||
-										loaderData.query.sortBy !== defaultFiltersValue.sort ||
-										loaderData.query.orderBy !== defaultFiltersValue.order
-											? "blue"
-											: "gray"
-									}
+							<Tabs.Tab
+								value="recommendations"
+								leftSection={<IconStar size={16} />}
+							>
+								Recommendations
+							</Tabs.Tab>
+							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+								Actions
+							</Tabs.Tab>
+							{!userPreferences.general.disableReviews ? (
+								<Tabs.Tab
+									value="reviews"
+									leftSection={<IconMessageCircle2 size={16} />}
 								>
-									<IconFilter size={24} />
-								</ActionIcon>
-								<FiltersModal
-									closeFiltersModal={closeFiltersModal}
-									cookieName={loaderData.cookieName}
-									opened={filtersModalOpened}
-								>
-									<FiltersModalForm />
-								</FiltersModal>
-							</Group>
-							<DisplayListDetailsAndRefresh
-								total={details.results.details.total}
-								cacheId={loaderData.collectionContents.cacheId}
-							/>
-							{details.results.items.length > 0 ? (
-								<ApplicationGrid>
-									{details.results.items.map((lm) => {
-										const isAdded = bulkEditingCollection.isAdded(lm);
-										return (
-											<DisplayCollectionEntity
-												key={lm.entityId}
-												entityId={lm.entityId}
-												entityLot={lm.entityLot}
-												topRight={
-													state && state.data.action === "remove" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="red"
-															onClick={() => {
-																if (isAdded) state.remove(lm);
-																else state.add(lm);
-															}}
-														>
-															<IconTrashFilled size={18} />
-														</ActionIcon>
-													) : null
-												}
-											/>
-										);
-									})}
-								</ApplicationGrid>
-							) : (
-								<Text>You have not added anything this collection</Text>
-							)}
-							{details.details ? (
-								<Center>
-									<Pagination
-										size="sm"
-										total={loaderData.totalPages}
-										value={loaderData.query[pageQueryParam]}
-										onChange={(v) => setP(pageQueryParam, v.toString())}
-									/>
-								</Center>
+									Reviews
+								</Tabs.Tab>
 							) : null}
-						</Stack>
-					</Tabs.Panel>
-					<Tabs.Panel value="recommendations">
-						<RecommendationsSection />
-					</Tabs.Panel>
-					<Tabs.Panel value="actions">
-						<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
-							<Button
-								variant="outline"
-								w="100%"
-								onClick={() => {
-									setEntityToReview({
-										entityLot: EntityLot.Collection,
-										entityId: loaderData.collectionId,
-										entityTitle: details.details.name,
-									});
-								}}
-							>
-								Post a review
-							</Button>
-							<Button
-								w="100%"
-								variant="outline"
-								onClick={() => {
-									bulkEditingCollection.start(colDetails, "add");
-									navigate(
-										$path("/media/:action/:lot", {
-											action: "list",
-											lot: MediaLot.Movie,
-										}),
-									);
-								}}
-							>
-								Bulk add
-							</Button>
-							<Button
-								w="100%"
-								variant="outline"
-								disabled={details.results.details.total === 0}
-								onClick={() => {
-									bulkEditingCollection.start(colDetails, "remove");
-									setTab("contents");
-								}}
-							>
-								Bulk remove
-							</Button>
-						</SimpleGrid>
-					</Tabs.Panel>
-					{!userPreferences.general.disableReviews ? (
-						<Tabs.Panel value="reviews">
-							{details.reviews.length > 0 ? (
-								<Stack>
-									{details.reviews.map((r) => (
-										<ReviewItemDisplay
-											review={r}
-											key={r.id}
-											entityLot={EntityLot.Collection}
-											entityId={loaderData.collectionId}
-											title={details.details.name}
+						</Tabs.List>
+						<Tabs.Panel value="contents">
+							<Stack gap="xs">
+								<Group wrap="nowrap">
+									<DebouncedSearchInput
+										initialValue={loaderData.query.query}
+										placeholder="Search in the collection"
+										enhancedQueryParams={loaderData.cookieName}
+									/>
+									<ActionIcon
+										onClick={() => openFiltersModal()}
+										color={
+											loaderData.query.entityLot !== undefined ||
+											loaderData.query.metadataLot !== undefined ||
+											loaderData.query.sortBy !== defaultFiltersValue.sort ||
+											loaderData.query.orderBy !== defaultFiltersValue.order
+												? "blue"
+												: "gray"
+										}
+									>
+										<IconFilter size={24} />
+									</ActionIcon>
+									<FiltersModal
+										closeFiltersModal={closeFiltersModal}
+										cookieName={loaderData.cookieName}
+										opened={filtersModalOpened}
+									>
+										<FiltersModalForm />
+									</FiltersModal>
+								</Group>
+								<DisplayListDetailsAndRefresh
+									total={details.results.details.total}
+									cacheId={loaderData.collectionContents.cacheId}
+								/>
+								{details.results.items.length > 0 ? (
+									<ApplicationGrid>
+										{details.results.items.map((lm) => {
+											const isAdded = bulkEditingCollection.isAdded(lm);
+											return (
+												<DisplayCollectionEntity
+													key={lm.entityId}
+													entityId={lm.entityId}
+													entityLot={lm.entityLot}
+													topRight={
+														state && state.data.action === "remove" ? (
+															<ActionIcon
+																variant={isAdded ? "filled" : "transparent"}
+																color="red"
+																onClick={() => {
+																	if (isAdded) state.remove(lm);
+																	else state.add(lm);
+																}}
+															>
+																<IconTrashFilled size={18} />
+															</ActionIcon>
+														) : null
+													}
+												/>
+											);
+										})}
+									</ApplicationGrid>
+								) : (
+									<Text>You have not added anything this collection</Text>
+								)}
+								{details.details ? (
+									<Center>
+										<Pagination
+											size="sm"
+											total={loaderData.totalPages}
+											value={loaderData.query[pageQueryParam]}
+											onChange={(v) => setP(pageQueryParam, v.toString())}
 										/>
-									))}
-								</Stack>
-							) : (
-								<Text>No reviews</Text>
-							)}
+									</Center>
+								) : null}
+							</Stack>
 						</Tabs.Panel>
-					) : null}
-				</Tabs>
-			</Stack>
-		</Container>
+						<Tabs.Panel value="recommendations">
+							<RecommendationsSection />
+						</Tabs.Panel>
+						<Tabs.Panel value="actions">
+							<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
+								<Button
+									variant="outline"
+									w="100%"
+									onClick={() => {
+										setEntityToReview({
+											entityLot: EntityLot.Collection,
+											entityId: loaderData.collectionId,
+											entityTitle: details.details.name,
+										});
+									}}
+								>
+									Post a review
+								</Button>
+								<Button
+									w="100%"
+									variant="outline"
+									onClick={() => {
+										bulkEditingCollection.start(colDetails, "add");
+										navigate(
+											$path("/media/:action/:lot", {
+												action: "list",
+												lot: MediaLot.Movie,
+											}),
+										);
+									}}
+								>
+									Bulk add
+								</Button>
+								<Button
+									w="100%"
+									variant="outline"
+									disabled={details.results.details.total === 0}
+									onClick={() => {
+										bulkEditingCollection.start(colDetails, "remove");
+										setTab("contents");
+									}}
+								>
+									Bulk remove
+								</Button>
+							</SimpleGrid>
+						</Tabs.Panel>
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Panel value="reviews">
+								{details.reviews.length > 0 ? (
+									<Stack>
+										{details.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												entityLot={EntityLot.Collection}
+												entityId={loaderData.collectionId}
+												title={details.details.name}
+											/>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
+							</Tabs.Panel>
+						) : null}
+					</Tabs>
+				</Stack>
+			</Container>
+		</>
 	);
 }
 

@@ -19,7 +19,6 @@ import {
 	type MantineStyleProp,
 	Modal,
 	Paper,
-	rem,
 	RingProgress,
 	Select,
 	SimpleGrid,
@@ -29,6 +28,7 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
+	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import {
@@ -124,6 +124,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	type OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -142,7 +143,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "./media";
-import { useBulkEditCollection } from "~/lib/state/collection";
 
 export const ApplicationGrid = (props: {
 	className?: string;
