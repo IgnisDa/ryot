@@ -165,10 +165,10 @@ export default function Page() {
 	return (
 		<>
 			<BulkEditingAffix
-				bulkAddEntities={() => {
+				bulkAddEntities={async () => {
 					const input = cloneDeep(loaderData.queryInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
-					return clientGqlService
+					return await clientGqlService
 						.request(CollectionContentsDocument, { input })
 						.then((r) => r.collectionContents.response.results.items);
 				}}
