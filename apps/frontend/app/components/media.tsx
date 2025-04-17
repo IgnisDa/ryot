@@ -47,6 +47,7 @@ import {
 	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryFactory,
+	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
@@ -473,9 +474,9 @@ export const PersonDisplayItem = (props: {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
+	formValue: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
-	formValue: string;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
 	const action = isMonitored
@@ -483,6 +484,11 @@ export const ToggleMediaMonitorMenuItem = (props: {
 		: "addEntityToCollection";
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
+
+	const onSubmit = (form: HTMLFormElement) => {
+		submit(form);
+		refreshEntityDetails(props.formValue);
+	};
 
 	return (
 		<Form
@@ -503,9 +509,9 @@ export const ToggleMediaMonitorMenuItem = (props: {
 						if (isMonitored)
 							openConfirmationModal(
 								"Are you sure you want to stop monitoring?",
-								() => submit(form),
+								() => onSubmit(form),
 							);
-						else submit(form);
+						else onSubmit(form);
 					}
 				}}
 			>
