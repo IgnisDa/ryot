@@ -106,30 +106,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Integration Settings | Ryot" }];
+	return [{ title: "Integrations Settings | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("delete", async () => {
-			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeleteUserIntegrationDocument,
-				submission,
-			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Integration deleted successfully",
-					}),
-				},
-			);
-		})
 		.with("createOrUpdate", async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
@@ -147,6 +130,23 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					headers: await createToastHeaders({
 						type: "success",
 						message: `Integration ${isUpdate ? "updated" : "created"} successfully`,
+					}),
+				},
+			);
+		})
+		.with("delete", async () => {
+			const submission = processSubmission(formData, deleteSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				DeleteUserIntegrationDocument,
+				submission,
+			);
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Integration deleted successfully",
 					}),
 				},
 			);
@@ -217,7 +217,7 @@ export default function Page() {
 	return (
 		<Container size="xs">
 			<Stack>
-				<Title>Integration settings</Title>
+				<Title>Integrations settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
 						<DisplayIntegration
