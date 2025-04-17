@@ -27,9 +27,11 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
 	UserMetadataListDocument,
+	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	cloneDeep,
 	isEqual,
 	parseParameters,
 	parseSearchQuery,
@@ -136,92 +138,98 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, mediaList, mediaSearch, respectCoreDetailsPageSize] =
-		await match(action)
-			.with(Action.List, async () => {
-				const listSchema = z.object({
-					collections: zodCollectionFilter,
-					endDateRange: z.string().optional(),
-					startDateRange: z.string().optional(),
-					sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
-					dateRange: z
-						.nativeEnum(ApplicationTimeRange)
-						.default(defaultFilters.mineDateRange),
-					sortOrder: z
-						.nativeEnum(GraphqlSortOrder)
-						.default(defaultFilters.mineSortOrder),
-					generalFilter: z
-						.nativeEnum(MediaGeneralFilter)
-						.default(defaultFilters.mineGeneralFilter),
-				});
-				const urlParse = parseSearchQuery(request, listSchema);
-				const { userMetadataList } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						UserMetadataListDocument,
-						{
-							input: {
-								lot,
-								sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-								search: { page: query[pageQueryParam], query: query.query },
-								filter: {
-									general: urlParse.generalFilter,
-									collections: urlParse.collections,
-									dateRange: {
-										endDate: urlParse.endDateRange,
-										startDate: urlParse.startDateRange,
-									},
-								},
-							},
-						},
-					);
-				return [
-					userMetadataList.response.details.total,
-					{ list: userMetadataList, url: urlParse },
-					undefined,
-					false,
-				] as const;
-			})
-			.with(Action.Search, async () => {
-				const coreDetails = await getCoreDetails();
-				const metadataSourcesForLot =
-					coreDetails.metadataLotSourceMappings.find((m) => m.lot === lot);
-				invariant(metadataSourcesForLot);
-				const searchSchema = z.object({
-					source: z
-						.nativeEnum(MediaSource)
-						.default(metadataSourcesForLot.sources[0]),
-				});
-				const urlParse = parseSearchQuery(request, searchSchema);
-				let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
-				try {
-					const response = await serverGqlService.authenticatedRequest(
-						request,
-						MetadataSearchDocument,
-						{
-							input: {
-								lot,
-								source: urlParse.source,
-								search: { page: query[pageQueryParam], query: query.query },
-							},
-						},
-					);
-					metadataSearch = response.metadataSearch;
-				} catch {
-					metadataSearch = false;
-				}
-				return [
-					metadataSearch === false ? 0 : metadataSearch.details.total,
-					undefined,
-					{
-						url: urlParse,
-						search: metadataSearch,
-						mediaSources: metadataSourcesForLot.sources,
+	const [
+		totalResults,
+		mediaList,
+		mediaSearch,
+		respectCoreDetailsPageSize,
+		listInput,
+	] = await match(action)
+		.with(Action.List, async () => {
+			const listSchema = z.object({
+				collections: zodCollectionFilter,
+				endDateRange: z.string().optional(),
+				startDateRange: z.string().optional(),
+				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+				dateRange: z
+					.nativeEnum(ApplicationTimeRange)
+					.default(defaultFilters.mineDateRange),
+				sortOrder: z
+					.nativeEnum(GraphqlSortOrder)
+					.default(defaultFilters.mineSortOrder),
+				generalFilter: z
+					.nativeEnum(MediaGeneralFilter)
+					.default(defaultFilters.mineGeneralFilter),
+			});
+			const urlParse = parseSearchQuery(request, listSchema);
+			const input: UserMetadataListInput = {
+				lot,
+				sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+				search: { page: query[pageQueryParam], query: query.query },
+				filter: {
+					general: urlParse.generalFilter,
+					collections: urlParse.collections,
+					dateRange: {
+						endDate: urlParse.endDateRange,
+						startDate: urlParse.startDateRange,
 					},
-					true,
-				] as const;
-			})
-			.exhaustive();
+				},
+			};
+			const { userMetadataList } = await serverGqlService.authenticatedRequest(
+				request,
+				UserMetadataListDocument,
+				{ input },
+			);
+			return [
+				userMetadataList.response.details.total,
+				{ list: userMetadataList, url: urlParse },
+				undefined,
+				false,
+				input,
+			] as const;
+		})
+		.with(Action.Search, async () => {
+			const coreDetails = await getCoreDetails();
+			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
+				(m) => m.lot === lot,
+			);
+			invariant(metadataSourcesForLot);
+			const searchSchema = z.object({
+				source: z
+					.nativeEnum(MediaSource)
+					.default(metadataSourcesForLot.sources[0]),
+			});
+			const urlParse = parseSearchQuery(request, searchSchema);
+			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
+			try {
+				const response = await serverGqlService.authenticatedRequest(
+					request,
+					MetadataSearchDocument,
+					{
+						input: {
+							lot,
+							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
+						},
+					},
+				);
+				metadataSearch = response.metadataSearch;
+			} catch {
+				metadataSearch = false;
+			}
+			return [
+				metadataSearch === false ? 0 : metadataSearch.details.total,
+				undefined,
+				{
+					url: urlParse,
+					search: metadataSearch,
+					mediaSources: metadataSourcesForLot.sources,
+				},
+				true,
+				undefined,
+			] as const;
+		})
+		.exhaustive();
 	const url = new URL(request.url);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
@@ -233,6 +241,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		lot,
 		query,
 		action,
+		listInput,
 		mediaList,
 		totalPages,
 		cookieName,
@@ -283,14 +292,12 @@ export default function Page() {
 	return (
 		<>
 			<BulkEditingAffix
-				bulkAddEntities={() => {
-					return clientGqlService
-						.request(UserMetadataListDocument, {
-							input: {
-								lot: loaderData.lot,
-								search: { take: Number.MAX_SAFE_INTEGER },
-							},
-						})
+				bulkAddEntities={async () => {
+					if (!loaderData.listInput) return [];
+					const input = cloneDeep(loaderData.listInput);
+					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
+					return await clientGqlService
+						.request(UserMetadataListDocument, { input })
 						.then((r) =>
 							r.userMetadataList.response.items.map((m) => ({
 								entityId: m,
