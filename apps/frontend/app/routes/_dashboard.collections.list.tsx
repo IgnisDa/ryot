@@ -237,66 +237,68 @@ export default function Page() {
 		);
 
 	return (
-		<Container size="sm">
-			<Stack>
-				<Group justify="space-between" wrap="nowrap">
-					<Flex align="center" gap="md">
-						<Title>Your collections</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => setToUpdateCollection({})}
-						>
-							<IconPlus size={20} />
-						</ActionIcon>
-						<Modal
-							centered
-							size="lg"
-							withCloseButton={false}
-							opened={toUpdateCollection !== null}
-							onClose={() => setToUpdateCollection(null)}
-						>
-							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
-						</Modal>
-					</Flex>
-					<ExpireCacheKeyButton
-						action={{ cacheId: loaderData.userCollectionsList.cacheId }}
-					/>
-				</Group>
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						initialValue={query}
-						enhancedQueryParams={loaderData.cookieName}
-					/>
-					{hasHiddenCollections ? (
-						<Checkbox
-							size="xs"
-							name="showHidden"
-							label="Show hidden"
-							defaultChecked={showHidden}
-							onChange={(e) =>
-								setP("showHidden", e.target.checked ? "yes" : "")
-							}
+		<>
+			<Container size="sm">
+				<Stack>
+					<Group justify="space-between" wrap="nowrap">
+						<Flex align="center" gap="md">
+							<Title>Your collections</Title>
+							<ActionIcon
+								color="green"
+								variant="outline"
+								onClick={() => setToUpdateCollection({})}
+							>
+								<IconPlus size={20} />
+							</ActionIcon>
+							<Modal
+								centered
+								size="lg"
+								withCloseButton={false}
+								opened={toUpdateCollection !== null}
+								onClose={() => setToUpdateCollection(null)}
+							>
+								<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
+							</Modal>
+						</Flex>
+						<ExpireCacheKeyButton
+							action={{ cacheId: loaderData.userCollectionsList.cacheId }}
 						/>
-					) : null}
-				</Group>
-				<Virtuoso
-					style={{ height: "80vh" }}
-					data={filteredCollections}
-					itemContent={(index) => {
-						const c = filteredCollections[index];
-						return (
-							<DisplayCollection
-								key={c.id}
-								index={index}
-								collection={c}
-								setToUpdateCollection={setToUpdateCollection}
+					</Group>
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							initialValue={query}
+							enhancedQueryParams={loaderData.cookieName}
+						/>
+						{hasHiddenCollections ? (
+							<Checkbox
+								size="xs"
+								name="showHidden"
+								label="Show hidden"
+								defaultChecked={showHidden}
+								onChange={(e) =>
+									setP("showHidden", e.target.checked ? "yes" : "")
+								}
 							/>
-						);
-					}}
-				/>
-			</Stack>
-		</Container>
+						) : null}
+					</Group>
+					<Virtuoso
+						style={{ height: "80vh" }}
+						data={filteredCollections}
+						itemContent={(index) => {
+							const c = filteredCollections[index];
+							return (
+								<DisplayCollection
+									key={c.id}
+									index={index}
+									collection={c}
+									setToUpdateCollection={setToUpdateCollection}
+								/>
+							);
+						}}
+					/>
+				</Stack>
+			</Container>
+		</>
 	);
 }
 
