@@ -6,6 +6,7 @@ import {
 	Box,
 	Button,
 	Checkbox,
+	Collapse,
 	Container,
 	CopyButton,
 	Drawer,
@@ -25,13 +26,13 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
-	CreateUserIntegrationDocument,
+	CreateOrUpdateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
 	IntegrationProvider,
 	MediaSource,
-	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -64,6 +65,7 @@ import {
 import {
 	useConfirmSubmit,
 	useCoreDetails,
+	useDashboardLayoutData,
 	useNonHiddenUserCollections,
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
@@ -104,13 +106,34 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Integration Settings | Ryot" }];
+	return [{ title: "Integrations Settings | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
+		.with("createOrUpdate", async () => {
+			const submission = processSubmission(formData, createOrUpdateSchema);
+			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(
+				request,
+				CreateOrUpdateUserIntegrationDocument,
+				{ input: submission },
+			);
+
+			const isUpdate = Boolean(submission.integrationId);
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: `Integration ${isUpdate ? "updated" : "created"} successfully`,
+					}),
+				},
+			);
+		})
 		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
@@ -128,39 +151,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				},
 			);
 		})
-		.with("create", async () => {
-			const submission = processSubmission(formData, createSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				CreateUserIntegrationDocument,
-				{ input: submission },
-			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Integration created successfully",
-					}),
-				},
-			);
-		})
-		.with("update", async () => {
-			const submission = processSubmission(formData, updateSchema);
-			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
-			submission.isDisabled = submission.isDisabled === true;
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateUserIntegrationDocument,
-				{ input: submission },
-			);
-			return data({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Integration updated successfully",
-				}),
-			});
-		})
 		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
 				request,
@@ -175,12 +165,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
-const createSchema = z.object({
+const createOrUpdateSchema = z.object({
 	name: z.string().optional(),
+	integrationId: z.string().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
-	provider: z.nativeEnum(IntegrationProvider),
+	isDisabled: zodCheckboxAsString.optional(),
 	syncToOwnedCollection: zodCheckboxAsString.optional(),
+	provider: z.nativeEnum(IntegrationProvider).optional(),
 	providerSpecifics: z
 		.object({
 			plexYankBaseUrl: z.string().optional(),
@@ -215,38 +207,23 @@ const deleteSchema = z.object({
 	integrationId: z.string(),
 });
 
-const updateSchema = z.object({
-	integrationId: z.string(),
-	name: z.string().optional(),
-	minimumProgress: z.string().optional(),
-	maximumProgress: z.string().optional(),
-	isDisabled: zodCheckboxAsString.optional(),
-	syncToOwnedCollection: zodCheckboxAsString.optional(),
-});
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
-	const [
-		createIntegrationModalOpened,
-		{
-			open: openCreateUserYankIntegrationModal,
-			close: closeCreateIntegrationModal,
-		},
-	] = useDisclosure(false);
-	const [updateIntegrationModalData, setUpdateIntegrationModalData] =
-		useState<Integration | null>(null);
+	const [createOrUpdateData, setCreateOrUpdateData] = useState<
+		Integration | null | undefined
+	>();
 
 	return (
 		<Container size="xs">
 			<Stack>
-				<Title>Integration settings</Title>
+				<Title>Integrations settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
 						<DisplayIntegration
 							integration={i}
 							key={`${i.id}-${idx}`}
-							setUpdateIntegrationModalData={setUpdateIntegrationModalData}
+							setCreateOrUpdateData={setCreateOrUpdateData}
 						/>
 					))
 				) : (
@@ -274,18 +251,17 @@ export default function Page() {
 							size="xs"
 							variant="light"
 							radius="md"
-							onClick={openCreateUserYankIntegrationModal}
+							onClick={() => {
+								setCreateOrUpdateData(null);
+							}}
 						>
 							Add new integration
 						</Button>
 					</Group>
-					<CreateIntegrationModal
-						createModalOpened={createIntegrationModalOpened}
-						closeIntegrationModal={closeCreateIntegrationModal}
-					/>
-					<UpdateIntegrationModal
-						updateIntegrationData={updateIntegrationModalData}
-						closeIntegrationModal={() => setUpdateIntegrationModalData(null)}
+					<CreateOrUpdateModal
+						key={createOrUpdateData?.id}
+						integrationData={createOrUpdateData}
+						close={() => setCreateOrUpdateData(undefined)}
 					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
@@ -326,8 +302,9 @@ type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
 const DisplayIntegration = (props: {
 	integration: Integration;
-	setUpdateIntegrationModalData: (data: Integration | null) => void;
+	setCreateOrUpdateData: (data: Integration | null) => void;
 }) => {
+	const { isAccessLinkSession } = useDashboardLayoutData();
 	const [parent] = useAutoAnimate();
 	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
 		useDisclosure(false);
@@ -351,7 +328,7 @@ const DisplayIntegration = (props: {
 			{integrationDisplayName}
 		</Text>,
 		props.integration.isDisabled ? (
-			<Text size="sm" key="isPaused">
+			<Text size="xs" key="isPaused">
 				Paused
 			</Text>
 		) : undefined,
@@ -413,9 +390,17 @@ const DisplayIntegration = (props: {
 							<ActionIcon
 								color="indigo"
 								variant="subtle"
-								onClick={() =>
-									props.setUpdateIntegrationModalData(props.integration)
-								}
+								onClick={() => {
+									if (isAccessLinkSession) {
+										notifications.show({
+											color: "red",
+											message:
+												"You do not have permission to edit integrations",
+										});
+										return;
+									}
+									props.setCreateOrUpdateData(props.integration);
+								}}
 							>
 								<IconPencil />
 							</ActionIcon>
@@ -426,13 +411,21 @@ const DisplayIntegration = (props: {
 									defaultValue={props.integration.id}
 								/>
 								<ActionIcon
-									type="submit"
-									color="red"
-									variant="subtle"
 									mt={4}
+									color="red"
+									type="submit"
+									variant="subtle"
 									onClick={(e) => {
 										const form = e.currentTarget.form;
 										e.preventDefault();
+										if (isAccessLinkSession) {
+											notifications.show({
+												color: "red",
+												message:
+													"You do not have permission to delete integrations",
+											});
+											return;
+										}
 										openConfirmationModal(
 											"Are you sure you want to delete this integration?",
 											() => submit(form),
@@ -457,13 +450,18 @@ const DisplayIntegration = (props: {
 	);
 };
 
-const CreateIntegrationModal = (props: {
-	createModalOpened: boolean;
-	closeIntegrationModal: () => void;
+const CreateOrUpdateModal = (props: {
+	close: () => void;
+	integrationData: Integration | null | undefined;
 }) => {
 	const coreDetails = useCoreDetails();
-	const [provider, setProvider] = useState<IntegrationProvider>();
+	const [provider, setProvider] = useState<IntegrationProvider | undefined>(
+		props.integrationData?.provider,
+	);
+	const [isAdvancedSettingsOpened, { toggle: toggleAdvancedSettings }] =
+		useDisclosure(false);
 
+	const isUpdating = Boolean(props.integrationData?.id);
 	const disableCreationButtonBecauseProRequired =
 		!coreDetails.isServerKeyValidated &&
 		provider &&
@@ -472,65 +470,61 @@ const CreateIntegrationModal = (props: {
 	return (
 		<Modal
 			centered
+			onClose={props.close}
 			withCloseButton={false}
-			opened={props.createModalOpened}
-			onClose={props.closeIntegrationModal}
+			opened={props.integrationData !== undefined}
 		>
 			<Form
 				replace
 				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery(".", { intent: "create" })}
+				onSubmit={() => props.close()}
+				action={withQuery(".", { intent: "createOrUpdate" })}
 			>
-				<Stack>
-					<Select
-						required
-						searchable
-						name="provider"
-						label="Select a provider"
-						onChange={(e) => setProvider(e as IntegrationProvider)}
-						data={Object.values(IntegrationProvider).map((is) => ({
-							value: is,
-							label: changeCase(is),
-						}))}
+				{props.integrationData && (
+					<input
+						type="hidden"
+						name="integrationId"
+						defaultValue={props.integrationData.id}
 					/>
-					<TextInput name="name" label="Name" />
-					{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
-						<Group wrap="nowrap">
-							<NumberInput
-								min={0}
-								required
-								max={100}
-								size="xs"
-								name="minimumProgress"
-								label="Minimum progress"
-								defaultValue={MINIMUM_PROGRESS}
-								description="Progress will not be synced below this value"
-							/>
-							<NumberInput
-								min={0}
-								required
-								max={100}
-								size="xs"
-								name="maximumProgress"
-								label="Maximum progress"
-								defaultValue={MAXIMUM_PROGRESS}
-								description="After this value, progress will be marked as completed"
-							/>
-						</Group>
+				)}
+				<Stack>
+					<Title order={3}>
+						{isUpdating ? "Update" : "Create"} integration
+					</Title>
+					{!isUpdating ? (
+						<Select
+							required
+							searchable
+							name="provider"
+							label="Select a provider"
+							defaultValue={props.integrationData?.provider}
+							onChange={(e) => setProvider(e as IntegrationProvider)}
+							data={Object.values(IntegrationProvider).map((is) => ({
+								value: is,
+								label: changeCase(is),
+							}))}
+						/>
 					) : null}
 					{match(provider)
 						.with(IntegrationProvider.Audiobookshelf, () => (
 							<>
 								<TextInput
-									label="Base Url"
 									required
+									label="Base Url"
 									name="providerSpecifics.audiobookshelfBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.audiobookshelfBaseUrl || undefined
+									}
 								/>
 								<TextInput
 									label="Token"
 									required
 									name="providerSpecifics.audiobookshelfToken"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.audiobookshelfToken || undefined
+									}
 								/>
 							</>
 						))
@@ -540,21 +534,37 @@ const CreateIntegrationModal = (props: {
 									label="Base Url"
 									required
 									name="providerSpecifics.komgaBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaBaseUrl ||
+										undefined
+									}
 								/>
 								<TextInput
 									label="Username"
 									required
 									name="providerSpecifics.komgaUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaUsername ||
+										undefined
+									}
 								/>
 								<TextInput
 									label="Password"
 									required
 									name="providerSpecifics.komgaPassword"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaPassword ||
+										undefined
+									}
 								/>
 								<Select
-									label="Select a provider"
-									name="providerSpecifics.komgaProvider"
 									required
+									label="Provider"
+									name="providerSpecifics.komgaProvider"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.komgaProvider ||
+										undefined
+									}
 									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
 										label: changeCase(is),
 										value: is,
@@ -568,11 +578,19 @@ const CreateIntegrationModal = (props: {
 									required
 									label="Base URL"
 									name="providerSpecifics.plexYankBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.plexYankBaseUrl ||
+										undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Plex token"
 									name="providerSpecifics.plexYankToken"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.plexYankToken ||
+										undefined
+									}
 								/>
 							</>
 						))
@@ -592,6 +610,10 @@ const CreateIntegrationModal = (props: {
 									required
 									label="Auth Cookie"
 									name="providerSpecifics.youtubeMusicAuthCookie"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.youtubeMusicAuthCookie || undefined
+									}
 									description={
 										<Text size="xs" c="dimmed">
 											Please follow the{" "}
@@ -613,6 +635,10 @@ const CreateIntegrationModal = (props: {
 								<TextInput
 									label="Username"
 									name="providerSpecifics.plexSinkUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.plexSinkUsername || undefined
+									}
 								/>
 							</>
 						))
@@ -622,37 +648,141 @@ const CreateIntegrationModal = (props: {
 									required
 									label="Base URL"
 									name="providerSpecifics.jellyfinPushBaseUrl"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushBaseUrl || undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Username"
 									name="providerSpecifics.jellyfinPushUsername"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushUsername || undefined
+									}
 								/>
 								<TextInput
 									required
 									label="Password"
 									name="providerSpecifics.jellyfinPushPassword"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.jellyfinPushPassword || undefined
+									}
 								/>
 							</>
 						))
-						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
-						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
-						.otherwise(() => undefined)}
-					{provider &&
-					SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
-						<Tooltip
-							label="Only available for Pro users"
-							disabled={coreDetails.isServerKeyValidated}
-						>
-							<Checkbox
-								name="syncToOwnedCollection"
-								label="Sync to Owned collection"
-								disabled={!coreDetails.isServerKeyValidated}
-								styles={{ body: { display: "flex", alignItems: "center" } }}
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
+						.with(IntegrationProvider.Radarr, () => (
+							<ArrInputs
+								name="radarr"
+								defaults={{
+									baseUrl:
+										props.integrationData?.providerSpecifics?.radarrBaseUrl,
+									apiKey:
+										props.integrationData?.providerSpecifics?.radarrApiKey,
+									profileId:
+										props.integrationData?.providerSpecifics?.radarrProfileId,
+									rootFolderPath:
+										props.integrationData?.providerSpecifics
+											?.radarrRootFolderPath,
+									syncCollectionIds:
+										props.integrationData?.providerSpecifics
+											?.radarrSyncCollectionIds,
+								}}
 							/>
-						</Tooltip>
-					) : undefined}
+						))
+						.with(IntegrationProvider.Sonarr, () => (
+							<ArrInputs
+								name="sonarr"
+								defaults={{
+									baseUrl:
+										props.integrationData?.providerSpecifics?.sonarrBaseUrl,
+									apiKey:
+										props.integrationData?.providerSpecifics?.sonarrApiKey,
+									profileId:
+										props.integrationData?.providerSpecifics?.sonarrProfileId,
+									rootFolderPath:
+										props.integrationData?.providerSpecifics
+											?.sonarrRootFolderPath,
+									syncCollectionIds:
+										props.integrationData?.providerSpecifics
+											?.sonarrSyncCollectionIds,
+								}}
+							/>
+						))
+						.otherwise(() => undefined)}
+					{provider && (
+						<Group justify="end">
+							<Button
+								size="compact-xs"
+								variant="subtle"
+								onClick={toggleAdvancedSettings}
+							>
+								{isAdvancedSettingsOpened ? "Hide" : "Show"} advanced settings
+							</Button>
+						</Group>
+					)}
+					<Collapse in={isAdvancedSettingsOpened}>
+						<Stack>
+							<TextInput
+								name="name"
+								label="Name"
+								defaultValue={props.integrationData?.name || undefined}
+							/>
+							{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
+								<Group wrap="nowrap">
+									<NumberInput
+										min={0}
+										size="xs"
+										max={100}
+										required
+										name="minimumProgress"
+										label="Minimum progress"
+										description="Progress will not be synced below this value"
+										defaultValue={
+											props.integrationData?.minimumProgress || MINIMUM_PROGRESS
+										}
+									/>
+									<NumberInput
+										min={0}
+										size="xs"
+										max={100}
+										required
+										name="maximumProgress"
+										label="Maximum progress"
+										description="After this value, progress will be marked as completed"
+										defaultValue={
+											props.integrationData?.maximumProgress || MAXIMUM_PROGRESS
+										}
+									/>
+								</Group>
+							) : null}
+							{provider &&
+							SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
+								<Tooltip
+									label="Only available for Pro users"
+									disabled={coreDetails.isServerKeyValidated}
+								>
+									<Checkbox
+										name="syncToOwnedCollection"
+										label="Sync to Owned collection"
+										disabled={!coreDetails.isServerKeyValidated}
+										styles={{ body: { display: "flex", alignItems: "center" } }}
+										description={`Checking this will also sync items in your library to the "Owned" collection`}
+										defaultChecked={
+											props.integrationData?.syncToOwnedCollection || undefined
+										}
+									/>
+								</Tooltip>
+							) : undefined}
+							<Checkbox
+								name="isDisabled"
+								label="Pause integration"
+								defaultChecked={props.integrationData?.isDisabled || undefined}
+							/>
+						</Stack>
+					</Collapse>
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
 						disabled={!disableCreationButtonBecauseProRequired}
@@ -661,7 +791,7 @@ const CreateIntegrationModal = (props: {
 							type="submit"
 							disabled={disableCreationButtonBecauseProRequired}
 						>
-							Submit
+							{isUpdating ? "Update" : "Create"}
 						</Button>
 					</Tooltip>
 				</Stack>
@@ -670,7 +800,16 @@ const CreateIntegrationModal = (props: {
 	);
 };
 
-const ArrInputs = (props: { name: string }) => {
+const ArrInputs = (props: {
+	name: string;
+	defaults?: {
+		apiKey: string | null | undefined;
+		baseUrl: string | null | undefined;
+		profileId: number | null | undefined;
+		rootFolderPath: string | null | undefined;
+		syncCollectionIds: string[] | null | undefined;
+	};
+}) => {
 	const collections = useNonHiddenUserCollections();
 
 	return (
@@ -679,115 +818,38 @@ const ArrInputs = (props: { name: string }) => {
 				required
 				label="Base Url"
 				name={`providerSpecifics.${props.name}BaseUrl`}
+				defaultValue={props.defaults?.baseUrl || undefined}
 			/>
 			<TextInput
 				required
 				label="Token"
 				name={`providerSpecifics.${props.name}ApiKey`}
+				defaultValue={props.defaults?.apiKey || undefined}
 			/>
 			<NumberInput
 				required
 				hideControls
-				defaultValue={1}
 				label="Profile ID"
 				name={`providerSpecifics.${props.name}ProfileId`}
+				defaultValue={props.defaults?.profileId || undefined}
 			/>
 			<TextInput
 				required
 				label="Root Folder"
 				name={`providerSpecifics.${props.name}RootFolderPath`}
+				defaultValue={props.defaults?.rootFolderPath || undefined}
 			/>
 			<MultiSelect
 				required
 				searchable
 				label="Collections"
 				name={`providerSpecifics.${props.name}SyncCollectionIds`}
+				defaultValue={props.defaults?.syncCollectionIds || undefined}
 				data={collections.map((c) => ({
 					label: c.name,
 					value: c.id,
 				}))}
 			/>
 		</>
-	);
-};
-
-const UpdateIntegrationModal = (props: {
-	updateIntegrationData: Integration | null;
-	closeIntegrationModal: () => void;
-}) => {
-	return (
-		<Modal
-			opened={props.updateIntegrationData !== null}
-			onClose={props.closeIntegrationModal}
-			centered
-			withCloseButton={false}
-		>
-			{props.updateIntegrationData ? (
-				<Form
-					replace
-					method="POST"
-					onSubmit={() => props.closeIntegrationModal()}
-					action={withQuery(".", { intent: "update" })}
-				>
-					<input
-						type="hidden"
-						name="integrationId"
-						defaultValue={props.updateIntegrationData.id}
-					/>
-					<Stack>
-						<TextInput
-							name="name"
-							label="Name"
-							defaultValue={props.updateIntegrationData.name || undefined}
-						/>
-						{!NO_PROGRESS_ADJUSTMENT.includes(
-							props.updateIntegrationData.provider,
-						) ? (
-							<Group wrap="nowrap">
-								<NumberInput
-									size="xs"
-									label="Minimum progress"
-									description="Progress will not be synced below this value"
-									name="minimumProgress"
-									defaultValue={
-										props.updateIntegrationData.minimumProgress || undefined
-									}
-								/>
-								<NumberInput
-									size="xs"
-									label="Maximum progress"
-									description="After this value, progress will be marked as completed"
-									name="maximumProgress"
-									defaultValue={
-										props.updateIntegrationData.maximumProgress || undefined
-									}
-								/>
-							</Group>
-						) : null}
-						<Checkbox
-							name="isDisabled"
-							label="Pause integration"
-							defaultChecked={
-								props.updateIntegrationData.isDisabled || undefined
-							}
-						/>
-						{SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(
-							props.updateIntegrationData.provider,
-						) ? (
-							<Checkbox
-								label="Sync to Owned collection"
-								name="syncToOwnedCollection"
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
-								styles={{ body: { display: "flex", alignItems: "center" } }}
-								defaultChecked={
-									props.updateIntegrationData.syncToOwnedCollection || undefined
-								}
-							/>
-						) : null}
-						<Button type="submit">Submit</Button>
-					</Stack>
-				</Form>
-			) : null}
-		</Modal>
 	);
 };

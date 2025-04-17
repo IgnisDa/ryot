@@ -414,12 +414,16 @@ impl MiscellaneousService {
             entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
         let is_recently_consumed =
             get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
+        let person_meta =
+            get_user_to_entity_association(&self.0.db, &user_id, &person_id, EntityLot::Person)
+                .await;
         let average_rating = calculate_average_rating(&reviews);
         Ok(UserPersonDetails {
             reviews,
             collections,
             average_rating,
             is_recently_consumed,
+            has_interacted: person_meta.is_some(),
         })
     }
 
@@ -451,11 +455,19 @@ impl MiscellaneousService {
         )
         .await?;
         let average_rating = calculate_average_rating(&reviews);
+        let metadata_group_meta = get_user_to_entity_association(
+            &self.0.db,
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+        )
+        .await;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
             average_rating,
             is_recently_consumed,
+            has_interacted: metadata_group_meta.is_some(),
         })
     }
 

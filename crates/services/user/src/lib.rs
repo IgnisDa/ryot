@@ -31,12 +31,12 @@ use itertools::Itertools;
 use jwt_service::sign;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
-    ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
-    ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
-    UserDetailsError, UserDetailsErrorVariant,
+    CreateOrUpdateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError,
+    LoginErrorVariant, LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput,
+    ProcessAccessLinkError, ProcessAccessLinkErrorVariant, ProcessAccessLinkInput,
+    ProcessAccessLinkResponse, ProcessAccessLinkResult, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput, UpdateUserNotificationPlatformInput, UserDetailsError,
+    UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -551,82 +551,57 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    pub async fn update_user_integration(
+    pub async fn create_or_update_user_integration(
         &self,
         user_id: String,
-        input: UpdateUserIntegrationInput,
+        input: CreateOrUpdateUserIntegrationInput,
     ) -> Result<bool> {
-        let db_integration = Integration::find_by_id(input.integration_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
-        if db_integration.user_id != user_id {
-            return Err(Error::new("Integration does not belong to the user"));
-        }
-        if input.minimum_progress > input.maximum_progress {
-            return Err(Error::new(
-                "Minimum progress cannot be greater than maximum progress",
-            ));
-        }
-        let mut db_integration: integration::ActiveModel = db_integration.into();
-        if let Some(n) = input.name {
-            db_integration.name = ActiveValue::Set(Some(n));
-        }
-        if let Some(s) = input.minimum_progress {
-            db_integration.minimum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(s) = input.maximum_progress {
-            db_integration.maximum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(d) = input.is_disabled {
-            db_integration.is_disabled = ActiveValue::Set(Some(d));
-        }
-        if let Some(d) = input.sync_to_owned_collection {
-            db_integration.sync_to_owned_collection = ActiveValue::Set(Some(d));
-        }
-        db_integration.update(&self.0.db).await?;
-        Ok(true)
-    }
-
-    pub async fn create_user_integration(
-        &self,
-        user_id: String,
-        input: CreateUserIntegrationInput,
-    ) -> Result<StringIdObject> {
-        match input.provider {
-            IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
-                server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+        let mut lot = ActiveValue::NotSet;
+        let mut provider = ActiveValue::NotSet;
+        if let Some(p) = input.provider {
+            match p {
+                IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
+                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                }
+                _ => {}
             }
-            _ => {}
-        }
+            let l = match p {
+                IntegrationProvider::Komga
+                | IntegrationProvider::PlexYank
+                | IntegrationProvider::YoutubeMusic
+                | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+                IntegrationProvider::Radarr
+                | IntegrationProvider::Sonarr
+                | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
+                _ => IntegrationLot::Sink,
+            };
+            lot = ActiveValue::Set(l);
+            provider = ActiveValue::Set(p);
+        };
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
                 "Minimum progress cannot be greater than maximum progress",
             ));
         }
-        let lot = match input.provider {
-            IntegrationProvider::Komga
-            | IntegrationProvider::PlexYank
-            | IntegrationProvider::YoutubeMusic
-            | IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Radarr
-            | IntegrationProvider::Sonarr
-            | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
-            _ => IntegrationLot::Sink,
+        let id = match input.integration_id {
+            None => ActiveValue::NotSet,
+            Some(id) => ActiveValue::Set(id),
         };
         let to_insert = integration::ActiveModel {
-            lot: ActiveValue::Set(lot),
+            id,
+            lot,
+            provider,
             name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
-            provider: ActiveValue::Set(input.provider),
+            is_disabled: ActiveValue::Set(input.is_disabled),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
             provider_specifics: ActiveValue::Set(input.provider_specifics),
             sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             ..Default::default()
         };
-        let integration = to_insert.insert(&self.0.db).await?;
-        Ok(StringIdObject { id: integration.id })
+        to_insert.save(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn delete_user_integration(

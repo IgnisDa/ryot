@@ -47,7 +47,7 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { Link, useLoaderData, useNavigate, useRevalidator } from "react-router";
+import { Link, useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -70,6 +70,7 @@ import {
 	getStartTimeFromRange,
 	getVerb,
 	pageQueryParam,
+	refreshEntityDetails,
 	zodCollectionFilter,
 } from "~/lib/common";
 import {
@@ -495,7 +496,6 @@ const MediaSearchItem = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
@@ -587,7 +587,7 @@ const MediaSearchItem = (props: {
 							},
 						);
 						events.addToCollection(EntityLot.Metadata);
-						revalidator.revalidate();
+						refreshEntityDetails(props.item);
 						if (tourControlOne) {
 							advanceOnboardingTourStep();
 						}

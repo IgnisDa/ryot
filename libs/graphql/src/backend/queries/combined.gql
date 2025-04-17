@@ -76,6 +76,32 @@ query UserIntegrations {
 			error
 			finishedAt
 		}
+		providerSpecifics {
+			plexYankToken
+			plexYankBaseUrl
+			plexSinkUsername
+			audiobookshelfToken
+			audiobookshelfBaseUrl
+			komgaBaseUrl
+			komgaUsername
+			komgaPassword
+			komgaProvider
+			radarrBaseUrl
+			radarrApiKey
+			radarrProfileId
+			radarrRootFolderPath
+			radarrSyncCollectionIds
+			sonarrProfileId
+			sonarrApiKey
+			sonarrBaseUrl
+			sonarrRootFolderPath
+			sonarrSyncCollectionIds
+			jellyfinPushBaseUrl
+			jellyfinPushUsername
+			jellyfinPushPassword
+			youtubeMusicTimezone
+			youtubeMusicAuthCookie
+		}
 	}
 }
 
@@ -404,6 +430,7 @@ query PeopleSearch($input: PeopleSearchInput!) {
 
 query UserMetadataGroupDetails($metadataGroupId: String!) {
 	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		hasInteracted
 		averageRating
 		isRecentlyConsumed
 		reviews {
@@ -417,6 +444,7 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 
 query UserPersonDetails($personId: String!) {
 	userPersonDetails(personId: $personId) {
+		hasInteracted
 		averageRating
 		isRecentlyConsumed
 		collections {

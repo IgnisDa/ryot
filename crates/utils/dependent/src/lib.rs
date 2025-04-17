@@ -2233,7 +2233,7 @@ pub async fn create_or_update_user_workout(
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
-                unit_system: ex.unit_system.clone(),
+                unit_system: ex.unit_system,
             },
         ));
     }

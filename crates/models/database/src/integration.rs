@@ -30,7 +30,6 @@ pub struct Model {
     #[graphql(skip_input)]
     pub trigger_result: Vec<IntegrationTriggerResult>,
     #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 

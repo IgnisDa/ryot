@@ -320,6 +320,17 @@ export type CreateOrUpdateReviewInput = {
   visibility?: InputMaybe<Visibility>;
 };
 
+export type CreateOrUpdateUserIntegrationInput = {
+  integrationId?: InputMaybe<Scalars['String']['input']>;
+  isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  provider?: InputMaybe<IntegrationProvider>;
+  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
+  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type CreateReviewCommentInput = {
   commentId?: InputMaybe<Scalars['String']['input']>;
   decrementLikes?: InputMaybe<Scalars['Boolean']['input']>;
@@ -328,15 +339,6 @@ export type CreateReviewCommentInput = {
   reviewId: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
   text?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateUserIntegrationInput = {
-  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  provider: IntegrationProvider;
-  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
-  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type CreateUserNotificationPlatformInput = {
@@ -927,6 +929,7 @@ export type Integration = {
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   name?: Maybe<Scalars['String']['output']>;
   provider: IntegrationProvider;
+  providerSpecifics?: Maybe<IntegrationProviderSpecifics>;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
   triggerResult: Array<IntegrationTriggerResult>;
 };
@@ -951,6 +954,34 @@ export enum IntegrationProvider {
   Sonarr = 'SONARR',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
+
+export type IntegrationProviderSpecifics = {
+  __typename?: 'IntegrationProviderSpecifics';
+  audiobookshelfBaseUrl?: Maybe<Scalars['String']['output']>;
+  audiobookshelfToken?: Maybe<Scalars['String']['output']>;
+  jellyfinPushBaseUrl?: Maybe<Scalars['String']['output']>;
+  jellyfinPushPassword?: Maybe<Scalars['String']['output']>;
+  jellyfinPushUsername?: Maybe<Scalars['String']['output']>;
+  komgaBaseUrl?: Maybe<Scalars['String']['output']>;
+  komgaPassword?: Maybe<Scalars['String']['output']>;
+  komgaProvider?: Maybe<MediaSource>;
+  komgaUsername?: Maybe<Scalars['String']['output']>;
+  plexSinkUsername?: Maybe<Scalars['String']['output']>;
+  plexYankBaseUrl?: Maybe<Scalars['String']['output']>;
+  plexYankToken?: Maybe<Scalars['String']['output']>;
+  radarrApiKey?: Maybe<Scalars['String']['output']>;
+  radarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  radarrProfileId?: Maybe<Scalars['Int']['output']>;
+  radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  sonarrApiKey?: Maybe<Scalars['String']['output']>;
+  sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  sonarrProfileId?: Maybe<Scalars['Int']['output']>;
+  sonarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  sonarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  youtubeMusicAuthCookie?: Maybe<Scalars['String']['output']>;
+  youtubeMusicTimezone?: Maybe<Scalars['String']['output']>;
+};
 
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;
@@ -1210,14 +1241,14 @@ export type MutationRoot = {
   createOrUpdateCollection: StringIdObject;
   /** Create or update a review. */
   createOrUpdateReview: StringIdObject;
+  /** Create or update an integration for the currently logged in user. */
+  createOrUpdateUserIntegration: Scalars['Boolean']['output'];
   /** Take a user workout, process it and commit it to database. */
   createOrUpdateUserWorkout: Scalars['String']['output'];
   /** Create or update a workout template. */
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
-  /** Create an integration for the currently logged in user. */
-  createUserIntegration: StringIdObject;
   /** Create a user measurement. */
   createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
@@ -1309,8 +1340,6 @@ export type MutationRoot = {
   updateUser: StringIdObject;
   /** Update a user's exercise settings. */
   updateUserExerciseSettings: Scalars['Boolean']['output'];
-  /** Update an integration for the currently logged in user. */
-  updateUserIntegration: Scalars['Boolean']['output'];
   /** Edit a notification platform for the currently logged in user. */
   updateUserNotificationPlatform: Scalars['Boolean']['output'];
   /** Change a user's preferences. */
@@ -1350,6 +1379,11 @@ export type MutationRootCreateOrUpdateReviewArgs = {
 };
 
 
+export type MutationRootCreateOrUpdateUserIntegrationArgs = {
+  input: CreateOrUpdateUserIntegrationInput;
+};
+
+
 export type MutationRootCreateOrUpdateUserWorkoutArgs = {
   input: UserWorkoutInput;
 };
@@ -1362,11 +1396,6 @@ export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
 
 export type MutationRootCreateReviewCommentArgs = {
   input: CreateReviewCommentInput;
-};
-
-
-export type MutationRootCreateUserIntegrationArgs = {
-  input: CreateUserIntegrationInput;
 };
 
 
@@ -1539,11 +1568,6 @@ export type MutationRootUpdateUserArgs = {
 
 export type MutationRootUpdateUserExerciseSettingsArgs = {
   input: UpdateUserExerciseSettings;
-};
-
-
-export type MutationRootUpdateUserIntegrationArgs = {
-  input: UpdateUserIntegrationInput;
 };
 
 
@@ -2261,15 +2285,6 @@ export type UpdateUserInput = {
   username?: InputMaybe<Scalars['String']['input']>;
 };
 
-export type UpdateUserIntegrationInput = {
-  integrationId: Scalars['String']['input'];
-  isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
-  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
-};
-
 export type UpdateUserNotificationPlatformInput = {
   configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
@@ -2745,6 +2760,7 @@ export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
+  hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
@@ -2802,6 +2818,7 @@ export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
+  hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
