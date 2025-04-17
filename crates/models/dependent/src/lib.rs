@@ -341,6 +341,7 @@ pub struct CoreDetails {
 
 #[derive(SimpleObject)]
 pub struct UserPersonDetails {
+    pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
@@ -349,6 +350,7 @@ pub struct UserPersonDetails {
 
 #[derive(SimpleObject)]
 pub struct UserMetadataGroupDetails {
+    pub has_interacted: bool,
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,

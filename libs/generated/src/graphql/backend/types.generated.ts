@@ -2760,6 +2760,7 @@ export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
+  hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
@@ -2817,6 +2818,7 @@ export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   collections: Array<Collection>;
+  hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
 };
