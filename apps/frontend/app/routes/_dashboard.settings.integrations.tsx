@@ -64,10 +64,12 @@ import {
 import {
 	useConfirmSubmit,
 	useCoreDetails,
+	useDashboardLayoutData,
 	useNonHiddenUserCollections,
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.integrations";
+import { notifications } from "@mantine/notifications";
 
 const PRO_INTEGRATIONS = [
 	IntegrationProvider.JellyfinPush,
@@ -302,6 +304,7 @@ const DisplayIntegration = (props: {
 	integration: Integration;
 	setCreateOrUpdateData: (data: Integration | null) => void;
 }) => {
+	const { isAccessLinkSession } = useDashboardLayoutData();
 	const [parent] = useAutoAnimate();
 	const [integrationUrlOpened, { toggle: integrationUrlToggle }] =
 		useDisclosure(false);
@@ -387,7 +390,17 @@ const DisplayIntegration = (props: {
 							<ActionIcon
 								color="indigo"
 								variant="subtle"
-								onClick={() => props.setCreateOrUpdateData(props.integration)}
+								onClick={() => {
+									if (isAccessLinkSession) {
+										notifications.show({
+											color: "red",
+											message:
+												"You do not have permission to edit integrations",
+										});
+										return;
+									}
+									props.setCreateOrUpdateData(props.integration);
+								}}
 							>
 								<IconPencil />
 							</ActionIcon>
@@ -405,6 +418,14 @@ const DisplayIntegration = (props: {
 									onClick={(e) => {
 										const form = e.currentTarget.form;
 										e.preventDefault();
+										if (isAccessLinkSession) {
+											notifications.show({
+												color: "red",
+												message:
+													"You do not have permission to delete integrations",
+											});
+											return;
+										}
 										openConfirmationModal(
 											"Are you sure you want to delete this integration?",
 											() => submit(form),
