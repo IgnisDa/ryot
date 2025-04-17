@@ -26,6 +26,7 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
@@ -69,7 +70,6 @@ import {
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.integrations";
-import { notifications } from "@mantine/notifications";
 
 const PRO_INTEGRATIONS = [
 	IntegrationProvider.JellyfinPush,
