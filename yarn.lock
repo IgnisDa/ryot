@@ -6272,7 +6272,7 @@ __metadata:
     "@types/nodemailer": "npm:6.4.17"
     "@types/react": "npm:19.1.2"
     "@types/react-dom": "npm:19.1.2"
-    "@unkey/api": "npm:2.0.0-alpha.7"
+    "@unkey/api": "npm:0.35.0"
     autoprefixer: "npm:10.4.21"
     class-variance-authority: "npm:0.7.1"
     clsx: "npm:2.1.1"
@@ -6870,18 +6870,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@unkey/api@npm:2.0.0-alpha.7":
-  version: 2.0.0-alpha.7
-  resolution: "@unkey/api@npm:2.0.0-alpha.7"
-  peerDependencies:
-    "@modelcontextprotocol/sdk": ^1.5.0
-    zod: ">= 3"
-  peerDependenciesMeta:
-    "@modelcontextprotocol/sdk":
-      optional: true
-  bin:
-    mcp: bin/mcp-server.js
-  checksum: 10/7eac85b86f3cbc64b0796a4468313825183380a62690cfe2eb3c71b20fa8d04f222806bbf092b757323dc082f6b00aeb21643954be9db1edb372e2f2b16fac42
+"@unkey/api@npm:0.35.0":
+  version: 0.35.0
+  resolution: "@unkey/api@npm:0.35.0"
+  dependencies:
+    "@unkey/rbac": "npm:^0.3.1"
+  checksum: 10/b99d4c269d5ea472a241eb0ecd164f07cbd52030af6411d1640e4bde9197c1cefa9b7773c6e2f407211c265e4bb28b7798ed567fc3a3f427dbd7e516ed1aa6f5
+  languageName: node
+  linkType: hard
+
+"@unkey/error@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "@unkey/error@npm:0.2.0"
+  dependencies:
+    zod: "npm:^3.23.5"
+  checksum: 10/7bae43e8d70a559252880a31193e7511d0c877faf149801daaa7b0fcadad90464f5117f4c399fb7586c6f61d1949b6c01c8d7a35db283523acf71b2e9685b508
+  languageName: node
+  linkType: hard
+
+"@unkey/rbac@npm:^0.3.1":
+  version: 0.3.1
+  resolution: "@unkey/rbac@npm:0.3.1"
+  dependencies:
+    "@unkey/error": "npm:^0.2.0"
+    zod: "npm:^3.23.5"
+  checksum: 10/1a977e65de51a22ca205dc58d0f2becfea11ad4eae23ee5d812abe8630f91dfeadbff33d89e9ae10a7c978992fc0be1bd4e100be2ee3898b2a8b3add0c6586bf
   languageName: node
   linkType: hard
 
@@ -15574,7 +15587,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:3.24.3":
+"zod@npm:3.24.3, zod@npm:^3.23.5":
   version: 3.24.3
   resolution: "zod@npm:3.24.3"
   checksum: 10/1b15db625ca633324084f3a8587bfb907043bbca407a09f7d5da6a9781b3838c68e9312b49e91e479d2f8bf04cdda5810803ac9504e3b7ccbec3adf2de625fb8
