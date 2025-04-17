@@ -46,6 +46,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	BulkEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -194,183 +195,186 @@ export default function Page() {
 		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
-		<Container>
-			<Stack>
-				<Title>People</Title>
-				<Tabs
-					variant="default"
-					value={loaderData.action}
-					onChange={(v) => {
-						if (v)
-							navigate(
-								$path(
-									"/media/people/:action",
-									{ action: v },
-									{
-										...(loaderData.query.query && {
-											query: loaderData.query.query,
-										}),
-									},
-								),
-							);
-					}}
-				>
-					<Tabs.List style={{ alignItems: "center" }}>
-						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
-							<Text>My People</Text>
-						</Tabs.Tab>
-						<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
-							<Text>Search</Text>
-						</Tabs.Tab>
-					</Tabs.List>
-				</Tabs>
+		<>
+			<BulkEditingAffix />
+			<Container>
+				<Stack>
+					<Title>People</Title>
+					<Tabs
+						variant="default"
+						value={loaderData.action}
+						onChange={(v) => {
+							if (v)
+								navigate(
+									$path(
+										"/media/people/:action",
+										{ action: v },
+										{
+											...(loaderData.query.query && {
+												query: loaderData.query.query,
+											}),
+										},
+									),
+								);
+						}}
+					>
+						<Tabs.List style={{ alignItems: "center" }}>
+							<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
+								<Text>My People</Text>
+							</Tabs.Tab>
+							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+								<Text>Search</Text>
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs>
 
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						placeholder="Search for people"
-						initialValue={loaderData.query.query}
-						enhancedQueryParams={loaderData.cookieName}
-					/>
-					{loaderData.action === Action.List ? (
-						<>
-							<ActionIcon
-								onClick={openFiltersModal}
-								color={areFiltersApplied ? "blue" : "gray"}
-							>
-								<IconFilter size={24} />
-							</ActionIcon>
-							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
-								opened={filtersModalOpened}
-							>
-								<FiltersModalForm />
-							</FiltersModal>
-						</>
-					) : null}
-					{loaderData.action === Action.Search ? (
-						<>
-							<Select
-								onChange={(v) => setP("source", v)}
-								defaultValue={loaderData.search?.url.source}
-								data={coreDetails.peopleSearchSources.map((o) => ({
-									value: o.toString(),
-									label: startCase(o.toLowerCase()),
-								}))}
-							/>
-							{loaderData.search?.url.source === MediaSource.Tmdb ? (
-								<Checkbox
-									label="Company"
-									checked={loaderData.search?.url.isTmdbCompany}
-									onChange={(e) =>
-										setP("isTmdbCompany", String(e.target.checked))
-									}
-								/>
-							) : null}
-							{loaderData.search?.url.source === MediaSource.Anilist ? (
-								<Checkbox
-									label="Studio"
-									checked={loaderData.search?.url.isAnilistStudio}
-									onChange={(e) =>
-										setP("isAnilistStudio", String(e.target.checked))
-									}
-								/>
-							) : null}
-							{loaderData.search?.url.source === MediaSource.Hardcover ? (
-								<Checkbox
-									label="Publisher"
-									checked={loaderData.search?.url.isHardcoverPublisher}
-									onChange={(e) =>
-										setP("isHardcoverPublisher", String(e.target.checked))
-									}
-								/>
-							) : null}
-						</>
-					) : null}
-				</Group>
-				{loaderData.list ? (
-					<>
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.list.list.cacheId}
-							total={loaderData.list.list.response.details.total}
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							placeholder="Search for people"
+							initialValue={loaderData.query.query}
+							enhancedQueryParams={loaderData.cookieName}
 						/>
-						{loaderData.list.list.response.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.list.list.response.items.map((person) => {
-									const becItem = {
-										entityId: person,
-										entityLot: EntityLot.Person,
-									};
-									const isAdded = bulkEditingCollection.isAdded(becItem);
-									return (
+						{loaderData.action === Action.List ? (
+							<>
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={areFiltersApplied ? "blue" : "gray"}
+								>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									closeFiltersModal={closeFiltersModal}
+									cookieName={loaderData.cookieName}
+									opened={filtersModalOpened}
+								>
+									<FiltersModalForm />
+								</FiltersModal>
+							</>
+						) : null}
+						{loaderData.action === Action.Search ? (
+							<>
+								<Select
+									onChange={(v) => setP("source", v)}
+									defaultValue={loaderData.search?.url.source}
+									data={coreDetails.peopleSearchSources.map((o) => ({
+										value: o.toString(),
+										label: startCase(o.toLowerCase()),
+									}))}
+								/>
+								{loaderData.search?.url.source === MediaSource.Tmdb ? (
+									<Checkbox
+										label="Company"
+										checked={loaderData.search?.url.isTmdbCompany}
+										onChange={(e) =>
+											setP("isTmdbCompany", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{loaderData.search?.url.source === MediaSource.Anilist ? (
+									<Checkbox
+										label="Studio"
+										checked={loaderData.search?.url.isAnilistStudio}
+										onChange={(e) =>
+											setP("isAnilistStudio", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{loaderData.search?.url.source === MediaSource.Hardcover ? (
+									<Checkbox
+										label="Publisher"
+										checked={loaderData.search?.url.isHardcoverPublisher}
+										onChange={(e) =>
+											setP("isHardcoverPublisher", String(e.target.checked))
+										}
+									/>
+								) : null}
+							</>
+						) : null}
+					</Group>
+					{loaderData.list ? (
+						<>
+							<DisplayListDetailsAndRefresh
+								cacheId={loaderData.list.list.cacheId}
+								total={loaderData.list.list.response.details.total}
+							/>
+							{loaderData.list.list.response.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.list.list.response.items.map((person) => {
+										const becItem = {
+											entityId: person,
+											entityLot: EntityLot.Person,
+										};
+										const isAdded = bulkEditingCollection.isAdded(becItem);
+										return (
+											<PersonDisplayItem
+												key={person}
+												personId={person}
+												topRight={
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
+														<ActionIcon
+															variant={isAdded ? "filled" : "transparent"}
+															color="green"
+															onClick={() => {
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
+															}}
+														>
+															<IconCheck size={18} />
+														</ActionIcon>
+													) : undefined
+												}
+											/>
+										);
+									})}
+								</ApplicationGrid>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
+					{loaderData.search ? (
+						<>
+							<Box>
+								<Text display="inline" fw="bold">
+									{loaderData.search.search.details.total}
+								</Text>{" "}
+								items found
+							</Box>
+							{loaderData.search.search.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.search.search.items.map((person) => (
 										<PersonDisplayItem
 											key={person}
 											personId={person}
-											topRight={
-												bulkEditingState &&
-												bulkEditingState.data.action === "add" ? (
-													<ActionIcon
-														variant={isAdded ? "filled" : "transparent"}
-														color="green"
-														onClick={() => {
-															if (isAdded) bulkEditingState.remove(becItem);
-															else bulkEditingState.add(becItem);
-														}}
-													>
-														<IconCheck size={18} />
-													</ActionIcon>
-												) : undefined
-											}
+											shouldHighlightNameIfInteracted
 										/>
-									);
-								})}
-							</ApplicationGrid>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</Center>
-					</>
-				) : null}
-				{loaderData.search ? (
-					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.search.search.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.search.search.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.search.search.items.map((person) => (
-									<PersonDisplayItem
-										key={person}
-										personId={person}
-										shouldHighlightNameIfInteracted
-									/>
-								))}
-							</ApplicationGrid>
-						) : (
-							<Text>No people found matching your query</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</Center>
-					</>
-				) : null}
-			</Stack>
-		</Container>
+									))}
+								</ApplicationGrid>
+							) : (
+								<Text>No people found matching your query</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
+				</Stack>
+			</Container>
+		</>
 	);
 }
 

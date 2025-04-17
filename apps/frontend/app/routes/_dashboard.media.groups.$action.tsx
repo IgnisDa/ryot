@@ -45,6 +45,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	BulkEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -191,156 +192,159 @@ export default function Page() {
 		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
-		<Container>
-			<Stack>
-				<Title>Groups</Title>
-				<Tabs
-					variant="default"
-					value={loaderData.action}
-					onChange={(v) => {
-						if (v)
-							navigate(
-								$path(
-									"/media/groups/:action",
-									{ action: v },
-									{
-										...(loaderData.query.query && {
-											query: loaderData.query.query,
-										}),
-									},
-								),
-							);
-					}}
-				>
-					<Tabs.List style={{ alignItems: "center" }}>
-						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
-							<Text>My Groups</Text>
-						</Tabs.Tab>
-						<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
-							<Text>Search</Text>
-						</Tabs.Tab>
-					</Tabs.List>
-				</Tabs>
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						placeholder="Search for groups"
-						initialValue={loaderData.query.query}
-						enhancedQueryParams={loaderData.cookieName}
-					/>
-					{loaderData.action === Action.List ? (
-						<>
-							<ActionIcon
-								onClick={openFiltersModal}
-								color={areFiltersApplied ? "blue" : "gray"}
-							>
-								<IconFilter size={24} />
-							</ActionIcon>
-							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
-								opened={filtersModalOpened}
-							>
-								<FiltersModalForm />
-							</FiltersModal>
-						</>
-					) : null}
-					{loaderData.action === Action.Search ? (
-						<>
-							<Select
-								onChange={(v) => setP("source", v)}
-								defaultValue={loaderData.search?.url.source}
-								data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
-									value: o.source.toString(),
-									label: startCase(o.source.toLowerCase()),
-								}))}
-							/>
-						</>
-					) : null}
-				</Group>
-				{loaderData.list ? (
-					<>
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.list.list.cacheId}
-							total={loaderData.list.list.response.details.total}
+		<>
+			<BulkEditingAffix />
+			<Container>
+				<Stack>
+					<Title>Groups</Title>
+					<Tabs
+						variant="default"
+						value={loaderData.action}
+						onChange={(v) => {
+							if (v)
+								navigate(
+									$path(
+										"/media/groups/:action",
+										{ action: v },
+										{
+											...(loaderData.query.query && {
+												query: loaderData.query.query,
+											}),
+										},
+									),
+								);
+						}}
+					>
+						<Tabs.List style={{ alignItems: "center" }}>
+							<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
+								<Text>My Groups</Text>
+							</Tabs.Tab>
+							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+								<Text>Search</Text>
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs>
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							placeholder="Search for groups"
+							initialValue={loaderData.query.query}
+							enhancedQueryParams={loaderData.cookieName}
 						/>
-						{loaderData.list.list.response.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.list.list.response.items.map((gr) => {
-									const becItem = {
-										entityId: gr,
-										entityLot: EntityLot.MetadataGroup,
-									};
-									const isAdded = bulkEditingCollection.isAdded(becItem);
-									return (
-										<MetadataGroupDisplayItem
-											key={gr}
-											metadataGroupId={gr}
-											topRight={
-												bulkEditingState &&
-												bulkEditingState.data.action === "add" ? (
-													<ActionIcon
-														variant={isAdded ? "filled" : "transparent"}
-														color="green"
-														onClick={() => {
-															if (isAdded) bulkEditingState.remove(becItem);
-															else bulkEditingState.add(becItem);
-														}}
-													>
-														<IconCheck size={18} />
-													</ActionIcon>
-												) : undefined
-											}
-										/>
-									);
-								})}
-							</ApplicationGrid>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
+						{loaderData.action === Action.List ? (
+							<>
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={areFiltersApplied ? "blue" : "gray"}
+								>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									closeFiltersModal={closeFiltersModal}
+									cookieName={loaderData.cookieName}
+									opened={filtersModalOpened}
+								>
+									<FiltersModalForm />
+								</FiltersModal>
+							</>
+						) : null}
+						{loaderData.action === Action.Search ? (
+							<>
+								<Select
+									onChange={(v) => setP("source", v)}
+									defaultValue={loaderData.search?.url.source}
+									data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
+										value: o.source.toString(),
+										label: startCase(o.source.toLowerCase()),
+									}))}
+								/>
+							</>
+						) : null}
+					</Group>
+					{loaderData.list ? (
+						<>
+							<DisplayListDetailsAndRefresh
+								cacheId={loaderData.list.list.cacheId}
+								total={loaderData.list.list.response.details.total}
 							/>
-						</Center>
-					</>
-				) : null}
+							{loaderData.list.list.response.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.list.list.response.items.map((gr) => {
+										const becItem = {
+											entityId: gr,
+											entityLot: EntityLot.MetadataGroup,
+										};
+										const isAdded = bulkEditingCollection.isAdded(becItem);
+										return (
+											<MetadataGroupDisplayItem
+												key={gr}
+												metadataGroupId={gr}
+												topRight={
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
+														<ActionIcon
+															variant={isAdded ? "filled" : "transparent"}
+															color="green"
+															onClick={() => {
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
+															}}
+														>
+															<IconCheck size={18} />
+														</ActionIcon>
+													) : undefined
+												}
+											/>
+										);
+									})}
+								</ApplicationGrid>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
 
-				{loaderData.search ? (
-					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.search.search.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.search.search.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.search.search.items.map((group) => (
-									<MetadataGroupDisplayItem
-										key={group}
-										metadataGroupId={group}
-										shouldHighlightNameIfInteracted
-									/>
-								))}
-							</ApplicationGrid>
-						) : (
-							<Text>No groups found matching your query</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</Center>
-					</>
-				) : null}
-			</Stack>
-		</Container>
+					{loaderData.search ? (
+						<>
+							<Box>
+								<Text display="inline" fw="bold">
+									{loaderData.search.search.details.total}
+								</Text>{" "}
+								items found
+							</Box>
+							{loaderData.search.search.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.search.search.items.map((group) => (
+										<MetadataGroupDisplayItem
+											key={group}
+											metadataGroupId={group}
+											shouldHighlightNameIfInteracted
+										/>
+									))}
+								</ApplicationGrid>
+							) : (
+								<Text>No groups found matching your query</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
+				</Stack>
+			</Container>
+		</>
 	);
 }
 
