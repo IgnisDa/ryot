@@ -21,7 +21,6 @@ import {
 	Loader,
 	Modal,
 	NumberInput,
-	Paper,
 	Rating,
 	ScrollArea,
 	SegmentedControl,
@@ -66,7 +65,6 @@ import {
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
-	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
 	IconChevronsLeft,
@@ -133,7 +131,6 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useBulkEditCollection } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
@@ -313,7 +310,6 @@ export default function Layout() {
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
-	const bulkEditingCollection = useBulkEditCollection();
 	const {
 		onboardingTourSteps,
 		completeOnboardingTour,
@@ -353,21 +349,6 @@ export default function Layout() {
 			: undefined,
 	].filter((link) => link !== undefined);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
-	const bulkEditingCollectionState = bulkEditingCollection.state;
-	const shouldShowBulkEditingAffix =
-		bulkEditingCollectionState &&
-		(bulkEditingCollectionState.data.action === "remove"
-			? location.pathname ===
-				$path("/collections/:id", {
-					id: bulkEditingCollectionState.data.collection.id,
-				})
-			: [
-					...Object.values(MediaLot).map((ml) =>
-						$path("/media/:action/:lot", { action: "list", lot: ml }),
-					),
-					$path("/media/people/:action", { action: "list" }),
-					$path("/media/groups/:action", { action: "list" }),
-				].includes(location.pathname));
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
 			.filter(([v, _]) => !["enabled"].includes(v))
@@ -468,90 +449,6 @@ export default function Layout() {
 						</ActionIcon>
 					</Affix>
 				</Tooltip>
-			) : null}
-			{shouldShowBulkEditingAffix ? (
-				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-					<Form
-						method="POST"
-						action={$path("/actions", { intent: "bulkCollectionAction" })}
-						onSubmit={(e) => {
-							submit(e);
-							bulkEditingCollectionState.stop(true);
-						}}
-					>
-						<input
-							type="hidden"
-							name="action"
-							defaultValue={bulkEditingCollectionState.data.action}
-						/>
-						<input
-							type="hidden"
-							name="collectionName"
-							defaultValue={bulkEditingCollectionState.data.collection.name}
-						/>
-						<input
-							type="hidden"
-							name="creatorUserId"
-							defaultValue={
-								bulkEditingCollectionState.data.collection.creatorUserId
-							}
-						/>
-						{bulkEditingCollectionState.data.entities.map((item, index) => (
-							<Fragment key={JSON.stringify(item)}>
-								<input
-									readOnly
-									type="hidden"
-									value={item.entityId}
-									name={`items[${index}].entityId`}
-								/>
-								<input
-									readOnly
-									type="hidden"
-									value={item.entityLot}
-									name={`items[${index}].entityLot`}
-								/>
-							</Fragment>
-						))}
-						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-							<Group wrap="nowrap" justify="space-between">
-								<Text fz={{ base: "xs", md: "md" }}>
-									{bulkEditingCollectionState.data.entities.length} items
-									selected
-								</Text>
-								<Group wrap="nowrap">
-									<ActionIcon
-										size="md"
-										onClick={() => bulkEditingCollectionState.stop()}
-									>
-										<IconCancel />
-									</ActionIcon>
-									<Button
-										size="xs"
-										color="blue"
-										loading={bulkEditingCollectionState.data.isLoading}
-										onClick={() => bulkEditingCollectionState.bulkAdd()}
-									>
-										Select all items
-									</Button>
-									<Button
-										size="xs"
-										type="submit"
-										disabled={
-											bulkEditingCollectionState.data.entities.length === 0
-										}
-										color={
-											bulkEditingCollectionState.data.action === "remove"
-												? "red"
-												: "green"
-										}
-									>
-										{changeCase(bulkEditingCollectionState.data.action)}
-									</Button>
-								</Group>
-							</Group>
-						</Paper>
-					</Form>
-				</Affix>
 			) : null}
 			<Modal
 				centered

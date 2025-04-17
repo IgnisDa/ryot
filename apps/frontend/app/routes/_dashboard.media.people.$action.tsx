@@ -22,9 +22,11 @@ import {
 	PeopleSearchDocument,
 	PersonAndMetadataGroupsSortBy,
 	UserPeopleListDocument,
+	type UserPeopleListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	cloneDeep,
 	isEqual,
 	parseParameters,
 	parseSearchQuery,
@@ -46,13 +48,18 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	BulkEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
+import {
+	clientGqlService,
+	pageQueryParam,
+	zodCollectionFilter,
+} from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -100,61 +107,63 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, list, search, respectCoreDetailsPageSize] = await match(
-		action,
-	)
-		.with(Action.List, async () => {
-			const listSchema = z.object({
-				collections: zodCollectionFilter,
-				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				sortBy: z
-					.nativeEnum(PersonAndMetadataGroupsSortBy)
-					.default(defaultFilters.sortBy),
-			});
-			const urlParse = parseSearchQuery(request, listSchema);
-			const { userPeopleList } = await serverGqlService.authenticatedRequest(
-				request,
-				UserPeopleListDocument,
-				{
-					input: {
-						filter: { collections: urlParse.collections },
-						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-						search: { page: query[pageQueryParam], query: query.query },
-					},
-				},
-			);
-			return [
-				userPeopleList.response.details.total,
-				{ list: userPeopleList, url: urlParse },
-				undefined,
-				false,
-			] as const;
-		})
-		.with(Action.Search, async () => {
-			const urlParse = parseSearchQuery(request, searchSchema);
-			const { peopleSearch } = await serverGqlService.authenticatedRequest(
-				request,
-				PeopleSearchDocument,
-				{
-					input: {
-						source: urlParse.source,
-						sourceSpecifics: {
-							isTmdbCompany: urlParse.isTmdbCompany,
-							isAnilistStudio: urlParse.isAnilistStudio,
-							isHardcoverPublisher: urlParse.isHardcoverPublisher,
+	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
+		await match(action)
+			.with(Action.List, async () => {
+				const listSchema = z.object({
+					collections: zodCollectionFilter,
+					orderBy: z
+						.nativeEnum(GraphqlSortOrder)
+						.default(defaultFilters.orderBy),
+					sortBy: z
+						.nativeEnum(PersonAndMetadataGroupsSortBy)
+						.default(defaultFilters.sortBy),
+				});
+				const urlParse = parseSearchQuery(request, listSchema);
+				const input: UserPeopleListInput = {
+					filter: { collections: urlParse.collections },
+					sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+					search: { page: query[pageQueryParam], query: query.query },
+				};
+				const { userPeopleList } = await serverGqlService.authenticatedRequest(
+					request,
+					UserPeopleListDocument,
+					{ input },
+				);
+				return [
+					userPeopleList.response.details.total,
+					{ list: userPeopleList, url: urlParse },
+					undefined,
+					false,
+					input,
+				] as const;
+			})
+			.with(Action.Search, async () => {
+				const urlParse = parseSearchQuery(request, searchSchema);
+				const { peopleSearch } = await serverGqlService.authenticatedRequest(
+					request,
+					PeopleSearchDocument,
+					{
+						input: {
+							source: urlParse.source,
+							sourceSpecifics: {
+								isTmdbCompany: urlParse.isTmdbCompany,
+								isAnilistStudio: urlParse.isAnilistStudio,
+								isHardcoverPublisher: urlParse.isHardcoverPublisher,
+							},
+							search: { page: query[pageQueryParam], query: query.query },
 						},
-						search: { page: query[pageQueryParam], query: query.query },
 					},
-				},
-			);
-			return [
-				peopleSearch.details.total,
-				undefined,
-				{ search: peopleSearch, url: urlParse },
-				true,
-			] as const;
-		})
-		.exhaustive();
+				);
+				return [
+					peopleSearch.details.total,
+					undefined,
+					{ search: peopleSearch, url: urlParse },
+					true,
+					undefined,
+				] as const;
+			})
+			.exhaustive();
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
@@ -166,6 +175,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		query,
 		action,
 		search,
+		listInput,
 		totalPages,
 		cookieName,
 		[pageQueryParam]: query[pageQueryParam],
@@ -194,183 +204,200 @@ export default function Page() {
 		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
 
 	return (
-		<Container>
-			<Stack>
-				<Title>People</Title>
-				<Tabs
-					variant="default"
-					value={loaderData.action}
-					onChange={(v) => {
-						if (v)
-							navigate(
-								$path(
-									"/media/people/:action",
-									{ action: v },
-									{
-										...(loaderData.query.query && {
-											query: loaderData.query.query,
-										}),
-									},
-								),
-							);
-					}}
-				>
-					<Tabs.List style={{ alignItems: "center" }}>
-						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
-							<Text>My People</Text>
-						</Tabs.Tab>
-						<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
-							<Text>Search</Text>
-						</Tabs.Tab>
-					</Tabs.List>
-				</Tabs>
+		<>
+			<BulkEditingAffix
+				bulkAddEntities={async () => {
+					if (!loaderData.listInput) return [];
+					const input = cloneDeep(loaderData.listInput);
+					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
+					return await clientGqlService
+						.request(UserPeopleListDocument, { input })
+						.then((r) =>
+							r.userPeopleList.response.items.map((p) => ({
+								entityId: p,
+								entityLot: EntityLot.Person,
+							})),
+						);
+				}}
+			/>
+			<Container>
+				<Stack>
+					<Title>People</Title>
+					<Tabs
+						variant="default"
+						value={loaderData.action}
+						onChange={(v) => {
+							if (v)
+								navigate(
+									$path(
+										"/media/people/:action",
+										{ action: v },
+										{
+											...(loaderData.query.query && {
+												query: loaderData.query.query,
+											}),
+										},
+									),
+								);
+						}}
+					>
+						<Tabs.List style={{ alignItems: "center" }}>
+							<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
+								<Text>My People</Text>
+							</Tabs.Tab>
+							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
+								<Text>Search</Text>
+							</Tabs.Tab>
+						</Tabs.List>
+					</Tabs>
 
-				<Group wrap="nowrap">
-					<DebouncedSearchInput
-						placeholder="Search for people"
-						initialValue={loaderData.query.query}
-						enhancedQueryParams={loaderData.cookieName}
-					/>
-					{loaderData.action === Action.List ? (
-						<>
-							<ActionIcon
-								onClick={openFiltersModal}
-								color={areFiltersApplied ? "blue" : "gray"}
-							>
-								<IconFilter size={24} />
-							</ActionIcon>
-							<FiltersModal
-								closeFiltersModal={closeFiltersModal}
-								cookieName={loaderData.cookieName}
-								opened={filtersModalOpened}
-							>
-								<FiltersModalForm />
-							</FiltersModal>
-						</>
-					) : null}
-					{loaderData.action === Action.Search ? (
-						<>
-							<Select
-								onChange={(v) => setP("source", v)}
-								defaultValue={loaderData.search?.url.source}
-								data={coreDetails.peopleSearchSources.map((o) => ({
-									value: o.toString(),
-									label: startCase(o.toLowerCase()),
-								}))}
-							/>
-							{loaderData.search?.url.source === MediaSource.Tmdb ? (
-								<Checkbox
-									label="Company"
-									checked={loaderData.search?.url.isTmdbCompany}
-									onChange={(e) =>
-										setP("isTmdbCompany", String(e.target.checked))
-									}
-								/>
-							) : null}
-							{loaderData.search?.url.source === MediaSource.Anilist ? (
-								<Checkbox
-									label="Studio"
-									checked={loaderData.search?.url.isAnilistStudio}
-									onChange={(e) =>
-										setP("isAnilistStudio", String(e.target.checked))
-									}
-								/>
-							) : null}
-							{loaderData.search?.url.source === MediaSource.Hardcover ? (
-								<Checkbox
-									label="Publisher"
-									checked={loaderData.search?.url.isHardcoverPublisher}
-									onChange={(e) =>
-										setP("isHardcoverPublisher", String(e.target.checked))
-									}
-								/>
-							) : null}
-						</>
-					) : null}
-				</Group>
-				{loaderData.list ? (
-					<>
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.list.list.cacheId}
-							total={loaderData.list.list.response.details.total}
+					<Group wrap="nowrap">
+						<DebouncedSearchInput
+							placeholder="Search for people"
+							initialValue={loaderData.query.query}
+							enhancedQueryParams={loaderData.cookieName}
 						/>
-						{loaderData.list.list.response.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.list.list.response.items.map((person) => {
-									const becItem = {
-										entityId: person,
-										entityLot: EntityLot.Person,
-									};
-									const isAdded = bulkEditingCollection.isAdded(becItem);
-									return (
+						{loaderData.action === Action.List ? (
+							<>
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={areFiltersApplied ? "blue" : "gray"}
+								>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									closeFiltersModal={closeFiltersModal}
+									cookieName={loaderData.cookieName}
+									opened={filtersModalOpened}
+								>
+									<FiltersModalForm />
+								</FiltersModal>
+							</>
+						) : null}
+						{loaderData.action === Action.Search ? (
+							<>
+								<Select
+									onChange={(v) => setP("source", v)}
+									defaultValue={loaderData.search?.url.source}
+									data={coreDetails.peopleSearchSources.map((o) => ({
+										value: o.toString(),
+										label: startCase(o.toLowerCase()),
+									}))}
+								/>
+								{loaderData.search?.url.source === MediaSource.Tmdb ? (
+									<Checkbox
+										label="Company"
+										checked={loaderData.search?.url.isTmdbCompany}
+										onChange={(e) =>
+											setP("isTmdbCompany", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{loaderData.search?.url.source === MediaSource.Anilist ? (
+									<Checkbox
+										label="Studio"
+										checked={loaderData.search?.url.isAnilistStudio}
+										onChange={(e) =>
+											setP("isAnilistStudio", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{loaderData.search?.url.source === MediaSource.Hardcover ? (
+									<Checkbox
+										label="Publisher"
+										checked={loaderData.search?.url.isHardcoverPublisher}
+										onChange={(e) =>
+											setP("isHardcoverPublisher", String(e.target.checked))
+										}
+									/>
+								) : null}
+							</>
+						) : null}
+					</Group>
+					{loaderData.list ? (
+						<>
+							<DisplayListDetailsAndRefresh
+								cacheId={loaderData.list.list.cacheId}
+								total={loaderData.list.list.response.details.total}
+							/>
+							{loaderData.list.list.response.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.list.list.response.items.map((person) => {
+										const becItem = {
+											entityId: person,
+											entityLot: EntityLot.Person,
+										};
+										const isAdded = bulkEditingCollection.isAdded(becItem);
+										return (
+											<PersonDisplayItem
+												key={person}
+												personId={person}
+												topRight={
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
+														<ActionIcon
+															variant={isAdded ? "filled" : "transparent"}
+															color="green"
+															onClick={() => {
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
+															}}
+														>
+															<IconCheck size={18} />
+														</ActionIcon>
+													) : undefined
+												}
+											/>
+										);
+									})}
+								</ApplicationGrid>
+							) : (
+								<Text>No information to display</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
+					{loaderData.search ? (
+						<>
+							<Box>
+								<Text display="inline" fw="bold">
+									{loaderData.search.search.details.total}
+								</Text>{" "}
+								items found
+							</Box>
+							{loaderData.search.search.details.total > 0 ? (
+								<ApplicationGrid>
+									{loaderData.search.search.items.map((person) => (
 										<PersonDisplayItem
 											key={person}
 											personId={person}
-											topRight={
-												bulkEditingState &&
-												bulkEditingState.data.action === "add" ? (
-													<ActionIcon
-														variant={isAdded ? "filled" : "transparent"}
-														color="green"
-														onClick={() => {
-															if (isAdded) bulkEditingState.remove(becItem);
-															else bulkEditingState.add(becItem);
-														}}
-													>
-														<IconCheck size={18} />
-													</ActionIcon>
-												) : undefined
-											}
+											shouldHighlightNameIfInteracted
 										/>
-									);
-								})}
-							</ApplicationGrid>
-						) : (
-							<Text>No information to display</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</Center>
-					</>
-				) : null}
-				{loaderData.search ? (
-					<>
-						<Box>
-							<Text display="inline" fw="bold">
-								{loaderData.search.search.details.total}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.search.search.details.total > 0 ? (
-							<ApplicationGrid>
-								{loaderData.search.search.items.map((person) => (
-									<PersonDisplayItem
-										key={person}
-										personId={person}
-										shouldHighlightNameIfInteracted
-									/>
-								))}
-							</ApplicationGrid>
-						) : (
-							<Text>No people found matching your query</Text>
-						)}
-						<Center>
-							<Pagination
-								size="sm"
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</Center>
-					</>
-				) : null}
-			</Stack>
-		</Container>
+									))}
+								</ApplicationGrid>
+							) : (
+								<Text>No people found matching your query</Text>
+							)}
+							<Center>
+								<Pagination
+									size="sm"
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
+							</Center>
+						</>
+					) : null}
+				</Stack>
+			</Container>
+		</>
 	);
 }
 

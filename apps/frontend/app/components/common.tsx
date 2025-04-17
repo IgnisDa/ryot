@@ -2,6 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
+	Affix,
 	Alert,
 	Anchor,
 	Avatar,
@@ -27,6 +28,7 @@ import {
 	TextInput,
 	Title,
 	Tooltip,
+	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import {
@@ -61,6 +63,7 @@ import {
 	IconArrowBigUp,
 	IconArrowsShuffle,
 	IconBarbell,
+	IconCancel,
 	IconCheck,
 	IconEdit,
 	IconExternalLink,
@@ -121,6 +124,10 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import {
+	type BulkAddEntities,
+	useBulkEditCollection,
+} from "~/lib/state/collection";
 import {
 	type OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -1510,5 +1517,100 @@ export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 				<IconRotateClockwise />
 			</ActionIcon>
 		</Form>
+	);
+};
+
+export const BulkEditingAffix = (props: {
+	bulkAddEntities: BulkAddEntities;
+}) => {
+	const submit = useConfirmSubmit();
+	const bulkEditingCollection = useBulkEditCollection();
+
+	const bulkEditingCollectionState = bulkEditingCollection.state;
+
+	if (!bulkEditingCollectionState) return null;
+
+	return (
+		<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+			<Form
+				method="POST"
+				action={$path("/actions", { intent: "bulkCollectionAction" })}
+				onSubmit={(e) => {
+					submit(e);
+					bulkEditingCollectionState.stop(true);
+				}}
+			>
+				<input
+					type="hidden"
+					name="action"
+					defaultValue={bulkEditingCollectionState.data.action}
+				/>
+				<input
+					type="hidden"
+					name="collectionName"
+					defaultValue={bulkEditingCollectionState.data.collection.name}
+				/>
+				<input
+					type="hidden"
+					name="creatorUserId"
+					defaultValue={
+						bulkEditingCollectionState.data.collection.creatorUserId
+					}
+				/>
+				{bulkEditingCollectionState.data.entities.map((item, index) => (
+					<Fragment key={JSON.stringify(item)}>
+						<input
+							readOnly
+							type="hidden"
+							value={item.entityId}
+							name={`items[${index}].entityId`}
+						/>
+						<input
+							readOnly
+							type="hidden"
+							value={item.entityLot}
+							name={`items[${index}].entityLot`}
+						/>
+					</Fragment>
+				))}
+				<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+					<Group wrap="nowrap" justify="space-between">
+						<Text fz={{ base: "xs", md: "md" }}>
+							{bulkEditingCollectionState.data.entities.length} items selected
+						</Text>
+						<Group wrap="nowrap">
+							<ActionIcon
+								size="md"
+								onClick={() => bulkEditingCollectionState.stop()}
+							>
+								<IconCancel />
+							</ActionIcon>
+							<Button
+								size="xs"
+								color="blue"
+								loading={bulkEditingCollectionState.data.isLoading}
+								onClick={() =>
+									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
+								}
+							>
+								Select all items
+							</Button>
+							<Button
+								size="xs"
+								type="submit"
+								disabled={bulkEditingCollectionState.data.entities.length === 0}
+								color={
+									bulkEditingCollectionState.data.action === "remove"
+										? "red"
+										: "green"
+								}
+							>
+								{changeCase(bulkEditingCollectionState.data.action)}
+							</Button>
+						</Group>
+					</Group>
+				</Paper>
+			</Form>
+		</Affix>
 	);
 };

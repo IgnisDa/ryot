@@ -27,9 +27,11 @@ import {
 	MetadataSearchDocument,
 	type MetadataSearchQuery,
 	UserMetadataListDocument,
+	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	cloneDeep,
 	isEqual,
 	parseParameters,
 	parseSearchQuery,
@@ -55,6 +57,7 @@ import { withoutHost } from "ufo";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	BulkEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -65,6 +68,7 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
@@ -134,92 +138,98 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, mediaList, mediaSearch, respectCoreDetailsPageSize] =
-		await match(action)
-			.with(Action.List, async () => {
-				const listSchema = z.object({
-					collections: zodCollectionFilter,
-					endDateRange: z.string().optional(),
-					startDateRange: z.string().optional(),
-					sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
-					dateRange: z
-						.nativeEnum(ApplicationTimeRange)
-						.default(defaultFilters.mineDateRange),
-					sortOrder: z
-						.nativeEnum(GraphqlSortOrder)
-						.default(defaultFilters.mineSortOrder),
-					generalFilter: z
-						.nativeEnum(MediaGeneralFilter)
-						.default(defaultFilters.mineGeneralFilter),
-				});
-				const urlParse = parseSearchQuery(request, listSchema);
-				const { userMetadataList } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						UserMetadataListDocument,
-						{
-							input: {
-								lot,
-								sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-								search: { page: query[pageQueryParam], query: query.query },
-								filter: {
-									general: urlParse.generalFilter,
-									collections: urlParse.collections,
-									dateRange: {
-										endDate: urlParse.endDateRange,
-										startDate: urlParse.startDateRange,
-									},
-								},
-							},
-						},
-					);
-				return [
-					userMetadataList.response.details.total,
-					{ list: userMetadataList, url: urlParse },
-					undefined,
-					false,
-				] as const;
-			})
-			.with(Action.Search, async () => {
-				const coreDetails = await getCoreDetails();
-				const metadataSourcesForLot =
-					coreDetails.metadataLotSourceMappings.find((m) => m.lot === lot);
-				invariant(metadataSourcesForLot);
-				const searchSchema = z.object({
-					source: z
-						.nativeEnum(MediaSource)
-						.default(metadataSourcesForLot.sources[0]),
-				});
-				const urlParse = parseSearchQuery(request, searchSchema);
-				let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
-				try {
-					const response = await serverGqlService.authenticatedRequest(
-						request,
-						MetadataSearchDocument,
-						{
-							input: {
-								lot,
-								source: urlParse.source,
-								search: { page: query[pageQueryParam], query: query.query },
-							},
-						},
-					);
-					metadataSearch = response.metadataSearch;
-				} catch {
-					metadataSearch = false;
-				}
-				return [
-					metadataSearch === false ? 0 : metadataSearch.details.total,
-					undefined,
-					{
-						url: urlParse,
-						search: metadataSearch,
-						mediaSources: metadataSourcesForLot.sources,
+	const [
+		totalResults,
+		mediaList,
+		mediaSearch,
+		respectCoreDetailsPageSize,
+		listInput,
+	] = await match(action)
+		.with(Action.List, async () => {
+			const listSchema = z.object({
+				collections: zodCollectionFilter,
+				endDateRange: z.string().optional(),
+				startDateRange: z.string().optional(),
+				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+				dateRange: z
+					.nativeEnum(ApplicationTimeRange)
+					.default(defaultFilters.mineDateRange),
+				sortOrder: z
+					.nativeEnum(GraphqlSortOrder)
+					.default(defaultFilters.mineSortOrder),
+				generalFilter: z
+					.nativeEnum(MediaGeneralFilter)
+					.default(defaultFilters.mineGeneralFilter),
+			});
+			const urlParse = parseSearchQuery(request, listSchema);
+			const input: UserMetadataListInput = {
+				lot,
+				sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+				search: { page: query[pageQueryParam], query: query.query },
+				filter: {
+					general: urlParse.generalFilter,
+					collections: urlParse.collections,
+					dateRange: {
+						endDate: urlParse.endDateRange,
+						startDate: urlParse.startDateRange,
 					},
-					true,
-				] as const;
-			})
-			.exhaustive();
+				},
+			};
+			const { userMetadataList } = await serverGqlService.authenticatedRequest(
+				request,
+				UserMetadataListDocument,
+				{ input },
+			);
+			return [
+				userMetadataList.response.details.total,
+				{ list: userMetadataList, url: urlParse },
+				undefined,
+				false,
+				input,
+			] as const;
+		})
+		.with(Action.Search, async () => {
+			const coreDetails = await getCoreDetails();
+			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
+				(m) => m.lot === lot,
+			);
+			invariant(metadataSourcesForLot);
+			const searchSchema = z.object({
+				source: z
+					.nativeEnum(MediaSource)
+					.default(metadataSourcesForLot.sources[0]),
+			});
+			const urlParse = parseSearchQuery(request, searchSchema);
+			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
+			try {
+				const response = await serverGqlService.authenticatedRequest(
+					request,
+					MetadataSearchDocument,
+					{
+						input: {
+							lot,
+							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
+						},
+					},
+				);
+				metadataSearch = response.metadataSearch;
+			} catch {
+				metadataSearch = false;
+			}
+			return [
+				metadataSearch === false ? 0 : metadataSearch.details.total,
+				undefined,
+				{
+					url: urlParse,
+					search: metadataSearch,
+					mediaSources: metadataSourcesForLot.sources,
+				},
+				true,
+				undefined,
+			] as const;
+		})
+		.exhaustive();
 	const url = new URL(request.url);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
@@ -231,6 +241,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		lot,
 		query,
 		action,
+		listInput,
 		mediaList,
 		totalPages,
 		cookieName,
@@ -279,212 +290,229 @@ export default function Page() {
 		loaderData.lot === MediaLot.Movie && isOnboardingTourInProgress;
 
 	return (
-		<Container>
-			<Tabs
-				mt="sm"
-				variant="default"
-				value={loaderData.action}
-				onChange={(v) => {
-					if (v) {
-						navigate(
-							$path(
-								"/media/:action/:lot",
-								{ action: v, lot: loaderData.lot.toLowerCase() },
-								{
-									...(loaderData.query.query && {
-										query: loaderData.query.query,
-									}),
-								},
-							),
+		<>
+			<BulkEditingAffix
+				bulkAddEntities={async () => {
+					if (!loaderData.listInput) return [];
+					const input = cloneDeep(loaderData.listInput);
+					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
+					return await clientGqlService
+						.request(UserMetadataListDocument, { input })
+						.then((r) =>
+							r.userMetadataList.response.items.map((m) => ({
+								entityId: m,
+								entityLot: EntityLot.Metadata,
+							})),
 						);
-						if (v === "search" && isOnboardingTourInProgress) {
-							advanceOnboardingTourStep();
-						}
-					}
 				}}
-			>
-				<Tabs.List mb="xs" style={{ alignItems: "center" }}>
-					<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
-						<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
-					</Tabs.Tab>
-					<Tabs.Tab
-						value="search"
-						leftSection={<IconSearch size={24} />}
-						className={OnboardingTourStepTargets.GoToMoviesSection}
-					>
-						<Text>Search</Text>
-					</Tabs.Tab>
-					<Box ml="auto" visibleFrom="md">
-						<Button
-							component={Link}
-							variant="transparent"
-							leftSection={<IconPhotoPlus />}
-							to={$path(
-								"/media/update/:action",
-								{ action: "create" },
-								{ lot: loaderData.lot },
-							)}
-						>
-							Create
-						</Button>
-					</Box>
-				</Tabs.List>
-			</Tabs>
-
-			<Stack>
-				{loaderData.mediaList ? (
-					<>
-						<Group wrap="nowrap">
-							<DebouncedSearchInput
-								initialValue={loaderData.query.query}
-								enhancedQueryParams={loaderData.cookieName}
-								placeholder={`Sift through your ${changeCase(
-									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`}
-							/>
-							<ActionIcon
-								onClick={openFiltersModal}
-								color={areFiltersApplied ? "blue" : "gray"}
-							>
-								<IconFilter size={24} />
-							</ActionIcon>
-							<FiltersModal
-								opened={filtersModalOpened}
-								cookieName={loaderData.cookieName}
-								closeFiltersModal={closeFiltersModal}
-							>
-								<FiltersModalForm />
-							</FiltersModal>
-						</Group>
-						<DisplayListDetailsAndRefresh
-							cacheId={loaderData.mediaList.list.cacheId}
-							total={loaderData.mediaList.list.response.details.total}
-							className={OnboardingTourStepTargets.RefreshMoviesListPage}
-						/>
-						{(loaderData.mediaList?.url.startDateRange ||
-							loaderData.mediaList?.url.endDateRange) &&
-						!coreDetails.isServerKeyValidated ? (
-							<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
-						) : loaderData.mediaList.list.response.details.total > 0 ? (
-							<ApplicationGrid
-								className={OnboardingTourStepTargets.ShowMoviesListPage}
-							>
-								{loaderData.mediaList.list.response.items.map((item) => {
-									const becItem = {
-										entityId: item,
-										entityLot: EntityLot.Metadata,
-									};
-									const isAdded = bulkEditingCollection.isAdded(becItem);
-									return (
-										<MetadataDisplayItem
-											key={item}
-											metadataId={item}
-											rightLabelHistory
-											topRight={
-												bulkEditingState &&
-												bulkEditingState.data.action === "add" ? (
-													<ActionIcon
-														variant={isAdded ? "filled" : "transparent"}
-														color="green"
-														onClick={() => {
-															if (isAdded) bulkEditingState.remove(becItem);
-															else bulkEditingState.add(becItem);
-														}}
-													>
-														<IconCheck size={18} />
-													</ActionIcon>
-												) : undefined
-											}
-										/>
-									);
-								})}
-							</ApplicationGrid>
-						) : (
-							<Text>You do not have any saved yet</Text>
-						)}
-						{loaderData.mediaList.list ? (
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							</Center>
-						) : null}
-					</>
-				) : null}
-				{mediaSearch ? (
-					<>
-						<Flex gap="xs">
-							<DebouncedSearchInput
-								initialValue={loaderData.query.query}
-								enhancedQueryParams={loaderData.cookieName}
-								placeholder={`Sift through your ${changeCase(
-									loaderData.lot.toLowerCase(),
-								).toLowerCase()}s`}
-								tourControl={{
-									target: OnboardingTourStepTargets.SearchMovie,
-									onQueryChange: (query) => {
-										if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
-											advanceOnboardingTourStep();
-										}
+			/>
+			<Container>
+				<Tabs
+					mt="sm"
+					variant="default"
+					value={loaderData.action}
+					onChange={(v) => {
+						if (v) {
+							navigate(
+								$path(
+									"/media/:action/:lot",
+									{ action: v, lot: loaderData.lot.toLowerCase() },
+									{
+										...(loaderData.query.query && {
+											query: loaderData.query.query,
+										}),
 									},
-								}}
+								),
+							);
+							if (v === "search" && isOnboardingTourInProgress) {
+								advanceOnboardingTourStep();
+							}
+						}
+					}}
+				>
+					<Tabs.List mb="xs" style={{ alignItems: "center" }}>
+						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
+							<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
+						</Tabs.Tab>
+						<Tabs.Tab
+							value="search"
+							leftSection={<IconSearch size={24} />}
+							className={OnboardingTourStepTargets.GoToMoviesSection}
+						>
+							<Text>Search</Text>
+						</Tabs.Tab>
+						<Box ml="auto" visibleFrom="md">
+							<Button
+								component={Link}
+								variant="transparent"
+								leftSection={<IconPhotoPlus />}
+								to={$path(
+									"/media/update/:action",
+									{ action: "create" },
+									{ lot: loaderData.lot },
+								)}
+							>
+								Create
+							</Button>
+						</Box>
+					</Tabs.List>
+				</Tabs>
+
+				<Stack>
+					{loaderData.mediaList ? (
+						<>
+							<Group wrap="nowrap">
+								<DebouncedSearchInput
+									initialValue={loaderData.query.query}
+									enhancedQueryParams={loaderData.cookieName}
+									placeholder={`Sift through your ${changeCase(
+										loaderData.lot.toLowerCase(),
+									).toLowerCase()}s`}
+								/>
+								<ActionIcon
+									onClick={openFiltersModal}
+									color={areFiltersApplied ? "blue" : "gray"}
+								>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									opened={filtersModalOpened}
+									cookieName={loaderData.cookieName}
+									closeFiltersModal={closeFiltersModal}
+								>
+									<FiltersModalForm />
+								</FiltersModal>
+							</Group>
+							<DisplayListDetailsAndRefresh
+								cacheId={loaderData.mediaList.list.cacheId}
+								total={loaderData.mediaList.list.response.details.total}
+								className={OnboardingTourStepTargets.RefreshMoviesListPage}
 							/>
-							{mediaSearch.mediaSources.length > 1 ? (
-								<Select
-									value={mediaSearch.url.source}
-									onChange={(v) => {
-										if (v) setP("source", v);
-									}}
-									data={mediaSearch.mediaSources.map((o) => ({
-										value: o.toString(),
-										label: startCase(o.toLowerCase()),
-									}))}
-								/>
-							) : null}
-						</Flex>
-						{mediaSearch.search === false ? (
-							<Text>
-								Something is wrong. Please try with an alternate provider.
-							</Text>
-						) : mediaSearch.search.details.total > 0 ? (
-							<>
-								<Box>
-									<Text display="inline" fw="bold">
-										{mediaSearch.search.details.total}
-									</Text>{" "}
-									items found
-								</Box>
-								<ApplicationGrid>
-									{mediaSearch.search.items.map((b, index) => (
-										<MediaSearchItem
-											key={b}
-											item={b}
-											isFirstItem={index === 0}
-											isEligibleForNextTourStep={isEligibleForNextTourStep}
-										/>
-									))}
+							{(loaderData.mediaList?.url.startDateRange ||
+								loaderData.mediaList?.url.endDateRange) &&
+							!coreDetails.isServerKeyValidated ? (
+								<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
+							) : loaderData.mediaList.list.response.details.total > 0 ? (
+								<ApplicationGrid
+									className={OnboardingTourStepTargets.ShowMoviesListPage}
+								>
+									{loaderData.mediaList.list.response.items.map((item) => {
+										const becItem = {
+											entityId: item,
+											entityLot: EntityLot.Metadata,
+										};
+										const isAdded = bulkEditingCollection.isAdded(becItem);
+										return (
+											<MetadataDisplayItem
+												key={item}
+												metadataId={item}
+												rightLabelHistory
+												topRight={
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
+														<ActionIcon
+															variant={isAdded ? "filled" : "transparent"}
+															color="green"
+															onClick={() => {
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
+															}}
+														>
+															<IconCheck size={18} />
+														</ActionIcon>
+													) : undefined
+												}
+											/>
+										);
+									})}
 								</ApplicationGrid>
-							</>
-						) : (
-							<Text>No media found matching your query</Text>
-						)}
-						{mediaSearch.search ? (
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
+							) : (
+								<Text>You do not have any saved yet</Text>
+							)}
+							{loaderData.mediaList.list ? (
+								<Center>
+									<Pagination
+										size="sm"
+										total={loaderData.totalPages}
+										value={loaderData[pageQueryParam]}
+										onChange={(v) => setP(pageQueryParam, v.toString())}
+									/>
+								</Center>
+							) : null}
+						</>
+					) : null}
+					{mediaSearch ? (
+						<>
+							<Flex gap="xs">
+								<DebouncedSearchInput
+									initialValue={loaderData.query.query}
+									enhancedQueryParams={loaderData.cookieName}
+									placeholder={`Sift through your ${changeCase(
+										loaderData.lot.toLowerCase(),
+									).toLowerCase()}s`}
+									tourControl={{
+										target: OnboardingTourStepTargets.SearchMovie,
+										onQueryChange: (query) => {
+											if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+												advanceOnboardingTourStep();
+											}
+										},
+									}}
 								/>
-							</Center>
-						) : null}
-					</>
-				) : null}
-			</Stack>
-		</Container>
+								{mediaSearch.mediaSources.length > 1 ? (
+									<Select
+										value={mediaSearch.url.source}
+										onChange={(v) => {
+											if (v) setP("source", v);
+										}}
+										data={mediaSearch.mediaSources.map((o) => ({
+											value: o.toString(),
+											label: startCase(o.toLowerCase()),
+										}))}
+									/>
+								) : null}
+							</Flex>
+							{mediaSearch.search === false ? (
+								<Text>
+									Something is wrong. Please try with an alternate provider.
+								</Text>
+							) : mediaSearch.search.details.total > 0 ? (
+								<>
+									<Box>
+										<Text display="inline" fw="bold">
+											{mediaSearch.search.details.total}
+										</Text>{" "}
+										items found
+									</Box>
+									<ApplicationGrid>
+										{mediaSearch.search.items.map((b, index) => (
+											<MediaSearchItem
+												key={b}
+												item={b}
+												isFirstItem={index === 0}
+												isEligibleForNextTourStep={isEligibleForNextTourStep}
+											/>
+										))}
+									</ApplicationGrid>
+								</>
+							) : (
+								<Text>No media found matching your query</Text>
+							)}
+							{mediaSearch.search ? (
+								<Center>
+									<Pagination
+										size="sm"
+										total={loaderData.totalPages}
+										value={loaderData[pageQueryParam]}
+										onChange={(v) => setP(pageQueryParam, v.toString())}
+									/>
+								</Center>
+							) : null}
+						</>
+					) : null}
+				</Stack>
+			</Container>
+		</>
 	);
 }
 
