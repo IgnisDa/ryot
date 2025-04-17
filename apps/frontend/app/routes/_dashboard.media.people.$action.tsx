@@ -22,9 +22,11 @@ import {
 	PeopleSearchDocument,
 	PersonAndMetadataGroupsSortBy,
 	UserPeopleListDocument,
+	type UserPeopleListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	cloneDeep,
 	isEqual,
 	parseParameters,
 	parseSearchQuery,
@@ -105,61 +107,63 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
-	const [totalResults, list, search, respectCoreDetailsPageSize] = await match(
-		action,
-	)
-		.with(Action.List, async () => {
-			const listSchema = z.object({
-				collections: zodCollectionFilter,
-				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				sortBy: z
-					.nativeEnum(PersonAndMetadataGroupsSortBy)
-					.default(defaultFilters.sortBy),
-			});
-			const urlParse = parseSearchQuery(request, listSchema);
-			const { userPeopleList } = await serverGqlService.authenticatedRequest(
-				request,
-				UserPeopleListDocument,
-				{
-					input: {
-						filter: { collections: urlParse.collections },
-						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-						search: { page: query[pageQueryParam], query: query.query },
-					},
-				},
-			);
-			return [
-				userPeopleList.response.details.total,
-				{ list: userPeopleList, url: urlParse },
-				undefined,
-				false,
-			] as const;
-		})
-		.with(Action.Search, async () => {
-			const urlParse = parseSearchQuery(request, searchSchema);
-			const { peopleSearch } = await serverGqlService.authenticatedRequest(
-				request,
-				PeopleSearchDocument,
-				{
-					input: {
-						source: urlParse.source,
-						sourceSpecifics: {
-							isTmdbCompany: urlParse.isTmdbCompany,
-							isAnilistStudio: urlParse.isAnilistStudio,
-							isHardcoverPublisher: urlParse.isHardcoverPublisher,
+	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
+		await match(action)
+			.with(Action.List, async () => {
+				const listSchema = z.object({
+					collections: zodCollectionFilter,
+					orderBy: z
+						.nativeEnum(GraphqlSortOrder)
+						.default(defaultFilters.orderBy),
+					sortBy: z
+						.nativeEnum(PersonAndMetadataGroupsSortBy)
+						.default(defaultFilters.sortBy),
+				});
+				const urlParse = parseSearchQuery(request, listSchema);
+				const input: UserPeopleListInput = {
+					filter: { collections: urlParse.collections },
+					sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+					search: { page: query[pageQueryParam], query: query.query },
+				};
+				const { userPeopleList } = await serverGqlService.authenticatedRequest(
+					request,
+					UserPeopleListDocument,
+					{ input },
+				);
+				return [
+					userPeopleList.response.details.total,
+					{ list: userPeopleList, url: urlParse },
+					undefined,
+					false,
+					input,
+				] as const;
+			})
+			.with(Action.Search, async () => {
+				const urlParse = parseSearchQuery(request, searchSchema);
+				const { peopleSearch } = await serverGqlService.authenticatedRequest(
+					request,
+					PeopleSearchDocument,
+					{
+						input: {
+							source: urlParse.source,
+							sourceSpecifics: {
+								isTmdbCompany: urlParse.isTmdbCompany,
+								isAnilistStudio: urlParse.isAnilistStudio,
+								isHardcoverPublisher: urlParse.isHardcoverPublisher,
+							},
+							search: { page: query[pageQueryParam], query: query.query },
 						},
-						search: { page: query[pageQueryParam], query: query.query },
 					},
-				},
-			);
-			return [
-				peopleSearch.details.total,
-				undefined,
-				{ search: peopleSearch, url: urlParse },
-				true,
-			] as const;
-		})
-		.exhaustive();
+				);
+				return [
+					peopleSearch.details.total,
+					undefined,
+					{ search: peopleSearch, url: urlParse },
+					true,
+					undefined,
+				] as const;
+			})
+			.exhaustive();
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
@@ -171,6 +175,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		query,
 		action,
 		search,
+		listInput,
 		totalPages,
 		cookieName,
 		[pageQueryParam]: query[pageQueryParam],
@@ -201,13 +206,12 @@ export default function Page() {
 	return (
 		<>
 			<BulkEditingAffix
-				bulkAddEntities={() => {
-					return clientGqlService
-						.request(UserPeopleListDocument, {
-							input: {
-								search: { take: Number.MAX_SAFE_INTEGER },
-							},
-						})
+				bulkAddEntities={async () => {
+					if (!loaderData.listInput) return [];
+					const input = cloneDeep(loaderData.listInput);
+					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
+					return await clientGqlService
+						.request(UserPeopleListDocument, { input })
 						.then((r) =>
 							r.userPeopleList.response.items.map((p) => ({
 								entityId: p,
