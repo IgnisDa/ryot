@@ -18,6 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
 	CollectionContentsDocument,
+	type CollectionContentsInput,
 	CollectionContentsSortBy,
 	CollectionRecommendationsDocument,
 	type CollectionRecommendationsInput,
@@ -26,6 +27,7 @@ import {
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	cloneDeep,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
@@ -106,14 +108,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
+	const input: CollectionContentsInput = {
+		collectionId,
+		sort: { by: query.sortBy, order: query.orderBy },
+		search: { page: query[pageQueryParam], query: query.query },
+		filter: { entityLot: query.entityLot, metadataLot: query.metadataLot },
+	};
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
-			input: {
-				collectionId,
-				sort: { by: query.sortBy, order: query.orderBy },
-				search: { page: query[pageQueryParam], query: query.query },
-				filter: { entityLot: query.entityLot, metadataLot: query.metadataLot },
-			},
+			input,
 		}),
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
@@ -121,7 +124,14 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		currentPage: query[pageQueryParam] || 1,
 		totalResults: collectionContents.response.results.details.total,
 	});
-	return { collectionId, query, collectionContents, cookieName, totalPages };
+	return {
+		query,
+		cookieName,
+		totalPages,
+		collectionId,
+		queryInput: input,
+		collectionContents,
+	};
 };
 
 export const meta = ({ data }: Route.MetaArgs) => {
@@ -156,13 +166,10 @@ export default function Page() {
 		<>
 			<BulkEditingAffix
 				bulkAddEntities={() => {
+					const input = cloneDeep(loaderData.queryInput);
+					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return clientGqlService
-						.request(CollectionContentsDocument, {
-							input: {
-								collectionId: loaderData.collectionId,
-								search: { take: Number.MAX_SAFE_INTEGER },
-							},
-						})
+						.request(CollectionContentsDocument, { input })
 						.then((r) => r.collectionContents.response.results.items);
 				}}
 			/>
