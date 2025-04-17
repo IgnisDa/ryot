@@ -973,17 +973,17 @@ export const DisplayCollectionEntity = (props: {
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
-				metadataId={props.entityId}
-				topRight={props.topRight}
 				rightLabelLot
+				topRight={props.topRight}
+				metadataId={props.entityId}
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
-				metadataGroupId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
 				noLeftLabel
+				topRight={props.topRight}
+				metadataGroupId={props.entityId}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
 			/>
 		))
 		.with(EntityLot.Person, () => (
@@ -995,22 +995,22 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
-				exerciseId={props.entityId}
 				topRight={props.topRight}
+				exerciseId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
 			/>
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
-				workoutId={props.entityId}
 				topRight={props.topRight}
+				workoutId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
 			/>
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
-				workoutTemplateId={props.entityId}
 				topRight={props.topRight}
+				workoutTemplateId={props.entityId}
 			/>
 		))
 		.run();
