@@ -52,7 +52,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
+import {
+	clientGqlService,
+	pageQueryParam,
+	zodCollectionFilter,
+} from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -193,7 +197,22 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix />
+			<BulkEditingAffix
+				bulkAddEntities={() => {
+					return clientGqlService
+						.request(UserMetadataGroupsListDocument, {
+							input: {
+								search: { take: Number.MAX_SAFE_INTEGER },
+							},
+						})
+						.then((r) =>
+							r.userMetadataGroupsList.response.items.map((m) => ({
+								entityId: m,
+								entityLot: EntityLot.MetadataGroup,
+							})),
+						);
+				}}
+			/>
 			<Container>
 				<Stack>
 					<Title>Groups</Title>

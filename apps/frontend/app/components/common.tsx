@@ -124,7 +124,10 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import { useBulkEditCollection } from "~/lib/state/collection";
+import {
+	type BulkAddEntities,
+	useBulkEditCollection,
+} from "~/lib/state/collection";
 import {
 	type OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -1517,7 +1520,9 @@ export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
 	);
 };
 
-export const BulkEditingAffix = () => {
+export const BulkEditingAffix = (props: {
+	bulkAddEntities: BulkAddEntities;
+}) => {
 	const submit = useConfirmSubmit();
 	const bulkEditingCollection = useBulkEditCollection();
 
@@ -1584,7 +1589,9 @@ export const BulkEditingAffix = () => {
 								size="xs"
 								color="blue"
 								loading={bulkEditingCollectionState.data.isLoading}
-								onClick={() => bulkEditingCollectionState.bulkAdd()}
+								onClick={() =>
+									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
+								}
 							>
 								Select all items
 							</Button>

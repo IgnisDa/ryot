@@ -53,7 +53,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam, zodCollectionFilter } from "~/lib/common";
+import {
+	clientGqlService,
+	pageQueryParam,
+	zodCollectionFilter,
+} from "~/lib/common";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -196,7 +200,22 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix />
+			<BulkEditingAffix
+				bulkAddEntities={() => {
+					return clientGqlService
+						.request(UserPeopleListDocument, {
+							input: {
+								search: { take: Number.MAX_SAFE_INTEGER },
+							},
+						})
+						.then((r) =>
+							r.userPeopleList.response.items.map((p) => ({
+								entityId: p,
+								entityLot: EntityLot.Person,
+							})),
+						);
+				}}
+			/>
 			<Container>
 				<Stack>
 					<Title>People</Title>

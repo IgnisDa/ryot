@@ -66,6 +66,7 @@ import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
 	Verb,
+	clientGqlService,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
@@ -281,7 +282,23 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix />
+			<BulkEditingAffix
+				bulkAddEntities={() => {
+					return clientGqlService
+						.request(UserMetadataListDocument, {
+							input: {
+								lot: loaderData.lot,
+								search: { take: Number.MAX_SAFE_INTEGER },
+							},
+						})
+						.then((r) =>
+							r.userMetadataList.response.items.map((m) => ({
+								entityId: m,
+								entityLot: EntityLot.Metadata,
+							})),
+						);
+				}}
+			/>
 			<Container>
 				<Tabs
 					mt="sm"

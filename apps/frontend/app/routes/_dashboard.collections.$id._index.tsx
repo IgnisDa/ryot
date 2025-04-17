@@ -154,7 +154,18 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix />
+			<BulkEditingAffix
+				bulkAddEntities={() => {
+					return clientGqlService
+						.request(CollectionContentsDocument, {
+							input: {
+								collectionId: loaderData.collectionId,
+								search: { take: Number.MAX_SAFE_INTEGER },
+							},
+						})
+						.then((r) => r.collectionContents.response.results.items);
+				}}
+			/>
 			<Container>
 				<Stack>
 					<Box>

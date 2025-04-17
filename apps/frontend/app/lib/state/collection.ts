@@ -1,19 +1,9 @@
 import { notifications } from "@mantine/notifications";
-import {
-	CollectionContentsDocument,
-	EntityLot,
-	MediaLot,
-	UserMetadataGroupsListDocument,
-	UserMetadataListDocument,
-	UserPeopleListDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
-import { $path } from "safe-routes";
-import { match } from "ts-pattern";
-import { clientGqlService } from "../common";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -28,6 +18,8 @@ type BulkEditingCollectionData = {
 	entities: Array<Entity>;
 	isLoading: boolean;
 };
+
+export type BulkAddEntities = () => Promise<Array<Entity>>;
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
@@ -76,68 +68,9 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
-					bulkAdd: async () => {
+					bulkAdd: async (getEntities: BulkAddEntities) => {
 						setBec({ ...bec, isLoading: true });
-						const take = Number.MAX_SAFE_INTEGER;
-						const entities = await match(bec.action)
-							.with("remove", () =>
-								clientGqlService
-									.request(CollectionContentsDocument, {
-										input: {
-											search: { take },
-											collectionId: bec.collection.id,
-										},
-									})
-									.then((r) => r.collectionContents.response.results.items),
-							)
-							.with("add", () => {
-								const lot = Object.values(MediaLot).find((ml) =>
-									location.pathname.includes(ml),
-								);
-								if (lot)
-									return clientGqlService
-										.request(UserMetadataListDocument, {
-											input: { lot, search: { take } },
-										})
-										.then((r) =>
-											r.userMetadataList.response.items.map((m) => ({
-												entityId: m,
-												entityLot: EntityLot.Metadata,
-											})),
-										);
-								if (
-									$path("/media/people/:action", { action: "list" }).includes(
-										location.pathname,
-									)
-								)
-									return clientGqlService
-										.request(UserPeopleListDocument, {
-											input: { search: { take } },
-										})
-										.then((r) =>
-											r.userPeopleList.response.items.map((p) => ({
-												entityId: p,
-												entityLot: EntityLot.Person,
-											})),
-										);
-								if (
-									$path("/media/groups/:action", { action: "list" }).includes(
-										location.pathname,
-									)
-								)
-									return clientGqlService
-										.request(UserMetadataGroupsListDocument, {
-											input: { search: { take } },
-										})
-										.then((r) =>
-											r.userMetadataGroupsList.response.items.map((p) => ({
-												entityId: p,
-												entityLot: EntityLot.MetadataGroup,
-											})),
-										);
-								return [];
-							})
-							.exhaustive();
+						const entities = await getEntities();
 						setBec({ ...bec, isLoading: false, entities });
 					},
 					remove: (toRemove: Entity) => {
