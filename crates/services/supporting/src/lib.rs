@@ -6,7 +6,7 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use bon::bon;
 use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
-use common_models::{BackendError, EntityAssets};
+use common_models::BackendError;
 use common_utils::{
     COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES, convert_naive_to_utc, ryot_log,
 };
@@ -234,20 +234,5 @@ impl SupportingService {
 
     pub async fn is_server_key_validated(&self) -> Result<bool> {
         Ok(self.core_details().await?.is_server_key_validated)
-    }
-
-    pub async fn get_entity_assets(&self, assets: &mut EntityAssets) {
-        for image in assets.s3_images.iter_mut() {
-            *image = self
-                .file_storage_service
-                .get_presigned_url(image.clone())
-                .await;
-        }
-        for video in assets.s3_videos.iter_mut() {
-            *video = self
-                .file_storage_service
-                .get_presigned_url(video.clone())
-                .await;
-        }
     }
 }

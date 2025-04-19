@@ -7,7 +7,8 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::{Timelike, Utc};
 use common_models::{
-    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, IdAndNamedObject,
+    BackendError, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity, EntityAssets,
+    IdAndNamedObject,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -798,4 +799,19 @@ pub fn get_user_query() -> Select<User> {
             .eq(false)
             .or(user::Column::IsDisabled.is_null()),
     )
+}
+
+pub async fn get_entity_assets(assets: &mut EntityAssets, ss: &Arc<SupportingService>) {
+    for image in assets.s3_images.iter_mut() {
+        *image = ss
+            .file_storage_service
+            .get_presigned_url(image.clone())
+            .await;
+    }
+    for video in assets.s3_videos.iter_mut() {
+        *video = ss
+            .file_storage_service
+            .get_presigned_url(video.clone())
+            .await;
+    }
 }
