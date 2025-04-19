@@ -218,7 +218,7 @@ export interface ImportOrExportPersonItem {
 	source_specifics: PersonSourceSpecifics | null;
 }
 
-/** The assets that were uploaded for an entity. */
+/** The assets related to an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
 	images: string[];

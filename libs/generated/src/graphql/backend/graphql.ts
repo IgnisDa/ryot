@@ -500,7 +500,7 @@ export type DeployUrlAndKeyImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-/** The assets that were uploaded for an entity. */
+/** The assets related to an entity. */
 export type EntityAssets = {
   /** The keys of the S3 images. */
   images: Array<Scalars['String']['output']>;
@@ -508,7 +508,7 @@ export type EntityAssets = {
   videos: Array<Scalars['String']['output']>;
 };
 
-/** The assets that were uploaded for an entity. */
+/** The assets related to an entity. */
 export type EntityAssetsInput = {
   /** The keys of the S3 images. */
   images: Array<Scalars['String']['input']>;

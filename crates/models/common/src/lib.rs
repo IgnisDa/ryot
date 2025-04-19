@@ -38,7 +38,7 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
-/// The assets that were uploaded for an entity.
+/// The assets related to an entity.
 #[derive(
     Eq,
     Clone,
