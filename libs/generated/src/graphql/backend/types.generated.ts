@@ -491,7 +491,7 @@ export type EntityAssets = {
   /** The urls of the remote images. */
   remoteImages: Array<Scalars['String']['output']>;
   /** The urls of the remote videos. */
-  remoteVideos: Array<Scalars['String']['output']>;
+  remoteVideos: Array<EntityRemoteVideo>;
   /** The keys of the S3 images. */
   s3Images: Array<Scalars['String']['output']>;
   /** The keys of the S3 videos. */
@@ -503,7 +503,7 @@ export type EntityAssetsInput = {
   /** The urls of the remote images. */
   remoteImages: Array<Scalars['String']['input']>;
   /** The urls of the remote videos. */
-  remoteVideos: Array<Scalars['String']['input']>;
+  remoteVideos: Array<EntityRemoteVideoInput>;
   /** The keys of the S3 images. */
   s3Images: Array<Scalars['String']['input']>;
   /** The keys of the S3 videos. */
@@ -520,6 +520,24 @@ export enum EntityLot {
   UserMeasurement = 'USER_MEASUREMENT',
   Workout = 'WORKOUT',
   WorkoutTemplate = 'WORKOUT_TEMPLATE'
+}
+
+/** The data that a remote video can have. */
+export type EntityRemoteVideo = {
+  __typename?: 'EntityRemoteVideo';
+  source: EntityRemoteVideoSource;
+  url: Scalars['String']['output'];
+};
+
+/** The data that a remote video can have. */
+export type EntityRemoteVideoInput = {
+  source: EntityRemoteVideoSource;
+  url: Scalars['String']['input'];
+};
+
+export enum EntityRemoteVideoSource {
+  Dailymotion = 'DAILYMOTION',
+  Youtube = 'YOUTUBE'
 }
 
 export type EntityWithLot = {

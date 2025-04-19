@@ -38,6 +38,48 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
+#[derive(
+    Eq,
+    Hash,
+    Enum,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
+)]
+pub enum EntityRemoteVideoSource {
+    #[default]
+    Youtube,
+    Dailymotion,
+}
+
+/// The data that a remote video can have.
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "EntityRemoteVideoInput")]
+#[serde(rename_all = "snake_case")]
+pub struct EntityRemoteVideo {
+    pub url: String,
+    pub source: EntityRemoteVideoSource,
+}
+
 /// The assets related to an entity.
 #[derive(
     Eq,
@@ -62,7 +104,7 @@ pub struct EntityAssets {
     /// The urls of the remote images.
     pub remote_images: Vec<String>,
     /// The urls of the remote videos.
-    pub remote_videos: Vec<String>,
+    pub remote_videos: Vec<EntityRemoteVideo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]

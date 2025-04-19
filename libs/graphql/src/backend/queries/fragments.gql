@@ -72,7 +72,10 @@ fragment EntityAssetsPart on EntityAssets {
 	s3Images
 	s3Videos
 	remoteImages
-	remoteVideos
+	remoteVideos {
+		url
+		source
+	}
 }
 
 fragment WorkoutSetStatisticPart on WorkoutSetStatistic {

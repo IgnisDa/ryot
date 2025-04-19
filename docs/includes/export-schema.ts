@@ -218,12 +218,24 @@ export interface ImportOrExportPersonItem {
 	source_specifics: PersonSourceSpecifics | null;
 }
 
+export type EntityRemoteVideoSource = 'youtube' | 'dailymotion';
+
+/** The data that a remote video can have. */
+export interface EntityRemoteVideo {
+	/**
+	 * @default 'youtube'
+	 * @type {'youtube' | 'dailymotion'}
+	 */
+	source: EntityRemoteVideoSource;
+	url: string;
+}
+
 /** The assets related to an entity. */
 export interface EntityAssets {
 	/** The urls of the remote images. */
 	remote_images: string[];
 	/** The urls of the remote videos. */
-	remote_videos: string[];
+	remote_videos: EntityRemoteVideo[];
 	/** The keys of the S3 images. */
 	s3_images: string[];
 	/** The keys of the S3 videos. */
