@@ -56,6 +56,10 @@ pub enum Metadata {
     WatchProviders,
     ExternalIdentifiers,
     Assets,
+
+    //
+    Images,
+    Videos,
 }
 
 #[async_trait::async_trait]
@@ -95,7 +99,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsPartial).boolean())
                     .col(ColumnDef::new(Metadata::AudioBookSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::AnimeSpecifics).json_binary())
-                    .col(ColumnDef::new(Metadata::BookSpecifics).json_binary())
+                    .col(
+                        ColumnDef::new(Metadata::BookSpecifics)
+                            .json_binary()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Metadata::PodcastSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::MangaSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::MovieSpecifics).json_binary())
