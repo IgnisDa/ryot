@@ -35,107 +35,104 @@ export function FacetNavItem(props: FacetNavItemProps) {
 
 	return (
 		<div>
-			<Link
-				to="/tracking/$facetSlug"
-				params={{ facetSlug: props.facet.facetSlug }}
+			<NavLink
+				variant="light"
+				label={props.facet.label}
+				leftSection={<FacetIcon icon={props.facet.icon} />}
+				description={props.facet.enabled ? undefined : "Disabled"}
 				style={{
-					color: "inherit",
-					display: "block",
-					textDecoration: "none",
+					transition: "opacity 120ms ease",
+					opacity: props.facet.enabled ? 1 : 0.62,
 				}}
-			>
-				<NavLink
-					variant="light"
-					label={props.facet.label}
-					leftSection={<FacetIcon icon={props.facet.icon} />}
-					description={props.facet.enabled ? undefined : "Disabled"}
-					style={{
-						transition: "opacity 120ms ease",
-						opacity: props.facet.enabled ? 1 : 0.62,
-					}}
-					rightSection={
-						<Group
-							gap={4}
-							wrap="nowrap"
-							style={{
-								opacity: actionsVisible ? 1 : 0,
-								transition: "opacity 120ms ease",
-								pointerEvents: actionsVisible ? "auto" : "none",
-							}}
-						>
-							{props.facet.isBuiltin ? undefined : (
-								<Tooltip label="Edit facet">
-									<ActionIcon
-										size="sm"
-										variant="subtle"
-										aria-label="Edit facet"
-										disabled={state.isMutationBusy}
-										tabIndex={actionsVisible ? 0 : -1}
-										onClick={(event) => {
-											stopEvent(event);
-											actions.openEditModal(props.facet.facetId);
-										}}
-									>
-										<Pencil size={14} strokeWidth={1.8} />
-									</ActionIcon>
-								</Tooltip>
-							)}
-
-							<Tooltip label={toggleUi.label}>
+				renderRoot={(rootProps) => (
+					<Link
+						{...rootProps}
+						to="/tracking/$facetSlug"
+						params={{ facetSlug: props.facet.facetSlug }}
+					/>
+				)}
+				rightSection={
+					<Group
+						gap={4}
+						wrap="nowrap"
+						style={{
+							opacity: actionsVisible ? 1 : 0,
+							transition: "opacity 120ms ease",
+							pointerEvents: actionsVisible ? "auto" : "none",
+						}}
+					>
+						{props.facet.isBuiltin ? undefined : (
+							<Tooltip label="Edit facet">
 								<ActionIcon
 									size="sm"
 									variant="subtle"
-									aria-label={toggleUi.label}
+									aria-label="Edit facet"
 									disabled={state.isMutationBusy}
 									tabIndex={actionsVisible ? 0 : -1}
 									onClick={(event) => {
 										stopEvent(event);
-										void actions.toggleFacetById(props.facet.facetId);
+										actions.openEditModal(props.facet.facetId);
 									}}
 								>
-									{props.facet.enabled ? (
-										<ToggleRight size={14} strokeWidth={1.8} />
-									) : (
-										<ToggleLeft size={14} strokeWidth={1.8} />
-									)}
+									<Pencil size={14} strokeWidth={1.8} />
 								</ActionIcon>
 							</Tooltip>
+						)}
 
-							<Tooltip label="Move up">
-								<ActionIcon
-									size="sm"
-									variant="subtle"
-									aria-label="Move facet up"
-									tabIndex={actionsVisible ? 0 : -1}
-									disabled={props.isFirst || state.isReordering}
-									onClick={(event) => {
-										stopEvent(event);
-										void actions.moveFacetById(props.facet.facetId, "up");
-									}}
-								>
-									<ChevronUp size={14} strokeWidth={1.8} />
-								</ActionIcon>
-							</Tooltip>
+						<Tooltip label={toggleUi.label}>
+							<ActionIcon
+								size="sm"
+								variant="subtle"
+								aria-label={toggleUi.label}
+								disabled={state.isMutationBusy}
+								tabIndex={actionsVisible ? 0 : -1}
+								onClick={(event) => {
+									stopEvent(event);
+									void actions.toggleFacetById(props.facet.facetId);
+								}}
+							>
+								{props.facet.enabled ? (
+									<ToggleRight size={14} strokeWidth={1.8} />
+								) : (
+									<ToggleLeft size={14} strokeWidth={1.8} />
+								)}
+							</ActionIcon>
+						</Tooltip>
 
-							<Tooltip label="Move down">
-								<ActionIcon
-									size="sm"
-									variant="subtle"
-									aria-label="Move facet down"
-									tabIndex={actionsVisible ? 0 : -1}
-									disabled={props.isLast || state.isReordering}
-									onClick={(event) => {
-										stopEvent(event);
-										void actions.moveFacetById(props.facet.facetId, "down");
-									}}
-								>
-									<ChevronDown size={14} strokeWidth={1.8} />
-								</ActionIcon>
-							</Tooltip>
-						</Group>
-					}
-				/>
-			</Link>
+						<Tooltip label="Move up">
+							<ActionIcon
+								size="sm"
+								variant="subtle"
+								aria-label="Move facet up"
+								tabIndex={actionsVisible ? 0 : -1}
+								disabled={props.isFirst || state.isReordering}
+								onClick={(event) => {
+									stopEvent(event);
+									void actions.moveFacetById(props.facet.facetId, "up");
+								}}
+							>
+								<ChevronUp size={14} strokeWidth={1.8} />
+							</ActionIcon>
+						</Tooltip>
+
+						<Tooltip label="Move down">
+							<ActionIcon
+								size="sm"
+								variant="subtle"
+								aria-label="Move facet down"
+								tabIndex={actionsVisible ? 0 : -1}
+								disabled={props.isLast || state.isReordering}
+								onClick={(event) => {
+									stopEvent(event);
+									void actions.moveFacetById(props.facet.facetId, "down");
+								}}
+							>
+								<ChevronDown size={14} strokeWidth={1.8} />
+							</ActionIcon>
+						</Tooltip>
+					</Group>
+				}
+			/>
 		</div>
 	);
 }
