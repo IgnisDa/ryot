@@ -29,10 +29,6 @@ pub enum Metadata {
     ProductionStatus,
     // the original language
     OriginalLanguage,
-    // all the images for this media item
-    Images,
-    // all the videos for this media item
-    Videos,
     // the unique identifier that is returned by the metadata provider
     Identifier,
     // the provider source
@@ -93,8 +89,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
-                    .col(ColumnDef::new(Metadata::Images).json_binary())
-                    .col(ColumnDef::new(Metadata::Videos).json_binary())
                     .col(ColumnDef::new(Metadata::Assets).json_binary())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .col(ColumnDef::new(Metadata::OriginalLanguage).text())

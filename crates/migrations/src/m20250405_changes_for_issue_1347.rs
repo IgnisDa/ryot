@@ -124,6 +124,12 @@ DROP FUNCTION update_entity_assets_keys;
             "#
         ).await?;
 
+        // Drop the old 'images' and 'videos' columns from the metadata table
+        db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS images;"#)
+            .await?;
+        db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS videos;"#)
+            .await?;
+
         Ok(())
     }
 
