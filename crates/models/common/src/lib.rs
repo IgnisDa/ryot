@@ -56,9 +56,9 @@ pub struct IdAndNamedObject {
 #[serde(rename_all = "snake_case")]
 pub struct EntityAssets {
     /// The keys of the S3 images.
-    pub images: Vec<String>,
+    pub s3_images: Vec<String>,
     /// The keys of the S3 videos.
-    pub videos: Vec<String>,
+    pub s3_videos: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]

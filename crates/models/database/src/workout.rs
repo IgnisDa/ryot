@@ -53,19 +53,19 @@ impl GraphqlRepresentation for Model {
     ) -> Result<Self> {
         let mut cnv_workout = self.clone();
         if let Some(ref mut assets) = cnv_workout.information.assets {
-            for image in assets.images.iter_mut() {
+            for image in assets.s3_images.iter_mut() {
                 *image = file_storage_service.get_presigned_url(image.clone()).await;
             }
-            for video in assets.videos.iter_mut() {
+            for video in assets.s3_videos.iter_mut() {
                 *video = file_storage_service.get_presigned_url(video.clone()).await;
             }
         }
         for exercise in cnv_workout.information.exercises.iter_mut() {
             if let Some(ref mut assets) = exercise.assets {
-                for image in assets.images.iter_mut() {
+                for image in assets.s3_images.iter_mut() {
                     *image = file_storage_service.get_presigned_url(image.clone()).await;
                 }
-                for video in assets.videos.iter_mut() {
+                for video in assets.s3_videos.iter_mut() {
                     *video = file_storage_service.get_presigned_url(video.clone()).await;
                 }
             }
