@@ -14,6 +14,8 @@ The end-to-end behavior: saved views and raw runtime requests can use arithmetic
 
 See the parent PRD sections "Solution" and "Implementation Decisions" for the required expression set, numeric normalization operations, conditional/type-unification rules, and image restrictions.
 
+Backward compatibility is not needed in this slice. Extend only the new expression system rather than preserving legacy derivation behavior.
+
 ## Acceptance criteria
 
 - [ ] Arithmetic expressions execute end-to-end in computed fields and output expressions

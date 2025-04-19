@@ -151,6 +151,7 @@ View-runtime execution will validate references and types against the participat
 - This feature should be delivered as a foundation for future view-language growth, not as a small patch on top of the current reference-array model.
 - The design should favor deep reusable modules for expression analysis and expression compilation so later features can extend the language without duplicating validation or SQL-generation logic.
 - The OpenAPI contract, fixtures, bootstrap defaults, and runtime documentation should all move together so direct payload authoring remains ergonomic despite the lack of frontend UI support.
+- Backward compatibility is explicitly not required for saved-view payloads, runtime payloads, persisted saved-view JSON, or the frontend editing experience in this plan.
 
 ---
 
