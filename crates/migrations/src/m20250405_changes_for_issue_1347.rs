@@ -28,7 +28,9 @@ BEGIN
       '{assets}',
       jsonb_build_object(
         's3_images', result->'assets'->'images',
-        's3_videos', COALESCE(result->'assets'->'videos', '[]'::jsonb)
+        's3_videos', COALESCE(result->'assets'->'videos', '[]'::jsonb),
+        'remote_images', '[]'::jsonb,
+        'remote_videos', '[]'::jsonb
       )
     );
   END IF;
@@ -46,7 +48,9 @@ BEGIN
           '{assets}',
           jsonb_build_object(
             's3_images', exercise->'assets'->'images',
-            's3_videos', COALESCE(exercise->'assets'->'videos', '[]'::jsonb)
+            's3_videos', COALESCE(exercise->'assets'->'videos', '[]'::jsonb),
+            'remote_images', '[]'::jsonb,
+            'remote_videos', '[]'::jsonb
           )
         );
       END IF;
