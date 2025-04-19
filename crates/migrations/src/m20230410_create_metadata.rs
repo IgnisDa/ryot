@@ -59,6 +59,7 @@ pub enum Metadata {
     MusicSpecifics,
     WatchProviders,
     ExternalIdentifiers,
+    Assets,
 }
 
 #[async_trait::async_trait]
@@ -94,6 +95,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Images).json_binary())
                     .col(ColumnDef::new(Metadata::Videos).json_binary())
+                    .col(ColumnDef::new(Metadata::Assets).json_binary())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .col(ColumnDef::new(Metadata::OriginalLanguage).text())
                     .col(ColumnDef::new(Metadata::IsPartial).boolean())

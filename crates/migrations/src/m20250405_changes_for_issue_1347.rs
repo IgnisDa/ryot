@@ -81,6 +81,49 @@ DROP FUNCTION update_entity_assets_keys;
         )
         .await?;
 
+        // Add the new 'assets' column to the metadata table
+        db.execute_unprepared(r#"ALTER TABLE metadata ADD COLUMN IF NOT EXISTS assets JSONB;"#)
+            .await?;
+
+        // Migrate existing images/videos data into the new 'assets' column
+        db.execute_unprepared(
+            r#"
+            UPDATE metadata SET assets = (
+              SELECT jsonb_build_object(
+                's3_images', COALESCE(jsonb_agg_s3_images.value, '[]'::jsonb),
+                's3_videos', COALESCE(jsonb_agg_s3_videos.value, '[]'::jsonb),
+                'remote_images', COALESCE(jsonb_agg_remote_images.value, '[]'::jsonb),
+                'remote_videos', COALESCE(jsonb_agg_remote_videos.value, '[]'::jsonb)
+              )
+              FROM (
+                SELECT
+                  (
+                    SELECT jsonb_agg(img->'url'->'S3') FROM jsonb_array_elements(images) img WHERE img->'url' ? 'S3'
+                  ) AS value
+              ) AS jsonb_agg_s3_images,
+              (
+                SELECT
+                  (
+                    SELECT jsonb_agg(vid->'identifier'->'S3') FROM jsonb_array_elements(videos) vid WHERE vid->'identifier' ? 'S3'
+                  ) AS value
+              ) AS jsonb_agg_s3_videos,
+              (
+                SELECT
+                  (
+                    SELECT jsonb_agg(img->'url'->'Url') FROM jsonb_array_elements(images) img WHERE img->'url' ? 'Url'
+                  ) AS value
+              ) AS jsonb_agg_remote_images,
+              (
+                SELECT
+                  (
+                    SELECT jsonb_agg(jsonb_build_object('url', vid->'identifier'->'Url', 'source', vid->'source')) FROM jsonb_array_elements(videos) vid WHERE vid->'identifier' ? 'Url'
+                  ) AS value
+              ) AS jsonb_agg_remote_videos
+              WHERE metadata.images IS NOT NULL OR metadata.videos IS NOT NULL
+            );
+            "#
+        ).await?;
+
         Ok(())
     }
 
