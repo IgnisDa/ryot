@@ -18,6 +18,7 @@ import {
 
 const entityField = (schemaSlug: string, property: string) => {
 	if (
+		property === "id" ||
 		property === "name" ||
 		property === "image" ||
 		property === "createdAt" ||
