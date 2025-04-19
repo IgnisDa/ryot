@@ -1695,6 +1695,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -1708,7 +1709,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
@@ -1776,6 +1776,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         queryDefinition: {
+                            entitySchemaSlugs: string[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -1789,7 +1790,6 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            entitySchemaSlugs: string[];
                             filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
@@ -1839,6 +1839,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -1852,7 +1853,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
@@ -1950,6 +1950,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -1963,7 +1964,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
@@ -2036,6 +2036,7 @@ export interface paths {
                         isDisabled: boolean;
                         name: string;
                         queryDefinition: {
+                            entitySchemaSlugs: string[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -2049,7 +2050,6 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            entitySchemaSlugs: string[];
                             filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
@@ -2099,6 +2099,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2112,7 +2113,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
@@ -2209,6 +2209,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2222,7 +2223,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
@@ -2332,6 +2332,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
+                                    entitySchemaSlugs: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2345,7 +2346,6 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    entitySchemaSlugs: string[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
