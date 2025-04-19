@@ -38,6 +38,29 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
+/// The assets that were uploaded for an entity.
+#[derive(
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "EntityAssetsInput")]
+#[serde(rename_all = "snake_case")]
+pub struct EntityAssets {
+    /// The keys of the S3 images.
+    pub images: Vec<String>,
+    /// The keys of the S3 videos.
+    pub videos: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
 #[educe(Default(expression = StoredUrl::Url(String::from("https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png"))))]
 pub enum StoredUrl {

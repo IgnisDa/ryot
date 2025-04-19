@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::{SearchInput, StoredUrl};
+use common_models::{EntityAssets, SearchInput, StoredUrl};
 use derive_more::with_trait::{Add, AddAssign, Sum};
 use educe::Educe;
 use enum_models::{
@@ -322,29 +322,6 @@ pub struct UserToExerciseExtraInformation {
     pub settings: UserToExerciseSettingsExtraInformation,
     pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
-}
-
-/// The assets that were uploaded for an entity.
-#[derive(
-    Eq,
-    Clone,
-    Debug,
-    Default,
-    Schematic,
-    PartialEq,
-    Serialize,
-    InputObject,
-    Deserialize,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "EntityAssetsInput")]
-#[serde(rename_all = "snake_case")]
-pub struct EntityAssets {
-    /// The keys of the S3 images.
-    pub images: Vec<String>,
-    /// The keys of the S3 videos.
-    pub videos: Vec<String>,
 }
 
 /// An exercise that has been processed and committed to the database.
