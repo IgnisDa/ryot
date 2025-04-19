@@ -355,158 +355,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/facets/{facetId}/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Enable a facet for the user */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    facetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Facet was enabled */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                facetId: string;
-                                enabled: boolean;
-                            };
-                        };
-                    };
-                };
-                /** @description Path parameter validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Facet does not exist for this user */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/facets/{facetId}/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Disable a facet for the user */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    facetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Facet was disabled */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            data: {
-                                facetId: string;
-                                enabled: boolean;
-                            };
-                        };
-                    };
-                };
-                /** @description Path parameter validation failed */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["ValidationFailedError"];
-                        };
-                    };
-                };
-                /** @description Request is unauthenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Facet does not exist for this user */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/facets/{facetId}": {
         parameters: {
             query?: never;
@@ -520,7 +368,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update a custom facet */
+        /** Update a facet */
         patch: {
             parameters: {
                 query?: never;
@@ -534,6 +382,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         icon?: string | unknown;
+                        enabled?: boolean;
                         description?: string | unknown;
                         accentColor?: string | unknown;
                         name?: string;
