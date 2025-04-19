@@ -220,6 +220,10 @@ export interface ImportOrExportPersonItem {
 
 /** The assets related to an entity. */
 export interface EntityAssets {
+	/** The urls of the remote images. */
+	remote_images: string[];
+	/** The urls of the remote videos. */
+	remote_videos: string[];
 	/** The keys of the S3 images. */
 	s3_images: string[];
 	/** The keys of the S3 videos. */

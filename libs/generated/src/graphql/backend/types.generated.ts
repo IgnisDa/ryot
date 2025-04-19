@@ -488,6 +488,10 @@ export type DeployUrlAndKeyImportInput = {
 /** The assets related to an entity. */
 export type EntityAssets = {
   __typename?: 'EntityAssets';
+  /** The urls of the remote images. */
+  remoteImages: Array<Scalars['String']['output']>;
+  /** The urls of the remote videos. */
+  remoteVideos: Array<Scalars['String']['output']>;
   /** The keys of the S3 images. */
   s3Images: Array<Scalars['String']['output']>;
   /** The keys of the S3 videos. */
@@ -496,6 +500,10 @@ export type EntityAssets = {
 
 /** The assets related to an entity. */
 export type EntityAssetsInput = {
+  /** The urls of the remote images. */
+  remoteImages: Array<Scalars['String']['input']>;
+  /** The urls of the remote videos. */
+  remoteVideos: Array<Scalars['String']['input']>;
   /** The keys of the S3 images. */
   s3Images: Array<Scalars['String']['input']>;
   /** The keys of the S3 videos. */

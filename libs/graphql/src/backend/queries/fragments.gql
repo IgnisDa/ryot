@@ -71,6 +71,8 @@ fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
 fragment EntityAssetsPart on EntityAssets {
 	s3Images
 	s3Videos
+	remoteImages
+	remoteVideos
 }
 
 fragment WorkoutSetStatisticPart on WorkoutSetStatistic {

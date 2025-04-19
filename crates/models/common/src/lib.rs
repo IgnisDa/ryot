@@ -59,6 +59,10 @@ pub struct EntityAssets {
     pub s3_images: Vec<String>,
     /// The keys of the S3 videos.
     pub s3_videos: Vec<String>,
+    /// The urls of the remote images.
+    pub remote_images: Vec<String>,
+    /// The urls of the remote videos.
+    pub remote_videos: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
