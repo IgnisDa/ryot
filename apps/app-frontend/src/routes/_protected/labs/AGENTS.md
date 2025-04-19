@@ -8,6 +8,7 @@ This directory contains experimental UI prototypes. These are **not production c
 - Mock data must align with backend schema shapes — match field names and types from the real models even if values are hardcoded. See `apps/app-backend/src/lib/db/schema/tables.ts` for the source of truth.
 - Each prototype is a standalone route file. Do not extract shared components out of this directory.
 - Files may exceed the normal 500-line limit — these are self-contained demos.
+- Instead of adding explanatory texts to the UI itself, use comments in the code to clarify decisions.
 
 ## Conventions
 
