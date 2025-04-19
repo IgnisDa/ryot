@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { apiSuccess } from "~/lib/sandbox/types";
 import { hostFunctionRegistry } from "./function-registry";
 
 describe("hostFunctionRegistry", () => {
@@ -7,7 +6,6 @@ describe("hostFunctionRegistry", () => {
 		expect(Object.keys(hostFunctionRegistry).sort()).toEqual([
 			"getAppConfigValue",
 			"getEntitySchemas",
-			"getUserConfigValue",
 			"httpCall",
 		]);
 	});
@@ -17,12 +15,6 @@ describe("hostFunctionRegistry", () => {
 			const boundFunction = factory({});
 			expect(typeof boundFunction).toBe("function");
 		}
-	});
-
-	it("returns a bound function that does not require context from the caller", async () => {
-		const boundFunction = hostFunctionRegistry.getUserConfigValue({});
-
-		expect(boundFunction("pageSize")).resolves.toEqual(apiSuccess(20));
 	});
 
 	it("returns undefined for an unknown function key", () => {
