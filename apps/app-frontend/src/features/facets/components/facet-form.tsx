@@ -13,7 +13,7 @@ import {
 	toCreateFacetPayload,
 	toUpdateFacetPayload,
 } from "../form";
-import { FacetIcon, facetIconSelectData, getFacetIconOption } from "../icons";
+import { FacetIcon, facetIconSelectData } from "../icons";
 import {
 	useFacetSidebarActions,
 	useFacetSidebarState,
@@ -83,27 +83,21 @@ export function FacetForm() {
 								<Select
 									clearable
 									searchable
+									limit={100}
 									label="Icon"
-									data={facetIconSelectData}
 									disabled={isLoading}
-									value={field.state.value || null}
 									placeholder="Select icon"
-									leftSection={<FacetIcon icon={field.state.value} />}
 									onBlur={field.handleBlur}
+									data={facetIconSelectData}
+									value={field.state.value || null}
+									leftSection={<FacetIcon icon={field.state.value} />}
 									onChange={(value) => field.handleChange(value ?? "")}
-									renderOption={({ option }) => {
-										const iconOption = getFacetIconOption(option.value);
-										const OptionIcon = iconOption?.icon;
-
-										return (
-											<Group gap={8} wrap="nowrap">
-												{!OptionIcon ? undefined : (
-													<OptionIcon size={16} strokeWidth={1.8} />
-												)}
-												<span>{option.label}</span>
-											</Group>
-										);
-									}}
+									renderOption={({ option }) => (
+										<Group gap={8} wrap="nowrap">
+											<FacetIcon icon={option.value} />
+											<span>{option.label}</span>
+										</Group>
+									)}
 								/>
 							)}
 						</facetForm.AppField>
