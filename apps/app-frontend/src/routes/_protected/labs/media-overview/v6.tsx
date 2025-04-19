@@ -2,6 +2,29 @@
 // Leads with Continue (in-progress with progress bars), then Up Next (backlog),
 // Rate These (unrated completions), This Week (activity), Library at a Glance.
 // Every section is actionable. Stats are de-emphasized at the bottom.
+//
+// --- Add Flow Divergences from current SearchEntityModal API ---
+//
+// 1. TYPE SELECTION STEP: The existing SearchEntityModal receives a single
+//    entitySchema prop. V6 adds a preceding type-picker step so users select
+//    which media type (entity schema) to search within. In production, the
+//    tracker's associated entity schemas would be fetched via the
+//    /entity-schemas/list endpoint and displayed as the type grid.
+//
+// 2. STATUS AT ADD-TIME: The existing flow creates an entity and nothing else.
+//    V6 adds an inline status picker (Planning / In Progress / Completed /
+//    On Hold / Dropped) after selecting a search result. In production, this
+//    would create both an entity AND an initial status event in a single
+//    transaction or sequential calls (POST /entities + POST /events).
+//
+// 3. SEARCH RESULT SHAPE: Matches the existing SearchResultItem type from
+//    use-search.ts: { identifier, titleProperty, subtitleProperty,
+//    imageProperty, badgeProperty }. The subtitleProperty.value is used as
+//    a year (number) for visual media, null otherwise.
+//
+// 4. ENTITY SCHEMA SHAPE: Mock schemas match the real AppEntitySchema fields:
+//    { id, name, slug, icon, accentColor, searchProviders[] }. The icon field
+//    stores a string key; the real system would resolve this to a component.
 
 import {
 	ActionIcon,
@@ -10,25 +33,34 @@ import {
 	Button,
 	Container,
 	Group,
+	Loader,
+	Modal,
 	Paper,
 	Progress,
 	ScrollArea,
+	SegmentedControl,
 	SimpleGrid,
 	Stack,
 	Text,
+	TextInput,
 	Tooltip,
 	UnstyledButton,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	BookOpen,
+	CheckCircle,
+	ChevronLeft,
 	ChevronRight,
 	Clock,
 	Gamepad2,
 	Headphones,
+	Image as ImageIcon,
 	Monitor,
 	Play,
 	Plus,
+	Search,
 	Star,
 	Tv,
 } from "lucide-react";
@@ -474,6 +506,747 @@ const TYPE_COUNTS: { type: MediaType; count: number }[] = [
 	{ type: "ComicBook", count: 2 },
 	{ type: "VisualNovel", count: 2 },
 ];
+
+// --- Add Flow: Mock entity schemas (matches AppEntitySchema shape) ---
+
+interface MockEntitySchema {
+	id: string;
+	name: string;
+	slug: string;
+	icon: string;
+	accentColor: string;
+	searchProviders: {
+		name: string;
+		searchScriptId: string;
+		detailsScriptId: string;
+	}[];
+}
+
+const MOCK_ENTITY_SCHEMAS: MockEntitySchema[] = [
+	{
+		id: "es-movie",
+		name: "Movie",
+		slug: "movie",
+		icon: "Monitor",
+		accentColor: "#E05252",
+		searchProviders: [
+			{
+				name: "TMDB",
+				searchScriptId: "s-tmdb-movie",
+				detailsScriptId: "d-tmdb-movie",
+			},
+			{
+				name: "Letterboxd",
+				searchScriptId: "s-lb-movie",
+				detailsScriptId: "d-lb-movie",
+			},
+		],
+	},
+	{
+		id: "es-show",
+		name: "Show",
+		slug: "show",
+		icon: "Tv",
+		accentColor: "#5B7FFF",
+		searchProviders: [
+			{
+				name: "TMDB",
+				searchScriptId: "s-tmdb-show",
+				detailsScriptId: "d-tmdb-show",
+			},
+			{
+				name: "TVDb",
+				searchScriptId: "s-tvdb-show",
+				detailsScriptId: "d-tvdb-show",
+			},
+		],
+	},
+	{
+		id: "es-book",
+		name: "Book",
+		slug: "book",
+		icon: "BookOpen",
+		accentColor: "#8B5E3C",
+		searchProviders: [
+			{
+				name: "Open Library",
+				searchScriptId: "s-ol-book",
+				detailsScriptId: "d-ol-book",
+			},
+			{
+				name: "Hardcover",
+				searchScriptId: "s-hc-book",
+				detailsScriptId: "d-hc-book",
+			},
+			{
+				name: "Google Books",
+				searchScriptId: "s-gb-book",
+				detailsScriptId: "d-gb-book",
+			},
+		],
+	},
+	{
+		id: "es-anime",
+		name: "Anime",
+		slug: "anime",
+		icon: "Tv",
+		accentColor: "#FF6B6B",
+		searchProviders: [
+			{
+				name: "MyAnimeList",
+				searchScriptId: "s-mal-anime",
+				detailsScriptId: "d-mal-anime",
+			},
+			{
+				name: "AniList",
+				searchScriptId: "s-al-anime",
+				detailsScriptId: "d-al-anime",
+			},
+		],
+	},
+	{
+		id: "es-manga",
+		name: "Manga",
+		slug: "manga",
+		icon: "BookOpen",
+		accentColor: "#C9943A",
+		searchProviders: [
+			{
+				name: "MyAnimeList",
+				searchScriptId: "s-mal-manga",
+				detailsScriptId: "d-mal-manga",
+			},
+			{
+				name: "AniList",
+				searchScriptId: "s-al-manga",
+				detailsScriptId: "d-al-manga",
+			},
+			{
+				name: "MangaDex",
+				searchScriptId: "s-md-manga",
+				detailsScriptId: "d-md-manga",
+			},
+		],
+	},
+	{
+		id: "es-videogame",
+		name: "Video Game",
+		slug: "video-game",
+		icon: "Gamepad2",
+		accentColor: "#27AE60",
+		searchProviders: [
+			{ name: "IGDB", searchScriptId: "s-igdb", detailsScriptId: "d-igdb" },
+			{ name: "RAWG", searchScriptId: "s-rawg", detailsScriptId: "d-rawg" },
+		],
+	},
+	{
+		id: "es-music",
+		name: "Music",
+		slug: "music",
+		icon: "Headphones",
+		accentColor: "#9B59B6",
+		searchProviders: [
+			{ name: "MusicBrainz", searchScriptId: "s-mb", detailsScriptId: "d-mb" },
+			{ name: "Last.fm", searchScriptId: "s-lfm", detailsScriptId: "d-lfm" },
+		],
+	},
+	{
+		id: "es-podcast",
+		name: "Podcast",
+		slug: "podcast",
+		icon: "Headphones",
+		accentColor: "#1ABC9C",
+		searchProviders: [
+			{
+				name: "Podcast Index",
+				searchScriptId: "s-pi",
+				detailsScriptId: "d-pi",
+			},
+			{
+				name: "Apple Podcasts",
+				searchScriptId: "s-ap",
+				detailsScriptId: "d-ap",
+			},
+		],
+	},
+	{
+		id: "es-audiobook",
+		name: "Audiobook",
+		slug: "audiobook",
+		icon: "Headphones",
+		accentColor: "#E67E22",
+		searchProviders: [
+			{
+				name: "Audible",
+				searchScriptId: "s-audible",
+				detailsScriptId: "d-audible",
+			},
+			{
+				name: "Open Library",
+				searchScriptId: "s-ol-audio",
+				detailsScriptId: "d-ol-audio",
+			},
+		],
+	},
+	{
+		id: "es-comic",
+		name: "Comic Book",
+		slug: "comic-book",
+		icon: "BookOpen",
+		accentColor: "#E74C3C",
+		searchProviders: [
+			{ name: "ComicVine", searchScriptId: "s-cv", detailsScriptId: "d-cv" },
+			{
+				name: "Marvel",
+				searchScriptId: "s-marvel",
+				detailsScriptId: "d-marvel",
+			},
+		],
+	},
+	{
+		id: "es-vn",
+		name: "Visual Novel",
+		slug: "visual-novel",
+		icon: "BookOpen",
+		accentColor: "#F39C12",
+		searchProviders: [
+			{ name: "VNDB", searchScriptId: "s-vndb", detailsScriptId: "d-vndb" },
+		],
+	},
+];
+
+// Matches SearchResultItem from use-search.ts
+interface MockSearchResult {
+	identifier: string;
+	badgeProperty: { kind: "null"; value: null };
+	titleProperty: { kind: "text"; value: string };
+	subtitleProperty: { kind: "number" | "null"; value: number | null };
+	imageProperty: {
+		kind: "image" | "null";
+		value: { kind: "remote"; url: string } | null;
+	};
+}
+
+// Keyed by searchScriptId — different providers return different results
+const MOCK_SEARCH_RESULTS: Record<string, MockSearchResult[]> = {
+	// Movie providers
+	"s-tmdb-movie": [
+		{
+			identifier: "tmdb-872585",
+			titleProperty: { kind: "text", value: "Oppenheimer" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tmdb-693134",
+			titleProperty: { kind: "text", value: "Dune: Part Two" },
+			subtitleProperty: { kind: "number", value: 2024 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tmdb-792307",
+			titleProperty: { kind: "text", value: "Poor Things" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tmdb-466420",
+			titleProperty: { kind: "text", value: "Killers of the Flower Moon" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-lb-movie": [
+		{
+			identifier: "lb-872585",
+			titleProperty: { kind: "text", value: "Oppenheimer" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "lb-940721",
+			titleProperty: { kind: "text", value: "Godzilla Minus One" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Show providers
+	"s-tmdb-show": [
+		{
+			identifier: "tmdb-1396",
+			titleProperty: { kind: "text", value: "Breaking Bad" },
+			subtitleProperty: { kind: "number", value: 2008 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tmdb-95396",
+			titleProperty: { kind: "text", value: "Severance" },
+			subtitleProperty: { kind: "number", value: 2022 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/oNF5oacaZFXMjGC8fWOTvmDCxLr.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tmdb-1438",
+			titleProperty: { kind: "text", value: "The Wire" },
+			subtitleProperty: { kind: "number", value: 2002 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://image.tmdb.org/t/p/w500/4lkAHCDkH7KEELKBEMdFf7EGXcb.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-tvdb-show": [
+		{
+			identifier: "tvdb-81189",
+			titleProperty: { kind: "text", value: "Breaking Bad" },
+			subtitleProperty: { kind: "number", value: 2008 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "tvdb-371980",
+			titleProperty: { kind: "text", value: "Severance" },
+			subtitleProperty: { kind: "number", value: 2022 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Book providers
+	"s-ol-book": [
+		{
+			identifier: "ol-W123",
+			titleProperty: { kind: "text", value: "Project Hail Mary" },
+			subtitleProperty: { kind: "number", value: 2021 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "ol-W456",
+			titleProperty: { kind: "text", value: "The Name of the Wind" },
+			subtitleProperty: { kind: "number", value: 2007 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://covers.openlibrary.org/b/id/9256378-L.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "ol-W789",
+			titleProperty: { kind: "text", value: "Atomic Habits" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-hc-book": [
+		{
+			identifier: "hc-123",
+			titleProperty: { kind: "text", value: "Project Hail Mary" },
+			subtitleProperty: { kind: "number", value: 2021 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "hc-456",
+			titleProperty: {
+				kind: "text",
+				value: "Tomorrow, and Tomorrow, and Tomorrow",
+			},
+			subtitleProperty: { kind: "number", value: 2022 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-gb-book": [
+		{
+			identifier: "gb-abc",
+			titleProperty: { kind: "text", value: "Project Hail Mary" },
+			subtitleProperty: { kind: "number", value: 2021 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "gb-def",
+			titleProperty: { kind: "text", value: "The Name of the Wind" },
+			subtitleProperty: { kind: "number", value: 2007 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Anime providers
+	"s-mal-anime": [
+		{
+			identifier: "mal-52991",
+			titleProperty: { kind: "text", value: "Frieren: Beyond Journey's End" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "mal-53446",
+			titleProperty: { kind: "text", value: "Dungeon Meshi" },
+			subtitleProperty: { kind: "number", value: 2024 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "mal-52299",
+			titleProperty: { kind: "text", value: "Solo Leveling" },
+			subtitleProperty: { kind: "number", value: 2024 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-al-anime": [
+		{
+			identifier: "al-154587",
+			titleProperty: { kind: "text", value: "Frieren: Beyond Journey's End" },
+			subtitleProperty: { kind: "number", value: 2023 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "al-153518",
+			titleProperty: { kind: "text", value: "Dungeon Meshi" },
+			subtitleProperty: { kind: "number", value: 2024 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Manga providers
+	"s-mal-manga": [
+		{
+			identifier: "mal-m2",
+			titleProperty: { kind: "text", value: "Berserk" },
+			subtitleProperty: { kind: "number", value: 1989 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "mal-m656",
+			titleProperty: { kind: "text", value: "Vagabond" },
+			subtitleProperty: { kind: "number", value: 1998 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-al-manga": [
+		{
+			identifier: "al-m2",
+			titleProperty: { kind: "text", value: "Berserk" },
+			subtitleProperty: { kind: "number", value: 1989 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-md-manga": [
+		{
+			identifier: "md-m2",
+			titleProperty: { kind: "text", value: "Berserk" },
+			subtitleProperty: { kind: "number", value: 1989 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "md-dandadan",
+			titleProperty: { kind: "text", value: "Dandadan" },
+			subtitleProperty: { kind: "number", value: 2021 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Video Game providers
+	"s-igdb": [
+		{
+			identifier: "igdb-119133",
+			titleProperty: { kind: "text", value: "Elden Ring" },
+			subtitleProperty: { kind: "number", value: 2022 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "igdb-25646",
+			titleProperty: { kind: "text", value: "Hollow Knight" },
+			subtitleProperty: { kind: "number", value: 2017 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "igdb-68240",
+			titleProperty: { kind: "text", value: "Celeste" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-rawg": [
+		{
+			identifier: "rawg-326243",
+			titleProperty: { kind: "text", value: "Elden Ring" },
+			subtitleProperty: { kind: "number", value: 2022 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "rawg-9767",
+			titleProperty: { kind: "text", value: "Hollow Knight" },
+			subtitleProperty: { kind: "number", value: 2017 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Music providers
+	"s-mb": [
+		{
+			identifier: "mb-1",
+			titleProperty: { kind: "text", value: "Kind of Blue" },
+			subtitleProperty: { kind: "number", value: 1959 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "mb-2",
+			titleProperty: { kind: "text", value: "Random Access Memories" },
+			subtitleProperty: { kind: "number", value: 2013 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-lfm": [
+		{
+			identifier: "lfm-1",
+			titleProperty: { kind: "text", value: "Kind of Blue — Miles Davis" },
+			subtitleProperty: { kind: "number", value: 1959 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Podcast providers
+	"s-pi": [
+		{
+			identifier: "pi-1",
+			titleProperty: { kind: "text", value: "Lex Fridman Podcast" },
+			subtitleProperty: { kind: "null", value: null },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "pi-2",
+			titleProperty: { kind: "text", value: "Huberman Lab" },
+			subtitleProperty: { kind: "null", value: null },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-ap": [
+		{
+			identifier: "ap-1",
+			titleProperty: { kind: "text", value: "Lex Fridman Podcast" },
+			subtitleProperty: { kind: "null", value: null },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Audiobook providers
+	"s-audible": [
+		{
+			identifier: "aud-1",
+			titleProperty: { kind: "text", value: "Atomic Habits" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "aud-2",
+			titleProperty: { kind: "text", value: "The Pragmatic Programmer" },
+			subtitleProperty: { kind: "number", value: 1999 },
+			imageProperty: {
+				kind: "image",
+				value: {
+					kind: "remote",
+					url: "https://m.media-amazon.com/images/I/41BKx1AxQWL.jpg",
+				},
+			},
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-ol-audio": [
+		{
+			identifier: "ol-aud-1",
+			titleProperty: { kind: "text", value: "Atomic Habits" },
+			subtitleProperty: { kind: "number", value: 2018 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Comic providers
+	"s-cv": [
+		{
+			identifier: "cv-1",
+			titleProperty: { kind: "text", value: "Watchmen" },
+			subtitleProperty: { kind: "number", value: 1986 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "cv-2",
+			titleProperty: { kind: "text", value: "The Sandman" },
+			subtitleProperty: { kind: "number", value: 1989 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	"s-marvel": [
+		{
+			identifier: "marvel-1",
+			titleProperty: { kind: "text", value: "The Amazing Spider-Man" },
+			subtitleProperty: { kind: "number", value: 1963 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+	// Visual Novel providers
+	"s-vndb": [
+		{
+			identifier: "vndb-1",
+			titleProperty: { kind: "text", value: "Steins;Gate" },
+			subtitleProperty: { kind: "number", value: 2009 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+		{
+			identifier: "vndb-2",
+			titleProperty: { kind: "text", value: "Clannad" },
+			subtitleProperty: { kind: "number", value: 2004 },
+			imageProperty: { kind: "image", value: null },
+			badgeProperty: { kind: "null", value: null },
+		},
+	],
+};
+
+const ADD_STATUSES = [
+	{ value: "planning", label: "Planning" },
+	{ value: "in_progress", label: "In Progress" },
+	{ value: "completed", label: "Completed" },
+	{ value: "on_hold", label: "On Hold" },
+	{ value: "dropped", label: "Dropped" },
+] as const;
 
 // --- Components ---
 
@@ -1008,10 +1781,407 @@ function StatChip(props: {
 	);
 }
 
+// --- Add Media Modal ---
+
+type AddModalStep = "type-picker" | "search";
+
+function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
+	const t = useThemeTokens();
+	const [step, setStep] = useState<AddModalStep>("type-picker");
+	const [selectedSchema, setSelectedSchema] = useState<MockEntitySchema | null>(
+		null,
+	);
+	const [selectedProviderIndex, setSelectedProviderIndex] = useState(0);
+	const [query, setQuery] = useState("");
+	const [results, setResults] = useState<MockSearchResult[] | null>(null);
+	const [isSearching, setIsSearching] = useState(false);
+	const [addStatus, setAddStatus] = useState<
+		Record<string, "idle" | "picking" | "done">
+	>({});
+	const [pickedStatus, setPickedStatus] = useState<Record<string, string>>({});
+
+	const reset = () => {
+		setStep("type-picker");
+		setSelectedSchema(null);
+		setSelectedProviderIndex(0);
+		setQuery("");
+		setResults(null);
+		setIsSearching(false);
+		setAddStatus({});
+		setPickedStatus({});
+	};
+
+	const handleClose = () => {
+		reset();
+		props.onClose();
+	};
+
+	const handleTypeSelect = (schema: MockEntitySchema) => {
+		setSelectedSchema(schema);
+		setSelectedProviderIndex(0);
+		setStep("search");
+		setQuery("");
+		setResults(null);
+		setAddStatus({});
+		setPickedStatus({});
+	};
+
+	const handleBack = () => {
+		setStep("type-picker");
+		setSelectedSchema(null);
+		setSelectedProviderIndex(0);
+		setQuery("");
+		setResults(null);
+		setAddStatus({});
+		setPickedStatus({});
+	};
+
+	const activeProvider =
+		selectedSchema?.searchProviders[selectedProviderIndex] ?? null;
+
+	const handleSearch = () => {
+		if (!selectedSchema || !activeProvider || !query.trim()) {
+			return;
+		}
+		setIsSearching(true);
+		setResults(null);
+		// Simulate async search — keyed by provider's searchScriptId
+		setTimeout(() => {
+			const all = MOCK_SEARCH_RESULTS[activeProvider.searchScriptId] ?? [];
+			const q = query.toLowerCase();
+			const filtered = all.filter((r) =>
+				r.titleProperty.value.toLowerCase().includes(q),
+			);
+			// If query doesn't match, still show all results (simulating API)
+			setResults(filtered.length > 0 ? filtered : all);
+			setIsSearching(false);
+		}, 400);
+	};
+
+	const handleProviderChange = (value: string) => {
+		setSelectedProviderIndex(Number(value));
+		setResults(null);
+		setAddStatus({});
+		setPickedStatus({});
+	};
+
+	const handleAddClick = (identifier: string) => {
+		setAddStatus((prev) => ({ ...prev, [identifier]: "picking" }));
+	};
+
+	const handleStatusPick = (identifier: string, status: string) => {
+		setPickedStatus((prev) => ({ ...prev, [identifier]: status }));
+		setAddStatus((prev) => ({ ...prev, [identifier]: "done" }));
+		const result = results?.find((r) => r.identifier === identifier);
+		console.log("[v6] Add entity:", {
+			identifier,
+			status,
+			title: result?.titleProperty.value,
+			entitySchemaId: selectedSchema?.id,
+			provider: activeProvider?.name,
+			detailsScriptId: activeProvider?.detailsScriptId,
+		});
+	};
+
+	const ICON_MAP: Record<string, typeof BookOpen> = {
+		BookOpen,
+		Tv,
+		Monitor,
+		Gamepad2,
+		Headphones,
+	};
+
+	return (
+		<Modal
+			centered
+			size="lg"
+			opened={props.opened}
+			onClose={handleClose}
+			title={
+				step === "type-picker" ? (
+					<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+						Add to Media
+					</Text>
+				) : (
+					<Group gap="xs">
+						<ActionIcon
+							variant="subtle"
+							size="sm"
+							onClick={handleBack}
+							aria-label="Back to type picker"
+						>
+							<ChevronLeft size={16} />
+						</ActionIcon>
+						<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
+							Add {selectedSchema?.name}
+						</Text>
+					</Group>
+				)
+			}
+			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
+		>
+			{step === "type-picker" && (
+				<Stack gap="md">
+					<Text fz="sm" c={t.textMuted}>
+						What type of media are you adding?
+					</Text>
+					<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
+						{MOCK_ENTITY_SCHEMAS.map((schema) => {
+							const Icon = ICON_MAP[schema.icon] ?? BookOpen;
+							return (
+								<UnstyledButton
+									key={schema.id}
+									onClick={() => handleTypeSelect(schema)}
+								>
+									<Paper
+										p="md"
+										radius="sm"
+										ta="center"
+										style={{
+											border: `1px solid ${t.border}`,
+											background: t.surface,
+											cursor: "pointer",
+											transition: "border-color 0.15s ease",
+										}}
+									>
+										<Stack gap={6} align="center">
+											<Icon size={24} color={schema.accentColor} />
+											<Text
+												ff="var(--mantine-headings-font-family)"
+												fw={600}
+												fz="xs"
+												c={t.textPrimary}
+											>
+												{schema.name}
+											</Text>
+											<Text fz={10} c={t.textMuted}>
+												{schema.searchProviders.length === 1
+													? schema.searchProviders[0]?.name
+													: `${schema.searchProviders.length} sources`}
+											</Text>
+										</Stack>
+									</Paper>
+								</UnstyledButton>
+							);
+						})}
+					</SimpleGrid>
+				</Stack>
+			)}
+
+			{step === "search" && selectedSchema && (
+				<Stack gap="md">
+					{selectedSchema.searchProviders.length > 1 && (
+						<SegmentedControl
+							fullWidth
+							value={String(selectedProviderIndex)}
+							onChange={handleProviderChange}
+							data={selectedSchema.searchProviders.map((p, i) => ({
+								value: String(i),
+								label: p.name,
+							}))}
+						/>
+					)}
+					<Group>
+						<TextInput
+							flex={1}
+							value={query}
+							disabled={isSearching}
+							placeholder={`Search for a ${selectedSchema.name.toLowerCase()}...`}
+							leftSection={<Search size={16} strokeWidth={1.5} />}
+							onChange={(e) => setQuery(e.currentTarget.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									handleSearch();
+								}
+							}}
+						/>
+						<Button
+							onClick={handleSearch}
+							loading={isSearching}
+							disabled={!query.trim()}
+							style={{
+								backgroundColor: selectedSchema.accentColor,
+								color: "white",
+							}}
+						>
+							Search
+						</Button>
+					</Group>
+
+					{isSearching && (
+						<Stack align="center" py="xl">
+							<Loader size="sm" color={selectedSchema.accentColor} />
+							<Text fz="sm" c={t.textMuted}>
+								Searching...
+							</Text>
+						</Stack>
+					)}
+
+					{results !== null && !isSearching && (
+						<Stack gap="xs">
+							{results.length === 0 ? (
+								<Text c={t.textMuted} fz="sm" ta="center" py="md">
+									No results found
+								</Text>
+							) : (
+								<ScrollArea.Autosize mah={400}>
+									<Stack gap={4}>
+										{results.map((item) => {
+											const status = addStatus[item.identifier] ?? "idle";
+											const imageUrl =
+												item.imageProperty.kind === "image"
+													? (item.imageProperty.value?.url ?? undefined)
+													: undefined;
+
+											return (
+												<Paper
+													p="sm"
+													withBorder
+													radius="sm"
+													key={item.identifier}
+												>
+													<Group
+														justify="space-between"
+														align="center"
+														wrap="nowrap"
+													>
+														<Group
+															gap="md"
+															wrap="nowrap"
+															style={{ flex: 1, minWidth: 0 }}
+														>
+															{imageUrl ? (
+																<Box
+																	w={48}
+																	h={68}
+																	style={{
+																		flexShrink: 0,
+																		backgroundSize: "cover",
+																		backgroundPosition: "center",
+																		borderRadius: "var(--mantine-radius-sm)",
+																		backgroundImage: `url(${imageUrl})`,
+																	}}
+																/>
+															) : (
+																<Box
+																	w={48}
+																	h={68}
+																	bg={t.surfaceHover}
+																	style={{
+																		flexShrink: 0,
+																		display: "grid",
+																		placeItems: "center",
+																		borderRadius: "var(--mantine-radius-sm)",
+																	}}
+																>
+																	<ImageIcon
+																		size={16}
+																		color={t.textMuted}
+																		strokeWidth={1.5}
+																	/>
+																</Box>
+															)}
+															<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+																<Text fw={500} fz="sm" lineClamp={1}>
+																	{item.titleProperty.value}
+																</Text>
+																{item.subtitleProperty.kind === "number" && (
+																	<Text fz="xs" c={t.textMuted}>
+																		{item.subtitleProperty.value}
+																	</Text>
+																)}
+															</Stack>
+														</Group>
+														<Box w={32} style={{ flexShrink: 0 }}>
+															{status === "idle" && (
+																<ActionIcon
+																	variant="subtle"
+																	onClick={() =>
+																		handleAddClick(item.identifier)
+																	}
+																	aria-label="Add"
+																>
+																	<Plus size={16} strokeWidth={1.5} />
+																</ActionIcon>
+															)}
+															{status === "done" && (
+																<CheckCircle
+																	size={18}
+																	strokeWidth={1.5}
+																	color="var(--mantine-color-green-6)"
+																/>
+															)}
+														</Box>
+													</Group>
+
+													{/* Inline status picker */}
+													{status === "picking" && (
+														<Box mt="sm">
+															<Text fz="xs" c={t.textMuted} mb={6}>
+																Set initial status:
+															</Text>
+															<Group gap={4} wrap="wrap">
+																{ADD_STATUSES.map((s) => (
+																	<Button
+																		key={s.value}
+																		size="compact-xs"
+																		variant="light"
+																		onClick={() =>
+																			handleStatusPick(item.identifier, s.value)
+																		}
+																		style={{
+																			backgroundColor: `${selectedSchema.accentColor}18`,
+																			color: selectedSchema.accentColor,
+																			border: "none",
+																		}}
+																	>
+																		{s.label}
+																	</Button>
+																))}
+															</Group>
+														</Box>
+													)}
+
+													{/* Confirmation */}
+													{status === "done" && (
+														<Group gap={6} mt="xs">
+															<Badge
+																size="xs"
+																variant="light"
+																style={{
+																	backgroundColor: `${selectedSchema.accentColor}18`,
+																	color: selectedSchema.accentColor,
+																}}
+															>
+																{ADD_STATUSES.find(
+																	(s) =>
+																		s.value === pickedStatus[item.identifier],
+																)?.label ?? "Added"}
+															</Badge>
+															<Text fz={10} c={t.textMuted}>
+																Added to library
+															</Text>
+														</Group>
+													)}
+												</Paper>
+											);
+										})}
+									</Stack>
+								</ScrollArea.Autosize>
+							)}
+						</Stack>
+					)}
+				</Stack>
+			)}
+		</Modal>
+	);
+}
+
 // --- Main ---
 
 function RouteComponent() {
 	const t = useThemeTokens();
+	const [addModalOpened, addModalHandlers] = useDisclosure(false);
 	const bgPage = t.isDark
 		? "var(--mantine-color-dark-8)"
 		: "var(--mantine-color-stone-0)";
@@ -1045,7 +2215,7 @@ function RouteComponent() {
 							size="compact-sm"
 							leftSection={<Plus size={14} />}
 							style={{ backgroundColor: GOLD, color: "white" }}
-							onClick={() => console.log("[v6] Add media")}
+							onClick={addModalHandlers.open}
 						>
 							Add
 						</Button>
@@ -1296,6 +2466,7 @@ function RouteComponent() {
 					</Box>
 				</Stack>
 			</Container>
+			<AddMediaModal opened={addModalOpened} onClose={addModalHandlers.close} />
 		</Box>
 	);
 }
