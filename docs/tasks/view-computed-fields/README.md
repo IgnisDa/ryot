@@ -157,9 +157,9 @@ View-runtime execution will validate references and types against the participat
 
 ## Tasks
 
-**Overall Progress:** 2 of 6 tasks completed
+**Overall Progress:** 3 of 6 tasks completed
 
-**Current Task:** [Task 03](./03-expression-filtering-and-sorting.md) (todo)
+**Current Task:** [Task 04](./04-rich-derived-expression-support.md) (todo)
 
 ### Task List
 
@@ -167,7 +167,7 @@ View-runtime execution will validate references and types against the participat
 | --- | ------------------------------------------------------------------------------------ | ---- | ------ | ---------------- |
 | 01  | [Expression Contract Foundation](./01-expression-contract-foundation.md)             | AFK  | done   | None             |
 | 02  | [Computed Fields And Raw Output](./02-computed-fields-and-raw-output.md)             | AFK  | done   | Task 01          |
-| 03  | [Expression Filtering And Sorting](./03-expression-filtering-and-sorting.md)         | AFK  | todo   | Task 02          |
+| 03  | [Expression Filtering And Sorting](./03-expression-filtering-and-sorting.md)         | AFK  | done   | Task 02          |
 | 04  | [Rich Derived Expression Support](./04-rich-derived-expression-support.md)           | AFK  | todo   | Task 03          |
 | 05  | [Frontend Read-Only View Management](./05-frontend-read-only-view-management.md)     | AFK  | todo   | Task 02          |
 | 06  | [Validation Hardening, Docs, And Tests](./06-validation-hardening-docs-and-tests.md) | AFK  | todo   | Task 04, Task 05 |

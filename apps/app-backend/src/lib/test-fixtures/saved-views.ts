@@ -13,10 +13,6 @@ import type {
 } from "~/modules/saved-views/schemas";
 import type { SavedViewServiceDeps } from "~/modules/saved-views/service";
 
-const entityField = (schemaSlug: string, field: string) => {
-	return `entity.${schemaSlug}.${field}`;
-};
-
 const entityExpression = (
 	schemaSlug: string,
 	field: string,
@@ -30,10 +26,13 @@ const entityExpression = (
 };
 
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
-	filters: [],
+	filter: null,
 	eventJoins: [],
 	entitySchemaSlugs: ["books"],
-	sort: { fields: [entityField("books", "@name")], direction: "asc" },
+	sort: {
+		direction: "asc",
+		expression: entityExpression("books", "@name"),
+	},
 };
 
 const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] =

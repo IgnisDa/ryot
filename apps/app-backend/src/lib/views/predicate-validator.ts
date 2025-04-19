@@ -6,229 +6,196 @@ import {
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { ViewRuntimeValidationError } from "./errors";
-import type { FilterExpression } from "./filtering";
-import { getComparablePropertyType, supportsContainsFilter } from "./policy";
+import type { ViewComputedField } from "./expression";
 import {
-	getEntityColumnPropertyDefinition,
-	getEventJoinColumnPropertyDefinition,
-	getEventJoinForReference,
-	getEventJoinPropertyDefinition,
-	getSchemaForReference,
-	resolveRuntimeReference,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeReferenceContext,
-	type ViewRuntimeSchemaLike,
+	assertComparableExpression,
+	assertCompatibleComparisonTypes,
+	assertContainsCompatibleExpression,
+	assertFilterCompatibleExpression,
+	inferViewExpressionType,
+} from "./expression-analysis";
+import type { ViewPredicate } from "./filtering";
+import type {
+	ViewRuntimeEventJoinLike,
+	ViewRuntimeReferenceContext,
+	ViewRuntimeSchemaLike,
 } from "./reference";
 
-const topLevelTimestampFilterValueSchema = z.union([
-	z.date(),
-	z.iso.date(),
-	z.iso.datetime(),
-]);
-
-const getPropertyDefinitionForFilter = <TSchema extends ViewRuntimeSchemaLike>(
-	filter: FilterExpression,
-	context: ViewRuntimeReferenceContext<TSchema, ViewRuntimeEventJoinLike>,
-) => {
-	const reference = resolveRuntimeReference(filter.field);
-	if (reference.type === "entity-column") {
-		getSchemaForReference(context.schemaMap, reference);
-		const property = getEntityColumnPropertyDefinition(reference.column);
-		if (!property) {
-			throw new ViewRuntimeValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
-			);
-		}
-
-		return property;
-	}
-
-	if (reference.type === "event-join-column") {
-		getEventJoinForReference(context.eventJoinMap, reference);
-		const property = getEventJoinColumnPropertyDefinition(reference.column);
-		if (!property) {
-			throw new ViewRuntimeValidationError(
-				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
-			);
-		}
-
-		return property;
-	}
-
-	if (reference.type === "event-join-property") {
-		const join = getEventJoinForReference(context.eventJoinMap, reference);
-		const property = getEventJoinPropertyDefinition(join, reference.property);
-		if (!property) {
-			throw new ViewRuntimeValidationError(
-				`Property '${reference.property}' not found for event join '${join.key}'`,
-			);
-		}
-
-		return property;
-	}
-
-	if (reference.type === "computed-field") {
-		throw new ViewRuntimeValidationError(
-			"Computed field references are not supported in filters",
-		);
-	}
-
-	const schema = getSchemaForReference(context.schemaMap, reference);
-	const property = schema.propertiesSchema.fields[reference.property];
-	if (!property) {
-		throw new ViewRuntimeValidationError(
-			`Property '${reference.property}' not found in schema '${reference.slug}'`,
-		);
-	}
-
-	return property;
-};
-
-const createObjectContainsSchema = (property: AppObjectProperty): z.ZodType => {
-	const shape: Record<string, z.ZodType> = {};
-
-	for (const [key, value] of Object.entries(property.properties)) {
-		shape[key] = createContainsValueSchema(value).optional();
-	}
-
-	return z.object(shape).strict();
-};
-
-const createContainsValueSchema = (
-	property: AppPropertyDefinition,
-): z.ZodType => {
-	return match(property)
-		.with({ type: "object" }, (prop) => createObjectContainsSchema(prop))
-		.otherwise((prop) => fromAppSchema(prop));
-};
-
-const validateWithSchema = (
-	schema: z.ZodType,
-	value: unknown,
-	message: string,
-) => {
-	const result = schema.safeParse(value);
-	if (result.success) {
-		return;
-	}
-
-	throw new ViewRuntimeValidationError(message);
-};
-
-const getValueSchema = (
-	filter: FilterExpression,
-	property: AppPropertyDefinition,
-) => {
-	const reference = resolveRuntimeReference(filter.field);
-	if (
-		(reference.type === "entity-column" &&
-			(reference.column === "createdAt" || reference.column === "updatedAt")) ||
-		(reference.type === "event-join-column" &&
-			(reference.column === "createdAt" || reference.column === "updatedAt"))
-	) {
-		return topLevelTimestampFilterValueSchema;
-	}
-
-	return fromAppSchema(property);
-};
-
-const validateComparableFilter = (
-	filter: Extract<
-		FilterExpression,
-		{ op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" }
-	>,
-	property: AppPropertyDefinition,
-) => {
-	if (!getComparablePropertyType(property)) {
-		throw new ViewRuntimeValidationError(
-			`Filter operator '${filter.op}' is not supported for property type '${property.type}'`,
-		);
-	}
-
-	const schema = getValueSchema(filter, property);
-	validateWithSchema(
-		schema,
-		filter.value,
-		`Filter value for '${filter.field}' must match the '${property.type}' property type`,
-	);
-};
-
-const validateInFilter = (
-	filter: Extract<FilterExpression, { op: "in" }>,
-	property: AppPropertyDefinition,
-) => {
-	if (!getComparablePropertyType(property)) {
-		throw new ViewRuntimeValidationError(
-			`Filter operator 'in' is not supported for property type '${property.type}'`,
-		);
-	}
-
-	const schema = getValueSchema(filter, property);
-	for (const value of filter.value) {
-		validateWithSchema(
-			schema,
-			value,
-			`Filter value for '${filter.field}' must match the '${property.type}' property type`,
-		);
-	}
-};
-
-const validateContainsFilter = (
-	filter: Extract<FilterExpression, { op: "contains" }>,
-	property: AppPropertyDefinition,
-) => {
-	if (!supportsContainsFilter(property.type)) {
-		throw new ViewRuntimeValidationError(
-			`Filter operator 'contains' is not supported for property type '${property.type}'`,
-		);
-	}
-
-	match(property)
-		.with({ type: "string" }, () =>
-			validateWithSchema(
-				z.string(),
-				filter.value,
-				`Filter value for '${filter.field}' must be a string`,
-			),
-		)
-		.with({ type: "array" }, (prop) =>
-			validateWithSchema(
-				createContainsValueSchema(prop.items),
-				filter.value,
-				`Filter value for '${filter.field}' must match the array item type`,
-			),
-		)
-		.with({ type: "object" }, (prop) =>
-			validateWithSchema(
-				createObjectContainsSchema(prop),
-				filter.value,
-				`Filter value for '${filter.field}' must match the object schema`,
-			),
-		)
-		.otherwise(() => undefined);
-};
-
-export const validateFilterExpressionAgainstSchemas = <
+export const validateViewPredicateAgainstSchemas = <
 	TSchema extends ViewRuntimeSchemaLike,
->(
-	filter: FilterExpression,
-	context: ViewRuntimeReferenceContext<TSchema, ViewRuntimeEventJoinLike>,
-) => {
-	const property = getPropertyDefinitionForFilter(filter, context);
+	TJoin extends ViewRuntimeEventJoinLike,
+>(input: {
+	predicate: ViewPredicate;
+	computedFields?: ViewComputedField[];
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+}) => {
+	const computedFieldMap = new Map(
+		(input.computedFields ?? []).map((field) => [field.key, field]),
+	);
+	const typeCache = new Map();
 
-	match(filter)
-		.with({ op: "isNull" }, () => undefined)
-		.with({ op: "isNotNull" }, () => undefined)
-		.with({ op: "in" }, (f) => validateInFilter(f, property))
-		.with({ op: "contains" }, (f) => validateContainsFilter(f, property))
-		.with(
-			{ op: "eq" },
-			{ op: "gt" },
-			{ op: "neq" },
-			{ op: "lt" },
-			{ op: "gte" },
-			{ op: "lte" },
-			(f) => validateComparableFilter(f, property),
-		)
-		.exhaustive();
+	const createObjectContainsSchema = (
+		property: AppObjectProperty,
+	): z.ZodType => {
+		const shape: Record<string, z.ZodType> = {};
+
+		for (const [key, value] of Object.entries(property.properties)) {
+			shape[key] = createContainsValueSchema(value).optional();
+		}
+
+		return z.object(shape).strict();
+	};
+
+	const createContainsValueSchema = (
+		property: AppPropertyDefinition,
+	): z.ZodType => {
+		return match(property)
+			.with({ type: "object" }, (prop) => createObjectContainsSchema(prop))
+			.otherwise((prop) => fromAppSchema(prop));
+	};
+
+	const validateLiteralAgainstSchema = (
+		value: unknown,
+		schema: z.ZodType,
+		message: string,
+	) => {
+		const result = schema.safeParse(value);
+		if (!result.success) {
+			throw new ViewRuntimeValidationError(message);
+		}
+	};
+
+	const getType = (
+		expression: Parameters<typeof inferViewExpressionType>[0]["expression"],
+	) => {
+		return inferViewExpressionType({
+			typeCache,
+			expression,
+			computedFieldMap,
+			context: input.context,
+		});
+	};
+
+	const validatePredicate = (predicate: ViewPredicate): void => {
+		if (predicate.type === "and" || predicate.type === "or") {
+			for (const child of predicate.predicates) {
+				validatePredicate(child);
+			}
+
+			return;
+		}
+
+		if (predicate.type === "not") {
+			validatePredicate(predicate.predicate);
+			return;
+		}
+
+		if (predicate.type === "isNull" || predicate.type === "isNotNull") {
+			assertFilterCompatibleExpression(
+				getType(predicate.expression),
+				"filtering",
+			);
+			return;
+		}
+
+		if (predicate.type === "contains") {
+			const expressionType = getType(predicate.expression);
+			const valueType = getType(predicate.value);
+			assertContainsCompatibleExpression(expressionType);
+			assertFilterCompatibleExpression(valueType, "filtering");
+
+			if (
+				expressionType.kind === "property" &&
+				expressionType.propertyType === "string"
+			) {
+				if (
+					valueType.kind !== "property" ||
+					valueType.propertyType !== "string"
+				) {
+					throw new ViewRuntimeValidationError(
+						"Filter operator 'contains' requires a string expression value for string expressions",
+					);
+				}
+			}
+
+			if (valueType.kind === "null") {
+				throw new ViewRuntimeValidationError(
+					"Filter operator 'contains' does not support null expression values",
+				);
+			}
+
+			if (
+				expressionType.kind === "property" &&
+				expressionType.propertyType === "array"
+			) {
+				if (
+					valueType.kind !== "property" ||
+					["array", "object"].includes(valueType.propertyType)
+				) {
+					throw new ViewRuntimeValidationError(
+						"Filter operator 'contains' for array expressions requires a scalar or object item expression",
+					);
+				}
+			}
+
+			if (
+				expressionType.kind === "property" &&
+				expressionType.propertyType === "object" &&
+				(valueType.kind !== "property" || valueType.propertyType !== "object")
+			) {
+				throw new ViewRuntimeValidationError(
+					"Filter operator 'contains' for object expressions requires an object expression value",
+				);
+			}
+
+			if (
+				expressionType.kind === "property" &&
+				expressionType.propertyDefinition &&
+				predicate.value.type === "literal"
+			) {
+				const literalValue = predicate.value.value;
+				match(expressionType.propertyDefinition)
+					.with({ type: "array" }, (property) =>
+						validateLiteralAgainstSchema(
+							literalValue,
+							createContainsValueSchema(property.items),
+							"Filter operator 'contains' received a literal value incompatible with the array item schema",
+						),
+					)
+					.with({ type: "object" }, (property) =>
+						validateLiteralAgainstSchema(
+							literalValue,
+							createObjectContainsSchema(property),
+							"Filter operator 'contains' received a literal value incompatible with the object schema",
+						),
+					)
+					.otherwise(() => undefined);
+			}
+
+			return;
+		}
+
+		if (predicate.type === "in") {
+			const expressionType = getType(predicate.expression);
+			assertComparableExpression(expressionType, "in");
+
+			for (const value of predicate.values) {
+				assertCompatibleComparisonTypes({
+					operator: "in",
+					left: expressionType,
+					right: getType(value),
+				});
+			}
+
+			return;
+		}
+
+		assertCompatibleComparisonTypes({
+			operator: predicate.operator,
+			left: getType(predicate.left),
+			right: getType(predicate.right),
+		});
+	};
+
+	validatePredicate(input.predicate);
 };

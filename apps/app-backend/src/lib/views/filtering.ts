@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
-
-export const runtimeFieldPathSchema = nonEmptyTrimmedStringSchema;
+import { viewExpressionSchema } from "./expression";
 
 export const canonicalComparisonFilterOperators = [
 	"eq",
-	"neq",
 	"gt",
-	"gte",
 	"lt",
+	"neq",
+	"gte",
 	"lte",
 ] as const;
 
@@ -16,42 +14,82 @@ const comparisonFilterOperatorSchema = z.enum(
 	canonicalComparisonFilterOperators,
 );
 
-const filterExpressionIsNullSchema = z.object({
-	value: z.null().optional(),
-	op: z.literal("isNull"),
-	field: runtimeFieldPathSchema,
+export const viewPredicateSchema: z.ZodType<ViewPredicate> = z.lazy(() => {
+	return z.discriminatedUnion("type", [
+		z
+			.object({
+				type: z.literal("isNull"),
+				expression: viewExpressionSchema,
+			})
+			.strict(),
+		z
+			.object({
+				expression: viewExpressionSchema,
+				type: z.literal("isNotNull"),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("in"),
+				expression: viewExpressionSchema,
+				values: z.array(viewExpressionSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				value: viewExpressionSchema,
+				expression: viewExpressionSchema,
+				type: z.literal("contains"),
+			})
+			.strict(),
+		z
+			.object({
+				left: viewExpressionSchema,
+				right: viewExpressionSchema,
+				type: z.literal("comparison"),
+				operator: comparisonFilterOperatorSchema,
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("and"),
+				predicates: z.array(viewPredicateSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("or"),
+				predicates: z.array(viewPredicateSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("not"),
+				predicate: viewPredicateSchema,
+			})
+			.strict(),
+	]);
 });
 
-const filterExpressionIsNotNullSchema = z.object({
-	value: z.null().optional(),
-	op: z.literal("isNotNull"),
-	field: runtimeFieldPathSchema,
-});
-
-const filterExpressionInSchema = z.object({
-	op: z.literal("in"),
-	field: runtimeFieldPathSchema,
-	value: z.array(z.unknown()),
-});
-
-const filterExpressionComparisonSchema = z.object({
-	value: z.unknown(),
-	field: runtimeFieldPathSchema,
-	op: comparisonFilterOperatorSchema,
-});
-
-const filterExpressionContainsSchema = z.object({
-	value: z.unknown(),
-	field: runtimeFieldPathSchema,
-	op: z.literal("contains"),
-});
-
-export const filterExpressionSchema = z.union([
-	filterExpressionInSchema,
-	filterExpressionIsNullSchema,
-	filterExpressionContainsSchema,
-	filterExpressionIsNotNullSchema,
-	filterExpressionComparisonSchema,
-]);
-
-export type FilterExpression = z.infer<typeof filterExpressionSchema>;
+export type ViewPredicate =
+	| { type: "isNull"; expression: z.infer<typeof viewExpressionSchema> }
+	| { type: "isNotNull"; expression: z.infer<typeof viewExpressionSchema> }
+	| {
+			type: "in";
+			expression: z.infer<typeof viewExpressionSchema>;
+			values: z.infer<typeof viewExpressionSchema>[];
+	  }
+	| {
+			type: "contains";
+			expression: z.infer<typeof viewExpressionSchema>;
+			value: z.infer<typeof viewExpressionSchema>;
+	  }
+	| {
+			type: "comparison";
+			left: z.infer<typeof viewExpressionSchema>;
+			right: z.infer<typeof viewExpressionSchema>;
+			operator: (typeof canonicalComparisonFilterOperators)[number];
+	  }
+	| { type: "and"; predicates: ViewPredicate[] }
+	| { type: "or"; predicates: ViewPredicate[] }
+	| { type: "not"; predicate: ViewPredicate };
