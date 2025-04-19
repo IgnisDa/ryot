@@ -61,6 +61,7 @@ interface SavedView {
 	name: string;
 	icon: string;
 	accentColor: string;
+	trackerId: string | null;
 	queryDefinition: {
 		filters: unknown[];
 		entitySchemaSlugs: string[];
@@ -225,11 +226,13 @@ async function createSavedView(
 	accentColor: string,
 	queryDefinition: SavedView["queryDefinition"],
 	displayConfiguration: SavedView["displayConfiguration"],
+	trackerId?: string,
 ): Promise<SavedView> {
 	const savedView = await client.post<SavedView>("/saved-views", {
 		name,
 		icon,
 		accentColor,
+		trackerId,
 		queryDefinition,
 		displayConfiguration,
 	});
@@ -748,7 +751,12 @@ async function seedMobilePhones(client: APIClient) {
 	};
 }
 
-async function seedSavedViews(client: APIClient) {
+async function seedSavedViews(
+	client: APIClient,
+	whiskeyTrackerId: string,
+	placesTrackerId: string,
+	phonesTrackerId: string,
+) {
 	console.log("\n💾 Seeding Saved Views...");
 
 	const savedViews: SavedView[] = [];
@@ -788,6 +796,7 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			whiskeyTrackerId,
 		),
 	);
 
@@ -820,6 +829,7 @@ async function seedSavedViews(client: APIClient) {
 					columns: [{ property: ["@name"] }, { property: ["region"] }],
 				},
 			},
+			whiskeyTrackerId,
 		),
 	);
 
@@ -857,6 +867,7 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			whiskeyTrackerId,
 		),
 	);
 
@@ -893,6 +904,7 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			whiskeyTrackerId,
 		),
 	);
 
@@ -929,6 +941,7 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			whiskeyTrackerId,
 		),
 	);
 
@@ -966,6 +979,163 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			placesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Cultural Venues",
+			"landmark",
+			"#8B5CF6",
+			{
+				filters: [
+					{
+						op: "in",
+						field: ["type"],
+						value: ["Museum", "Gallery", "Theater"],
+					},
+				],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["city"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["country"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["country"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["type"] },
+						{ property: ["city"] },
+						{ property: ["country"] },
+					],
+				},
+			},
+			placesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Parks & Outdoor Spaces",
+			"tree",
+			"#10B981",
+			{
+				filters: [{ op: "eq", field: ["type"], value: "Park" }],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["city"],
+					subtitleProperty: ["country"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["city"],
+					subtitleProperty: ["country"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["city"] },
+						{ property: ["address"] },
+					],
+				},
+			},
+			placesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Recently Added Places",
+			"clock",
+			"#3B82F6",
+			{
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["@createdAt"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["type"],
+					subtitleProperty: ["city"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["@createdAt"] },
+						{ property: ["type"] },
+					],
+				},
+			},
+			placesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Places by Country",
+			"globe",
+			"#06B6D4",
+			{
+				filters: [],
+				entitySchemaSlugs: ["place"],
+				sort: { field: ["country"], direction: "asc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["country"],
+					subtitleProperty: ["city"],
+				},
+				table: {
+					columns: [
+						{ property: ["country"] },
+						{ property: ["city"] },
+						{ property: ["@name"] },
+						{ property: ["type"] },
+					],
+				},
+			},
+			placesTrackerId,
 		),
 	);
 
@@ -1156,6 +1326,308 @@ async function seedSavedViews(client: APIClient) {
 					],
 				},
 			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"High Storage Devices",
+			"hard-drive",
+			"#EC4899",
+			{
+				filters: [{ op: "gte", field: ["storage_gb"], value: 256 }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["storage_gb"], direction: "desc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["storage_gb"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["storage_gb"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"iOS Devices",
+			"apple",
+			"#6B7280",
+			{
+				filters: [{ op: "in", field: ["os"], value: ["iOS", "iPadOS"] }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["year"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["os"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["os"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Android Devices",
+			"android",
+			"#22C55E",
+			{
+				filters: [{ op: "eq", field: ["os"], value: "Android" }],
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Premium Smartphones",
+			"gem",
+			"#A855F7",
+			{
+				filters: [{ op: "gte", field: ["price_usd"], value: 999 }],
+				entitySchemaSlugs: ["smartphone"],
+				sort: { field: ["price_usd"], direction: "desc" },
+			},
+			{
+				layout: "table",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["price_usd"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["price_usd"] },
+						{ property: ["manufacturer"] },
+						{ property: ["storage_gb"] },
+						{ property: ["ram_gb"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Budget-Friendly Phones",
+			"dollar-sign",
+			"#10B981",
+			{
+				filters: [{ op: "lte", field: ["price_usd"], value: 399 }],
+				entitySchemaSlugs: ["smartphone"],
+				sort: { field: ["price_usd"], direction: "asc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["price_usd"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["price_usd"] },
+						{ property: ["manufacturer"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Tablets with Cellular",
+			"signal",
+			"#F97316",
+			{
+				filters: [{ op: "eq", field: ["has_cellular"], value: true }],
+				entitySchemaSlugs: ["tablet"],
+				sort: { field: ["screen_size"], direction: "desc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["screen_size"],
+					subtitleProperty: ["manufacturer"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["screen_size"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["screen_size"] },
+						{ property: ["manufacturer"] },
+						{ property: ["storage_gb"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"Feature Phones with Camera",
+			"camera",
+			"#84CC16",
+			{
+				filters: [{ op: "eq", field: ["has_camera"], value: true }],
+				entitySchemaSlugs: ["feature-phone"],
+				sort: { field: ["year"], direction: "desc" },
+			},
+			{
+				layout: "list",
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["year"],
+					subtitleProperty: ["manufacturer"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+						{ property: ["battery_mah"] },
+					],
+				},
+			},
+			phonesTrackerId,
+		),
+	);
+
+	savedViews.push(
+		await createSavedView(
+			client,
+			"All Mobile Devices",
+			"mobile-phone",
+			"#475569",
+			{
+				filters: [],
+				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
+				sort: { field: ["@name"], direction: "asc" },
+			},
+			{
+				layout: "grid",
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["manufacturer"],
+					subtitleProperty: ["year"],
+				},
+				table: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["manufacturer"] },
+						{ property: ["year"] },
+					],
+				},
+			},
+			phonesTrackerId,
 		),
 	);
 
@@ -1546,7 +2018,12 @@ async function main() {
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
 	const phoneStats = await seedMobilePhones(client);
-	const savedViewsCount = await seedSavedViews(client);
+	const savedViewsCount = await seedSavedViews(
+		client,
+		whiskeyStats.tracker.id,
+		placeStats.tracker.id,
+		phoneStats.tracker.id,
+	);
 
 	const duration = Math.floor((Date.now() - startTime) / 1000);
 	const minutes = Math.floor(duration / 60);
