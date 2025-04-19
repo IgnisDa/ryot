@@ -1705,7 +1705,6 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
- "file-storage-service",
  "fitness-models",
  "futures",
  "itertools 0.14.0",
