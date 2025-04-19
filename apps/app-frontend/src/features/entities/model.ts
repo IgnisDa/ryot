@@ -5,15 +5,9 @@ import type {
 } from "#/lib/api/types";
 
 type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
-type GridViewRuntimeRequest = Extract<ViewRuntimeRequest, { layout: "grid" }>;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
 type ApiViewRuntimeEntity =
 	ApiPostResponseData<"/view-runtime/execute">["items"][number];
-type ApiResolvedRuntimeEntity = Extract<
-	ApiViewRuntimeEntity,
-	{ resolvedProperties: unknown }
->;
-type ApiTableRuntimeEntity = Extract<ApiViewRuntimeEntity, { cells: unknown }>;
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
 const entityField = (schemaSlug: string, field: string) => {
@@ -29,32 +23,19 @@ export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 	createdAt: Date;
 	updatedAt: Date;
 	image: AppEntityImage;
-	cells?: ApiTableRuntimeEntity["cells"];
+	fields?: ApiViewRuntimeEntity["fields"];
 	entitySchemaSlug?: ApiViewRuntimeEntity["entitySchemaSlug"];
-	resolvedProperties?:
-		| ApiResolvedRuntimeEntity["resolvedProperties"]
-		| ApiEntity["properties"];
 };
-
-const createDefaultDisplayConfiguration = (
-	entitySchemaSlug: string,
-): GridViewRuntimeRequest["displayConfiguration"] => ({
-	badgeProperty: null,
-	subtitleProperty: null,
-	titleProperty: [entityField(entitySchemaSlug, "@name")],
-	imageProperty: [entityField(entitySchemaSlug, "@image")],
-});
 
 export function createEntityRuntimeRequest(
 	entitySchemaSlug: string,
-): GridViewRuntimeRequest {
+): ViewRuntimeRequest {
 	return {
+		fields: [],
 		filters: [],
 		eventJoins: [],
-		layout: "grid",
 		pagination: { page: 1, limit: 1000 },
 		entitySchemaSlugs: [entitySchemaSlug],
-		displayConfiguration: createDefaultDisplayConfiguration(entitySchemaSlug),
 		sort: {
 			direction: "asc",
 			fields: [entityField(entitySchemaSlug, "@name")],
@@ -92,22 +73,13 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 	const detailsSandboxScriptId = isViewRuntimeEntity(entity)
 		? null
 		: entity.detailsSandboxScriptId;
-	const resolvedProperties = isViewRuntimeEntity(entity)
-		? "resolvedProperties" in entity
-			? (entity.resolvedProperties as AppEntity["resolvedProperties"])
-			: undefined
-		: properties;
-	const cells =
-		isViewRuntimeEntity(entity) && "cells" in entity
-			? (entity.cells as AppEntity["cells"])
-			: undefined;
+	const fields = isViewRuntimeEntity(entity) ? entity.fields : undefined;
 
 	return {
 		...entity,
-		cells,
+		fields,
 		properties,
 		externalId,
-		resolvedProperties,
 		detailsSandboxScriptId,
 		image: toAppEntityImage(entity.image),
 		createdAt: new Date(entity.createdAt),

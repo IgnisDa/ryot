@@ -62,10 +62,6 @@ const createDeps = (overrides: Record<string, unknown> = {}) => {
 			limit: request.pagination.limit,
 		};
 
-		if (request.layout === "table") {
-			return { items: [], meta: { pagination, table: { columns: [] } } };
-		}
-
 		return { items: [], meta: { pagination } };
 	});
 
@@ -204,13 +200,17 @@ describe("viewDefinitionModule", () => {
 				pagination: { page: 2, limit: 10 },
 			}),
 		).toEqual({
-			layout: "grid",
 			sort: body.queryDefinition.sort,
 			pagination: { page: 2, limit: 10 },
 			filters: body.queryDefinition.filters,
 			eventJoins: body.queryDefinition.eventJoins,
-			displayConfiguration: body.displayConfiguration.grid,
 			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
+			fields: [
+				{ key: "image", references: [entityField("smartphones", "@image")] },
+				{ key: "title", references: [entityField("smartphones", "@name")] },
+				{ key: "subtitle", references: [] },
+				{ key: "badge", references: [] },
+			],
 		});
 	});
 
@@ -219,18 +219,11 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(deps);
 		const request = {
 			eventJoins: [],
-			layout: "grid" as const,
 			pagination: { page: 1, limit: 25 },
 			entitySchemaSlugs: ["smartphones"],
 			sort: {
 				direction: "asc" as const,
 				fields: [entityField("smartphones", "@name")],
-			},
-			displayConfiguration: {
-				badgeProperty: null,
-				subtitleProperty: null,
-				titleProperty: [entityField("smartphones", "@name")],
-				imageProperty: [entityField("smartphones", "@image")],
 			},
 			filters: [
 				{
@@ -238,6 +231,12 @@ describe("viewDefinitionModule", () => {
 					op: "eq" as const,
 					field: "entity.smartphones.manufacturer",
 				},
+			],
+			fields: [
+				{ key: "image", references: [entityField("smartphones", "@image")] },
+				{ key: "title", references: [entityField("smartphones", "@name")] },
+				{ key: "subtitle", references: [] },
+				{ key: "badge", references: [] },
 			],
 		};
 
@@ -255,7 +254,7 @@ describe("viewDefinitionModule", () => {
 		});
 	});
 
-	it("rejects layout changes for prepared runtime views", async () => {
+	it("rejects projecting prepared runtime views into new runtime requests", async () => {
 		const views = createViewDefinitionModule(createDeps());
 		const prepared = await views.prepare({
 			userId: "user-1",
@@ -264,18 +263,14 @@ describe("viewDefinitionModule", () => {
 				request: {
 					filters: [],
 					eventJoins: [],
-					layout: "grid",
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
+					fields: [
+						{ key: "title", references: [entityField("smartphones", "@name")] },
+					],
 					sort: {
 						direction: "asc",
 						fields: [entityField("smartphones", "@name")],
-					},
-					displayConfiguration: {
-						badgeProperty: null,
-						subtitleProperty: null,
-						titleProperty: [entityField("smartphones", "@name")],
-						imageProperty: [entityField("smartphones", "@image")],
 					},
 				},
 			},
@@ -286,14 +281,7 @@ describe("viewDefinitionModule", () => {
 				layout: "table",
 				pagination: { page: 1, limit: 10 },
 			}),
-		).toThrow("Cannot change layout for a prepared runtime view");
-
-		expect(
-			prepared.execute({
-				layout: "table",
-				pagination: { page: 1, limit: 10 },
-			}),
-		).rejects.toThrow("Cannot change layout for a prepared runtime view");
+		).toThrow("Only saved views can be projected into runtime requests");
 	});
 
 	it("rejects assertSavable for prepared runtime views", async () => {
@@ -304,19 +292,15 @@ describe("viewDefinitionModule", () => {
 				kind: "runtime",
 				request: {
 					filters: [],
-					layout: "grid",
 					eventJoins: [],
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
+					fields: [
+						{ key: "title", references: [entityField("smartphones", "@name")] },
+					],
 					sort: {
 						direction: "asc",
 						fields: [entityField("smartphones", "@name")],
-					},
-					displayConfiguration: {
-						badgeProperty: null,
-						subtitleProperty: null,
-						titleProperty: [entityField("smartphones", "@name")],
-						imageProperty: [entityField("smartphones", "@image")],
 					},
 				},
 			},

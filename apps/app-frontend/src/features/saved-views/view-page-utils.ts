@@ -6,17 +6,12 @@ import type {
 	ApiPostResponseData,
 } from "#/lib/api/types";
 
+export type RuntimeField = ViewRuntimeItem["fields"][number];
+export type ViewLayout = keyof SavedView["displayConfiguration"];
+export type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
 export type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
 export type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
 export type ViewRuntimeResponse = ApiPostResponseData<"/view-runtime/execute">;
-export type ViewLayout = ViewRuntimeRequest["layout"];
-export type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
-export type SemanticRuntimeItem = Extract<
-	ViewRuntimeItem,
-	{ resolvedProperties: unknown }
->;
-export type RuntimeProperty =
-	SemanticRuntimeItem["resolvedProperties"][keyof SemanticRuntimeItem["resolvedProperties"]];
 
 export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
@@ -27,13 +22,12 @@ const entityField = (schemaSlug: string, field: string) => {
 };
 
 export function createViewRuntimeRequest(input: {
-	view: SavedView;
-	layout: ViewLayout;
 	page: number;
 	limit: number;
+	view: SavedView;
+	layout: ViewLayout;
 }): ViewRuntimeRequest {
 	const base = {
-		layout: input.layout,
 		sort: input.view.queryDefinition.sort,
 		filters: input.view.queryDefinition.filters,
 		eventJoins: input.view.queryDefinition.eventJoins,
@@ -44,18 +38,56 @@ export function createViewRuntimeRequest(input: {
 	return match(input.layout)
 		.with("grid", () => ({
 			...base,
-			layout: "grid" as const,
-			displayConfiguration: input.view.displayConfiguration.grid,
+			fields: [
+				{
+					key: "image",
+					references: input.view.displayConfiguration.grid.imageProperty ?? [],
+				},
+				{
+					key: "title",
+					references: input.view.displayConfiguration.grid.titleProperty ?? [],
+				},
+				{
+					key: "subtitle",
+					references:
+						input.view.displayConfiguration.grid.subtitleProperty ?? [],
+				},
+				{
+					key: "badge",
+					references: input.view.displayConfiguration.grid.badgeProperty ?? [],
+				},
+			],
 		}))
 		.with("list", () => ({
 			...base,
-			layout: "list" as const,
-			displayConfiguration: input.view.displayConfiguration.list,
+			fields: [
+				{
+					key: "image",
+					references: input.view.displayConfiguration.list.imageProperty ?? [],
+				},
+				{
+					key: "title",
+					references: input.view.displayConfiguration.list.titleProperty ?? [],
+				},
+				{
+					key: "subtitle",
+					references:
+						input.view.displayConfiguration.list.subtitleProperty ?? [],
+				},
+				{
+					key: "badge",
+					references: input.view.displayConfiguration.list.badgeProperty ?? [],
+				},
+			],
 		}))
 		.with("table", () => ({
 			...base,
-			layout: "table" as const,
-			displayConfiguration: input.view.displayConfiguration.table,
+			fields: input.view.displayConfiguration.table.columns.map(
+				(column, index) => ({
+					key: `column_${index}`,
+					references: column.property,
+				}),
+			),
 		}))
 		.exhaustive();
 }
@@ -63,17 +95,16 @@ export function createViewRuntimeRequest(input: {
 export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 	return {
 		filters: [],
-		layout: "grid",
 		eventJoins: [],
 		entitySchemaSlugs: ["book"],
 		pagination: { page: 1, limit: GRID_LIMIT },
 		sort: { fields: [entityField("book", "@name")], direction: "asc" },
-		displayConfiguration: {
-			badgeProperty: null,
-			subtitleProperty: null,
-			titleProperty: [entityField("book", "@name")],
-			imageProperty: [entityField("book", "@image")],
-		},
+		fields: [
+			{ key: "image", references: [entityField("book", "@image")] },
+			{ key: "title", references: [entityField("book", "@name")] },
+			{ key: "subtitle", references: [] },
+			{ key: "badge", references: [] },
+		],
 	};
 }
 
@@ -85,7 +116,14 @@ export function getPageLimit(layout: ViewLayout) {
 		.exhaustive();
 }
 
-export function isRuntimeProperty(value: unknown): value is RuntimeProperty {
+export function getRuntimeField(
+	item: { fields?: RuntimeField[] },
+	key: string,
+): RuntimeField | undefined {
+	return item.fields?.find((field) => field.key === key);
+}
+
+export function isRuntimeField(value: unknown): value is RuntimeField {
 	return (
 		!!value && typeof value === "object" && "kind" in value && "value" in value
 	);

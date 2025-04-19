@@ -25,6 +25,23 @@ const entityField = (schemaSlug: string, property: string) => {
 	return `entity.${schemaSlug}.${property}`;
 };
 
+const getField = (
+	item:
+		| NonNullable<
+				Awaited<ReturnType<typeof executeViewRuntime>>["data"]
+		  >["data"]["items"][number]
+		| undefined,
+	key: string,
+) => {
+	const field = item?.fields.find((entry) => entry.key === key);
+	expect(field).toBeDefined();
+	if (!field) {
+		throw new Error(`Expected runtime field '${key}'`);
+	}
+
+	return field;
+};
+
 describe("View runtime E2E", () => {
 	it("executes a simple single-schema query with the full response shape", async () => {
 		const { client, cookies, schema } =
@@ -49,20 +66,27 @@ describe("View runtime E2E", () => {
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
-		expect(firstItem && "resolvedProperties" in firstItem).toBe(true);
-		if (!firstItem || !("resolvedProperties" in firstItem)) {
-			throw new Error("Expected grid runtime item");
-		}
-		expect(firstItem.resolvedProperties).toEqual({
-			badgeProperty: { kind: "text", value: "phone" },
-			subtitleProperty: { kind: "number", value: 2018 },
-			titleProperty: { kind: "text", value: "Alpha Phone" },
-			imageProperty: {
-				kind: "image",
-				value: {
-					kind: "remote",
-					url: "https://example.com/alpha-phone.png",
-				},
+		expect(getField(firstItem, "badge")).toEqual({
+			key: "badge",
+			kind: "text",
+			value: "phone",
+		});
+		expect(getField(firstItem, "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "number",
+			value: 2018,
+		});
+		expect(getField(firstItem, "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Alpha Phone",
+		});
+		expect(getField(firstItem, "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: {
+				kind: "remote",
+				url: "https://example.com/alpha-phone.png",
 			},
 		});
 		expect(result?.meta.pagination).toEqual({
