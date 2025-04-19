@@ -1,6 +1,9 @@
 import { useQueries } from "@tanstack/react-query";
 import type { AppEntity } from "#/features/entities/model";
-import { toAppEntity } from "#/features/entities/model";
+import {
+	createEntityRuntimeRequest,
+	toAppEntity,
+} from "#/features/entities/model";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import type { AppEventSchema } from "#/features/event-schemas/model";
 import { sortEventSchemas } from "#/features/event-schemas/model";
@@ -101,7 +104,7 @@ export function useTrackerOverviewData(input: {
 	const entityQueries = useQueries({
 		queries: input.entitySchemas.map((schema) =>
 			apiClient.queryOptions("post", "/view-runtime/execute", {
-				body: { entitySchemaId: schema.id },
+				body: createEntityRuntimeRequest(schema.slug),
 			}),
 		),
 	});
@@ -120,7 +123,7 @@ export function useTrackerOverviewData(input: {
 			return [];
 		}
 
-		return (query.data?.data ?? []).map((entity) => ({
+		return (query.data?.data.items ?? []).map((entity) => ({
 			entity: toAppEntity(entity),
 			schema,
 		}));
@@ -199,7 +202,7 @@ export function useTrackerOverviewData(input: {
 			.filter((item) => item.schema.id === schema.id)
 			.map((item) => item.entity);
 		const savedView = trackerSavedViews.find((view) =>
-			view.queryDefinition.entitySchemaIds.includes(schema.id),
+			view.queryDefinition.entitySchemaSlugs.includes(schema.slug),
 		);
 
 		return {
