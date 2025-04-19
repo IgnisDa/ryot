@@ -16,7 +16,6 @@ export function sortEntitySchemas(
 }
 
 type TrackerEntitySchemaViewState =
-	| { type: "builtin" }
 	| { type: "empty" }
 	| { type: "list"; entitySchemas: AppEntitySchema[] };
 
@@ -24,9 +23,6 @@ export function getTrackerEntitySchemaViewState(input: {
 	tracker: AppTracker;
 	entitySchemas: AppEntitySchema[];
 }): TrackerEntitySchemaViewState {
-	if (input.tracker.isBuiltin) {
-		return { type: "builtin" };
-	}
 	if (input.entitySchemas.length === 0) {
 		return { type: "empty" };
 	}
