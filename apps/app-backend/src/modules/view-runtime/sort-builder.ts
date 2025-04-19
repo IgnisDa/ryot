@@ -3,11 +3,16 @@ import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import { getCommonSortPropertyType } from "~/lib/views/policy";
 import {
+	getEventJoinColumnPropertyType,
+	getEventJoinForReference,
+	getEventJoinPropertyType,
 	getPropertyType,
 	getSchemaForReference,
 	type PropertyType,
 	type RuntimeRef,
 	resolveRuntimeReference,
+	type ViewRuntimeEventJoinLike,
+	type ViewRuntimeReferenceContext,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
 import {
@@ -15,25 +20,35 @@ import {
 	buildCoalescedExpression,
 } from "./sql-expression-policy";
 
+const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
+
+const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
+	return sql`${sql.raw(`${alias}.${getEventJoinColumnName(joinKey)}`)}`;
+};
+
 const getTopLevelSortType = (column: string): PropertyType =>
 	match(column)
 		.with("name", () => "string" as const)
 		.with("createdAt", "updatedAt", () => "date" as const)
 		.otherwise(() => {
 			throw new ViewRuntimeValidationError(
-				`Unsupported sort column '@${column}'`,
+				`Unsupported entity column '@${column}'`,
 			);
 		});
 
 const buildPropertySortExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
 	targetType: PropertyType;
-	schemaMap: Map<string, TSchema>;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 	reference: Extract<RuntimeRef, { type: "schema-property" }>;
 }) => {
-	const foundSchema = getSchemaForReference(input.schemaMap, input.reference);
+	const foundSchema = getSchemaForReference(
+		input.context.schemaMap,
+		input.reference,
+	);
 	const propertyType = getPropertyType(foundSchema, input.reference.property);
 	if (!propertyType) {
 		throw new ViewRuntimeValidationError(
@@ -48,17 +63,55 @@ const buildPropertySortExpression = <
 		propertyText,
 	});
 
-	if (input.schemaMap.size === 1 && input.reference.slug === foundSchema.slug) {
+	if (
+		input.context.schemaMap.size === 1 &&
+		input.reference.slug === foundSchema.slug
+	) {
 		return valueExpression;
 	}
 
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-const buildTopLevelSortExpression = (input: {
+const buildEventJoinPropertySortExpression = <
+	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
+>(input: {
+	alias: string;
+	targetType: PropertyType;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	reference: Extract<RuntimeRef, { type: "event-join-property" }>;
+}) => {
+	const join = getEventJoinForReference(
+		input.context.eventJoinMap,
+		input.reference,
+	);
+	const propertyType = getEventJoinPropertyType(join, input.reference.property);
+	if (!propertyType) {
+		throw new ViewRuntimeValidationError(
+			`Property '${input.reference.property}' not found for event join '${join.key}'`,
+		);
+	}
+
+	const joinColumn = buildEventJoinJsonColumnExpression(
+		input.alias,
+		input.reference.joinKey,
+	);
+	return buildCastedValueExpression(input.targetType, {
+		propertyJson: sql`${joinColumn} -> 'properties' -> ${input.reference.property}`,
+		propertyText: sql`${joinColumn} -> 'properties' ->> ${input.reference.property}`,
+	});
+};
+
+const buildEntityColumnSortExpression = <
+	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
+>(input: {
 	alias: string;
 	column: string;
 	targetType: PropertyType;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	reference: Extract<RuntimeRef, { type: "entity-column" }>;
 }) => {
 	const expression = match(input.column)
 		.with("name", () => sql`${sql.raw(input.alias)}.name`)
@@ -66,33 +119,102 @@ const buildTopLevelSortExpression = (input: {
 		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
 		.otherwise(() => {
 			throw new ViewRuntimeValidationError(
-				`Unsupported sort column '@${input.column}'`,
+				`Unsupported entity column '@${input.column}'`,
 			);
 		});
 
-	return match(input.targetType)
+	const valueExpression = match(input.targetType)
 		.with("date", () => sql`(${expression})::timestamp`)
 		.with("number", () => sql`(${expression})::numeric`)
 		.with("integer", () => sql`(${expression})::integer`)
 		.with("boolean", () => sql`(${expression})::boolean`)
 		.with("array", "object", () => sql`to_jsonb(${expression})`)
 		.otherwise(() => sql`(${expression})::text`);
+
+	if (
+		input.context.schemaMap.size === 1 &&
+		input.context.schemaMap.has(input.reference.slug)
+	) {
+		return valueExpression;
+	}
+
+	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-const getSortExpressionType = <TSchema extends ViewRuntimeSchemaLike>(input: {
+const buildEventJoinColumnSortExpression = (input: {
+	alias: string;
+	column: string;
+	joinKey: string;
+	targetType: PropertyType;
+}) => {
+	const propertyType = getEventJoinColumnPropertyType(input.column);
+	if (!propertyType) {
+		throw new ViewRuntimeValidationError(
+			`Unsupported event join column 'event.${input.joinKey}.@${input.column}'`,
+		);
+	}
+
+	const joinColumn = buildEventJoinJsonColumnExpression(
+		input.alias,
+		input.joinKey,
+	);
+	return buildCastedValueExpression(input.targetType, {
+		propertyJson: sql`${joinColumn} -> ${input.column}`,
+		propertyText: sql`${joinColumn} ->> ${input.column}`,
+	});
+};
+
+const getSortExpressionType = <
+	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
+>(input: {
 	reference: string;
-	schemaMap: Map<string, TSchema>;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
 	const parsedReference = resolveRuntimeReference(input.reference);
 
-	if (parsedReference.type === "top-level") {
+	if (parsedReference.type === "entity-column") {
+		getSchemaForReference(input.context.schemaMap, parsedReference);
 		return {
 			parsedReference,
 			propertyType: getTopLevelSortType(parsedReference.column),
 		};
 	}
 
-	const foundSchema = getSchemaForReference(input.schemaMap, parsedReference);
+	if (parsedReference.type === "event-join-column") {
+		getEventJoinForReference(input.context.eventJoinMap, parsedReference);
+		const propertyType = getEventJoinColumnPropertyType(parsedReference.column);
+		if (!propertyType) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported event join column 'event.${parsedReference.joinKey}.@${parsedReference.column}'`,
+			);
+		}
+
+		return { parsedReference, propertyType };
+	}
+
+	if (parsedReference.type === "event-join-property") {
+		const join = getEventJoinForReference(
+			input.context.eventJoinMap,
+			parsedReference,
+		);
+		const propertyType = getEventJoinPropertyType(
+			join,
+			parsedReference.property,
+		);
+		if (!propertyType) {
+			throw new ViewRuntimeValidationError(
+				`Property '${parsedReference.property}' not found for event join '${join.key}'`,
+			);
+		}
+
+		return { parsedReference, propertyType };
+	}
+
+	const foundSchema = getSchemaForReference(
+		input.context.schemaMap,
+		parsedReference,
+	);
 	const propertyType = getPropertyType(foundSchema, parsedReference.property);
 	if (!propertyType) {
 		throw new ViewRuntimeValidationError(
@@ -103,49 +225,70 @@ const getSortExpressionType = <TSchema extends ViewRuntimeSchemaLike>(input: {
 	return { parsedReference, propertyType };
 };
 
-const requireSchemaQualifiedSortFields = (field: string[]) => {
+const requireEntityQualifiedSortFields = (field: string[]) => {
 	for (const reference of field) {
-		if (reference.startsWith("@") || reference.includes(".")) {
+		if (reference.startsWith("event.") || reference.startsWith("entity.")) {
 			continue;
 		}
 
 		throw new ViewRuntimeValidationError(
-			"Schema-qualified property references are required",
+			"Explicit field references are required",
 		);
 	}
 };
 
 export const buildSortExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
 	field: string[];
-	schemaMap: Map<string, TSchema>;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
-	requireSchemaQualifiedSortFields(input.field);
+	requireEntityQualifiedSortFields(input.field);
 
 	const resolvedFields = input.field.map((reference) => {
 		return getSortExpressionType({
 			reference,
-			schemaMap: input.schemaMap,
+			context: input.context,
 		});
 	});
 	const targetType = getCommonSortPropertyType(
 		resolvedFields.map((field) => field.propertyType),
 	);
 	const expressions = resolvedFields.map((field) => {
-		if (field.parsedReference.type === "top-level") {
-			return buildTopLevelSortExpression({
+		if (field.parsedReference.type === "entity-column") {
+			return buildEntityColumnSortExpression({
+				targetType,
+				alias: input.alias,
+				context: input.context,
+				reference: field.parsedReference,
+				column: field.parsedReference.column,
+			});
+		}
+
+		if (field.parsedReference.type === "event-join-column") {
+			return buildEventJoinColumnSortExpression({
 				targetType,
 				alias: input.alias,
 				column: field.parsedReference.column,
+				joinKey: field.parsedReference.joinKey,
+			});
+		}
+
+		if (field.parsedReference.type === "event-join-property") {
+			return buildEventJoinPropertySortExpression({
+				targetType,
+				alias: input.alias,
+				context: input.context,
+				reference: field.parsedReference,
 			});
 		}
 
 		return buildPropertySortExpression({
 			targetType,
 			alias: input.alias,
-			schemaMap: input.schemaMap,
+			context: input.context,
 			reference: field.parsedReference,
 		});
 	});
