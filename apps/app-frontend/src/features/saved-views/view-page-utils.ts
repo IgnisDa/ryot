@@ -1,3 +1,4 @@
+import { match } from "ts-pattern";
 import type { AppEntityImage } from "#/features/entities/model";
 import type {
 	ApiGetResponseData,
@@ -35,26 +36,23 @@ export function createViewRuntimeRequest(input: {
 		entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
 	};
 
-	switch (input.layout) {
-		case "grid":
-			return {
-				...base,
-				layout: "grid",
-				displayConfiguration: input.view.displayConfiguration.grid,
-			};
-		case "list":
-			return {
-				...base,
-				layout: "list",
-				displayConfiguration: input.view.displayConfiguration.list,
-			};
-		case "table":
-			return {
-				...base,
-				layout: "table",
-				displayConfiguration: input.view.displayConfiguration.table,
-			};
-	}
+	return match(input.layout)
+		.with("grid", () => ({
+			...base,
+			layout: "grid" as const,
+			displayConfiguration: input.view.displayConfiguration.grid,
+		}))
+		.with("list", () => ({
+			...base,
+			layout: "list" as const,
+			displayConfiguration: input.view.displayConfiguration.list,
+		}))
+		.with("table", () => ({
+			...base,
+			layout: "table" as const,
+			displayConfiguration: input.view.displayConfiguration.table,
+		}))
+		.exhaustive();
 }
 
 export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
@@ -74,14 +72,11 @@ export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 }
 
 export function getPageLimit(layout: ViewLayout) {
-	switch (layout) {
-		case "grid":
-			return GRID_LIMIT;
-		case "list":
-			return LIST_LIMIT;
-		case "table":
-			return TABLE_LIMIT;
-	}
+	return match(layout)
+		.with("grid", () => GRID_LIMIT)
+		.with("list", () => LIST_LIMIT)
+		.with("table", () => TABLE_LIMIT)
+		.exhaustive();
 }
 
 export function isRuntimeProperty(value: unknown): value is RuntimeProperty {
