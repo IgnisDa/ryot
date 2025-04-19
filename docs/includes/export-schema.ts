@@ -221,9 +221,9 @@ export interface ImportOrExportPersonItem {
 /** The assets related to an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
-	images: string[];
+	s3_images: string[];
 	/** The keys of the S3 videos. */
-	videos: string[];
+	s3_videos: string[];
 }
 
 /** Information about a workout done. */

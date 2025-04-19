@@ -489,17 +489,17 @@ export type DeployUrlAndKeyImportInput = {
 export type EntityAssets = {
   __typename?: 'EntityAssets';
   /** The keys of the S3 images. */
-  images: Array<Scalars['String']['output']>;
+  s3Images: Array<Scalars['String']['output']>;
   /** The keys of the S3 videos. */
-  videos: Array<Scalars['String']['output']>;
+  s3Videos: Array<Scalars['String']['output']>;
 };
 
 /** The assets related to an entity. */
 export type EntityAssetsInput = {
   /** The keys of the S3 images. */
-  images: Array<Scalars['String']['input']>;
+  s3Images: Array<Scalars['String']['input']>;
   /** The keys of the S3 videos. */
-  videos: Array<Scalars['String']['input']>;
+  s3Videos: Array<Scalars['String']['input']>;
 };
 
 export enum EntityLot {

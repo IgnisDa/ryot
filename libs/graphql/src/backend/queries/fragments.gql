@@ -69,8 +69,8 @@ fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
 }
 
 fragment EntityAssetsPart on EntityAssets {
-	images
-	videos
+	s3Images
+	s3Videos
 }
 
 fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
