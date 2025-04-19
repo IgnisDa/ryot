@@ -5,6 +5,7 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
+import type { ViewExpression } from "~/lib/views/expression";
 import { createViewDefinitionModule } from "./definition";
 import { ViewRuntimeNotFoundError } from "./errors";
 
@@ -18,23 +19,51 @@ const entityField = (schemaSlug: string, field: string) => {
 	return `entity.${schemaSlug}.${field}`;
 };
 
+const entityExpression = (
+	schemaSlug: string,
+	field: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: field.startsWith("@")
+		? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
+		: { type: "schema-property", slug: schemaSlug, property: field },
+});
+
+const eventExpression = (joinKey: string, field: string): ViewExpression => ({
+	type: "reference",
+	reference: field.startsWith("@")
+		? { type: "event-join-column", joinKey, column: field.slice(1) }
+		: { type: "event-join-property", joinKey, property: field },
+});
+
+const nullExpression = (): ViewExpression => ({ type: "literal", value: null });
+const literalExpression = (value: unknown): ViewExpression => ({
+	value,
+	type: "literal",
+});
+
+const coalesceExpression = (...values: ViewExpression[]): ViewExpression => ({
+	values,
+	type: "coalesce",
+});
+
 const createSmartphoneDisplayConfiguration = () => ({
 	table: {
 		columns: [
-			{ label: "Name", property: [entityField("smartphones", "@name")] },
+			{ label: "Name", expression: entityExpression("smartphones", "@name") },
 		],
 	},
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: [entityField("smartphones", "@name")],
-		imageProperty: [entityField("smartphones", "@image")],
+		titleProperty: entityExpression("smartphones", "@name"),
+		imageProperty: entityExpression("smartphones", "@image"),
 	},
 	list: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: [entityField("smartphones", "@name")],
-		imageProperty: [entityField("smartphones", "@image")],
+		titleProperty: entityExpression("smartphones", "@name"),
+		imageProperty: entityExpression("smartphones", "@image"),
 	},
 });
 
@@ -91,20 +120,23 @@ describe("viewDefinitionModule", () => {
 			displayConfiguration: {
 				table: {
 					columns: [
-						{ label: "Broken", property: ["entity.smartphones.unknown"] },
+						{
+							label: "Broken",
+							expression: entityExpression("smartphones", "unknown"),
+						},
 					],
 				},
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: [entityField("smartphones", "@name")],
-					imageProperty: [entityField("smartphones", "@image")],
+					titleProperty: entityExpression("smartphones", "@name"),
+					imageProperty: entityExpression("smartphones", "@image"),
 				},
 				list: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: [entityField("smartphones", "@name")],
-					imageProperty: [entityField("smartphones", "@image")],
+					titleProperty: entityExpression("smartphones", "@name"),
+					imageProperty: entityExpression("smartphones", "@image"),
 				},
 			},
 		});
@@ -140,8 +172,8 @@ describe("viewDefinitionModule", () => {
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["event.review.rating"],
-					imageProperty: [entityField("smartphones", "@image")],
+					titleProperty: eventExpression("review", "rating"),
+					imageProperty: entityExpression("smartphones", "@image"),
 				},
 			},
 		});
@@ -206,10 +238,81 @@ describe("viewDefinitionModule", () => {
 			eventJoins: body.queryDefinition.eventJoins,
 			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
 			fields: [
-				{ key: "image", references: [entityField("smartphones", "@image")] },
-				{ key: "title", references: [entityField("smartphones", "@name")] },
-				{ key: "subtitle", references: [] },
-				{ key: "badge", references: [] },
+				{ key: "image", expression: entityExpression("smartphones", "@image") },
+				{ key: "title", expression: entityExpression("smartphones", "@name") },
+				{ key: "subtitle", expression: nullExpression() },
+				{ key: "badge", expression: nullExpression() },
+			],
+		});
+	});
+
+	it("preserves literal and coalesce display expressions for saved views", async () => {
+		const views = createViewDefinitionModule(createDeps());
+		const body = createSavedViewBody({
+			queryDefinition: {
+				filters: [],
+				eventJoins: [],
+				entitySchemaSlugs: ["smartphones"],
+				sort: {
+					direction: "asc",
+					fields: [entityField("smartphones", "@name")],
+				},
+			},
+			displayConfiguration: {
+				table: {
+					columns: [
+						{ label: "Pinned", expression: literalExpression("Pinned") },
+					],
+				},
+				grid: {
+					badgeProperty: literalExpression("New"),
+					titleProperty: entityExpression("smartphones", "@name"),
+					imageProperty: entityExpression("smartphones", "@image"),
+					subtitleProperty: coalesceExpression(
+						nullExpression(),
+						entityExpression("smartphones", "@name"),
+					),
+				},
+				list: {
+					badgeProperty: literalExpression("New"),
+					titleProperty: entityExpression("smartphones", "@name"),
+					imageProperty: entityExpression("smartphones", "@image"),
+					subtitleProperty: coalesceExpression(
+						nullExpression(),
+						entityExpression("smartphones", "@name"),
+					),
+				},
+			},
+		});
+
+		const prepared = await views.prepare({
+			userId: "user-1",
+			source: {
+				kind: "saved-view",
+				definition: {
+					queryDefinition: body.queryDefinition,
+					displayConfiguration: body.displayConfiguration,
+				},
+			},
+		});
+
+		expect(
+			prepared.toRuntimeRequest({
+				layout: "grid",
+				pagination: { page: 1, limit: 10 },
+			}),
+		).toMatchObject({
+			fields: [
+				{ key: "image", expression: entityExpression("smartphones", "@image") },
+				{ key: "title", expression: entityExpression("smartphones", "@name") },
+				{
+					key: "subtitle",
+					expression: coalesceExpression(
+						nullExpression(),
+						entityExpression("smartphones", "@name"),
+					),
+				},
+				{ key: "badge", expression: literalExpression("New") },
 			],
 		});
 	});
@@ -233,10 +336,10 @@ describe("viewDefinitionModule", () => {
 				},
 			],
 			fields: [
-				{ key: "image", references: [entityField("smartphones", "@image")] },
-				{ key: "title", references: [entityField("smartphones", "@name")] },
-				{ key: "subtitle", references: [] },
-				{ key: "badge", references: [] },
+				{ key: "image", expression: entityExpression("smartphones", "@image") },
+				{ key: "title", expression: entityExpression("smartphones", "@name") },
+				{ key: "subtitle", expression: nullExpression() },
+				{ key: "badge", expression: nullExpression() },
 			],
 		};
 
@@ -265,13 +368,16 @@ describe("viewDefinitionModule", () => {
 					eventJoins: [],
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
-					fields: [
-						{ key: "title", references: [entityField("smartphones", "@name")] },
-					],
 					sort: {
 						direction: "asc",
 						fields: [entityField("smartphones", "@name")],
 					},
+					fields: [
+						{
+							key: "title",
+							expression: entityExpression("smartphones", "@name"),
+						},
+					],
 				},
 			},
 		});
@@ -295,13 +401,16 @@ describe("viewDefinitionModule", () => {
 					eventJoins: [],
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
-					fields: [
-						{ key: "title", references: [entityField("smartphones", "@name")] },
-					],
 					sort: {
 						direction: "asc",
 						fields: [entityField("smartphones", "@name")],
 					},
+					fields: [
+						{
+							key: "title",
+							expression: entityExpression("smartphones", "@name"),
+						},
+					],
 				},
 			},
 		});

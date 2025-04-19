@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import type { RuntimeRef, ViewExpression } from "~/lib/views/expression";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
 import {
 	getEventJoinColumnPropertyType,
@@ -8,7 +9,6 @@ import {
 	getEventJoinPropertyType,
 	getPropertyType,
 	getSchemaForReference,
-	resolveRuntimeReference,
 	type ViewRuntimeEventJoinLike,
 	type ViewRuntimeReferenceContext,
 	type ViewRuntimeSchemaLike,
@@ -71,19 +71,58 @@ const getEventJoinDisplayKind = (
 		});
 };
 
+const buildResolvedDisplayValueObject = (candidate: DisplayValueCandidate) => {
+	return sql`jsonb_build_object('value', ${candidate.value}, 'kind', ${sql.raw(`'${candidate.kind}'::text`)})`;
+};
+
+const buildNullResolvedDisplayValueObject = () => {
+	return buildResolvedDisplayValueObject({ kind: "null", value: sql`null` });
+};
+
+const buildResolvedValuePresenceExpression = (value: SqlExpression) => {
+	return sql`nullif(${value} -> 'value', 'null'::jsonb)`;
+};
+
+const getLiteralDisplayKind = (
+	value: unknown | null,
+): ResolvedDisplayValue["kind"] => {
+	if (value === null) {
+		return "null";
+	}
+
+	if (typeof value === "string") {
+		return "text";
+	}
+
+	if (typeof value === "number") {
+		return "number";
+	}
+
+	if (typeof value === "boolean") {
+		return "boolean";
+	}
+
+	return "json";
+};
+
+const buildLiteralValueExpression = (value: unknown | null) => {
+	if (value === null) {
+		return sql`null`;
+	}
+
+	return sql`${JSON.stringify(value)}::jsonb`;
+};
+
 const buildDisplayValueCandidate = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	reference: string | null;
+	reference: RuntimeRef;
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }): DisplayValueCandidate => {
-	if (!input.reference) {
-		return { kind: "null", value: sql`null` };
-	}
+	const parsedReference = input.reference;
 
-	const parsedReference = resolveRuntimeReference(input.reference);
 	if (parsedReference.type === "entity-column") {
 		getSchemaForReference(input.context.schemaMap, parsedReference);
 		const value = buildEntityColumnDisplayExpression(
@@ -180,45 +219,43 @@ const buildDisplayValueCandidate = <
 	};
 };
 
-const normalizeReferences = (references: string[] | null) => {
-	if (!references?.length) {
-		return [null];
-	}
-
-	return references;
-};
-
-const buildResolvedDisplayValueObject = (candidate: DisplayValueCandidate) => {
-	return sql`jsonb_build_object('value', ${candidate.value}, 'kind', ${sql.raw(`'${candidate.kind}'::text`)})`;
-};
-
 const buildResolvedDisplayValueExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	references: string[] | null;
+	expression: ViewExpression;
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-}) => {
-	const candidates = normalizeReferences(input.references).map((reference) => {
-		return buildDisplayValueCandidate({
-			reference,
+}): SqlExpression => {
+	if (input.expression.type === "literal") {
+		return buildResolvedDisplayValueObject({
+			kind: getLiteralDisplayKind(input.expression.value),
+			value: buildLiteralValueExpression(input.expression.value),
+		});
+	}
+
+	if (input.expression.type === "reference") {
+		const candidate = buildDisplayValueCandidate({
+			alias: input.alias,
+			context: input.context,
+			reference: input.expression.reference,
+		});
+
+		return sql`case when ${candidate.value} is not null then ${buildResolvedDisplayValueObject(candidate)} else ${buildNullResolvedDisplayValueObject()} end`;
+	}
+
+	const values: SqlExpression[] = input.expression.values.map((expression) => {
+		return buildResolvedDisplayValueExpression({
+			expression,
 			alias: input.alias,
 			context: input.context,
 		});
 	});
+	const whenClauses: SqlExpression[] = values.map((value: SqlExpression) => {
+		return sql`when ${buildResolvedValuePresenceExpression(value)} is not null then ${value}`;
+	});
 
-	const whenClauses = candidates
-		.filter((candidate) => candidate.kind !== "null")
-		.map((candidate) => {
-			return sql`when ${candidate.value} is not null then ${buildResolvedDisplayValueObject(candidate)}`;
-		});
-
-	if (!whenClauses.length) {
-		return buildResolvedDisplayValueObject({ kind: "null", value: sql`null` });
-	}
-
-	return sql`case ${sql.join(whenClauses, sql` `)} else ${buildResolvedDisplayValueObject({ kind: "null", value: sql`null` })} end`;
+	return sql`case ${sql.join(whenClauses, sql` `)} else ${buildNullResolvedDisplayValueObject()} end`;
 };
 
 export const buildResolvedFieldsExpression = <
@@ -233,7 +270,7 @@ export const buildResolvedFieldsExpression = <
 		const resolvedValue = buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			context: input.context,
-			references: field.references,
+			expression: field.expression,
 		});
 
 		return sql`jsonb_build_object(
