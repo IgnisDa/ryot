@@ -1,4 +1,4 @@
-use async_graphql::{Enum, InputObject, SimpleObject};
+use async_graphql::{Enum, InputObject, Object, Result, SimpleObject};
 use chrono::NaiveDate;
 use educe::Educe;
 use enum_meta::{Meta, meta};
@@ -49,7 +49,6 @@ pub struct IdAndNamedObject {
     Serialize,
     InputObject,
     Deserialize,
-    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "EntityAssetsInput")]
@@ -63,6 +62,25 @@ pub struct EntityAssets {
     pub remote_images: Vec<String>,
     /// The urls of the remote videos.
     pub remote_videos: Vec<String>,
+}
+
+#[Object]
+impl EntityAssets {
+    async fn s3_images(&self) -> Result<Vec<String>> {
+        Ok(self.s3_images.clone())
+    }
+
+    async fn s3_videos(&self) -> Result<Vec<String>> {
+        Ok(self.s3_videos.clone())
+    }
+
+    async fn remote_images(&self) -> Result<Vec<String>> {
+        Ok(self.remote_images.clone())
+    }
+
+    async fn remote_videos(&self) -> Result<Vec<String>> {
+        Ok(self.remote_videos.clone())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
