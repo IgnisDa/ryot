@@ -1,10 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
 import { applySavedViewReorderPatch } from "./cache";
-import {
-	buildSavedViewExtendedUpdatePayload,
-	type SavedViewExtendedFormValues,
-} from "./form-extended";
 import type { AppSavedView } from "./model";
 
 function isQueryDataWithSavedViews(
@@ -118,41 +114,6 @@ export function useSavedViewMutations() {
 		queryClient,
 	);
 
-	const updateViewById = async (
-		view: AppSavedView,
-		values: {
-			name: string;
-			icon: string;
-			trackerId: string;
-			accentColor: string;
-		},
-	) => {
-		const trackerId = values.trackerId !== "" ? values.trackerId : undefined;
-		await update.mutateAsync({
-			params: { path: { viewId: view.id } },
-			body: {
-				name: values.name,
-				icon: values.icon,
-				isDisabled: view.isDisabled,
-				accentColor: values.accentColor,
-				queryDefinition: view.queryDefinition,
-				displayConfiguration: view.displayConfiguration,
-				...(trackerId !== undefined ? { trackerId } : {}),
-			},
-		});
-	};
-
-	const updateViewExtendedById = async (
-		view: AppSavedView,
-		values: SavedViewExtendedFormValues,
-	) => {
-		const payload = buildSavedViewExtendedUpdatePayload(view, values);
-		await update.mutateAsync({
-			body: payload,
-			params: { path: { viewId: view.id } },
-		});
-	};
-
 	const toggleViewById = async (viewId: string, savedViews: AppSavedView[]) => {
 		const view = savedViews.find((v) => v.id === viewId);
 		if (!view) {
@@ -200,9 +161,7 @@ export function useSavedViewMutations() {
 		cloneViewById,
 		deleteViewById,
 		toggleViewById,
-		updateViewById,
 		reorderViewIds,
-		updateViewExtendedById,
 		isPending:
 			update.isPending ||
 			reorder.isPending ||
