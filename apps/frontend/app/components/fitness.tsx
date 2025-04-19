@@ -377,9 +377,9 @@ export const ExerciseHistory = (props: {
 								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 							</Text>
 						))}
-						{exercise.assets && exercise.assets.images.length > 0 ? (
+						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
 							<Avatar.Group>
-								{exercise.assets.images.map((i) => (
+								{exercise.assets.s3Images.map((i) => (
 									<Anchor key={i} href={i} target="_blank">
 										<Avatar src={i} />
 									</Anchor>
