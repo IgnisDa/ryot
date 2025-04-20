@@ -244,7 +244,6 @@ impl MediaProvider for MangaUpdatesService {
             name: data.name.unwrap(),
             identifier: identity.to_owned(),
             source: MediaSource::MangaUpdates,
-            images: Some(Vec::from_iter(data.image.and_then(|i| i.url.original))),
             birth_date: data.birthday.and_then(|b| {
                 if let (Some(y), Some(m), Some(d)) = (b.year, b.month, b.day) {
                     NaiveDate::from_ymd_opt(y, m, d)
@@ -252,6 +251,10 @@ impl MediaProvider for MangaUpdatesService {
                     None
                 }
             }),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(data.image.and_then(|i| i.url.original.clone())),
+                ..Default::default()
+            },
             ..Default::default()
         };
         Ok(resp)

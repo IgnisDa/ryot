@@ -268,7 +268,6 @@ impl MediaProvider for OpenlibraryService {
             description,
             related_metadata,
             name: name.clone(),
-            images: Some(images),
             identifier: identifier.clone(),
             source: MediaSource::Openlibrary,
             birth_date: data.birth_date.and_then(|b| parse_date(&b)),
@@ -280,6 +279,10 @@ impl MediaProvider for OpenlibraryService {
             website: data
                 .links
                 .and_then(|l| l.first().and_then(|a| a.url.clone())),
+            assets: EntityAssets {
+                remote_images: images,
+                ..Default::default()
+            },
             ..Default::default()
         })
     }

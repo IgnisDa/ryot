@@ -230,7 +230,10 @@ impl MediaProvider for AudibleService {
             identifier: data.asin,
             source: MediaSource::Audible,
             description: data.description,
-            images: Some(Vec::from_iter(data.image)),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(data.image),
+                ..Default::default()
+            },
             source_url: Some(format!(
                 "https://www.audible.com/author/{}/{}",
                 name, identity

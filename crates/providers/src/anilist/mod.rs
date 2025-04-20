@@ -413,9 +413,7 @@ impl MediaProvider for NonMediaAnilistService {
                 birth_date,
                 assets: EntityAssets {
                     remote_images: images,
-                    s3_images: vec![],
-                    s3_videos: vec![],
-                    remote_videos: vec![],
+                    ..Default::default()
                 },
                 gender: details.gender,
                 place: details.home_town,

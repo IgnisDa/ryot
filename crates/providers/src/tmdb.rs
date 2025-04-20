@@ -582,7 +582,6 @@ impl MediaProvider for NonMediaTmdbService {
         let resp = PersonDetails {
             related_metadata,
             name: name.clone(),
-            images: Some(images),
             source: MediaSource::Tmdb,
             website: details.homepage,
             birth_date: details.birthday,
@@ -601,6 +600,10 @@ impl MediaProvider for NonMediaTmdbService {
                 3 => Some("Non-Binary".to_owned()),
                 _ => None,
             }),
+            assets: EntityAssets {
+                remote_images: images,
+                ..Default::default()
+            },
             ..Default::default()
         };
         Ok(resp)

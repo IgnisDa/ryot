@@ -396,9 +396,12 @@ where id = {id};
             description: detail.description,
             identifier: detail.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", name)),
-            images: Some(Vec::from_iter(
-                detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
-            )),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(
+                    detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
+                ),
+                ..Default::default()
+            },
             place: detail
                 .country
                 .and_then(from_numeric)

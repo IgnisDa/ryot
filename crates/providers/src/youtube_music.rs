@@ -279,12 +279,14 @@ impl MediaProvider for YoutubeMusicService {
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
             source_url: Some(format!("https://music.youtube.com/channel/{}", identifier)),
-            images: Some(
-                self.largest_image(&data.header_image)
+            assets: EntityAssets {
+                remote_images: self
+                    .largest_image(&data.header_image)
                     .into_iter()
                     .map(|t| t.url.to_owned())
                     .collect(),
-            ),
+                ..Default::default()
+            },
             ..Default::default()
         })
     }

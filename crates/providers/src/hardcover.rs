@@ -477,7 +477,10 @@ query {{
                     }
                 }
                 let details = PersonDetails {
-                    images: Some(images),
+                    assets: EntityAssets {
+                        remote_images: images,
+                        ..Default::default()
+                    },
                     description: data.bio,
                     name: data.name.unwrap(),
                     birth_date: data.born_date,
