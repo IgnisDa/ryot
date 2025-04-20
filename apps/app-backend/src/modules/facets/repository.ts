@@ -2,6 +2,10 @@ import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { type FacetMode, facet, userFacet } from "~/db/schema";
 
+const facetVisibleToUserClause = (userId: string) => {
+	return or(isNull(facet.userId), eq(facet.userId, userId));
+};
+
 export const listFacetsByUser = async (userId: string) => {
 	const rows = await db
 		.select({
@@ -22,7 +26,7 @@ export const listFacetsByUser = async (userId: string) => {
 			userFacet,
 			and(eq(userFacet.facetId, facet.id), eq(userFacet.userId, userId)),
 		)
-		.where(or(isNull(facet.userId), eq(facet.userId, userId)))
+		.where(facetVisibleToUserClause(userId))
 		.orderBy(
 			desc(userFacet.enabled),
 			asc(userFacet.sortOrder),
@@ -43,14 +47,26 @@ export const getVisibleFacetById = async (input: {
 	userId: string;
 	facetId: string;
 }) => {
+	const foundFacet = await getFacetScopeForUser(input);
+
+	if (!foundFacet) return foundFacet;
+
+	return { id: foundFacet.id };
+};
+
+export const getFacetScopeForUser = async (input: {
+	userId: string;
+	facetId: string;
+}) => {
 	const [foundFacet] = await db
-		.select({ id: facet.id })
+		.select({
+			id: facet.id,
+			userId: facet.userId,
+			isBuiltin: facet.isBuiltin,
+		})
 		.from(facet)
 		.where(
-			and(
-				eq(facet.id, input.facetId),
-				or(isNull(facet.userId), eq(facet.userId, input.userId)),
-			),
+			and(eq(facet.id, input.facetId), facetVisibleToUserClause(input.userId)),
 		)
 		.limit(1);
 
@@ -64,7 +80,7 @@ export const getFacetBySlugForUser = async (input: {
 }) => {
 	const whereClauses = [
 		eq(facet.slug, input.slug),
-		or(isNull(facet.userId), eq(facet.userId, input.userId)),
+		facetVisibleToUserClause(input.userId),
 	];
 
 	if (input.excludeFacetId)
@@ -221,7 +237,7 @@ export const countVisibleFacetsByIdsForUser = async (input: {
 		.where(
 			and(
 				inArray(facet.id, input.facetIds),
-				or(isNull(facet.userId), eq(facet.userId, input.userId)),
+				facetVisibleToUserClause(input.userId),
 			),
 		);
 
