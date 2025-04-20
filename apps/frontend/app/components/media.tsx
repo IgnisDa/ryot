@@ -445,7 +445,7 @@ export const PersonDisplayItem = (props: {
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
-			imageUrl={personDetails?.details.displayImages.at(0)}
+			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}
