@@ -731,7 +731,6 @@ async function seedSavedViews(
 				sort: { field: ["age"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -769,7 +768,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -802,7 +800,6 @@ async function seedSavedViews(
 				sort: { field: ["proof"], direction: "desc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -840,7 +837,6 @@ async function seedSavedViews(
 				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -877,7 +873,6 @@ async function seedSavedViews(
 				sort: { field: ["age"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -915,7 +910,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -958,7 +952,6 @@ async function seedSavedViews(
 				sort: { field: ["city"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -996,7 +989,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1033,7 +1025,6 @@ async function seedSavedViews(
 				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1070,7 +1061,6 @@ async function seedSavedViews(
 				sort: { field: ["country"], direction: "asc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1114,7 +1104,6 @@ async function seedSavedViews(
 				sort: { field: ["city"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1151,7 +1140,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1187,7 +1175,6 @@ async function seedSavedViews(
 				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1223,7 +1210,6 @@ async function seedSavedViews(
 				sort: { field: ["country"], direction: "asc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1261,7 +1247,6 @@ async function seedSavedViews(
 				sort: { field: ["year"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1299,7 +1284,6 @@ async function seedSavedViews(
 				sort: { field: ["storage_gb"], direction: "desc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1337,7 +1321,6 @@ async function seedSavedViews(
 				sort: { field: ["year"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1374,7 +1357,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1411,7 +1393,6 @@ async function seedSavedViews(
 				sort: { field: ["price_usd"], direction: "desc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1450,7 +1431,6 @@ async function seedSavedViews(
 				sort: { field: ["price_usd"], direction: "asc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1487,7 +1467,6 @@ async function seedSavedViews(
 				sort: { field: ["screen_size"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1525,7 +1504,6 @@ async function seedSavedViews(
 				sort: { field: ["year"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1563,7 +1541,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1600,7 +1577,6 @@ async function seedSavedViews(
 				sort: { field: ["storage_gb"], direction: "desc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1637,7 +1613,6 @@ async function seedSavedViews(
 				sort: { field: ["year"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1673,7 +1648,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1709,7 +1683,6 @@ async function seedSavedViews(
 				sort: { field: ["price_usd"], direction: "desc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1747,7 +1720,6 @@ async function seedSavedViews(
 				sort: { field: ["price_usd"], direction: "asc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1783,7 +1755,6 @@ async function seedSavedViews(
 				sort: { field: ["screen_size"], direction: "desc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1820,7 +1791,6 @@ async function seedSavedViews(
 				sort: { field: ["year"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1857,7 +1827,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "grid",
 				grid: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
@@ -1900,7 +1869,6 @@ async function seedSavedViews(
 				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			{
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -1938,7 +1906,6 @@ async function seedSavedViews(
 				sort: { field: ["@name"], direction: "asc" },
 			},
 			{
-				layout: "table",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
