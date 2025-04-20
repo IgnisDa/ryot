@@ -758,9 +758,8 @@ pub struct MetadataPartialDetails {
     pub id: String,
     pub lot: MediaLot,
     pub title: String,
+    pub assets: EntityAssets,
     pub publish_year: Option<i32>,
-    #[graphql(skip)]
-    pub assets: Option<EntityAssets>,
 }
 
 #[derive(Debug, Default, InputObject)]

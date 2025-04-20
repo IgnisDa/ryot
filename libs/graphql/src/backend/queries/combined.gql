@@ -152,8 +152,10 @@ query MetadataPartialDetails($metadataId: String!) {
 		id
 		lot
 		title
-		image
 		publishYear
+		assets {
+			...EntityAssetsPart
+		}
 	}
 }
 

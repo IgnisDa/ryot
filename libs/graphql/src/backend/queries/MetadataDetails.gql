@@ -48,11 +48,7 @@ query MetadataDetails($metadataId: String!) {
 			chapters
 		}
 		assets {
-			images
-			videos {
-				videoId
-				source
-			}
+			...EntityAssetsPart
 		}
 		creators {
 			name

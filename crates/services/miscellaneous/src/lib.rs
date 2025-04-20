@@ -12,9 +12,9 @@ use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
-    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
-    MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
-    SearchDetails, SearchInput, StringIdObject, UserLevelCacheKey,
+    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
+    IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
+    ProgressUpdateCacheInput, SearchDetails, SearchInput, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE,
@@ -52,13 +52,13 @@ use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    first_metadata_image_as_url, generic_metadata, get_entity_recently_consumed,
-    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    metadata_images_as_urls, post_review, progress_update, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users,
-    update_metadata_group_and_notify_users, update_person_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
+    get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
+    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
+    user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -73,7 +73,7 @@ use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateCustomMetadataInput,
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
     GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
+    ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator,
     MetadataPartialDetails, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
     PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
@@ -483,7 +483,7 @@ impl MiscellaneousService {
             m_lot: MediaLot,
             m_title: String,
             metadata_id: String,
-            m_images: Option<Vec<MetadataImage>>,
+            m_assets: EntityAssets,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
@@ -515,8 +515,8 @@ impl MiscellaneousService {
                         "m_title",
                     )
                     .column_as(
-                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
-                        "m_images",
+                        Expr::col((AliasedMetadata::Table, AliasedMetadata::Assets)),
+                        "m_assets",
                     )
                     .column_as(
                         Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
@@ -606,8 +606,7 @@ impl MiscellaneousService {
             };
 
             if image.is_none() {
-                image =
-                    first_metadata_image_as_url(&evt.m_images, &self.0.file_storage_service).await
+                image = evt.m_assets.remote_images.first().cloned();
             }
             calc.metadata_image = image;
             events.push(calc);

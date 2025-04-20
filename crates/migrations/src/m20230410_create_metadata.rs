@@ -56,10 +56,6 @@ pub enum Metadata {
     WatchProviders,
     ExternalIdentifiers,
     Assets,
-
-    //
-    Images,
-    Videos,
 }
 
 #[async_trait::async_trait]

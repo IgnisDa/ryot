@@ -273,12 +273,12 @@ export type CreateAccessLinkInput = {
 
 export type CreateCustomMetadataInput = {
   animeSpecifics?: InputMaybe<AnimeSpecificsInput>;
+  assets: EntityAssetsInput;
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
   creators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
-  images?: InputMaybe<Array<Scalars['String']['input']>>;
   isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
@@ -289,7 +289,6 @@ export type CreateCustomMetadataInput = {
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
-  videos?: InputMaybe<Array<Scalars['String']['input']>>;
   visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
 };
 
@@ -781,16 +780,10 @@ export type GraphqlCalendarEvent = {
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };
 
-export type GraphqlMediaAssets = {
-  __typename?: 'GraphqlMediaAssets';
-  images: Array<Scalars['String']['output']>;
-  videos: Array<GraphqlVideoAsset>;
-};
-
 export type GraphqlMetadataDetails = {
   __typename?: 'GraphqlMetadataDetails';
   animeSpecifics?: Maybe<AnimeSpecifics>;
-  assets: GraphqlMediaAssets;
+  assets: EntityAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
@@ -840,12 +833,6 @@ export enum GraphqlSortOrder {
   Asc = 'ASC',
   Desc = 'DESC'
 }
-
-export type GraphqlVideoAsset = {
-  __typename?: 'GraphqlVideoAsset';
-  source: MetadataVideoSource;
-  videoId: Scalars['String']['output'];
-};
 
 export enum GridPacking {
   Dense = 'DENSE',
@@ -1212,8 +1199,8 @@ export type MetadataLotSourceMappings = {
 
 export type MetadataPartialDetails = {
   __typename?: 'MetadataPartialDetails';
+  assets: EntityAssets;
   id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
   lot: MediaLot;
   publishYear?: Maybe<Scalars['Int']['output']>;
   title: Scalars['String']['output'];
@@ -1224,12 +1211,6 @@ export type MetadataSearchInput = {
   search: SearchInput;
   source: MediaSource;
 };
-
-export enum MetadataVideoSource {
-  Custom = 'CUSTOM',
-  Dailymotion = 'DAILYMOTION',
-  Youtube = 'YOUTUBE'
-}
 
 export type MovieSpecifics = {
   __typename?: 'MovieSpecifics';
