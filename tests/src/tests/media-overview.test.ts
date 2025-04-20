@@ -189,4 +189,105 @@ describe("GET /media/overview", () => {
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
 	});
+
+	describe("UTC date handling", () => {
+		it("returns media overview dates in UTC format", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+			const builtinTracker = await findBuiltinTracker(client, cookies);
+			const schemas = await listEntitySchemas(client, cookies, {
+				trackerId: builtinTracker.id,
+			});
+			const bookSchema = schemas.find((item) => item.slug === "book");
+			if (!bookSchema) {
+				throw new Error("Missing book schema");
+			}
+			const bookProvider = bookSchema.searchProviders[0];
+			if (!bookProvider) {
+				throw new Error("Missing search provider");
+			}
+
+			const testBook = await createEntity(client, cookies, {
+				image: null,
+				name: "UTC Date Test Book",
+				entitySchemaId: bookSchema.id,
+				externalId: `book-utc-${crypto.randomUUID()}`,
+				properties: { publishYear: 2024, pages: 300 },
+				detailsSandboxScriptId: bookProvider.detailsScriptId,
+			});
+
+			await createBuiltInMediaEvent({
+				client,
+				cookies,
+				entityId: testBook.id,
+				eventSchemaSlug: "progress",
+				entitySchemaId: bookSchema.id,
+				properties: { progressPercent: 50 },
+			});
+
+			const { data, response } = await client.GET("/media/overview", {
+				headers: { Cookie: cookies },
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data).toBeDefined();
+
+			const continueItem = data?.data.continue.items.find(
+				(item) => item.id === testBook.id,
+			);
+			expect(continueItem).toBeDefined();
+
+			const progressAt = (continueItem as { progressAt?: string })?.progressAt;
+			expect(typeof progressAt).toBe("string");
+			expect(progressAt).toMatch(/Z$/);
+		});
+
+		it("preserves UTC midnight without timezone conversion", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+			const builtinTracker = await findBuiltinTracker(client, cookies);
+			const schemas = await listEntitySchemas(client, cookies, {
+				trackerId: builtinTracker.id,
+			});
+			const animeSchema = schemas.find((item) => item.slug === "anime");
+			if (!animeSchema) {
+				throw new Error("Missing anime schema");
+			}
+			const animeProvider = animeSchema.searchProviders[0];
+			if (!animeProvider) {
+				throw new Error("Missing search provider");
+			}
+
+			const testAnime = await createEntity(client, cookies, {
+				image: null,
+				name: "Midnight UTC Anime",
+				entitySchemaId: animeSchema.id,
+				properties: { publishYear: 2024, episodes: 12 },
+				externalId: `anime-midnight-${crypto.randomUUID()}`,
+				detailsSandboxScriptId: animeProvider.detailsScriptId,
+			});
+
+			await createBuiltInMediaEvent({
+				client,
+				cookies,
+				properties: {},
+				entityId: testAnime.id,
+				eventSchemaSlug: "backlog",
+				entitySchemaId: animeSchema.id,
+			});
+
+			const { data, response } = await client.GET("/media/overview", {
+				headers: { Cookie: cookies },
+			});
+
+			expect(response.status).toBe(200);
+
+			const upNextItem = data?.data.upNext.items.find(
+				(item) => item.id === testAnime.id,
+			);
+			expect(upNextItem).toBeDefined();
+
+			const backlogAt = (upNextItem as { backlogAt?: string })?.backlogAt;
+			expect(typeof backlogAt).toBe("string");
+			expect(backlogAt).toMatch(/Z$/);
+		});
+	});
 });
