@@ -81,16 +81,17 @@ DROP FUNCTION update_entity_assets_keys;
         )
         .await?;
 
-        // Add the new 'assets' column to the metadata table
-        db.execute_unprepared(
-            r#"
-ALTER TABLE metadata ADD COLUMN IF NOT EXISTS assets JSONB;
+        if !manager.has_column("metadata", "assets").await? {
+            // Add the new 'assets' column to the metadata table
+            db.execute_unprepared(
+                r#"
+ALTER TABLE metadata ADD COLUMN EXISTS assets JSONB;
 "#,
-        )
-        .await?;
+            )
+            .await?;
 
-        // Migrate existing images/videos data into the new 'assets' column
-        db.execute_unprepared(
+            // Migrate existing images/videos data into the new 'assets' column
+            db.execute_unprepared(
             r#"
             UPDATE metadata SET assets = (
               SELECT jsonb_build_object(
@@ -127,26 +128,28 @@ ALTER TABLE metadata ADD COLUMN IF NOT EXISTS assets JSONB;
             "#
         ).await?;
 
-        db.execute_unprepared(r#"ALTER TABLE metadata ALTER COLUMN assets SET NOT NULL;"#)
-            .await?;
+            db.execute_unprepared(r#"ALTER TABLE metadata ALTER COLUMN assets SET NOT NULL;"#)
+                .await?;
 
-        // Drop the old 'images' and 'videos' columns from the metadata table
-        db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS images;"#)
-            .await?;
-        db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS videos;"#)
-            .await?;
+            // Drop the old 'images' and 'videos' columns from the metadata table
+            db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS images;"#)
+                .await?;
+            db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS videos;"#)
+                .await?;
+        }
 
-        // Add the new 'assets' column to the person table
-        db.execute_unprepared(
-            r#"
+        if !manager.has_column("person", "assets").await? {
+            // Add the new 'assets' column to the person table
+            db.execute_unprepared(
+                r#"
 ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;
 "#,
-        )
-        .await?;
+            )
+            .await?;
 
-        // Migrate existing images data into the new 'assets' column for the person table
-        db.execute_unprepared(
-            r#"
+            // Migrate existing images data into the new 'assets' column for the person table
+            db.execute_unprepared(
+                r#"
             UPDATE person SET assets = (
               SELECT jsonb_build_object(
                 's3_images', COALESCE((
@@ -164,28 +167,30 @@ ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;
               )
             );
             "#,
-        )
-        .await?;
-
-        // Set the assets column to NOT NULL for the person table
-        db.execute_unprepared(r#"ALTER TABLE person ALTER COLUMN assets SET NOT NULL;"#)
+            )
             .await?;
 
-        // Drop the old 'images' column from the person table
-        db.execute_unprepared(r#"ALTER TABLE person DROP COLUMN IF EXISTS images;"#)
-            .await?;
+            // Set the assets column to NOT NULL for the person table
+            db.execute_unprepared(r#"ALTER TABLE person ALTER COLUMN assets SET NOT NULL;"#)
+                .await?;
 
-        // Add the new 'assets' column to the metadata_group table
-        db.execute_unprepared(
-            r#"
+            // Drop the old 'images' column from the person table
+            db.execute_unprepared(r#"ALTER TABLE person DROP COLUMN IF EXISTS images;"#)
+                .await?;
+        }
+
+        if !manager.has_column("metadata_group", "assets").await? {
+            // Add the new 'assets' column to the metadata_group table
+            db.execute_unprepared(
+                r#"
 ALTER TABLE metadata_group ADD COLUMN IF NOT EXISTS assets JSONB;
 "#,
-        )
-        .await?;
+            )
+            .await?;
 
-        // Migrate existing images data into the new 'assets' column for the metadata_group table
-        db.execute_unprepared(
-            r#"
+            // Migrate existing images data into the new 'assets' column for the metadata_group table
+            db.execute_unprepared(
+                r#"
             UPDATE metadata_group SET assets = (
               SELECT jsonb_build_object(
                 's3_images', COALESCE((
@@ -203,16 +208,19 @@ ALTER TABLE metadata_group ADD COLUMN IF NOT EXISTS assets JSONB;
               )
             );
             "#,
-        )
-        .await?;
-
-        // Set the assets column to NOT NULL for the metadata_group table
-        db.execute_unprepared(r#"ALTER TABLE metadata_group ALTER COLUMN assets SET NOT NULL;"#)
+            )
             .await?;
 
-        // Drop the old 'images' column from the metadata_group table
-        db.execute_unprepared(r#"ALTER TABLE metadata_group DROP COLUMN IF EXISTS images;"#)
+            // Set the assets column to NOT NULL for the metadata_group table
+            db.execute_unprepared(
+                r#"ALTER TABLE metadata_group ALTER COLUMN assets SET NOT NULL;"#,
+            )
             .await?;
+
+            // Drop the old 'images' column from the metadata_group table
+            db.execute_unprepared(r#"ALTER TABLE metadata_group DROP COLUMN IF EXISTS images;"#)
+                .await?;
+        }
 
         // Update the exercise table to move internalImages to assets
         db.execute_unprepared(
