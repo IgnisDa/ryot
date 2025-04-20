@@ -1,5 +1,5 @@
 {
-	"id": "415d06be-025b-4c04-b717-a7ba3aba86ff",
+	"id": "0e02cc02-ec61-4e78-9ae5-6744327c5063",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1335,12 +1335,25 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"display_configuration": {
+					"name": "display_configuration",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
+				},
+				"is_disabled": {
+					"name": "is_disabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
 				},
 				"is_builtin": {
 					"name": "is_builtin",
@@ -1582,15 +1595,15 @@
 					"notNull": true,
 					"default": 0
 				},
-				"enabled": {
-					"name": "enabled",
+				"is_builtin": {
+					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
-					"default": true
+					"default": false
 				},
-				"is_builtin": {
-					"name": "is_builtin",
+				"is_disabled": {
+					"name": "is_disabled",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
