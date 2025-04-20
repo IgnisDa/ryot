@@ -179,4 +179,90 @@ describe("parseAppSchemaProperties", () => {
 			}),
 		).toThrow("Event properties validation failed");
 	});
+
+	it("accepts null and undefined for non-required fields", () => {
+		const schema = {
+			fields: {
+				title: { type: "string" as const },
+				score: { type: "number" as const },
+				count: { type: "integer" as const },
+				createdAt: { type: "date" as const },
+				isActive: { type: "boolean" as const },
+				updatedAt: { type: "datetime" as const },
+			},
+		};
+
+		expect(
+			parseAppSchemaProperties({
+				kind: "Entity",
+				propertiesSchema: schema,
+				properties: {
+					title: null,
+					score: null,
+					count: null,
+					isActive: null,
+					createdAt: null,
+					updatedAt: null,
+				},
+			}),
+		).toEqual({
+			title: null,
+			score: null,
+			count: null,
+			isActive: null,
+			createdAt: null,
+			updatedAt: null,
+		});
+
+		expect(
+			parseAppSchemaProperties({
+				kind: "Entity",
+				properties: {},
+				propertiesSchema: schema,
+			}),
+		).toEqual({});
+	});
+
+	it("rejects null for required fields", () => {
+		const schema = {
+			fields: {
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+				isActive: {
+					type: "boolean" as const,
+					validation: { required: true as const },
+				},
+				score: {
+					type: "number" as const,
+					validation: { required: true as const },
+				},
+			},
+		};
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Entity",
+				propertiesSchema: schema,
+				properties: { title: null },
+			}),
+		).toThrow("Entity properties validation failed");
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Entity",
+				propertiesSchema: schema,
+				properties: { isActive: null },
+			}),
+		).toThrow("Entity properties validation failed");
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Entity",
+				propertiesSchema: schema,
+				properties: { score: null },
+			}),
+		).toThrow("Entity properties validation failed");
+	});
 });
