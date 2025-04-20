@@ -140,6 +140,7 @@ import {
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	getExerciseDetailsQuery,
+	getExerciseImages,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
@@ -1300,10 +1301,7 @@ const exerciseHasDetailsToShow = (
 	details?: ExerciseDetails,
 	userDetails?: UserExerciseDetails,
 ) => {
-	const images = [
-		...(details?.attributes.assets.s3Images || []),
-		...(details?.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(details);
 	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
 };
 
@@ -1533,10 +1531,7 @@ const ExerciseDisplay = (props: {
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
-	const images = [
-		...(exerciseDetails?.attributes.assets.s3Images || []),
-		...(exerciseDetails?.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(exerciseDetails);
 
 	const didExerciseActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;

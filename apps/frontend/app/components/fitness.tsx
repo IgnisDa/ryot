@@ -55,6 +55,7 @@ import {
 import { useGetRandomMantineColor, useUserDetails } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
+	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
@@ -262,10 +263,7 @@ export const ExerciseHistory = (props: {
 		s.exercises.includes(props.exerciseIdx),
 	);
 
-	const images = [
-		...(exerciseDetails?.attributes.assets.s3Images || []),
-		...(exerciseDetails?.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(exerciseDetails);
 
 	return (
 		<Paper
@@ -441,11 +439,7 @@ export const ExerciseDisplayItem = (props: {
 		enabled: inViewport,
 	});
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
-
-	const images = [
-		...(exerciseDetails?.attributes.assets.s3Images || []),
-		...(exerciseDetails?.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(exerciseDetails);
 
 	return (
 		<BaseMediaDisplayItem

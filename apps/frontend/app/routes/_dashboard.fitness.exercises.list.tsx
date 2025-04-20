@@ -80,6 +80,7 @@ import {
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,
+	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
@@ -442,10 +443,7 @@ const ExerciseItemDisplay = (props: {
 		userExerciseDetails?.details?.exerciseNumTimesInteracted;
 	const lastUpdatedOn = userExerciseDetails?.details?.lastUpdatedOn;
 	const isTourTargetExercise = props.exerciseId === TOUR_EXERCISE_TARGET_ID;
-	const images = [
-		...(exercise?.attributes.assets.s3Images || []),
-		...(exercise?.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(exercise);
 
 	return (
 		<Box

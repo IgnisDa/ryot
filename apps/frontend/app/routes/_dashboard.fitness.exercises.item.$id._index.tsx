@@ -88,6 +88,7 @@ import {
 } from "~/lib/hooks";
 import {
 	addExerciseToCurrentWorkout,
+	getExerciseImages,
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 	useMergingExercise,
@@ -180,10 +181,7 @@ export default function Page() {
 		coreDetails.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
 		)?.bests || [];
-	const images = [
-		...(loaderData.exerciseDetails.attributes.assets.s3Images || []),
-		...(loaderData.exerciseDetails.attributes.assets.remoteImages || []),
-	];
+	const images = getExerciseImages(loaderData.exerciseDetails);
 
 	return (
 		<>

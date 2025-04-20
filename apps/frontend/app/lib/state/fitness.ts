@@ -1,6 +1,7 @@
 import {
 	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
+	type ExerciseDetailsQuery,
 	type ExerciseLot,
 	SetLot,
 	type SetRestTimersSettings,
@@ -422,4 +423,13 @@ export const addExerciseToCurrentWorkout = async (
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
 	navigate($path("/fitness/:action", { action: currentWorkout.currentAction }));
+};
+
+export const getExerciseImages = (
+	exercise?: ExerciseDetailsQuery["exerciseDetails"],
+) => {
+	return [
+		...(exercise?.attributes.assets.s3Images || []),
+		...(exercise?.attributes.assets.remoteImages || []),
+	];
 };
