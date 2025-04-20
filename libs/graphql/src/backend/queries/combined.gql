@@ -213,7 +213,9 @@ query ExerciseDetails($exerciseId: String!) {
 		createdByUserId
 		attributes {
 			instructions
-			images
+			assets {
+				...EntityAssetsPart
+			}
 		}
 	}
 }

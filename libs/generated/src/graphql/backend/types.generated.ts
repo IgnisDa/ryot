@@ -562,12 +562,12 @@ export type Exercise = {
 
 export type ExerciseAttributes = {
   __typename?: 'ExerciseAttributes';
-  images: Array<Scalars['String']['output']>;
+  assets: EntityAssets;
   instructions: Array<Scalars['String']['output']>;
 };
 
 export type ExerciseAttributesInput = {
-  images: Array<Scalars['String']['input']>;
+  assets: EntityAssetsInput;
   instructions: Array<Scalars['String']['input']>;
 };
 
