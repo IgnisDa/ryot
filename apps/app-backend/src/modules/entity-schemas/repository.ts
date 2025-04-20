@@ -23,9 +23,9 @@ const listedEntitySchemaSelection = {
 	name: entitySchema.name,
 	icon: entitySchema.icon,
 	slug: entitySchema.slug,
-	trackerId: trackerEntitySchema.trackerId,
 	isBuiltin: entitySchema.isBuiltin,
 	accentColor: entitySchema.accentColor,
+	trackerId: trackerEntitySchema.trackerId,
 	propertiesSchema: entitySchema.propertiesSchema,
 };
 
@@ -62,12 +62,7 @@ export const listEntitySchemasByTracker = async (input: {
 			entitySchema,
 			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
 		)
-		.where(
-			and(
-				eq(tracker.id, input.trackerId),
-				eq(trackerEntitySchema.isDisabled, false),
-			),
-		)
+		.where(eq(tracker.id, input.trackerId))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
 	return rows.map(toListedEntitySchema);
