@@ -14,6 +14,7 @@ import {
 	type EntitySchemaPropertyType,
 	entitySchemaPropertyTypes,
 } from "./form";
+import type { CreateEntitySchemaForm } from "./use-form";
 
 function capitalizeFirst(str: string): string {
 	return str.charAt(0).toUpperCase() + str.slice(1);
@@ -28,7 +29,7 @@ const entitySchemaPropertyTypeOptions: Array<{
 }));
 
 type EntitySchemaPropertiesBuilderProps = {
-	form: any;
+	form: CreateEntitySchemaForm;
 	isLoading: boolean;
 };
 
@@ -45,7 +46,7 @@ export function EntitySchemaPropertiesBuilder(
 ) {
 	return (
 		<props.form.AppField name="properties" mode="array">
-			{(propertiesField: any) => {
+			{(propertiesField) => {
 				const properties = propertiesField.state
 					.value as CreateEntitySchemaFormValues["properties"];
 				const propertiesError = !propertiesField.state.meta.isValid
@@ -63,12 +64,12 @@ export function EntitySchemaPropertiesBuilder(
 							</Text>
 						</Stack>
 
-						{properties.map((_, index) => (
-							<Paper key={index} p="sm" withBorder radius="md">
+						{properties.map((property, index) => (
+							<Paper key={property.id} p="sm" withBorder radius="md">
 								<Stack gap="sm">
 									<Group grow align="flex-start">
 										<props.form.AppField name={`properties[${index}].key`}>
-											{(keyField: any) => {
+											{(keyField) => {
 												const keyValue = keyField.state.value as string;
 												const keyError =
 													getErrorMessage(keyField.state.meta.errors) ??
@@ -96,7 +97,7 @@ export function EntitySchemaPropertiesBuilder(
 										</props.form.AppField>
 
 										<props.form.AppField name={`properties[${index}].type`}>
-											{(typeField: any) => {
+											{(typeField) => {
 												const typeValue = typeField.state
 													.value as EntitySchemaPropertyType;
 
@@ -121,7 +122,7 @@ export function EntitySchemaPropertiesBuilder(
 
 									<Group justify="space-between" align="center">
 										<props.form.AppField name={`properties[${index}].required`}>
-											{(requiredField: any) => {
+											{(requiredField) => {
 												const requiredValue = requiredField.state
 													.value as boolean;
 
