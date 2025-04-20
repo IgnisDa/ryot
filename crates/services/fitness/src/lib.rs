@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, MpApplicationJob};
-use common_models::StoredUrl;
+use common_models::EntityAssets;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
@@ -12,8 +11,8 @@ use database_models::{
 };
 use database_utils::{
     entity_in_collections, get_user_query, item_reviews, schedule_user_for_workout_revision,
-    server_key_validation_guard, user_measurements_list, user_workout_details,
-    user_workout_template_details,
+    server_key_validation_guard, transform_entity_assets, user_measurements_list,
+    user_workout_details, user_workout_template_details,
 };
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
@@ -176,9 +175,10 @@ impl FitnessService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.0.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(e) => Ok(e
-                .graphql_representation(&self.0.file_storage_service)
-                .await?),
+            Some(mut e) => {
+                transform_entity_assets(&mut e.attributes.assets, &self.0).await;
+                Ok(e)
+            }
         }
     }
 
@@ -261,12 +261,10 @@ impl FitnessService {
     async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
-            internal_images: ex
-                .attributes
-                .images
-                .into_iter()
-                .map(StoredUrl::Url)
-                .collect(),
+            assets: EntityAssets {
+                remote_images: ex.attributes.images,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let mut muscles = ex.attributes.primary_muscles;
@@ -494,10 +492,8 @@ impl FitnessService {
         let id = input.update.id.clone();
         let mut update = input.update.clone();
         let old_exercise = Exercise::find_by_id(&id).one(&self.0.db).await?.unwrap();
-        for image in old_exercise.attributes.internal_images.iter() {
-            if let StoredUrl::S3(key) = image.to_owned() {
-                self.0.file_storage_service.delete_object(key).await;
-            }
+        for image in old_exercise.attributes.assets.s3_images.clone() {
+            self.0.file_storage_service.delete_object(image).await;
         }
         if input.should_delete.unwrap_or_default() {
             let ute = UserToEntity::find()
@@ -518,14 +514,6 @@ impl FitnessService {
         }
         update.source = ExerciseSource::Custom;
         update.created_by_user_id = Some(user_id.clone());
-        update.attributes.internal_images = update
-            .attributes
-            .images
-            .clone()
-            .into_iter()
-            .map(StoredUrl::S3)
-            .collect();
-        update.attributes.images = vec![];
         let input: exercise::ActiveModel = update.into();
         let mut input = input.reset_all();
         input.id = ActiveValue::Unchanged(id);

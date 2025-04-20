@@ -12,8 +12,8 @@ use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpAp
 use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
-    StringIdObject, UserLevelCacheKey,
+    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StringIdObject,
+    UserLevelCacheKey,
 };
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
@@ -2311,18 +2311,11 @@ pub async fn create_custom_exercise(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let mut input = input;
-    input.id = generate_exercise_id(&input.name, input.lot, user_id);
-    input.created_by_user_id = Some(user_id.clone());
     input.source = ExerciseSource::Custom;
-    input.attributes.internal_images = input
-        .attributes
-        .images
-        .clone()
-        .into_iter()
-        .map(StoredUrl::S3)
-        .collect();
-    input.attributes.images = vec![];
+    input.created_by_user_id = Some(user_id.clone());
+    input.id = generate_exercise_id(&input.name, input.lot, user_id);
     let input: exercise::ActiveModel = input.into();
+
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
     add_entity_to_collection(

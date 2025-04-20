@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_graphql::{Enum, InputObject, SimpleObject};
-use common_models::{EntityAssets, SearchInput, StoredUrl};
+use common_models::{EntityAssets, SearchInput};
 use derive_more::with_trait::{Add, AddAssign, Sum};
 use educe::Educe;
 use enum_models::{
@@ -43,12 +43,8 @@ pub enum ExerciseCategory {
 #[serde(rename_all = "camelCase")]
 #[graphql(input_name = "ExerciseAttributesInput")]
 pub struct ExerciseAttributes {
+    pub assets: EntityAssets,
     pub instructions: Vec<String>,
-    #[graphql(skip)]
-    #[serde(default)]
-    pub internal_images: Vec<StoredUrl>,
-    #[serde(default)]
-    pub images: Vec<String>,
 }
 
 #[derive(

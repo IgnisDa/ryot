@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
 use async_graphql::{Error, Result};
-use async_trait::async_trait;
 use axum::{
     Extension, RequestPartsExt,
     extract::FromRequestParts,
@@ -9,7 +8,6 @@ use axum::{
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use common_utils::{FRONTEND_OAUTH_ENDPOINT, USER_AGENT_STR, ryot_log};
-use file_storage_service::FileStorageService;
 use media_models::{
     GraphqlSortOrder, PodcastEpisode, PodcastSpecifics, ReviewItem, ShowEpisode, ShowSeason,
     ShowSpecifics,
@@ -70,16 +68,6 @@ where
         }
         Ok(ctx)
     }
-}
-
-#[async_trait]
-pub trait GraphqlRepresentation {
-    async fn graphql_representation(
-        self,
-        file_storage_service: &FileStorageService,
-    ) -> Result<Self>
-    where
-        Self: Sized;
 }
 
 pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {

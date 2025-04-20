@@ -1,6 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
-use educe::Educe;
 use enum_meta::{Meta, meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
@@ -107,13 +106,6 @@ pub struct EntityAssets {
     pub remote_images: Vec<String>,
     /// The urls of the remote videos.
     pub remote_videos: Vec<EntityRemoteVideo>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
-#[educe(Default(expression = StoredUrl::Url(String::from("https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png"))))]
-pub enum StoredUrl {
-    S3(String),
-    Url(String),
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
