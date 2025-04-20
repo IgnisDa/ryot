@@ -136,6 +136,45 @@ ALTER TABLE metadata ADD COLUMN IF NOT EXISTS assets JSONB;
         db.execute_unprepared(r#"ALTER TABLE metadata DROP COLUMN IF EXISTS videos;"#)
             .await?;
 
+        // Add the new 'assets' column to the person table
+        db.execute_unprepared(
+            r#"
+ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;
+"#,
+        )
+        .await?;
+
+        // Migrate existing images data into the new 'assets' column for the person table
+        db.execute_unprepared(
+            r#"
+            UPDATE person SET assets = (
+              SELECT jsonb_build_object(
+                's3_images', COALESCE((
+                    SELECT jsonb_agg(img->'url'->'S3')
+                    FROM jsonb_array_elements(COALESCE(images, '[]'::jsonb)) img
+                    WHERE img->'url' ? 'S3'
+                ), '[]'::jsonb),
+                's3_videos', '[]'::jsonb,
+                'remote_images', COALESCE((
+                    SELECT jsonb_agg(img->'url'->'Url')
+                    FROM jsonb_array_elements(COALESCE(images, '[]'::jsonb)) img
+                    WHERE img->'url' ? 'Url'
+                ), '[]'::jsonb),
+                'remote_videos', '[]'::jsonb
+              )
+            );
+            "#,
+        )
+        .await?;
+
+        // Set the assets column to NOT NULL for the person table
+        db.execute_unprepared(r#"ALTER TABLE person ALTER COLUMN assets SET NOT NULL;"#)
+            .await?;
+
+        // Drop the old 'images' column from the person table
+        db.execute_unprepared(r#"ALTER TABLE person DROP COLUMN IF EXISTS images;"#)
+            .await?;
+
         Ok(())
     }
 

@@ -19,7 +19,7 @@ pub enum Person {
     Place,
     Source,
     Gender,
-    Images,
+    Assets,
     Website,
     BirthDate,
     CreatedOn,
@@ -86,7 +86,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Person::DeathDate).date())
                     .col(ColumnDef::new(Person::Place).text())
                     .col(ColumnDef::new(Person::Website).text())
-                    .col(ColumnDef::new(Person::Images).json_binary())
+                    .col(ColumnDef::new(Person::Assets).json_binary().not_null())
                     .col(ColumnDef::new(Person::IsPartial).boolean())
                     .col(ColumnDef::new(Person::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Person::StateChanges).json_binary())
