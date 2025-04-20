@@ -1247,12 +1247,6 @@ pub struct MediaFilter {
     pub collections: Option<Vec<MediaCollectionFilter>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-pub struct MediaConsumedInput {
-    pub identifier: String,
-    pub lot: MediaLot,
-}
-
 #[derive(SimpleObject, Debug)]
 pub struct UserMetadataDetailsEpisodeProgress {
     pub times_seen: usize,
