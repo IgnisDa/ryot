@@ -1,4 +1,4 @@
-import type { AuthenticatedUser } from "#/hooks/auth";
+import type { AuthenticatedUser } from "#/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 
 export function toSidebarAccount(input: AuthenticatedUser): SidebarAccount {
