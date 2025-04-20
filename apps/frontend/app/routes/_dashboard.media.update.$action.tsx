@@ -99,6 +99,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(",");
 	input.creators = input.creators?.split(",");
+
 	const id = await match(submission.action)
 		.with(Action.Create, async () => {
 			const { createCustomMetadata } =
