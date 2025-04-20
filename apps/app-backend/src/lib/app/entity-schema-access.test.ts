@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	resolveCustomEntityAccessError,
-	resolveCustomEntitySchemaAccess,
-} from "./entity-schema-access";
+import { resolveCustomEntitySchemaAccess } from "./entity-schema-access";
 
 describe("resolveCustomEntitySchemaAccess", () => {
 	it("returns not found when the entity schema is missing", () => {
@@ -21,21 +18,5 @@ describe("resolveCustomEntitySchemaAccess", () => {
 		const result = resolveCustomEntitySchemaAccess(entitySchema);
 
 		expect(result).toEqual({ entitySchema });
-	});
-});
-
-describe("resolveCustomEntityAccessError", () => {
-	it("returns a not found response for missing access", () => {
-		expect(
-			resolveCustomEntityAccessError({
-				error: "not_found",
-				notFoundMessage: "Entity not found",
-				builtinMessage:
-					"Built-in entity schemas do not support generated event logging",
-			}),
-		).toEqual({
-			error: "not_found",
-			message: "Entity not found",
-		});
 	});
 });
