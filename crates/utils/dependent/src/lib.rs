@@ -11,7 +11,7 @@ use async_graphql::{Enum, Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::Utc;
 use common_models::{
-    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StoredUrl,
     StringIdObject, UserLevelCacheKey,
 };
@@ -64,9 +64,9 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, GenreListItem, GraphqlMediaAssets, GraphqlVideoAsset,
-    ImportOrExportItemRating, MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
+    CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating,
+    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
+    MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
     PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
     ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
@@ -258,13 +258,12 @@ pub async fn commit_metadata(
     {
         Some(c) => c,
         None => {
-            let image = data.image.clone().map(|i| {
-                vec![MetadataImage {
-                    url: StoredUrl::Url(i),
-                }]
-            });
+            let mut assets = EntityAssets::default();
+            if let Some(i) = data.image.clone() {
+                assets.remote_images = vec![i];
+            }
             let c = metadata::ActiveModel {
-                images: ActiveValue::Set(image),
+                assets: ActiveValue::Set(assets),
                 lot: ActiveValue::Set(data.lot),
                 title: ActiveValue::Set(data.title),
                 source: ActiveValue::Set(data.source),
@@ -557,13 +556,6 @@ async fn update_metadata(
                 .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
                 .collect_vec();
 
-            let mut images = vec![];
-            images.extend(details.url_images.into_iter().map(|i| MetadataImage {
-                url: StoredUrl::Url(i.image),
-            }));
-            images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
-                url: StoredUrl::S3(i.image),
-            }));
             let free_creators = details
                 .creators
                 .is_empty()
@@ -576,35 +568,31 @@ async fn update_metadata(
                 .map(|_| details.watch_providers);
 
             let mut meta: metadata::ActiveModel = meta.into();
-            meta.last_updated_on = ActiveValue::Set(Utc::now());
             meta.title = ActiveValue::Set(details.title);
-            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
+            meta.assets = ActiveValue::Set(details.assets);
             meta.is_partial = ActiveValue::Set(Some(false));
+            meta.is_nsfw = ActiveValue::Set(details.is_nsfw);
+            meta.last_updated_on = ActiveValue::Set(Utc::now());
+            meta.free_creators = ActiveValue::Set(free_creators);
             meta.source_url = ActiveValue::Set(details.source_url);
-            meta.provider_rating = ActiveValue::Set(details.provider_rating);
             meta.description = ActiveValue::Set(details.description);
-            meta.videos = ActiveValue::Set(Some(details.videos));
-            meta.production_status = ActiveValue::Set(details.production_status);
-            meta.original_language = ActiveValue::Set(details.original_language);
+            meta.watch_providers = ActiveValue::Set(watch_providers);
             meta.publish_year = ActiveValue::Set(details.publish_year);
             meta.publish_date = ActiveValue::Set(details.publish_date);
-            meta.free_creators = ActiveValue::Set(free_creators);
-            meta.watch_providers = ActiveValue::Set(watch_providers);
-            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
-            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
-            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
-            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
-            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
             meta.show_specifics = ActiveValue::Set(details.show_specifics);
             meta.book_specifics = ActiveValue::Set(details.book_specifics);
-            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
-            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
+            meta.anime_specifics = ActiveValue::Set(details.anime_specifics);
+            meta.provider_rating = ActiveValue::Set(details.provider_rating);
+            meta.manga_specifics = ActiveValue::Set(details.manga_specifics);
+            meta.movie_specifics = ActiveValue::Set(details.movie_specifics);
             meta.music_specifics = ActiveValue::Set(details.music_specifics);
+            meta.production_status = ActiveValue::Set(details.production_status);
+            meta.original_language = ActiveValue::Set(details.original_language);
+            meta.podcast_specifics = ActiveValue::Set(details.podcast_specifics);
+            meta.audio_book_specifics = ActiveValue::Set(details.audio_book_specifics);
+            meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
-            meta.images = ActiveValue::Set(match images.is_empty() {
-                true => None,
-                false => Some(images),
-            });
+            meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
             let metadata = meta.update(&ss.db).await.unwrap();
 
             change_metadata_associations(
@@ -3640,24 +3628,6 @@ pub async fn user_exercises_list(
     Ok(CachedResponse { cache_id, response })
 }
 
-async fn metadata_assets(
-    meta: &metadata::Model,
-    ss: &Arc<SupportingService>,
-) -> Result<GraphqlMediaAssets> {
-    let images = metadata_images_as_urls(&meta.images, &ss.file_storage_service).await;
-    let mut videos = vec![];
-    if let Some(vids) = &meta.videos {
-        for v in vids.clone() {
-            let url = ss.file_storage_service.get_stored_asset(v.identifier).await;
-            videos.push(GraphqlVideoAsset {
-                source: v.source,
-                video_id: url,
-            })
-        }
-    }
-    Ok(GraphqlMediaAssets { images, videos })
-}
-
 pub async fn generic_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
@@ -3756,12 +3726,10 @@ pub async fn generic_metadata(
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
-    let assets = metadata_assets(&meta, ss).await.unwrap();
     Ok(MetadataBaseData {
-        model: meta,
-        creators,
-        assets,
         genres,
+        creators,
+        model: meta,
         suggestions,
     })
 }

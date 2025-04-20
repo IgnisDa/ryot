@@ -24,12 +24,12 @@ use fitness_models::{
 use importer_models::ImportFailedItem;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, CollectionItem,
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
-    ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
-    MetadataCreatorGroupedByRole, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlSortOrder,
+    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
+    ImportOrExportPersonItem, MediaFilter, MediaSortBy, MetadataCreatorGroupedByRole,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole,
+    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -215,7 +215,6 @@ pub struct MetadataBaseData {
     pub model: metadata::Model,
     pub suggestions: Vec<String>,
     pub genres: Vec<GenreListItem>,
-    pub assets: GraphqlMediaAssets,
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 

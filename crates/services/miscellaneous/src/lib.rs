@@ -14,7 +14,7 @@ use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
-    SearchDetails, SearchInput, StoredUrl, StringIdObject, UserLevelCacheKey,
+    SearchDetails, SearchInput, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE,
@@ -74,13 +74,12 @@ use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
     GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator, MetadataImage,
-    MetadataPartialDetails, MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
-    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    MetadataPartialDetails, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -135,13 +134,13 @@ impl MiscellaneousService {
         &self,
         metadata_id: &String,
     ) -> Result<MetadataPartialDetails> {
-        let mut metadata = Metadata::find_by_id(metadata_id)
+        let metadata = Metadata::find_by_id(metadata_id)
             .select_only()
             .columns([
                 metadata::Column::Id,
                 metadata::Column::Lot,
                 metadata::Column::Title,
-                metadata::Column::Images,
+                metadata::Column::Assets,
                 metadata::Column::PublishYear,
             ])
             .into_model::<MetadataPartialDetails>()
@@ -149,8 +148,6 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
-        metadata.image =
-            first_metadata_image_as_url(&metadata.images, &self.0.file_storage_service).await;
         Ok(metadata)
     }
 
@@ -161,9 +158,8 @@ impl MiscellaneousService {
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
         let MetadataBaseData {
             model,
-            creators,
-            assets,
             genres,
+            creators,
             suggestions,
         } = generic_metadata(metadata_id, &self.0).await?;
 
@@ -186,7 +182,6 @@ impl MiscellaneousService {
 
         let resp = GraphqlMetadataDetails {
             group,
-            assets,
             genres,
             creators,
             suggestions,
@@ -194,6 +189,7 @@ impl MiscellaneousService {
             lot: model.lot,
             watch_providers,
             title: model.title,
+            assets: model.assets,
             source: model.source,
             is_nsfw: model.is_nsfw,
             source_url: model.source_url,
@@ -1360,23 +1356,6 @@ impl MiscellaneousService {
         identifier: String,
         user_id: &str,
     ) -> metadata::ActiveModel {
-        let images = input
-            .images
-            .unwrap_or_default()
-            .into_iter()
-            .map(|i| MetadataImage {
-                url: StoredUrl::S3(i),
-            })
-            .collect_vec();
-        let videos = input
-            .videos
-            .unwrap_or_default()
-            .into_iter()
-            .map(|i| MetadataVideo {
-                identifier: StoredUrl::S3(i),
-                source: MetadataVideoSource::Custom,
-            })
-            .collect_vec();
         let free_creators = input
             .creators
             .unwrap_or_default()
@@ -1402,6 +1381,7 @@ impl MiscellaneousService {
         metadata::ActiveModel {
             lot: ActiveValue::Set(input.lot),
             title: ActiveValue::Set(input.title),
+            assets: ActiveValue::Set(input.assets),
             identifier: ActiveValue::Set(identifier),
             is_nsfw: ActiveValue::Set(input.is_nsfw),
             source: ActiveValue::Set(MediaSource::Custom),
@@ -1419,14 +1399,6 @@ impl MiscellaneousService {
             audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
             video_game_specifics: ActiveValue::Set(input.video_game_specifics),
             visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
-            images: ActiveValue::Set(match images.is_empty() {
-                true => None,
-                false => Some(images),
-            }),
-            videos: ActiveValue::Set(match videos.is_empty() {
-                true => None,
-                false => Some(videos),
-            }),
             free_creators: ActiveValue::Set(match free_creators.is_empty() {
                 true => None,
                 false => Some(free_creators),
@@ -1488,15 +1460,11 @@ impl MiscellaneousService {
             .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
             .exec(&self.0.db)
             .await?;
-        for image in metadata.images.clone().unwrap_or_default() {
-            if let StoredUrl::S3(key) = image.url {
-                self.0.file_storage_service.delete_object(key).await;
-            }
+        for image in metadata.assets.s3_images.clone() {
+            self.0.file_storage_service.delete_object(image).await;
         }
-        for video in metadata.videos.clone().unwrap_or_default() {
-            if let StoredUrl::S3(key) = video.identifier {
-                self.0.file_storage_service.delete_object(key).await;
-            }
+        for video in metadata.assets.s3_videos.clone() {
+            self.0.file_storage_service.delete_object(video).await;
         }
         let mut new_metadata =
             self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);

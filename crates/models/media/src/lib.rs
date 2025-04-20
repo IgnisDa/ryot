@@ -4,8 +4,8 @@ use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
-    ApplicationDateRange, CollectionExtraInformation, IdAndNamedObject, PersonSourceSpecifics,
-    StoredUrl, StringIdObject, UserToCollectionExtraInformation,
+    ApplicationDateRange, CollectionExtraInformation, EntityAssets, IdAndNamedObject,
+    PersonSourceSpecifics, StoredUrl, StringIdObject, UserToCollectionExtraInformation,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -438,9 +438,9 @@ pub struct MetadataDetails {
     pub identifier: String,
     pub genres: Vec<String>,
     pub source: MediaSource,
+    pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub publish_year: Option<i32>,
-    pub videos: Vec<MetadataVideo>,
     pub source_url: Option<String>,
     pub description: Option<String>,
     pub groups: Vec<CommitMetadataGroupInput>,
@@ -459,8 +459,6 @@ pub struct MetadataDetails {
     pub music_specifics: Option<MusicSpecifics>,
     pub suggestions: Vec<PartialMetadataWithoutId>,
     pub podcast_specifics: Option<PodcastSpecifics>,
-    pub s3_images: Vec<MetadataImageForMediaDetails>,
-    pub url_images: Vec<MetadataImageForMediaDetails>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub video_game_specifics: Option<VideoGameSpecifics>,
     pub visual_novel_specifics: Option<VisualNovelSpecifics>,
@@ -758,13 +756,11 @@ pub struct PartialMetadata {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
 pub struct MetadataPartialDetails {
     pub id: String,
-    pub title: String,
     pub lot: MediaLot,
-    #[sea_orm(ignore)]
-    pub image: Option<String>,
-    #[graphql(skip)]
-    pub images: Option<Vec<MetadataImage>>,
+    pub title: String,
     pub publish_year: Option<i32>,
+    #[graphql(skip)]
+    pub assets: Option<EntityAssets>,
 }
 
 #[derive(Debug, Default, InputObject)]
@@ -987,11 +983,10 @@ pub struct CreateCustomMetadataInput {
     pub title: String,
     pub lot: MediaLot,
     pub is_nsfw: Option<bool>,
+    pub assets: EntityAssets,
     pub publish_year: Option<i32>,
     pub description: Option<String>,
     pub genres: Option<Vec<String>>,
-    pub images: Option<Vec<String>>,
-    pub videos: Option<Vec<String>>,
     pub creators: Option<Vec<String>>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
@@ -1222,13 +1217,13 @@ pub struct GraphqlMetadataDetails {
     pub lot: MediaLot,
     pub identifier: String,
     pub source: MediaSource,
+    pub assets: EntityAssets,
     pub is_nsfw: Option<bool>,
     pub is_partial: Option<bool>,
     pub suggestions: Vec<String>,
     pub publish_year: Option<i32>,
     pub source_url: Option<String>,
     pub genres: Vec<GenreListItem>,
-    pub assets: GraphqlMediaAssets,
     pub description: Option<String>,
     pub publish_date: Option<NaiveDate>,
     pub group: Vec<GraphqlMetadataGroup>,
