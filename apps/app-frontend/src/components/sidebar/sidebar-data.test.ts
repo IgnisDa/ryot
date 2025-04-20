@@ -5,7 +5,6 @@ import type { SidebarTracker } from "./Sidebar.types";
 import { toSidebarData } from "./sidebar-data";
 
 const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	layout: "grid",
 	table: { columns: [{ property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
