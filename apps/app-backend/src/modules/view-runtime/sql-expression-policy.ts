@@ -9,10 +9,10 @@ export const buildCastedValueExpression = (
 	input: { propertyText: SqlExpression; propertyJson: SqlExpression },
 ) =>
 	match(propertyType)
-		.with("integer", () => sql`(${input.propertyText})::integer`)
 		.with("number", () => sql`(${input.propertyText})::numeric`)
+		.with("integer", () => sql`(${input.propertyText})::integer`)
 		.with("boolean", () => sql`(${input.propertyText})::boolean`)
-		.with("date", "datetime", () => sql`(${input.propertyText})::timestamp`)
+		.with("date", "datetime", () => sql`(${input.propertyText})::timestamptz`)
 		.with("array", "object", () => input.propertyJson)
 		.otherwise(() => input.propertyText);
 
