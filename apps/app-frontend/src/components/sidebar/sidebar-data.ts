@@ -6,8 +6,8 @@ import {
 import type { SidebarTracker, SidebarView } from "./Sidebar.types";
 
 export function toSidebarData(input: {
-	trackers: AppTracker[];
 	views: AppSavedView[];
+	trackers: AppTracker[];
 	isCustomizeMode?: boolean;
 }): {
 	views: SidebarView[];
@@ -18,39 +18,40 @@ export function toSidebarData(input: {
 		: sortTrackersByOrder(input.trackers).filter(
 				(tracker) => !tracker.isDisabled,
 			);
-	const trackerById = new Map(
-		visibleTrackers.map((tracker) => [tracker.id, tracker]),
-	);
-	const trackers = visibleTrackers.map((tracker) => ({
-		id: tracker.id,
-		name: tracker.name,
-		slug: tracker.slug,
-		icon: tracker.icon,
-		sortOrder: tracker.sortOrder,
-		isBuiltin: tracker.isBuiltin,
-		isDisabled: tracker.isDisabled,
-		accentColor: tracker.accentColor,
-		views: input.views
-			.filter((view) => view.trackerId === tracker.id)
-			.map((view) => ({
+	const trackers = visibleTrackers.map((tracker) => {
+		const trackerViews = input.views.filter(
+			(view) => view.trackerId === tracker.id,
+		);
+		const visibleViews = input.isCustomizeMode
+			? trackerViews
+			: trackerViews.filter((view) => !view.isDisabled);
+		return {
+			id: tracker.id,
+			name: tracker.name,
+			slug: tracker.slug,
+			icon: tracker.icon,
+			sortOrder: tracker.sortOrder,
+			isBuiltin: tracker.isBuiltin,
+			isDisabled: tracker.isDisabled,
+			accentColor: tracker.accentColor,
+			views: visibleViews.map((view) => ({
 				id: view.id,
 				icon: view.icon,
 				name: view.name,
-				trackerSlug: tracker.slug,
 				trackerId: view.trackerId,
+				isDisabled: view.isDisabled,
 				accentColor: view.accentColor,
 			})),
-	}));
+		};
+	});
 	const views = input.views
 		.filter((view) => view.trackerId === null)
 		.map((view) => ({
 			id: view.id,
 			icon: view.icon,
 			name: view.name,
-			trackerSlug: view.trackerId
-				? (trackerById.get(view.trackerId)?.slug ?? null)
-				: null,
 			trackerId: view.trackerId,
+			isDisabled: view.isDisabled,
 			accentColor: view.accentColor,
 		}));
 

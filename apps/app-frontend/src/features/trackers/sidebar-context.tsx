@@ -32,7 +32,7 @@ interface TrackerSidebarActions {
 	toggleTrackerById: (trackerId: string) => Promise<void>;
 	reorderTrackerIds: (trackerIds: string[]) => Promise<void>;
 	submitModal: (
-		payload: CreateTrackerPayload | UpdateTrackerPayload,
+		payload: CreateTrackerPayload | Omit<UpdateTrackerPayload, "isDisabled">,
 	) => Promise<void>;
 }
 
@@ -132,11 +132,16 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 	);
 
 	const submitModal = useCallback(
-		async (payload: CreateTrackerPayload | UpdateTrackerPayload) => {
+		async (
+			payload: CreateTrackerPayload | Omit<UpdateTrackerPayload, "isDisabled">,
+		) => {
 			if (activeTracker !== undefined) {
 				await mutations.update.mutateAsync({
-					body: payload,
 					params: { path: { trackerId: activeTracker.id } },
+					body: {
+						...payload,
+						isDisabled: activeTracker.isDisabled,
+					},
 				});
 
 				closeModal();
