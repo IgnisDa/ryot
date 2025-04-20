@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject, NamedObject,
-    PersonSourceSpecifics, SearchDetails, StoredUrl,
+    PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -22,9 +22,9 @@ use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataExternalIdentifiers,
-    MetadataGroupSearchItem, MetadataImage, MetadataSearchItem, MovieSpecifics,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason,
-    ShowSpecifics, UniqueMediaIdentifier, WatchProvider,
+    MetadataGroupSearchItem, MetadataSearchItem, MovieSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, ShowEpisode, ShowSeason, ShowSpecifics,
+    UniqueMediaIdentifier, WatchProvider,
 };
 use reqwest::{
     Client,
@@ -973,15 +973,10 @@ impl MediaProvider for TmdbMovieService {
                     "https://www.themoviedb.org/collections/{}-{}",
                     identifier, title
                 )),
-                images: Some(
-                    images
-                        .into_iter()
-                        .unique()
-                        .map(|p| MetadataImage {
-                            url: StoredUrl::Url(self.base.get_image_url(p)),
-                        })
-                        .collect(),
-                ),
+                assets: EntityAssets {
+                    remote_images: images,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             parts,

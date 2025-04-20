@@ -49,7 +49,6 @@ use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
     SeenState, UserNotificationContent, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
 };
-use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
     UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
@@ -66,13 +65,12 @@ use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
-    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
-    UpdateMediaEntityResult,
+    MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -115,34 +113,6 @@ use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
-
-pub async fn first_metadata_image_as_url(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Option<String> {
-    if let Some(images) = value {
-        if let Some(i) = images.first().cloned() {
-            Some(file_storage_service.get_stored_asset(i.url).await)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-pub async fn metadata_images_as_urls(
-    value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &FileStorageService,
-) -> Vec<String> {
-    let mut images = vec![];
-    if let Some(imgs) = value {
-        for i in imgs.clone() {
-            images.push(file_storage_service.get_stored_asset(i.url).await);
-        }
-    }
-    images
-}
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
     Ok(OpenlibraryService::new(&config.books.openlibrary).await)
@@ -640,7 +610,7 @@ async fn update_metadata_group(
     eg.parts = ActiveValue::Set(group_details.parts);
     eg.source_url = ActiveValue::Set(group_details.source_url);
     eg.description = ActiveValue::Set(group_details.description);
-    eg.images = ActiveValue::Set(group_details.images.filter(|i| !i.is_empty()));
+    eg.assets = ActiveValue::Set(group_details.assets);
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
         let db_partial_metadata = commit_metadata(media, ss).await?;
@@ -748,10 +718,8 @@ async fn update_person(
                     lot: ActiveValue::Set(data.metadata_group.lot),
                     source: ActiveValue::Set(data.metadata_group.source),
                     title: ActiveValue::Set(data.metadata_group.title.clone()),
+                    assets: ActiveValue::Set(data.metadata_group.assets.clone()),
                     identifier: ActiveValue::Set(data.metadata_group.identifier.clone()),
-                    images: ActiveValue::Set(
-                        data.metadata_group.images.clone().filter(|i| !i.is_empty()),
-                    ),
                     ..Default::default()
                 };
                 m.insert(&ss.db).await?.id
@@ -970,13 +938,12 @@ pub async fn commit_metadata_group(
     {
         Some(m) => Ok(m),
         None => {
-            let image = input.image.clone().map(|i| {
-                vec![MetadataImage {
-                    url: StoredUrl::Url(i),
-                }]
-            });
+            let mut assets = EntityAssets::default();
+            if let Some(i) = input.image.clone() {
+                assets.remote_images = vec![i];
+            }
             let new_group = metadata_group::ActiveModel {
-                images: ActiveValue::Set(image),
+                assets: ActiveValue::Set(assets),
                 title: ActiveValue::Set(input.name),
                 lot: ActiveValue::Set(input.unique.lot),
                 is_partial: ActiveValue::Set(Some(true)),
@@ -3635,8 +3602,8 @@ pub async fn generic_metadata(
     struct PartialCreator {
         id: String,
         name: String,
-        images: Option<Vec<MetadataImage>>,
         role: String,
+        assets: EntityAssets,
         character: Option<String>,
     }
     let crts = MetadataToPerson::find()
@@ -3659,12 +3626,11 @@ pub async fn generic_metadata(
         .await?;
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
-        let image = first_metadata_image_as_url(&cr.images, &ss.file_storage_service).await;
         let creator = MetadataCreator {
-            image,
             name: cr.name,
             id: Some(cr.id),
             character: cr.character,
+            image: cr.assets.remote_images.first().cloned(),
         };
         creators
             .entry(cr.role)

@@ -3,8 +3,8 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
+use common_models::EntityAssets;
 use enum_models::{MediaLot, MediaSource};
-use media_models::MetadataImage;
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
@@ -26,15 +26,12 @@ pub struct Model {
     pub title: String,
     pub identifier: String,
     pub source: MediaSource,
+    #[sea_orm(column_type = "Json")]
+    pub assets: EntityAssets,
     #[boilermates(not_in("MetadataGroupWithoutId"))]
     pub is_partial: Option<bool>,
     pub source_url: Option<String>,
-    #[sea_orm(ignore)]
-    pub display_images: Vec<String>,
     pub description: Option<String>,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub images: Option<Vec<MetadataImage>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

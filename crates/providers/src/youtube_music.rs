@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails, StoredUrl};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::TEMPORARY_DIRECTORY;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -9,9 +9,9 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, UniqueMediaIdentifier,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -168,14 +168,14 @@ impl MediaProvider for YoutubeMusicService {
                 source_url: album
                     .playlist_id
                     .map(|id| format!("https://music.youtube.com/playlist?list={}", id)),
-                images: Some(
-                    self.largest_image(&album.cover)
+                assets: EntityAssets {
+                    remote_images: self
+                        .largest_image(&album.cover)
                         .into_iter()
-                        .map(|c| MetadataImage {
-                            url: StoredUrl::Url(c.url),
-                        })
+                        .map(|c| c.url)
                         .collect(),
-                ),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             album
@@ -258,14 +258,14 @@ impl MediaProvider for YoutubeMusicService {
                     lot: MediaLot::Music,
                     identifier: a.id.clone(),
                     source: MediaSource::YoutubeMusic,
-                    images: Some(
-                        self.order_images_by_size(&a.cover)
+                    assets: EntityAssets {
+                        remote_images: self
+                            .largest_image(&a.cover)
                             .into_iter()
-                            .map(|c| MetadataImage {
-                                url: StoredUrl::Url(c.url),
-                            })
+                            .map(|c| c.url)
                             .collect(),
-                    ),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
             })

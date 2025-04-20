@@ -5,7 +5,7 @@ use boilermates::boilermates;
 use chrono::{NaiveDate, NaiveDateTime};
 use common_models::{
     ApplicationDateRange, CollectionExtraInformation, EntityAssets, IdAndNamedObject,
-    PersonSourceSpecifics, StoredUrl, StringIdObject, UserToCollectionExtraInformation,
+    PersonSourceSpecifics, StringIdObject, UserToCollectionExtraInformation,
 };
 use common_utils::deserialize_date;
 use enum_models::{
@@ -14,7 +14,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{EnumIter, FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
+use sea_orm::{FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -604,42 +604,6 @@ pub struct ImportOrExportExerciseItem {
     pub reviews: Vec<ImportOrExportItemRating>,
 }
 
-#[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
-)]
-pub struct MetadataImage {
-    pub url: StoredUrl,
-}
-
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    FromJsonQueryResult,
-    Deserialize,
-    Serialize,
-    Hash,
-    Default,
-    Enum,
-)]
-pub enum MetadataVideoSource {
-    #[default]
-    Youtube,
-    Dailymotion,
-    Custom,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
-)]
-pub struct MetadataVideo {
-    pub identifier: StoredUrl,
-    pub source: MetadataVideoSource,
-}
-
 /// Comments left in replies to posted reviews.
 #[skip_serializing_none]
 #[derive(
@@ -1195,18 +1159,6 @@ pub struct GraphqlMetadataGroup {
     pub id: String,
     pub name: String,
     pub part: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct GraphqlVideoAsset {
-    pub video_id: String,
-    pub source: MetadataVideoSource,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct GraphqlMediaAssets {
-    pub images: Vec<String>,
-    pub videos: Vec<GraphqlVideoAsset>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

@@ -1617,10 +1617,11 @@ impl MiscellaneousService {
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
-        let details = Person::find_by_id(person_id.clone())
+        let mut details = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
+        transform_entity_assets(&mut details.assets, &self.0).await;
         let metadata_associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
             .order_by_asc(metadata_to_person::Column::Index)
@@ -1728,16 +1729,7 @@ impl MiscellaneousService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Group not found"))?;
-        let mut images = vec![];
-        for image in group.images.clone().unwrap_or_default().iter() {
-            images.push(
-                self.0
-                    .file_storage_service
-                    .get_stored_asset(image.url.clone())
-                    .await,
-            );
-        }
-        group.display_images = images;
+        transform_entity_assets(&mut group.assets, &self.0).await;
         let contents = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
@@ -1747,8 +1739,8 @@ impl MiscellaneousService {
             .all(&self.0.db)
             .await?;
         Ok(MetadataGroupDetails {
-            details: group,
             contents,
+            details: group,
         })
     }
 
