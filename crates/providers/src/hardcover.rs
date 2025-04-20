@@ -2,15 +2,15 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{PersonSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
-    MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use nest_struct::nest_struct;
 use reqwest::{
@@ -216,16 +216,22 @@ query {{
         let mut images = vec![];
         if let Some(i) = data.image {
             if let Some(image) = i.url {
-                images.push(MetadataImageForMediaDetails { image });
+                images.push(image);
             }
         }
         for i in data.images.into_iter().flatten() {
             if let Some(image) = i.url {
-                images.push(MetadataImageForMediaDetails { image });
+                images.push(image);
             }
         }
+        let assets = EntityAssets {
+            s3_images: vec![],
+            s3_videos: vec![],
+            remote_videos: vec![],
+            remote_images: images,
+        };
         let details = MetadataDetails {
-            url_images: images,
+            assets,
             lot: MediaLot::Book,
             title: data.title.unwrap(),
             provider_rating: data.rating,

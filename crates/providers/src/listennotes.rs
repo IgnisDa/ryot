@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::SearchDetails;
+use common_models::{EntityAssets, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_naive_to_utc};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ListennotesSettings, SearchResults,
@@ -12,8 +12,8 @@ use dependent_models::{
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
+    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PartialMetadataWithoutId,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::{
     Client,
@@ -261,6 +261,8 @@ impl ListennotesService {
             title: podcast_data.title.clone(),
             description: podcast_data.description,
             is_nsfw: podcast_data.explicit_content,
+            publish_year: podcast_data.publish_date.map(|r| r.year()),
+            publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
             source_url: Some(format!(
                 "https://www.listennotes.com/podcasts/{}-{}",
                 podcast_data.title, identifier
@@ -276,13 +278,12 @@ impl ListennotesService {
                 .filter_map(|g| genres.get(&g).cloned())
                 .unique()
                 .collect(),
-            url_images: Vec::from_iter(
-                podcast_data
-                    .image
-                    .map(|a| MetadataImageForMediaDetails { image: a }),
-            ),
-            publish_year: podcast_data.publish_date.map(|r| r.year()),
-            publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
+            assets: EntityAssets {
+                s3_images: vec![],
+                s3_videos: vec![],
+                remote_videos: vec![],
+                remote_images: Vec::from_iter(podcast_data.image),
+            },
             podcast_specifics: Some(PodcastSpecifics {
                 episodes: podcast_data
                     .episodes

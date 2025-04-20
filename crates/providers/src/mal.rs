@@ -1,14 +1,13 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{NamedObject, SearchDetails};
+use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails,
-    MetadataSearchItem, PartialMetadataWithoutId,
+    AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId,
 };
 use rand::{rng, seq::SliceRandom};
 use reqwest::{
@@ -249,35 +248,41 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
     let identifier = details.id.to_string();
     let title = details.title;
     let data = MetadataDetails {
-        identifier: identifier.clone(),
+        lot,
+        is_nsfw,
+        suggestions,
+        anime_specifics,
+        manga_specifics,
         title: title.clone(),
         source: MediaSource::Mal,
         description: details.synopsis,
-        lot,
-        is_nsfw,
+        provider_rating: details.mean,
+        identifier: identifier.clone(),
         source_url: Some(format!(
             "https://myanimelist.net/{}/{}/{}",
             media_type, identifier, title
         )),
         production_status: details.status.map(|s| s.to_case(Case::Title)),
+        publish_date: details
+            .start_date
+            .clone()
+            .and_then(|d| convert_string_to_date(&d)),
+        publish_year: details
+            .start_date
+            .clone()
+            .and_then(|d| convert_date_to_year(&d)),
+        assets: EntityAssets {
+            s3_images: vec![],
+            s3_videos: vec![],
+            remote_videos: vec![],
+            remote_images: vec![details.main_picture.large],
+        },
         genres: details
             .genres
             .unwrap_or_default()
             .into_iter()
             .map(|g| g.name)
             .collect(),
-        url_images: vec![MetadataImageForMediaDetails {
-            image: details.main_picture.large,
-        }],
-        publish_year: details
-            .start_date
-            .clone()
-            .and_then(|d| convert_date_to_year(&d)),
-        publish_date: details.start_date.and_then(|d| convert_string_to_date(&d)),
-        suggestions,
-        provider_rating: details.mean,
-        anime_specifics,
-        manga_specifics,
         ..Default::default()
     };
     Ok(data)

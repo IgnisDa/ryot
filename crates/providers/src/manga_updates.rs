@@ -2,14 +2,14 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{PersonSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    MangaSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -317,13 +317,27 @@ impl MediaProvider for MangaUpdatesService {
         let (volumes, status) = self.extract_status(data.status.clone());
 
         Ok(MetadataDetails {
-            identifier: data.series_id.unwrap().to_string(),
+            people,
+            suggestions,
+            lot: MediaLot::Manga,
+            production_status: status,
             title: data.title.unwrap(),
             description: data.description,
             source: MediaSource::MangaUpdates,
-            lot: MediaLot::Manga,
-            people,
-            production_status: status,
+            provider_rating: data.bayesian_rating,
+            identifier: data.series_id.unwrap().to_string(),
+            publish_year: data.year.and_then(|y| y.parse().ok()),
+            assets: EntityAssets {
+                s3_images: vec![],
+                s3_videos: vec![],
+                remote_videos: vec![],
+                remote_images: Vec::from_iter(data.image.unwrap().url.original),
+            },
+            manga_specifics: Some(MangaSpecifics {
+                chapters: data.latest_chapter.map(Decimal::from),
+                url: data.url,
+                volumes,
+            }),
             genres: data
                 .genres
                 .unwrap_or_default()
@@ -336,18 +350,6 @@ impl MediaProvider for MangaUpdatesService {
                         .map(|r| r.category),
                 )
                 .collect(),
-            url_images: Vec::from_iter(data.image.unwrap().url.original)
-                .into_iter()
-                .map(|i| MetadataImageForMediaDetails { image: i })
-                .collect(),
-            publish_year: data.year.and_then(|y| y.parse().ok()),
-            manga_specifics: Some(MangaSpecifics {
-                chapters: data.latest_chapter.map(Decimal::from),
-                url: data.url,
-                volumes,
-            }),
-            suggestions,
-            provider_rating: data.bayesian_rating,
             ..Default::default()
         })
     }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails, StoredUrl};
 use common_utils::TEMPORARY_DIRECTORY;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -10,8 +10,8 @@ use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataSearchItem, MusicSpecifics, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    MetadataSearchItem, MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, UniqueMediaIdentifier,
 };
 use rustypipe::{
     client::{RustyPipe, RustyPipeQuery},
@@ -98,11 +98,16 @@ impl MediaProvider for YoutubeMusicService {
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
                 view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
             }),
-            url_images: self
-                .order_images_by_size(&details.track.cover)
-                .into_iter()
-                .map(|t| MetadataImageForMediaDetails { image: t.url })
-                .collect(),
+            assets: EntityAssets {
+                s3_images: vec![],
+                s3_videos: vec![],
+                remote_videos: vec![],
+                remote_images: self
+                    .order_images_by_size(&details.track.cover)
+                    .into_iter()
+                    .map(|t| t.url)
+                    .collect(),
+            },
             people: details
                 .track
                 .artists

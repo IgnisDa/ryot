@@ -2,7 +2,9 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{PersonSourceSpecifics, SearchDetails, StoredUrl};
+use common_models::{
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
+};
 use common_utils::PAGE_SIZE;
 use config::AnilistPreferredLanguage;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
@@ -11,8 +13,7 @@ use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
-    MetadataImageForMediaDetails, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -539,11 +540,7 @@ async fn media_details(
     if let Some(i) = media.banner_image {
         images.push(i);
     }
-    let images = images
-        .into_iter()
-        .map(|i| MetadataImageForMediaDetails { image: i })
-        .unique()
-        .collect();
+    let remote_images = images.into_iter().unique().collect();
     let mut genres = media
         .genres
         .into_iter()
@@ -664,14 +661,25 @@ async fn media_details(
         })
         .collect();
     let score = media.average_score.map(Decimal::from);
-    let videos = Vec::from_iter(media.trailer.map(|t| MetadataVideo {
-        identifier: StoredUrl::Url(t.id.unwrap()),
-        source: match t.site.unwrap().as_str() {
-            "youtube" => MetadataVideoSource::Youtube,
-            "dailymotion" => MetadataVideoSource::Dailymotion,
+    let remote_videos = Vec::from_iter(media.trailer.map(|t| {
+        let source = match t.site.unwrap().as_str() {
+            "youtube" => EntityRemoteVideoSource::Youtube,
+            "dailymotion" => EntityRemoteVideoSource::Dailymotion,
             _ => unreachable!(),
-        },
+        };
+        EntityRemoteVideo {
+            url: t.id.unwrap(),
+            source,
+        }
     }));
+
+    let assets = EntityAssets {
+        remote_images,
+        remote_videos,
+        s3_images: vec![],
+        s3_videos: vec![],
+    };
+
     let title = media.title.unwrap();
     let title = get_in_preferred_language(
         title.native,
@@ -683,11 +691,10 @@ async fn media_details(
     Ok(MetadataDetails {
         lot,
         people,
-        videos,
+        assets,
         suggestions,
         anime_specifics,
         manga_specifics,
-        url_images: images,
         publish_year: year,
         title: title.clone(),
         provider_rating: score,
