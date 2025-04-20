@@ -17,82 +17,82 @@ import openLibraryBookSearchScriptCode from "~/lib/sandbox/scripts/openlibrary-b
 
 export const builtinSandboxScripts = () => [
 	{
-		name: "Hardcover Book Search",
+		name: "Hardcover",
 		slug: "hardcover.book.search",
 		code: hardcoverBookSearchScriptCode,
 	},
 	{
-		name: "Hardcover Book Import",
+		name: "Hardcover",
 		slug: "hardcover.book.details",
 		code: hardcoverBookDetailsScriptCode,
 	},
 	{
-		name: "OpenLibrary Book Search",
+		name: "OpenLibrary",
 		slug: "openlibrary.book.search",
 		code: openLibraryBookSearchScriptCode,
 	},
 	{
-		name: "OpenLibrary Book Import",
+		name: "OpenLibrary",
 		slug: "openlibrary.book.details",
 		code: openLibraryBookDetailsScriptCode,
 	},
 	{
-		name: "Google Books Book Search",
+		name: "Google Books",
 		slug: "google-books.book.search",
 		code: googleBooksBookSearchScriptCode,
 	},
 	{
-		name: "Google Books Book Import",
+		name: "Google Books",
 		slug: "google-books.book.details",
 		code: googleBooksBookDetailsScriptCode,
 	},
 	{
-		name: "Anilist Anime Search",
+		name: "Anilist",
 		slug: "anilist.anime.search",
 		code: anilistAnimeSearchScriptCode,
 	},
 	{
-		name: "Anilist Anime Import",
+		name: "Anilist",
 		slug: "anilist.anime.details",
 		code: anilistAnimeDetailsScriptCode,
 	},
 	{
-		name: "Anilist Manga Search",
+		name: "Anilist",
 		slug: "anilist.manga.search",
 		code: anilistMangaSearchScriptCode,
 	},
 	{
-		name: "Anilist Manga Import",
+		name: "Anilist",
 		slug: "anilist.manga.details",
 		code: anilistMangaDetailsScriptCode,
 	},
 	{
-		name: "MyAnimeList Manga Search",
+		name: "MyAnimeList",
 		slug: "myanimelist.manga.search",
 		code: myanimelistMangaSearchScriptCode,
 	},
 	{
-		name: "MyAnimeList Anime Search",
+		name: "MyAnimeList",
 		slug: "myanimelist.anime.search",
 		code: myanimelistAnimeSearchScriptCode,
 	},
 	{
-		name: "MyAnimeList Anime Import",
+		name: "MyAnimeList",
 		slug: "myanimelist.anime.details",
 		code: myanimelistAnimeDetailsScriptCode,
 	},
 	{
-		name: "MyAnimeList Manga Import",
+		name: "MyAnimeList",
 		slug: "myanimelist.manga.details",
 		code: myanimelistMangaDetailsScriptCode,
 	},
 	{
-		name: "MangaUpdates Manga Search",
+		name: "MangaUpdates",
 		slug: "manga-updates.manga.search",
 		code: mangaUpdatesMangaSearchScriptCode,
 	},
 	{
-		name: "MangaUpdates Manga Import",
+		name: "MangaUpdates",
 		slug: "manga-updates.manga.details",
 		code: mangaUpdatesMangaDetailsScriptCode,
 	},
