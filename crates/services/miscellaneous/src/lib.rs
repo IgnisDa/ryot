@@ -37,7 +37,7 @@ use database_models::{
 use database_utils::{
     calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, get_user_query, ilike_sql, item_reviews,
-    revoke_access_link, user_by_id,
+    revoke_access_link, transform_entity_assets, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
@@ -134,7 +134,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: &String,
     ) -> Result<MetadataPartialDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
+        let mut metadata = Metadata::find_by_id(metadata_id)
             .select_only()
             .columns([
                 metadata::Column::Id,
@@ -148,6 +148,7 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
+        transform_entity_assets(&mut metadata.assets, &self.0).await;
         Ok(metadata)
     }
 
@@ -157,7 +158,7 @@ impl MiscellaneousService {
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
         let MetadataBaseData {
-            model,
+            mut model,
             genres,
             creators,
             suggestions,
@@ -179,6 +180,8 @@ impl MiscellaneousService {
         }
 
         let watch_providers = model.watch_providers.unwrap_or_default();
+
+        transform_entity_assets(&mut model.assets, &self.0).await;
 
         let resp = GraphqlMetadataDetails {
             group,
