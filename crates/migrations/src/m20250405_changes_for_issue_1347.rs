@@ -83,12 +83,8 @@ DROP FUNCTION update_entity_assets_keys;
 
         if !manager.has_column("metadata", "assets").await? {
             // Add the new 'assets' column to the metadata table
-            db.execute_unprepared(
-                r#"
-ALTER TABLE metadata ADD COLUMN EXISTS assets JSONB;
-"#,
-            )
-            .await?;
+            db.execute_unprepared(r#"ALTER TABLE metadata ADD COLUMN assets JSONB;"#)
+                .await?;
 
             // Migrate existing images/videos data into the new 'assets' column
             db.execute_unprepared(
@@ -140,12 +136,8 @@ ALTER TABLE metadata ADD COLUMN EXISTS assets JSONB;
 
         if !manager.has_column("person", "assets").await? {
             // Add the new 'assets' column to the person table
-            db.execute_unprepared(
-                r#"
-ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;
-"#,
-            )
-            .await?;
+            db.execute_unprepared(r#"ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;"#)
+                .await?;
 
             // Migrate existing images data into the new 'assets' column for the person table
             db.execute_unprepared(
@@ -182,9 +174,7 @@ ALTER TABLE person ADD COLUMN IF NOT EXISTS assets JSONB;
         if !manager.has_column("metadata_group", "assets").await? {
             // Add the new 'assets' column to the metadata_group table
             db.execute_unprepared(
-                r#"
-ALTER TABLE metadata_group ADD COLUMN IF NOT EXISTS assets JSONB;
-"#,
+                r#"ALTER TABLE metadata_group ADD COLUMN IF NOT EXISTS assets JSONB;"#,
             )
             .await?;
 
