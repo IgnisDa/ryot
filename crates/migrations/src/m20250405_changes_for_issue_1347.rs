@@ -214,6 +214,53 @@ ALTER TABLE metadata_group ADD COLUMN IF NOT EXISTS assets JSONB;
         db.execute_unprepared(r#"ALTER TABLE metadata_group DROP COLUMN IF EXISTS images;"#)
             .await?;
 
+        // Update the exercise table to move internalImages to assets
+        db.execute_unprepared(
+            r#"
+            -- Update exercise attributes for exercises with S3 images
+            UPDATE exercise
+            SET attributes = jsonb_set(
+                attributes,
+                '{assets}',
+                jsonb_build_object(
+                    's3_images', COALESCE((
+                        SELECT jsonb_agg(img->'S3')
+                        FROM jsonb_array_elements(COALESCE(attributes->'internalImages', '[]'::jsonb)) AS img
+                        WHERE img ? 'S3'
+                    ), '[]'::jsonb),
+                    's3_videos', '[]'::jsonb,
+                    'remote_images', COALESCE((
+                        SELECT jsonb_agg(img->'Url')
+                        FROM jsonb_array_elements(COALESCE(attributes->'internalImages', '[]'::jsonb)) AS img
+                        WHERE img ? 'Url'
+                    ), '[]'::jsonb),
+                    'remote_videos', '[]'::jsonb
+                )
+            )
+            WHERE attributes ? 'internalImages' AND jsonb_array_length(attributes->'internalImages') > 0;
+
+            -- Ensure all exercises without assets have the structure (with empty arrays)
+            UPDATE exercise
+            SET attributes = jsonb_set(
+                attributes,
+                '{assets}',
+                jsonb_build_object(
+                    's3_images', '[]'::jsonb,
+                    's3_videos', '[]'::jsonb,
+                    'remote_images', '[]'::jsonb,
+                    'remote_videos', '[]'::jsonb
+                )
+            )
+            WHERE NOT attributes ? 'assets';
+
+            -- Remove the internalImages field after migration
+            UPDATE exercise
+            SET attributes = attributes - 'internalImages'
+            WHERE attributes ? 'internalImages';
+            "#,
+        )
+        .await?;
+
         Ok(())
     }
 
