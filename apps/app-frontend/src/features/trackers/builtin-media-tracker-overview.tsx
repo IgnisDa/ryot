@@ -17,8 +17,9 @@ import {
 	UnstyledButton,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { ChevronRight, Clock, Play, Plus, Star } from "lucide-react";
-import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bookmark, ChevronRight, Clock, Play, Star } from "lucide-react";
+import { useCallback, useState } from "react";
 import { useResolvedImageUrls } from "#/features/entities/image";
 import { toAppEntityImage } from "#/features/entities/model";
 import {
@@ -1027,6 +1028,7 @@ export function BuiltinMediaTrackerOverview(
 ) {
 	const t = useThemeTokens();
 	const apiClient = useApiClient();
+	const queryClient = useQueryClient();
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
 
 	const overviewQuery = apiClient.useQuery("get", "/media/overview");
@@ -1051,17 +1053,34 @@ export function BuiltinMediaTrackerOverview(
 	);
 	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 
-	const openSearchModal = (schema: AppEntitySchema) => {
+	const invalidateOverview = useCallback(() => {
+		void queryClient.invalidateQueries({
+			queryKey: apiClient.queryOptions("get", "/media/overview").queryKey,
+		});
+	}, [apiClient, queryClient]);
+
+	const openSearchModal = (
+		schema: AppEntitySchema,
+		intent: "log" | "backlog",
+	) => {
 		const searchModalId = `builtin-media-search-${props.tracker.id}-${schema.id}`;
+		const actionVerb = intent === "log" ? "Start" : "Queue";
 
 		modals.open({
 			size: "lg",
 			centered: true,
 			modalId: searchModalId,
 			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
-			children: <SearchEntityModalContent entitySchema={schema} />,
+			children: (
+				<SearchEntityModalContent
+					entitySchema={schema}
+					initialAction={intent}
+					onActionCompleted={invalidateOverview}
+				/>
+			),
 			title: (
 				<SearchEntityModalTitle
+					actionVerb={actionVerb}
 					entitySchemaName={schema.name}
 					onBack={() => modals.close(searchModalId)}
 				/>
@@ -1069,7 +1088,9 @@ export function BuiltinMediaTrackerOverview(
 		});
 	};
 
-	const openTypePickerModal = () => {
+	const openTypePickerModal = (intent: "log" | "backlog") => {
+		const title = intent === "log" ? "Start something" : "Queue something";
+
 		modals.open({
 			size: "lg",
 			centered: true,
@@ -1077,7 +1098,7 @@ export function BuiltinMediaTrackerOverview(
 			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
 			title: (
 				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					Add to Media
+					{title}
 				</Text>
 			),
 			children: (
@@ -1086,7 +1107,7 @@ export function BuiltinMediaTrackerOverview(
 						return (
 							<UnstyledButton
 								key={schema.id}
-								onClick={() => openSearchModal(schema)}
+								onClick={() => openSearchModal(schema, intent)}
 							>
 								<Paper
 									p="md"
@@ -1202,14 +1223,24 @@ export function BuiltinMediaTrackerOverview(
 						</Badge>
 					</Group>
 				</Stack>
-				<Button
-					size="sm"
-					onClick={openTypePickerModal}
-					leftSection={<Plus size={14} />}
-					style={{ backgroundColor: GOLD, color: "white" }}
-				>
-					Add media
-				</Button>
+				<Group gap="xs">
+					<Button
+						size="sm"
+						variant="default"
+						leftSection={<Bookmark size={14} />}
+						onClick={() => openTypePickerModal("backlog")}
+					>
+						Queue something
+					</Button>
+					<Button
+						size="sm"
+						leftSection={<Play size={14} />}
+						style={{ backgroundColor: GOLD, color: "white" }}
+						onClick={() => openTypePickerModal("log")}
+					>
+						Start something
+					</Button>
+				</Group>
 			</Group>
 
 			{continueItems.length > 0 && (
