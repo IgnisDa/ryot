@@ -1001,11 +1001,6 @@ pub struct UpdateUserNotificationPlatformInput {
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum CreateCustomMediaErrorVariant {
-    LotDoesNotMatchSpecifics,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum UserDetailsErrorVariant {
     AuthTokenInvalid,
 }
