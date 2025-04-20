@@ -286,7 +286,9 @@ export interface paths {
         /** List trackers for the authenticated user */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    includeDisabled?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1418,6 +1420,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    includeDisabled?: string;
                     trackerId?: string;
                 };
                 header?: never;
