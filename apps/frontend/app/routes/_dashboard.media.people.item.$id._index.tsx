@@ -382,7 +382,7 @@ const MetadataGroupDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			title={metadataGroupDetails?.details.title}
-			image={metadataGroupDetails?.details.displayImages[0]}
+			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 		/>
 	);
