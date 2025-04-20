@@ -1161,8 +1161,8 @@ export type MetadataCreatorGroupedByRole = {
 
 export type MetadataGroup = {
   __typename?: 'MetadataGroup';
+  assets: EntityAssets;
   description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;

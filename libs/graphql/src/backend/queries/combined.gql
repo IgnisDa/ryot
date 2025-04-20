@@ -382,7 +382,9 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 			sourceUrl
 			identifier
 			description
-			displayImages
+			assets {
+				...EntityAssetsPart
+			}
 		}
 	}
 }
