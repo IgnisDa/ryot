@@ -15,12 +15,14 @@ export function sortTrackersByOrder(trackers: AppTracker[]): AppTracker[] {
 }
 
 export function selectEnabledTrackers(trackers: AppTracker[]): AppTracker[] {
-	return trackers.filter((tracker) => tracker.enabled);
+	return trackers.filter((tracker) => !tracker.isDisabled);
 }
 
 export function findEnabledTrackerBySlug(
 	trackers: AppTracker[],
 	slug: string,
 ): AppTracker | undefined {
-	return trackers.find((tracker) => tracker.enabled && tracker.slug === slug);
+	return trackers.find(
+		(tracker) => !tracker.isDisabled && tracker.slug === slug,
+	);
 }

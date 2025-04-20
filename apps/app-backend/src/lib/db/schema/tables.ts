@@ -73,8 +73,8 @@ export const tracker = pgTable(
 		config: jsonb().notNull().default({}),
 		createdAt: timestamp().defaultNow().notNull(),
 		sortOrder: integer().notNull().default(0),
-		enabled: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
+		isDisabled: boolean().notNull().default(false),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

@@ -21,11 +21,11 @@ const createListedTracker = (
 	config: null,
 	icon: "film",
 	sortOrder: 0,
-	enabled: true,
 	slug: "media",
 	name: "Media",
 	id: "tracker_1",
 	isBuiltin: false,
+	isDisabled: false,
 	description: null,
 	accentColor: "#5B7FFF",
 	...overrides,
@@ -60,7 +60,7 @@ const createTrackerBody = (): CreateTrackerBody => ({
 const createUpdateTrackerBody = (): UpdateTrackerBody => ({
 	icon: "film",
 	name: "Media",
-	enabled: true,
+	isDisabled: false,
 	accentColor: "#5B7FFF",
 	description: "Track media",
 });
@@ -90,8 +90,8 @@ const createDeps = (
 		"tracker_3",
 	],
 	persistTrackerOrderForUser: async (input) => input.trackerIds,
-	setTrackerEnabledForUser: async (input) =>
-		createListedTracker({ enabled: input.enabled, id: input.trackerId }),
+	setTrackerIsDisabledForUser: async (input) =>
+		createListedTracker({ isDisabled: input.isDisabled, id: input.trackerId }),
 	updateTrackerForUser: async (input) =>
 		createListedTracker({
 			icon: input.icon,
@@ -228,19 +228,19 @@ describe("createTracker", () => {
 });
 
 describe("updateTracker", () => {
-	it("updates enabled-only changes through the dedicated repository path", async () => {
+	it("updates isDisabled-only changes through the dedicated repository path", async () => {
 		const updatedTracker = expectDataResult(
 			await updateTracker(
 				{
 					userId: "user_1",
 					trackerId: "tracker_1",
-					body: { enabled: false },
+					body: { isDisabled: true },
 				},
 				createDeps(),
 			),
 		);
 
-		expect(updatedTracker.enabled).toBe(false);
+		expect(updatedTracker.isDisabled).toBe(true);
 	});
 
 	it("returns not found when the tracker does not exist", async () => {
@@ -276,7 +276,7 @@ describe("updateTracker", () => {
 			{
 				userId: "user_1",
 				trackerId: "   ",
-				body: { enabled: false },
+				body: { isDisabled: true },
 			},
 			createDeps(),
 		);
