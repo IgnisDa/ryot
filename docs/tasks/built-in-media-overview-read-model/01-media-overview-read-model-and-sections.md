@@ -4,11 +4,11 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
-Deliver the first end-to-end backend slice for the built-in media overview by introducing the dedicated overview read model, exposing the public backend contract, and fully powering the `Continue`, `Up Next`, and `Rate These` sections for `book`, `anime`, and `manga`.
+Deliver the first end-to-end backend slice for the built-in media overview by introducing the dedicated overview read model, exposing the public backend contract at `/media/overview`, and fully powering the `Continue`, `Up Next`, and `Rate These` sections for `book`, `anime`, and `manga`.
 
 This slice should own section semantics, ordering, response shaping, and presentation defaults while using view-runtime internally for latest-event joins, expression evaluation, and schema-aware data access. The delivered behavior should be sufficient for a caller to render all three sections without reconstructing lifecycle rules in the frontend.
 
@@ -16,11 +16,17 @@ See the parent PRD sections "Solution", "Read-model architecture", "Current-stat
 
 ## Acceptance criteria
 
-- [ ] A backend overview endpoint returns the three section payloads `Continue`, `Up Next`, and `Rate These` in one purpose-built response for built-in media only
-- [ ] `Continue` and `Up Next` are classified from the latest lifecycle event among `backlog`, `progress`, and `complete`, with `Continue` meaning latest `progress` and `Up Next` meaning latest `backlog`
-- [ ] `Rate These` membership is based on latest `complete` being newer than latest `review`, including the no-review case and reread or rewatch re-entry behavior
-- [ ] Section ordering matches the PRD rules, including `coalesce(completedOn, complete.@createdAt)` for `Rate These`
-- [ ] The response includes both raw structured fields and UI-ready labels, including schema-specific `Continue` CTAs, shared `Start` for `Up Next`, shared subtitle from `publishYear`, and usable progress labels when totals are unknown
+- [x] A backend overview endpoint returns the three section payloads `Continue`, `Up Next`, and `Rate These` in one purpose-built response for built-in media only
+- [x] `Continue` and `Up Next` are classified from the latest lifecycle event among `backlog`, `progress`, and `complete`, with `Continue` meaning latest `progress` and `Up Next` meaning latest `backlog`
+- [x] `Rate These` membership is based on latest `complete` being newer than latest `review`, including the no-review case and reread or rewatch re-entry behavior
+- [x] Section ordering matches the PRD rules, including `coalesce(completedOn, complete.@createdAt)` for `Rate These`
+- [x] The response includes both raw structured fields and UI-ready labels, including schema-specific `Continue` CTAs, shared `Start` for `Up Next`, shared subtitle from `publishYear`, and usable progress labels when totals are unknown
+
+## Delivered notes
+
+- The public backend contract now lives at `/media/overview` under `apps/app-backend/src/modules/media/routes.ts`
+- The overview implementation is owned by the standalone media module and uses view-runtime internally for data retrieval
+- Backend unit coverage exists in `apps/app-backend/src/modules/media/` and end-to-end coverage exists in `tests/src/tests/media-overview.test.ts`
 
 ## Blocked by
 
