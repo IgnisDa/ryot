@@ -1299,9 +1299,13 @@ const focusOnExercise = (idx: number) => {
 const exerciseHasDetailsToShow = (
 	details?: ExerciseDetails,
 	userDetails?: UserExerciseDetails,
-) =>
-	(details?.attributes.images.length || 0) > 0 ||
-	(userDetails?.history?.length || 0) > 0;
+) => {
+	const images = [
+		...(details?.attributes.assets.s3Images || []),
+		...(details?.attributes.assets.remoteImages || []),
+	];
+	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
+};
 
 const UploadAssetsModal = (props: {
 	closeModal: () => void;
@@ -1529,6 +1533,10 @@ const ExerciseDisplay = (props: {
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
+	const images = [
+		...(exerciseDetails?.attributes.assets.s3Images || []),
+		...(exerciseDetails?.attributes.assets.remoteImages || []),
+	];
 
 	const didExerciseActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;
@@ -1578,7 +1586,7 @@ const ExerciseDisplay = (props: {
 					/>
 					<ScrollArea type="scroll">
 						<Group wrap="nowrap">
-							{exerciseDetails?.attributes.images.map((i) => (
+							{images.map((i) => (
 								<Image key={i} src={i} h={200} w={350} radius="md" />
 							))}
 						</Group>

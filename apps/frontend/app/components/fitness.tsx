@@ -262,6 +262,11 @@ export const ExerciseHistory = (props: {
 		s.exercises.includes(props.exerciseIdx),
 	);
 
+	const images = [
+		...(exerciseDetails?.attributes.assets.s3Images || []),
+		...(exerciseDetails?.attributes.assets.remoteImages || []),
+	];
+
 	return (
 		<Paper
 			p="xs"
@@ -364,7 +369,7 @@ export const ExerciseHistory = (props: {
 								{!props.hideExerciseDetails && exerciseDetails ? (
 									<ScrollArea type="scroll">
 										<Flex gap="lg">
-											{exerciseDetails.attributes.images.map((i) => (
+											{images.map((i) => (
 												<Image key={i} radius="md" src={i} h={200} w={350} />
 											))}
 										</Flex>
@@ -437,12 +442,17 @@ export const ExerciseDisplayItem = (props: {
 	});
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 
+	const images = [
+		...(exerciseDetails?.attributes.assets.s3Images || []),
+		...(exerciseDetails?.attributes.assets.remoteImages || []),
+	];
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
+			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
 			isLoading={isExerciseDetailsLoading}
-			imageUrl={exerciseDetails?.attributes.images.at(0)}
 			onImageClickBehavior={getExerciseDetailsPath(props.exerciseId)}
 			labels={{
 				left: isNumber(times)
