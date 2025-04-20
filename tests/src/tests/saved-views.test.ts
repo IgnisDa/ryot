@@ -13,6 +13,7 @@ import {
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
+	literalExpression,
 	reorderSavedViews,
 	schemaPropertyExpression,
 	updateSavedView,
@@ -66,18 +67,18 @@ describe("Saved views E2E", () => {
 			name: "Lifecycle View (Copy) Revised",
 			queryDefinition: {
 				eventJoins: [],
+				computedFields: [],
 				entitySchemaSlugs: ["anime", "manga"],
 				sort: {
 					direction: "desc",
-					fields: [entityField("anime", "createdAt")],
+					expression: entityColumnExpression("anime", "createdAt"),
 				},
-				filters: [
-					{
-						op: "eq",
-						value: "active",
-						field: entityField("anime", "productionStatus"),
-					},
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("active"),
+					left: schemaPropertyExpression("anime", "productionStatus"),
+				},
 			},
 			displayConfiguration: {
 				grid: {
@@ -492,10 +493,11 @@ describe("Saved views E2E", () => {
 			body: buildSavedViewBody({
 				name: "Broken Sort View",
 				queryDefinition: {
-					filters: [],
+					filter: null,
 					eventJoins: [],
+					computedFields: [],
 					entitySchemaSlugs: ["book"],
-					sort: { fields: [], direction: "asc" },
+					sort: { expression: literalExpression(null), direction: "asc" },
 				},
 			}),
 		});
@@ -504,10 +506,11 @@ describe("Saved views E2E", () => {
 			params: { path: { viewId: createdView.id } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: {
-					filters: [],
+					filter: null,
 					eventJoins: [],
+					computedFields: [],
 					entitySchemaSlugs: ["book"],
-					sort: { fields: [], direction: "asc" },
+					sort: { expression: literalExpression(null), direction: "asc" },
 				},
 			}),
 		});
@@ -815,12 +818,13 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const invalidQueryDefinition = {
-			filters: [],
+			filter: null,
 			eventJoins: [],
+			computedFields: [],
 			entitySchemaSlugs: ["book"],
 			sort: {
 				direction: "asc",
-				fields: [entityField("book", "nonexistent_property")],
+				expression: schemaPropertyExpression("book", "nonexistent_property"),
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
@@ -828,7 +832,6 @@ describe("Saved views E2E", () => {
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
-
 		const createdView = await createSavedView(client, cookies);
 		const updateResult = await client.PUT("/saved-views/{viewId}", {
 			headers: { Cookie: cookies },
@@ -881,12 +884,13 @@ describe("Saved views E2E", () => {
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				queryDefinition: {
-					filters: [],
+					filter: null,
 					eventJoins: [],
+					computedFields: [],
 					entitySchemaSlugs: ["does-not-exist"],
 					sort: {
 						direction: "asc",
-						fields: [entityField("does-not-exist", "name")],
+						expression: entityColumnExpression("does-not-exist", "name"),
 					},
 				},
 			}),
