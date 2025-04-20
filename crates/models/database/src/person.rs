@@ -3,9 +3,9 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::PersonSourceSpecifics;
+use common_models::{EntityAssets, PersonSourceSpecifics};
 use enum_models::MediaSource;
-use media_models::{MetadataImage, PersonStateChanges};
+use media_models::PersonStateChanges;
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
@@ -19,23 +19,20 @@ pub struct Model {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    #[sea_orm(column_type = "Json")]
+    pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
     pub created_on: DateTimeUtc,
     pub website: Option<String>,
     pub is_partial: Option<bool>,
     pub source_url: Option<String>,
-    #[sea_orm(ignore)]
-    pub display_images: Vec<String>,
     pub description: Option<String>,
     pub last_updated_on: DateTimeUtc,
     pub associated_entity_count: i32,
     pub birth_date: Option<NaiveDate>,
     pub death_date: Option<NaiveDate>,
     pub associated_metadata_count: i32,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub images: Option<Vec<MetadataImage>>,
     pub alternate_names: Option<Vec<String>>,
     pub associated_metadata_groups_count: i32,
     #[graphql(skip)]

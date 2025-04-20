@@ -4,9 +4,10 @@ use async_graphql::{Enum, InputObject, InputType, OutputType, SimpleObject, Unio
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, PersonSourceSpecifics, ProgressUpdateCacheInput,
-    SearchDetails, SearchInput, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
+    DailyUserActivityHourRecord, EntityAssets, MetadataGroupSearchInput,
+    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput,
+    PersonSourceSpecifics, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -155,12 +156,12 @@ pub struct PersonDetails {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
     pub website: Option<String>,
     pub source_url: Option<String>,
     pub description: Option<String>,
-    pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,
     pub birth_date: Option<NaiveDate>,
     pub alternate_names: Option<Vec<String>>,

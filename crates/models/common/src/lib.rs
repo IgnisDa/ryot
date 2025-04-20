@@ -62,6 +62,7 @@ pub enum EntityRemoteVideoSource {
 /// The data that a remote video can have.
 #[derive(
     Eq,
+    Hash,
     Clone,
     Debug,
     Default,
@@ -83,6 +84,7 @@ pub struct EntityRemoteVideo {
 /// The assets related to an entity.
 #[derive(
     Eq,
+    Hash,
     Clone,
     Debug,
     Default,

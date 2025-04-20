@@ -411,7 +411,12 @@ impl MediaProvider for NonMediaAnilistService {
                 related_metadata,
                 death_date,
                 birth_date,
-                images: Some(images),
+                assets: EntityAssets {
+                    remote_images: images,
+                    s3_images: vec![],
+                    s3_videos: vec![],
+                    remote_videos: vec![],
+                },
                 gender: details.gender,
                 place: details.home_town,
                 source: MediaSource::Anilist,
