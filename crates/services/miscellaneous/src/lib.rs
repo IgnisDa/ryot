@@ -54,11 +54,10 @@ use dependent_utils::{
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
     generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
     get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_images_as_urls,
-    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -1618,12 +1617,10 @@ impl MiscellaneousService {
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
-        let mut details = Person::find_by_id(person_id.clone())
+        let details = Person::find_by_id(person_id.clone())
             .one(&self.0.db)
             .await?
             .unwrap();
-        details.display_images =
-            metadata_images_as_urls(&details.images, &self.0.file_storage_service).await;
         let metadata_associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
             .order_by_asc(metadata_to_person::Column::Index)

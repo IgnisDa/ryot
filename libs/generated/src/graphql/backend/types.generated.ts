@@ -1638,6 +1638,7 @@ export type PeopleSearchInput = {
 export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
+  assets: EntityAssets;
   associatedEntityCount: Scalars['Int']['output'];
   associatedMetadataCount: Scalars['Int']['output'];
   associatedMetadataGroupsCount: Scalars['Int']['output'];
@@ -1645,7 +1646,6 @@ export type Person = {
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
   gender?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];

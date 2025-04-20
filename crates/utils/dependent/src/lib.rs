@@ -677,25 +677,15 @@ async fn update_person(
         .person_details(&person.identifier, &person.source_specifics)
         .await?;
     ryot_log!(debug, "Updating person for {:?}", person_id);
-    let images = provider_person
-        .images
-        .map(|images| {
-            images
-                .into_iter()
-                .map(|i| MetadataImage {
-                    url: StoredUrl::Url(i),
-                })
-                .collect()
-        })
-        .filter(|i: &Vec<MetadataImage>| !i.is_empty());
+
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
     let mut to_update_person: person::ActiveModel = person.clone().into();
-    to_update_person.images = ActiveValue::Set(images);
     to_update_person.is_partial = ActiveValue::Set(Some(false));
     to_update_person.name = ActiveValue::Set(provider_person.name);
     to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
     to_update_person.place = ActiveValue::Set(provider_person.place);
     to_update_person.gender = ActiveValue::Set(provider_person.gender);
+    to_update_person.assets = ActiveValue::Set(provider_person.assets);
     to_update_person.website = ActiveValue::Set(provider_person.website);
     to_update_person.source_url = ActiveValue::Set(provider_person.source_url);
     to_update_person.birth_date = ActiveValue::Set(provider_person.birth_date);
@@ -1002,13 +992,13 @@ pub async fn commit_metadata_group(
 }
 
 pub async fn commit_person(
-    input: CommitPersonInput,
+    data: CommitPersonInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
     match Person::find()
-        .filter(person::Column::Source.eq(input.source))
-        .filter(person::Column::Identifier.eq(&input.identifier))
-        .filter(match input.source_specifics.clone() {
+        .filter(person::Column::Source.eq(data.source))
+        .filter(person::Column::Identifier.eq(&data.identifier))
+        .filter(match data.source_specifics.clone() {
             None => person::Column::SourceSpecifics.is_null(),
             Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
         })
@@ -1018,18 +1008,17 @@ pub async fn commit_person(
     {
         Some(p) => Ok(p),
         None => {
-            let image = input.image.clone().map(|i| {
-                vec![MetadataImage {
-                    url: StoredUrl::Url(i),
-                }]
-            });
+            let mut assets = EntityAssets::default();
+            if let Some(i) = data.image.clone() {
+                assets.remote_images = vec![i];
+            }
             let person = person::ActiveModel {
-                images: ActiveValue::Set(image),
-                name: ActiveValue::Set(input.name),
-                source: ActiveValue::Set(input.source),
+                assets: ActiveValue::Set(assets),
+                name: ActiveValue::Set(data.name),
+                source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
-                identifier: ActiveValue::Set(input.identifier),
-                source_specifics: ActiveValue::Set(input.source_specifics),
+                identifier: ActiveValue::Set(data.identifier),
+                source_specifics: ActiveValue::Set(data.source_specifics),
                 ..Default::default()
             };
             let person = person.insert(&ss.db).await?;
