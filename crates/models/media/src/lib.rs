@@ -410,11 +410,6 @@ pub struct PartialMetadataPerson {
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
-pub struct MetadataImageForMediaDetails {
-    pub image: String,
-}
-
 #[derive(
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject, Default,
 )]
