@@ -115,9 +115,9 @@ export const PartialMetadataDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			extraText={props.extraText}
-			image={metadataDetails?.image || undefined}
 			title={metadataDetails?.title || undefined}
 			hasInteracted={userMetadataDetails?.hasInteracted}
+			image={metadataDetails?.assets.remoteImages.at(0) || undefined}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>
 	);
@@ -265,7 +265,7 @@ export const MetadataDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
-			imageUrl={metadataDetails?.assets.images.at(0)}
+			imageUrl={metadataDetails?.assets.remoteImages.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&

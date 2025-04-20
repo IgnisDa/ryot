@@ -218,6 +218,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			assets: {
+				remoteImages: [],
+				remoteVideos: [],
 				s3Videos: [...currentWorkout.videos],
 				s3Images: currentWorkout.images.map((m) => m.key),
 			},
@@ -251,6 +253,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			unitSystem: exercise.unitSystem,
 			exerciseId: exercise.exerciseId,
 			assets: {
+				remoteImages: [],
+				remoteVideos: [],
 				s3Images: exercise.images.map((m) => m.key),
 				s3Videos: exercise.videos.map((m) => m.key),
 			},

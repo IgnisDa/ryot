@@ -37,12 +37,12 @@ import {
 	DeployUpdateMetadataJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
+	EntityRemoteVideoSource,
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
 	type MetadataDetailsQuery,
-	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
 	UpdateSeenItemDocument,
@@ -293,6 +293,7 @@ export default function Page() {
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
+	const videos = [...loaderData.metadataDetails.assets.remoteVideos];
 	const additionalMetadataDetails = [
 		userPreferences.featuresEnabled.media.groups && firstGroupAssociated && (
 			<Link
@@ -421,7 +422,7 @@ export default function Page() {
 			<Container>
 				<MediaDetailsLayout
 					title={loaderData.metadataDetails.title}
-					images={loaderData.metadataDetails.assets.images}
+					assets={loaderData.metadataDetails.assets}
 					externalLink={{
 						lot: loaderData.metadataDetails.lot,
 						source: loaderData.metadataDetails.source,
@@ -635,8 +636,7 @@ export default function Page() {
 							>
 								Suggestions
 							</Tabs.Tab>
-							{!userPreferences.general.disableVideos &&
-							(loaderData.metadataDetails.assets.videos.length || 0) > 0 ? (
+							{!userPreferences.general.disableVideos && videos.length > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
@@ -1169,10 +1169,10 @@ export default function Page() {
 							<Tabs.Panel value="videos">
 								<MediaScrollArea>
 									<Stack>
-										{loaderData.metadataDetails.assets.videos.map((v) => (
+										{videos.map((v) => (
 											<VideoIframe
-												key={v.videoId}
-												videoId={v.videoId}
+												key={v.url}
+												videoId={v.url}
 												videoSource={v.source}
 											/>
 										))}
@@ -1230,7 +1230,7 @@ export default function Page() {
 
 const VideoIframe = (props: {
 	videoId: string;
-	videoSource: MetadataVideoSource;
+	videoSource: EntityRemoteVideoSource;
 }) => {
 	const [isMounted, setIsMounted] = useState(false);
 	const { ref, inViewport } = useInViewport();
@@ -1248,14 +1248,13 @@ const VideoIframe = (props: {
 					src={
 						match(props.videoSource)
 							.with(
-								MetadataVideoSource.Youtube,
+								EntityRemoteVideoSource.Youtube,
 								() => "https://www.youtube.com/embed/",
 							)
 							.with(
-								MetadataVideoSource.Dailymotion,
+								EntityRemoteVideoSource.Dailymotion,
 								() => "https://www.dailymotion.com/embed/video/",
 							)
-							.with(MetadataVideoSource.Custom, () => "")
 							.exhaustive() + props.videoId
 					}
 					title="Video player"

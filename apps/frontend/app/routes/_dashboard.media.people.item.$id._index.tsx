@@ -126,7 +126,12 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				title={loaderData.personDetails.details.name}
-				images={loaderData.personDetails.details.displayImages}
+				assets={{
+					s3Images: [],
+					s3Videos: [],
+					remoteVideos: [],
+					remoteImages: loaderData.personDetails.details.displayImages,
+				}}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.details.sourceUrl,

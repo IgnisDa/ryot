@@ -39,6 +39,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	type EntityAssets,
 	EntityLot,
 	GridPacking,
 	type MediaCollectionFilter,
@@ -171,7 +172,7 @@ export const ApplicationGrid = (props: {
 
 export const MediaDetailsLayout = (props: {
 	title: string;
-	images: Array<string | null | undefined>;
+	assets: EntityAssets;
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	externalLink?: {
 		lot?: MediaLot;
@@ -198,6 +199,8 @@ export const MediaDetailsLayout = (props: {
 		},
 	});
 
+	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
+
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
 			<Box
@@ -205,13 +208,11 @@ export const MediaDetailsLayout = (props: {
 				id="images-container"
 				className={classes.imagesContainer}
 			>
-				{props.images.length > 1 ? (
+				{images.length > 1 ? (
 					<Carousel w={300} onSlideChange={setActiveImageId}>
-						{props.images.map((url, idx) => (
+						{images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
-								{getSurroundingElements(props.images, activeImageId).includes(
-									idx,
-								) ? (
+								{getSurroundingElements(images, activeImageId).includes(idx) ? (
 									<Image src={url} radius="lg" />
 								) : null}
 							</Carousel.Slide>
@@ -222,7 +223,7 @@ export const MediaDetailsLayout = (props: {
 						<Image
 							radius="lg"
 							height={400}
-							src={props.images[0]}
+							src={images[0]}
 							fallbackSrc={fallbackImageUrl}
 						/>
 					</Box>
