@@ -119,9 +119,7 @@ impl MediaProvider for ITunesService {
         let remote_images = details.image.into_iter().collect();
         let assets = EntityAssets {
             remote_images,
-            s3_images: vec![],
-            s3_videos: vec![],
-            remote_videos: vec![],
+            ..Default::default()
         };
         let episodes: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let episodes = episodes.results.unwrap_or_default();

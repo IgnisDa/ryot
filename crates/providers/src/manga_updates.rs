@@ -328,15 +328,13 @@ impl MediaProvider for MangaUpdatesService {
             identifier: data.series_id.unwrap().to_string(),
             publish_year: data.year.and_then(|y| y.parse().ok()),
             assets: EntityAssets {
-                s3_images: vec![],
-                s3_videos: vec![],
-                remote_videos: vec![],
                 remote_images: Vec::from_iter(data.image.unwrap().url.original),
+                ..Default::default()
             },
             manga_specifics: Some(MangaSpecifics {
-                chapters: data.latest_chapter.map(Decimal::from),
-                url: data.url,
                 volumes,
+                url: data.url,
+                chapters: data.latest_chapter.map(Decimal::from),
             }),
             genres: data
                 .genres

@@ -225,10 +225,8 @@ query {{
             }
         }
         let assets = EntityAssets {
-            s3_images: vec![],
-            s3_videos: vec![],
-            remote_videos: vec![],
             remote_images: images,
+            ..Default::default()
         };
         let details = MetadataDetails {
             assets,

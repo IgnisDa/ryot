@@ -268,9 +268,7 @@ impl VndbService {
             provider_rating: item.rating,
             assets: EntityAssets {
                 remote_images,
-                s3_images: vec![],
-                s3_videos: vec![],
-                remote_videos: vec![],
+                ..Default::default()
             },
             ..Default::default()
         }

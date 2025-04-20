@@ -99,14 +99,12 @@ impl MediaProvider for YoutubeMusicService {
                 view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
             }),
             assets: EntityAssets {
-                s3_images: vec![],
-                s3_videos: vec![],
-                remote_videos: vec![],
                 remote_images: self
                     .order_images_by_size(&details.track.cover)
                     .into_iter()
                     .map(|t| t.url)
                     .collect(),
+                ..Default::default()
             },
             people: details
                 .track

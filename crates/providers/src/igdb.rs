@@ -622,9 +622,8 @@ impl IgdbService {
             source_url: Some(format!("https://www.igdb.com/games/{}", title)),
             assets: EntityAssets {
                 remote_videos,
-                s3_images: vec![],
-                s3_videos: vec![],
                 remote_images: images,
+                ..Default::default()
             },
             genres: item
                 .genres

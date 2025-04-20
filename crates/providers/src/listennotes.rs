@@ -279,10 +279,8 @@ impl ListennotesService {
                 .unique()
                 .collect(),
             assets: EntityAssets {
-                s3_images: vec![],
-                s3_videos: vec![],
-                remote_videos: vec![],
                 remote_images: Vec::from_iter(podcast_data.image),
+                ..Default::default()
             },
             podcast_specifics: Some(PodcastSpecifics {
                 episodes: podcast_data

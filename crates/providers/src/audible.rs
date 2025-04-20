@@ -439,10 +439,8 @@ impl AudibleService {
             _ => None,
         };
         let assets = EntityAssets {
-            s3_images: vec![],
-            s3_videos: vec![],
             remote_images: images,
-            remote_videos: vec![],
+            ..Default::default()
         };
         MetadataDetails {
             people,

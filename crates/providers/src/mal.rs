@@ -272,10 +272,8 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
             .clone()
             .and_then(|d| convert_date_to_year(&d)),
         assets: EntityAssets {
-            s3_images: vec![],
-            s3_videos: vec![],
-            remote_videos: vec![],
             remote_images: vec![details.main_picture.large],
+            ..Default::default()
         },
         genres: details
             .genres

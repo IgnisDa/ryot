@@ -676,8 +676,7 @@ async fn media_details(
     let assets = EntityAssets {
         remote_images,
         remote_videos,
-        s3_images: vec![],
-        s3_videos: vec![],
+        ..Default::default()
     };
 
     let title = media.title.unwrap();

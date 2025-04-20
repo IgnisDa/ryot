@@ -833,8 +833,7 @@ impl MediaProvider for TmdbMovieService {
             assets: EntityAssets {
                 remote_images,
                 remote_videos,
-                s3_images: vec![],
-                s3_videos: vec![],
+                ..Default::default()
             },
             publish_year: data
                 .release_date
@@ -1212,8 +1211,7 @@ impl MediaProvider for TmdbShowService {
             assets: EntityAssets {
                 remote_images,
                 remote_videos,
-                s3_images: vec![],
-                s3_videos: vec![],
+                ..Default::default()
             },
             show_specifics: Some(ShowSpecifics {
                 runtime: if total_runtime == 0 {
