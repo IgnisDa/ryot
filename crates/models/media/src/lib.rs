@@ -111,8 +111,8 @@ pub struct MovieSpecifics {
 )]
 #[graphql(input_name = "PodcastSpecificsInput")]
 pub struct PodcastSpecifics {
-    pub episodes: Vec<PodcastEpisode>,
     pub total_episodes: usize,
+    pub episodes: Vec<PodcastEpisode>,
 }
 
 #[skip_serializing_none]
@@ -131,13 +131,13 @@ pub struct PodcastSpecifics {
 #[graphql(input_name = "PodcastEpisodeInput")]
 #[serde(default)]
 pub struct PodcastEpisode {
-    pub number: i32,
     pub id: String,
+    pub number: i32,
+    pub title: String,
     #[serde(alias = "audio_length_sec")]
     pub runtime: Option<i32>,
     #[serde(alias = "description")]
     pub overview: Option<String>,
-    pub title: String,
     #[serde(alias = "pub_date_ms", deserialize_with = "deserialize_date")]
     pub publish_date: NaiveDate,
     pub thumbnail: Option<String>,
@@ -158,8 +158,8 @@ pub struct PodcastEpisode {
 )]
 #[graphql(input_name = "ShowSpecificsInput")]
 pub struct ShowSpecifics {
-    pub seasons: Vec<ShowSeason>,
     pub runtime: Option<i32>,
+    pub seasons: Vec<ShowSeason>,
     pub total_seasons: Option<usize>,
     pub total_episodes: Option<usize>,
 }
@@ -181,13 +181,13 @@ pub struct ShowSpecifics {
 #[graphql(input_name = "ShowSeasonSpecificsInput")]
 pub struct ShowSeason {
     pub id: i32,
-    pub season_number: i32,
     pub name: String,
-    pub publish_date: Option<NaiveDate>,
-    pub episodes: Vec<ShowEpisode>,
+    pub season_number: i32,
     pub overview: Option<String>,
+    pub episodes: Vec<ShowEpisode>,
     pub poster_images: Vec<String>,
     pub backdrop_images: Vec<String>,
+    pub publish_date: Option<NaiveDate>,
 }
 
 #[skip_serializing_none]
@@ -207,12 +207,12 @@ pub struct ShowSeason {
 #[graphql(input_name = "ShowEpisodeSpecificsInput")]
 pub struct ShowEpisode {
     pub id: i32,
-    pub episode_number: i32,
-    pub publish_date: Option<NaiveDate>,
     pub name: String,
+    pub episode_number: i32,
+    pub runtime: Option<i32>,
     pub overview: Option<String>,
     pub poster_images: Vec<String>,
-    pub runtime: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
 }
 
 #[skip_serializing_none]
@@ -324,9 +324,9 @@ pub struct MusicSpecifics {
 )]
 #[graphql(input_name = "MangaSpecificsInput")]
 pub struct MangaSpecifics {
-    pub chapters: Option<Decimal>,
-    pub volumes: Option<i32>,
     pub url: Option<String>,
+    pub volumes: Option<i32>,
+    pub chapters: Option<Decimal>,
 }
 
 #[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -347,21 +347,21 @@ pub struct PeopleSearchItem {
 
 #[derive(Debug, InputObject, Default)]
 pub struct CreateOrUpdateReviewInput {
-    pub rating: Option<Decimal>,
-    pub text: Option<String>,
-    pub visibility: Option<Visibility>,
-    pub is_spoiler: Option<bool>,
     pub entity_id: String,
+    pub text: Option<String>,
     pub entity_lot: EntityLot,
-    pub date: Option<DateTimeUtc>,
+    pub rating: Option<Decimal>,
+    pub is_spoiler: Option<bool>,
     /// ID of the review if this is an update to an existing review
     pub review_id: Option<String>,
+    pub date: Option<DateTimeUtc>,
+    pub visibility: Option<Visibility>,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
@@ -438,7 +438,6 @@ pub struct MetadataDetails {
     pub publish_year: Option<i32>,
     pub source_url: Option<String>,
     pub description: Option<String>,
-    pub groups: Vec<CommitMetadataGroupInput>,
     pub publish_date: Option<NaiveDate>,
     pub provider_rating: Option<Decimal>,
     pub original_language: Option<String>,
@@ -446,6 +445,7 @@ pub struct MetadataDetails {
     pub creators: Vec<MetadataFreeCreator>,
     pub people: Vec<PartialMetadataPerson>,
     pub watch_providers: Vec<WatchProvider>,
+    pub groups: Vec<CommitMetadataGroupInput>,
     pub show_specifics: Option<ShowSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,
@@ -467,24 +467,24 @@ pub struct MetadataDetails {
 pub struct ImportOrExportMetadataItemSeen {
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
-    /// The timestamp when started watching.
-    pub started_on: Option<NaiveDate>,
     /// The timestamp when finished watching.
     pub ended_on: Option<NaiveDate>,
+    /// The timestamp when started watching.
+    pub started_on: Option<NaiveDate>,
     /// If for a show, the season which was seen.
     pub show_season_number: Option<i32>,
-    /// If for a show, the episode which was seen.
-    pub show_episode_number: Option<i32>,
-    /// If for a podcast, the episode which was seen.
-    pub podcast_episode_number: Option<i32>,
-    /// If for an anime, the episode which was seen.
-    pub anime_episode_number: Option<i32>,
-    /// If for a manga, the chapter which was seen.
-    pub manga_chapter_number: Option<Decimal>,
     /// If for a manga, the volume which was seen.
     pub manga_volume_number: Option<i32>,
+    /// If for a show, the episode which was seen.
+    pub show_episode_number: Option<i32>,
+    /// If for an anime, the episode which was seen.
+    pub anime_episode_number: Option<i32>,
     /// The provider this item was watched on.
     pub provider_watched_on: Option<String>,
+    /// If for a podcast, the episode which was seen.
+    pub podcast_episode_number: Option<i32>,
+    /// If for a manga, the chapter which was seen.
+    pub manga_chapter_number: Option<Decimal>,
 }
 
 /// Review data associated to a rating.
@@ -492,14 +492,14 @@ pub struct ImportOrExportMetadataItemSeen {
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportItemReview {
-    /// The visibility set by the user.
-    pub visibility: Option<Visibility>,
-    /// The date the review was posted.
-    pub date: Option<DateTimeUtc>,
-    /// Whether to mark the review as a spoiler. Defaults to false.
-    pub spoiler: Option<bool>,
     /// Actual text for the review.
     pub text: Option<String>,
+    /// Whether to mark the review as a spoiler. Defaults to false.
+    pub spoiler: Option<bool>,
+    /// The date the review was posted.
+    pub date: Option<DateTimeUtc>,
+    /// The visibility set by the user.
+    pub visibility: Option<Visibility>,
 }
 
 /// A rating given to an entity.
@@ -507,20 +507,20 @@ pub struct ImportOrExportItemReview {
 #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportItemRating {
-    /// Data about the review.
-    pub review: Option<ImportOrExportItemReview>,
     /// The score of the review.
     pub rating: Option<Decimal>,
     /// If for a show, the season for which this review was for.
     pub show_season_number: Option<i32>,
     /// If for a show, the episode for which this review was for.
     pub show_episode_number: Option<i32>,
-    /// If for a podcast, the episode for which this review was for.
-    pub podcast_episode_number: Option<i32>,
     /// If for an anime, the episode for which this review was for.
     pub anime_episode_number: Option<i32>,
+    /// If for a podcast, the episode for which this review was for.
+    pub podcast_episode_number: Option<i32>,
     /// If for a manga, the chapter for which this review was for.
     pub manga_chapter_number: Option<Decimal>,
+    /// Data about the review.
+    pub review: Option<ImportOrExportItemReview>,
     /// The comments attached to this review.
     pub comments: Option<Vec<ImportOrExportItemReviewComment>>,
 }
@@ -618,9 +618,9 @@ pub struct ImportOrExportItemReviewComment {
     pub id: String,
     pub text: String,
     pub user: IdAndNamedObject,
+    pub created_on: DateTimeUtc,
     /// The user ids of all those who liked it.
     pub liked_by: HashSet<String>,
-    pub created_on: DateTimeUtc,
 }
 
 #[derive(
@@ -682,8 +682,8 @@ pub struct SeenAnimeExtraInformation {
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
 pub struct SeenMangaExtraInformation {
-    pub chapter: Option<Decimal>,
     pub volume: Option<i32>,
+    pub chapter: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -978,14 +978,14 @@ pub struct CreateOrUpdateUserIntegrationInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct CreateUserNotificationPlatformInput {
-    pub lot: NotificationPlatformLot,
+    pub priority: Option<i32>,
+    pub chat_id: Option<String>,
     pub base_url: Option<String>,
     #[graphql(secret)]
     pub api_token: Option<String>,
     #[graphql(secret)]
     pub auth_header: Option<String>,
-    pub priority: Option<i32>,
-    pub chat_id: Option<String>,
+    pub lot: NotificationPlatformLot,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1021,8 +1021,8 @@ pub struct OidcUserInput {
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 pub enum AuthUserInput {
-    Password(PasswordUserInput),
     Oidc(OidcUserInput),
+    Password(PasswordUserInput),
 }
 
 #[derive(Debug, InputObject)]
@@ -1034,8 +1034,8 @@ pub struct RegisterUserInput {
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum RegisterErrorVariant {
-    IdentifierAlreadyExists,
     Disabled,
+    IdentifierAlreadyExists,
 }
 
 #[derive(Debug, SimpleObject)]
@@ -1336,8 +1336,8 @@ pub enum UserUpcomingCalendarEventInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct PresignedPutUrlInput {
-    pub file_name: String,
     pub prefix: String,
+    pub file_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -1350,10 +1350,10 @@ pub struct GroupedCalendarEvent {
 pub struct CreateAccessLinkInput {
     pub name: String,
     pub maximum_uses: Option<i32>,
-    pub expires_on: Option<DateTimeUtc>,
     pub redirect_to: Option<String>,
-    pub is_mutation_allowed: Option<bool>,
+    pub expires_on: Option<DateTimeUtc>,
     pub is_account_default: Option<bool>,
+    pub is_mutation_allowed: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
