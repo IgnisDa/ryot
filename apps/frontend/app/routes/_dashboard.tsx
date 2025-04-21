@@ -142,7 +142,7 @@ import {
 } from "~/lib/state/general";
 import {
 	type UpdateProgressData,
-	useAddEntityToCollection,
+	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
@@ -306,10 +306,10 @@ export default function Layout() {
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
 	const closeReviewEntityModal = () => setEntityToReview(null);
-	const [addEntityToCollectionData, setAddEntityToCollectionData] =
-		useAddEntityToCollection();
-	const closeAddEntityToCollectionModal = () =>
-		setAddEntityToCollectionData(null);
+	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =
+		useAddEntityToCollections();
+	const closeAddEntityToCollectionsModal = () =>
+		setAddEntityToCollectionsData(null);
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
@@ -496,11 +496,11 @@ export default function Layout() {
 			<Modal
 				centered
 				withCloseButton={false}
-				onClose={closeAddEntityToCollectionModal}
-				opened={addEntityToCollectionData !== null}
+				onClose={closeAddEntityToCollectionsModal}
+				opened={addEntityToCollectionsData !== null}
 			>
-				<AddEntityToCollectionForm
-					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
+				<AddEntityToCollectionsForm
+					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsModal}
 				/>
 			</Modal>
 			<Drawer
@@ -1632,16 +1632,16 @@ const ReviewEntityForm = ({
 type Collection =
 	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
-const AddEntityToCollectionForm = ({
-	closeAddEntityToCollectionModal,
+const AddEntityToCollectionsForm = ({
+	closeAddEntityToCollectionsModal,
 }: {
-	closeAddEntityToCollectionModal: () => void;
+	closeAddEntityToCollectionsModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const revalidator = useRevalidator();
-	const [addEntityToCollectionData] = useAddEntityToCollection();
+	const [addEntityToCollectionData] = useAddEntityToCollections();
 
 	const [selectedCollections, selectedCollectionsHandlers] = useListState<
 		// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -1721,7 +1721,7 @@ const AddEntityToCollectionForm = ({
 		await mutation.mutateAsync();
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		revalidator.revalidate();
-		closeAddEntityToCollectionModal();
+		closeAddEntityToCollectionsModal();
 		events.addToCollection(addEntityToCollectionData.entityLot);
 	};
 
@@ -1927,7 +1927,7 @@ const AddEntityToCollectionForm = ({
 				<Button
 					color="red"
 					variant="outline"
-					onClick={closeAddEntityToCollectionModal}
+					onClick={closeAddEntityToCollectionsModal}
 				>
 					Cancel
 				</Button>

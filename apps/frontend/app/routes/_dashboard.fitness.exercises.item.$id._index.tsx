@@ -93,7 +93,7 @@ import {
 	useCurrentWorkout,
 	useMergingExercise,
 } from "~/lib/state/fitness";
-import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
+import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
@@ -139,7 +139,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const isFitnessActionActive = useIsFitnessActionActive();
-	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
 		"ExerciseChartTimeSpan",
 		TimeSpan.Last90Days,
@@ -579,7 +579,7 @@ export default function Page() {
 									<Button
 										variant="outline"
 										onClick={() => {
-											setAddEntityToCollectionData({
+											setAddEntityToCollectionsData({
 												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
 												alreadyInCollections:

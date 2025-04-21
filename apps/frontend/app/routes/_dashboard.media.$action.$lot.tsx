@@ -91,7 +91,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
-	useAddEntityToCollection,
+	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
@@ -526,7 +526,7 @@ const MediaSearchItem = (props: {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const gridPacking = userPreferences.general.gridPacking;
@@ -567,7 +567,7 @@ const MediaSearchItem = (props: {
 							<Menu.Item
 								leftSection={<IconBoxMultiple size={14} />}
 								onClick={() => {
-									setAddEntityToCollectionData({
+									setAddEntityToCollectionsData({
 										entityId: props.item,
 										entityLot: EntityLot.Metadata,
 									});
