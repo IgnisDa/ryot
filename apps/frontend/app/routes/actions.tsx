@@ -111,10 +111,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			);
 		})
 		.with("addEntityToCollection", async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
+			const [submission] = getChangeCollectionToEntityVariables(formData);
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
 			for (const co of addTo) {
@@ -140,10 +137,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			);
 		})
 		.with("removeEntityFromCollection", async () => {
-			const submission = processSubmission(
-				formData,
-				changeCollectionToEntitySchema,
-			);
+			const [submission] = getChangeCollectionToEntityVariables(formData);
 			await serverGqlService.authenticatedRequest(
 				request,
 				RemoveEntityFromCollectionDocument,
@@ -477,6 +471,14 @@ const reviewSchema = z
 		visibility: z.nativeEnum(Visibility).optional(),
 	})
 	.merge(MetadataSpecificsSchema);
+
+const getChangeCollectionToEntityVariables = (formData: FormData) => {
+	const submission = processSubmission(
+		formData,
+		changeCollectionToEntitySchema,
+	);
+	return [submission] as const;
+};
 
 const progressUpdateSchema = z
 	.object({
