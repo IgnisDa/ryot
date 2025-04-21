@@ -2,14 +2,13 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{NamedObject, SearchDetails};
+use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    PodcastEpisode, PodcastSpecifics,
+    MetadataDetails, MetadataFreeCreator, MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
@@ -45,19 +44,19 @@ enum Genre {
 #[serde(rename_all = "camelCase")]
 struct ITunesItem {
     collection_id: i64,
-    track_name: Option<String>,
+    track_id: Option<i64>,
     collection_name: String,
-    release_date: Option<ChronoDateTimeUtc>,
     description: Option<String>,
     artist_name: Option<String>,
     genres: Option<Vec<Genre>>,
     track_count: Option<usize>,
-    track_id: Option<i64>,
-    artwork_url_100: Option<String>,
+    track_name: Option<String>,
+    track_time_millis: Option<i32>,
     artwork_url_30: Option<String>,
     artwork_url_60: Option<String>,
+    artwork_url_100: Option<String>,
     artwork_url_600: Option<String>,
-    track_time_millis: Option<i32>,
+    release_date: Option<ChronoDateTimeUtc>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -117,11 +116,11 @@ impl MediaProvider for ITunesService {
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let url_images = details
-            .image
-            .into_iter()
-            .map(|a| MetadataImageForMediaDetails { image: a })
-            .collect();
+        let remote_images = details.image.into_iter().collect();
+        let assets = EntityAssets {
+            remote_images,
+            ..Default::default()
+        };
         let episodes: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let episodes = episodes.results.unwrap_or_default();
         let publish_date = episodes
@@ -133,20 +132,20 @@ impl MediaProvider for ITunesService {
             .enumerate()
             .rev()
             .map(|(idx, e)| PodcastEpisode {
-                number: i32::try_from(idx).unwrap() + 1,
-                id: e.track_id.unwrap().to_string(),
-                runtime: e.track_time_millis.map(|t| t / 1000 / 60),
                 overview: e.description,
-                title: e.track_name.unwrap(),
-                publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
                 thumbnail: e.artwork_url_60,
+                title: e.track_name.unwrap(),
+                id: e.track_id.unwrap().to_string(),
+                number: i32::try_from(idx).unwrap() + 1,
+                runtime: e.track_time_millis.map(|t| t / 1000 / 60),
+                publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
             })
             .collect_vec();
         episodes.reverse();
         Ok(MetadataDetails {
+            assets,
             genres,
             creators,
-            url_images,
             description,
             publish_date,
             lot: MediaLot::Podcast,

@@ -1,14 +1,14 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::{PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
-    PeopleSearchItem, VisualNovelSpecifics,
+    MetadataDetails, MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem,
+    VisualNovelSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -190,17 +190,17 @@ impl MediaProvider for VndbService {
             .into_iter()
             .map(|b| {
                 let MetadataDetails {
-                    identifier,
                     title,
-                    url_images,
+                    assets,
+                    identifier,
                     publish_year,
                     ..
                 } = self.vndb_response_to_search_response(b);
-                let image = url_images.first().map(|i| i.image.clone());
+                let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
-                    identifier,
                     title,
                     image,
+                    identifier,
                     publish_year,
                 }
             })
@@ -225,9 +225,7 @@ impl VndbService {
         for i in item.screenshots.unwrap_or_default() {
             images.push(i.url);
         }
-        let images = images
-            .into_iter()
-            .map(|a| MetadataImageForMediaDetails { image: a });
+        let remote_images = images.into_iter().unique().collect();
         let people = item
             .developers
             .unwrap_or_default()
@@ -268,7 +266,10 @@ impl VndbService {
                 length: item.length_minutes,
             }),
             provider_rating: item.rating,
-            url_images: images.unique().collect(),
+            assets: EntityAssets {
+                remote_images,
+                ..Default::default()
+            },
             ..Default::default()
         }
     }

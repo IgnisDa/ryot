@@ -98,8 +98,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		...newInput,
 		muscles,
 		attributes: {
-			images: submission.images || [],
 			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
+			assets: {
+				s3Videos: [],
+				remoteImages: [],
+				remoteVideos: [],
+				s3Images: submission.images || [],
+			},
 		},
 	};
 	try {

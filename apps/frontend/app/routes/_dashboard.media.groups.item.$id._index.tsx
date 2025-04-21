@@ -90,7 +90,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				title={loaderData.metadataGroupDetails.details.title}
-				images={loaderData.metadataGroupDetails.details.displayImages}
+				assets={loaderData.metadataGroupDetails.details.assets}
 				externalLink={{
 					lot: loaderData.metadataGroupDetails.details.lot,
 					source: loaderData.metadataGroupDetails.details.source,

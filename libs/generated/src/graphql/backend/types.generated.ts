@@ -273,12 +273,12 @@ export type CreateAccessLinkInput = {
 
 export type CreateCustomMetadataInput = {
   animeSpecifics?: InputMaybe<AnimeSpecificsInput>;
+  assets: EntityAssetsInput;
   audioBookSpecifics?: InputMaybe<AudioBookSpecificsInput>;
   bookSpecifics?: InputMaybe<BookSpecificsInput>;
   creators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   genres?: InputMaybe<Array<Scalars['String']['input']>>;
-  images?: InputMaybe<Array<Scalars['String']['input']>>;
   isNsfw?: InputMaybe<Scalars['Boolean']['input']>;
   lot: MediaLot;
   mangaSpecifics?: InputMaybe<MangaSpecificsInput>;
@@ -289,7 +289,6 @@ export type CreateCustomMetadataInput = {
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
   videoGameSpecifics?: InputMaybe<VideoGameSpecificsInput>;
-  videos?: InputMaybe<Array<Scalars['String']['input']>>;
   visualNovelSpecifics?: InputMaybe<VisualNovelSpecificsInput>;
 };
 
@@ -485,21 +484,29 @@ export type DeployUrlAndKeyImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-/** The assets that were uploaded for an entity. */
+/** The assets related to an entity. */
 export type EntityAssets = {
   __typename?: 'EntityAssets';
+  /** The urls of the remote images. */
+  remoteImages: Array<Scalars['String']['output']>;
+  /** The urls of the remote videos. */
+  remoteVideos: Array<EntityRemoteVideo>;
   /** The keys of the S3 images. */
-  images: Array<Scalars['String']['output']>;
+  s3Images: Array<Scalars['String']['output']>;
   /** The keys of the S3 videos. */
-  videos: Array<Scalars['String']['output']>;
+  s3Videos: Array<Scalars['String']['output']>;
 };
 
-/** The assets that were uploaded for an entity. */
+/** The assets related to an entity. */
 export type EntityAssetsInput = {
+  /** The urls of the remote images. */
+  remoteImages: Array<Scalars['String']['input']>;
+  /** The urls of the remote videos. */
+  remoteVideos: Array<EntityRemoteVideoInput>;
   /** The keys of the S3 images. */
-  images: Array<Scalars['String']['input']>;
+  s3Images: Array<Scalars['String']['input']>;
   /** The keys of the S3 videos. */
-  videos: Array<Scalars['String']['input']>;
+  s3Videos: Array<Scalars['String']['input']>;
 };
 
 export enum EntityLot {
@@ -512,6 +519,24 @@ export enum EntityLot {
   UserMeasurement = 'USER_MEASUREMENT',
   Workout = 'WORKOUT',
   WorkoutTemplate = 'WORKOUT_TEMPLATE'
+}
+
+/** The data that a remote video can have. */
+export type EntityRemoteVideo = {
+  __typename?: 'EntityRemoteVideo';
+  source: EntityRemoteVideoSource;
+  url: Scalars['String']['output'];
+};
+
+/** The data that a remote video can have. */
+export type EntityRemoteVideoInput = {
+  source: EntityRemoteVideoSource;
+  url: Scalars['String']['input'];
+};
+
+export enum EntityRemoteVideoSource {
+  Dailymotion = 'DAILYMOTION',
+  Youtube = 'YOUTUBE'
 }
 
 export type EntityWithLot = {
@@ -537,12 +562,12 @@ export type Exercise = {
 
 export type ExerciseAttributes = {
   __typename?: 'ExerciseAttributes';
-  images: Array<Scalars['String']['output']>;
+  assets: EntityAssets;
   instructions: Array<Scalars['String']['output']>;
 };
 
 export type ExerciseAttributesInput = {
-  images: Array<Scalars['String']['input']>;
+  assets: EntityAssetsInput;
   instructions: Array<Scalars['String']['input']>;
 };
 
@@ -755,16 +780,10 @@ export type GraphqlCalendarEvent = {
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };
 
-export type GraphqlMediaAssets = {
-  __typename?: 'GraphqlMediaAssets';
-  images: Array<Scalars['String']['output']>;
-  videos: Array<GraphqlVideoAsset>;
-};
-
 export type GraphqlMetadataDetails = {
   __typename?: 'GraphqlMetadataDetails';
   animeSpecifics?: Maybe<AnimeSpecifics>;
-  assets: GraphqlMediaAssets;
+  assets: EntityAssets;
   audioBookSpecifics?: Maybe<AudioBookSpecifics>;
   bookSpecifics?: Maybe<BookSpecifics>;
   createdByUserId?: Maybe<Scalars['String']['output']>;
@@ -814,12 +833,6 @@ export enum GraphqlSortOrder {
   Asc = 'ASC',
   Desc = 'DESC'
 }
-
-export type GraphqlVideoAsset = {
-  __typename?: 'GraphqlVideoAsset';
-  source: MetadataVideoSource;
-  videoId: Scalars['String']['output'];
-};
 
 export enum GridPacking {
   Dense = 'DENSE',
@@ -1148,8 +1161,8 @@ export type MetadataCreatorGroupedByRole = {
 
 export type MetadataGroup = {
   __typename?: 'MetadataGroup';
+  assets: EntityAssets;
   description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];
   isPartial?: Maybe<Scalars['Boolean']['output']>;
@@ -1186,8 +1199,8 @@ export type MetadataLotSourceMappings = {
 
 export type MetadataPartialDetails = {
   __typename?: 'MetadataPartialDetails';
+  assets: EntityAssets;
   id: Scalars['String']['output'];
-  image?: Maybe<Scalars['String']['output']>;
   lot: MediaLot;
   publishYear?: Maybe<Scalars['Int']['output']>;
   title: Scalars['String']['output'];
@@ -1198,12 +1211,6 @@ export type MetadataSearchInput = {
   search: SearchInput;
   source: MediaSource;
 };
-
-export enum MetadataVideoSource {
-  Custom = 'CUSTOM',
-  Dailymotion = 'DAILYMOTION',
-  Youtube = 'YOUTUBE'
-}
 
 export type MovieSpecifics = {
   __typename?: 'MovieSpecifics';
@@ -1631,6 +1638,7 @@ export type PeopleSearchInput = {
 export type Person = {
   __typename?: 'Person';
   alternateNames?: Maybe<Array<Scalars['String']['output']>>;
+  assets: EntityAssets;
   associatedEntityCount: Scalars['Int']['output'];
   associatedMetadataCount: Scalars['Int']['output'];
   associatedMetadataGroupsCount: Scalars['Int']['output'];
@@ -1638,7 +1646,6 @@ export type Person = {
   createdOn: Scalars['DateTime']['output'];
   deathDate?: Maybe<Scalars['NaiveDate']['output']>;
   description?: Maybe<Scalars['String']['output']>;
-  displayImages: Array<Scalars['String']['output']>;
   gender?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   identifier: Scalars['String']['output'];

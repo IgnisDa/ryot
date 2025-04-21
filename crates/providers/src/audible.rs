@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{NamedObject, PersonSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -11,8 +11,8 @@ use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     AudioBookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataFreeCreator,
-    MetadataImageForMediaDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use paginate::Pages;
 use reqwest::Client;
@@ -230,7 +230,10 @@ impl MediaProvider for AudibleService {
             identifier: data.asin,
             source: MediaSource::Audible,
             description: data.description,
-            images: Some(Vec::from_iter(data.image)),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(data.image),
+                ..Default::default()
+            },
             source_url: Some(format!(
                 "https://www.audible.com/author/{}/{}",
                 name, identity
@@ -383,10 +386,10 @@ impl MediaProvider for AudibleService {
             .map(|d| {
                 let a = self.audible_response_to_search_response(d);
                 MetadataSearchItem {
-                    identifier: a.identifier,
                     title: a.title,
-                    image: a.url_images.first().map(|i| i.image.clone()),
+                    identifier: a.identifier,
                     publish_year: a.publish_year,
+                    image: a.assets.remote_images.first().cloned(),
                 }
             })
             .collect_vec();
@@ -407,12 +410,7 @@ impl MediaProvider for AudibleService {
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MetadataDetails {
-        let images = Vec::from_iter(
-            item.product_images
-                .unwrap()
-                .image_2400
-                .map(|a| MetadataImageForMediaDetails { image: a }),
-        );
+        let images = Vec::from_iter(item.product_images.unwrap().image_2400);
         let release_date = item.release_date.unwrap_or_default();
         let people = item
             .authors
@@ -443,11 +441,15 @@ impl AudibleService {
             Some(r) if r.num_reviews > 0 => r.overall_distribution.display_average_rating,
             _ => None,
         };
+        let assets = EntityAssets {
+            remote_images: images,
+            ..Default::default()
+        };
         MetadataDetails {
             people,
             creators,
             description,
-            url_images: images,
+            assets,
             provider_rating: rating,
             lot: MediaLot::AudioBook,
             title: item.title.clone(),

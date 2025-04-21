@@ -115,9 +115,9 @@ export const PartialMetadataDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			extraText={props.extraText}
-			image={metadataDetails?.image || undefined}
 			title={metadataDetails?.title || undefined}
 			hasInteracted={userMetadataDetails?.hasInteracted}
+			image={metadataDetails?.assets.remoteImages.at(0) || undefined}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>
 	);
@@ -265,7 +265,7 @@ export const MetadataDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
-			imageUrl={metadataDetails?.assets.images.at(0)}
+			imageUrl={metadataDetails?.assets.remoteImages.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
@@ -375,7 +375,7 @@ export const MetadataGroupDisplayItem = (props: {
 			innerRef={ref}
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
-			imageUrl={metadataDetails?.details.displayImages.at(0)}
+			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
 				id: props.metadataGroupId,
@@ -445,7 +445,7 @@ export const PersonDisplayItem = (props: {
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
-			imageUrl={personDetails?.details.displayImages.at(0)}
+			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
 			onImageClickBehavior={$path("/media/people/item/:id", {
 				id: props.personId,
 			})}

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
-use common_models::StoredUrl;
 use nanoid::nanoid;
 
 #[derive(Debug)]
@@ -104,12 +103,5 @@ impl FileStorageService {
             .unwrap()
             .metadata
             .unwrap()
-    }
-
-    pub async fn get_stored_asset(&self, url: StoredUrl) -> String {
-        match url {
-            StoredUrl::Url(u) => u,
-            StoredUrl::S3(u) => self.get_presigned_url(u).await,
-        }
     }
 }

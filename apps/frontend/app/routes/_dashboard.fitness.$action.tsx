@@ -140,6 +140,7 @@ import {
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	getExerciseDetailsQuery,
+	getExerciseImages,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
@@ -1299,9 +1300,10 @@ const focusOnExercise = (idx: number) => {
 const exerciseHasDetailsToShow = (
 	details?: ExerciseDetails,
 	userDetails?: UserExerciseDetails,
-) =>
-	(details?.attributes.images.length || 0) > 0 ||
-	(userDetails?.history?.length || 0) > 0;
+) => {
+	const images = getExerciseImages(details);
+	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
+};
 
 const UploadAssetsModal = (props: {
 	closeModal: () => void;
@@ -1529,6 +1531,7 @@ const ExerciseDisplay = (props: {
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
+	const images = getExerciseImages(exerciseDetails);
 
 	const didExerciseActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;
@@ -1578,7 +1581,7 @@ const ExerciseDisplay = (props: {
 					/>
 					<ScrollArea type="scroll">
 						<Group wrap="nowrap">
-							{exerciseDetails?.attributes.images.map((i) => (
+							{images.map((i) => (
 								<Image key={i} src={i} h={200} w={350} radius="md" />
 							))}
 						</Group>

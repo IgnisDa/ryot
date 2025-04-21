@@ -610,9 +610,9 @@ export default function Page() {
 						</Box>
 					) : null}
 					{loaderData.information.assets &&
-					loaderData.information.assets.images.length > 0 ? (
+					loaderData.information.assets.s3Images.length > 0 ? (
 						<Avatar.Group>
-							{loaderData.information.assets.images.map((i) => (
+							{loaderData.information.assets.s3Images.map((i) => (
 								<Anchor key={i} href={i} target="_blank">
 									<Avatar src={i} />
 								</Anchor>
@@ -646,7 +646,7 @@ const ConsumedMetadataDisplay = (props: {
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
 			<Tooltip label={metadataDetails?.title}>
-				<Avatar src={metadataDetails?.image} />
+				<Avatar src={metadataDetails?.assets.remoteImages.at(0)} />
 			</Tooltip>
 		</Link>
 	);

@@ -4,9 +4,10 @@ use async_graphql::{Enum, InputObject, InputType, OutputType, SimpleObject, Unio
 use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, BackendError, DailyUserActivitiesResponseGroupedBy,
-    DailyUserActivityHourRecord, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, PersonSourceSpecifics, ProgressUpdateCacheInput,
-    SearchDetails, SearchInput, UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
+    DailyUserActivityHourRecord, EntityAssets, MetadataGroupSearchInput,
+    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput,
+    PersonSourceSpecifics, ProgressUpdateCacheInput, SearchDetails, SearchInput,
+    UserAnalyticsInput, UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use config::FrontendConfig;
 use database_models::{
@@ -24,12 +25,12 @@ use fitness_models::{
 use importer_models::ImportFailedItem;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, CollectionItem,
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    GraphqlSortOrder, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
-    ImportOrExportMetadataItem, ImportOrExportPersonItem, MediaFilter, MediaSortBy,
-    MetadataCreatorGroupedByRole, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlSortOrder,
+    ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem,
+    ImportOrExportPersonItem, MediaFilter, MediaSortBy, MetadataCreatorGroupedByRole,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole,
+    ReviewItem, UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -155,12 +156,12 @@ pub struct PersonDetails {
     pub name: String,
     pub identifier: String,
     pub source: MediaSource,
+    pub assets: EntityAssets,
     pub place: Option<String>,
     pub gender: Option<String>,
     pub website: Option<String>,
     pub source_url: Option<String>,
     pub description: Option<String>,
-    pub images: Option<Vec<String>>,
     pub death_date: Option<NaiveDate>,
     pub birth_date: Option<NaiveDate>,
     pub alternate_names: Option<Vec<String>>,
@@ -215,7 +216,6 @@ pub struct MetadataBaseData {
     pub model: metadata::Model,
     pub suggestions: Vec<String>,
     pub genres: Vec<GenreListItem>,
-    pub assets: GraphqlMediaAssets,
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 

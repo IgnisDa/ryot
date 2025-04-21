@@ -152,8 +152,10 @@ query MetadataPartialDetails($metadataId: String!) {
 		id
 		lot
 		title
-		image
 		publishYear
+		assets {
+			...EntityAssetsPart
+		}
 	}
 }
 
@@ -211,7 +213,9 @@ query ExerciseDetails($exerciseId: String!) {
 		createdByUserId
 		attributes {
 			instructions
-			images
+			assets {
+				...EntityAssetsPart
+			}
 		}
 	}
 }
@@ -380,7 +384,9 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 			sourceUrl
 			identifier
 			description
-			displayImages
+			assets {
+				...EntityAssetsPart
+			}
 		}
 	}
 }

@@ -55,6 +55,7 @@ import {
 import { useGetRandomMantineColor, useUserDetails } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
+	getExerciseImages,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
@@ -262,6 +263,8 @@ export const ExerciseHistory = (props: {
 		s.exercises.includes(props.exerciseIdx),
 	);
 
+	const images = getExerciseImages(exerciseDetails);
+
 	return (
 		<Paper
 			p="xs"
@@ -364,7 +367,7 @@ export const ExerciseHistory = (props: {
 								{!props.hideExerciseDetails && exerciseDetails ? (
 									<ScrollArea type="scroll">
 										<Flex gap="lg">
-											{exerciseDetails.attributes.images.map((i) => (
+											{images.map((i) => (
 												<Image key={i} radius="md" src={i} h={200} w={350} />
 											))}
 										</Flex>
@@ -377,9 +380,9 @@ export const ExerciseHistory = (props: {
 								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 							</Text>
 						))}
-						{exercise.assets && exercise.assets.images.length > 0 ? (
+						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
 							<Avatar.Group>
-								{exercise.assets.images.map((i) => (
+								{exercise.assets.s3Images.map((i) => (
 									<Anchor key={i} href={i} target="_blank">
 										<Avatar src={i} />
 									</Anchor>
@@ -436,13 +439,14 @@ export const ExerciseDisplayItem = (props: {
 		enabled: inViewport,
 	});
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
+	const images = getExerciseImages(exerciseDetails);
 
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
+			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
 			isLoading={isExerciseDetailsLoading}
-			imageUrl={exerciseDetails?.attributes.images.at(0)}
 			onImageClickBehavior={getExerciseDetailsPath(props.exerciseId)}
 			labels={{
 				left: isNumber(times)

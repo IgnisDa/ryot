@@ -126,7 +126,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				title={loaderData.personDetails.details.name}
-				images={loaderData.personDetails.details.displayImages}
+				assets={loaderData.personDetails.details.assets}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.details.sourceUrl,
@@ -382,7 +382,7 @@ const MetadataGroupDisplay = (props: {
 	return (
 		<BaseEntityDisplay
 			title={metadataGroupDetails?.details.title}
-			image={metadataGroupDetails?.details.displayImages[0]}
+			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
 		/>
 	);

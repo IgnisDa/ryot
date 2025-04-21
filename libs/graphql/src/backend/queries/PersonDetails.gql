@@ -19,11 +19,13 @@ query PersonDetails($personId: String!) {
 			sourceUrl
 			identifier
 			description
-			displayImages
 			alternateNames
 			associatedEntityCount
 			associatedMetadataCount
 			associatedMetadataGroupsCount
+			assets {
+				...EntityAssetsPart
+			}
 		}
 	}
 }

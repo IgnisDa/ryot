@@ -1,6 +1,7 @@
 import {
 	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
+	type ExerciseDetailsQuery,
 	type ExerciseLot,
 	SetLot,
 	type SetRestTimersSettings,
@@ -218,8 +219,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			assets: {
-				videos: [...currentWorkout.videos],
-				images: currentWorkout.images.map((m) => m.key),
+				remoteImages: [],
+				remoteVideos: [],
+				s3Videos: [...currentWorkout.videos],
+				s3Images: currentWorkout.images.map((m) => m.key),
 			},
 		},
 	};
@@ -251,8 +254,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 			unitSystem: exercise.unitSystem,
 			exerciseId: exercise.exerciseId,
 			assets: {
-				images: exercise.images.map((m) => m.key),
-				videos: exercise.videos.map((m) => m.key),
+				remoteImages: [],
+				remoteVideos: [],
+				s3Images: exercise.images.map((m) => m.key),
+				s3Videos: exercise.videos.map((m) => m.key),
 			},
 		});
 	}
@@ -418,4 +423,13 @@ export const addExerciseToCurrentWorkout = async (
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
 	navigate($path("/fitness/:action", { action: currentWorkout.currentAction }));
+};
+
+export const getExerciseImages = (
+	exercise?: ExerciseDetailsQuery["exerciseDetails"],
+) => {
+	return [
+		...(exercise?.attributes.assets.s3Images || []),
+		...(exercise?.attributes.assets.remoteImages || []),
+	];
 };

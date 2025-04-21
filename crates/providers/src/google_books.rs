@@ -1,16 +1,13 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::SearchDetails;
+use common_models::{EntityAssets, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{
-    BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-    MetadataSearchItem,
-};
+use media_models::{BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataSearchItem};
 use reqwest::{
     Client,
     header::{HeaderName, HeaderValue},
@@ -124,17 +121,17 @@ impl MediaProvider for GoogleBooksService {
             .into_iter()
             .map(|b| {
                 let MetadataDetails {
-                    identifier,
                     title,
-                    url_images,
+                    assets,
+                    identifier,
                     publish_year,
                     ..
                 } = self.google_books_response_to_search_response(b.volume_info, b.id);
-                let image = url_images.first().map(|i| i.image.clone());
+                let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
-                    identifier,
                     title,
                     image,
+                    identifier,
                     publish_year,
                 }
             })
@@ -181,9 +178,7 @@ impl GoogleBooksService {
                 images.push(a);
             }
         };
-        let images = images
-            .into_iter()
-            .map(|a| MetadataImageForMediaDetails { image: a });
+        let remote_images = images.into_iter().unique().collect();
         let mut creators = item
             .authors
             .unwrap_or_default()
@@ -210,14 +205,18 @@ impl GoogleBooksService {
         if let Some(g) = item.main_category {
             genres.push(g);
         }
+        let assets = EntityAssets {
+            remote_images,
+            ..Default::default()
+        };
         MetadataDetails {
+            assets,
             lot: MediaLot::Book,
             identifier: id.clone(),
             title: item.title.clone(),
             description: item.description,
             source: MediaSource::GoogleBooks,
             provider_rating: item.average_rating,
-            url_images: images.unique().collect(),
             genres: genres.into_iter().unique().collect(),
             creators: creators.into_iter().unique().collect(),
             publish_year: item.published_date.and_then(|d| convert_date_to_year(&d)),

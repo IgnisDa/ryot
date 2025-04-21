@@ -86,11 +86,20 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			? JSON.parse(submission.specifics)
 			: undefined,
 	};
+	input.assets = {
+		remoteImages: [],
+		remoteVideos: [],
+		s3Images: input.images,
+		s3Videos: input.videos,
+	};
 	input.id = undefined;
 	input.action = undefined;
+	input.images = undefined;
+	input.videos = undefined;
 	input.specifics = undefined;
 	input.genres = input.genres?.split(",");
 	input.creators = input.creators?.split(",");
+
 	const id = await match(submission.action)
 		.with(Action.Create, async () => {
 			const { createCustomMetadata } =

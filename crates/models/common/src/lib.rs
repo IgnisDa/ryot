@@ -1,6 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
-use educe::Educe;
 use enum_meta::{Meta, meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use rust_decimal::Decimal;
@@ -38,11 +37,75 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
-#[educe(Default(expression = StoredUrl::Url(String::from("https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png"))))]
-pub enum StoredUrl {
-    S3(String),
-    Url(String),
+#[derive(
+    Eq,
+    Hash,
+    Enum,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    EnumIter,
+    PartialEq,
+    Serialize,
+    ConfigEnum,
+    Deserialize,
+    FromJsonQueryResult,
+)]
+pub enum EntityRemoteVideoSource {
+    #[default]
+    Youtube,
+    Dailymotion,
+}
+
+/// The data that a remote video can have.
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "EntityRemoteVideoInput")]
+#[serde(rename_all = "snake_case")]
+pub struct EntityRemoteVideo {
+    pub url: String,
+    pub source: EntityRemoteVideoSource,
+}
+
+/// The assets related to an entity.
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "EntityAssetsInput")]
+#[serde(rename_all = "snake_case")]
+pub struct EntityAssets {
+    /// The keys of the S3 images.
+    pub s3_images: Vec<String>,
+    /// The keys of the S3 videos.
+    pub s3_videos: Vec<String>,
+    /// The urls of the remote images.
+    pub remote_images: Vec<String>,
+    /// The urls of the remote videos.
+    pub remote_videos: Vec<EntityRemoteVideo>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
