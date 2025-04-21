@@ -20,6 +20,7 @@ import {
 	List,
 	Loader,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Rating,
 	ScrollArea,
@@ -41,7 +42,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
-import { upperFirst, useCounter, useDisclosure } from "@mantine/hooks";
+import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -53,6 +54,7 @@ import {
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
+import { AddEntityToCollectionDocument } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
 	formatDateToNaiveDate,
@@ -85,7 +87,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
@@ -113,6 +115,7 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	forcedDashboardPath,
 	getMetadataDetailsQuery,
@@ -1637,15 +1640,13 @@ const AddEntityToCollectionForm = ({
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
-	const submit = useConfirmSubmit();
-	const [selectedCollection, setSelectedCollection] =
-		useState<Collection | null>(null);
-	const [addEntityToCollectionData, _] = useAddEntityToCollection();
-	const [dateInputValue, setDateInputValue] = useState<Date | null>();
-	const [numArrayElements, setNumArrayElements] = useCounter(1);
-	const [booleanValue, setBooleanValue] = useState("false");
+	const revalidator = useRevalidator();
+	const [addEntityToCollectionData] = useAddEntityToCollection();
 
-	if (!addEntityToCollectionData) return null;
+	const [selectedCollections, selectedCollectionsHandlers] = useListState<
+		// biome-ignore lint/suspicious/noExplicitAny: required here
+		Collection & { userExtraInformationData: any }
+	>([]);
 
 	const selectData = Object.entries(
 		groupBy(collections, (c) =>
@@ -1656,204 +1657,279 @@ const AddEntityToCollectionForm = ({
 		items: items.map((c) => ({
 			label: c.name,
 			value: c.id.toString(),
-			disabled: addEntityToCollectionData.alreadyInCollections?.includes(
+			disabled: addEntityToCollectionData?.alreadyInCollections?.includes(
 				c.id.toString(),
 			),
 		})),
 	}));
 
+	const mutation = useMutation({
+		mutationFn: async () => {
+			if (!addEntityToCollectionData) return [];
+			const payload = selectedCollections.map((col) => ({
+				entityId: addEntityToCollectionData.entityId,
+				entityLot: addEntityToCollectionData.entityLot,
+				collectionName: col.name,
+				creatorUserId: col.creator.id,
+				information: col.userExtraInformationData,
+			}));
+			return Promise.all(
+				payload.map((item) =>
+					clientGqlService.request(AddEntityToCollectionDocument, {
+						input: item,
+					}),
+				),
+			);
+		},
+	});
+
+	if (!addEntityToCollectionData) return null;
+
+	const handleCollectionChange = (ids: string[]) => {
+		for (const id of ids) {
+			if (!selectedCollections.some((c) => c.id === id)) {
+				const col = collections.find((c) => c.id === id);
+				if (col)
+					selectedCollectionsHandlers.append({
+						...col,
+						userExtraInformationData: {},
+					});
+			}
+		}
+		for (let i = selectedCollections.length - 1; i >= 0; i--) {
+			if (!ids.includes(selectedCollections[i].id))
+				selectedCollectionsHandlers.remove(i);
+		}
+	};
+
+	const handleCustomFieldChange = (
+		colId: string,
+		field: string,
+		value: unknown,
+	) => {
+		const idx = selectedCollections.findIndex((c) => c.id === colId);
+		if (idx !== -1) {
+			selectedCollectionsHandlers.setItemProp(idx, "userExtraInformationData", {
+				...selectedCollections[idx].userExtraInformationData,
+				[field]: value,
+			});
+		}
+	};
+
+	const handleSubmit = async () => {
+		await mutation.mutateAsync();
+		refreshEntityDetails(addEntityToCollectionData.entityId);
+		revalidator.revalidate();
+		closeAddEntityToCollectionModal();
+		events.addToCollection(addEntityToCollectionData.entityLot);
+	};
+
 	return (
-		<Form
-			method="POST"
-			action={withQuery("/actions", { intent: "addEntityToCollection" })}
-			onSubmit={(e) => {
-				submit(e);
-				refreshEntityDetails(addEntityToCollectionData.entityId);
-				closeAddEntityToCollectionModal();
-			}}
-		>
-			<input
-				hidden
-				readOnly
-				name="entityId"
-				value={addEntityToCollectionData.entityId}
+		<Stack>
+			<Title order={3}>Select collections</Title>
+			<MultiSelect
+				searchable
+				multiple
+				data={selectData}
+				nothingFoundMessage="Nothing found..."
+				onChange={(v) => handleCollectionChange(v)}
+				value={selectedCollections.map((c) => c.id.toString())}
 			/>
-			<input
-				hidden
-				readOnly
-				name="entityLot"
-				value={addEntityToCollectionData.entityLot}
-			/>
-			<Stack>
-				<Title order={3}>Select collection</Title>
-				<Select
-					searchable
-					data={selectData}
-					nothingFoundMessage="Nothing found..."
-					value={selectedCollection?.id.toString()}
-					onChange={(v) => {
-						if (v) {
-							const collection = collections.find((c) => c.id === v);
-							if (collection) setSelectedCollection(collection);
-						}
-					}}
-				/>
-				{selectedCollection ? (
-					<>
-						<input
-							hidden
-							readOnly
-							name="collectionName"
-							value={selectedCollection.name}
-						/>
-						<input
-							hidden
-							readOnly
-							name="creatorUserId"
-							value={selectedCollection.creator.id}
-						/>
-						{selectedCollection.informationTemplate?.map((template) => (
-							<Fragment key={template.name}>
-								{match(template.lot)
-									.with(CollectionExtraInformationLot.String, () => (
-										<TextInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											name={`information.${template.name}`}
-											defaultValue={template.defaultValue || undefined}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Boolean, () => (
-										<>
-											<Switch
-												label={template.name}
-												required={!!template.required}
-												checked={booleanValue === "true"}
-												description={template.description}
-												onChange={(e) => {
-													setBooleanValue(
-														e.currentTarget.checked ? "true" : "false",
+			{selectedCollections.map((selectedCollection) => (
+				<Fragment key={selectedCollection.id}>
+					{selectedCollection.informationTemplate?.map((template) => (
+						<Fragment key={template.name}>
+							{match(template.lot)
+								.with(CollectionExtraInformationLot.String, () => (
+									<TextInput
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
+										value={
+											selectedCollection.userExtraInformationData[
+												template.name
+											] || ""
+										}
+										onChange={(e) =>
+											handleCustomFieldChange(
+												selectedCollection.id,
+												template.name,
+												e.currentTarget.value,
+											)
+										}
+									/>
+								))
+								.with(CollectionExtraInformationLot.Boolean, () => (
+									<Switch
+										label={template.name}
+										required={!!template.required}
+										checked={
+											selectedCollection.userExtraInformationData[
+												template.name
+											] === "true"
+										}
+										description={template.description}
+										onChange={(e) =>
+											handleCustomFieldChange(
+												selectedCollection.id,
+												template.name,
+												e.currentTarget.checked ? "true" : "false",
+											)
+										}
+									/>
+								))
+								.with(CollectionExtraInformationLot.Number, () => (
+									<NumberInput
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
+										value={
+											selectedCollection.userExtraInformationData[
+												template.name
+											] || ""
+										}
+										onChange={(v) =>
+											handleCustomFieldChange(
+												selectedCollection.id,
+												template.name,
+												v,
+											)
+										}
+									/>
+								))
+								.with(CollectionExtraInformationLot.Date, () => (
+									<DateInput
+										value={
+											selectedCollection.userExtraInformationData[
+												template.name
+											] || null
+										}
+										onChange={(v) =>
+											handleCustomFieldChange(
+												selectedCollection.id,
+												template.name,
+												v,
+											)
+										}
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
+									/>
+								))
+								.with(CollectionExtraInformationLot.DateTime, () => (
+									<DateTimePicker
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
+										value={
+											selectedCollection.userExtraInformationData[
+												template.name
+											] || null
+										}
+										onChange={(v) =>
+											handleCustomFieldChange(
+												selectedCollection.id,
+												template.name,
+												v,
+											)
+										}
+									/>
+								))
+								.with(CollectionExtraInformationLot.StringArray, () => (
+									<Input.Wrapper
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
+									>
+										<Stack gap="xs" mt={4}>
+											{(
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || [""]
+											).map((val: string, i: number) => (
+												<Group key={i.toString()}>
+													<TextInput
+														flex={1}
+														value={val}
+														onChange={(e) => {
+															const arr = [
+																...(selectedCollection.userExtraInformationData[
+																	template.name
+																] || [""]),
+															];
+															arr[i] = e.currentTarget.value;
+															handleCustomFieldChange(
+																selectedCollection.id,
+																template.name,
+																arr,
+															);
+														}}
+													/>
+													<Anchor
+														ml="auto"
+														size="xs"
+														onClick={() => {
+															const arr = [
+																...(selectedCollection.userExtraInformationData[
+																	template.name
+																] || [""]),
+															];
+															arr.splice(i, 1);
+															handleCustomFieldChange(
+																selectedCollection.id,
+																template.name,
+																arr,
+															);
+														}}
+													>
+														Remove
+													</Anchor>
+												</Group>
+											))}
+											<Anchor
+												ml={4}
+												size="xs"
+												onClick={() => {
+													const arr = [
+														...(selectedCollection.userExtraInformationData[
+															template.name
+														] || [""]),
+													];
+													arr.push("");
+													handleCustomFieldChange(
+														selectedCollection.id,
+														template.name,
+														arr,
 													);
 												}}
-											/>
-											<input
-												type="hidden"
-												value={booleanValue}
-												name={`information.${template.name}`}
-											/>
-										</>
-									))
-									.with(CollectionExtraInformationLot.Number, () => (
-										<NumberInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											name={`information.${template.name}`}
-											defaultValue={
-												template.defaultValue
-													? Number(template.defaultValue)
-													: undefined
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Date, () => (
-										<>
-											<DateInput
-												value={dateInputValue}
-												onChange={setDateInputValue}
-												label={template.name}
-												required={!!template.required}
-												description={template.description}
-												defaultValue={
-													template.defaultValue
-														? new Date(template.defaultValue)
-														: undefined
-												}
-											/>
-											{dateInputValue ? (
-												<input
-													hidden
-													readOnly
-													name={`information.${template.name}`}
-													value={formatDateToNaiveDate(dateInputValue)}
-												/>
-											) : null}
-										</>
-									))
-									.with(CollectionExtraInformationLot.DateTime, () => (
-										<DateTimePicker
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											name={`information.${template.name}`}
-										/>
-									))
-									.with(CollectionExtraInformationLot.StringArray, () => (
-										<Input.Wrapper
-											label={template.name}
-											description={
-												<>
-													{template.description}
-													<Anchor
-														ml={4}
-														size="xs"
-														onClick={() => setNumArrayElements.increment()}
-													>
-														Add more
-													</Anchor>
-												</>
-											}
-											required={!!template.required}
-										>
-											<Stack gap="xs" mt={4}>
-												{Array.from({ length: numArrayElements }).map(
-													(_, i) => (
-														<Group key={i.toString()}>
-															<TextInput
-																flex={1}
-																name={`information.${template.name}[${i}]`}
-																defaultValue={
-																	template.defaultValue || undefined
-																}
-															/>
-															<Anchor
-																ml="auto"
-																size="xs"
-																onClick={() => setNumArrayElements.decrement()}
-															>
-																Remove
-															</Anchor>
-														</Group>
-													),
-												)}
-											</Stack>
-										</Input.Wrapper>
-									))
-									.exhaustive()}
-							</Fragment>
-						))}
-					</>
-				) : null}
-				<Button
-					type="submit"
-					variant="outline"
-					disabled={!selectedCollection}
-					onClick={() =>
-						events.addToCollection(addEntityToCollectionData.entityLot)
-					}
-				>
-					Set
-				</Button>
-				<Button
-					color="red"
-					variant="outline"
-					onClick={closeAddEntityToCollectionModal}
-				>
-					Cancel
-				</Button>
-			</Stack>
-		</Form>
+											>
+												Add more
+											</Anchor>
+										</Stack>
+									</Input.Wrapper>
+								))
+								.exhaustive()}
+						</Fragment>
+					))}
+				</Fragment>
+			))}
+			<Button
+				type="button"
+				variant="outline"
+				onClick={handleSubmit}
+				loading={mutation.isPending}
+				disabled={selectedCollections.length === 0 || mutation.isPending}
+			>
+				Set
+			</Button>
+			<Button
+				color="red"
+				variant="outline"
+				onClick={closeAddEntityToCollectionModal}
+			>
+				Cancel
+			</Button>
+		</Stack>
 	);
 };
 
