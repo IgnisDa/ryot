@@ -1729,11 +1729,10 @@ const AddEntityToCollectionForm = ({
 			<Title order={3}>Select collections</Title>
 			<MultiSelect
 				searchable
-				multiple
 				data={selectData}
 				nothingFoundMessage="Nothing found..."
 				onChange={(v) => handleCollectionChange(v)}
-				value={selectedCollections.map((c) => c.id.toString())}
+				value={selectedCollections.map((c) => c.id)}
 			/>
 			{selectedCollections.map((selectedCollection) => (
 				<Fragment key={selectedCollection.id}>
@@ -1763,12 +1762,12 @@ const AddEntityToCollectionForm = ({
 									<Switch
 										label={template.name}
 										required={!!template.required}
+										description={template.description}
 										checked={
 											selectedCollection.userExtraInformationData[
 												template.name
 											] === "true"
 										}
-										description={template.description}
 										onChange={(e) =>
 											handleCustomFieldChange(
 												selectedCollection.id,
@@ -1799,6 +1798,9 @@ const AddEntityToCollectionForm = ({
 								))
 								.with(CollectionExtraInformationLot.Date, () => (
 									<DateInput
+										label={template.name}
+										required={!!template.required}
+										description={template.description}
 										value={
 											selectedCollection.userExtraInformationData[
 												template.name
@@ -1811,9 +1813,6 @@ const AddEntityToCollectionForm = ({
 												v,
 											)
 										}
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
 									/>
 								))
 								.with(CollectionExtraInformationLot.DateTime, () => (
