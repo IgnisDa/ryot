@@ -1716,7 +1716,8 @@ const AddEntityToCollectionForm = ({
 		}
 	};
 
-	const handleSubmit = async () => {
+	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
 		await mutation.mutateAsync();
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		revalidator.revalidate();
@@ -1725,210 +1726,213 @@ const AddEntityToCollectionForm = ({
 	};
 
 	return (
-		<Stack>
-			<Title order={3}>Select collections</Title>
-			<MultiSelect
-				searchable
-				data={selectData}
-				nothingFoundMessage="Nothing found..."
-				onChange={(v) => handleCollectionChange(v)}
-				value={selectedCollections.map((c) => c.id)}
-			/>
-			{selectedCollections.map((selectedCollection) => (
-				<Fragment key={selectedCollection.id}>
-					{selectedCollection.informationTemplate?.map((template) => (
-						<Fragment key={template.name}>
-							{match(template.lot)
-								.with(CollectionExtraInformationLot.String, () => (
-									<TextInput
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-										value={
-											selectedCollection.userExtraInformationData[
-												template.name
-											] || ""
-										}
-										onChange={(e) =>
-											handleCustomFieldChange(
-												selectedCollection.id,
-												template.name,
-												e.currentTarget.value,
-											)
-										}
-									/>
-								))
-								.with(CollectionExtraInformationLot.Boolean, () => (
-									<Switch
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-										checked={
-											selectedCollection.userExtraInformationData[
-												template.name
-											] === "true"
-										}
-										onChange={(e) =>
-											handleCustomFieldChange(
-												selectedCollection.id,
-												template.name,
-												e.currentTarget.checked ? "true" : "false",
-											)
-										}
-									/>
-								))
-								.with(CollectionExtraInformationLot.Number, () => (
-									<NumberInput
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-										value={
-											selectedCollection.userExtraInformationData[
-												template.name
-											] || ""
-										}
-										onChange={(v) =>
-											handleCustomFieldChange(
-												selectedCollection.id,
-												template.name,
-												v,
-											)
-										}
-									/>
-								))
-								.with(CollectionExtraInformationLot.Date, () => (
-									<DateInput
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-										value={
-											selectedCollection.userExtraInformationData[
-												template.name
-											] || null
-										}
-										onChange={(v) =>
-											handleCustomFieldChange(
-												selectedCollection.id,
-												template.name,
-												v,
-											)
-										}
-									/>
-								))
-								.with(CollectionExtraInformationLot.DateTime, () => (
-									<DateTimePicker
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-										value={
-											selectedCollection.userExtraInformationData[
-												template.name
-											] || null
-										}
-										onChange={(v) =>
-											handleCustomFieldChange(
-												selectedCollection.id,
-												template.name,
-												v,
-											)
-										}
-									/>
-								))
-								.with(CollectionExtraInformationLot.StringArray, () => (
-									<Input.Wrapper
-										label={template.name}
-										required={!!template.required}
-										description={template.description}
-									>
-										<Stack gap="xs" mt={4}>
-											{(
+		<Form onSubmit={handleSubmit}>
+			<Stack>
+				<Title order={3}>Select collections</Title>
+				<MultiSelect
+					searchable
+					data={selectData}
+					nothingFoundMessage="Nothing found..."
+					onChange={(v) => handleCollectionChange(v)}
+					value={selectedCollections.map((c) => c.id)}
+				/>
+				{selectedCollections.map((selectedCollection) => (
+					<Fragment key={selectedCollection.id}>
+						{selectedCollection.informationTemplate?.map((template) => (
+							<Fragment key={template.name}>
+								{match(template.lot)
+									.with(CollectionExtraInformationLot.String, () => (
+										<TextInput
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											value={
 												selectedCollection.userExtraInformationData[
 													template.name
-												] || [""]
-											).map((val: string, i: number) => (
-												<Group key={i.toString()}>
-													<TextInput
-														flex={1}
-														value={val}
-														onChange={(e) => {
-															const arr = [
-																...(selectedCollection.userExtraInformationData[
-																	template.name
-																] || [""]),
-															];
-															arr[i] = e.currentTarget.value;
-															handleCustomFieldChange(
-																selectedCollection.id,
-																template.name,
-																arr,
-															);
-														}}
-													/>
-													<Anchor
-														ml="auto"
-														size="xs"
-														onClick={() => {
-															const arr = [
-																...(selectedCollection.userExtraInformationData[
-																	template.name
-																] || [""]),
-															];
-															arr.splice(i, 1);
-															handleCustomFieldChange(
-																selectedCollection.id,
-																template.name,
-																arr,
-															);
-														}}
-													>
-														Remove
-													</Anchor>
-												</Group>
-											))}
-											<Anchor
-												ml={4}
-												size="xs"
-												onClick={() => {
-													const arr = [
-														...(selectedCollection.userExtraInformationData[
-															template.name
-														] || [""]),
-													];
-													arr.push("");
-													handleCustomFieldChange(
-														selectedCollection.id,
-														template.name,
-														arr,
-													);
-												}}
-											>
-												Add more
-											</Anchor>
-										</Stack>
-									</Input.Wrapper>
-								))
-								.exhaustive()}
-						</Fragment>
-					))}
-				</Fragment>
-			))}
-			<Button
-				type="button"
-				variant="outline"
-				onClick={handleSubmit}
-				loading={mutation.isPending}
-				disabled={selectedCollections.length === 0 || mutation.isPending}
-			>
-				Set
-			</Button>
-			<Button
-				color="red"
-				variant="outline"
-				onClick={closeAddEntityToCollectionModal}
-			>
-				Cancel
-			</Button>
-		</Stack>
+												] || ""
+											}
+											onChange={(e) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													e.currentTarget.value,
+												)
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Boolean, () => (
+										<Switch
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											checked={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] === "true"
+											}
+											onChange={(e) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													e.currentTarget.checked ? "true" : "false",
+												)
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Number, () => (
+										<NumberInput
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											value={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || ""
+											}
+											onChange={(v) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													v,
+												)
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Date, () => (
+										<DateInput
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											value={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || null
+											}
+											onChange={(v) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													v,
+												)
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.DateTime, () => (
+										<DateTimePicker
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+											value={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || null
+											}
+											onChange={(v) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													v,
+												)
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.StringArray, () => (
+										<Input.Wrapper
+											label={template.name}
+											required={!!template.required}
+											description={template.description}
+										>
+											<Stack gap="xs" mt={4}>
+												{(
+													selectedCollection.userExtraInformationData[
+														template.name
+													] || [""]
+												).map((val: string, i: number) => (
+													<Group key={i.toString()}>
+														<TextInput
+															flex={1}
+															value={val}
+															onChange={(e) => {
+																const arr = [
+																	...(selectedCollection
+																		.userExtraInformationData[
+																		template.name
+																	] || [""]),
+																];
+																arr[i] = e.currentTarget.value;
+																handleCustomFieldChange(
+																	selectedCollection.id,
+																	template.name,
+																	arr,
+																);
+															}}
+														/>
+														<Anchor
+															ml="auto"
+															size="xs"
+															onClick={() => {
+																const arr = [
+																	...(selectedCollection
+																		.userExtraInformationData[
+																		template.name
+																	] || [""]),
+																];
+																arr.splice(i, 1);
+																handleCustomFieldChange(
+																	selectedCollection.id,
+																	template.name,
+																	arr,
+																);
+															}}
+														>
+															Remove
+														</Anchor>
+													</Group>
+												))}
+												<Anchor
+													ml={4}
+													size="xs"
+													onClick={() => {
+														const arr = [
+															...(selectedCollection.userExtraInformationData[
+																template.name
+															] || [""]),
+														];
+														arr.push("");
+														handleCustomFieldChange(
+															selectedCollection.id,
+															template.name,
+															arr,
+														);
+													}}
+												>
+													Add more
+												</Anchor>
+											</Stack>
+										</Input.Wrapper>
+									))
+									.exhaustive()}
+							</Fragment>
+						))}
+					</Fragment>
+				))}
+				<Button
+					type="submit"
+					variant="outline"
+					loading={mutation.isPending}
+					disabled={selectedCollections.length === 0 || mutation.isPending}
+				>
+					Set
+				</Button>
+				<Button
+					color="red"
+					variant="outline"
+					onClick={closeAddEntityToCollectionModal}
+				>
+					Cancel
+				</Button>
+			</Stack>
+		</Form>
 	);
 };
 
