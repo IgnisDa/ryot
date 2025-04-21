@@ -81,7 +81,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
-import { useAddEntityToCollection } from "~/lib/state/media";
+import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	redirectWithToast,
@@ -242,7 +242,7 @@ export default function Page() {
 	);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
-	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const entityLot = match(loaderData.entity)
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
@@ -399,7 +399,7 @@ export default function Page() {
 									.exhaustive()}
 								<Menu.Item
 									onClick={() =>
-										setAddEntityToCollectionData({
+										setAddEntityToCollectionsData({
 											entityLot,
 											entityId: loaderData.entityId,
 											alreadyInCollections: loaderData.collections.map(

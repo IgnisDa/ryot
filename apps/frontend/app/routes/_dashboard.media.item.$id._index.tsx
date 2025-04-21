@@ -133,7 +133,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
-	useAddEntityToCollection,
+	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
@@ -286,7 +286,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
@@ -977,7 +977,7 @@ export default function Page() {
 									<Button
 										variant="outline"
 										onClick={() => {
-											setAddEntityToCollectionData({
+											setAddEntityToCollectionsData({
 												entityId: loaderData.metadataId,
 												entityLot: EntityLot.Metadata,
 												alreadyInCollections:

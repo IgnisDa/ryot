@@ -44,7 +44,7 @@ import {
 } from "~/components/media";
 import { clientGqlService, getMetadataGroupDetailsQuery } from "~/lib/common";
 import { useUserPreferences } from "~/lib/hooks";
-import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
+import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
 
@@ -81,7 +81,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
 		loaderData.personDetails.associatedMetadata.map((c) => c.name).at(0) ||
@@ -300,7 +300,7 @@ export default function Page() {
 								<Button
 									variant="outline"
 									onClick={() => {
-										setAddEntityToCollectionData({
+										setAddEntityToCollectionsData({
 											entityId: loaderData.personId,
 											entityLot: EntityLot.Person,
 											alreadyInCollections:
