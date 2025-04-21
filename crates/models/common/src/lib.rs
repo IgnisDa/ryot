@@ -20,15 +20,15 @@ pub struct StringIdObject {
 }
 
 #[derive(
+    Eq,
     Debug,
-    SimpleObject,
+    Clone,
+    Default,
+    Schematic,
+    PartialEq,
     Serialize,
     Deserialize,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    Schematic,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
