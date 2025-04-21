@@ -265,7 +265,6 @@ impl FitnessService {
                 remote_images: ex.attributes.images,
                 ..Default::default()
             },
-            ..Default::default()
         };
         let mut muscles = ex.attributes.primary_muscles;
         muscles.extend(ex.attributes.secondary_muscles);
