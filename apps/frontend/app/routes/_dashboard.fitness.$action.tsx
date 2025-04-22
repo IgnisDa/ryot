@@ -1670,6 +1670,7 @@ const ExerciseDisplay = (props: {
 								fw="bold"
 								lineClamp={1}
 								component={Link}
+								onClick={toggleShowExerciseDetails}
 								to={getExerciseDetailsPath(exercise.exerciseId)}
 							>
 								{exerciseDetails?.name || "Loading..."}
@@ -1762,17 +1763,6 @@ const ExerciseDisplay = (props: {
 							>
 								Replace exercise
 							</Menu.Item>
-							{exerciseHasDetailsToShow(
-								exerciseDetails,
-								userExerciseDetails,
-							) ? (
-								<Menu.Item
-									leftSection={<IconInfoCircle size={14} />}
-									onClick={() => toggleShowExerciseDetails()}
-								>
-									Edit details
-								</Menu.Item>
-							) : null}
 							<Menu.Item
 								leftSection={<IconReorder size={14} />}
 								onClick={() => props.reorderDrawerToggle(exercise.identifier)}
