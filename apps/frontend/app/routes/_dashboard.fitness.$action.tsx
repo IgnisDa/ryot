@@ -78,7 +78,6 @@ import {
 	IconDropletFilled,
 	IconDropletHalf2Filled,
 	IconHeartSpark,
-	IconInfoCircle,
 	IconLayersIntersect,
 	IconLibraryPhoto,
 	IconPhoto,
@@ -114,7 +113,6 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	dayjsLib,
-	getExerciseDetailsPath,
 	getSetColor,
 	getSurroundingElements,
 	openConfirmationModal,
@@ -1667,11 +1665,13 @@ const ExerciseDisplay = (props: {
 					<Menu shadow="md" width={200} position="left-end">
 						<Group justify="space-between" pos="relative" wrap="nowrap">
 							<Anchor
+								c="blue"
 								fw="bold"
 								lineClamp={1}
-								component={Link}
-								onClick={toggleShowExerciseDetails}
-								to={getExerciseDetailsPath(exercise.exerciseId)}
+								onClick={(e) => {
+									e.preventDefault();
+									toggleShowExerciseDetails();
+								}}
 							>
 								{exerciseDetails?.name || "Loading..."}
 							</Anchor>
