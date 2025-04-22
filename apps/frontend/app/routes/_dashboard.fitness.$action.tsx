@@ -13,6 +13,7 @@ import {
 	Drawer,
 	FileButton,
 	Flex,
+	FocusTrap,
 	Group,
 	Image,
 	Menu,
@@ -78,7 +79,6 @@ import {
 	IconDropletFilled,
 	IconDropletHalf2Filled,
 	IconHeartSpark,
-	IconInfoCircle,
 	IconLayersIntersect,
 	IconLibraryPhoto,
 	IconPhoto,
@@ -1496,6 +1496,10 @@ const ExerciseDisplay = (props: {
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
+	const [
+		isDetailsModalOpen,
+		{ open: openDetailsModal, close: closeDetailsModal },
+	] = useDisclosure(false);
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -1544,23 +1548,25 @@ const ExerciseDisplay = (props: {
 		);
 	};
 
-	const toggleShowExerciseDetails = () => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.exercises[props.exerciseIdx].isShowDetailsOpen =
-					!exercise.isShowDetailsOpen;
-			}),
-		);
-	};
-
 	return (
 		<>
 			<Modal
 				size="lg"
-				opened={exercise.isShowDetailsOpen}
-				onClose={() => toggleShowExerciseDetails()}
-				title={`Exercise details for ${exerciseDetails?.name}`}
+				opened={isDetailsModalOpen}
+				onClose={closeDetailsModal}
+				title={
+					<Group gap={4} wrap="nowrap">
+						<Text>Exercise details for</Text>
+						<Anchor
+							component={Link}
+							to={getExerciseDetailsPath(exercise.exerciseId)}
+						>
+							{exerciseDetails?.name || "..."}
+						</Anchor>
+					</Group>
+				}
 			>
+				<FocusTrap.InitialFocus />
 				<Stack>
 					<Select
 						size="sm"
@@ -1667,10 +1673,13 @@ const ExerciseDisplay = (props: {
 					<Menu shadow="md" width={200} position="left-end">
 						<Group justify="space-between" pos="relative" wrap="nowrap">
 							<Anchor
+								c="blue"
 								fw="bold"
 								lineClamp={1}
-								component={Link}
-								to={getExerciseDetailsPath(exercise.exerciseId)}
+								onClick={(e) => {
+									e.preventDefault();
+									openDetailsModal();
+								}}
 							>
 								{exerciseDetails?.name || "Loading..."}
 							</Anchor>
@@ -1762,17 +1771,6 @@ const ExerciseDisplay = (props: {
 							>
 								Replace exercise
 							</Menu.Item>
-							{exerciseHasDetailsToShow(
-								exerciseDetails,
-								userExerciseDetails,
-							) ? (
-								<Menu.Item
-									leftSection={<IconInfoCircle size={14} />}
-									onClick={() => toggleShowExerciseDetails()}
-								>
-									Edit details
-								</Menu.Item>
-							) : null}
 							<Menu.Item
 								leftSection={<IconReorder size={14} />}
 								onClick={() => props.reorderDrawerToggle(exercise.identifier)}

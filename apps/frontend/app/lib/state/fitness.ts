@@ -61,7 +61,6 @@ export type Exercise = {
 	images: Array<Media>;
 	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
-	isShowDetailsOpen: boolean;
 	scrollMarginRemoved?: true;
 	unitSystem: UserUnitSystem;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
@@ -333,7 +332,6 @@ export const duplicateOldWorkout = async (
 			notes: ex.notes,
 			exerciseId: ex.id,
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
 			unitSystem: ex.unitSystem,
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
@@ -416,7 +414,6 @@ export const addExerciseToCurrentWorkout = async (
 			alreadyDoneSets,
 			exerciseId: ex.name,
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
 			unitSystem: userFitnessPreferences.exercises.unitSystem,
 		});
 	}
