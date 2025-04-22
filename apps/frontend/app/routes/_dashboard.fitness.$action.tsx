@@ -113,6 +113,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	dayjsLib,
+	getExerciseDetailsPath,
 	getSetColor,
 	getSurroundingElements,
 	openConfirmationModal,
@@ -1557,7 +1558,17 @@ const ExerciseDisplay = (props: {
 				size="lg"
 				opened={exercise.isShowDetailsOpen}
 				onClose={() => toggleShowExerciseDetails()}
-				title={`Exercise details for ${exerciseDetails?.name}`}
+				title={
+					<Group gap={4} wrap="nowrap">
+						<Text>Exercise details for</Text>
+						<Anchor
+							component={Link}
+							to={getExerciseDetailsPath(exercise.exerciseId)}
+						>
+							{exerciseDetails?.name || "..."}
+						</Anchor>
+					</Group>
+				}
 			>
 				<Stack>
 					<Select
