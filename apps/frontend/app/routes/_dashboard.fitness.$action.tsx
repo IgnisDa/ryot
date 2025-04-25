@@ -767,12 +767,11 @@ const NameAndOtherInputs = (props: {
 	}, [name]);
 
 	useDidUpdate(() => {
-		if (comment)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.comment = comment;
-				}),
-			);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.comment = comment || undefined;
+			}),
+		);
 	}, [comment]);
 
 	useDidUpdate(() => {
