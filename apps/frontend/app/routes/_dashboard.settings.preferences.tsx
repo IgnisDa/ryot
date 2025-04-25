@@ -8,7 +8,6 @@ import {
 	Divider,
 	Group,
 	Input,
-	JsonInput,
 	MultiSelect,
 	NumberInput,
 	Paper,
@@ -622,45 +621,49 @@ export default function Page() {
 								}}
 							/>
 							<Divider />
-							<Input.Wrapper label="The default measurements you want to keep track of">
-								<SimpleGrid cols={2} mt="xs">
-									{Object.entries(
-										userPreferences.fitness.measurements.inbuilt,
-									).map(([name, isEnabled]) => (
-										<Switch
-											size="xs"
-											key={name}
-											label={changeCase(snakeCase(name))}
-											defaultChecked={isEnabled}
-											disabled={!!isEditDisabled}
-											onChange={(ev) => {
-												updatePreference((draft) => {
-													// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
-													(draft as any).fitness.measurements.inbuilt[name] =
-														ev.currentTarget.checked;
-												});
-											}}
-										/>
-									))}
-								</SimpleGrid>
+							<Input.Wrapper label="The measurements you want to keep track of">
+								<Stack gap="xs">
+									{changingUserPreferences.value.fitness.measurements.statistics.map(
+										(s, index) => (
+											<Group
+												key={`${
+													// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+													index
+												}`}
+											>
+												<TextInput
+													size="xs"
+													label="Name"
+													value={s.name}
+													disabled={!!isEditDisabled}
+													placeholder="Enter measurement name"
+													onChange={(val) => {
+														updatePreference((draft) => {
+															draft.fitness.measurements.statistics[
+																index
+															].name = val.target.value;
+														});
+													}}
+												/>
+												<TextInput
+													size="xs"
+													label="Unit"
+													value={s.unit || undefined}
+													disabled={!!isEditDisabled}
+													placeholder="Enter measurement unit"
+													onChange={(val) => {
+														updatePreference((draft) => {
+															draft.fitness.measurements.statistics[
+																index
+															].unit = val.target.value;
+														});
+													}}
+												/>
+											</Group>
+										),
+									)}
+								</Stack>
 							</Input.Wrapper>
-							<JsonInput
-								autosize
-								formatOnBlur
-								disabled={!!isEditDisabled}
-								label="The custom metrics you want to keep track of"
-								description="The name of the attribute along with the data type. Only decimal data type is supported."
-								defaultValue={JSON.stringify(
-									userPreferences.fitness.measurements.custom,
-									null,
-									4,
-								)}
-								onChange={(v) => {
-									updatePreference((draft) => {
-										draft.fitness.measurements.custom = JSON.parse(v);
-									});
-								}}
-							/>
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>
