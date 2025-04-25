@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{EntityAssets, SearchInput};
 use derive_more::with_trait::{Add, AddAssign, Sum};
@@ -72,6 +70,27 @@ pub struct GithubExercise {
     pub name: String,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Schematic,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "UserMeasurementStatisticInput")]
+#[serde(rename_all = "snake_case")]
+pub struct UserMeasurementStatistic {
+    pub name: String,
+    pub value: Decimal,
+}
+
 /// The actual statistics that were logged in a user measurement.
 #[skip_serializing_none]
 #[derive(
@@ -87,34 +106,11 @@ pub struct GithubExercise {
     SimpleObject,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "UserMeasurementDataInput")]
+#[graphql(input_name = "UserMeasurementInformationInput")]
 #[serde(rename_all = "snake_case")]
-pub struct UserMeasurementStats {
-    pub weight: Option<Decimal>,
-    pub body_mass_index: Option<Decimal>,
-    pub total_body_water: Option<Decimal>,
-    pub muscle: Option<Decimal>,
-    pub lean_body_mass: Option<Decimal>,
-    pub body_fat: Option<Decimal>,
-    pub bone_mass: Option<Decimal>,
-    pub visceral_fat: Option<Decimal>,
-    pub waist_circumference: Option<Decimal>,
-    pub waist_to_height_ratio: Option<Decimal>,
-    pub hip_circumference: Option<Decimal>,
-    pub waist_to_hip_ratio: Option<Decimal>,
-    pub chest_circumference: Option<Decimal>,
-    pub thigh_circumference: Option<Decimal>,
-    pub biceps_circumference: Option<Decimal>,
-    pub neck_circumference: Option<Decimal>,
-    pub body_fat_caliper: Option<Decimal>,
-    pub chest_skinfold: Option<Decimal>,
-    pub abdominal_skinfold: Option<Decimal>,
-    pub thigh_skinfold: Option<Decimal>,
-    pub basal_metabolic_rate: Option<Decimal>,
-    pub total_daily_energy_expenditure: Option<Decimal>,
-    pub calories: Option<Decimal>,
-    // DEV: The only custom data type we allow is decimal
-    pub custom: Option<HashMap<String, Decimal>>,
+pub struct UserMeasurementInformation {
+    pub assets: EntityAssets,
+    pub statistics: Vec<UserMeasurementStatistic>,
 }
 
 /// The totals of a workout and the different bests achieved.
