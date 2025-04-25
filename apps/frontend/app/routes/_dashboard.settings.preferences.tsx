@@ -43,7 +43,7 @@ import {
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
-import { IconCheckbox } from "@tabler/icons-react";
+import { IconCheckbox, IconMinus } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
@@ -658,6 +658,23 @@ export default function Page() {
 													});
 												}}
 											/>
+											<ActionIcon
+												mt={14}
+												size="xs"
+												color="red"
+												variant="outline"
+												disabled={!!isEditDisabled}
+												onClick={() => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics.splice(
+															index,
+															1,
+														);
+													});
+												}}
+											>
+												<IconMinus />
+											</ActionIcon>
 										</Group>
 									),
 								)}
