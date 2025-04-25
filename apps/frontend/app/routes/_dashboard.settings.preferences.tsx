@@ -621,49 +621,49 @@ export default function Page() {
 								}}
 							/>
 							<Divider />
-							<Input.Wrapper label="The measurements you want to keep track of">
-								<Stack gap="xs">
-									{changingUserPreferences.value.fitness.measurements.statistics.map(
-										(s, index) => (
-											<Group
-												key={`${
-													// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
-													index
-												}`}
-											>
-												<TextInput
-													size="xs"
-													label="Name"
-													value={s.name}
-													disabled={!!isEditDisabled}
-													placeholder="Enter measurement name"
-													onChange={(val) => {
-														updatePreference((draft) => {
-															draft.fitness.measurements.statistics[
-																index
-															].name = val.target.value;
-														});
-													}}
-												/>
-												<TextInput
-													size="xs"
-													label="Unit"
-													value={s.unit || undefined}
-													disabled={!!isEditDisabled}
-													placeholder="Enter measurement unit"
-													onChange={(val) => {
-														updatePreference((draft) => {
-															draft.fitness.measurements.statistics[
-																index
-															].unit = val.target.value;
-														});
-													}}
-												/>
-											</Group>
-										),
-									)}
-								</Stack>
-							</Input.Wrapper>
+							<Stack gap="xs">
+								<Group>
+									<Text size="sm">
+										The measurements you want to keep track of
+									</Text>
+								</Group>
+								{changingUserPreferences.value.fitness.measurements.statistics.map(
+									(s, index) => (
+										<Group
+											wrap="nowrap"
+											key={`${
+												// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+												index
+											}`}
+										>
+											<TextInput
+												size="xs"
+												label="Name"
+												value={s.name}
+												disabled={!!isEditDisabled}
+												onChange={(val) => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics[index].name =
+															val.target.value;
+													});
+												}}
+											/>
+											<TextInput
+												size="xs"
+												label="Unit"
+												value={s.unit || undefined}
+												disabled={!!isEditDisabled}
+												onChange={(val) => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics[index].unit =
+															val.target.value;
+													});
+												}}
+											/>
+										</Group>
+									),
+								)}
+							</Stack>
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>
