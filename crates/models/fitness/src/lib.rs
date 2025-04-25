@@ -75,17 +75,17 @@ pub struct GithubExercise {
 /// The actual statistics that were logged in a user measurement.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Debug,
     Clone,
-    Serialize,
-    Deserialize,
-    FromJsonQueryResult,
-    Eq,
-    PartialEq,
-    SimpleObject,
-    InputObject,
-    Schematic,
     Default,
+    PartialEq,
+    Schematic,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 #[graphql(input_name = "UserMeasurementDataInput")]
 #[serde(rename_all = "snake_case")]
