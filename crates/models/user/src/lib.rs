@@ -133,59 +133,10 @@ pub struct UserFitnessExercisesPreferences {
 }
 
 #[derive(
-    Eq,
-    Educe,
-    Debug,
-    Clone,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "UserMeasurementsInBuiltPreferencesInput")]
-#[educe(Default)]
-pub struct UserMeasurementsInBuiltPreferences {
-    #[educe(Default = true)]
-    pub weight: bool,
-    #[educe(Default = true)]
-    pub body_mass_index: bool,
-    #[educe(Default = true)]
-    pub total_body_water: bool,
-    #[educe(Default = true)]
-    pub muscle: bool,
-    #[educe(Default = true)]
-    pub body_fat: bool,
-    #[educe(Default = true)]
-    pub waist_to_height_ratio: bool,
-    #[educe(Default = true)]
-    pub waist_to_hip_ratio: bool,
-    #[educe(Default = true)]
-    pub basal_metabolic_rate: bool,
-    #[educe(Default = true)]
-    pub total_daily_energy_expenditure: bool,
-    pub calories: bool,
-    pub lean_body_mass: bool,
-    pub bone_mass: bool,
-    pub visceral_fat: bool,
-    pub waist_circumference: bool,
-    pub hip_circumference: bool,
-    pub chest_circumference: bool,
-    pub thigh_circumference: bool,
-    pub biceps_circumference: bool,
-    pub neck_circumference: bool,
-    pub body_fat_caliper: bool,
-    pub chest_skinfold: bool,
-    pub abdominal_skinfold: bool,
-    pub thigh_skinfold: bool,
-}
-
-#[derive(
     Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
 )]
 #[serde(rename_all = "UPPERCASE")]
-pub enum UserCustomMeasurementDataType {
+pub enum UserStatisticsMeasurementDataType {
     #[default]
     Decimal,
 }
@@ -204,9 +155,9 @@ pub enum UserCustomMeasurementDataType {
 )]
 #[graphql(input_name = "UserCustomMeasurementInput")]
 #[serde(rename_all = "camelCase")]
-pub struct UserCustomMeasurement {
+pub struct UserStatisticsMeasurement {
     pub name: String,
-    pub data_type: UserCustomMeasurementDataType,
+    pub data_type: UserStatisticsMeasurementDataType,
 }
 
 #[derive(
@@ -224,13 +175,17 @@ pub struct UserCustomMeasurement {
 #[graphql(input_name = "UserFitnessMeasurementsPreferencesInput")]
 #[educe(Default)]
 pub struct UserFitnessMeasurementsPreferences {
-    #[educe(Default(expression = vec![UserCustomMeasurement {
-        name: "sugar_level".to_owned(),
-        data_type: UserCustomMeasurementDataType::Decimal,
-    }]))]
-    pub custom: Vec<UserCustomMeasurement>,
-    #[educe(Default(expression = UserMeasurementsInBuiltPreferences::default()))]
-    pub inbuilt: UserMeasurementsInBuiltPreferences,
+    #[educe(Default(expression = vec![
+        UserStatisticsMeasurement {
+            name: "weight".to_owned(),
+            data_type: UserStatisticsMeasurementDataType::Decimal,
+        },
+        UserStatisticsMeasurement {
+            name: "sugar_level".to_owned(),
+            data_type: UserStatisticsMeasurementDataType::Decimal,
+        },
+    ]))]
+    pub statistics: Vec<UserStatisticsMeasurement>,
 }
 
 #[derive(
