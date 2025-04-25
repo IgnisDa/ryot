@@ -622,11 +622,9 @@ export default function Page() {
 							/>
 							<Divider />
 							<Stack gap="xs">
-								<Group>
-									<Text size="sm">
-										The measurements you want to keep track of
-									</Text>
-								</Group>
+								<Text size="sm">
+									The measurements you want to keep track of
+								</Text>
 								{changingUserPreferences.value.fitness.measurements.statistics.map(
 									(s, index) => (
 										<Group
@@ -663,6 +661,20 @@ export default function Page() {
 										</Group>
 									),
 								)}
+								<Button
+									ml="auto"
+									size="xs"
+									variant="outline"
+									onClick={() => {
+										updatePreference((draft) => {
+											draft.fitness.measurements.statistics.push({
+												name: "<name>",
+											});
+										});
+									}}
+								>
+									Add
+								</Button>
 							</Stack>
 						</Stack>
 					</Tabs.Panel>
