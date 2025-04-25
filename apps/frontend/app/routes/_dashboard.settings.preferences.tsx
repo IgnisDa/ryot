@@ -663,7 +663,11 @@ export default function Page() {
 												size="xs"
 												color="red"
 												variant="outline"
-												disabled={!!isEditDisabled}
+												disabled={
+													!!isEditDisabled ||
+													changingUserPreferences.value.fitness.measurements
+														.statistics.length === 1
+												}
 												onClick={() => {
 													updatePreference((draft) => {
 														draft.fitness.measurements.statistics.splice(
