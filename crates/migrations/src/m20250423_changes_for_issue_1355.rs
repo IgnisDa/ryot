@@ -8,9 +8,10 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        // 1. Update rows where stats is an object, transforming it into an array
-        //    of {name, value} pairs, flattening the 'custom' object if present.
-        db.execute_unprepared(r#"
+        if manager.has_column("user_measurement", "stats").await? {
+            // 1. Update rows where stats is an object, transforming it into an array
+            //    of {name, value} pairs, flattening the 'custom' object if present.
+            db.execute_unprepared(r#"
             UPDATE user_measurement
             SET stats = aggregated_stats.new_stats_array
             FROM (
@@ -45,9 +46,9 @@ impl MigrationTrait for Migration {
                 AND jsonb_typeof(user_measurement.stats) = 'object';
         "#).await?;
 
-        // 2a. Dynamically build the statistics array in preferences for users WITH measurements.
-        db.execute_unprepared(
-            r#"
+            // 2a. Dynamically build the statistics array in preferences for users WITH measurements.
+            db.execute_unprepared(
+                r#"
             WITH UserMeasurementNames AS (
                 -- Extract all unique measurement names for each user from the updated stats arrays
                 SELECT DISTINCT
@@ -83,11 +84,11 @@ impl MigrationTrait for Migration {
             FROM UserStatisticsArray usa
             WHERE u.id = usa.user_id;
         "#,
-        )
-        .await?;
+            )
+            .await?;
 
-        // 2b. Set default statistics array in preferences for users WITHOUT any measurements.
-        db.execute_unprepared(r#"
+            // 2b. Set default statistics array in preferences for users WITHOUT any measurements.
+            db.execute_unprepared(r#"
             UPDATE public.user u
             SET preferences = jsonb_set(
                 u.preferences,
@@ -101,6 +102,13 @@ impl MigrationTrait for Migration {
                 WHERE um.user_id = u.id AND jsonb_typeof(um.stats) = 'array'
             );
         "#).await?;
+
+            // 3. Rename stats column to information
+            db.execute_unprepared(
+                "ALTER TABLE user_measurement RENAME COLUMN stats TO information;",
+            )
+            .await?;
+        }
 
         Ok(())
     }

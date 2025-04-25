@@ -14,7 +14,7 @@ pub enum UserMeasurement {
     UserId,
     Name,
     Comment,
-    Stats,
+    Information,
 }
 
 #[async_trait::async_trait]
@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
                             .col(UserMeasurement::Timestamp),
                     )
                     .col(
-                        ColumnDef::new(UserMeasurement::Stats)
+                        ColumnDef::new(UserMeasurement::Information)
                             .json_binary()
                             .not_null(),
                     )
