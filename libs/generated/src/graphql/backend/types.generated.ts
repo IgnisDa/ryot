@@ -15,7 +15,6 @@ export type Scalars = {
   DateTime: { input: string; output: string; }
   Decimal: { input: string; output: string; }
   JSON: { input: any; output: any; }
-  JSONObject: { input: any; output: any; }
   NaiveDate: { input: string; output: string; }
   NaiveDateTime: { input: any; output: any; }
   UUID: { input: string; output: string; }
@@ -2342,18 +2341,8 @@ export type UserCalendarEventInput = {
   year: Scalars['Int']['input'];
 };
 
-export type UserCustomMeasurement = {
-  __typename?: 'UserCustomMeasurement';
-  dataType: UserCustomMeasurementDataType;
-  name: Scalars['String']['output'];
-};
-
-export enum UserCustomMeasurementDataType {
-  Decimal = 'DECIMAL'
-}
-
 export type UserCustomMeasurementInput = {
-  dataType: UserCustomMeasurementDataType;
+  dataType: UserStatisticsMeasurementDataType;
   name: Scalars['String']['input'];
 };
 
@@ -2467,13 +2456,11 @@ export type UserFitnessLoggingPreferencesInput = {
 
 export type UserFitnessMeasurementsPreferences = {
   __typename?: 'UserFitnessMeasurementsPreferences';
-  custom: Array<UserCustomMeasurement>;
-  inbuilt: UserMeasurementsInBuiltPreferences;
+  statistics: Array<UserStatisticsMeasurement>;
 };
 
 export type UserFitnessMeasurementsPreferencesInput = {
-  custom: Array<UserCustomMeasurementInput>;
-  inbuilt: UserMeasurementsInBuiltPreferencesInput;
+  statistics: Array<UserCustomMeasurementInput>;
 };
 
 export type UserFitnessPreferences = {
@@ -2560,134 +2547,48 @@ export type UserMeasurement = {
   __typename?: 'UserMeasurement';
   /** Any comment associated entered by the user. */
   comment?: Maybe<Scalars['String']['output']>;
+  /** The contents of the actual measurement. */
+  information: UserMeasurementInformation;
   /** The name given to this measurement by the user. */
   name?: Maybe<Scalars['String']['output']>;
-  /** The contents of the actual measurement. */
-  stats: UserMeasurementStats;
   /** The date and time this measurement was made. */
   timestamp: Scalars['DateTime']['output'];
 };
 
 /** The actual statistics that were logged in a user measurement. */
-export type UserMeasurementDataInput = {
-  abdominalSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
-  basalMetabolicRate?: InputMaybe<Scalars['Decimal']['input']>;
-  bicepsCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  bodyFat?: InputMaybe<Scalars['Decimal']['input']>;
-  bodyFatCaliper?: InputMaybe<Scalars['Decimal']['input']>;
-  bodyMassIndex?: InputMaybe<Scalars['Decimal']['input']>;
-  boneMass?: InputMaybe<Scalars['Decimal']['input']>;
-  calories?: InputMaybe<Scalars['Decimal']['input']>;
-  chestCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  chestSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
-  custom?: InputMaybe<Scalars['JSONObject']['input']>;
-  hipCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  leanBodyMass?: InputMaybe<Scalars['Decimal']['input']>;
-  muscle?: InputMaybe<Scalars['Decimal']['input']>;
-  neckCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  thighCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  thighSkinfold?: InputMaybe<Scalars['Decimal']['input']>;
-  totalBodyWater?: InputMaybe<Scalars['Decimal']['input']>;
-  totalDailyEnergyExpenditure?: InputMaybe<Scalars['Decimal']['input']>;
-  visceralFat?: InputMaybe<Scalars['Decimal']['input']>;
-  waistCircumference?: InputMaybe<Scalars['Decimal']['input']>;
-  waistToHeightRatio?: InputMaybe<Scalars['Decimal']['input']>;
-  waistToHipRatio?: InputMaybe<Scalars['Decimal']['input']>;
-  weight?: InputMaybe<Scalars['Decimal']['input']>;
+export type UserMeasurementInformation = {
+  __typename?: 'UserMeasurementInformation';
+  assets: EntityAssets;
+  statistics: Array<UserMeasurementStatistic>;
+};
+
+/** The actual statistics that were logged in a user measurement. */
+export type UserMeasurementInformationInput = {
+  assets: EntityAssetsInput;
+  statistics: Array<UserMeasurementStatisticInput>;
 };
 
 /** An export of a measurement taken at a point in time. */
 export type UserMeasurementInput = {
   /** Any comment associated entered by the user. */
   comment?: InputMaybe<Scalars['String']['input']>;
+  /** The contents of the actual measurement. */
+  information: UserMeasurementInformationInput;
   /** The name given to this measurement by the user. */
   name?: InputMaybe<Scalars['String']['input']>;
-  /** The contents of the actual measurement. */
-  stats: UserMeasurementDataInput;
   /** The date and time this measurement was made. */
   timestamp: Scalars['DateTime']['input'];
 };
 
-/** The actual statistics that were logged in a user measurement. */
-export type UserMeasurementStats = {
-  __typename?: 'UserMeasurementStats';
-  abdominalSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  basalMetabolicRate?: Maybe<Scalars['Decimal']['output']>;
-  bicepsCircumference?: Maybe<Scalars['Decimal']['output']>;
-  bodyFat?: Maybe<Scalars['Decimal']['output']>;
-  bodyFatCaliper?: Maybe<Scalars['Decimal']['output']>;
-  bodyMassIndex?: Maybe<Scalars['Decimal']['output']>;
-  boneMass?: Maybe<Scalars['Decimal']['output']>;
-  calories?: Maybe<Scalars['Decimal']['output']>;
-  chestCircumference?: Maybe<Scalars['Decimal']['output']>;
-  chestSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  custom?: Maybe<Scalars['JSONObject']['output']>;
-  hipCircumference?: Maybe<Scalars['Decimal']['output']>;
-  leanBodyMass?: Maybe<Scalars['Decimal']['output']>;
-  muscle?: Maybe<Scalars['Decimal']['output']>;
-  neckCircumference?: Maybe<Scalars['Decimal']['output']>;
-  thighCircumference?: Maybe<Scalars['Decimal']['output']>;
-  thighSkinfold?: Maybe<Scalars['Decimal']['output']>;
-  totalBodyWater?: Maybe<Scalars['Decimal']['output']>;
-  totalDailyEnergyExpenditure?: Maybe<Scalars['Decimal']['output']>;
-  visceralFat?: Maybe<Scalars['Decimal']['output']>;
-  waistCircumference?: Maybe<Scalars['Decimal']['output']>;
-  waistToHeightRatio?: Maybe<Scalars['Decimal']['output']>;
-  waistToHipRatio?: Maybe<Scalars['Decimal']['output']>;
-  weight?: Maybe<Scalars['Decimal']['output']>;
+export type UserMeasurementStatistic = {
+  __typename?: 'UserMeasurementStatistic';
+  name: Scalars['String']['output'];
+  value: Scalars['Decimal']['output'];
 };
 
-export type UserMeasurementsInBuiltPreferences = {
-  __typename?: 'UserMeasurementsInBuiltPreferences';
-  abdominalSkinfold: Scalars['Boolean']['output'];
-  basalMetabolicRate: Scalars['Boolean']['output'];
-  bicepsCircumference: Scalars['Boolean']['output'];
-  bodyFat: Scalars['Boolean']['output'];
-  bodyFatCaliper: Scalars['Boolean']['output'];
-  bodyMassIndex: Scalars['Boolean']['output'];
-  boneMass: Scalars['Boolean']['output'];
-  calories: Scalars['Boolean']['output'];
-  chestCircumference: Scalars['Boolean']['output'];
-  chestSkinfold: Scalars['Boolean']['output'];
-  hipCircumference: Scalars['Boolean']['output'];
-  leanBodyMass: Scalars['Boolean']['output'];
-  muscle: Scalars['Boolean']['output'];
-  neckCircumference: Scalars['Boolean']['output'];
-  thighCircumference: Scalars['Boolean']['output'];
-  thighSkinfold: Scalars['Boolean']['output'];
-  totalBodyWater: Scalars['Boolean']['output'];
-  totalDailyEnergyExpenditure: Scalars['Boolean']['output'];
-  visceralFat: Scalars['Boolean']['output'];
-  waistCircumference: Scalars['Boolean']['output'];
-  waistToHeightRatio: Scalars['Boolean']['output'];
-  waistToHipRatio: Scalars['Boolean']['output'];
-  weight: Scalars['Boolean']['output'];
-};
-
-export type UserMeasurementsInBuiltPreferencesInput = {
-  abdominalSkinfold: Scalars['Boolean']['input'];
-  basalMetabolicRate: Scalars['Boolean']['input'];
-  bicepsCircumference: Scalars['Boolean']['input'];
-  bodyFat: Scalars['Boolean']['input'];
-  bodyFatCaliper: Scalars['Boolean']['input'];
-  bodyMassIndex: Scalars['Boolean']['input'];
-  boneMass: Scalars['Boolean']['input'];
-  calories: Scalars['Boolean']['input'];
-  chestCircumference: Scalars['Boolean']['input'];
-  chestSkinfold: Scalars['Boolean']['input'];
-  hipCircumference: Scalars['Boolean']['input'];
-  leanBodyMass: Scalars['Boolean']['input'];
-  muscle: Scalars['Boolean']['input'];
-  neckCircumference: Scalars['Boolean']['input'];
-  thighCircumference: Scalars['Boolean']['input'];
-  thighSkinfold: Scalars['Boolean']['input'];
-  totalBodyWater: Scalars['Boolean']['input'];
-  totalDailyEnergyExpenditure: Scalars['Boolean']['input'];
-  visceralFat: Scalars['Boolean']['input'];
-  waistCircumference: Scalars['Boolean']['input'];
-  waistToHeightRatio: Scalars['Boolean']['input'];
-  waistToHipRatio: Scalars['Boolean']['input'];
-  weight: Scalars['Boolean']['input'];
+export type UserMeasurementStatisticInput = {
+  name: Scalars['String']['input'];
+  value: Scalars['Decimal']['input'];
 };
 
 export type UserMeasurementsListInput = {
@@ -2848,6 +2749,16 @@ export enum UserReviewScale {
   OutOfHundred = 'OUT_OF_HUNDRED',
   OutOfTen = 'OUT_OF_TEN',
   ThreePointSmiley = 'THREE_POINT_SMILEY'
+}
+
+export type UserStatisticsMeasurement = {
+  __typename?: 'UserStatisticsMeasurement';
+  dataType: UserStatisticsMeasurementDataType;
+  name: Scalars['String']['output'];
+};
+
+export enum UserStatisticsMeasurementDataType {
+  Decimal = 'DECIMAL'
 }
 
 export type UserTemplatesOrWorkoutsListInput = {
