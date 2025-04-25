@@ -103,7 +103,25 @@ impl MigrationTrait for Migration {
             );
         "#).await?;
 
-            // 3. Rename stats column to information
+            // 3. Transform stats array into object with statistics and assets fields
+            db.execute_unprepared(
+                r#"
+            UPDATE user_measurement
+            SET stats = jsonb_build_object(
+                'statistics', stats,
+                'assets', jsonb_build_object(
+                    's3_images', '[]'::jsonb,
+                    's3_videos', '[]'::jsonb,
+                    'remote_images', '[]'::jsonb,
+                    'remote_videos', '[]'::jsonb
+                )
+            )
+            WHERE jsonb_typeof(stats) = 'array';
+        "#,
+            )
+            .await?;
+
+            // 4. Rename stats column to information
             db.execute_unprepared(
                 "ALTER TABLE user_measurement RENAME COLUMN stats TO information;",
             )
