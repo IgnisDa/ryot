@@ -133,15 +133,6 @@ pub struct UserFitnessExercisesPreferences {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
-)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum UserStatisticsMeasurementDataType {
-    #[default]
-    Decimal,
-}
-
-#[derive(
     Eq,
     Clone,
     Debug,
@@ -157,7 +148,7 @@ pub enum UserStatisticsMeasurementDataType {
 #[serde(rename_all = "camelCase")]
 pub struct UserStatisticsMeasurement {
     pub name: String,
-    pub data_type: UserStatisticsMeasurementDataType,
+    pub unit: Option<String>,
 }
 
 #[derive(
@@ -178,11 +169,11 @@ pub struct UserFitnessMeasurementsPreferences {
     #[educe(Default(expression = vec![
         UserStatisticsMeasurement {
             name: "weight".to_owned(),
-            data_type: UserStatisticsMeasurementDataType::Decimal,
+            ..Default::default()
         },
         UserStatisticsMeasurement {
             name: "sugar_level".to_owned(),
-            data_type: UserStatisticsMeasurementDataType::Decimal,
+            ..Default::default()
         },
     ]))]
     pub statistics: Vec<UserStatisticsMeasurement>,

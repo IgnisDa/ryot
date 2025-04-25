@@ -2342,8 +2342,8 @@ export type UserCalendarEventInput = {
 };
 
 export type UserCustomMeasurementInput = {
-  dataType: UserStatisticsMeasurementDataType;
   name: Scalars['String']['input'];
+  unit?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UserDetailsError = {
@@ -2753,13 +2753,9 @@ export enum UserReviewScale {
 
 export type UserStatisticsMeasurement = {
   __typename?: 'UserStatisticsMeasurement';
-  dataType: UserStatisticsMeasurementDataType;
   name: Scalars['String']['output'];
+  unit?: Maybe<Scalars['String']['output']>;
 };
-
-export enum UserStatisticsMeasurementDataType {
-  Decimal = 'DECIMAL'
-}
 
 export type UserTemplatesOrWorkoutsListInput = {
   search: SearchInput;
