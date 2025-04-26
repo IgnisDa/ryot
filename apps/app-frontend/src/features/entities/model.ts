@@ -17,9 +17,9 @@ type ApiTableRuntimeEntity = Extract<ApiViewRuntimeEntity, { cells: unknown }>;
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
 export type AppEntityImage =
-	| { kind: "remote"; url: string }
+	| null
 	| { kind: "s3"; key: string }
-	| null;
+	| { kind: "remote"; url: string };
 
 export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 	createdAt: Date;
