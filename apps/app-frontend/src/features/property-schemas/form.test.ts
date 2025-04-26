@@ -5,6 +5,7 @@ import {
 	buildPropertySchemaFormValues,
 	createPropertySchemaFormSchema,
 	isPropertySchemaRowsValid,
+	resolveNextPropertySchemaSlug,
 } from "./form";
 
 describe("buildDefaultPropertySchemaRow", () => {
@@ -84,5 +85,16 @@ describe("buildPropertiesSchema", () => {
 			occurredOn: { type: "date", required: true },
 			notes: { type: "string" },
 		});
+	});
+});
+
+describe("resolveNextPropertySchemaSlug", () => {
+	it("preserves a non-empty slug when there is no previous derived slug", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				slug: "saved-schema",
+				name: "Reading Status",
+			}),
+		).toBe("saved-schema");
 	});
 });
