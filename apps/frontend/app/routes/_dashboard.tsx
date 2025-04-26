@@ -2012,7 +2012,16 @@ const CreateMeasurementForm = (props: {
 					/>
 				))}
 			</SimpleGrid>
-			<Textarea label="Comment" name="comment" />
+			<Textarea
+				label="Comment"
+				value={createMeasurement.comment ?? ""}
+				onChange={(e) =>
+					setCreateMeasurement({
+						...createMeasurement,
+						comment: e.target.value,
+					})
+				}
+			/>
 			<Button
 				loading={createMeasurementMutation.isPending}
 				onClick={async () => {
