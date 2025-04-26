@@ -3,11 +3,10 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
 	createValidationServiceErrorResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import { listTrackersByUser } from "./repository";
 import {
@@ -29,13 +28,10 @@ const listTrackersRoute = createAuthRoute(
 		tags: ["trackers"],
 		request: { query: listTrackersQuery },
 		summary: "List trackers for the authenticated user",
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Trackers available for the user",
-				listTrackersResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successSchema: listTrackersResponseSchema,
+			successDescription: "Trackers available for the user",
+		}),
 	}),
 );
 
@@ -45,13 +41,11 @@ const createTrackerRoute = createAuthRoute(
 		method: "post",
 		tags: ["trackers"],
 		summary: "Create a custom tracker",
-		request: {
-			body: { content: { "application/json": { schema: createTrackerBody } } },
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse("Tracker was created", createTrackerResponseSchema),
-		},
+		request: { body: jsonBody(createTrackerBody) },
+		responses: createStandardResponses({
+			successDescription: "Tracker was created",
+			successSchema: createTrackerResponseSchema,
+		}),
 	}),
 );
 
@@ -63,13 +57,13 @@ const updateTrackerRoute = createAuthRoute(
 		summary: "Update a tracker",
 		request: {
 			params: trackerParams,
-			body: { content: { "application/json": { schema: updateTrackerBody } } },
+			body: jsonBody(updateTrackerBody),
 		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Tracker does not exist for this user"),
-			200: jsonResponse("Tracker was updated", createTrackerResponseSchema),
-		},
+		responses: createStandardResponses({
+			successDescription: "Tracker was updated",
+			successSchema: createTrackerResponseSchema,
+			notFoundDescription: "Tracker does not exist for this user",
+		}),
 	}),
 );
 
@@ -79,18 +73,11 @@ const reorderTrackersRoute = createAuthRoute(
 		tags: ["trackers"],
 		path: "/reorder",
 		summary: "Reorder visible trackers for the authenticated user",
-		request: {
-			body: {
-				content: { "application/json": { schema: reorderTrackersBody } },
-			},
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			200: jsonResponse(
-				"Tracker order was updated",
-				reorderTrackersResponseSchema,
-			),
-		},
+		request: { body: jsonBody(reorderTrackersBody) },
+		responses: createStandardResponses({
+			successSchema: reorderTrackersResponseSchema,
+			successDescription: "Tracker order was updated",
+		}),
 	}),
 );
 

@@ -3,10 +3,9 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import {
 	createEventSchemaBody,
@@ -23,14 +22,11 @@ const listEventSchemasRoute = createAuthRoute(
 		tags: ["event-schemas"],
 		request: { query: listEventSchemasQuery },
 		summary: "List event schemas for a custom entity schema",
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity schema does not exist for this user"),
-			200: jsonResponse(
-				"Event schemas for the requested entity schema",
-				listEventSchemasResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successSchema: listEventSchemasResponseSchema,
+			notFoundDescription: "Entity schema does not exist for this user",
+			successDescription: "Event schemas for the requested entity schema",
+		}),
 	}),
 );
 
@@ -39,20 +35,13 @@ const createEventSchemaRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["event-schemas"],
+		request: { body: jsonBody(createEventSchemaBody) },
 		summary: "Create an event schema for a custom entity schema",
-		request: {
-			body: {
-				content: { "application/json": { schema: createEventSchemaBody } },
-			},
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity schema does not exist for this user"),
-			200: jsonResponse(
-				"Event schema was created",
-				createEventSchemaResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successDescription: "Event schema was created",
+			successSchema: createEventSchemaResponseSchema,
+			notFoundDescription: "Entity schema does not exist for this user",
+		}),
 	}),
 );
 
