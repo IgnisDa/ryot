@@ -219,7 +219,7 @@ The REST API is documented via OpenAPI and serves as the public integration surf
 - Future mobile apps if the PWA approach proves insufficient
 - Import/export tooling
 
-API keys with configurable permissions and rate limiting are supported from day one (the `apikey` table in the schema already models this).
+API keys with configurable permissions and rate limiting are supported.
 
 ---
 
