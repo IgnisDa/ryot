@@ -5,29 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1772449296544,
-			"tag": "0000_perfect_avengers",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1772593863981,
-			"tag": "0001_far_santa_claus",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1772651885417,
-			"tag": "0002_curved_firebird",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1772954689405,
-			"tag": "0003_gifted_vance_astro",
+			"when": 1772990035439,
+			"tag": "0000_handy_havok",
 			"breakpoints": true
 		}
 	]
