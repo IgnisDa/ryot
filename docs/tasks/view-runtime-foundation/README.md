@@ -86,7 +86,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 
 38. As a developer, I want the filter value to throw an error if a referenced property doesn't exist in the schema, so that typos or invalid property references fail fast rather than silently skipping filters.
 
-39. As a developer, I want the sort field to be required in runtime requests, so that there's no ambiguity about result ordering.
+39. As a developer, I want the sort fields to be required in runtime requests, so that there's no ambiguity about result ordering.
 
 40. As a developer, I want zero-result queries to return `totalPages: 0`, so that empty result sets are distinguished from a partially filled first page.
 
@@ -161,7 +161,7 @@ Build a complete view-runtime execution engine that accepts compiled query reque
 {
   entitySchemaSlugs: string[]
   filters: FilterExpression[]
-  sort: { field: string[], direction: "asc" | "desc" }
+  sort: { fields: string[], direction: "asc" | "desc" }
   pagination: { page: number, limit: number }
   layout: "grid" | "list" | "table"
   displayConfiguration: GridConfig | ListConfig | TableConfig
@@ -348,7 +348,7 @@ function validateSlugNotReserved(slug: string): void
 **Error scenarios:**
 - Schema slug not found: 404 with "Schema '{slug}' not found"
 - Property doesn't exist: 400 with "Property '{property}' not found in schema '{slug}'"
-- Missing sort field: 400 with "Sort field is required"
+- Missing sort fields: 400 with "Sort fields is required"
 - Clone non-existent view: 404 with "Saved view not found"
 
 ### Pagination Behavior
@@ -512,7 +512,7 @@ function validateSlugNotReserved(slug: string): void
 - `POST /view-runtime/execute` resolves properties for grid layout
 - `POST /view-runtime/execute` resolves properties for table layout
 - `POST /view-runtime/execute` returns 404 for non-existent schema
-- `POST /view-runtime/execute` returns 400 for missing sort field
+- `POST /view-runtime/execute` returns 400 for missing sort fields
 - Cross-schema query returns entities from multiple schemas
 
 **Prior art:** `/tests/src/tests/health.test.ts` (E2E pattern with OpenAPI client)
@@ -643,7 +643,7 @@ There is no default sort behavior because:
 1. Natural database order is non-deterministic
 2. Different use cases want different orderings (created_at, name, schema properties)
 3. Requiring explicit sort eliminates ambiguity
-4. Frontend can always default to `sort: { field: ["@name"], direction: "asc" }` if no preference
+4. Frontend can always default to `sort: { fields: ["@name"], direction: "asc" }` if no preference
 
 ### Why Slugs Instead of IDs
 
