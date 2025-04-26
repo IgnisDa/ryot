@@ -8,7 +8,6 @@ const createPropertySchemaMessage = (label: string) =>
 	`${label} must contain at least one property`;
 
 const propertyDefinitionFlags = {
-	nullable: z.literal(true).optional(),
 	required: z.literal(true).optional(),
 };
 
