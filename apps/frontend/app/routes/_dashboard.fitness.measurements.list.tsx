@@ -120,6 +120,11 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const selectedStatistics =
+		userPreferences.fitness.measurements.statistics.map((v) => ({
+			value: v.name,
+			label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
+		}));
 	const formattedData = loaderData.userMeasurementsList.map((m) => {
 		const local: Record<string, string> = {
 			timestamp: tickFormatter(m.timestamp),
@@ -170,16 +175,11 @@ export default function Page() {
 						<SimpleGrid cols={{ base: 1, md: 2 }}>
 							<MultiSelect
 								value={selectedStats}
+								data={selectedStatistics}
 								label="Statistics to display"
 								onChange={(s) => {
 									if (s) setSelectedStats(s);
 								}}
-								data={userPreferences.fitness.measurements.statistics.map(
-									(v) => ({
-										value: v.name,
-										label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
-									}),
-								)}
 							/>
 						</SimpleGrid>
 						<Box w="100%" ml={-15} mt="md">
@@ -211,9 +211,9 @@ export default function Page() {
 									accessor: "timestamp",
 									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
-								...userPreferences.fitness.measurements.statistics.map((s) => ({
-									accessor: s.name,
-									title: startCase(s.name),
+								...selectedStatistics.map((s) => ({
+									title: s.label,
+									accessor: s.value,
 								})),
 								{
 									width: 80,
