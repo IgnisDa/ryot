@@ -120,19 +120,11 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 	const formattedData = loaderData.userMeasurementsList.map((m) => {
-		const customStats = Object.fromEntries(
-			Object.entries(m.stats.custom || {})
-				.filter(([, v]) => v)
-				.map(([k, v]) => [`custom.${k}`, v]),
-		);
-		const inbuiltStats = Object.fromEntries(
-			Object.entries(m.stats).filter(([k, v]) => k !== "custom" && v),
-		);
-		return {
-			...inbuiltStats,
-			...customStats,
+		const local: Record<string, string> = {
 			timestamp: tickFormatter(m.timestamp),
 		};
+		for (const s of m.information.statistics) local[s.name] = s.value;
+		return local;
 	});
 	const [selectedStats, setSelectedStats] = useLocalStorage(
 		"SavedMeasurementsDisplaySelectedStats",
@@ -176,42 +168,31 @@ export default function Page() {
 					<Tabs.Panel value="graph">
 						<SimpleGrid cols={{ base: 1, md: 2 }}>
 							<MultiSelect
-								label="Statistics to display"
-								data={[
-									...Object.keys(userPreferences.fitness.measurements.inbuilt)
-										.filter(
-											(n) =>
-												// biome-ignore lint/suspicious/noExplicitAny: required
-												(userPreferences as any).fitness.measurements.inbuilt[
-													n
-												],
-										)
-										.map((v) => ({ name: v, value: v })),
-									...userPreferences.fitness.measurements.custom.map(
-										({ name }) => ({ name, value: `custom.${name}` }),
-									),
-								].map((v) => ({
-									value: v.value,
-									label: startCase(v.name),
-								}))}
 								value={selectedStats}
+								label="Statistics to display"
 								onChange={(s) => {
 									if (s) setSelectedStats(s);
 								}}
+								data={userPreferences.fitness.measurements.statistics.map(
+									(v) => ({
+										value: v.name,
+										label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
+									}),
+								)}
 							/>
 						</SimpleGrid>
 						<Box w="100%" ml={-15} mt="md">
 							{selectedStats ? (
 								<LineChart
 									h={300}
-									series={selectedStats.map((s) => {
-										const color = generateColor(getStringAsciiValue(s));
-										return { name: s, color };
-									})}
-									data={formattedData}
+									connectNulls
 									dataKey="timestamp"
 									curveType="monotone"
-									connectNulls
+									data={formattedData}
+									series={selectedStats.map((name) => ({
+										name,
+										color: generateColor(getStringAsciiValue(name)),
+									}))}
 								/>
 							) : null}
 						</Box>
@@ -219,38 +200,20 @@ export default function Page() {
 					<Tabs.Panel value="table">
 						<DataTable
 							height={400}
-							withTableBorder={false}
 							borderRadius="sm"
 							withColumnBorders
-							records={loaderData.userMeasurementsList}
+							withTableBorder={false}
+							records={formattedData}
 							columns={[
 								{
 									width: 200,
 									accessor: "timestamp",
 									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
-								...([
-									...Object.entries(
-										userPreferences.fitness.measurements.inbuilt,
-									)
-										.map(([name, enabled]) =>
-											enabled ? `stats.${name}` : null,
-										)
-										.filter(Boolean),
-									...userPreferences.fitness.measurements.custom.map(
-										(c) => `stats.custom.${c.name}`,
-									),
-								].map((w) => ({
-									accessor: w,
-									textAlign: "center",
-									title: startCase(
-										w
-											?.replaceAll("stats", "")
-											.replaceAll(".", "")
-											.replaceAll("custom", ""),
-									),
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-								})) as any),
+								...userPreferences.fitness.measurements.statistics.map((s) => ({
+									accessor: s.name,
+									title: startCase(s.name),
+								})),
 								{
 									width: 80,
 									accessor: "Delete",
