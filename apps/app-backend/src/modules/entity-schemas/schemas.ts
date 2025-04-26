@@ -4,25 +4,20 @@ import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
+import {
+	createPropertySchemaInputSchema,
+	createPropertySchemaObjectSchema,
+} from "../property-schemas/schemas";
 
-/**
- * App schema format: flat properties map where each value is a property definition.
- * Property definitions must have a "type" field and optional "nullable"/"required" modifiers.
- */
-export const entitySchemaPropertiesObjectSchema: z.ZodType<
-	Record<string, unknown>
-> = z.record(z.string(), z.unknown()).refine(
-	(value) => {
-		const keys = Object.keys(value);
-		return keys.length > 0;
-	},
-	{ message: "Entity schema properties must contain at least one property" },
-);
+export const entitySchemaPropertiesObjectSchema =
+	createPropertySchemaObjectSchema(
+		"Entity schema properties must contain at least one property",
+	);
 
-export const entitySchemaPropertiesInputSchema = z.union([
-	z.string(),
-	entitySchemaPropertiesObjectSchema,
-]);
+export const entitySchemaPropertiesInputSchema =
+	createPropertySchemaInputSchema(
+		"Entity schema properties must contain at least one property",
+	);
 
 export const listedEntitySchemaSchema = z.object({
 	id: z.string(),
