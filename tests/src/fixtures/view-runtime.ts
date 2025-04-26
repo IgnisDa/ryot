@@ -151,9 +151,11 @@ export async function createSingleSchemaRuntimeFixture() {
 		trackerId,
 		name: "Device",
 		propertiesSchema: {
-			year: { type: "integer" },
-			category: { type: "string" },
-			manufacturer: { type: "string" },
+			fields: {
+				year: { type: "integer" },
+				category: { type: "string" },
+				manufacturer: { type: "string" },
+			},
 		},
 	});
 
@@ -203,9 +205,11 @@ export async function createCrossSchemaRuntimeFixture() {
 		name: "Smartphone",
 		slug: `smartphones-${crypto.randomUUID()}`,
 		propertiesSchema: {
-			year: { type: "integer" },
-			category: { type: "string" },
-			manufacturer: { type: "string" },
+			fields: {
+				year: { type: "integer" },
+				category: { type: "string" },
+				manufacturer: { type: "string" },
+			},
 		},
 	});
 	const tabletSchema = await createEntitySchema(client, cookies, {
@@ -214,10 +218,12 @@ export async function createCrossSchemaRuntimeFixture() {
 		name: "Tablet",
 		slug: `tablets-${crypto.randomUUID()}`,
 		propertiesSchema: {
-			maker: { type: "string" },
-			category: { type: "string" },
-			releaseYear: { type: "integer" },
-			releaseLabel: { type: "string" },
+			fields: {
+				maker: { type: "string" },
+				category: { type: "string" },
+				releaseYear: { type: "integer" },
+				releaseLabel: { type: "string" },
+			},
 		},
 	});
 
