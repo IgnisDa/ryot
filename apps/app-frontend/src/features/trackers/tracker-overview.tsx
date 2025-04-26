@@ -152,7 +152,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 												action={activity.label}
 												accentColor={accentColor}
 												entityId={activity.entityId}
-												trackerSlug={props.tracker.slug}
 												time={getActivityTimeLabel(activity)}
 												key={`${activity.kind}-${activity.entityId}-${activity.label}`}
 											/>
@@ -183,11 +182,8 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 									{overview.recentEntities.map((item) => (
 										<Link
 											key={item.entity.id}
-											to="/$trackerSlug/$entityId"
-											params={{
-												entityId: item.entity.id,
-												trackerSlug: props.tracker.slug,
-											}}
+											to="/entities/$entityId"
+											params={{ entityId: item.entity.id }}
 										>
 											<EntityCard
 												isDark={isDark}
