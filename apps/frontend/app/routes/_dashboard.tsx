@@ -2038,6 +2038,10 @@ const CreateMeasurementForm = (props: {
 			/>
 			<Button
 				loading={createMeasurementMutation.isPending}
+				disabled={
+					createMeasurementMutation.isPending ||
+					!createMeasurement.information.statistics.some((s) => s.value)
+				}
 				onClick={async () => {
 					events.createMeasurement();
 					await createMeasurementMutation.mutateAsync();
