@@ -20,6 +20,7 @@ import {
 	getActionIntent,
 	parseSearchQuery,
 	processSubmission,
+	reverse,
 	startCase,
 } from "@ryot/ts-utils";
 import {
@@ -203,7 +204,7 @@ export default function Page() {
 							borderRadius="sm"
 							withColumnBorders
 							withTableBorder={false}
-							records={formattedData}
+							records={reverse(formattedData)}
 							columns={[
 								{
 									width: 200,
