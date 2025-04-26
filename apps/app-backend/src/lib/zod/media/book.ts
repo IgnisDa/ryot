@@ -24,15 +24,3 @@ export const schemaImportResponse =
 	createImportEnvelopeSchema(bookPropertiesSchema);
 
 export type SchemaImportResponse = z.infer<typeof schemaImportResponse>;
-
-export const readEventPropertiesSchema = z
-	.object({
-		finishedAt: z.iso.datetime().nullish(),
-		numberOfProgressEvents: nullableIntSchema,
-		platforms: z.array(z.string()).nullish(),
-	})
-	.strict();
-
-export const readEventPropertiesJsonSchema = toAppSchemaProperties(
-	readEventPropertiesSchema,
-);
