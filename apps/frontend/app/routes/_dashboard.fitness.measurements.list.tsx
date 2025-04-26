@@ -127,7 +127,8 @@ export default function Page() {
 		}));
 	const formattedData = loaderData.userMeasurementsList.map((m) => {
 		const local: Record<string, string> = {
-			timestamp: tickFormatter(m.timestamp),
+			timestamp: m.timestamp,
+			formattedTimestamp: tickFormatter(m.timestamp),
 		};
 		for (const s of m.information.statistics) local[s.name] = s.value;
 		return local;
