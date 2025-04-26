@@ -1942,9 +1942,10 @@ const AddEntityToCollectionsForm = ({
 const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
 }) => {
-	const userPreferences = useUserPreferences();
-	const events = useApplicationEvents();
 	const revalidator = useRevalidator();
+	const events = useApplicationEvents();
+	const userPreferences = useUserPreferences();
+
 	const [createMeasurement, setCreateMeasurement] =
 		useState<UserMeasurementInput>({
 			name: "",
