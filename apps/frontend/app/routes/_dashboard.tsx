@@ -1976,17 +1976,22 @@ const CreateMeasurementForm = (props: {
 				label="Timestamp"
 				value={new Date(createMeasurement.timestamp)}
 				onChange={(v) =>
-					setCreateMeasurement({
-						...createMeasurement,
-						timestamp: v?.toISOString() ?? new Date().toISOString(),
-					})
+					setCreateMeasurement(
+						produce(createMeasurement, (draft) => {
+							draft.timestamp = v?.toISOString() ?? new Date().toISOString();
+						}),
+					)
 				}
 			/>
 			<TextInput
 				label="Name"
 				value={createMeasurement.name ?? ""}
 				onChange={(e) =>
-					setCreateMeasurement({ ...createMeasurement, name: e.target.value })
+					setCreateMeasurement(
+						produce(createMeasurement, (draft) => {
+							draft.name = e.target.value;
+						}),
+					)
 				}
 			/>
 			<SimpleGrid cols={2} style={{ alignItems: "end" }}>
@@ -2001,18 +2006,21 @@ const CreateMeasurementForm = (props: {
 							)?.value
 						}
 						onChange={(v) => {
-							const idx = createMeasurement.information.statistics.findIndex(
-								(s) => s.name === name,
+							setCreateMeasurement(
+								produce(createMeasurement, (draft) => {
+									const idx = draft.information.statistics.findIndex(
+										(s) => s.name === name,
+									);
+									if (idx !== -1) {
+										draft.information.statistics[idx].value = v.toString();
+									} else {
+										draft.information.statistics.push({
+											name,
+											value: v.toString(),
+										});
+									}
+								}),
 							);
-							if (idx !== -1) {
-								createMeasurement.information.statistics[idx].value =
-									v.toString();
-							} else {
-								createMeasurement.information.statistics.push({
-									name,
-									value: v.toString(),
-								});
-							}
 						}}
 					/>
 				))}
@@ -2021,10 +2029,11 @@ const CreateMeasurementForm = (props: {
 				label="Comment"
 				value={createMeasurement.comment ?? ""}
 				onChange={(e) =>
-					setCreateMeasurement({
-						...createMeasurement,
-						comment: e.target.value,
-					})
+					setCreateMeasurement(
+						produce(createMeasurement, (draft) => {
+							draft.comment = e.target.value;
+						}),
+					)
 				}
 			/>
 			<Button
