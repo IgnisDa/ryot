@@ -30,8 +30,8 @@ import { getAccentMuted } from "#/lib/theme";
 import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
 import { SavedViewResults } from "./view-page-sections";
 import {
-	createDisabledViewRuntimeRequest,
-	createViewRuntimeRequest,
+	createDisabledQueryEngineRequest,
+	createQueryEngineRequest,
 	getPageLimit,
 	getRuntimeField,
 	isRuntimeField,
@@ -66,18 +66,18 @@ export function SavedViewPage(props: {
 	const runtimeRequest = useMemo(
 		() =>
 			savedView
-				? createViewRuntimeRequest({
+				? createQueryEngineRequest({
 						view: savedView,
 						layout,
 						page,
 						limit: getPageLimit(layout),
 					})
-				: createDisabledViewRuntimeRequest(),
+				: createDisabledQueryEngineRequest(),
 		[savedView, layout, page],
 	);
 	const runtimeQuery = apiClient.useQuery(
 		"post",
-		"/view-runtime/execute",
+		"/query-engine/execute",
 		{ body: runtimeRequest },
 		{ enabled: !!savedView },
 	);

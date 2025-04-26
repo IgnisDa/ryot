@@ -1,7 +1,7 @@
 import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { getComputedFieldOrThrow } from "./computed-fields";
-import { ViewRuntimeValidationError } from "./errors";
+import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import { supportsComparableFilter, supportsContainsFilter } from "./policy";
 import {
@@ -11,9 +11,9 @@ import {
 	getEventJoinPropertyDefinition,
 	getSchemaForReference,
 	type PropertyType,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeReferenceContext,
-	type ViewRuntimeSchemaLike,
+	type QueryEngineEventJoinLike,
+	type QueryEngineReferenceContext,
+	type QueryEngineSchemaLike,
 } from "./reference";
 
 export type ViewExpressionTypeInfo =
@@ -114,7 +114,7 @@ export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 	const imageInfos = nonNullInfos.filter((info) => info.kind === "image");
 	const propertyInfos = nonNullInfos.filter((info) => info.kind === "property");
 	if (imageInfos.length && propertyInfos.length) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			"Expression branches cannot mix display-only image values into non-display expressions",
 		);
 	}
@@ -152,7 +152,7 @@ export const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
 		return createPropertyTypeInfo("number");
 	}
 
-	throw new ViewRuntimeValidationError(
+	throw new QueryEngineValidationError(
 		`Expression branches have incompatible types: ${normalizedTypes.join(", ")}`,
 	);
 };
@@ -163,7 +163,7 @@ export const assertNumericExpression = (
 ) => {
 	assertFilterCompatibleExpression(input, context);
 	if (input.kind !== "property" || !isNumericPropertyType(input.propertyType)) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`${context} requires a numeric expression, received '${getExpressionTypeLabel(input)}'`,
 		);
 	}
@@ -174,20 +174,20 @@ export const assertConcatCompatibleExpression = (
 ) => {
 	assertFilterCompatibleExpression(input, "string composition");
 	if (!isConcatCompatibleType(input)) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`String composition requires scalar expression values, received '${getExpressionTypeLabel(input)}'`,
 		);
 	}
 };
 
 export const inferViewExpressionType = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	expression: ViewExpression;
 	typeCache?: Map<string, ViewExpressionTypeInfo>;
 	computedFieldMap?: Map<string, ViewComputedField>;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }): ViewExpressionTypeInfo => {
 	const typeCache =
 		input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
@@ -227,7 +227,7 @@ export const inferViewExpressionType = <
 		assertNumericExpression(leftType, "Arithmetic");
 		assertNumericExpression(rightType, "Arithmetic");
 		if (leftType.kind !== "property" || rightType.kind !== "property") {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				"Arithmetic requires numeric property expressions",
 			);
 		}
@@ -318,7 +318,7 @@ export const inferViewExpressionType = <
 			reference.column,
 		);
 		if (!propertyDefinition) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
 			);
 		}
@@ -335,7 +335,7 @@ export const inferViewExpressionType = <
 			reference.column,
 		);
 		if (!propertyDefinition) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
 			);
 		}
@@ -356,7 +356,7 @@ export const inferViewExpressionType = <
 			reference.property,
 		);
 		if (!propertyDefinition) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Property '${reference.property}' not found for event join '${join.key}'`,
 			);
 		}
@@ -370,7 +370,7 @@ export const inferViewExpressionType = <
 	const schema = getSchemaForReference(input.context.schemaMap, reference);
 	const propertyDefinition = schema.propertiesSchema.fields[reference.property];
 	if (!propertyDefinition) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Property '${reference.property}' not found in schema '${reference.slug}'`,
 		);
 	}
@@ -386,7 +386,7 @@ export const assertFilterCompatibleExpression = (
 	context: string,
 ) => {
 	if (input.kind === "image") {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Image expressions are display-only and cannot be used in ${context}`,
 		);
 	}
@@ -398,7 +398,7 @@ export const assertSortableExpression = (input: ViewExpressionTypeInfo) => {
 		input.kind !== "property" ||
 		!supportsComparableFilter(input.propertyType)
 	) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Sort expressions must resolve to a sortable scalar value, received '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
 	}
@@ -412,7 +412,7 @@ export const assertContainsCompatibleExpression = (
 		input.kind !== "property" ||
 		!supportsContainsFilter(input.propertyType)
 	) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Filter operator 'contains' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
 	}
@@ -427,7 +427,7 @@ export const assertComparableExpression = (
 		input.kind !== "property" ||
 		!supportsComparableFilter(input.propertyType)
 	) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Filter operator '${operator}' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
 		);
 	}
@@ -462,7 +462,7 @@ export const assertCompatibleComparisonTypes = (input: {
 		return;
 	}
 
-	throw new ViewRuntimeValidationError(
+	throw new QueryEngineValidationError(
 		`Filter operator '${input.operator}' requires compatible expression types, received '${leftType}' and '${rightType}'`,
 	);
 };

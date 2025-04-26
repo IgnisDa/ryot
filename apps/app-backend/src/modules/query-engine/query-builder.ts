@@ -7,24 +7,24 @@ import {
 	type ImageSchemaType,
 } from "~/lib/db/schema";
 import type {
-	ViewRuntimeEventJoinLike,
-	ViewRuntimeReferenceContext,
-	ViewRuntimeSchemaLike,
+	QueryEngineEventJoinLike,
+	QueryEngineReferenceContext,
+	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import type {
-	ViewRuntimeItem,
-	ViewRuntimeRequest,
-	ViewRuntimeResponse,
+	QueryEngineItem,
+	QueryEngineRequest,
+	QueryEngineResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
-export type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
+export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
 	id: string;
 };
 
-export type ViewRuntimePreparedEventJoin = ViewRuntimeEventJoinLike;
+export type QueryEnginePreparedEventJoin = QueryEngineEventJoinLike;
 
 type QueryRow = {
 	total: number;
@@ -35,7 +35,7 @@ type QueryRow = {
 	image: ImageSchemaType | null;
 	entity_schema_id: string | null;
 	entity_schema_slug: string | null;
-	fields: ViewRuntimeItem["fields"] | null;
+	fields: QueryEngineItem["fields"] | null;
 };
 
 type PaginationInput = {
@@ -83,7 +83,7 @@ const buildBaseEntitiesCte = (input: {
 };
 
 const buildLatestEventJoinCte = (input: {
-	join: ViewRuntimePreparedEventJoin;
+	join: QueryEnginePreparedEventJoin;
 	userId: string;
 }) => {
 	const eventSchemaIdList = sql.join(
@@ -109,7 +109,7 @@ const buildLatestEventJoinCte = (input: {
 	`;
 };
 
-const buildJoinedEntitiesCte = (eventJoins: ViewRuntimePreparedEventJoin[]) => {
+const buildJoinedEntitiesCte = (eventJoins: QueryEnginePreparedEventJoin[]) => {
 	const selectJoins = eventJoins.map((join) => {
 		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
 	});
@@ -144,7 +144,7 @@ export const calculatePagination = (
 	};
 };
 
-export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
+export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 	if (
 		row.id === null ||
 		row.name === null ||
@@ -167,20 +167,20 @@ export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
 		fields: row.fields ?? [],
 	};
 
-	return baseItem satisfies ViewRuntimeItem;
+	return baseItem satisfies QueryEngineItem;
 };
 
-export const executePreparedViewQuery = async (input: {
+export const executePreparedQuery = async (input: {
 	userId: string;
-	request: ViewRuntimeRequest;
-	runtimeSchemas: ViewRuntimeSchemaRow[];
-	eventJoins: ViewRuntimePreparedEventJoin[];
-	schemaMap: Map<string, ViewRuntimeSchemaRow>;
-	eventJoinMap: Map<string, ViewRuntimePreparedEventJoin>;
-}): Promise<ViewRuntimeResponse> => {
-	const context: ViewRuntimeReferenceContext<
-		ViewRuntimeSchemaRow,
-		ViewRuntimePreparedEventJoin
+	request: QueryEngineRequest;
+	runtimeSchemas: QueryEngineSchemaRow[];
+	eventJoins: QueryEnginePreparedEventJoin[];
+	schemaMap: Map<string, QueryEngineSchemaRow>;
+	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
+}): Promise<QueryEngineResponse> => {
+	const context: QueryEngineReferenceContext<
+		QueryEngineSchemaRow,
+		QueryEnginePreparedEventJoin
 	> = {
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
@@ -273,5 +273,5 @@ export const executePreparedViewQuery = async (input: {
 			const item = mapQueryRowToItem(row);
 			return item ? [item] : [];
 		}),
-	} satisfies ViewRuntimeResponse;
+	} satisfies QueryEngineResponse;
 };

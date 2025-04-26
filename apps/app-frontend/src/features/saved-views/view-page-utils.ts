@@ -6,14 +6,14 @@ import type {
 	ApiPostResponseData,
 } from "#/lib/api/types";
 
-export type RuntimeField = ViewRuntimeItem["fields"][number];
+export type RuntimeField = QueryEngineItem["fields"][number];
 export type ViewLayout = keyof SavedView["displayConfiguration"];
-export type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
+export type QueryEngineItem = QueryEngineResponse["items"][number];
 export type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
-export type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
-export type ViewRuntimeResponse = ApiPostResponseData<"/view-runtime/execute">;
+export type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
+export type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
 type ViewExpression = NonNullable<
-	ViewRuntimeRequest["fields"]
+	QueryEngineRequest["fields"]
 >[number]["expression"];
 type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
 
@@ -67,12 +67,12 @@ const buildCardRuntimeFields = (configuration: CardDisplayConfiguration) => {
 	});
 };
 
-export function createViewRuntimeRequest(input: {
+export function createQueryEngineRequest(input: {
 	page: number;
 	limit: number;
 	view: SavedView;
 	layout: ViewLayout;
-}): ViewRuntimeRequest {
+}): QueryEngineRequest {
 	const base = buildRuntimeRequestBase(input);
 
 	return match(input.layout)
@@ -94,7 +94,7 @@ export function createViewRuntimeRequest(input: {
 		.exhaustive();
 }
 
-export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
+export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 	return {
 		filter: null,
 		eventJoins: [],
