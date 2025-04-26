@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -35,16 +35,16 @@ in the parent RFC for the expected export list per module.
 
 ## Acceptance criteria
 
-- [ ] `modules/entities/index.ts` exists and exports its cross-module types and service functions
-- [ ] `modules/events/index.ts` exists and exports its cross-module types and service functions
-- [ ] `modules/trackers/index.ts` exists and exports its cross-module types and service functions
-- [ ] `modules/sandbox/index.ts` exists and exports its cross-module types and service functions
-- [ ] `modules/media/index.ts` exists and exports its cross-module types and service functions
-- [ ] `modules/uploads/index.ts` exists (may be minimal if no cross-module callers)
-- [ ] `modules/system/index.ts` exists (may be minimal if no cross-module callers)
-- [ ] `modules/authentication/index.ts` exists and exports bootstrap functions used by `lib/db/seed/`
-- [ ] No repository functions are re-exported from any barrel
-- [ ] `bun tsc --noEmit` passes with no new errors
+- [x] `modules/entities/index.ts` exists and exports its cross-module types and service functions
+- [x] `modules/events/index.ts` exists and exports its cross-module types and service functions
+- [x] `modules/trackers/index.ts` exists and exports its cross-module types and service functions
+- [x] `modules/sandbox/index.ts` exists and exports its cross-module types and service functions
+- [x] `modules/media/index.ts` exists and exports its cross-module types and service functions
+- [x] `modules/uploads/index.ts` exists (may be minimal if no cross-module callers)
+- [x] `modules/system/index.ts` exists (may be minimal if no cross-module callers)
+- [x] `modules/authentication/index.ts` exists and exports bootstrap functions used by `lib/db/seed/`
+- [x] No repository functions are re-exported from any barrel
+- [x] `bun tsc --noEmit` passes with no new errors
 
 ## Blocked by
 
