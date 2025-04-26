@@ -1953,10 +1953,10 @@ const CreateMeasurementForm = (props: {
 			information: {
 				statistics: [],
 				assets: {
-					remoteImages: [],
-					remoteVideos: [],
 					s3Images: [],
 					s3Videos: [],
+					remoteVideos: [],
+					remoteImages: [],
 				},
 			},
 		});
