@@ -89,8 +89,7 @@ export function SearchEntityModalContent(props: {
 	>({});
 
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
-	const activeProvider =
-		props.entitySchema.searchProviders[selectedProviderIndex];
+	const activeProvider = props.entitySchema.providers[selectedProviderIndex];
 	const lifecycleErrorMessage = useMemo(() => {
 		if (eventSchemasQuery.isError) {
 			return "Lifecycle actions failed to load.";
@@ -376,12 +375,12 @@ export function SearchEntityModalContent(props: {
 
 	return (
 		<Stack gap="md">
-			{props.entitySchema.searchProviders.length > 1 ? (
+			{props.entitySchema.providers.length > 1 ? (
 				<SegmentedControl
 					fullWidth
 					onChange={handleProviderChange}
 					value={String(selectedProviderIndex)}
-					data={props.entitySchema.searchProviders.map((provider, index) => ({
+					data={props.entitySchema.providers.map((provider, index) => ({
 						label: provider.name,
 						value: String(index),
 					}))}
