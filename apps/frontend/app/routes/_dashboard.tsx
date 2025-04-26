@@ -2007,6 +2007,11 @@ const CreateMeasurementForm = (props: {
 							if (idx !== -1) {
 								createMeasurement.information.statistics[idx].value =
 									v.toString();
+							} else {
+								createMeasurement.information.statistics.push({
+									name,
+									value: v.toString(),
+								});
 							}
 						}}
 					/>
