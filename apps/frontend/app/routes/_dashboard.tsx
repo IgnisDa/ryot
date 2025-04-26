@@ -1946,28 +1946,24 @@ const CreateMeasurementForm = (props: {
 	const events = useApplicationEvents();
 	const userPreferences = useUserPreferences();
 
-	const [createMeasurement, setCreateMeasurement] =
-		useState<UserMeasurementInput>({
-			name: "",
-			comment: "",
-			timestamp: new Date().toISOString(),
-			information: {
-				statistics: [],
-				assets: {
-					s3Images: [],
-					s3Videos: [],
-					remoteVideos: [],
-					remoteImages: [],
-				},
+	const [input, setInput] = useState<UserMeasurementInput>({
+		name: "",
+		comment: "",
+		timestamp: new Date().toISOString(),
+		information: {
+			statistics: [],
+			assets: {
+				s3Images: [],
+				s3Videos: [],
+				remoteVideos: [],
+				remoteImages: [],
 			},
-		});
+		},
+	});
 
 	const createMeasurementMutation = useMutation({
-		mutationFn: async () => {
-			await clientGqlService.request(CreateUserMeasurementDocument, {
-				input: createMeasurement,
-			});
-		},
+		mutationFn: () =>
+			clientGqlService.request(CreateUserMeasurementDocument, { input }),
 	});
 
 	return (
@@ -1975,10 +1971,10 @@ const CreateMeasurementForm = (props: {
 			<DateTimePicker
 				required
 				label="Timestamp"
-				value={new Date(createMeasurement.timestamp)}
+				value={new Date(input.timestamp)}
 				onChange={(v) =>
-					setCreateMeasurement(
-						produce(createMeasurement, (draft) => {
+					setInput(
+						produce(input, (draft) => {
 							draft.timestamp = v?.toISOString() ?? new Date().toISOString();
 						}),
 					)
@@ -1986,10 +1982,10 @@ const CreateMeasurementForm = (props: {
 			/>
 			<TextInput
 				label="Name"
-				value={createMeasurement.name ?? ""}
+				value={input.name ?? ""}
 				onChange={(e) =>
-					setCreateMeasurement(
-						produce(createMeasurement, (draft) => {
+					setInput(
+						produce(input, (draft) => {
 							draft.name = e.target.value;
 						}),
 					)
@@ -2002,13 +1998,11 @@ const CreateMeasurementForm = (props: {
 						decimalScale={3}
 						label={changeCase(snakeCase(name))}
 						value={
-							createMeasurement.information.statistics.find(
-								(s) => s.name === name,
-							)?.value
+							input.information.statistics.find((s) => s.name === name)?.value
 						}
 						onChange={(v) => {
-							setCreateMeasurement(
-								produce(createMeasurement, (draft) => {
+							setInput(
+								produce(input, (draft) => {
 									const idx = draft.information.statistics.findIndex(
 										(s) => s.name === name,
 									);
@@ -2028,10 +2022,10 @@ const CreateMeasurementForm = (props: {
 			</SimpleGrid>
 			<Textarea
 				label="Comment"
-				value={createMeasurement.comment ?? ""}
+				value={input.comment ?? ""}
 				onChange={(e) =>
-					setCreateMeasurement(
-						produce(createMeasurement, (draft) => {
+					setInput(
+						produce(input, (draft) => {
 							draft.comment = e.target.value;
 						}),
 					)
@@ -2041,7 +2035,7 @@ const CreateMeasurementForm = (props: {
 				loading={createMeasurementMutation.isPending}
 				disabled={
 					createMeasurementMutation.isPending ||
-					!createMeasurement.information.statistics.some((s) => s.value)
+					!input.information.statistics.some((s) => s.value)
 				}
 				onClick={async () => {
 					events.createMeasurement();
