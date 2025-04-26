@@ -1,0 +1,328 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Google Books returned invalid JSON");
+  }
+}
+
+function toTitleCase(value) {
+  const words = value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+
+  return words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function parsePublishYear(publishedDate) {
+  if (typeof publishedDate !== "string") {
+    return null;
+  }
+
+  const yearToken = publishedDate.trim().slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+
+  const year = Number(yearToken);
+  return Number.isFinite(year) ? year : null;
+}
+
+function collectImages(imageLinks) {
+  if (!imageLinks || typeof imageLinks !== "object") {
+    return [];
+  }
+
+  const imageSet = new Set();
+  const imageCandidates = [
+    imageLinks.thumbnail,
+    imageLinks.smallThumbnail,
+    imageLinks.small,
+    imageLinks.medium,
+    imageLinks.large,
+    imageLinks.extraLarge,
+  ];
+
+  for (const imageUrl of imageCandidates) {
+    if (typeof imageUrl !== "string") {
+      continue;
+    }
+    const trimmedImageUrl = imageUrl.trim();
+    if (!trimmedImageUrl) {
+      continue;
+    }
+    imageSet.add(trimmedImageUrl);
+  }
+
+  return [...imageSet];
+}
+
+function collectPeople(authors, publisher) {
+  const people = [];
+  const seenPeople = new Set();
+
+  if (Array.isArray(authors)) {
+    for (const author of authors) {
+      if (typeof author !== "string") {
+        continue;
+      }
+      const trimmedAuthor = author.trim();
+      if (!trimmedAuthor) {
+        continue;
+      }
+
+      const key = `Author:${trimmedAuthor}`;
+      if (seenPeople.has(key)) {
+        continue;
+      }
+      seenPeople.add(key);
+
+      people.push({
+        role: "Author",
+        source: "google_books",
+        identifier: trimmedAuthor,
+      });
+    }
+  }
+
+  if (typeof publisher === "string") {
+    const trimmedPublisher = publisher.trim();
+    if (trimmedPublisher) {
+      const key = `Publisher:${trimmedPublisher}`;
+      if (!seenPeople.has(key)) {
+        seenPeople.add(key);
+        people.push({
+          role: "Publisher",
+          source: "google_books",
+          identifier: trimmedPublisher,
+        });
+      }
+    }
+  }
+
+  return people;
+}
+
+function collectGenres(categories, mainCategory) {
+  const genreSet = new Set();
+
+  if (Array.isArray(categories)) {
+    for (const category of categories) {
+      if (typeof category !== "string") {
+        continue;
+      }
+
+      for (const genreToken of category.split(" / ")) {
+        const titleToken = toTitleCase(genreToken.trim());
+        if (!titleToken) {
+          continue;
+        }
+        genreSet.add(titleToken);
+      }
+    }
+  }
+
+  if (typeof mainCategory === "string") {
+    const trimmedMainCategory = mainCategory.trim();
+    if (trimmedMainCategory) {
+      genreSet.add(trimmedMainCategory);
+    }
+  }
+
+  return [...genreSet];
+}
+
+function pickImage(imageLinks) {
+  if (!imageLinks || typeof imageLinks !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    imageLinks.thumbnail,
+    imageLinks.smallThumbnail,
+    imageLinks.small,
+    imageLinks.medium,
+    imageLinks.large,
+    imageLinks.extraLarge,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function getGoogleBooksApiKey() {
+  const configValueResponse = await getAppConfigValue(
+    "BOOKS_GOOGLE_BOOKS_API_KEY",
+  );
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Google Books API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const apiKey = await getGoogleBooksApiKey();
+
+  const params = new URLSearchParams({
+    printType: "books",
+    q: `intitle:${query}`,
+    maxResults: String(pageSize),
+    startIndex: String((currentPage - 1) * pageSize),
+  });
+
+  const response = await httpCall(
+    "GET",
+    `https://www.googleapis.com/books/v1/volumes?${params.toString()}`,
+    { headers: { "x-goog-api-key": apiKey } },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Google Books search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Google Books returned invalid JSON");
+  }
+
+  const totalItems =
+    typeof payload?.totalItems === "number" && Number.isFinite(payload.totalItems)
+      ? Math.max(0, Math.trunc(payload.totalItems))
+      : 0;
+
+  const volumes = Array.isArray(payload?.items) ? payload.items : [];
+  const items = volumes
+    .map((volume) => {
+      const identifier = typeof volume?.id === "string" ? volume.id : "";
+      if (!identifier) {
+        return null;
+      }
+
+      const volumeInfo =
+        volume?.volumeInfo && typeof volume.volumeInfo === "object"
+          ? volume.volumeInfo
+          : null;
+
+      const image = pickImage(volumeInfo?.imageLinks);
+      const publishYear = parsePublishYear(volumeInfo?.publishedDate);
+      const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const apiKey = await getGoogleBooksApiKey();
+
+  const contextIdentifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!contextIdentifier) {
+    throw new Error("identifier is required");
+  }
+
+  const response = await httpCall(
+    "GET",
+    `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(contextIdentifier)}`,
+    { headers: { "x-goog-api-key": apiKey } },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Google Books details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const identifier =
+    typeof payload?.id === "string" && payload.id.trim()
+      ? payload.id
+      : contextIdentifier;
+
+  const volumeInfo =
+    payload?.volumeInfo && typeof payload.volumeInfo === "object"
+      ? payload.volumeInfo
+      : null;
+  const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
+  if (!title) {
+    throw new Error("Google Books payload is missing title");
+  }
+
+  const pages =
+    typeof volumeInfo?.pageCount === "number" &&
+    Number.isFinite(volumeInfo.pageCount)
+      ? Math.trunc(volumeInfo.pageCount)
+      : null;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      pages,
+      publishYear: parsePublishYear(volumeInfo?.publishedDate),
+      assets: { remoteImages: collectImages(volumeInfo?.imageLinks) },
+      people: collectPeople(volumeInfo?.authors, volumeInfo?.publisher),
+      genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
+      sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
+      description:
+        typeof volumeInfo?.description === "string"
+          ? volumeInfo.description
+          : null,
+    },
+  };
+});
