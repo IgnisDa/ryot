@@ -82,7 +82,7 @@ The `sort.field` is an array of schema-qualified property paths:
 Suggested response shape:
 
 - `items: []`
-- `meta: { pagination: {} }` — pagination metadata
+- `meta: { pagination: {}, table?: { columns: [] } }` — pagination metadata plus optional table column metadata
 
 Pagination metadata includes:
 
@@ -100,7 +100,8 @@ Each item should include at least:
 - `image` — entity image object (top-level column, uses ImageSchema discriminated union: `{ kind: "remote", url: "..." }` or `{ kind: "s3", key: "..." }` or `null`)
 - `entitySchemaId` — the UUID foreign key to the entity schema
 - `entitySchemaSlug` — the human-readable schema slug (e.g., "smartphones", "movies")
-- `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
+- `resolvedProperties` — for grid/list layouts, COALESCE-resolved semantic slots where each value is self-describing: `{ value, kind }`
+- `cells` — for table layouts, ordered cells shaped as `{ key, value, kind }`
 - `createdAt` — entity creation timestamp
 - `updatedAt` — entity update timestamp
 
@@ -108,7 +109,7 @@ Each item should include at least:
 
 **Resolved properties structure:**
 
-The `resolvedProperties` object contains the resolved values for each displayConfiguration property reference, keyed by the property role.
+For grid/list layouts, the `resolvedProperties` object contains the resolved values for each displayConfiguration property reference, keyed by the property role. Each slot is self-describing so the frontend does not have to infer types.
 
 ```json
 {
@@ -120,15 +121,18 @@ The `resolvedProperties` object contains the resolved values for each displayCon
   "createdAt": "2024-09-15T10:30:00Z",
   "updatedAt": "2024-12-01T14:22:00Z",
   "resolvedProperties": {
-    "imageProperty": "https://...",
-    "titleProperty": "iPhone 15 Pro",
-    "subtitleProperty": "Apple",
-    "badgeProperty": "999"
+    "imageProperty": {
+      "value": { "kind": "s3", "key": "uploads/abc123.jpg" },
+      "kind": "image"
+    },
+    "titleProperty": { "value": "iPhone 15 Pro", "kind": "text" },
+    "subtitleProperty": { "value": "Apple", "kind": "text" },
+    "badgeProperty": { "value": 999, "kind": "number" }
   }
 }
 ```
 
-This eliminates the need for frontend COALESCE logic and makes rendering trivial — the frontend just renders `resolvedProperties.imageProperty`, `resolvedProperties.titleProperty`, etc.
+This eliminates the need for frontend COALESCE logic and makes rendering trivial — the frontend just renders semantic slots directly and uses `kind` to choose the right renderer.
 
 The runtime contract should stay generic enough that the frontend can compile both built-in curated views and user-authored saved views into the same payload.
 
@@ -165,7 +169,7 @@ type ListDisplayConfig = {
 }
 
 type TableDisplayConfig = {
-  columns: Array<{ property: string[] }>
+  columns: Array<{ label: string, property: string[] }>
 }
 ```
 
@@ -186,19 +190,30 @@ The `isNull` operator accepts no value or null. The `in` operator requires an ar
 
 ### Table Column Resolution
 
-For table layouts, resolved properties use index-based keys:
+For table layouts, saved views carry explicit column labels and the runtime response includes column metadata plus ordered cells:
 
 ```typescript
 {
-  "resolvedProperties": {
-    "column_0": "iPhone 15 Pro",
-    "column_1": "Apple",
-    "column_2": "2023"
-  }
+  "meta": {
+    "table": {
+      "columns": [
+        { "key": "column_0", "label": "Name" },
+        { "key": "column_1", "label": "Manufacturer" },
+        { "key": "column_2", "label": "Year" }
+      ]
+    }
+  },
+  "items": [{
+    "cells": [
+      { "key": "column_0", "value": "iPhone 15 Pro", "kind": "text" },
+      { "key": "column_1", "value": "Apple", "kind": "text" },
+      { "key": "column_2", "value": 2023, "kind": "number" }
+    ]
+  }]
 }
 ```
 
-The index corresponds to the column's position in the `columns` array. This allows the frontend to render table cells in the correct column order without semantic naming.
+The key still corresponds to the column's position in the `columns` array, but the frontend can now render table headers and cells directly without reconstructing labels or lookup keys dynamically.
 
 ### Schema-Qualified Property Syntax
 
@@ -448,10 +463,10 @@ Consider a "Smartphones" entity schema with properties:
     },
     "table": {
       "columns": [
-        { "property": ["@name"] },
-        { "property": ["smartphones.manufacturer"] },
-        { "property": ["smartphones.year"] },
-        { "property": ["smartphones.price_usd"] }
+        { "label": "Name", "property": ["@name"] },
+        { "label": "Manufacturer", "property": ["smartphones.manufacturer"] },
+        { "label": "Year", "property": ["smartphones.year"] },
+        { "label": "Price", "property": ["smartphones.price_usd"] }
       ]
     }
   }
@@ -490,10 +505,10 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
     },
     "table": {
       "columns": [
-        { "property": ["@name"] },
-        { "property": ["smartphones.manufacturer", "tablets.maker"] },
-        { "property": ["smartphones.year", "tablets.release_year"] },
-        { "property": ["smartphones.price_usd", "tablets.retail_price"] }
+        { "label": "Name", "property": ["@name"] },
+        { "label": "Maker", "property": ["smartphones.manufacturer", "tablets.maker"] },
+        { "label": "Year", "property": ["smartphones.year", "tablets.release_year"] },
+        { "label": "Price", "property": ["smartphones.price_usd", "tablets.retail_price"] }
       ]
     }
   }
@@ -557,10 +572,10 @@ The sort field `["smartphones.year", "tablets.release_year"]` uses COALESCE to h
     },
     "table": {
       "columns": [
-        { "property": ["@name"] },
-        { "property": ["smartphones.os"] },
-        { "property": ["smartphones.year"] },
-        { "property": ["smartphones.screen_size"] }
+        { "label": "Name", "property": ["@name"] },
+        { "label": "OS", "property": ["smartphones.os"] },
+        { "label": "Year", "property": ["smartphones.year"] },
+        { "label": "Screen Size", "property": ["smartphones.screen_size"] }
       ]
     }
   }
@@ -595,8 +610,8 @@ When the frontend loads View 1:
 
   The active layout's `displayConfiguration` is passed through unchanged so the runtime can resolve its property reference arrays using the rules described in "Display Configuration Property References".
 
-4. `POST /view-runtime/execute` → returns entities with `resolvedProperties`
-5. Frontend renders using the active layout and the `resolvedProperties` from the runtime response
+4. `POST /view-runtime/execute` → returns entities with layout-specific display data (`resolvedProperties` for grid/list, `meta.table.columns` + `cells` for table)
+5. Frontend renders using the active layout and the runtime response directly, without inferring value types or rebuilding table headers
 
 When the user switches from grid to list view in the UI, the frontend writes the new layout to `localStorage`, then reruns the query with `displayConfiguration.list` instead of `displayConfiguration.grid`. The saved view stores all three layout configurations, and the backend makes no layout assumptions - clients must be explicit about what data they need and how to present it.
 
@@ -778,7 +793,7 @@ The runtime module should query against the underlying tables and repositories i
 - implement filter execution using the schema-qualified property syntax (AND within each schema, OR across schema boundaries)
 - implement sort execution with COALESCE for cross-schema property paths
 - support pagination with `meta.pagination` response structure
-- return `items` with `resolvedProperties` for frontend rendering
+- return layout-specific rendering data (`resolvedProperties` for grid/list, `meta.table.columns` + `cells` for table)
 - update built-in saved view bootstrap to produce richer saved-view structure:
   - `apps/app-backend/src/modules/authentication/bootstrap/manifests.ts`
   - `apps/app-backend/src/modules/authentication/service.ts`
@@ -792,7 +807,7 @@ The runtime module should query against the underlying tables and repositories i
 - compile runtime payload from `queryDefinition` + active layout config
   - pass the active layout's `displayConfiguration` for COALESCE resolution
 - execute via `POST /view-runtime/execute`
-- render returned entities using `resolvedProperties` from the runtime response
+- render returned entities directly from the runtime response without type inference or table-key reconstruction
 - remove assumptions that saved views live under a tracker route
 
 ## Phase 1 Implementation Details
@@ -916,7 +931,7 @@ Bootstrap manifests are updated with minimal changes to satisfy type requirement
     badgeProperty: null
   },
   table: {
-    columns: [{ property: ["@name"] }]
+    columns: [{ label: "Name", property: ["@name"] }]
   }
 }
 ```
@@ -1087,7 +1102,7 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
     {
       "id": "...",
       "name": "Forrest Gump",
-      "resolvedProperties": { /* resolved display properties */ },
+      "resolvedProperties": { /* grid/list display slots, each shaped as { value, kind } */ },
       "relationships": [
         {
           "id": "rel-123",
