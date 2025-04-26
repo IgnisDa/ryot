@@ -24,7 +24,7 @@ export const parseAppSchemaProperties = (input: {
 		schemaShape[key] = propertyDef.required ? zodSchema : zodSchema.optional();
 	}
 
-	const validationSchema = z.object(schemaShape);
+	const validationSchema = z.object(schemaShape).strict();
 	const result = validationSchema.safeParse(input.properties);
 
 	if (!result.success) {
