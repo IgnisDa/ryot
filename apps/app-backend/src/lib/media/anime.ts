@@ -1,6 +1,6 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 import { z } from "zod";
-import { nullableIntSchema } from "../base";
+import { nullableIntSchema } from "../zod/base";
 import { animeMangaPropertiesSchema } from "./common";
 
 const animeAiringScheduleSpecificsSchema = z

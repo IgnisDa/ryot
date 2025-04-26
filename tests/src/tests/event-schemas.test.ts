@@ -35,7 +35,7 @@ describe("GET /event-schemas", () => {
 		expect(eventSchemas.some((schema) => schema.slug === "read")).toBe(false);
 	});
 
-	it("exposes backlog for each supported built-in media schema", async () => {
+	it("exposes backlog and progress for each supported built-in media schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
@@ -57,6 +57,13 @@ describe("GET /event-schemas", () => {
 			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(
 				true,
 			);
+			const progressSchema = eventSchemas.find(
+				(schema) => schema.slug === "progress",
+			);
+			expect(progressSchema).toBeDefined();
+			expect(progressSchema?.propertiesSchema).toEqual({
+				progressPercent: { type: "number", required: true },
+			});
 		}
 	});
 });

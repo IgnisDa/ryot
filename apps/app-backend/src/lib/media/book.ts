@@ -4,7 +4,7 @@ import {
 	createImportEnvelopeSchema,
 	nullableBooleanSchema,
 	nullableIntSchema,
-} from "../base";
+} from "../zod/base";
 import { mediaPropertiesSchema } from "./common";
 
 const schemaImportPerson = z
