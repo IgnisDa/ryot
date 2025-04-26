@@ -23,6 +23,7 @@
 		"@mantine/dates": "9.0.0-alpha.3",
 		"@mantine/hooks": "9.0.0-alpha.3",
 		"@mantine/modals": "9.0.0-alpha.3",
+		"@mantine/notifications": "9.0.0-alpha.3",
 		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tanstack/react-devtools": "0.10.0",
