@@ -43,6 +43,7 @@ import {
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionExtraInformationLot,
 	CreateUserMeasurementDocument,
@@ -160,7 +161,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import { notifications } from "@mantine/notifications";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
