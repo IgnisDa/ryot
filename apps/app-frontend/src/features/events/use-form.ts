@@ -1,30 +1,25 @@
 import { isEqual } from "@ryot/ts-utils";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAppForm } from "#/hooks/forms";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
 	type CreateEventPayload,
-	getSelectedEventSchema,
-	reconcileEventProperties,
+	getEventFormReconciliationState,
+	syncCreateEventFormValues,
 	toCreateEventPayload,
 } from "./form";
 
 type UseCreateEventFormProps = {
 	entityId: string;
 	eventSchemas: AppEventSchema[];
-	selectedEventSchemaId?: string;
 	onSubmit: (payload: CreateEventPayload) => Promise<void>;
 };
 
 export function useCreateEventForm(props: UseCreateEventFormProps) {
 	const form = useAppForm({
-		defaultValues: buildDefaultEventFormValues(
-			props.eventSchemas,
-			new Date(),
-			props.selectedEventSchemaId,
-		),
+		defaultValues: buildDefaultEventFormValues(props.eventSchemas),
 		validators: {
 			onChange: buildCreateEventFormSchema(props.eventSchemas),
 		},
@@ -34,24 +29,27 @@ export function useCreateEventForm(props: UseCreateEventFormProps) {
 			);
 		},
 	});
+	const reconciliationState = useMemo(
+		() =>
+			getEventFormReconciliationState(
+				props.eventSchemas,
+				form.state.values.eventSchemaId,
+			),
+		[props.eventSchemas, form.state.values.eventSchemaId],
+	);
 
 	useEffect(() => {
-		const selectedEventSchema = getSelectedEventSchema(
+		const nextValues = syncCreateEventFormValues(
 			props.eventSchemas,
-			props.selectedEventSchemaId,
-		);
-		const nextEventSchemaId = selectedEventSchema?.id ?? "";
-		const nextProperties = reconcileEventProperties(
-			selectedEventSchema?.propertiesSchema ?? {},
-			form.state.values.properties,
+			form.state.values,
 		);
 
-		if (form.state.values.eventSchemaId !== nextEventSchemaId)
-			form.setFieldValue("eventSchemaId", nextEventSchemaId);
+		if (form.state.values.eventSchemaId !== nextValues.eventSchemaId)
+			form.setFieldValue("eventSchemaId", nextValues.eventSchemaId);
 
-		if (!isEqual(form.state.values.properties, nextProperties))
-			form.setFieldValue("properties", nextProperties);
-	}, [form, props.eventSchemas, props.selectedEventSchemaId]);
+		if (!isEqual(form.state.values.properties, nextValues.properties))
+			form.setFieldValue("properties", nextValues.properties);
+	}, [form, props.eventSchemas, reconciliationState]);
 
 	return form;
 }
