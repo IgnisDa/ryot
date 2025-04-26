@@ -41,25 +41,21 @@ export function StatsCard(props: StatsCardProps) {
 		>
 			<Stack gap={10}>
 				<Text
-					size="xs"
 					fw={600}
+					c={color}
+					size="xs"
 					tt="uppercase"
-					style={{
-						color: color,
-						letterSpacing: "1px",
-						fontFamily: '"Space Grotesk", sans-serif',
-					}}
+					style={{ letterSpacing: "1px" }}
+					ff="var(--mantine-headings-font-family)"
 				>
 					{props.label}
 				</Text>
 				<Text
-					size="2.5rem"
-					fw={600}
 					lh={1}
-					style={{
-						color: textPrimary,
-						fontFamily: '"Space Grotesk", sans-serif',
-					}}
+					fw={600}
+					size="2.5rem"
+					c={textPrimary}
+					ff="var(--mantine-headings-font-family)"
 				>
 					{props.value}
 				</Text>
