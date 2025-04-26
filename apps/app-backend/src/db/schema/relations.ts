@@ -36,9 +36,9 @@ export const userFacetRelations = relations(userFacet, ({ one }) => ({
 export const entitySchemaRelations = relations(
 	entitySchema,
 	({ one, many }) => ({
+		entities: many(entity),
 		eventSchemas: many(eventSchema),
 		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
-		entities: many(entity),
 		facet: one(facet, {
 			references: [facet.id],
 			fields: [entitySchema.facetId],
