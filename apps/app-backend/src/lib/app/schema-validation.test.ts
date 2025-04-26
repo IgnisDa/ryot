@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { createNoteAndRatingPropertiesSchema } from "~/lib/test-fixtures";
+import {
+	createCompletePropertiesSchema,
+	createNoteAndRatingPropertiesSchema,
+} from "~/lib/test-fixtures";
 import { parseAppSchemaProperties } from "./schema-validation";
 
 describe("parseAppSchemaProperties", () => {
@@ -120,5 +123,49 @@ describe("parseAppSchemaProperties", () => {
 				},
 			}),
 		).toThrow("Entity properties validation failed");
+	});
+
+	it("validates complete event metadata with conditional custom dates", () => {
+		const propertiesSchema = createCompletePropertiesSchema();
+
+		expect(
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema,
+				properties: { completionMode: "just_now" },
+			}),
+		).toEqual({ completionMode: "just_now" });
+
+		expect(
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema,
+				properties: {
+					startedOn: "2026-03-20",
+					completedOn: "2026-03-27",
+					completionMode: "custom_dates",
+				},
+			}),
+		).toEqual({
+			startedOn: "2026-03-20",
+			completedOn: "2026-03-27",
+			completionMode: "custom_dates",
+		});
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema,
+				properties: { completionMode: "custom_dates" },
+			}),
+		).toThrow("Event properties validation failed");
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Event",
+				propertiesSchema,
+				properties: { completionMode: "later" },
+			}),
+		).toThrow("Event properties validation failed");
 	});
 });
