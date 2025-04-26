@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import {
+	createIdParamsSchema,
+	nonEmptyTrimmedStringSchema,
+} from "~/lib/zod/base";
 
 export const listedEntitySchema = z.object({
 	id: z.string(),
@@ -19,9 +22,7 @@ export const getEntityResponseSchema = dataSchema(listedEntitySchema);
 
 export const createEntityResponseSchema = dataSchema(listedEntitySchema);
 
-export const entityParams = z.object({
-	entityId: nonEmptyTrimmedStringSchema,
-});
+export const entityParams = createIdParamsSchema("entityId");
 
 export const createEntityBody = z.object({
 	image: ImageSchema.nullable(),
