@@ -12,7 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
-import { Route as ProtectedTrackingFacetSlugRouteImport } from './routes/_protected/tracking/$facetSlug'
+import { Route as ProtectedTrackingFacetSlugIndexRouteImport } from './routes/_protected/tracking/$facetSlug/index'
+import { Route as ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport } from './routes/_protected/tracking/$facetSlug/entities/$entityId'
 
 const StartRoute = StartRouteImport.update({
   id: '/start',
@@ -28,41 +29,59 @@ const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedTrackingFacetSlugRoute =
-  ProtectedTrackingFacetSlugRouteImport.update({
-    id: '/tracking/$facetSlug',
-    path: '/tracking/$facetSlug',
+const ProtectedTrackingFacetSlugIndexRoute =
+  ProtectedTrackingFacetSlugIndexRouteImport.update({
+    id: '/tracking/$facetSlug/',
+    path: '/tracking/$facetSlug/',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedTrackingFacetSlugEntitiesEntityIdRoute =
+  ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport.update({
+    id: '/tracking/$facetSlug/entities/$entityId',
+    path: '/tracking/$facetSlug/entities/$entityId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/start': typeof StartRoute
-  '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugRoute
+  '/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
+  '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
 }
 export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/': typeof ProtectedIndexRoute
-  '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugRoute
+  '/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugIndexRoute
+  '/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteRouteWithChildren
   '/start': typeof StartRoute
   '/_protected/': typeof ProtectedIndexRoute
-  '/_protected/tracking/$facetSlug': typeof ProtectedTrackingFacetSlugRoute
+  '/_protected/tracking/$facetSlug/': typeof ProtectedTrackingFacetSlugIndexRoute
+  '/_protected/tracking/$facetSlug/entities/$entityId': typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/start' | '/tracking/$facetSlug'
+  fullPaths:
+    | '/'
+    | '/start'
+    | '/tracking/$facetSlug/'
+    | '/tracking/$facetSlug/entities/$entityId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/start' | '/' | '/tracking/$facetSlug'
+  to:
+    | '/start'
+    | '/'
+    | '/tracking/$facetSlug'
+    | '/tracking/$facetSlug/entities/$entityId'
   id:
     | '__root__'
     | '/_protected'
     | '/start'
     | '/_protected/'
-    | '/_protected/tracking/$facetSlug'
+    | '/_protected/tracking/$facetSlug/'
+    | '/_protected/tracking/$facetSlug/entities/$entityId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,11 +112,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/tracking/$facetSlug': {
-      id: '/_protected/tracking/$facetSlug'
+    '/_protected/tracking/$facetSlug/': {
+      id: '/_protected/tracking/$facetSlug/'
       path: '/tracking/$facetSlug'
-      fullPath: '/tracking/$facetSlug'
-      preLoaderRoute: typeof ProtectedTrackingFacetSlugRouteImport
+      fullPath: '/tracking/$facetSlug/'
+      preLoaderRoute: typeof ProtectedTrackingFacetSlugIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/tracking/$facetSlug/entities/$entityId': {
+      id: '/_protected/tracking/$facetSlug/entities/$entityId'
+      path: '/tracking/$facetSlug/entities/$entityId'
+      fullPath: '/tracking/$facetSlug/entities/$entityId'
+      preLoaderRoute: typeof ProtectedTrackingFacetSlugEntitiesEntityIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
   }
@@ -105,12 +131,15 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteRouteChildren {
   ProtectedIndexRoute: typeof ProtectedIndexRoute
-  ProtectedTrackingFacetSlugRoute: typeof ProtectedTrackingFacetSlugRoute
+  ProtectedTrackingFacetSlugIndexRoute: typeof ProtectedTrackingFacetSlugIndexRoute
+  ProtectedTrackingFacetSlugEntitiesEntityIdRoute: typeof ProtectedTrackingFacetSlugEntitiesEntityIdRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
   ProtectedIndexRoute: ProtectedIndexRoute,
-  ProtectedTrackingFacetSlugRoute: ProtectedTrackingFacetSlugRoute,
+  ProtectedTrackingFacetSlugIndexRoute: ProtectedTrackingFacetSlugIndexRoute,
+  ProtectedTrackingFacetSlugEntitiesEntityIdRoute:
+    ProtectedTrackingFacetSlugEntitiesEntityIdRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
