@@ -5,7 +5,7 @@ import {
 	createEntitySchema,
 	createTracker,
 	enqueueSandboxScript,
-	findBuiltinSchemaWithSearchProviders,
+	findBuiltinSchemaWithProviders,
 	pollSandboxResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
@@ -219,11 +219,8 @@ describe("sandbox enqueue by script ID", () => {
 
 	it("enqueues a built-in script and reaches a terminal state", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const searchScriptId = schema.searchProviders[0]?.searchScriptId;
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const searchScriptId = schema.providers[0]?.scriptId;
 		if (!searchScriptId) {
 			throw new Error("No search provider found");
 		}
@@ -278,11 +275,8 @@ function assertSearchItemShape(item: unknown) {
 describe("search script contract", () => {
 	it("returns envelope and typed-slot item shape when a search script completes", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithSearchProviders(
-			client,
-			cookies,
-		);
-		const searchScriptId = schema.searchProviders[0]?.searchScriptId;
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const searchScriptId = schema.providers[0]?.scriptId;
 		if (!searchScriptId) {
 			throw new Error("No search provider found");
 		}
