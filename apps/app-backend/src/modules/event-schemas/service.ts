@@ -1,8 +1,5 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
-import {
-	resolveCustomEntitySchemaAccess,
-	resolveEntitySchemaReadAccess,
-} from "~/lib/app/entity-schema-access";
+import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import {
 	type ServiceResult,
@@ -109,14 +106,15 @@ export const listEventSchemas = async (
 		return entitySchemaIdResult;
 	}
 
-	const foundEntitySchema = resolveEntitySchemaReadAccess(
+	const entitySchemaResult = checkReadAccess(
 		await deps.getEntitySchemaScopeForUser({
 			userId: input.userId,
 			entitySchemaId: entitySchemaIdResult.data,
 		}),
+		{ not_found: entitySchemaNotFoundError },
 	);
-	if (!("entitySchema" in foundEntitySchema)) {
-		return serviceError("not_found", entitySchemaNotFoundError);
+	if ("error" in entitySchemaResult) {
+		return serviceError("not_found", entitySchemaResult.message);
 	}
 
 	const eventSchemas = await deps.listEventSchemasByEntitySchemaForUser({
@@ -137,18 +135,20 @@ export const createEventSchema = async (
 		return entitySchemaIdResult;
 	}
 
-	const foundEntitySchema = resolveCustomEntitySchemaAccess(
+	const entitySchemaResult = checkCustomAccess(
 		await deps.getEntitySchemaScopeForUser({
 			entitySchemaId: entitySchemaIdResult.data,
 			userId: input.userId,
 		}),
+		{
+			not_found: entitySchemaNotFoundError,
+			builtin_resource: customEntitySchemaError,
+		},
 	);
-	if (!("entitySchema" in foundEntitySchema)) {
+	if ("error" in entitySchemaResult) {
 		return serviceError(
-			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			foundEntitySchema.error === "not_found"
-				? entitySchemaNotFoundError
-				: customEntitySchemaError,
+			entitySchemaResult.error === "not_found" ? "not_found" : "validation",
+			entitySchemaResult.message,
 		);
 	}
 
