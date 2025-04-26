@@ -188,9 +188,9 @@ export default function Page() {
 								<LineChart
 									h={300}
 									connectNulls
-									dataKey="timestamp"
 									curveType="monotone"
 									data={formattedData}
+									dataKey="formattedTimestamp"
 									series={selectedStats.map((name) => ({
 										name,
 										color: generateColor(getStringAsciiValue(name)),
