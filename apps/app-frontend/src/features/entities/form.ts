@@ -1,5 +1,9 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { fromAppSchema, zodRequiredName } from "@ryot/ts-utils";
+import {
+	fromAppSchemaObject,
+	isAppPropertyRequired,
+	zodRequiredName,
+} from "@ryot/ts-utils";
 import { z } from "zod";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 
@@ -11,19 +15,10 @@ const entityImageSchema = z.union([
 ]);
 
 export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
-	const propertySchemas: Record<string, z.ZodType> = {};
-
-	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
-		const zodSchema = fromAppSchema(propertyDef);
-		propertySchemas[key] = propertyDef.required
-			? zodSchema
-			: zodSchema.optional();
-	}
-
 	return z.object({
 		name: zodRequiredName,
 		image: entityImageSchema,
-		properties: z.object(propertySchemas),
+		properties: fromAppSchemaObject(propertiesSchema),
 	});
 };
 
@@ -36,8 +31,8 @@ export const buildDefaultEntityFormValues = (
 ): CreateEntityFormValues => {
 	const properties: Record<string, unknown> = {};
 
-	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
-		if (propertyDef.required) {
+	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
+		if (isAppPropertyRequired(propertyDef)) {
 			properties[key] = getDefaultValue(propertyDef);
 		}
 	}

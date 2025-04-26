@@ -297,9 +297,11 @@ describe("buildEventSchemaPropertiesSchema", () => {
 				input({ key: "isFavorite", type: "boolean" }),
 			]),
 		).toEqual({
-			notes: { type: "string" },
-			rating: { type: "number" },
-			isFavorite: { type: "boolean" },
+			fields: {
+				notes: { type: "string" },
+				rating: { type: "number" },
+				isFavorite: { type: "boolean" },
+			},
 		});
 	});
 
@@ -308,7 +310,7 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			buildEventSchemaPropertiesSchema([
 				input({ key: "score", type: "integer" }),
 			]),
-		).toEqual({ score: { type: "integer" } });
+		).toEqual({ fields: { score: { type: "integer" } } });
 	});
 
 	it("maps date rows and includes required flag when present", () => {
@@ -318,8 +320,10 @@ describe("buildEventSchemaPropertiesSchema", () => {
 				input({ key: "notes" }),
 			]),
 		).toEqual({
-			notes: { type: "string" },
-			occurredOn: { type: "date", required: true },
+			fields: {
+				notes: { type: "string" },
+				occurredOn: { type: "date", validation: { required: true } },
+			},
 		});
 	});
 });
@@ -338,7 +342,7 @@ describe("toCreateEventSchemaPayload", () => {
 		).toEqual({
 			name: "Tasting",
 			entitySchemaId: "entity-schema-123",
-			propertiesSchema: { rating: { type: "number" } },
+			propertiesSchema: { fields: { rating: { type: "number" } } },
 		});
 	});
 
@@ -365,8 +369,10 @@ describe("toCreateEventSchemaPayload", () => {
 			slug: "tasting",
 			entitySchemaId: "entity-schema-123",
 			propertiesSchema: {
-				occurredOn: { type: "date", required: true },
-				rating: { type: "number" },
+				fields: {
+					rating: { type: "number" },
+					occurredOn: { type: "date", validation: { required: true } },
+				},
 			},
 		});
 	});

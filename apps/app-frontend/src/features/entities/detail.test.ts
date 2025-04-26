@@ -16,10 +16,12 @@ describe("getEntityDetailProperties", () => {
 
 		const properties = getEntityDetailProperties(
 			{
-				notes: { type: "string" },
-				completed: { type: "boolean" },
-				startedOn: { type: "date" },
-				distanceKm: { type: "number" },
+				fields: {
+					notes: { type: "string" },
+					completed: { type: "boolean" },
+					startedOn: { type: "date" },
+					distanceKm: { type: "number" },
+				},
 			},
 			entity.properties,
 		);
@@ -67,11 +69,13 @@ describe("getEntityDetailProperties", () => {
 
 		const properties = getEntityDetailProperties(
 			{
-				tags: { type: "array", items: { type: "string" } },
-				mood: { type: "string" },
-				metadata: {
-					type: "object",
-					properties: { source: { type: "string" } },
+				fields: {
+					tags: { type: "array", items: { type: "string" } },
+					mood: { type: "string" },
+					metadata: {
+						type: "object",
+						properties: { source: { type: "string" } },
+					},
 				},
 			},
 			entity.properties,

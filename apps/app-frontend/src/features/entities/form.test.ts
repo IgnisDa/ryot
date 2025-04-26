@@ -8,8 +8,13 @@ import {
 describe("buildCreateEntityFormSchema", () => {
 	it("builds schema for simple string and number properties", () => {
 		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-			pages: { type: "integer" as const },
+			fields: {
+				pages: { type: "integer" as const },
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
@@ -24,7 +29,12 @@ describe("buildCreateEntityFormSchema", () => {
 
 	it("rejects invalid property types", () => {
 		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
+			fields: {
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
@@ -39,7 +49,12 @@ describe("buildCreateEntityFormSchema", () => {
 
 	it("requires required properties", () => {
 		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
+			fields: {
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
@@ -51,8 +66,13 @@ describe("buildCreateEntityFormSchema", () => {
 
 	it("allows optional properties to be missing", () => {
 		const propertiesSchema = {
-			subtitle: { type: "string" as const },
-			title: { type: "string" as const, required: true as const },
+			fields: {
+				subtitle: { type: "string" as const },
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
@@ -67,11 +87,13 @@ describe("buildCreateEntityFormSchema", () => {
 
 	it("validates nested object properties", () => {
 		const propertiesSchema = {
-			metadata: {
-				type: "object" as const,
-				properties: {
-					author: { type: "string" as const },
-					year: { type: "integer" as const },
+			fields: {
+				metadata: {
+					type: "object" as const,
+					properties: {
+						year: { type: "integer" as const },
+						author: { type: "string" as const },
+					},
 				},
 			},
 		};
@@ -88,9 +110,8 @@ describe("buildCreateEntityFormSchema", () => {
 
 	it("validates array properties", () => {
 		const propertiesSchema = {
-			tags: {
-				type: "array" as const,
-				items: { type: "string" as const },
+			fields: {
+				tags: { type: "array" as const, items: { type: "string" as const } },
 			},
 		};
 
@@ -103,13 +124,64 @@ describe("buildCreateEntityFormSchema", () => {
 
 		expect(result.success).toBeTrue();
 	});
+
+	it("applies conditional required rules", () => {
+		const schema = buildCreateEntityFormSchema({
+			fields: {
+				progressPercent: { type: "number" as const },
+				status: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
+			rules: [
+				{
+					path: ["progressPercent"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: {
+						path: ["status"],
+						value: "completed",
+						operator: "eq" as const,
+					},
+				},
+			],
+		});
+
+		expect(
+			schema.safeParse({
+				image: null,
+				name: "Test Book",
+				properties: { status: "draft" },
+			}).success,
+		).toBeTrue();
+		expect(
+			schema.safeParse({
+				image: null,
+				name: "Test Book",
+				properties: { status: "completed" },
+			}).success,
+		).toBeFalse();
+		expect(
+			schema.safeParse({
+				image: null,
+				name: "Test Book",
+				properties: { status: "completed", progressPercent: 90 },
+			}).success,
+		).toBeTrue();
+	});
 });
 
 describe("buildDefaultEntityFormValues", () => {
 	it("creates default values with empty name and required properties", () => {
 		const propertiesSchema = {
-			pages: { type: "integer" as const },
-			title: { type: "string" as const, required: true as const },
+			fields: {
+				pages: { type: "integer" as const },
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const values = buildDefaultEntityFormValues(propertiesSchema);
@@ -121,9 +193,20 @@ describe("buildDefaultEntityFormValues", () => {
 
 	it("includes default values for all property types", () => {
 		const propertiesSchema = {
-			title: { type: "string" as const, required: true as const },
-			pages: { type: "integer" as const, required: true as const },
-			active: { type: "boolean" as const, required: true as const },
+			fields: {
+				title: {
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+				pages: {
+					type: "integer" as const,
+					validation: { required: true as const },
+				},
+				active: {
+					type: "boolean" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		const values = buildDefaultEntityFormValues(propertiesSchema);
@@ -137,12 +220,14 @@ describe("buildDefaultEntityFormValues", () => {
 
 	it("creates default values for nested object properties", () => {
 		const propertiesSchema = {
-			metadata: {
-				type: "object" as const,
-				required: true as const,
-				properties: {
-					year: { type: "integer" as const },
-					author: { type: "string" as const },
+			fields: {
+				metadata: {
+					type: "object" as const,
+					validation: { required: true as const },
+					properties: {
+						year: { type: "integer" as const },
+						author: { type: "string" as const },
+					},
 				},
 			},
 		};
