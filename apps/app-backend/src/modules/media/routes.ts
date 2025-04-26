@@ -19,9 +19,9 @@ const getMediaOverviewRoute = createAuthRoute(
 		summary: "Get the built-in media overview",
 		responses: {
 			...createStandardResponses({
+				includePayloadError: false,
 				successSchema: builtInMediaOverviewResponseSchema,
 				successDescription: "Built-in media overview sections",
-				includePayloadError: false,
 			}),
 			400: validationErrorResponse(
 				"Built-in media overview configuration is invalid",
