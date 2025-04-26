@@ -199,10 +199,9 @@ export const sandboxScript = pgTable(
 	],
 );
 
-export const entitySchemaSandboxScript = pgTable(
-	"entity_schema_sandbox_script",
+export const entitySchemaScript = pgTable(
+	"entity_schema_script",
 	{
-		createdAt: timestamp().defaultNow().notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -210,31 +209,23 @@ export const entitySchemaSandboxScript = pgTable(
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		searchSandboxScriptId: text()
+		sandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
-		detailsSandboxScriptId: text()
-			.notNull()
-			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		createdAt: timestamp().defaultNow().notNull(),
 		updatedAt: timestamp()
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [
-		index("entity_schema_sandbox_script_entity_schema_id_idx").on(
+		index("entity_schema_script_entity_schema_id_idx").on(table.entitySchemaId),
+		index("entity_schema_script_sandbox_script_id_idx").on(
+			table.sandboxScriptId,
+		),
+		unique("entity_schema_script_unique").on(
 			table.entitySchemaId,
-		),
-		index("entity_schema_sandbox_script_search_script_id_idx").on(
-			table.searchSandboxScriptId,
-		),
-		index("entity_schema_sandbox_script_details_script_id_idx").on(
-			table.detailsSandboxScriptId,
-		),
-		unique("entity_schema_sandbox_script_unique").on(
-			table.entitySchemaId,
-			table.searchSandboxScriptId,
-			table.detailsSandboxScriptId,
+			table.sandboxScriptId,
 		),
 	],
 );
@@ -251,7 +242,7 @@ export const entity = pgTable(
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		detailsSandboxScriptId: text().references(() => sandboxScript.id, {
+		sandboxScriptId: text().references(() => sandboxScript.id, {
 			onDelete: "cascade",
 		}),
 		id: text()
@@ -268,14 +259,12 @@ export const entity = pgTable(
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_entity_schema_id_idx").on(table.entitySchemaId),
 		index("entity_properties_idx").using("gin", table.properties),
-		index("entity_details_sandbox_script_id_idx").on(
-			table.detailsSandboxScriptId,
-		),
+		index("entity_sandbox_script_id_idx").on(table.sandboxScriptId),
 		unique("entity_user_schema_script_external_id_unique").on(
 			table.userId,
 			table.externalId,
 			table.entitySchemaId,
-			table.detailsSandboxScriptId,
+			table.sandboxScriptId,
 		),
 	],
 );
