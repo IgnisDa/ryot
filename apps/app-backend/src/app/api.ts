@@ -103,8 +103,8 @@ export const apiApp = baseApp
 	.doc("/openapi.json", (c) => ({
 		openapi: "3.0.0",
 		tags: openApiTags,
-		externalDocs: { url: "https://ryot.io", description: "Main Website" },
 		servers: [{ url: `${new URL(c.req.url).origin}/api` }],
+		externalDocs: { url: "https://ryot.io", description: "Main Website" },
 		info: {
 			version: "1.0.0",
 			title: "Ryot App Backend API",
