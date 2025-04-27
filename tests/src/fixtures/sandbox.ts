@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { Client } from "./auth";
 
 type EnqueueSandboxBody = NonNullable<
@@ -39,7 +40,7 @@ export async function pollSandboxResult(
 	options: PollSandboxResultOptions = {},
 ) {
 	const { intervalMs = 500, timeoutMs = 30_000 } = options;
-	const deadline = Date.now() + timeoutMs;
+	const deadline = dayjs().add(timeoutMs, "millisecond");
 
 	for (;;) {
 		const { data, response } = await client.GET("/sandbox/result/{jobId}", {
@@ -56,7 +57,7 @@ export async function pollSandboxResult(
 			return result;
 		}
 
-		const remainingMs = deadline - Date.now();
+		const remainingMs = deadline.diff(dayjs());
 		if (remainingMs <= 0) {
 			break;
 		}

@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { relations } from "drizzle-orm";
 import {
 	boolean,
@@ -17,7 +18,7 @@ export const user = pgTable("user", {
 	emailVerified: boolean().default(false).notNull(),
 	updatedAt: timestamp()
 		.defaultNow()
-		.$onUpdate(() => /* @__PURE__ */ new Date())
+		.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 		.notNull(),
 });
 
@@ -31,7 +32,7 @@ export const session = pgTable(
 		expiresAt: timestamp().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		updatedAt: timestamp()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 		userId: text()
 			.notNull()
@@ -58,7 +59,7 @@ export const account = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [index("account_userId_idx").on(table.userId)],
@@ -74,7 +75,7 @@ export const verification = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [index("verification_identifier_idx").on(table.identifier)],

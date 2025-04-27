@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createEventSchemaFixture } from "#/features/test-fixtures";
 import {
 	createBacklogEventPayload,
@@ -116,8 +117,8 @@ describe("createLogEventPayload", () => {
 		expect(payload[0]?.eventSchemaId).toBe("complete-id");
 		expect(payload[0]?.properties).toEqual({
 			completionMode: "custom_timestamps",
-			startedOn: new Date("2026-03-27T09:15").toISOString(),
-			completedOn: new Date("2026-03-27T18:30").toISOString(),
+			startedOn: dayjs("2026-03-27T09:15").toISOString(),
+			completedOn: dayjs("2026-03-27T18:30").toISOString(),
 		});
 	});
 
@@ -136,7 +137,7 @@ describe("createLogEventPayload", () => {
 				eventSchemaId: "complete-id",
 				properties: {
 					completionMode: "custom_timestamps",
-					completedOn: new Date("2026-03-27T18:30").toISOString(),
+					completedOn: dayjs("2026-03-27T18:30").toISOString(),
 				},
 			},
 		]);
