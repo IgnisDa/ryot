@@ -115,7 +115,7 @@ Rules:
 
 ## Computed Fields
 
-Computed fields are named expressions declared once and reused anywhere display expressions are accepted.
+Computed fields are named expressions declared once and reused anywhere expressions are accepted.
 
 ```json
 {
@@ -142,6 +142,80 @@ Rules:
 - Computed fields can reference entity fields, latest-event fields, and other computed fields.
 - Missing latest-event rows still resolve as `null`, so `coalesce` works the same way through computed fields.
 - Computed-field dependency cycles are rejected.
+
+## Expression Kinds
+
+Supported expression nodes:
+
+- `literal`
+- `reference`
+- `coalesce`
+- `arithmetic`
+- `round`
+- `floor`
+- `integer`
+- `concat`
+- `conditional`
+
+Conditional expressions use `whenTrue` and `whenFalse`:
+
+```json
+{
+  "type": "conditional",
+  "condition": {
+    "type": "comparison",
+    "operator": "gte",
+    "left": {
+      "type": "reference",
+      "reference": { "type": "schema-property", "slug": "book", "property": "rating" }
+    },
+    "right": { "type": "literal", "value": 4 }
+  },
+  "whenTrue": { "type": "literal", "value": "recommended" },
+  "whenFalse": { "type": "literal", "value": "standard" }
+}
+```
+
+Arithmetic and normalization example:
+
+```json
+{
+  "key": "roundedScore",
+  "expression": {
+    "type": "round",
+    "expression": {
+      "type": "arithmetic",
+      "operator": "divide",
+      "left": {
+        "type": "reference",
+        "reference": { "type": "schema-property", "slug": "book", "property": "pages" }
+      },
+      "right": { "type": "literal", "value": 100 }
+    }
+  }
+}
+```
+
+String composition example:
+
+```json
+{
+  "type": "concat",
+  "values": [
+    { "type": "literal", "value": "Book: " },
+    {
+      "type": "reference",
+      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+    }
+  ]
+}
+```
+
+Image rules:
+
+- Image references remain display-only.
+- Image expressions are rejected from sort, filter, arithmetic, and string composition.
+- Conditional and coalesce branches cannot mix image and non-image values.
 
 ## Reference Syntax
 
@@ -310,47 +384,11 @@ Note:
 
 - `fields` is always an array.
 - A field can resolve to `{"kind": "null", "value": null}`.
-- That means the field exists, but none of its references produced a value.
+- That means the field exists, but its expression resolved to `null`.
 
 ## Common UI Mappings
 
-### Grid / List
-
-Typical keys:
-
-- `image`
-- `title`
-- `subtitle`
-- `badge`
-
-Example:
-
-```json
-"fields": [
-  { "key": "image", "references": ["entity.book.@image"] },
-  { "key": "title", "references": ["entity.book.@name"] },
-  { "key": "subtitle", "references": ["entity.book.author"] },
-  { "key": "badge", "references": ["entity.book.publishYear"] }
-]
-```
-
-### Table
-
-Typical keys:
-
-- `column_0`
-- `column_1`
-- `column_2`
-
-Example:
-
-```json
-"fields": [
-  { "key": "column_0", "references": ["entity.book.@name"] },
-  { "key": "column_1", "references": ["entity.book.author"] },
-  { "key": "column_2", "references": ["entity.book.publishYear"] }
-]
-```
+Typical field keys still look like UI slots such as `image`, `title`, `subtitle`, `badge`, or `column_0`, but each one now carries a single `expression` instead of a `references` array.
 
 ## Query Examples
 
@@ -360,22 +398,48 @@ Example:
 {
   "sort": {
     "direction": "asc",
-    "fields": ["entity.book.@name"]
+    "expression": {
+      "type": "reference",
+      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+    }
   },
   "pagination": {
     "page": 1,
     "limit": 20
   },
   "eventJoins": [],
-  "filters": [
-    { "op": "eq", "field": "entity.book.status", "value": "owned" }
-  ],
+  "filter": {
+    "type": "comparison",
+    "operator": "eq",
+    "left": {
+      "type": "reference",
+      "reference": { "type": "schema-property", "slug": "book", "property": "status" }
+    },
+    "right": { "type": "literal", "value": "owned" }
+  },
   "entitySchemaSlugs": ["book"],
   "fields": [
-    { "key": "image", "references": ["entity.book.@image"] },
-    { "key": "title", "references": ["entity.book.@name"] },
-    { "key": "subtitle", "references": ["entity.book.author"] },
-    { "key": "badge", "references": ["entity.book.publishYear"] }
+    {
+      "key": "image",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+      }
+    },
+    {
+      "key": "title",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      }
+    },
+    {
+      "key": "subtitle",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "schema-property", "slug": "book", "property": "author" }
+      }
+    }
   ]
 }
 ```
@@ -386,39 +450,43 @@ Example:
 {
   "sort": {
     "direction": "desc",
-    "fields": [
-      "entity.smartphone.year",
-      "entity.tablet.releaseYear"
-    ]
+    "expression": {
+      "type": "coalesce",
+      "values": [
+        {
+          "type": "reference",
+          "reference": { "type": "schema-property", "slug": "smartphone", "property": "year" }
+        },
+        {
+          "type": "reference",
+          "reference": { "type": "schema-property", "slug": "tablet", "property": "releaseYear" }
+        }
+      ]
+    }
   },
   "pagination": {
     "page": 1,
     "limit": 20
   },
   "eventJoins": [],
-  "filters": [],
+  "filter": null,
   "entitySchemaSlugs": ["smartphone", "tablet"],
   "fields": [
     {
       "key": "title",
-      "references": [
-        "entity.smartphone.@name",
-        "entity.tablet.@name"
-      ]
-    },
-    {
-      "key": "subtitle",
-      "references": [
-        "entity.smartphone.manufacturer",
-        "entity.tablet.maker"
-      ]
-    },
-    {
-      "key": "badge",
-      "references": [
-        "entity.smartphone.year",
-        "entity.tablet.releaseYear"
-      ]
+      "expression": {
+        "type": "coalesce",
+        "values": [
+          {
+            "type": "reference",
+            "reference": { "type": "entity-column", "slug": "smartphone", "column": "name" }
+          },
+          {
+            "type": "reference",
+            "reference": { "type": "entity-column", "slug": "tablet", "column": "name" }
+          }
+        ]
+      }
     }
   ]
 }
@@ -432,7 +500,10 @@ Show entities with their latest review rating and note.
 {
   "sort": {
     "direction": "desc",
-    "fields": ["event.review.rating"]
+    "expression": {
+      "type": "reference",
+      "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+    }
   },
   "pagination": {
     "page": 1,
@@ -445,116 +516,36 @@ Show entities with their latest review rating and note.
       "eventSchemaSlug": "review"
     }
   ],
-  "filters": [
-    { "op": "gte", "field": "event.review.rating", "value": 4 }
-  ],
+  "filter": {
+    "type": "comparison",
+    "operator": "gte",
+    "left": {
+      "type": "reference",
+      "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+    },
+    "right": { "type": "literal", "value": 4 }
+  },
   "entitySchemaSlugs": ["book"],
   "fields": [
-    { "key": "title", "references": ["entity.book.@name"] },
-    { "key": "rating", "references": ["event.review.rating"] },
-    { "key": "note", "references": ["event.review.note"] },
-    { "key": "reviewedAt", "references": ["event.review.@createdAt"] }
-  ]
-}
-```
-
-### 4. Latest Purchase Info Query
-
-Show the most recent purchase price and purchase timestamp for each whiskey.
-
-```json
-{
-  "sort": {
-    "direction": "desc",
-    "fields": ["event.purchase.@createdAt"]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20
-  },
-  "eventJoins": [
     {
-      "key": "purchase",
-      "kind": "latestEvent",
-      "eventSchemaSlug": "purchase"
-    }
-  ],
-  "filters": [
-    { "op": "gte", "field": "event.purchase.price", "value": 100 }
-  ],
-  "entitySchemaSlugs": ["whiskey"],
-  "fields": [
-    { "key": "title", "references": ["entity.whiskey.@name"] },
-    { "key": "distillery", "references": ["entity.whiskey.distillery"] },
-    { "key": "price", "references": ["event.purchase.price"] },
-    { "key": "purchasedAt", "references": ["event.purchase.@createdAt"] }
-  ]
-}
-```
-
-### 5. Entities Missing a Joined Event
-
-Find books with no latest review rating.
-
-```json
-{
-  "sort": {
-    "direction": "asc",
-    "fields": ["entity.book.@name"]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20
-  },
-  "eventJoins": [
+      "key": "title",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      }
+    },
     {
-      "key": "review",
-      "kind": "latestEvent",
-      "eventSchemaSlug": "review"
+      "key": "rating",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+      }
     }
-  ],
-  "filters": [
-    { "op": "isNull", "field": "event.review.rating" }
-  ],
-  "entitySchemaSlugs": ["book"],
-  "fields": [
-    { "key": "title", "references": ["entity.book.@name"] },
-    { "key": "reviewRating", "references": ["event.review.rating"] }
   ]
 }
 ```
 
-### 6. Mixed Entity + Event Table Query
-
-```json
-{
-  "sort": {
-    "direction": "desc",
-    "fields": ["event.review.rating", "entity.book.@name"]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20
-  },
-  "eventJoins": [
-    {
-      "key": "review",
-      "kind": "latestEvent",
-      "eventSchemaSlug": "review"
-    }
-  ],
-  "filters": [],
-  "entitySchemaSlugs": ["book"],
-  "fields": [
-    { "key": "column_0", "references": ["entity.book.@name"] },
-    { "key": "column_1", "references": ["entity.book.author"] },
-    { "key": "column_2", "references": ["event.review.rating"] },
-    { "key": "column_3", "references": ["event.review.@createdAt"] }
-  ]
-}
-```
-
-### 7. Event-Based Badge With Entity Fallback
+### 4. Event-Based Badge With Entity Fallback
 
 Use latest review rating when present, otherwise show publish year.
 
@@ -562,7 +553,10 @@ Use latest review rating when present, otherwise show publish year.
 {
   "sort": {
     "direction": "asc",
-    "fields": ["entity.book.@name"]
+    "expression": {
+      "type": "reference",
+      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+    }
   },
   "pagination": {
     "page": 1,
@@ -575,16 +569,31 @@ Use latest review rating when present, otherwise show publish year.
       "eventSchemaSlug": "review"
     }
   ],
-  "filters": [],
+  "filter": null,
   "entitySchemaSlugs": ["book"],
   "fields": [
-    { "key": "title", "references": ["entity.book.@name"] },
+    {
+      "key": "title",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      }
+    },
     {
       "key": "badge",
-      "references": [
-        "event.review.rating",
-        "entity.book.publishYear"
-      ]
+      "expression": {
+        "type": "coalesce",
+        "values": [
+          {
+            "type": "reference",
+            "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+          },
+          {
+            "type": "reference",
+            "reference": { "type": "schema-property", "slug": "book", "property": "publishYear" }
+          }
+        ]
+      }
     }
   ]
 }
@@ -661,56 +670,4 @@ Use latest review rating when present, otherwise show publish year.
 
 ## Copy-Paste Starters
 
-### Grid-Like Starter
-
-```json
-{
-  "sort": {
-    "direction": "asc",
-    "fields": ["entity.book.@name"]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20
-  },
-  "eventJoins": [],
-  "filters": [],
-  "entitySchemaSlugs": ["book"],
-  "fields": [
-    { "key": "image", "references": ["entity.book.@image"] },
-    { "key": "title", "references": ["entity.book.@name"] },
-    { "key": "subtitle", "references": ["entity.book.author"] },
-    { "key": "badge", "references": ["entity.book.publishYear"] }
-  ]
-}
-```
-
-### Event-Driven Starter
-
-```json
-{
-  "sort": {
-    "direction": "desc",
-    "fields": ["event.review.@createdAt"]
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20
-  },
-  "eventJoins": [
-    {
-      "key": "review",
-      "kind": "latestEvent",
-      "eventSchemaSlug": "review"
-    }
-  ],
-  "filters": [],
-  "entitySchemaSlugs": ["book"],
-  "fields": [
-    { "key": "title", "references": ["entity.book.@name"] },
-    { "key": "rating", "references": ["event.review.rating"] },
-    { "key": "reviewedAt", "references": ["event.review.@createdAt"] },
-    { "key": "note", "references": ["event.review.note"] }
-  ]
-}
-```
+Use the request examples in this guide as starters. Every payload should use `sort.expression`, optional top-level `filter`, and per-field `expression` nodes.
