@@ -11,9 +11,17 @@ import {
 import {
 	builtInMediaOverviewContinueResponseSchema,
 	builtInMediaOverviewRateTheseResponseSchema,
+	builtInMediaOverviewRecentActivityResponseSchema,
 	builtInMediaOverviewUpNextResponseSchema,
+	builtInMediaOverviewWeekActivityResponseSchema,
 } from "./schemas";
-import { getContinueItems, getRateTheseItems, getUpNextItems } from "./service";
+import {
+	getContinueItems,
+	getRateTheseItems,
+	getRecentActivityItems,
+	getUpNextItems,
+	getWeekActivity,
+} from "./service";
 
 const getMediaOverviewUpNextRoute = createAuthRoute(
 	createRoute({
@@ -81,6 +89,34 @@ const getMediaOverviewRateTheseRoute = createAuthRoute(
 	}),
 );
 
+const getMediaOverviewRecentActivityRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["media"],
+		path: "/overview/activity",
+		summary: "Get the recent media activity feed",
+		responses: createStandardResponses({
+			includePayloadError: false,
+			successDescription: "Recent media activity items",
+			successSchema: builtInMediaOverviewRecentActivityResponseSchema,
+		}),
+	}),
+);
+
+const getMediaOverviewWeekActivityRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["media"],
+		path: "/overview/week",
+		summary: "Get the current week's media activity histogram",
+		responses: createStandardResponses({
+			includePayloadError: false,
+			successDescription: "Current week media activity buckets",
+			successSchema: builtInMediaOverviewWeekActivityResponseSchema,
+		}),
+	}),
+);
+
 export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getMediaOverviewUpNextRoute, async (c) => {
 		const user = c.get("user");
@@ -115,6 +151,20 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(response.body, response.status);
 		}
 
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getMediaOverviewRecentActivityRoute, async (c) => {
+		const user = c.get("user");
+
+		const result = await getRecentActivityItems(user.id);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getMediaOverviewWeekActivityRoute, async (c) => {
+		const user = c.get("user");
+
+		const result = await getWeekActivity(user.id);
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	});

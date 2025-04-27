@@ -684,6 +684,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/media/overview/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the recent media activity feed */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Recent media activity items */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                items: {
+                                    id: string;
+                                    /** Format: date-time */
+                                    occurredAt: string;
+                                    rating: number | null;
+                                    /** @enum {string} */
+                                    eventSchemaSlug: "backlog" | "progress" | "complete" | "review";
+                                    entity: {
+                                        name: string;
+                                        image: {
+                                            key: string;
+                                            /** @enum {string} */
+                                            kind: "s3";
+                                        } | {
+                                            url: string;
+                                            /** @enum {string} */
+                                            kind: "remote";
+                                        } | unknown;
+                                        /** @enum {string} */
+                                        entitySchemaSlug: "book" | "anime" | "manga";
+                                    };
+                                }[];
+                                count: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/overview/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current week's media activity histogram */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current week media activity buckets */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                items: {
+                                    count: number;
+                                    dayLabel: string;
+                                }[];
+                                count: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trackers": {
         parameters: {
             query?: never;

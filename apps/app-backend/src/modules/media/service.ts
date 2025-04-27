@@ -13,10 +13,16 @@ import type {
 	QueryEngineResponseData,
 } from "~/modules/query-engine";
 import {
+	listRecentActivityEventsForUser,
+	listWeekActivityEventsForUser,
+} from "./repository";
+import {
 	type BuiltInMediaOverviewSourceItem,
 	buildContinueSectionResponse,
 	buildRateTheseSectionResponse,
+	buildRecentActivitySectionResponse,
 	buildUpNextSectionResponse,
+	buildWeekActivitySectionResponse,
 	type ContinueSourceItem,
 	type RateTheseSourceItem,
 	type UpNextSourceItem,
@@ -25,7 +31,7 @@ import {
 const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
 
-const SECTION_LIMITS = { upNext: 6, continue: 6, rateThese: 6 };
+const SECTION_LIMITS = { upNext: 6, continue: 6, rateThese: 6, activity: 12 };
 
 const literalExpression = (value: unknown) => ({
 	value,
@@ -207,9 +213,13 @@ type ExecuteSectionQuery = (
 
 type MediaServiceDeps = {
 	executeSectionQuery: ExecuteSectionQuery;
+	listWeekActivityEventsForUser?: typeof listWeekActivityEventsForUser;
+	listRecentActivityEventsForUser?: typeof listRecentActivityEventsForUser;
 };
 
 const defaultDeps: MediaServiceDeps = {
+	listWeekActivityEventsForUser,
+	listRecentActivityEventsForUser,
 	executeSectionQuery: async (userId, request) => {
 		const preparedView = await viewDefinitionModule.prepare({
 			userId,
@@ -217,6 +227,31 @@ const defaultDeps: MediaServiceDeps = {
 		});
 		return preparedView.execute();
 	},
+};
+
+const getStartOfDay = (date: Date) => {
+	const start = new Date(date);
+	start.setUTCHours(0, 0, 0, 0);
+	return start;
+};
+
+const getDateKey = (date: Date) => {
+	const year = date.getUTCFullYear();
+	const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+	const day = `${date.getUTCDate()}`.padStart(2, "0");
+	return `${year}-${month}-${day}`;
+};
+
+const getCurrentWeekRange = (now = new Date()) => {
+	const startAt = getStartOfDay(now);
+	const dayOfWeek = startAt.getUTCDay();
+	const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+	startAt.setUTCDate(startAt.getUTCDate() - daysFromMonday);
+
+	const endAt = new Date(startAt);
+	endAt.setUTCDate(endAt.getUTCDate() + 7);
+
+	return { startAt, endAt };
 };
 
 export const getContinueItems = async (
@@ -380,4 +415,42 @@ export const getRateTheseItems = async (
 		}
 		throw error;
 	}
+};
+
+export const getRecentActivityItems = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+) => {
+	const listRecentActivity =
+		deps.listRecentActivityEventsForUser ?? listRecentActivityEventsForUser;
+	const items = await listRecentActivity({
+		userId,
+		limit: SECTION_LIMITS.activity,
+	});
+
+	return serviceData(buildRecentActivitySectionResponse(items));
+};
+
+export const getWeekActivity = async (
+	userId: string,
+	deps: MediaServiceDeps = defaultDeps,
+) => {
+	const { startAt, endAt } = getCurrentWeekRange();
+	const listWeekActivity =
+		deps.listWeekActivityEventsForUser ?? listWeekActivityEventsForUser;
+	const events = await listWeekActivity({ endAt, userId, startAt });
+	const countByDayKey = new Map<string, number>();
+
+	for (const event of events) {
+		const key = getDateKey(event.occurredAt);
+		countByDayKey.set(key, (countByDayKey.get(key) ?? 0) + 1);
+	}
+
+	const items = Array.from({ length: 7 }, (_, index) => {
+		const date = new Date(startAt);
+		date.setUTCDate(startAt.getUTCDate() + index);
+		return { date, count: countByDayKey.get(getDateKey(date)) ?? 0 };
+	});
+
+	return serviceData(buildWeekActivitySectionResponse({ items }));
 };

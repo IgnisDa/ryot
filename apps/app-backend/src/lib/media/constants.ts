@@ -7,6 +7,16 @@ const builtinMediaEntitySchemaSlugValues = entitySchemaScriptLinks().map(
 export type BuiltinMediaEntitySchemaSlug =
 	(typeof builtinMediaEntitySchemaSlugValues)[number];
 
+export const builtinMediaEventSchemaSlugs = [
+	"review",
+	"backlog",
+	"progress",
+	"complete",
+] as const;
+
+export type BuiltinMediaEventSchemaSlug =
+	(typeof builtinMediaEventSchemaSlugs)[number];
+
 export const builtinMediaEntitySchemaSlugs = Array.from(
 	new Set(builtinMediaEntitySchemaSlugValues),
 ) as BuiltinMediaEntitySchemaSlug[];
