@@ -76,3 +76,27 @@ const filterExpressionSchema = z.discriminatedUnion("op", [
 - User story 2: As a user, I want to add filters to my saved view, so that I can narrow down which entities are shown.
 - User story 3: As a user, I want to edit existing filters (change field, operator, or value), so that I can refine my search criteria.
 - User story 4: As a user, I want to remove filters from my saved view, so that I can broaden my results.
+
+## Verification
+
+After implementation, verify the work using:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors.
