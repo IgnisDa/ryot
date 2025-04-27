@@ -1348,7 +1348,7 @@ const UploadAssetsModal = (props: {
 		} catch {
 			notifications.show({
 				color: "red",
-				message: "Error while uploading image",
+				message: `Error while uploading ${type}`,
 			});
 		} finally {
 			setIsFileUploading(false);
