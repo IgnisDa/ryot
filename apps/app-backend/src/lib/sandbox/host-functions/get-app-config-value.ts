@@ -3,7 +3,7 @@ import {
 	apiFailure,
 	apiSuccess,
 	type ConfigValueResult,
-} from "~/sandbox/types";
+} from "~/lib/sandbox/types";
 
 export const getAppConfigValue = async (
 	key: unknown,
