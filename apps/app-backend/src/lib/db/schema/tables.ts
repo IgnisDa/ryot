@@ -1,3 +1,4 @@
+import { z } from "@hono/zod-openapi";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -11,7 +12,6 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { z } from "zod";
 import { user } from "./auth";
 
 const remoteImageUrlSchema = z
