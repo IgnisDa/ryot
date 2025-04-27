@@ -399,10 +399,13 @@ type SelectFieldProps = {
 	limit?: number;
 	required?: boolean;
 	disabled?: boolean;
+	clearable?: boolean;
 	placeholder?: string;
 	searchable?: boolean;
 	leftSection?: ReactNode;
 	data: ComponentProps<typeof Select>["data"];
+	value?: ComponentProps<typeof Select>["value"];
+	onChange?: ComponentProps<typeof Select>["onChange"];
 	renderOption?: ComponentProps<typeof Select>["renderOption"];
 };
 
@@ -416,15 +419,22 @@ function SelectField(props: SelectFieldProps) {
 				label={props.label}
 				limit={props.limit}
 				required={props.required}
-				disabled={props.disabled}
 				onBlur={field.handleBlur}
+				disabled={props.disabled}
+				clearable={props.clearable}
 				searchable={props.searchable}
 				placeholder={props.placeholder}
 				leftSection={props.leftSection}
 				renderOption={props.renderOption}
-				value={field.state.value || null}
 				error={!field.state.meta.isValid}
-				onChange={(value) => field.handleChange(value ?? "")}
+				value={
+					props.value !== undefined ? props.value : field.state.value || null
+				}
+				onChange={
+					props.onChange !== undefined
+						? props.onChange
+						: (value) => field.handleChange(value ?? "")
+				}
 			/>
 			{!field.state.meta.isValid && (
 				<Text c="red" size="xs">

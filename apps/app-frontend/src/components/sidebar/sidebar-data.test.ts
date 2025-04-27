@@ -102,9 +102,10 @@ describe("toSidebarData", () => {
 				views: [
 					{
 						id: "view-1",
+						sortOrder: 1,
+						isBuiltin: true,
 						icon: "book-open",
 						isDisabled: false,
-						sortOrder: 1,
 						trackerId: "tracker-1",
 						accentColor: "#5B7FFF",
 						name: "Currently Reading",
@@ -139,9 +140,10 @@ describe("toSidebarData", () => {
 		expect(result.views).toEqual([
 			{
 				id: "view-2",
+				sortOrder: 1,
 				trackerId: null,
 				icon: "sparkles",
-				sortOrder: 1,
+				isBuiltin: false,
 				isDisabled: false,
 				name: "Favorites",
 				accentColor: "#2DD4BF",
@@ -236,6 +238,53 @@ describe("toSidebarData", () => {
 			"standalone-enabled",
 			"standalone-disabled",
 		]);
+	});
+
+	it("propagates isBuiltin from views to tracker-scoped sidebar views", () => {
+		const trackers = [createTrackerFixture({ id: "tracker-1" })];
+		const views = [
+			createSavedViewFixture({ id: "view-builtin", isBuiltin: true }),
+			createSavedViewFixture({
+				sortOrder: 2,
+				isBuiltin: false,
+				id: "view-custom",
+			}),
+		];
+
+		const result = toSidebarData({ trackers, views });
+
+		const trackerViews = result.trackers[0]?.views ?? [];
+		const builtinView = trackerViews.find((v) => v.id === "view-builtin");
+		const customView = trackerViews.find((v) => v.id === "view-custom");
+
+		expect(builtinView?.isBuiltin).toBe(true);
+		expect(customView?.isBuiltin).toBe(false);
+	});
+
+	it("propagates isBuiltin from views to standalone sidebar views", () => {
+		const trackers = [createTrackerFixture({ id: "tracker-1" })];
+		const views = [
+			createSavedViewFixture({
+				sortOrder: 1,
+				isBuiltin: true,
+				trackerId: null,
+				id: "standalone-builtin",
+			}),
+			createSavedViewFixture({
+				sortOrder: 2,
+				trackerId: null,
+				isBuiltin: false,
+				id: "standalone-custom",
+			}),
+		];
+
+		const result = toSidebarData({ trackers, views });
+
+		const builtinView = result.views.find((v) => v.id === "standalone-builtin");
+		const customView = result.views.find((v) => v.id === "standalone-custom");
+
+		expect(builtinView?.isBuiltin).toBe(true);
+		expect(customView?.isBuiltin).toBe(false);
 	});
 
 	it("sorts views within each scope by ascending sortOrder", () => {
