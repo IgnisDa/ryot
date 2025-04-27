@@ -9,9 +9,9 @@ import type {
 	ListedSavedView,
 	ReorderSavedViewsBody,
 	SavedViewQueryDefinition,
+	SavedViewServiceDeps,
 	UpdateSavedViewBody,
-} from "~/modules/saved-views/schemas";
-import type { SavedViewServiceDeps } from "~/modules/saved-views/service";
+} from "~/modules/saved-views";
 
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,

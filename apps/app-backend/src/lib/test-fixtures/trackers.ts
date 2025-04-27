@@ -3,9 +3,9 @@ import type {
 	CreateTrackerBody,
 	ListedTracker,
 	ReorderTrackersBody,
+	TrackerServiceDeps,
 	UpdateTrackerBody,
-} from "~/modules/trackers/schemas";
-import type { TrackerServiceDeps } from "~/modules/trackers/service";
+} from "~/modules/trackers";
 
 type OwnedTracker = NonNullable<
 	Awaited<ReturnType<TrackerServiceDeps["getOwnedTrackerById"]>>
