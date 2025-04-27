@@ -68,13 +68,13 @@ export const payloadErrorResponse = () =>
 export const successResponse = <T>(data: T) => ({ data });
 
 export const createNotFoundErrorResult = (message = "Resource not found") => ({
-	body: errorResponse(ERROR_CODES.NOT_FOUND, message),
 	status: 404 as const,
+	body: errorResponse(ERROR_CODES.NOT_FOUND, message),
 });
 
 export const createValidationErrorResult = (message: string) => ({
-	body: errorResponse(ERROR_CODES.VALIDATION_FAILED, message),
 	status: 400 as const,
+	body: errorResponse(ERROR_CODES.VALIDATION_FAILED, message),
 });
 
 export const createCustomEntityAccessErrorResult = (input: {
@@ -83,7 +83,6 @@ export const createCustomEntityAccessErrorResult = (input: {
 }) => {
 	if (input.error === "not_found")
 		return createNotFoundErrorResult(input.message);
-
 	return createValidationErrorResult(input.message);
 };
 
