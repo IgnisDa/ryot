@@ -22,6 +22,10 @@ export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
 export const TABLE_LIMIT = 20;
 
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
 export function createViewRuntimeRequest(input: {
 	view: SavedView;
 	layout: ViewLayout;
@@ -32,6 +36,7 @@ export function createViewRuntimeRequest(input: {
 		layout: input.layout,
 		sort: input.view.queryDefinition.sort,
 		filters: input.view.queryDefinition.filters,
+		eventJoins: input.view.queryDefinition.eventJoins,
 		pagination: { page: input.page, limit: input.limit },
 		entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
 	};
@@ -59,14 +64,15 @@ export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 	return {
 		filters: [],
 		layout: "grid",
+		eventJoins: [],
 		entitySchemaSlugs: ["book"],
 		pagination: { page: 1, limit: GRID_LIMIT },
-		sort: { fields: ["@name"], direction: "asc" },
+		sort: { fields: [entityField("book", "@name")], direction: "asc" },
 		displayConfiguration: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
+			titleProperty: [entityField("book", "@name")],
+			imageProperty: [entityField("book", "@image")],
 		},
 	};
 }
