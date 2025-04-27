@@ -1,6 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
 import { applySavedViewReorderPatch } from "./cache";
+import {
+	buildSavedViewExtendedUpdatePayload,
+	type SavedViewExtendedFormValues,
+} from "./form-extended";
 import type { AppSavedView } from "./model";
 
 function isQueryDataWithSavedViews(
@@ -138,6 +142,17 @@ export function useSavedViewMutations() {
 		});
 	};
 
+	const updateViewExtendedById = async (
+		view: AppSavedView,
+		values: SavedViewExtendedFormValues,
+	) => {
+		const payload = buildSavedViewExtendedUpdatePayload(view, values);
+		await update.mutateAsync({
+			body: payload,
+			params: { path: { viewId: view.id } },
+		});
+	};
+
 	const toggleViewById = async (viewId: string, savedViews: AppSavedView[]) => {
 		const view = savedViews.find((v) => v.id === viewId);
 		if (!view) {
@@ -187,6 +202,7 @@ export function useSavedViewMutations() {
 		toggleViewById,
 		updateViewById,
 		reorderViewIds,
+		updateViewExtendedById,
 		isPending:
 			update.isPending ||
 			reorder.isPending ||
