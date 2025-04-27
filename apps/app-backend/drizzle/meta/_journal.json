@@ -5,15 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1772997113929,
-			"tag": "0000_slimy_jubilee",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1773057735566,
-			"tag": "0001_lively_kulan_gath",
+			"when": 1773075053046,
+			"tag": "0000_famous_lady_deathstrike",
 			"breakpoints": true
 		}
 	]
