@@ -335,8 +335,8 @@ function Artwork(props: {
 	note?: string;
 	color: string;
 	title: string;
-	height: number;
 	width?: number;
+	height?: number;
 	radius?: number;
 }) {
 	const [hasError, setHasError] = useState(!props.url);
@@ -465,7 +465,6 @@ function ContinueCard(props: {
 					width={84}
 					radius={0}
 					icon={icon}
-					height={132}
 					color={color}
 					url={props.imageUrl}
 					title={props.item.title}
