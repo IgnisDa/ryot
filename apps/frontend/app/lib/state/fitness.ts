@@ -50,7 +50,7 @@ export type ExerciseSet = {
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
-type Media = { imageSrc: string; key: string };
+type Media = { objectUrl: string; key: string };
 
 export type Exercise = {
 	lot: ExerciseLot;

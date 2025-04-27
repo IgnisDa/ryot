@@ -1330,12 +1330,12 @@ const UploadAssetsModal = (props: {
 		}
 		if (!file) return;
 		setIsFileUploading(true);
-		const imageSrc = URL.createObjectURL(file);
+		const objectUrl = URL.createObjectURL(file);
 		try {
 			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const media = { imageSrc, key };
+					const media = { objectUrl, key };
 					if (type === "image") {
 						if (exercise) draft.exercises[exerciseIdx].images.push(media);
 						else draft.images.push(media);
@@ -1381,7 +1381,7 @@ const UploadAssetsModal = (props: {
 									{exercise.images.map((i, imgIdx) => (
 										<ImageDisplay
 											key={i.key}
-											imageSrc={i.imageSrc}
+											imageSrc={i.objectUrl}
 											removeImage={() => {
 												deleteUploadedAsset(i.key);
 												setCurrentWorkout(
@@ -1401,7 +1401,7 @@ const UploadAssetsModal = (props: {
 								{currentWorkout.images.map((i, imgIdx) => (
 									<ImageDisplay
 										key={i.key}
-										imageSrc={i.imageSrc}
+										imageSrc={i.objectUrl}
 										removeImage={() => {
 											deleteUploadedAsset(i.key);
 											setCurrentWorkout(
