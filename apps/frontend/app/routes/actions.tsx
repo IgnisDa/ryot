@@ -1,5 +1,4 @@
 import { setTimeout } from "node:timers/promises";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	AddEntityToCollectionDocument,
 	CreateOrUpdateReviewDocument,
@@ -36,7 +35,6 @@ import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
-	createS3FileUploader,
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
@@ -59,12 +57,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	let status = undefined;
 	await match(intent)
-		.with("uploadWorkoutAsset", async () => {
-			const uploader = createS3FileUploader("workouts");
-			const formData = await parseFormData(request, uploader);
-			const fileKey = formData.get("file");
-			returnData = { key: fileKey };
-		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
 			const { deleteS3Object } = await serverGqlService.authenticatedRequest(
