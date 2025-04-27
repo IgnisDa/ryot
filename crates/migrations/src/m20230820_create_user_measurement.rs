@@ -9,11 +9,12 @@ pub static USER_MEASUREMENT_PRIMARY_KEY: &str = "pk-user_measurement";
 
 #[derive(Iden)]
 pub enum UserMeasurement {
-    Table,
-    Timestamp,
-    UserId,
     Name,
+    Table,
+    UserId,
+    Assets,
     Comment,
+    Timestamp,
     Information,
 }
 
@@ -43,6 +44,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserMeasurement::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(UserMeasurement::Assets)
+                            .json_binary()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_measurement-user_id")
