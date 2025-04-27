@@ -13,6 +13,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
+	PresignedPutS3UrlDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
@@ -571,3 +572,17 @@ export const getStartTimeFromRange = (range: ApplicationTimeRange) =>
 			() => undefined,
 		)
 		.exhaustive();
+
+export const clientSideFileUpload = async (file: File, prefix: string) => {
+	const body = await file.arrayBuffer();
+	const { presignedPutS3Url } = await clientGqlService.request(
+		PresignedPutS3UrlDocument,
+		{ input: { fileName: file.name, prefix } },
+	);
+	await fetch(presignedPutS3Url.uploadUrl, {
+		method: "PUT",
+		body,
+		headers: { "Content-Type": file.type },
+	});
+	return presignedPutS3Url.key;
+};

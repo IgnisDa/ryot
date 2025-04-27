@@ -113,6 +113,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	clientSideFileUpload,
 	dayjsLib,
 	getExerciseDetailsPath,
 	getSetColor,
@@ -1326,17 +1327,11 @@ const UploadAssetsModal = (props: {
 		if (!file) return;
 		setIsFileUploading(true);
 		const imageSrc = URL.createObjectURL(file);
-		const toSubmitForm = new FormData();
-		toSubmitForm.append("file", file, "image.jpg");
 		try {
-			const resp = await fetch(
-				$path("/actions", { intent: "uploadWorkoutAsset" }),
-				{ method: "POST", body: toSubmitForm },
-			);
-			const data = await resp.json();
+			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const media = { imageSrc, key: data.key };
+					const media = { imageSrc, key };
 					if (exercise) draft.exercises[exerciseIdx].images.push(media);
 					else draft.images.push(media);
 				}),
