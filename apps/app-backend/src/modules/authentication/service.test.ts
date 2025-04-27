@@ -67,7 +67,13 @@ describe("authentication bootstrap helpers", () => {
 	it("builds built-in saved views from built-in manifests", () => {
 		const queryDefinition = createQueryDefinition({
 			entitySchemaSlugs: ["book"],
-			sort: { fields: ["entity.book.@name"], direction: "asc" },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: { type: "entity-column", slug: "book", column: "name" },
+				},
+			},
 		});
 		const displayConfiguration = createDefaultDisplayConfiguration("book");
 

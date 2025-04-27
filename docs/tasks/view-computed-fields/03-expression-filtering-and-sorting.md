@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,11 +18,11 @@ Backward compatibility is not needed in this slice. The predicate AST and expres
 
 ## Acceptance criteria
 
-- [ ] Runtime and saved-view contracts use the predicate AST instead of the legacy `{ field, op, value }` filter objects
-- [ ] Sort definitions accept expression-based operands and allow computed-field references
-- [ ] Filter predicates accept expression operands and allow computed-field references
-- [ ] Validation rejects unsupported sort and filter usages based on inferred expression result type
-- [ ] Saved views and raw runtime requests produce matching sort/filter behavior for the same derived logic
+- [x] Runtime and saved-view contracts use the predicate AST instead of the legacy `{ field, op, value }` filter objects
+- [x] Sort definitions accept expression-based operands and allow computed-field references
+- [x] Filter predicates accept expression operands and allow computed-field references
+- [x] Validation rejects unsupported sort and filter usages based on inferred expression result type
+- [x] Saved views and raw runtime requests produce matching sort/filter behavior for the same derived logic
 
 ## Blocked by
 
