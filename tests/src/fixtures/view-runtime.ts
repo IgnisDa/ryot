@@ -7,32 +7,95 @@ type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
 
+type RuntimeRef =
+	| { type: "entity-column"; slug: string; column: string }
+	| { type: "schema-property"; slug: string; property: string }
+	| { type: "event-join-column"; joinKey: string; column: string }
+	| { type: "event-join-property"; joinKey: string; property: string };
+
+type ViewExpression =
+	| { type: "literal"; value: unknown | null }
+	| { type: "reference"; reference: RuntimeRef }
+	| { type: "coalesce"; values: ViewExpression[] };
+
+type ExpressionInput = ViewExpression | string[];
+
 type RuntimeField = {
 	key: string;
-	references: string[];
+	expression: ViewExpression;
 };
 
 type GridDisplayConfiguration = {
-	badgeProperty: string[] | null;
-	titleProperty: string[] | null;
-	imageProperty: string[] | null;
-	subtitleProperty: string[] | null;
+	badgeProperty: ExpressionInput | null;
+	titleProperty: ExpressionInput | null;
+	imageProperty: ExpressionInput | null;
+	subtitleProperty: ExpressionInput | null;
 };
 
 type ListDisplayConfiguration = GridDisplayConfiguration;
 
 type TableDisplayConfiguration = {
-	columns: Array<{ label: string; property: string[] }>;
+	columns: Array<{
+		label: string;
+		expression?: ExpressionInput;
+		property?: string[];
+	}>;
 };
 
 type RuntimeRequest = Omit<
 	ExecuteViewRuntimeBody,
-	"layout" | "displayConfiguration"
+	"displayConfiguration" | "fields" | "layout"
 > & {
 	fields: RuntimeField[];
 	entitySchemaSlugs: string[];
 	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
 };
+
+function literalExpression(value: unknown | null): ViewExpression {
+	return { type: "literal", value };
+}
+
+function parseReference(reference: string): RuntimeRef {
+	const [namespace, segment, tail, ...rest] = reference.split(".");
+	if (namespace === "event") {
+		if (!segment || !tail || rest.length > 0) {
+			throw new Error(`Invalid runtime reference '${reference}'`);
+		}
+
+		return tail.startsWith("@")
+			? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
+			: { type: "event-join-property", joinKey: segment, property: tail };
+	}
+
+	if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
+		throw new Error(`Invalid runtime reference '${reference}'`);
+	}
+
+	return tail.startsWith("@")
+		? { type: "entity-column", slug: segment, column: tail.slice(1) }
+		: { type: "schema-property", slug: segment, property: tail };
+}
+
+function toExpression(input: ExpressionInput | null): ViewExpression | null {
+	if (input === null) {
+		return null;
+	}
+
+	if (!Array.isArray(input)) {
+		return input;
+	}
+
+	if (!input.length) {
+		return literalExpression(null);
+	}
+
+	const values = input.map((reference) => ({
+		type: "reference" as const,
+		reference: parseReference(reference),
+	}));
+
+	return values.length === 1 ? values[0]! : { type: "coalesce", values };
+}
 
 function qualifyProperty(schemaSlug: string, property: string) {
 	if (
@@ -122,7 +185,7 @@ export function buildTableDisplayConfiguration(
 				? [
 						{
 							label: "Name",
-							property: qualifyBuiltinFields(schemaSlugs, "name"),
+							expression: qualifyBuiltinFields(schemaSlugs, "name"),
 						},
 					]
 				: []),
@@ -141,24 +204,42 @@ const toRuntimeFields = (input: {
 			input.displayConfiguration as TableDisplayConfiguration
 		).columns.map((column, index) => ({
 			key: `column_${index}`,
-			references: column.property,
+			expression:
+				toExpression(column.expression ?? column.property ?? []) ??
+				literalExpression(null),
 		}));
 	}
 
 	const config = input.displayConfiguration as GridDisplayConfiguration;
 	return [
-		{ key: "image", references: config.imageProperty ?? [] },
-		{ key: "title", references: config.titleProperty ?? [] },
-		{ key: "subtitle", references: config.subtitleProperty ?? [] },
-		{ key: "badge", references: config.badgeProperty ?? [] },
+		{
+			key: "image",
+			expression: toExpression(config.imageProperty) ?? literalExpression(null),
+		},
+		{
+			key: "title",
+			expression: toExpression(config.titleProperty) ?? literalExpression(null),
+		},
+		{
+			key: "subtitle",
+			expression:
+				toExpression(config.subtitleProperty) ?? literalExpression(null),
+		},
+		{
+			key: "badge",
+			expression: toExpression(config.badgeProperty) ?? literalExpression(null),
+		},
 	];
 };
 
 export function buildRuntimeField(
 	key: string,
-	references: string[],
+	expression: ExpressionInput,
 ): RuntimeField {
-	return { key, references };
+	return {
+		key,
+		expression: toExpression(expression) ?? literalExpression(null),
+	};
 }
 
 export function buildGridRequest(
