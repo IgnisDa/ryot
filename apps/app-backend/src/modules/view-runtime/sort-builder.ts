@@ -13,7 +13,7 @@ import {
 import {
 	buildCastedValueExpression,
 	buildCoalescedExpression,
-} from "./runtime-reference";
+} from "./sql-expression-policy";
 
 const getTopLevelSortType = (column: string): PropertyType =>
 	match(column)
