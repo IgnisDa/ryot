@@ -62,7 +62,7 @@ describe("View runtime E2E", () => {
 		});
 	});
 
-	it("supports eq, ne, gt, gte, lt, lte, in, and isNull filters", async () => {
+	it("supports eq, neq, gt, gte, lt, lte, in, and isNull filters", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
 		const scenarios = [
@@ -81,7 +81,7 @@ describe("View runtime E2E", () => {
 				filters: [
 					{
 						value: "phone",
-						op: "ne" as const,
+						op: "neq" as const,
 						field: `${schema.slug}.category`,
 					},
 				],
@@ -697,7 +697,9 @@ describe("View runtime E2E", () => {
 		);
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("requires a scalar value");
+		expect(result.error?.error?.message).toContain(
+			"must match the array item type",
+		);
 	});
 
 	registerViewRuntimePresentationAndErrorTests();
