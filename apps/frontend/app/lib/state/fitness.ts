@@ -78,7 +78,7 @@ export type InProgressWorkout = {
 	startTime: string;
 	templateId?: string;
 	images: Array<Media>;
-	videos: Array<string>;
+	videos: Array<Media>;
 	repeatedFrom?: string;
 	supersets: Superset[];
 	caloriesBurnt?: number;
@@ -220,7 +220,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			assets: {
 				remoteImages: [],
 				remoteVideos: [],
-				s3Videos: [...currentWorkout.videos],
+				s3Videos: currentWorkout.videos.map((m) => m.key),
 				s3Images: currentWorkout.images.map((m) => m.key),
 			},
 		},

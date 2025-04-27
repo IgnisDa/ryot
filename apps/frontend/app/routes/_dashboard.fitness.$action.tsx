@@ -86,6 +86,7 @@ import {
 	IconReplace,
 	IconStopwatch,
 	IconTrash,
+	IconVideo,
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -1316,7 +1317,10 @@ const UploadAssetsModal = (props: {
 
 	if (!currentWorkout) return null;
 
-	const afterFileSelected = async (file: File | null) => {
+	const afterFileSelected = async (
+		file: File | null,
+		type: "image" | "video",
+	) => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",
@@ -1332,8 +1336,13 @@ const UploadAssetsModal = (props: {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					const media = { imageSrc, key };
-					if (exercise) draft.exercises[exerciseIdx].images.push(media);
-					else draft.images.push(media);
+					if (type === "image") {
+						if (exercise) draft.exercises[exerciseIdx].images.push(media);
+						else draft.images.push(media);
+					} else {
+						if (exercise) draft.exercises[exerciseIdx].videos.push(media);
+						else draft.videos.push(media);
+					}
 				}),
 			);
 		} catch {
@@ -1408,7 +1417,10 @@ const UploadAssetsModal = (props: {
 							</Avatar.Group>
 						) : null}
 						<Group justify="space-between">
-							<FileButton accept="image/*" onChange={afterFileSelected}>
+							<FileButton
+								accept="image/*"
+								onChange={(file) => afterFileSelected(file, "image")}
+							>
 								{(props) => (
 									<Button
 										{...props}
@@ -1418,14 +1430,13 @@ const UploadAssetsModal = (props: {
 										loading={isFileUploading}
 										leftSection={<IconLibraryPhoto />}
 									>
-										Select picture
+										Image
 									</Button>
 								)}
 							</FileButton>
 							<FileButton
-								accept="image/*"
-								capture="environment"
-								onChange={afterFileSelected}
+								accept="video/*"
+								onChange={(file) => afterFileSelected(file, "video")}
 							>
 								{(props) => (
 									<Button
@@ -1434,9 +1445,9 @@ const UploadAssetsModal = (props: {
 										color="cyan"
 										variant="outline"
 										loading={isFileUploading}
-										leftSection={<IconCamera />}
+										leftSection={<IconVideo />}
 									>
-										Take picture
+										Video
 									</Button>
 								)}
 							</FileButton>
