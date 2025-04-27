@@ -11,19 +11,12 @@ import type {
 	ViewRuntimeReferenceContext,
 	ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
-import {
-	buildResolvedPropertiesExpression,
-	buildTableCellsExpression,
-} from "./display-builder";
+import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import type {
+	ViewRuntimeItem,
 	ViewRuntimeRequest,
 	ViewRuntimeResponse,
-	ViewRuntimeSemanticItem,
-	ViewRuntimeSemanticResponse,
-	ViewRuntimeTableItem,
-	ViewRuntimeTableMeta,
-	ViewRuntimeTableResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
@@ -42,11 +35,8 @@ type QueryRow = {
 	image: ImageSchemaType | null;
 	entity_schema_id: string | null;
 	entity_schema_slug: string | null;
-	cells: ViewRuntimeTableItem["cells"] | null;
-	resolved_properties: ViewRuntimeSemanticItem["resolvedProperties"] | null;
+	fields: ViewRuntimeItem["fields"] | null;
 };
-
-type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
 
 type PaginationInput = {
 	page: number;
@@ -154,19 +144,7 @@ export const calculatePagination = (
 	};
 };
 
-const buildTableMeta = (
-	request: Extract<ViewRuntimeRequest, { layout: "table" }>,
-): ViewRuntimeTableMeta => ({
-	columns: request.displayConfiguration.columns.map((column, index) => ({
-		label: column.label,
-		key: `column_${index}`,
-	})),
-});
-
-export const mapQueryRowToItem = (
-	row: QueryRow,
-	layout: ViewRuntimeRequest["layout"],
-): ViewRuntimeItem | null => {
+export const mapQueryRowToItem = (row: QueryRow): ViewRuntimeItem | null => {
 	if (
 		row.id === null ||
 		row.name === null ||
@@ -186,27 +164,10 @@ export const mapQueryRowToItem = (
 		updatedAt: row.updated_at,
 		entitySchemaId: row.entity_schema_id,
 		entitySchemaSlug: row.entity_schema_slug,
+		fields: row.fields ?? [],
 	};
 
-	if (layout === "table") {
-		if (row.cells === null) {
-			return null;
-		}
-
-		return {
-			...baseItem,
-			cells: row.cells,
-		} satisfies ViewRuntimeTableItem;
-	}
-
-	if (row.resolved_properties === null) {
-		return null;
-	}
-
-	return {
-		...baseItem,
-		resolvedProperties: row.resolved_properties,
-	} satisfies ViewRuntimeSemanticItem;
+	return baseItem satisfies ViewRuntimeItem;
 };
 
 export const executePreparedViewQuery = async (input: {
@@ -246,22 +207,11 @@ export const executePreparedViewQuery = async (input: {
 	});
 	const offset =
 		(input.request.pagination.page - 1) * input.request.pagination.limit;
-	const resolvedProperties =
-		input.request.layout === "table"
-			? sql`null::jsonb`
-			: buildResolvedPropertiesExpression({
-					context,
-					request: input.request,
-					alias: "paginated_entities",
-				});
-	const cells =
-		input.request.layout === "table"
-			? buildTableCellsExpression({
-					context,
-					request: input.request,
-					alias: "paginated_entities",
-				})
-			: sql`null::jsonb`;
+	const resolvedFields = buildResolvedFieldsExpression({
+		context,
+		alias: "paginated_entities",
+		fields: input.request.fields,
+	});
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 	const filterClause = filterWhereClause ?? sql`true`;
 
@@ -303,8 +253,7 @@ export const executePreparedViewQuery = async (input: {
 			entity_schema_id,
 			entity_schema_slug,
 			entity_count.total,
-			${resolvedProperties} as resolved_properties,
-			${cells} as cells
+			${resolvedFields} as fields
 		from entity_count
 		left join paginated_entities on true
 		order by sort_index
@@ -317,21 +266,11 @@ export const executePreparedViewQuery = async (input: {
 		limit: input.request.pagination.limit,
 	});
 
-	if (input.request.layout === "table") {
-		return {
-			meta: { pagination, table: buildTableMeta(input.request) },
-			items: dataResult.rows.flatMap((row) => {
-				const item = mapQueryRowToItem(row, input.request.layout);
-				return item && "cells" in item ? [item] : [];
-			}),
-		} satisfies ViewRuntimeTableResponse;
-	}
-
 	return {
 		meta: { pagination },
 		items: dataResult.rows.flatMap((row) => {
-			const item = mapQueryRowToItem(row, input.request.layout);
-			return item && "resolvedProperties" in item ? [item] : [];
+			const item = mapQueryRowToItem(row);
+			return item ? [item] : [];
 		}),
-	} satisfies ViewRuntimeSemanticResponse;
+	} satisfies ViewRuntimeResponse;
 };

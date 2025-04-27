@@ -1700,6 +1700,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -1721,14 +1729,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -1800,6 +1800,14 @@ export interface paths {
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
                             };
+                            /** @default [] */
+                            eventJoins?: {
+                                key: string;
+                                /** @enum {string} */
+                                kind: "latestEvent";
+                                eventSchemaSlug: string;
+                            }[];
+                            entitySchemaSlugs: string[];
                             filters: ({
                                 /** @enum {string} */
                                 op: "in";
@@ -1821,14 +1829,6 @@ export interface paths {
                                 /** @enum {string} */
                                 op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                             })[];
-                            /** @default [] */
-                            eventJoins?: {
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                key: string;
-                                eventSchemaSlug: string;
-                            }[];
-                            entitySchemaSlugs: string[];
                         };
                         displayConfiguration: {
                             grid: {
@@ -1882,6 +1882,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -1903,14 +1911,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2012,6 +2012,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -2033,14 +2041,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2117,6 +2117,14 @@ export interface paths {
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
                             };
+                            /** @default [] */
+                            eventJoins?: {
+                                key: string;
+                                /** @enum {string} */
+                                kind: "latestEvent";
+                                eventSchemaSlug: string;
+                            }[];
+                            entitySchemaSlugs: string[];
                             filters: ({
                                 /** @enum {string} */
                                 op: "in";
@@ -2138,14 +2146,6 @@ export interface paths {
                                 /** @enum {string} */
                                 op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                             })[];
-                            /** @default [] */
-                            eventJoins?: {
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                key: string;
-                                eventSchemaSlug: string;
-                            }[];
-                            entitySchemaSlugs: string[];
                         };
                         displayConfiguration: {
                             grid: {
@@ -2199,6 +2199,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -2220,14 +2228,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2328,6 +2328,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -2349,14 +2357,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2470,6 +2470,14 @@ export interface paths {
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    /** @default [] */
+                                    eventJoins: {
+                                        key: string;
+                                        /** @enum {string} */
+                                        kind: "latestEvent";
+                                        eventSchemaSlug: string;
+                                    }[];
+                                    entitySchemaSlugs: string[];
                                     filters: ({
                                         /** @enum {string} */
                                         op: "in";
@@ -2491,14 +2499,6 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        key: string;
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    entitySchemaSlugs: string[];
                                 };
                                 displayConfiguration: {
                                     grid: {
@@ -2666,6 +2666,18 @@ export interface paths {
                             page: number;
                             limit: number;
                         };
+                        /** @default [] */
+                        fields?: {
+                            key: string;
+                            references: string[];
+                        }[];
+                        /** @default [] */
+                        eventJoins?: {
+                            key: string;
+                            /** @enum {string} */
+                            kind: "latestEvent";
+                            eventSchemaSlug: string;
+                        }[];
                         filters: ({
                             /** @enum {string} */
                             op: "in";
@@ -2687,116 +2699,7 @@ export interface paths {
                             /** @enum {string} */
                             op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                         })[];
-                        /** @default [] */
-                        eventJoins?: {
-                            /** @enum {string} */
-                            kind: "latestEvent";
-                            key: string;
-                            eventSchemaSlug: string;
-                        }[];
                         entitySchemaSlugs: string[];
-                        /** @enum {string} */
-                        layout: "grid";
-                        displayConfiguration: {
-                            imageProperty: string[] | null;
-                            titleProperty: string[] | null;
-                            badgeProperty: string[] | null;
-                            subtitleProperty: string[] | null;
-                        };
-                    } | {
-                        sort: {
-                            fields: string[];
-                            /** @enum {string} */
-                            direction: "asc" | "desc";
-                        };
-                        pagination: {
-                            page: number;
-                            limit: number;
-                        };
-                        filters: ({
-                            /** @enum {string} */
-                            op: "in";
-                            field: string;
-                            value: unknown[];
-                        } | {
-                            value?: unknown;
-                            /** @enum {string} */
-                            op: "isNull";
-                            field: string;
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "contains";
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                        })[];
-                        /** @default [] */
-                        eventJoins?: {
-                            /** @enum {string} */
-                            kind: "latestEvent";
-                            key: string;
-                            eventSchemaSlug: string;
-                        }[];
-                        entitySchemaSlugs: string[];
-                        /** @enum {string} */
-                        layout: "list";
-                        displayConfiguration: {
-                            imageProperty: string[] | null;
-                            titleProperty: string[] | null;
-                            badgeProperty: string[] | null;
-                            subtitleProperty: string[] | null;
-                        };
-                    } | {
-                        sort: {
-                            fields: string[];
-                            /** @enum {string} */
-                            direction: "asc" | "desc";
-                        };
-                        pagination: {
-                            page: number;
-                            limit: number;
-                        };
-                        filters: ({
-                            /** @enum {string} */
-                            op: "in";
-                            field: string;
-                            value: unknown[];
-                        } | {
-                            value?: unknown;
-                            /** @enum {string} */
-                            op: "isNull";
-                            field: string;
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "contains";
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                        })[];
-                        /** @default [] */
-                        eventJoins?: {
-                            /** @enum {string} */
-                            kind: "latestEvent";
-                            key: string;
-                            eventSchemaSlug: string;
-                        }[];
-                        entitySchemaSlugs: string[];
-                        /** @enum {string} */
-                        layout: "table";
-                        displayConfiguration: {
-                            columns: {
-                                label: string;
-                                property: string[];
-                            }[];
-                        };
                     };
                 };
             };
@@ -2827,63 +2730,11 @@ export interface paths {
                                         /** @enum {string} */
                                         kind: "remote";
                                     } | unknown;
-                                    resolvedProperties: {
-                                        badgeProperty: {
-                                            value?: unknown;
-                                            /** @enum {string} */
-                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        };
-                                        imageProperty: {
-                                            value?: unknown;
-                                            /** @enum {string} */
-                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        };
-                                        titleProperty: {
-                                            value?: unknown;
-                                            /** @enum {string} */
-                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        };
-                                        subtitleProperty: {
-                                            value?: unknown;
-                                            /** @enum {string} */
-                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        };
-                                    };
-                                }[];
-                                meta: {
-                                    pagination: {
-                                        page: number;
-                                        total: number;
-                                        limit: number;
-                                        hasNextPage: boolean;
-                                        hasPreviousPage: boolean;
-                                        totalPages: number;
-                                    };
-                                };
-                            } | {
-                                items: {
-                                    id: string;
-                                    name: string;
-                                    /** Format: date-time */
-                                    createdAt: string;
-                                    /** Format: date-time */
-                                    updatedAt: string;
-                                    entitySchemaId: string;
-                                    entitySchemaSlug: string;
-                                    image: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "s3";
-                                    } | {
-                                        url: string;
-                                        /** @enum {string} */
-                                        kind: "remote";
-                                    } | unknown;
-                                    cells: {
-                                        key: string;
+                                    fields: {
                                         value?: unknown;
                                         /** @enum {string} */
                                         kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                        key: string;
                                     }[];
                                 }[];
                                 meta: {
@@ -2894,12 +2745,6 @@ export interface paths {
                                         hasNextPage: boolean;
                                         hasPreviousPage: boolean;
                                         totalPages: number;
-                                    };
-                                    table: {
-                                        columns: {
-                                            key: string;
-                                            label: string;
-                                        }[];
                                     };
                                 };
                             };
