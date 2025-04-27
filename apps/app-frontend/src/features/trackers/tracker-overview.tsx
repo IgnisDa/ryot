@@ -16,14 +16,12 @@ import { useResolvedEntityImageUrls } from "#/features/entities/image";
 import type { AppEntity } from "#/features/entities/model";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import type { AppTracker } from "#/features/trackers/model";
-import { useColorScheme } from "#/hooks/theme";
 import {
 	getActivityTimeLabel,
 	getLastActivityLabel,
 	useTrackerOverviewData,
 } from "./tracker-overview-data";
 import {
-	getTrackerOverviewTokens,
 	TrackerOverviewActivityItem,
 	TrackerOverviewEmptyPanel,
 	TrackerOverviewHeader,
@@ -41,13 +39,10 @@ export interface TrackerOverviewProps {
 }
 
 export function TrackerOverview(props: TrackerOverviewProps) {
-	const colorScheme = useColorScheme();
-	const isDark = colorScheme === "dark";
 	const accentColor =
 		props.tracker.accentColor ||
 		props.entitySchemas[0]?.accentColor ||
 		"#D4A574";
-	const { textLink } = getTrackerOverviewTokens(isDark);
 	const overview = useTrackerOverviewData({
 		tracker: props.tracker,
 		entitySchemas: props.entitySchemas,
@@ -72,7 +67,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 					accentColor={accentColor}
 				/>
 				<TrackerOverviewEmptyPanel
-					isDark={isDark}
 					title="Overview unavailable"
 					description="We could not load overview data for this tracker right now."
 				/>
@@ -99,26 +93,22 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 
 			<SimpleGrid cols={{ base: 1, xs: 2, sm: 4 }} spacing="sm">
 				<StatsCard
-					isDark={isDark}
 					color={accentColor}
 					label="Total Entries"
 					value={overview.totalEntities}
 				/>
 				<StatsCard
-					isDark={isDark}
 					color={accentColor}
 					label="Logged Events"
 					value={overview.totalEvents}
 				/>
 				<StatsCard
 					label="Schemas"
-					isDark={isDark}
 					color={accentColor}
 					value={props.entitySchemas.length}
 					change={`${overview.totalEventSchemas} event schemas`}
 				/>
 				<StatsCard
-					isDark={isDark}
 					color={accentColor}
 					label="Last Active"
 					value={getLastActivityLabel(overview.lastActivityAt)}
@@ -173,7 +163,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							</Text>
 							{overview.recentEntities.length === 0 ? (
 								<TrackerOverviewEmptyPanel
-									isDark={isDark}
 									title="No tracked items yet"
 									description="Create the first entity in this tracker to start building your overview."
 								/>
@@ -186,7 +175,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 											params={{ entityId: item.entity.id }}
 										>
 											<EntityCard
-												isDark={isDark}
 												name={item.entity.name}
 												schemaName={item.schema.name}
 												image={imageUrls.imageUrlByEntityId.get(item.entity.id)}
@@ -211,7 +199,6 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 				<Grid.Col span={{ base: 12, md: 4 }}>
 					<Stack gap="md">
 						<TrackerOverviewQuickActions
-							isDark={isDark}
 							accentColor={accentColor}
 							canLogEvent={!!primarySchema}
 							canCreateEntity={!!primarySchema}
@@ -238,11 +225,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							}}
 						/>
 
-						<TrackerOverviewSavedViews
-							isDark={isDark}
-							textLink={textLink}
-							views={overview.savedViews}
-						/>
+						<TrackerOverviewSavedViews views={overview.savedViews} />
 					</Stack>
 				</Grid.Col>
 			</Grid>

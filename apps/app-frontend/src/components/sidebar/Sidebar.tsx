@@ -46,7 +46,7 @@ import {
 } from "#/features/trackers/sidebar-context";
 import { useProtectedUser } from "#/hooks/protected-user";
 import { useIsMobileScreen } from "#/hooks/screen";
-import { useColorScheme } from "#/hooks/theme";
+import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import type {
 	SidebarProps,
@@ -72,7 +72,6 @@ function ViewIcon(props: { view: SidebarView }) {
 
 function SortableView(props: {
 	view: SidebarView;
-	isDark: boolean;
 	textColor: string;
 	hoverColor: string;
 	leftPadding: string;
@@ -81,6 +80,7 @@ function SortableView(props: {
 	onClick?: () => void;
 	onToggleViewEnabled?: (viewId: string) => void;
 }) {
+	const { isDark } = useThemeTokens();
 	const {
 		attributes,
 		listeners,
@@ -105,7 +105,7 @@ function SortableView(props: {
 						{props.isCustomizeMode ? (
 							<Box
 								component="button"
-								c={props.isDark ? "dark.4" : "stone.5"}
+								c={isDark ? "dark.4" : "stone.5"}
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -179,7 +179,6 @@ function SortableView(props: {
 }
 
 function SortableTracker(props: {
-	isDark: boolean;
 	isExpanded: boolean;
 	textPrimary: string;
 	textSecondary: string;
@@ -194,6 +193,7 @@ function SortableTracker(props: {
 	onToggleTrackerEnabled?: (trackerId: string) => void;
 	onToggleViewEnabled?: (viewId: string) => void;
 }) {
+	const { isDark } = useThemeTokens();
 	const color = getTrackerColor(props.tracker);
 	const {
 		attributes,
@@ -254,7 +254,7 @@ function SortableTracker(props: {
 						{props.isCustomizeMode && (
 							<Box
 								component="button"
-								c={props.isDark ? "dark.4" : "stone.5"}
+								c={isDark ? "dark.4" : "stone.5"}
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -348,7 +348,6 @@ function SortableTracker(props: {
 			/>
 			{props.isExpanded ? (
 				<SortableTrackerViews
-					isDark={props.isDark}
 					tracker={props.tracker}
 					hoverColor={color.muted}
 					textSecondary={props.textSecondary}
@@ -364,7 +363,6 @@ function SortableTracker(props: {
 
 function SortableTrackerViews(props: {
 	tracker: SidebarTracker;
-	isDark: boolean;
 	textSecondary: string;
 	hoverColor: string;
 	isCustomizeMode: boolean;
@@ -386,7 +384,6 @@ function SortableTrackerViews(props: {
 					view={view}
 					key={view.id}
 					leftPadding="40px"
-					isDark={props.isDark}
 					hoverColor={props.hoverColor}
 					onClick={props.onNavLinkClick}
 					textColor={props.textSecondary}
@@ -401,7 +398,6 @@ function SortableTrackerViews(props: {
 
 function SortableStandaloneViews(props: {
 	views: SidebarView[];
-	isDark: boolean;
 	textSecondary: string;
 	hoverColor: string;
 	isCustomizeMode: boolean;
@@ -419,7 +415,6 @@ function SortableStandaloneViews(props: {
 					view={view}
 					key={view.id}
 					leftPadding="14px"
-					isDark={props.isDark}
 					hoverColor={props.hoverColor}
 					onClick={props.onNavLinkClick}
 					textColor={props.textSecondary}
@@ -437,7 +432,6 @@ export function Sidebar(props: SidebarProps) {
 	const isMobile = useIsMobileScreen();
 	const state = useTrackerSidebarState();
 	const actions = useTrackerSidebarActions();
-	const computedColorScheme = useColorScheme();
 	const savedViewsQuery = useSavedViewsQuery({
 		includeDisabled: state.isCustomizeMode,
 	});
@@ -454,21 +448,9 @@ export function Sidebar(props: SidebarProps) {
 		views: savedViewsQuery.savedViews,
 	});
 
-	const isDark = computedColorScheme === "dark";
-	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
-	const border = isDark
-		? "var(--mantine-color-dark-6)"
-		: "var(--mantine-color-stone-3)";
+	const { isDark, surface, border, textPrimary, textMuted, textSecondary } =
+		useThemeTokens();
 	const borderAccent = "var(--mantine-color-accent-5)";
-	const textPrimary = isDark
-		? "var(--mantine-color-dark-0)"
-		: "var(--mantine-color-dark-9)";
-	const textMuted = isDark
-		? "var(--mantine-color-dark-4)"
-		: "var(--mantine-color-stone-5)";
-	const textSecondary = isDark
-		? "var(--mantine-color-dark-2)"
-		: "var(--mantine-color-dark-6)";
 
 	const handleSearchChange = (value: string) => {
 		setSearchQuery(value);
@@ -727,7 +709,6 @@ export function Sidebar(props: SidebarProps) {
 
 							return (
 								<SortableTracker
-									isDark={isDark}
 									key={tracker.id}
 									tracker={tracker}
 									isExpanded={isExpanded}
@@ -798,7 +779,6 @@ export function Sidebar(props: SidebarProps) {
 					collisionDetection={closestCenter}
 				>
 					<SortableStandaloneViews
-						isDark={isDark}
 						views={sidebarData.views}
 						textSecondary={textSecondary}
 						onNavLinkClick={handleNavLinkClick}
@@ -815,14 +795,7 @@ export function Sidebar(props: SidebarProps) {
 				</DndContext>
 			</Stack>
 
-			<SidebarAccountSection
-				border={border}
-				isDark={isDark}
-				textMuted={textMuted}
-				textPrimary={textPrimary}
-				borderAccent={borderAccent}
-				account={toSidebarAccount(user)}
-			/>
+			<SidebarAccountSection account={toSidebarAccount(user)} />
 		</Stack>
 	);
 
@@ -873,8 +846,7 @@ export function MobileSidebarBurger(props: {
 	onClick: () => void;
 }) {
 	const isMobile = useIsMobileScreen();
-	const computedColorScheme = useColorScheme();
-	const isDark = computedColorScheme === "dark";
+	const { textLink } = useThemeTokens();
 
 	if (!isMobile) {
 		return null;
@@ -883,11 +855,9 @@ export function MobileSidebarBurger(props: {
 	return (
 		<Burger
 			size="sm"
+			color={textLink}
 			opened={props.opened}
 			onClick={props.onClick}
-			color={
-				isDark ? "var(--mantine-color-dark-1)" : "var(--mantine-color-dark-7)"
-			}
 		/>
 	);
 }
