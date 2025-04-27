@@ -106,15 +106,17 @@ impl MigrationTrait for Migration {
             // 3. Transform stats array into object with statistics and assets fields
             db.execute_unprepared(
                 r#"
-            ALTER TABLE user_measurement ADD COLUMN IF NOT EXISTS assets jsonb;
             UPDATE user_measurement
-            SET assets = jsonb_build_object(
-                's3_images', '[]'::jsonb,
-                's3_videos', '[]'::jsonb,
-                'remote_images', '[]'::jsonb,
-                'remote_videos', '[]'::jsonb
-            );
-            ALTER TABLE user_measurement ALTER COLUMN assets SET NOT NULL;
+            SET stats = jsonb_build_object(
+                'statistics', stats,
+                'assets', jsonb_build_object(
+                    's3_images', '[]'::jsonb,
+                    's3_videos', '[]'::jsonb,
+                    'remote_images', '[]'::jsonb,
+                    'remote_videos', '[]'::jsonb
+                )
+            )
+            WHERE jsonb_typeof(stats) = 'array';
         "#,
             )
             .await?;
