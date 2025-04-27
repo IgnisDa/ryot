@@ -306,7 +306,9 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			occurredOn: { type: "date", required: true },
 		});
 	});
+});
 
+describe("toCreateEventSchemaPayload", () => {
 	it("omits slug when the input is blank", () => {
 		expect(
 			toCreateEventSchemaPayload(
@@ -325,9 +327,7 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			propertiesSchema: { rating: { type: "number" } },
 		});
 	});
-});
 
-describe("toCreateEventSchemaPayload", () => {
 	it("trims name and slug, includes entitySchemaId, and serializes property rows", () => {
 		expect(
 			toCreateEventSchemaPayload(
