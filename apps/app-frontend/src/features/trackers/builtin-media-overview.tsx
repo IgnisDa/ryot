@@ -16,7 +16,9 @@ import {
 	Tooltip,
 	UnstyledButton,
 } from "@mantine/core";
+import { useDebouncedCallback } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock, Play, Star } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -26,8 +28,10 @@ import {
 	SearchEntityModalContent,
 	SearchEntityModalTitle,
 } from "#/features/entities/search-modal";
+import { createReviewEventPayload } from "#/features/entities/search-modal-media-actions";
 import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import { TrackerIcon } from "#/features/trackers/icons";
 import type { AppTracker } from "#/features/trackers/model";
 import { getLastActivityLabel } from "#/features/trackers/tracker-overview-data";
@@ -661,6 +665,7 @@ function RateCard(props: {
 	surface: string;
 	textMuted: string;
 	textPrimary: string;
+	onRated: () => void;
 	surfaceHover: string;
 	item: OverviewRateTheseItem;
 	imageUrl: string | undefined;
@@ -668,10 +673,36 @@ function RateCard(props: {
 }) {
 	const [hovered, setHovered] = useState(0);
 	const [selected, setSelected] = useState(0);
+	const apiClient = useApiClient();
+	const createEvents = apiClient.useMutation("post", "/events");
 	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
+	const entitySchemaId = schema?.id ?? "";
+	const eventSchemasQuery = useEventSchemasQuery(
+		entitySchemaId,
+		!!entitySchemaId,
+	);
 	const color = schema?.accentColor ?? STONE;
 	const icon = schema?.icon ?? "circle";
 	const completedDate = getLastActivityLabel(new Date(props.item.completedAt));
+
+	const saveRating = useDebouncedCallback(async (stars: number) => {
+		try {
+			await createEvents.mutateAsync({
+				body: createReviewEventPayload({
+					rating: stars,
+					entityId: props.item.id,
+					eventSchemas: eventSchemasQuery.eventSchemas,
+				}),
+			});
+			props.onRated();
+		} catch {
+			notifications.show({
+				color: "red",
+				title: "Could not save rating",
+				message: `Failed to rate "${props.item.title}". Please try again.`,
+			});
+		}
+	}, 1000);
 
 	return (
 		<Paper
@@ -744,13 +775,12 @@ function RateCard(props: {
 								<ActionIcon
 									size="sm"
 									variant="transparent"
+									disabled={createEvents.isPending}
 									onMouseLeave={() => setHovered(0)}
 									onMouseEnter={() => setHovered(star)}
 									onClick={() => {
 										setSelected(star);
-										console.log(
-											`[builtin-tracker] Rate "${props.item.title}": ${star} stars`,
-										);
+										void saveRating(star);
 									}}
 								>
 									<Star
@@ -1349,6 +1379,7 @@ export function BuiltinMediaTrackerOverview(
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
 								schemaBySlug={schemaBySlug}
+								onRated={invalidateOverview}
 								surfaceHover={t.surfaceHover}
 								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
