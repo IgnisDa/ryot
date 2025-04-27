@@ -8,6 +8,9 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import type { MouseEvent } from "react";
+import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
+import type { AppSavedView } from "#/features/saved-views/model";
+import { getSavedViewsForFacet } from "#/features/saved-views/model";
 import { FacetIcon } from "../icons";
 import type { TrackingNavItem } from "../nav";
 import {
@@ -20,6 +23,7 @@ interface FacetNavItemProps {
 	isLast: boolean;
 	isFirst: boolean;
 	facet: TrackingNavItem;
+	savedViews: AppSavedView[];
 }
 
 function stopEvent(event: MouseEvent<HTMLButtonElement>) {
@@ -33,11 +37,24 @@ export function FacetNavItem(props: FacetNavItemProps) {
 	const toggleUi = getFacetNavActionUi(props.facet);
 	const actionsVisible = state.isCustomizeMode;
 
+	const entitySchemasQuery = useEntitySchemasQuery(
+		props.facet.facetId,
+		!props.facet.isBuiltin,
+	);
+	const entitySchemaIds = entitySchemasQuery.entitySchemas.map(
+		(schema) => schema.id,
+	);
+	const facetSavedViews = getSavedViewsForFacet(
+		props.savedViews,
+		entitySchemaIds,
+	);
+
 	return (
 		<div>
 			<NavLink
 				variant="light"
 				label={props.facet.label}
+				defaultOpened={facetSavedViews.length > 0}
 				leftSection={<FacetIcon icon={props.facet.icon} />}
 				description={props.facet.enabled ? undefined : "Disabled"}
 				style={{
@@ -132,7 +149,25 @@ export function FacetNavItem(props: FacetNavItemProps) {
 						</Tooltip>
 					</Group>
 				}
-			/>
+			>
+				{facetSavedViews.map((view) => (
+					<NavLink
+						key={view.id}
+						variant="light"
+						label={view.name}
+						renderRoot={(rootProps) => (
+							<Link
+								{...rootProps}
+								to="/tracking/$facetSlug/views/$viewId"
+								params={{
+									viewId: view.id,
+									facetSlug: props.facet.facetSlug,
+								}}
+							/>
+						)}
+					/>
+				))}
+			</NavLink>
 		</div>
 	);
 }

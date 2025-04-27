@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { toTrackingNavItems } from "./nav";
+import type { AppSavedView } from "../saved-views/model";
+import { toTrackingNavItems, toTrackingNavItemsWithViews } from "./nav";
 import { createFacetFixture } from "./test-fixtures";
 
 const f = createFacetFixture;
@@ -89,5 +90,88 @@ describe("toTrackingNavItems", () => {
 
 		expect(items).toHaveLength(1);
 		expect(items[0]?.isBuiltin).toBe(true);
+	});
+});
+
+describe("toTrackingNavItemsWithViews", () => {
+	const savedView = (
+		id: string,
+		name: string,
+		schemaIds: string[],
+	): AppSavedView => ({
+		id,
+		name,
+		isBuiltin: true,
+		queryDefinition: { entitySchemaIds: schemaIds },
+	});
+
+	it("returns facets with no sub-items when facet has no schemas", () => {
+		const facets = [facet("facet-1", "Media", "media")];
+		const savedViews = [savedView("view-1", "All Whiskeys", ["schema-1"])];
+		const entitySchemasByFacet = new Map<string, string[]>();
+
+		const items = toTrackingNavItemsWithViews({
+			facets,
+			savedViews,
+			entitySchemasByFacet,
+		});
+
+		expect(items[0]?.savedViews).toBeUndefined();
+	});
+
+	it("returns facets with sub-items when facet has matching schemas", () => {
+		const facets = [facet("facet-1", "Beverages", "beverages")];
+		const savedViews = [
+			savedView("view-1", "All Whiskeys", ["schema-1"]),
+			savedView("view-2", "All Wines", ["schema-2"]),
+		];
+		const entitySchemasByFacet = new Map([
+			["facet-1", ["schema-1", "schema-2"]],
+		]);
+
+		const items = toTrackingNavItemsWithViews({
+			facets,
+			savedViews,
+			entitySchemasByFacet,
+		});
+
+		expect(items[0]?.savedViews?.length).toBe(2);
+		expect(items[0]?.savedViews?.[0]?.id).toBe("view-1");
+		expect(items[0]?.savedViews?.[0]?.name).toBe("All Whiskeys");
+		expect(items[0]?.savedViews?.[0]?.viewSlug).toBe("all-whiskeys");
+		expect(items[0]?.savedViews?.[1]?.id).toBe("view-2");
+		expect(items[0]?.savedViews?.[1]?.name).toBe("All Wines");
+	});
+
+	it("handles facets with multiple schemas and partial view matches", () => {
+		const facets = [facet("facet-1", "Mixed", "mixed")];
+		const savedViews = [
+			savedView("view-1", "All Whiskeys", ["schema-1"]),
+			savedView("view-2", "All Books", ["schema-99"]),
+		];
+		const entitySchemasByFacet = new Map([["facet-1", ["schema-1"]]]);
+
+		const items = toTrackingNavItemsWithViews({
+			facets,
+			savedViews,
+			entitySchemasByFacet,
+		});
+
+		expect(items[0]?.savedViews?.length).toBe(1);
+		expect(items[0]?.savedViews?.[0]?.id).toBe("view-1");
+	});
+
+	it("handles built-in facets with no custom schemas", () => {
+		const facets = [facet("facet-builtin", "Movies", "movies")];
+		const savedViews: AppSavedView[] = [];
+		const entitySchemasByFacet = new Map<string, string[]>();
+
+		const items = toTrackingNavItemsWithViews({
+			facets,
+			savedViews,
+			entitySchemasByFacet,
+		});
+
+		expect(items[0]?.savedViews).toBeUndefined();
 	});
 });
