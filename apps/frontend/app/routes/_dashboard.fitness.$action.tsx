@@ -50,6 +50,7 @@ import {
 	CreateOrUpdateUserWorkoutTemplateDocument,
 	type ExerciseDetailsQuery,
 	ExerciseLot,
+	GetPresignedS3UrlDocument,
 	SetLot,
 	type UserExerciseDetailsQuery,
 	UserUnitSystem,
@@ -666,7 +667,7 @@ export default function Page() {
 														for (const e of currentWorkout.exercises) {
 															const assets = [...e.images, ...e.videos];
 															for (const asset of assets)
-																deleteUploadedAsset(asset.key);
+																deleteUploadedAsset(asset);
 														}
 														navigate($path("/"), { replace: true });
 														setCurrentWorkout(RESET);
@@ -1021,14 +1022,22 @@ const AssetDisplay = (props: {
 	type: "video" | "image";
 	removeAsset: () => void;
 }) => {
+	const srcUrlQuery = useQuery({
+		queryKey: ["asset", props.src],
+		queryFn: () =>
+			clientGqlService
+				.request(GetPresignedS3UrlDocument, { key: props.src })
+				.then((v) => v.getPresignedS3Url),
+	});
+
 	return (
 		<Box pos="relative">
 			{props.type === "video" ? (
-				<Link to={props.src} target="_blank">
+				<Link to={srcUrlQuery.data ?? ""} target="_blank">
 					<Avatar size="lg" name="Video" />
 				</Link>
 			) : (
-				<Avatar src={props.src} size="lg" />
+				<Avatar src={srcUrlQuery.data} size="lg" />
 			)}
 			<ActionIcon
 				top={0}
@@ -1340,18 +1349,16 @@ const UploadAssetsModal = (props: {
 		}
 		if (!file) return;
 		setIsFileUploading(true);
-		const objectUrl = URL.createObjectURL(file);
 		try {
 			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const media = { objectUrl, key };
 					if (type === "image") {
-						if (exercise) draft.exercises[exerciseIdx].images.push(media);
-						else draft.images.push(media);
+						if (exercise) draft.exercises[exerciseIdx].images.push(key);
+						else draft.images.push(key);
 					} else {
-						if (exercise) draft.exercises[exerciseIdx].videos.push(media);
-						else draft.videos.push(media);
+						if (exercise) draft.exercises[exerciseIdx].videos.push(key);
+						else draft.videos.push(key);
 					}
 				}),
 			);
@@ -1394,18 +1401,18 @@ const UploadAssetsModal = (props: {
 					if (exerciseIdx !== -1) {
 						draft.exercises[exerciseIdx].images = draft.exercises[
 							exerciseIdx
-						].images.filter((i) => i.key !== key);
+						].images.filter((i) => i !== key);
 					} else {
-						draft.images = draft.images.filter((i) => i.key !== key);
+						draft.images = draft.images.filter((i) => i !== key);
 					}
 					return;
 				}
 				if (exerciseIdx !== -1) {
 					draft.exercises[exerciseIdx].videos = draft.exercises[
 						exerciseIdx
-					].videos.filter((i) => i.key !== key);
+					].videos.filter((i) => i !== key);
 				} else {
-					draft.videos = draft.videos.filter((i) => i.key !== key);
+					draft.videos = draft.videos.filter((i) => i !== key);
 				}
 			}),
 		);
@@ -1424,18 +1431,18 @@ const UploadAssetsModal = (props: {
 							<Avatar.Group spacing="xs">
 								{imagesToDisplay.map((i) => (
 									<AssetDisplay
-										key={i.key}
+										src={i}
+										key={i}
 										type="image"
-										src={i.objectUrl}
-										removeAsset={() => onRemoveAsset(i.key, "image")}
+										removeAsset={() => onRemoveAsset(i, "image")}
 									/>
 								))}
 								{videosToDisplay.map((i) => (
 									<AssetDisplay
-										key={i.key}
+										key={i}
+										src={i}
 										type="video"
-										src={i.objectUrl}
-										removeAsset={() => onRemoveAsset(i.key, "video")}
+										removeAsset={() => onRemoveAsset(i, "video")}
 									/>
 								))}
 							</Avatar.Group>
@@ -1814,8 +1821,8 @@ const ExerciseDisplay = (props: {
 										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets)
-												deleteUploadedAsset(asset.key);
+											for (const asset of assets) deleteUploadedAsset(asset);
+
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
 													const idx = draft.supersets.findIndex((s) =>
