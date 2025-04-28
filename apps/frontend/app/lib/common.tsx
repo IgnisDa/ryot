@@ -425,17 +425,17 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
-const analyticsQueryKeys = createQueryKeys("analytics", {
-	user: (input: UserAnalyticsQueryVariables) => ({
-		queryKey: ["user", input],
+const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
+		queryKey: ["userAnalytics", input],
 	}),
 });
 
 export const queryFactory = mergeQueryKeys(
 	mediaQueryKeys,
 	fitnessQueryKeys,
-	analyticsQueryKeys,
 	collectionQueryKeys,
+	miscellaneousQueryKeys,
 );
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>
