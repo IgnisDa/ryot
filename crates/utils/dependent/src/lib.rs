@@ -30,7 +30,7 @@ use database_models::{
         MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserToEntity,
         Workout, WorkoutTemplate,
     },
-    review, seen, user_measurement, user_to_entity, workout, workout_template,
+    review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
@@ -109,7 +109,7 @@ use serde::{Deserialize, Serialize};
 use slug::slugify;
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
-use user_models::{UserPreferences, UserReviewScale};
+use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
 use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
@@ -1766,6 +1766,37 @@ pub async fn create_user_measurement(
     ss: &Arc<SupportingService>,
 ) -> Result<DateTimeUtc> {
     input.user_id = user_id.to_owned();
+
+    let mut user = user_by_id(user_id, ss).await?;
+
+    let mut needs_to_update_preferences = false;
+    for measurement in input.information.statistics.iter() {
+        let already_in_preferences = user
+            .preferences
+            .fitness
+            .measurements
+            .statistics
+            .iter()
+            .any(|stat| stat.name == measurement.name);
+        if !already_in_preferences {
+            user.preferences
+                .fitness
+                .measurements
+                .statistics
+                .push(UserStatisticsMeasurement {
+                    name: measurement.name.clone(),
+                    ..Default::default()
+                });
+            needs_to_update_preferences = true;
+        }
+    }
+
+    if needs_to_update_preferences {
+        let mut user_model: user::ActiveModel = user.clone().into();
+        user_model.preferences = ActiveValue::Set(user.preferences);
+        user_model.update(&ss.db).await?;
+    }
+
     let um: user_measurement::ActiveModel = input.into();
     let um = um.insert(&ss.db).await?;
     Ok(um.timestamp)

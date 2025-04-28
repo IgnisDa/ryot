@@ -8,7 +8,6 @@ import {
 	Divider,
 	Group,
 	Input,
-	JsonInput,
 	MultiSelect,
 	NumberInput,
 	Paper,
@@ -44,7 +43,7 @@ import {
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
-import { IconCheckbox } from "@tabler/icons-react";
+import { IconCheckbox, IconMinus } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
@@ -622,45 +621,82 @@ export default function Page() {
 								}}
 							/>
 							<Divider />
-							<Input.Wrapper label="The default measurements you want to keep track of">
-								<SimpleGrid cols={2} mt="xs">
-									{Object.entries(
-										userPreferences.fitness.measurements.inbuilt,
-									).map(([name, isEnabled]) => (
-										<Switch
-											size="xs"
-											key={name}
-											label={changeCase(snakeCase(name))}
-											defaultChecked={isEnabled}
-											disabled={!!isEditDisabled}
-											onChange={(ev) => {
-												updatePreference((draft) => {
-													// biome-ignore lint/suspicious/noExplicitAny: too much work to use correct types
-													(draft as any).fitness.measurements.inbuilt[name] =
-														ev.currentTarget.checked;
-												});
-											}}
-										/>
-									))}
-								</SimpleGrid>
-							</Input.Wrapper>
-							<JsonInput
-								autosize
-								formatOnBlur
-								disabled={!!isEditDisabled}
-								label="The custom metrics you want to keep track of"
-								description="The name of the attribute along with the data type. Only decimal data type is supported."
-								defaultValue={JSON.stringify(
-									userPreferences.fitness.measurements.custom,
-									null,
-									4,
+							<Stack gap="xs">
+								<Text size="sm">
+									The measurements you want to keep track of
+								</Text>
+								{changingUserPreferences.value.fitness.measurements.statistics.map(
+									(s, index) => (
+										<Group
+											wrap="nowrap"
+											key={`${
+												// biome-ignore lint/suspicious/noArrayIndexKey: index is unique
+												index
+											}`}
+										>
+											<TextInput
+												size="xs"
+												label="Name"
+												value={s.name}
+												disabled={!!isEditDisabled}
+												onChange={(val) => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics[index].name =
+															val.target.value;
+													});
+												}}
+											/>
+											<TextInput
+												size="xs"
+												label="Unit"
+												value={s.unit || undefined}
+												disabled={!!isEditDisabled}
+												onChange={(val) => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics[index].unit =
+															val.target.value;
+													});
+												}}
+											/>
+											<ActionIcon
+												mt={14}
+												size="xs"
+												color="red"
+												variant="outline"
+												disabled={
+													!!isEditDisabled ||
+													changingUserPreferences.value.fitness.measurements
+														.statistics.length === 1
+												}
+												onClick={() => {
+													updatePreference((draft) => {
+														draft.fitness.measurements.statistics.splice(
+															index,
+															1,
+														);
+													});
+												}}
+											>
+												<IconMinus />
+											</ActionIcon>
+										</Group>
+									),
 								)}
-								onChange={(v) => {
-									updatePreference((draft) => {
-										draft.fitness.measurements.custom = JSON.parse(v);
-									});
-								}}
-							/>
+								<Button
+									ml="auto"
+									size="xs"
+									variant="outline"
+									onClick={() => {
+										updatePreference((draft) => {
+											draft.fitness.measurements.statistics.push({
+												name: "<name>",
+											});
+										});
+									}}
+								>
+									Add
+								</Button>
+							</Stack>
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>

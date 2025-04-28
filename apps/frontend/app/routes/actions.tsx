@@ -1,10 +1,8 @@
 import { setTimeout } from "node:timers/promises";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	AddEntityToCollectionDocument,
 	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
-	CreateUserMeasurementDocument,
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	DeployBulkProgressUpdateDocument,
@@ -24,7 +22,6 @@ import {
 	isNumber,
 	omitBy,
 	processSubmission,
-	set,
 	zodBoolAsString,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
@@ -38,7 +35,6 @@ import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
-	createS3FileUploader,
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
@@ -61,12 +57,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const headers = new Headers();
 	let status = undefined;
 	await match(intent)
-		.with("uploadWorkoutAsset", async () => {
-			const uploader = createS3FileUploader("workouts");
-			const formData = await parseFormData(request, uploader);
-			const fileKey = formData.get("file");
-			returnData = { key: fileKey };
-		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
 			const { deleteS3Object } = await serverGqlService.authenticatedRequest(
@@ -372,26 +362,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				await createToastHeaders({
 					message: "Progress updated successfully",
 					type: "success",
-				}),
-			);
-		})
-		.with("createMeasurement", async () => {
-			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const input: any = {};
-			for (const [name, value] of formData.entries()) {
-				if (!isEmpty(value) && name !== redirectToQueryParam)
-					set(input, name, value);
-			}
-			await serverGqlService.authenticatedRequest(
-				request,
-				CreateUserMeasurementDocument,
-				{ input },
-			);
-			extendResponseHeaders(
-				headers,
-				await createToastHeaders({
-					type: "success",
-					message: "Measurement submitted successfully",
 				}),
 			);
 		})
