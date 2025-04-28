@@ -1366,6 +1366,31 @@ const UploadAssetsModal = (props: {
 		enabled: exercise !== null,
 	});
 
+	const onRemoveAsset = (key: string, type: "image" | "video") => {
+		deleteUploadedAsset(key);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				if (type === "image") {
+					if (exerciseIdx !== -1) {
+						draft.exercises[exerciseIdx].images = draft.exercises[
+							exerciseIdx
+						].images.filter((i) => i.key !== key);
+					} else {
+						draft.images = draft.images.filter((i) => i.key !== key);
+					}
+					return;
+				}
+				if (exerciseIdx !== -1) {
+					draft.exercises[exerciseIdx].videos = draft.exercises[
+						exerciseIdx
+					].videos.filter((i) => i.key !== key);
+				} else {
+					draft.videos = draft.videos.filter((i) => i.key !== key);
+				}
+			}),
+		);
+	};
+
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
@@ -1378,40 +1403,22 @@ const UploadAssetsModal = (props: {
 						{isString(props.modalOpenedBy) ? (
 							exercise && exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">
-									{exercise.images.map((i, imgIdx) => (
+									{exercise.images.map((i) => (
 										<ImageDisplay
 											key={i.key}
 											imageSrc={i.objectUrl}
-											removeImage={() => {
-												deleteUploadedAsset(i.key);
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														const images = draft.exercises[exerciseIdx].images;
-														images.splice(imgIdx, 1);
-														draft.exercises[exerciseIdx].images = images;
-													}),
-												);
-											}}
+											removeImage={() => onRemoveAsset(i.key, "image")}
 										/>
 									))}
 								</Avatar.Group>
 							) : null
 						) : currentWorkout.images.length > 0 ? (
 							<Avatar.Group spacing="xs">
-								{currentWorkout.images.map((i, imgIdx) => (
+								{currentWorkout.images.map((i) => (
 									<ImageDisplay
 										key={i.key}
 										imageSrc={i.objectUrl}
-										removeImage={() => {
-											deleteUploadedAsset(i.key);
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const images = draft.images;
-													images.splice(imgIdx, 1);
-													draft.images = images;
-												}),
-											);
-										}}
+										removeImage={() => onRemoveAsset(i.key, "image")}
 									/>
 								))}
 							</Avatar.Group>
