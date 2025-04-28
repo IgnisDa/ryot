@@ -1391,6 +1391,10 @@ const UploadAssetsModal = (props: {
 		);
 	};
 
+	const imagesToDisplay = isString(props.modalOpenedBy)
+		? exercise?.images || []
+		: currentWorkout.images;
+
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
@@ -1400,21 +1404,9 @@ const UploadAssetsModal = (props: {
 			<Stack>
 				{fileUploadAllowed ? (
 					<>
-						{isString(props.modalOpenedBy) ? (
-							exercise && exercise.images.length > 0 ? (
-								<Avatar.Group spacing="xs">
-									{exercise.images.map((i) => (
-										<ImageDisplay
-											key={i.key}
-											imageSrc={i.objectUrl}
-											removeImage={() => onRemoveAsset(i.key, "image")}
-										/>
-									))}
-								</Avatar.Group>
-							) : null
-						) : currentWorkout.images.length > 0 ? (
+						{imagesToDisplay.length > 0 ? (
 							<Avatar.Group spacing="xs">
-								{currentWorkout.images.map((i) => (
+								{imagesToDisplay.map((i) => (
 									<ImageDisplay
 										key={i.key}
 										imageSrc={i.objectUrl}
