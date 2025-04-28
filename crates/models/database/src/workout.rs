@@ -10,16 +10,16 @@ use serde_with::skip_serializing_none;
 /// A workout that was completed by the user.
 #[skip_serializing_none]
 #[derive(
+    Eq,
     Clone,
     Debug,
-    PartialEq,
-    DeriveEntityModel,
-    Eq,
+    Default,
+    Schematic,
     Serialize,
+    PartialEq,
     Deserialize,
     SimpleObject,
-    Schematic,
-    Default,
+    DeriveEntityModel,
 )]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]
