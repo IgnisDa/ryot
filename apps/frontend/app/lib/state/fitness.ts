@@ -316,6 +316,8 @@ export const duplicateOldWorkout = async (
 	inProgress.repeatedFrom = params.repeatedFromId;
 	inProgress.updateWorkoutId = params.updateWorkoutId;
 	inProgress.comment = workoutInformation.comment || undefined;
+	inProgress.images = workoutInformation.assets?.s3Images || [];
+	inProgress.videos = workoutInformation.assets?.s3Videos || [];
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
@@ -325,14 +327,14 @@ export const duplicateOldWorkout = async (
 			),
 		);
 		inProgress.exercises.push({
-			images: [],
-			videos: [],
 			sets: sets,
 			lot: ex.lot,
 			notes: ex.notes,
 			exerciseId: ex.id,
 			identifier: randomUUID(),
 			unitSystem: ex.unitSystem,
+			images: ex.assets?.s3Images || [],
+			videos: ex.assets?.s3Videos || [],
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
 	}
