@@ -1018,15 +1018,15 @@ const StatInput = (props: {
 };
 
 const AssetDisplay = (props: {
-	src: string;
+	s3Key: string;
 	type: "video" | "image";
 	removeAsset: () => void;
 }) => {
 	const srcUrlQuery = useQuery({
-		queryKey: ["asset", props.src],
+		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(GetPresignedS3UrlDocument, { key: props.src })
+				.request(GetPresignedS3UrlDocument, { key: props.s3Key })
 				.then((v) => v.getPresignedS3Url),
 	});
 
@@ -1431,8 +1431,8 @@ const UploadAssetsModal = (props: {
 							<Avatar.Group spacing="xs">
 								{imagesToDisplay.map((i) => (
 									<AssetDisplay
-										src={i}
 										key={i}
+										s3Key={i}
 										type="image"
 										removeAsset={() => onRemoveAsset(i, "image")}
 									/>
@@ -1440,7 +1440,7 @@ const UploadAssetsModal = (props: {
 								{videosToDisplay.map((i) => (
 									<AssetDisplay
 										key={i}
-										src={i}
+										s3Key={i}
 										type="video"
 										removeAsset={() => onRemoveAsset(i, "video")}
 									/>

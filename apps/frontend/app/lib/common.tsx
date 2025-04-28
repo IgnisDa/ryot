@@ -429,6 +429,9 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["userAnalytics", input],
 	}),
+	presignedS3Url: (key: string) => ({
+		queryKey: ["presignedS3Url", key],
+	}),
 });
 
 export const queryFactory = mergeQueryKeys(
