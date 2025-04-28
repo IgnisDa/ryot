@@ -1016,35 +1016,20 @@ const StatInput = (props: {
 	) : null;
 };
 
-const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
+const AssetDisplay = (props: {
+	src: string;
+	type: "video" | "image";
+	removeAsset: () => void;
+}) => {
 	return (
 		<Box pos="relative">
-			<Avatar src={props.imageSrc} size="lg" />
-			<ActionIcon
-				top={0}
-				size="xs"
-				left={-12}
-				color="red"
-				pos="absolute"
-				onClick={() => {
-					openConfirmationModal(
-						"Are you sure you want to remove this image?",
-						() => props.removeImage(),
-					);
-				}}
-			>
-				<IconTrash />
-			</ActionIcon>
-		</Box>
-	);
-};
-
-const VideoDisplay = (props: { videoSrc: string; removeVideo: () => void }) => {
-	return (
-		<Box pos="relative">
-			<Link to={props.videoSrc} target="_blank">
-				<Avatar size="lg" name="Video" />
-			</Link>
+			{props.type === "video" ? (
+				<Link to={props.src} target="_blank">
+					<Avatar size="lg" name="Video" />
+				</Link>
+			) : (
+				<Avatar src={props.src} size="lg" />
+			)}
 			<ActionIcon
 				top={0}
 				size="xs"
@@ -1054,7 +1039,7 @@ const VideoDisplay = (props: { videoSrc: string; removeVideo: () => void }) => {
 				onClick={() => {
 					openConfirmationModal(
 						"Are you sure you want to remove this video?",
-						() => props.removeVideo(),
+						() => props.removeAsset(),
 					);
 				}}
 			>
@@ -1438,17 +1423,19 @@ const UploadAssetsModal = (props: {
 						{hasAssets ? (
 							<Avatar.Group spacing="xs">
 								{imagesToDisplay.map((i) => (
-									<ImageDisplay
+									<AssetDisplay
 										key={i.key}
-										imageSrc={i.objectUrl}
-										removeImage={() => onRemoveAsset(i.key, "image")}
+										type="image"
+										src={i.objectUrl}
+										removeAsset={() => onRemoveAsset(i.key, "image")}
 									/>
 								))}
 								{videosToDisplay.map((i) => (
-									<VideoDisplay
+									<AssetDisplay
 										key={i.key}
-										videoSrc={i.objectUrl}
-										removeVideo={() => onRemoveAsset(i.key, "video")}
+										type="video"
+										src={i.objectUrl}
+										removeAsset={() => onRemoveAsset(i.key, "video")}
 									/>
 								))}
 							</Avatar.Group>
