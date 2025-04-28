@@ -1039,6 +1039,31 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	);
 };
 
+const VideoDisplay = (props: { videoSrc: string; removeVideo: () => void }) => {
+	return (
+		<Box pos="relative">
+			<Link to={props.videoSrc} target="_blank">
+				<Avatar size="lg" name="Video" />
+			</Link>
+			<ActionIcon
+				top={0}
+				size="xs"
+				left={-12}
+				color="red"
+				pos="absolute"
+				onClick={() => {
+					openConfirmationModal(
+						"Are you sure you want to remove this video?",
+						() => props.removeVideo(),
+					);
+				}}
+			>
+				<IconTrash />
+			</ActionIcon>
+		</Box>
+	);
+};
+
 const DisplaySupersetModal = ({
 	onClose,
 	supersetWith,
@@ -1366,6 +1391,16 @@ const UploadAssetsModal = (props: {
 		enabled: exercise !== null,
 	});
 
+	const imagesToDisplay = isString(props.modalOpenedBy)
+		? exercise?.images || []
+		: currentWorkout.images;
+
+	const videosToDisplay = isString(props.modalOpenedBy)
+		? exercise?.videos || []
+		: currentWorkout.videos;
+
+	const hasAssets = imagesToDisplay.length > 0 || videosToDisplay.length > 0;
+
 	const onRemoveAsset = (key: string, type: "image" | "video") => {
 		deleteUploadedAsset(key);
 		setCurrentWorkout(
@@ -1391,10 +1426,6 @@ const UploadAssetsModal = (props: {
 		);
 	};
 
-	const imagesToDisplay = isString(props.modalOpenedBy)
-		? exercise?.images || []
-		: currentWorkout.images;
-
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
@@ -1404,13 +1435,20 @@ const UploadAssetsModal = (props: {
 			<Stack>
 				{fileUploadAllowed ? (
 					<>
-						{imagesToDisplay.length > 0 ? (
+						{hasAssets ? (
 							<Avatar.Group spacing="xs">
 								{imagesToDisplay.map((i) => (
 									<ImageDisplay
 										key={i.key}
 										imageSrc={i.objectUrl}
 										removeImage={() => onRemoveAsset(i.key, "image")}
+									/>
+								))}
+								{videosToDisplay.map((i) => (
+									<VideoDisplay
+										key={i.key}
+										videoSrc={i.objectUrl}
+										removeVideo={() => onRemoveAsset(i.key, "video")}
 									/>
 								))}
 							</Avatar.Group>
