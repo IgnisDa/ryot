@@ -6142,8 +6142,8 @@ __metadata:
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.17.0"
-    "@tanstack/react-query": "npm:5.74.4"
-    "@tanstack/react-query-devtools": "npm:5.74.6"
+    "@tanstack/react-query": "npm:5.74.7"
+    "@tanstack/react-query-devtools": "npm:5.74.7"
     "@types/cookie": "npm:1.0.0"
     "@types/crypto-js": "npm:4.2.2"
     "@types/howler": "npm:2.2.12"
@@ -6158,13 +6158,13 @@ __metadata:
     dotenv: "npm:16.5.0"
     embla-carousel-react: "npm:7.1.0"
     filesize: "npm:10.1.6"
-    graphql: "npm:16.10.0"
+    graphql: "npm:16.11.0"
     graphql-request: "npm:7.1.2"
     howler: "npm:2.2.4"
     html2canvas: "npm:1.4.1"
     humanize-duration-ts: "npm:2.1.1"
     immer: "npm:10.1.1"
-    isbot: "npm:5.1.26"
+    isbot: "npm:5.1.27"
     jotai: "npm:2.12.3"
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
@@ -6204,7 +6204,7 @@ __metadata:
     "@graphql-codegen/cli": "npm:5.0.5"
     "@graphql-codegen/client-preset": "npm:4.8.0"
     "@graphql-typed-document-node/core": "npm:3.2.0"
-    graphql: "npm:16.10.0"
+    graphql: "npm:16.11.0"
   languageName: unknown
   linkType: soft
 
@@ -6294,14 +6294,14 @@ __metadata:
     clsx: "npm:2.1.1"
     dayjs: "npm:1.11.13"
     drizzle-kit: "npm:0.31.0"
-    drizzle-orm: "npm:0.43.0"
+    drizzle-orm: "npm:0.43.1"
     embla-carousel-autoplay: "npm:8.6.0"
     embla-carousel-react: "npm:8.6.0"
-    graphql: "npm:16.10.0"
+    graphql: "npm:16.11.0"
     graphql-request: "npm:7.1.2"
     humanize-duration-ts: "npm:2.1.1"
     input-otp: "npm:1.4.2"
-    isbot: "npm:5.1.26"
+    isbot: "npm:5.1.27"
     lodash: "npm:4.17.21"
     lucide-react: "npm:0.503.0"
     nanoid: "npm:5.1.5"
@@ -6554,40 +6554,40 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/query-core@npm:5.74.4":
-  version: 5.74.4
-  resolution: "@tanstack/query-core@npm:5.74.4"
-  checksum: 10/674c13679d2c9b0974a2099e2fa026a013f0e7cb7871c3f9431040e6c17a185404f61e9da4941a0ecb87af0ef702824720048209e79323db0b62cc25a100908b
+"@tanstack/query-core@npm:5.74.7":
+  version: 5.74.7
+  resolution: "@tanstack/query-core@npm:5.74.7"
+  checksum: 10/8e2bef45c8c34a164b9c8cea61f7dbca9256646413957d16cf9de0267f1e5c181281097a09a3b80a020ab496707044c2384a3736fc42697514525adabb73273d
   languageName: node
   linkType: hard
 
-"@tanstack/query-devtools@npm:5.74.6":
-  version: 5.74.6
-  resolution: "@tanstack/query-devtools@npm:5.74.6"
-  checksum: 10/ca1007e455e97452f6dac01d26caa66560aaa3182ad9ffde2a1e309dd58666dbcac74b047433d092868c32be3343b0d0c6de120a4b884096cf2f918936277d54
+"@tanstack/query-devtools@npm:5.74.7":
+  version: 5.74.7
+  resolution: "@tanstack/query-devtools@npm:5.74.7"
+  checksum: 10/35e0f010b02cf2a8273de28c4360f8092df7693bdd590b4a3232d2f7e3f110f056beff7ed4a2b315eb5978dbbec6fb5e3b7c9f0e03f8e1b7964d2262bbfc72a9
   languageName: node
   linkType: hard
 
-"@tanstack/react-query-devtools@npm:5.74.6":
-  version: 5.74.6
-  resolution: "@tanstack/react-query-devtools@npm:5.74.6"
+"@tanstack/react-query-devtools@npm:5.74.7":
+  version: 5.74.7
+  resolution: "@tanstack/react-query-devtools@npm:5.74.7"
   dependencies:
-    "@tanstack/query-devtools": "npm:5.74.6"
+    "@tanstack/query-devtools": "npm:5.74.7"
   peerDependencies:
-    "@tanstack/react-query": ^5.74.4
+    "@tanstack/react-query": ^5.74.7
     react: ^18 || ^19
-  checksum: 10/f26274540303e1b3e02262397b939f1d02c1314b37d4f3a67288e098a1b727d6f0f6a55af7dc888e10b655b93a0eb7078596805a87019738e87d3f8e481d7d3d
+  checksum: 10/526f19c057625225db087d106c6fc2875ef98530c0de9c98ac19d800dc5d6d2c7a90f142f0f3f67cc7bda339675a209751ae7bcaff2356f3b9fc06656cf9e144
   languageName: node
   linkType: hard
 
-"@tanstack/react-query@npm:5.74.4":
-  version: 5.74.4
-  resolution: "@tanstack/react-query@npm:5.74.4"
+"@tanstack/react-query@npm:5.74.7":
+  version: 5.74.7
+  resolution: "@tanstack/react-query@npm:5.74.7"
   dependencies:
-    "@tanstack/query-core": "npm:5.74.4"
+    "@tanstack/query-core": "npm:5.74.7"
   peerDependencies:
     react: ^18 || ^19
-  checksum: 10/9ff4ad3d6e47e46e2af13bdb843a58a43d4d60774e04d1d2f7989121647e07e1e00bbee8f1146edf55d06373d05c1596a1c7208874d76936f40f531484c6aaf5
+  checksum: 10/db8b267883641a45221f218716ea5aa0bc37ee2f6629c3d1bcd17d3cfd64362f327667f1fc82d5e31f21fa7740260ca405930adc3e22d8debddc990f49275035
   languageName: node
   linkType: hard
 
@@ -8731,9 +8731,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-orm@npm:0.43.0":
-  version: 0.43.0
-  resolution: "drizzle-orm@npm:0.43.0"
+"drizzle-orm@npm:0.43.1":
+  version: 0.43.1
+  resolution: "drizzle-orm@npm:0.43.1"
   peerDependencies:
     "@aws-sdk/client-rds-data": ">=3"
     "@cloudflare/workers-types": ">=4"
@@ -8819,7 +8819,7 @@ __metadata:
       optional: true
     sqlite3:
       optional: true
-  checksum: 10/96716eeeb1b9ab182072e431b581acaade6d10d4fa60322494dfc6d0c80aed649ee6eaf6e0b8dba6353e8dfbdaaf58dda065d8169afdaa66f8d74635574d01a4
+  checksum: 10/ba33711157fd8a5893e6d180ff963dfc248c135e5c9b8fabb770e85b22c431ec561a8c156ff080c3ab1e1b19736ddfbc01b27c36a03efc7e9eba9201b24adcf7
   languageName: node
   linkType: hard
 
@@ -10175,10 +10175,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql@npm:16.10.0":
-  version: 16.10.0
-  resolution: "graphql@npm:16.10.0"
-  checksum: 10/d42cf81ddcf3a61dfb213217576bf33c326f15b02c4cee369b373dc74100cbdcdc4479b3b797e79b654dabd8fddf50ef65ff75420e9ce5596c02e21f24c9126a
+"graphql@npm:16.11.0":
+  version: 16.11.0
+  resolution: "graphql@npm:16.11.0"
+  checksum: 10/e3e1633d0b464bbb3fa41283fae938bd3bac801c350555b3f1a129d99fb3cfe157fa69c1389229dba902731942eb08bdea4b29f1271965feee8779576b26ef01
   languageName: node
   linkType: hard
 
@@ -10792,10 +10792,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isbot@npm:5.1.26":
-  version: 5.1.26
-  resolution: "isbot@npm:5.1.26"
-  checksum: 10/b12c744b649e607dbc389e0b287e8b382345fb370377a1caffbff571b527b1e2b524ef0e4d6e088bac0b1a889cadc1a4e8abd38a22ad848412a175d25b04bf27
+"isbot@npm:5.1.27":
+  version: 5.1.27
+  resolution: "isbot@npm:5.1.27"
+  checksum: 10/337b028ff9a8fd293749558ba30c208a647dc6fbc6be7eb217d12539748a0c6e878473134d17ef3456ace9ab320999b4b765af1a0d68392c35a7183d475872f0
   languageName: node
   linkType: hard
 
