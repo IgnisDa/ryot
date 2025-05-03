@@ -1,36 +1,21 @@
 import { describe, expect, it } from "bun:test";
+import { createEventFixture } from "#/features/test-fixtures";
 import { getEventListViewState, getRecentEvents, sortEvents } from "./model";
-
-const createMockEvent = (overrides: {
-	id: string;
-	createdAt: Date;
-	occurredAt: Date;
-}) => ({
-	properties: {},
-	id: overrides.id,
-	entityId: "entity-1",
-	eventSchemaId: "schema-1",
-	eventSchemaName: "Logged",
-	eventSchemaSlug: "logged",
-	createdAt: overrides.createdAt,
-	occurredAt: overrides.occurredAt,
-	updatedAt: new Date("2026-03-08T10:20:00.000Z"),
-});
 
 describe("sortEvents", () => {
 	it("sorts events by occurredAt descending then createdAt descending", () => {
 		const events = [
-			createMockEvent({
+			createEventFixture({
 				id: "3",
 				createdAt: new Date("2026-03-08T10:10:00.000Z"),
 				occurredAt: new Date("2026-03-08T09:00:00.000Z"),
 			}),
-			createMockEvent({
+			createEventFixture({
 				id: "1",
 				createdAt: new Date("2026-03-08T10:05:00.000Z"),
 				occurredAt: new Date("2026-03-08T11:00:00.000Z"),
 			}),
-			createMockEvent({
+			createEventFixture({
 				id: "2",
 				createdAt: new Date("2026-03-08T10:15:00.000Z"),
 				occurredAt: new Date("2026-03-08T11:00:00.000Z"),
@@ -56,12 +41,12 @@ describe("getEventListViewState", () => {
 
 	it("returns list state with sorted events", () => {
 		const state = getEventListViewState([
-			createMockEvent({
+			createEventFixture({
 				id: "older",
 				createdAt: new Date("2026-03-08T10:05:00.000Z"),
 				occurredAt: new Date("2026-03-08T09:00:00.000Z"),
 			}),
-			createMockEvent({
+			createEventFixture({
 				id: "newer",
 				createdAt: new Date("2026-03-08T10:15:00.000Z"),
 				occurredAt: new Date("2026-03-08T11:00:00.000Z"),
@@ -82,17 +67,17 @@ describe("getRecentEvents", () => {
 	it("returns the newest events up to the requested limit", () => {
 		const recent = getRecentEvents(
 			[
-				createMockEvent({
+				createEventFixture({
 					id: "older",
 					createdAt: new Date("2026-03-08T10:05:00.000Z"),
 					occurredAt: new Date("2026-03-08T09:00:00.000Z"),
 				}),
-				createMockEvent({
+				createEventFixture({
 					id: "newest",
 					createdAt: new Date("2026-03-08T10:20:00.000Z"),
 					occurredAt: new Date("2026-03-08T11:30:00.000Z"),
 				}),
-				createMockEvent({
+				createEventFixture({
 					id: "middle",
 					createdAt: new Date("2026-03-08T10:15:00.000Z"),
 					occurredAt: new Date("2026-03-08T11:00:00.000Z"),
