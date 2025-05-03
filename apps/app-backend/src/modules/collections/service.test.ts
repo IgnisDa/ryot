@@ -20,7 +20,7 @@ const mockDeps = {
 		properties: input.properties,
 		sandboxScriptId: null,
 	}),
-	getBuiltinCollectionSchemaForUser: async () => ({
+	getBuiltinCollectionSchema: async () => ({
 		id: mockCollectionSchemaId,
 		propertiesSchema: {
 			fields: {
@@ -99,6 +99,21 @@ describe("createCollection", () => {
 		}
 	});
 
+	it("creates a collection with description only", async () => {
+		const result = await createCollection(
+			{
+				body: { name: "Test Collection", description: "A description" },
+				userId: "user-1",
+			},
+			mockDeps,
+		);
+
+		expect("data" in result).toBe(true);
+		if ("data" in result) {
+			expect(result.data.properties).toEqual({ description: "A description" });
+		}
+	});
+
 	it("returns validation error for empty name", async () => {
 		const result = await createCollection(
 			{
@@ -118,7 +133,7 @@ describe("createCollection", () => {
 	it("returns not_found error when collection schema is missing", async () => {
 		const depsWithoutSchema = {
 			...mockDeps,
-			getBuiltinCollectionSchemaForUser: async () => undefined,
+			getBuiltinCollectionSchema: async () => undefined,
 		};
 
 		const result = await createCollection(
@@ -197,7 +212,9 @@ describe("createCollection", () => {
 		expect("error" in result).toBe(true);
 		if ("error" in result) {
 			expect(result.error).toBe("validation");
-			expect(result.message).toContain("Invalid property definition");
+			expect(result.message).toContain(
+				"membershipPropertiesSchema must be a valid AppSchema",
+			);
 		}
 	});
 });

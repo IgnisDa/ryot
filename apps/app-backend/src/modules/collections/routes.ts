@@ -21,7 +21,7 @@ const createCollectionRoute = createAuthRoute(
 		summary: "Create a new collection",
 		request: { body: jsonBody(createCollectionBody) },
 		description:
-			"Create a user-owned collection entity under the built-in collection schema. The membershipPropertiesSchema is validated as a real AppSchema before persistence.",
+			"Create a user-owned collection entity under the built-in collection schema. The membershipPropertiesSchema is validated against the AppSchema format before persistence.",
 		responses: createStandardResponses({
 			successDescription: "Collection was created",
 			successSchema: createCollectionResponseSchema,
