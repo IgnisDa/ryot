@@ -507,7 +507,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			filters: [{ id: "1", field: "year", op: "gte" as const, value: "2020" }],
+			filters: [{ id: "1", field: "year", op: "gte" as const, value: 2020 }],
 			sort: {
 				direction: "desc" as const,
 				fields: [
@@ -678,12 +678,99 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		]);
 	});
 
+	it("passes number comparison value through as-is without coercion", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			entitySchemaSlugs: ["smartphones"],
+			filters: [{ id: "1", field: "year", op: "gte" as const, value: 2020 }],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
+		};
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{ field: "year", op: "gte", value: 2020 },
+		]);
+		expect(typeof payload.queryDefinition.filters[0]?.value).toBe("number");
+	});
+
+	it("passes boolean comparison value through as-is without coercion", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			entitySchemaSlugs: ["smartphones"],
+			filters: [{ id: "1", field: "active", op: "eq" as const, value: true }],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
+		};
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{ field: "active", op: "eq", value: true },
+		]);
+		expect(typeof payload.queryDefinition.filters[0]?.value).toBe("boolean");
+	});
+
+	it("splits in operator value by comma with trimming", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			entitySchemaSlugs: ["smartphones"],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
+			filters: [
+				{
+					id: "1",
+					field: "brand",
+					op: "in" as const,
+					value: "Apple , Samsung , Google",
+				},
+			],
+		};
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{ field: "brand", op: "in", value: ["Apple", "Samsung", "Google"] },
+		]);
+	});
+
+	it("sets isNull filter value to null regardless of form value", () => {
+		const view = createSavedViewFixture({ trackerId: null });
+		const formValues = {
+			entitySchemaSlugs: ["smartphones"],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			filters: [
+				{ id: "1", field: "name", op: "isNull" as const, value: "ignored" },
+			],
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
+		};
+		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
+
+		expect(payload.queryDefinition.filters).toEqual([
+			{ field: "name", op: "isNull", value: null },
+		]);
+	});
+
 	it("omits trackerId when view has null trackerId", () => {
 		const view = createSavedViewFixture({
 			icon: "globe",
-			name: "Standalone View",
 			trackerId: null,
 			isBuiltin: false,
+			name: "Standalone View",
 			accentColor: "#FF5733",
 			displayConfiguration: {
 				...defaultSavedViewDisplayConfiguration,
