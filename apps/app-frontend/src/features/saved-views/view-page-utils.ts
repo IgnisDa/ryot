@@ -12,14 +12,26 @@ export type ViewRuntimeItem = ViewRuntimeResponse["items"][number];
 export type SavedView = ApiGetResponseData<"/saved-views/{viewId}">;
 export type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
 export type ViewRuntimeResponse = ApiPostResponseData<"/view-runtime/execute">;
+type ViewExpression = NonNullable<
+	ViewRuntimeRequest["fields"]
+>[number]["expression"];
 
 export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
 export const TABLE_LIMIT = 20;
 
-const entityField = (schemaSlug: string, field: string) => {
-	return `entity.${schemaSlug}.${field}`;
-};
+const nullExpression = {
+	value: null,
+	type: "literal",
+} satisfies ViewExpression;
+
+const entityColumnExpression = (
+	schemaSlug: string,
+	column: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "entity-column", slug: schemaSlug, column },
+});
 
 export function createViewRuntimeRequest(input: {
 	page: number;
@@ -29,10 +41,13 @@ export function createViewRuntimeRequest(input: {
 }): ViewRuntimeRequest {
 	const base = {
 		sort: input.view.queryDefinition.sort,
-		filters: input.view.queryDefinition.filters,
 		eventJoins: input.view.queryDefinition.eventJoins,
 		pagination: { page: input.page, limit: input.limit },
+		computedFields: input.view.queryDefinition.computedFields,
 		entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
+		...(input.view.queryDefinition.filter
+			? { filter: input.view.queryDefinition.filter }
+			: {}),
 	};
 
 	return match(input.layout)
@@ -41,20 +56,27 @@ export function createViewRuntimeRequest(input: {
 			fields: [
 				{
 					key: "image",
-					references: input.view.displayConfiguration.grid.imageProperty ?? [],
+					expression:
+						input.view.displayConfiguration.grid.imageProperty ??
+						nullExpression,
 				},
 				{
 					key: "title",
-					references: input.view.displayConfiguration.grid.titleProperty ?? [],
+					expression:
+						input.view.displayConfiguration.grid.titleProperty ??
+						nullExpression,
 				},
 				{
 					key: "subtitle",
-					references:
-						input.view.displayConfiguration.grid.subtitleProperty ?? [],
+					expression:
+						input.view.displayConfiguration.grid.subtitleProperty ??
+						nullExpression,
 				},
 				{
 					key: "badge",
-					references: input.view.displayConfiguration.grid.badgeProperty ?? [],
+					expression:
+						input.view.displayConfiguration.grid.badgeProperty ??
+						nullExpression,
 				},
 			],
 		}))
@@ -63,20 +85,27 @@ export function createViewRuntimeRequest(input: {
 			fields: [
 				{
 					key: "image",
-					references: input.view.displayConfiguration.list.imageProperty ?? [],
+					expression:
+						input.view.displayConfiguration.list.imageProperty ??
+						nullExpression,
 				},
 				{
 					key: "title",
-					references: input.view.displayConfiguration.list.titleProperty ?? [],
+					expression:
+						input.view.displayConfiguration.list.titleProperty ??
+						nullExpression,
 				},
 				{
 					key: "subtitle",
-					references:
-						input.view.displayConfiguration.list.subtitleProperty ?? [],
+					expression:
+						input.view.displayConfiguration.list.subtitleProperty ??
+						nullExpression,
 				},
 				{
 					key: "badge",
-					references: input.view.displayConfiguration.list.badgeProperty ?? [],
+					expression:
+						input.view.displayConfiguration.list.badgeProperty ??
+						nullExpression,
 				},
 			],
 		}))
@@ -85,7 +114,7 @@ export function createViewRuntimeRequest(input: {
 			fields: input.view.displayConfiguration.table.columns.map(
 				(column, index) => ({
 					key: `column_${index}`,
-					references: column.property,
+					expression: column.expression,
 				}),
 			),
 		}))
@@ -94,16 +123,19 @@ export function createViewRuntimeRequest(input: {
 
 export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 	return {
-		filters: [],
 		eventJoins: [],
+		computedFields: [],
 		entitySchemaSlugs: ["book"],
 		pagination: { page: 1, limit: GRID_LIMIT },
-		sort: { fields: [entityField("book", "@name")], direction: "asc" },
+		sort: {
+			direction: "asc",
+			expression: entityColumnExpression("book", "name"),
+		},
 		fields: [
-			{ key: "image", references: [entityField("book", "@image")] },
-			{ key: "title", references: [entityField("book", "@name")] },
-			{ key: "subtitle", references: [] },
-			{ key: "badge", references: [] },
+			{ key: "image", expression: entityColumnExpression("book", "image") },
+			{ key: "title", expression: entityColumnExpression("book", "name") },
+			{ key: "subtitle", expression: nullExpression },
+			{ key: "badge", expression: nullExpression },
 		],
 	};
 }
