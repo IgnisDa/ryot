@@ -2,10 +2,44 @@ import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import createClient from "openapi-fetch";
 
-const API_BASE_URL = "http://localhost:3000/api";
-const API_KEY = process.env.API_KEY;
-if (!API_KEY) {
-	throw new Error("API_KEY environment variable is not set");
+const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
+
+async function createAndSignIn(): Promise<{
+	cookies: string;
+	email: string;
+	password: string;
+}> {
+	const email = `seed-${Date.now()}@example.com`;
+	const password = "password123";
+
+	const signUpResponse = await fetch(`${API_BASE_URL}/authentication/email`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ email, name: "Seed User", password }),
+	});
+
+	if (!signUpResponse.ok) {
+		const error = await signUpResponse.text();
+		throw new Error(`Sign up failed: ${error}`);
+	}
+
+	const signInResponse = await fetch(`${API_BASE_URL}/auth/sign-in/email`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ email, password }),
+	});
+
+	if (!signInResponse.ok) {
+		const error = await signInResponse.text();
+		throw new Error(`Sign in failed: ${error}`);
+	}
+
+	const cookies = signInResponse.headers.get("set-cookie");
+	if (!cookies) {
+		throw new Error("Sign in succeeded but no cookies were returned");
+	}
+
+	return { cookies, email, password };
 }
 
 type Client = ReturnType<typeof createClient<paths>>;
@@ -88,10 +122,10 @@ class APIClient {
 	private client: Client;
 	private requestCount = 0;
 
-	constructor() {
+	constructor(cookies: string) {
 		this.client = createClient<paths>({
 			baseUrl: API_BASE_URL,
-			headers: { "X-Api-Key": API_KEY },
+			headers: { Cookie: cookies },
 		});
 	}
 
@@ -295,10 +329,27 @@ async function createSavedView(
 			return literalExpression(null);
 		}
 
-		const values = input.map((reference) => ({
-			type: "reference" as const,
-			reference: parseReference(reference),
-		}));
+		const normalizeReference = (value: string) => {
+			if (value.startsWith("@")) {
+				return expandEntityBuiltinReference(value);
+			}
+			if (
+				!value.startsWith("entity.") &&
+				!value.startsWith("event.") &&
+				!value.startsWith("computed.") &&
+				value.split(".").length === 2
+			) {
+				return [`entity.${value}`];
+			}
+			return [value];
+		};
+
+		const values = input
+			.flatMap((reference) => normalizeReference(reference))
+			.map((reference) => ({
+				type: "reference" as const,
+				reference: parseReference(reference),
+			}));
 
 		return values.length === 1
 			? (values[0] ?? literalExpression(null))
@@ -490,7 +541,7 @@ async function createSavedView(
 
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/saved-views", {
+	const { data, error, response } = await client.POST("/saved-views", {
 		body: {
 			name,
 			icon,
@@ -502,7 +553,7 @@ async function createSavedView(
 	});
 
 	if (!response.ok || !data?.data) {
-		const details = data ? ` ${JSON.stringify(data)}` : "";
+		const details = error ? ` ${JSON.stringify(error)}` : "";
 		throw new Error(
 			`Failed to create saved view: ${response.status} ${response.statusText}${details}`,
 		);
@@ -1961,9 +2012,9 @@ async function seedSavedViews(
 					propertyReference(
 						"whiskey.region",
 						"place.country",
-						"smartphone.year",
-						"feature-phone.year",
-						"tablet.year",
+						"smartphone.manufacturer",
+						"feature-phone.manufacturer",
+						"tablet.manufacturer",
 					),
 				),
 			),
@@ -1975,18 +2026,18 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: allSchemaSlugs,
-				sort: sortDefinition("desc", "@updatedAt", "@name"),
+				sort: sortDefinition("desc", "@updatedAt"),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
 					propertyReference(
-						"whiskey.age",
-						"place.city",
-						"smartphone.storage_gb",
-						"feature-phone.battery_mah",
-						"tablet.screen_size",
+						"whiskey.type",
+						"place.type",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
 					),
 					propertyReference(
 						"whiskey.distillery",
@@ -2000,11 +2051,11 @@ async function seedSavedViews(
 					tableColumn("Name", "@name"),
 					tableColumn(
 						"Highlight",
-						"whiskey.age",
-						"place.city",
-						"smartphone.storage_gb",
-						"feature-phone.battery_mah",
-						"tablet.screen_size",
+						"whiskey.type",
+						"place.type",
+						"smartphone.os",
+						"feature-phone.color",
+						"tablet.os",
 					),
 					tableColumn("Updated", "@updatedAt"),
 				],
@@ -2045,10 +2096,12 @@ async function main() {
 	console.log("🌱 Ryot Seed Script");
 	console.log("━".repeat(50));
 
-	console.log("✓ API Key validated");
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
 
-	const client = new APIClient();
+	const { cookies, email, password } = await createAndSignIn();
+	console.log(`✓ Created and signed in as ${email}`);
+
+	const client = new APIClient(cookies);
 	const startTime = Date.now();
 
 	const whiskeyStats = await seedWhiskeys(client);
@@ -2079,6 +2132,9 @@ async function main() {
 	console.log(`  Duration: ${minutes}m ${seconds}s`);
 	console.log("━".repeat(50));
 	console.log("✅ Seed completed successfully!");
+	console.log("\n🔑 Credentials:");
+	console.log(`  Email:    ${email}`);
+	console.log(`  Password: ${password}`);
 }
 
 main().catch((error) => {
