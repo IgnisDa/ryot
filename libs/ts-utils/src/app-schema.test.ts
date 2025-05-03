@@ -266,6 +266,33 @@ describe("fromAppSchema", () => {
 		).toEqual({ author: { name: "Ada" } });
 	});
 
+	it("preserves unknown keys when an object property opts into passthrough", () => {
+		const schema = fromAppSchema({
+			type: "object",
+			unknownKeys: "passthrough",
+			properties: {
+				author: {
+					type: "object",
+					unknownKeys: "passthrough",
+					validation: { required: true },
+					properties: {
+						name: { type: "string", validation: { required: true } },
+					},
+				},
+			},
+		});
+
+		expect(
+			schema.parse({
+				extra: true,
+				author: { name: "Ada", extra: true },
+			}),
+		).toEqual({
+			extra: true,
+			author: { name: "Ada", extra: true },
+		});
+	});
+
 	it("applies string validation rules", () => {
 		const schema = fromAppSchema({
 			type: "string",

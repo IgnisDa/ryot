@@ -57,6 +57,7 @@ const requiredValidationSchema = z.strictObject({
 const unknownKeysPolicySchema: z.ZodType<AppSchemaUnknownKeysPolicy> = z.enum([
 	"strip",
 	"strict",
+	"passthrough",
 ]);
 
 const hasValidNumericBounds = (value: {
