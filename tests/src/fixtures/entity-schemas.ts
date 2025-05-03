@@ -44,8 +44,8 @@ export async function listEntitySchemas(
 	cookies: string,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	const { data, response } = await client.GET("/entity-schemas", {
-		params: { query: options },
+	const { data, response } = await client.POST("/entity-schemas/list", {
+		body: options,
 		headers: { Cookie: cookies },
 	});
 
