@@ -9,6 +9,7 @@ import {
 import { expectDataResult } from "~/lib/test-helpers";
 import {
 	createEvent,
+	createEvents,
 	listEntityEvents,
 	parseEventProperties,
 	resolveEventCreateInput,
@@ -234,5 +235,57 @@ describe("createEvent", () => {
 			error: "validation",
 			message: "Entity id is required",
 		});
+	});
+});
+
+describe("createEvents", () => {
+	it("returns count equal to the number of items on success", async () => {
+		const result = await createEvents(
+			{
+				userId: "user_1",
+				body: [createEventBody(), createEventBody(), createEventBody()],
+			},
+			createEventDeps(),
+		);
+
+		expect(result).toEqual({ data: { count: 3 } });
+	});
+
+	it("returns count of zero for an empty array", async () => {
+		const result = await createEvents(
+			{ userId: "user_1", body: [] },
+			createEventDeps(),
+		);
+
+		expect(result).toEqual({ data: { count: 0 } });
+	});
+
+	it("fails fast and returns the error when any item fails validation", async () => {
+		const result = await createEvents(
+			{
+				userId: "user_1",
+				body: [
+					createEventBody(),
+					{ ...createEventBody(), entityId: "   " },
+					createEventBody(),
+				],
+			},
+			createEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Entity id is required",
+		});
+	});
+
+	it("chunks large arrays and counts all committed events", async () => {
+		const items = Array.from({ length: 2500 }, () => createEventBody());
+		const result = await createEvents(
+			{ userId: "user_1", body: items },
+			createEventDeps(),
+		);
+
+		expect(result).toEqual({ data: { count: 2500 } });
 	});
 });
