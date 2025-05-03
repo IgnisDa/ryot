@@ -1,6 +1,8 @@
-import { Button, Group, Stack, Text } from "@mantine/core";
+import { Button, Divider, Group, Stack, Text } from "@mantine/core";
+import { useState } from "react";
 import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import { useAppForm } from "#/hooks/forms";
+import { getErrorMessage } from "#/lib/errors";
 import {
 	buildSavedViewExtendedFormValues,
 	type SavedViewExtendedFormValues,
@@ -17,6 +19,7 @@ export function SavedViewExtendedForm(props: {
 	isSubmitting: boolean;
 	onSubmit: (values: SavedViewExtendedFormValues) => Promise<void>;
 }) {
+	const [submitError, setSubmitError] = useState<string | null>(null);
 	const trackerId = props.view.trackerId ?? "";
 	const { entitySchemas } = useEntitySchemasQuery(trackerId, trackerId !== "");
 
@@ -29,7 +32,12 @@ export function SavedViewExtendedForm(props: {
 		validators: { onChange: savedViewExtendedFormSchema },
 		defaultValues: buildSavedViewExtendedFormValues(props.view),
 		onSubmit: async ({ value }) => {
-			await props.onSubmit(value);
+			setSubmitError(null);
+			try {
+				await props.onSubmit(value);
+			} catch (error) {
+				setSubmitError(getErrorMessage(error, "Failed to save view changes."));
+			}
 		},
 	});
 
@@ -43,9 +51,42 @@ export function SavedViewExtendedForm(props: {
 		>
 			<form.AppForm>
 				<Stack gap="md">
-					<Text size="sm" c="dimmed">
-						Edit query definition and display configuration for this view.
-					</Text>
+					<Stack gap={2}>
+						<Text size="sm" c="dimmed">
+							Edit query definition and display configuration for this view.
+						</Text>
+						<Text size="xs" c="dimmed">
+							Use{" "}
+							<Text span ff="var(--font-family-monospace)">
+								@name
+							</Text>
+							,{" "}
+							<Text span ff="var(--font-family-monospace)">
+								@createdAt
+							</Text>
+							, and{" "}
+							<Text span ff="var(--font-family-monospace)">
+								@updatedAt
+							</Text>{" "}
+							for built-in fields, or{" "}
+							<Text span ff="var(--font-family-monospace)">
+								schema.property
+							</Text>{" "}
+							for schema-specific paths like{" "}
+							<Text span ff="var(--font-family-monospace)">
+								smartphones.manufacturer
+							</Text>
+							.
+						</Text>
+					</Stack>
+
+					{submitError ? (
+						<Text size="sm" c="red">
+							{submitError}
+						</Text>
+					) : null}
+
+					<Divider label="Query Definition" labelPosition="left" />
 
 					<form.AppField name="entitySchemaSlugs" mode="array">
 						{(field) => (
@@ -64,6 +105,8 @@ export function SavedViewExtendedForm(props: {
 					<SortBuilder form={form} isLoading={props.isSubmitting} />
 
 					<FiltersBuilder form={form} isLoading={props.isSubmitting} />
+
+					<Divider label="Display Configuration" labelPosition="left" />
 
 					<DisplayConfigBuilder form={form} isLoading={props.isSubmitting} />
 
