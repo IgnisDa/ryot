@@ -29,7 +29,7 @@ export function getMediaDoneActionLabel(
 		return options?.logDate === "started" ? "Started" : "Logged";
 	}
 	if (action === "backlog") {
-		return "In Backlog";
+		return "In watchlist";
 	}
 	return options?.rateStars ? `Rated ${options.rateStars}/5` : "Rated";
 }
@@ -45,7 +45,7 @@ export function getMediaLifecycleUnavailableMessage(
 		return null;
 	}
 
-	return `Lifecycle actions are unavailable because these schemas are missing: ${missingSlugs.join(", ")}.`;
+	return "Some actions are unavailable. Please check your event schemas configuration.";
 }
 
 export function createBacklogEventPayload(input: {
