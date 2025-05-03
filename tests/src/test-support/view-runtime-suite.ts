@@ -13,9 +13,13 @@ import {
 	createRuntimeEvent,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
+	entityColumnExpression,
 	entityField,
 	executeViewRuntime,
 	getRuntimeFieldOrThrow,
+	literalExpression,
+	schemaPropertyExpression,
+	toRequiredExpression,
 } from "src/fixtures";
 
 async function createImageFallbackFixture() {
@@ -285,10 +289,13 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				sort: {
 					direction: "asc",
-					fields: [
-						entityField(smartphoneSlug, "year"),
-						entityField(tabletSlug, "releaseYear"),
-					],
+					expression: {
+						type: "coalesce",
+						values: [
+							schemaPropertyExpression(smartphoneSlug, "year"),
+							schemaPropertyExpression(tabletSlug, "releaseYear"),
+						],
+					},
 				},
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
@@ -337,13 +344,12 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "eq",
-						value: "No Image Device",
-						field: entityField(schema.slug, "name"),
-					},
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("No Image Device"),
+					left: entityColumnExpression(schema.slug, "name"),
+				},
 				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
@@ -368,13 +374,12 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildListRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "eq",
-						value: "No Image Device",
-						field: entityField(schema.slug, "name"),
-					},
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("No Image Device"),
+					left: entityColumnExpression(schema.slug, "name"),
+				},
 				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
@@ -399,13 +404,12 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "eq",
-						value: "No Image Device",
-						field: entityField(schema.slug, "name"),
-					},
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("No Image Device"),
+					left: entityColumnExpression(schema.slug, "name"),
+				},
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
 						label: "Image",
@@ -425,13 +429,19 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 	it("filters, sorts, and displays latest-event join data", async () => {
 		const { client, cookies, schema } = await createLatestEventJoinFixture();
+		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
 		const { data, response } = await executeViewRuntime(
 			client,
 			cookies,
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: ["event.review.rating"], direction: "desc" },
-				filters: [{ op: "gte", field: "event.review.rating", value: 4 }],
+				sort: { expression: reviewRatingRef, direction: "desc" },
+				filter: {
+					type: "comparison",
+					operator: "gte",
+					left: reviewRatingRef,
+					right: literalExpression(4),
+				},
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
@@ -463,12 +473,13 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("treats missing event schemas and missing event rows as null join values", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
+		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
 		const { data, response } = await executeViewRuntime(
 			client,
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				filters: [{ op: "isNull", field: "event.review.rating" }],
+				filter: { type: "isNull", expression: reviewRatingRef },
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
@@ -497,12 +508,13 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("returns only entities with a non-null event join value for isNotNull", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
+		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
 		const { data, response } = await executeViewRuntime(
 			client,
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				filters: [{ op: "isNotNull", field: "event.review.rating" }],
+				filter: { type: "isNotNull", expression: reviewRatingRef },
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
@@ -536,13 +548,12 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{
-						op: "eq",
-						value: "phone",
-						field: entityField(schema.slug, "missingProperty"),
-					},
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("phone"),
+					left: schemaPropertyExpression(schema.slug, "missingProperty"),
+				},
 			}),
 		);
 		const mismatchedValueResult = await executeViewRuntime(
@@ -550,9 +561,12 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [
-					{ op: "eq", field: entityField(schema.slug, "year"), value: "2020" },
-				],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("2020"),
+					left: schemaPropertyExpression(schema.slug, "year"),
+				},
 			}),
 		);
 
