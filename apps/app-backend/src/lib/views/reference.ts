@@ -39,38 +39,43 @@ export type ViewRuntimeReferenceContext<
 	eventJoinMap: Map<string, TJoin>;
 };
 
+type RuntimeColumnConfig = {
+	filter: boolean;
+	display: boolean;
+	property?: AppPropertyDefinition;
+};
+
 const entityRuntimeColumns = {
 	image: { display: true, filter: false },
-	id: { display: true, filter: true, property: { type: "string" as const } },
-	name: { display: true, filter: true, property: { type: "string" as const } },
-	createdAt: {
-		filter: true,
-		display: true,
-		property: { type: "datetime" as const },
-	},
-	updatedAt: {
-		filter: true,
-		display: true,
-		property: { type: "datetime" as const },
-	},
-};
+	id: { display: true, filter: true, property: { type: "string" } },
+	name: { display: true, filter: true, property: { type: "string" } },
+	createdAt: { filter: true, display: true, property: { type: "datetime" } },
+	updatedAt: { filter: true, display: true, property: { type: "datetime" } },
+} satisfies Record<string, RuntimeColumnConfig>;
 
 const eventJoinColumns = {
-	id: { display: true, filter: true, property: { type: "string" as const } },
-	createdAt: {
-		filter: true,
-		display: true,
-		property: { type: "datetime" as const },
-	},
-	updatedAt: {
-		filter: true,
-		display: true,
-		property: { type: "datetime" as const },
-	},
+	id: { display: true, filter: true, property: { type: "string" } },
+	createdAt: { filter: true, display: true, property: { type: "datetime" } },
+	updatedAt: { filter: true, display: true, property: { type: "datetime" } },
+} satisfies Record<string, RuntimeColumnConfig>;
+
+const hasOwnKey = <T extends object>(
+	value: T,
+	key: PropertyKey,
+): key is keyof T => {
+	return Object.hasOwn(value, key);
 };
 
-type EntityRuntimeColumn = keyof typeof entityRuntimeColumns;
-type EventJoinColumn = keyof typeof eventJoinColumns;
+const getRuntimeColumnConfig = <T extends Record<string, RuntimeColumnConfig>>(
+	columns: T,
+	column: string,
+) => {
+	if (!hasOwnKey(columns, column)) {
+		return undefined;
+	}
+
+	return columns[column];
+};
 
 export const sortFilterBuiltins: ReadonlySet<string> = new Set(
 	Object.entries(entityRuntimeColumns)
@@ -87,8 +92,7 @@ export const displayBuiltins: ReadonlySet<string> = new Set(
 export const getEntityColumnPropertyDefinition = (
 	column: string,
 ): AppPropertyDefinition | null => {
-	const config = entityRuntimeColumns[column as EntityRuntimeColumn];
-	return config && "property" in config ? config.property : null;
+	return getRuntimeColumnConfig(entityRuntimeColumns, column)?.property ?? null;
 };
 
 export const getEntityColumnPropertyType = (
@@ -104,8 +108,7 @@ export const getEntityColumnPropertyType = (
 export const getEventJoinColumnPropertyDefinition = (
 	column: string,
 ): AppPropertyDefinition | null => {
-	const config = eventJoinColumns[column as EventJoinColumn];
-	return config && "property" in config ? config.property : null;
+	return getRuntimeColumnConfig(eventJoinColumns, column)?.property ?? null;
 };
 
 export const getEventJoinColumnPropertyType = (
