@@ -34,6 +34,7 @@ import { isCancelledEntitySearchError, useEntitySearch } from "./use-search";
 
 export function SearchEntityModalTitle(props: {
 	onBack: () => void;
+	actionVerb?: string;
 	entitySchemaName: string;
 }) {
 	return (
@@ -47,7 +48,7 @@ export function SearchEntityModalTitle(props: {
 				<ChevronLeft size={16} />
 			</ActionIcon>
 			<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-				Add {props.entitySchemaName}
+				{props.actionVerb ?? "Add"} {props.entitySchemaName}
 			</Text>
 		</Group>
 	);
@@ -55,6 +56,8 @@ export function SearchEntityModalTitle(props: {
 
 export function SearchEntityModalContent(props: {
 	entitySchema: AppEntitySchema;
+	onActionCompleted?: () => void;
+	initialAction?: "log" | "backlog";
 }) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
@@ -148,6 +151,7 @@ export function SearchEntityModalContent(props: {
 			try {
 				await addItem(item);
 				markDone(item.identifier, ["track"]);
+				props.onActionCompleted?.();
 				notifications.show({
 					color: "green",
 					title: "Added",
@@ -200,6 +204,7 @@ export function SearchEntityModalContent(props: {
 					}).queryKey,
 				});
 				markDone(input.identifier, ["track", input.doneAction]);
+				props.onActionCompleted?.();
 				patchActionState(input.identifier, {
 					actionError: null,
 					openPanel: null,
@@ -460,14 +465,31 @@ export function SearchEntityModalContent(props: {
 											addStatus={addStatus[item.identifier] ?? "idle"}
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.identifier}
+											primaryAction={
+												props.initialAction === "backlog" ? "backlog" : "add"
+											}
 											onPatchActionState={(patch) =>
 												patchActionState(item.identifier, patch)
 											}
 											onToggleActions={() => {
+												const isCurrentlyExpanded =
+													selectedResultId === item.identifier;
 												setSelectedResultId((current) =>
 													current === item.identifier ? null : item.identifier,
 												);
-												patchActionState(item.identifier, { openPanel: null });
+												if (
+													!isCurrentlyExpanded &&
+													props.initialAction === "log"
+												) {
+													patchActionState(item.identifier, {
+														openPanel: "log",
+														actionError: null,
+													});
+												} else {
+													patchActionState(item.identifier, {
+														openPanel: null,
+													});
+												}
 											}}
 											onTogglePanel={(panel) => {
 												setSelectedResultId(item.identifier);
