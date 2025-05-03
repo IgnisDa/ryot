@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -65,17 +65,23 @@ const tableDisplayConfigSchema = z.object({
 
 ## Acceptance criteria
 
-- [ ] User can switch between Grid/List/Table tabs
-- [ ] Grid tab shows grid config editor (from Task 04)
-- [ ] List tab shows list config editor (same as grid)
-- [ ] Table tab shows table config editor with columns
-- [ ] User can add/remove table columns
-- [ ] Each column has label and property array
-- [ ] Property arrays support multiple paths (COALESCE)
-- [ ] All three configs save simultaneously
-- [ ] Switch to each view layout shows correct display
-- [ ] Tab state is managed in UI (not localStorage)
-- [ ] No TypeScript errors
+- [x] User can switch between Grid/List/Table tabs
+- [x] Grid tab shows grid config editor (from Task 04)
+- [x] List tab shows list config editor (same as grid)
+- [x] Table tab shows table config editor with columns
+- [x] User can add/remove table columns
+- [x] Each column has label and property array
+- [x] Property arrays support multiple paths (COALESCE)
+- [x] All three configs save simultaneously
+- [x] Switch to each view layout shows correct display
+- [x] Tab state is managed in UI (not localStorage)
+- [x] No TypeScript errors
+
+## Implementation notes
+
+- The form layer now normalizes list, grid, and table configuration rows with generated IDs so React keys stay stable while API payloads remain unchanged.
+- `DisplayConfigBuilder` now owns the tabbed grid/list/table editing UI, with shared property-path editing extracted into a reusable helper.
+- Automated verification completed with `bun test 'apps/app-frontend/src/features/saved-views'`, `bun run typecheck`, `bun run lint`, and `bun run build`.
 
 ## Blocked by
 
@@ -103,7 +109,13 @@ After implementation, verify the work using:
    bun run typecheck
    ```
 
-3. **Build frontend:**
+3. **Run lint:**
+   ```bash
+   cd apps/app-frontend
+   bun run lint
+   ```
+
+4. **Build frontend:**
    ```bash
    cd apps/app-frontend
    bun run build

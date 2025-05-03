@@ -392,9 +392,9 @@ Basic metadata fields (name, icon, accentColor, trackerId) are already editable 
 
 ## Tasks
 
-**Overall Progress:** 4 of 6 tasks completed
+**Overall Progress:** 5 of 6 tasks completed
 
-**Current Task:** [Task 05](./05-list-table-display-configurations.md) (todo)
+**Current Task:** [Task 06](./06-builtin-protection-ux-polish.md) (todo)
 
 **Note for Agents:** Do not create git commits. Leave all commit creation to the user.
 
@@ -406,5 +406,5 @@ Basic metadata fields (name, icon, accentColor, trackerId) are already editable 
 | 02 | [Sort Configuration Builder](./02-sort-configuration-builder.md) | AFK | completed | Task 01 |
 | 03 | [Filters Builder](./03-filters-builder.md) | AFK | completed | Task 02 |
 | 04 | [Grid Display Configuration](./04-grid-display-configuration.md) | AFK | completed | Task 03 |
-| 05 | [List and Table Display Configurations](./05-list-table-display-configurations.md) | AFK | todo | Task 04 |
+| 05 | [List and Table Display Configurations](./05-list-table-display-configurations.md) | AFK | completed | Task 04 |
 | 06 | [Built-in Protection and UX Polish](./06-builtin-protection-ux-polish.md) | AFK | todo | Task 05 |
