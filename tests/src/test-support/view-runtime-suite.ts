@@ -154,7 +154,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Name", property: ["@name"] },
-					{ label: "Year", property: ["year"] },
+					{ label: "Year", property: [`${schema.slug}.year`] },
 					{ label: "Empty", property: [] },
 				]),
 			}),
@@ -236,7 +236,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 					badgeProperty: null,
 					subtitleProperty: null,
 					titleProperty: ["@name"],
-					imageProperty: ["@image", "category"],
+					imageProperty: ["@image", `${schema.slug}.category`],
 				},
 			}),
 		);
@@ -264,7 +264,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 					badgeProperty: null,
 					subtitleProperty: null,
 					titleProperty: ["@name"],
-					imageProperty: ["@image", "category"],
+					imageProperty: ["@image", `${schema.slug}.category`],
 				},
 			}),
 		);
@@ -289,7 +289,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [schema.slug],
 				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
 				displayConfiguration: buildTableDisplayConfiguration([
-					{ label: "Image", property: ["@image", "category"] },
+					{ label: "Image", property: ["@image", `${schema.slug}.category`] },
 					{ label: "Name", property: ["@name"] },
 				]),
 			}),
@@ -324,7 +324,9 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: "missingProperty", value: "phone" }],
+				filters: [
+					{ op: "eq", field: `${schema.slug}.missingProperty`, value: "phone" },
+				],
 			}),
 		);
 
