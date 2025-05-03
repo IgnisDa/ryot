@@ -193,6 +193,220 @@ describe("View runtime E2E", () => {
 		]);
 	});
 
+	it("sorts and filters by computed fields in raw runtime requests", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const yearExpression = {
+			type: "reference" as const,
+			reference: {
+				property: "year",
+				slug: schema.slug,
+				type: "schema-property" as const,
+			},
+		};
+		const nextYearReference = {
+			type: "reference" as const,
+			reference: { type: "computed-field" as const, key: "nextYear" },
+		};
+		const labelReference = {
+			type: "reference" as const,
+			reference: { type: "computed-field" as const, key: "label" },
+		};
+
+		const { data, response } = await executeViewRuntime(client, cookies, {
+			eventJoins: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 5 },
+			sort: { direction: "desc", expression: nextYearReference },
+			filter: {
+				operator: "gte",
+				type: "comparison",
+				left: nextYearReference,
+				right: { type: "literal", value: 2021 },
+			},
+			computedFields: [
+				{
+					key: "nextYear",
+					expression: {
+						operator: "add",
+						type: "arithmetic",
+						left: yearExpression,
+						right: { type: "literal", value: 1 },
+					},
+				},
+				{
+					key: "label",
+					expression: {
+						type: "concat",
+						values: [{ type: "literal", value: "Release " }, nextYearReference],
+					},
+				},
+			],
+			fields: [
+				buildRuntimeField("label", labelReference),
+				buildRuntimeField("nextYear", nextYearReference),
+			],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Delta Watch",
+			"Gamma Phone",
+		]);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "label", kind: "text", value: "Release 2022" },
+			{ key: "nextYear", kind: "number", value: 2022 },
+		]);
+		expect(data?.data.items[1]?.fields).toEqual([
+			{ key: "label", kind: "text", value: "Release 2021" },
+			{ key: "nextYear", kind: "number", value: 2021 },
+		]);
+	});
+
+	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const missingComputedFieldResult = await executeViewRuntime(
+			client,
+			cookies,
+			{
+				eventJoins: [],
+				computedFields: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 5 },
+				sort: {
+					direction: "asc",
+					expression: {
+						type: "reference",
+						reference: {
+							column: "name",
+							slug: schema.slug,
+							type: "entity-column",
+						},
+					},
+				},
+				filter: null,
+				fields: [buildRuntimeField("title", ["computed.missingLabel"])],
+			} as unknown as Parameters<typeof executeViewRuntime>[2],
+		);
+		const cycleResult = await executeViewRuntime(client, cookies, {
+			eventJoins: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 5 },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: {
+						column: "name",
+						slug: schema.slug,
+						type: "entity-column",
+					},
+				},
+			},
+			filter: null,
+			computedFields: [
+				buildComputedField("first", ["computed.second"]),
+				buildComputedField("second", ["computed.first"]),
+			],
+			fields: [buildRuntimeField("title", ["computed.first"])],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+
+		expect(missingComputedFieldResult.response.status).toBe(400);
+		expect(missingComputedFieldResult.error?.error?.message).toBe(
+			"Computed field 'missingLabel' is not part of this runtime request",
+		);
+		expect(cycleResult.response.status).toBe(400);
+		expect(cycleResult.error?.error?.message).toBe(
+			"Computed field dependency cycle detected: first -> second -> first",
+		);
+	});
+
+	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const imageSortResult = await executeViewRuntime(client, cookies, {
+			filter: null,
+			eventJoins: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 5 },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: { key: "cover", type: "computed-field" },
+				},
+			},
+			computedFields: [
+				{
+					key: "cover",
+					expression: {
+						type: "reference",
+						reference: {
+							column: "image",
+							slug: schema.slug,
+							type: "entity-column",
+						},
+					},
+				},
+			],
+			fields: [buildRuntimeField("image", [entityField(schema.slug, "image")])],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+		const mismatchedFilterResult = await executeViewRuntime(client, cookies, {
+			eventJoins: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 5 },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: {
+						column: "name",
+						slug: schema.slug,
+						type: "entity-column",
+					},
+				},
+			},
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "literal", value: "2021" },
+				left: {
+					type: "reference",
+					reference: { type: "computed-field", key: "nextYear" },
+				},
+			},
+			computedFields: [
+				{
+					key: "nextYear",
+					expression: {
+						operator: "add",
+						type: "arithmetic",
+						right: { type: "literal", value: 1 },
+						left: {
+							type: "reference",
+							reference: {
+								property: "year",
+								slug: schema.slug,
+								type: "schema-property",
+							},
+						},
+					},
+				},
+			],
+			fields: [buildRuntimeField("title", [entityField(schema.slug, "name")])],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+
+		expect(imageSortResult.response.status).toBe(400);
+		expect(imageSortResult.error?.error?.message).toBe(
+			"Image expressions are display-only and cannot be used in sorting",
+		);
+		expect(mismatchedFilterResult.response.status).toBe(400);
+		expect(mismatchedFilterResult.error?.error?.message).toBe(
+			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
+		);
+	});
+
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
