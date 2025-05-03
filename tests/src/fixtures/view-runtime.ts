@@ -2,43 +2,29 @@ import type { paths } from "@ryot/generated/openapi/app-backend";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
 import { createTracker } from "./trackers";
+import {
+	type ExpressionInput,
+	entityField,
+	type LegacyFilter,
+	type LegacySort,
+	normalizeSort,
+	qualifyBuiltinFields,
+	toFilterPredicate,
+	toRequiredExpression,
+	type ViewExpression,
+	type ViewPredicate,
+} from "./view-language";
 
 type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
-type ViewExpression = ExecuteViewRuntimeBody["sort"]["expression"];
-type ViewPredicate = NonNullable<ExecuteViewRuntimeBody["filter"]>;
-type RuntimeRef = Extract<ViewExpression, { type: "reference" }>["reference"];
 type ComputedField = NonNullable<
 	ExecuteViewRuntimeBody["computedFields"]
 >[number];
 
-type ExpressionInput = ViewExpression | string[];
-
 type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
-};
-
-type LegacyFilter = {
-	op:
-		| "eq"
-		| "neq"
-		| "gt"
-		| "gte"
-		| "lt"
-		| "lte"
-		| "in"
-		| "contains"
-		| "isNull"
-		| "isNotNull";
-	field: string;
-	value?: unknown;
-};
-
-type LegacySort = {
-	direction: "asc" | "desc";
-	fields: string[];
 };
 
 type GridDisplayConfiguration = {
@@ -58,186 +44,28 @@ type TableDisplayConfiguration = {
 	}>;
 };
 
+type RuntimeFieldsInput =
+	| {
+			layout: "table";
+			displayConfiguration: TableDisplayConfiguration;
+	  }
+	| {
+			layout: "grid" | "list";
+			displayConfiguration: GridDisplayConfiguration | ListDisplayConfiguration;
+	  };
+
 type RuntimeRequest = Omit<
 	ExecuteViewRuntimeBody,
 	"displayConfiguration" | "fields" | "layout" | "sort" | "filter" | "filters"
 > & {
 	fields: RuntimeField[];
-	filter?: ViewPredicate | null;
 	filters?: LegacyFilter[];
-	sort: LegacySort | ExecuteViewRuntimeBody["sort"];
 	entitySchemaSlugs: string[];
+	filter?: ViewPredicate | null;
 	computedFields?: ComputedField[];
+	sort: LegacySort | ExecuteViewRuntimeBody["sort"];
 	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
 };
-
-function literalExpression(value: unknown | null): ViewExpression {
-	return { type: "literal", value };
-}
-
-function parseReference(reference: string): RuntimeRef {
-	const [namespace, segment, tail, ...rest] = reference.split(".");
-	if (namespace === "computed") {
-		if (!segment || tail || rest.length > 0) {
-			throw new Error(`Invalid runtime reference '${reference}'`);
-		}
-
-		return { type: "computed-field", key: segment };
-	}
-
-	if (namespace === "event") {
-		if (!segment || !tail || rest.length > 0) {
-			throw new Error(`Invalid runtime reference '${reference}'`);
-		}
-
-		return tail.startsWith("@")
-			? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
-			: { type: "event-join-property", joinKey: segment, property: tail };
-	}
-
-	if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
-		throw new Error(`Invalid runtime reference '${reference}'`);
-	}
-
-	return tail.startsWith("@")
-		? { type: "entity-column", slug: segment, column: tail.slice(1) }
-		: { type: "schema-property", slug: segment, property: tail };
-}
-
-function toExpression(input: ExpressionInput | null): ViewExpression | null {
-	if (input === null) {
-		return null;
-	}
-
-	if (!Array.isArray(input)) {
-		return input;
-	}
-
-	if (!input.length) {
-		return literalExpression(null);
-	}
-
-	const values = input.map((reference) => ({
-		type: "reference" as const,
-		reference: parseReference(reference),
-	}));
-
-	return values.length === 1
-		? (values[0] ?? literalExpression(null))
-		: { type: "coalesce", values };
-}
-
-function toPredicate(filter: LegacyFilter): ViewPredicate {
-	const expression = toExpression([filter.field]) ?? literalExpression(null);
-	if (filter.op === "isNull") {
-		return { type: "isNull", expression };
-	}
-
-	if (filter.op === "isNotNull") {
-		return { type: "isNotNull", expression };
-	}
-
-	if (filter.op === "contains") {
-		return {
-			type: "contains",
-			expression,
-			value: literalExpression(filter.value ?? null),
-		};
-	}
-
-	if (filter.op === "in") {
-		return {
-			type: "in",
-			expression,
-			values: Array.isArray(filter.value)
-				? filter.value.map((value) => literalExpression(value))
-				: [literalExpression(filter.value ?? null)],
-		};
-	}
-
-	return {
-		left: expression,
-		type: "comparison",
-		operator: filter.op,
-		right: literalExpression(filter.value ?? null),
-	};
-}
-
-function getFilterGroupKey(filter: LegacyFilter) {
-	const reference = parseReference(filter.field);
-	return reference.type === "entity-column" ||
-		reference.type === "schema-property"
-		? reference.slug
-		: `${reference.type}:${JSON.stringify(reference)}`;
-}
-
-function combinePredicates(predicates: ViewPredicate[], type: "and" | "or") {
-	if (!predicates.length) {
-		return null;
-	}
-
-	if (predicates.length === 1) {
-		return predicates[0] ?? null;
-	}
-
-	return { type, predicates } satisfies ViewPredicate;
-}
-
-function toFilterPredicate(
-	filters?: LegacyFilter[],
-	filter?: ViewPredicate | null,
-) {
-	if (filter !== undefined) {
-		return filter;
-	}
-
-	if (!filters?.length) {
-		return null;
-	}
-
-	const grouped = new Map<string, ViewPredicate[]>();
-	for (const entry of filters) {
-		const key = getFilterGroupKey(entry);
-		const existing = grouped.get(key) ?? [];
-		existing.push(toPredicate(entry));
-		grouped.set(key, existing);
-	}
-
-	const groupedPredicates = Array.from(grouped.values())
-		.map((predicates) => combinePredicates(predicates, "and"))
-		.filter((predicate): predicate is ViewPredicate => predicate !== null);
-
-	return combinePredicates(groupedPredicates, "or");
-}
-
-function normalizeSort(sort: RuntimeRequest["sort"]) {
-	if ("expression" in sort) {
-		return sort;
-	}
-
-	return {
-		direction: sort.direction,
-		expression: toExpression(sort.fields) ?? literalExpression(null),
-	};
-}
-
-function qualifyProperty(schemaSlug: string, property: string) {
-	if (
-		property === "id" ||
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt"
-	) {
-		return `entity.${schemaSlug}.@${property}`;
-	}
-
-	return `entity.${schemaSlug}.${property}`;
-}
-
-function qualifyBuiltinFields(schemaSlugs: string[], property: string) {
-	return schemaSlugs.map((schemaSlug) => qualifyProperty(schemaSlug, property));
-}
 
 interface CreateEntityInput {
 	name: string;
@@ -256,46 +84,37 @@ interface CreateRuntimeEventInput {
 	properties: Record<string, unknown>;
 }
 
-export function buildGridDisplayConfiguration(
+const buildCardDisplayConfiguration = (
+	schemaSlugs: string[],
 	overrides: Partial<GridDisplayConfiguration> = {},
-	schemaSlugs: string[] = [],
-): GridDisplayConfiguration {
+): GridDisplayConfiguration => {
 	const schemaSlug = schemaSlugs[0];
 
 	return {
-		subtitleProperty: schemaSlug ? [qualifyProperty(schemaSlug, "year")] : null,
+		subtitleProperty: schemaSlug ? [entityField(schemaSlug, "year")] : null,
 		titleProperty: schemaSlugs.length
 			? qualifyBuiltinFields(schemaSlugs, "name")
 			: null,
 		imageProperty: schemaSlugs.length
 			? qualifyBuiltinFields(schemaSlugs, "image")
 			: null,
-		badgeProperty: schemaSlug
-			? [qualifyProperty(schemaSlug, "category")]
-			: null,
+		badgeProperty: schemaSlug ? [entityField(schemaSlug, "category")] : null,
 		...overrides,
 	};
+};
+
+export function buildGridDisplayConfiguration(
+	overrides: Partial<GridDisplayConfiguration> = {},
+	schemaSlugs: string[] = [],
+): GridDisplayConfiguration {
+	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
 export function buildListDisplayConfiguration(
 	overrides: Partial<ListDisplayConfiguration> = {},
 	schemaSlugs: string[] = [],
 ): ListDisplayConfiguration {
-	const schemaSlug = schemaSlugs[0];
-
-	return {
-		subtitleProperty: schemaSlug ? [qualifyProperty(schemaSlug, "year")] : null,
-		titleProperty: schemaSlugs.length
-			? qualifyBuiltinFields(schemaSlugs, "name")
-			: null,
-		imageProperty: schemaSlugs.length
-			? qualifyBuiltinFields(schemaSlugs, "image")
-			: null,
-		badgeProperty: schemaSlug
-			? [qualifyProperty(schemaSlug, "category")]
-			: null,
-		...overrides,
-	};
+	return buildCardDisplayConfiguration(schemaSlugs, overrides);
 }
 
 export function buildTableDisplayConfiguration(
@@ -316,45 +135,36 @@ export function buildTableDisplayConfiguration(
 	};
 }
 
-const toRuntimeFields = (input: {
-	layout: "grid" | "list" | "table";
-	displayConfiguration:
-		| GridDisplayConfiguration
-		| ListDisplayConfiguration
-		| TableDisplayConfiguration;
-}): RuntimeField[] => {
+function toRuntimeFields(input: RuntimeFieldsInput): RuntimeField[] {
 	if (input.layout === "table") {
-		return (
-			input.displayConfiguration as TableDisplayConfiguration
-		).columns.map((column, index) => ({
+		return input.displayConfiguration.columns.map((column, index) => ({
 			key: `column_${index}`,
-			expression:
-				toExpression(column.expression ?? column.property ?? []) ??
-				literalExpression(null),
+			expression: toRequiredExpression(
+				column.expression ?? column.property ?? [],
+			),
 		}));
 	}
 
-	const config = input.displayConfiguration as GridDisplayConfiguration;
+	const config = input.displayConfiguration;
 	return [
 		{
 			key: "image",
-			expression: toExpression(config.imageProperty) ?? literalExpression(null),
+			expression: toRequiredExpression(config.imageProperty),
 		},
 		{
 			key: "title",
-			expression: toExpression(config.titleProperty) ?? literalExpression(null),
+			expression: toRequiredExpression(config.titleProperty),
 		},
 		{
 			key: "subtitle",
-			expression:
-				toExpression(config.subtitleProperty) ?? literalExpression(null),
+			expression: toRequiredExpression(config.subtitleProperty),
 		},
 		{
 			key: "badge",
-			expression: toExpression(config.badgeProperty) ?? literalExpression(null),
+			expression: toRequiredExpression(config.badgeProperty),
 		},
 	];
-};
+}
 
 export function buildRuntimeField(
 	key: string,
@@ -362,7 +172,7 @@ export function buildRuntimeField(
 ): RuntimeField {
 	return {
 		key,
-		expression: toExpression(expression) ?? literalExpression(null),
+		expression: toRequiredExpression(expression),
 	};
 }
 
@@ -372,7 +182,7 @@ export function buildComputedField(
 ): ComputedField {
 	return {
 		key,
-		expression: toExpression(expression) ?? literalExpression(null),
+		expression: toRequiredExpression(expression),
 	};
 }
 
@@ -481,11 +291,11 @@ export async function executeViewRuntime(
 		filter: toFilterPredicate(body.filters, body.filter),
 		sort: normalizeSort(body.sort),
 	};
-	delete (normalizedBody as Partial<RuntimeRequest>).filters;
+	const { filters: _filters, ...requestBody } = normalizedBody;
 
 	return client.POST("/view-runtime/execute", {
+		body: requestBody,
 		headers: { Cookie: cookies },
-		body: normalizedBody as unknown as ExecuteViewRuntimeBody,
 	});
 }
 

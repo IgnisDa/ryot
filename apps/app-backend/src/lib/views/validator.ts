@@ -1,6 +1,10 @@
 import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
 import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
-import { buildComputedFieldMap, orderComputedFields } from "./computed-fields";
+import {
+	buildComputedFieldMap,
+	getComputedFieldOrThrow,
+	orderComputedFields,
+} from "./computed-fields";
 import { ViewRuntimeValidationError } from "./errors";
 import type {
 	RuntimeRef,
@@ -20,7 +24,6 @@ import {
 	getEventJoinPropertyType,
 	getPropertyType,
 	getSchemaForReference,
-	resolveRuntimeReference,
 	sortFilterBuiltins,
 	type ViewRuntimeEventJoinLike,
 	type ViewRuntimeReferenceContext,
@@ -92,21 +95,6 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	}
 };
 
-export const validateReferenceAgainstSchemas = (
-	reference: string,
-	context: ViewRuntimeReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
-	validBuiltins: ReadonlySet<string>,
-): void => {
-	validateRuntimeReferenceAgainstSchemas(
-		resolveRuntimeReference(reference),
-		context,
-		validBuiltins,
-	);
-};
-
 export const validateExpressionAgainstSchemas = (
 	expression: ViewExpression,
 	context: ViewRuntimeReferenceContext<
@@ -122,11 +110,7 @@ export const validateExpressionAgainstSchemas = (
 
 	if (expression.type === "reference") {
 		if (expression.reference.type === "computed-field") {
-			if (!computedFieldMap.has(expression.reference.key)) {
-				throw new ViewRuntimeValidationError(
-					`Computed field '${expression.reference.key}' is not part of this runtime request`,
-				);
-			}
+			getComputedFieldOrThrow(computedFieldMap, expression.reference.key);
 
 			return;
 		}
