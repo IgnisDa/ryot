@@ -442,8 +442,8 @@ ORDER BY RANDOM() LIMIT 10;
                 &user.id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
-                    description: Some(meta.1.to_owned()),
                     information_template: meta.0,
+                    description: Some(meta.1.to_owned()),
                     ..Default::default()
                 },
                 &self.0,
