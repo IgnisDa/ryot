@@ -212,8 +212,8 @@ describe("loadOverviewItems", () => {
 		});
 	});
 
-	describe("UTC date handling", () => {
-		it("preserves UTC timezone from view-runtime date fields", async () => {
+	describe("date field parsing", () => {
+		it("passes through Date objects from view-runtime fields unchanged", async () => {
 			const items = expectDataResult(
 				await loadOverviewItems(
 					{ userId: "user_1" },
@@ -257,7 +257,7 @@ describe("loadOverviewItems", () => {
 			expect(book?.progressAt).toEqual(date("2024-06-15T14:30:00.000Z"));
 		});
 
-		it("handles ISO 8601 UTC string dates from view-runtime", async () => {
+		it("parses ISO 8601 string field values into Date objects", async () => {
 			const items = expectDataResult(
 				await loadOverviewItems(
 					{ userId: "user_1" },

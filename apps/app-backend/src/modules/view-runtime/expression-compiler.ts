@@ -77,7 +77,7 @@ const buildLiteralExpression = (
 		.with("integer", () => sql`cast(${value} as integer)`)
 		.with("number", () => sql`cast(${value} as numeric)`)
 		.with("boolean", () => sql`cast(${value} as boolean)`)
-		.with("date", () => sql`cast(${value} as timestamp)`)
+		.with("date", () => sql`cast(${value} as timestamptz)`)
 		.with("array", "object", () => sql`${JSON.stringify(value)}::jsonb`)
 		.otherwise(() => {
 			if (typeof value === "object") {
@@ -99,7 +99,7 @@ const castExpressionToType = (
 	return match(targetType)
 		.with("number", () => sql`(${expression})::numeric`)
 		.with("boolean", () => sql`(${expression})::boolean`)
-		.with("date", () => sql`(${expression})::timestamp`)
+		.with("date", () => sql`(${expression})::timestamptz`)
 		.with("array", "object", () => sql`to_jsonb(${expression})`)
 		.with("integer", () => sql`trunc((${expression})::numeric)::integer`)
 		.otherwise(() => sql`(${expression})::text`);
