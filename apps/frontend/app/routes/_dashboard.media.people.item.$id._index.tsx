@@ -10,7 +10,6 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import { useInViewport } from "@mantine/hooks";
 import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
@@ -364,15 +363,12 @@ const MetadataDisplay = (props: {
 const MetadataGroupDisplay = (props: {
 	metadataGroupId: string;
 }) => {
-	const { ref, inViewport } = useInViewport();
 	const { data: metadataGroupDetails } = useMetadataGroupDetails(
 		props.metadataGroupId,
-		inViewport,
 	);
 
 	return (
 		<BaseEntityDisplay
-			ref={ref}
 			title={metadataGroupDetails?.details.title}
 			image={metadataGroupDetails?.details.assets.remoteImages.at(0)}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}

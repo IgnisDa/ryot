@@ -27,7 +27,7 @@ import {
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 } from "@tabler/icons-react";
-import { type ReactNode, type RefObject, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Form, Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -56,13 +56,7 @@ import {
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 
-type InternalRef = RefObject<HTMLDivElement> | ((node: unknown) => void);
-
-const WrapperComponent = (props: {
-	link?: string;
-	children: ReactNode;
-	ref?: InternalRef;
-}) =>
+const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
 	props.link ? (
 		<Anchor component={Link} to={props.link}>
 			{props.children}
@@ -75,12 +69,11 @@ export const BaseEntityDisplay = (props: {
 	link?: string;
 	image?: string;
 	title?: string;
-	ref?: InternalRef;
 	extraText?: string;
 	hasInteracted?: boolean;
 }) => {
 	return (
-		<WrapperComponent link={props.link} ref={props.ref}>
+		<WrapperComponent link={props.link}>
 			<Avatar
 				w={85}
 				h={100}
