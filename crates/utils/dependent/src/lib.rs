@@ -2885,27 +2885,28 @@ pub async fn create_or_update_collection(
     let created = match meta {
         Some(m) if input.update_id.is_none() => m.id,
         _ => {
-            let col = collection::ActiveModel {
-                id: match input.update_id {
-                    Some(i) => {
-                        let already = Collection::find_by_id(i.clone())
-                            .one(&txn)
-                            .await
-                            .unwrap()
-                            .unwrap();
-                        if DefaultCollection::iter()
-                            .map(|s| s.to_string())
-                            .contains(&already.name)
-                        {
-                            new_name = already.name;
-                        }
-                        ActiveValue::Unchanged(i.clone())
+            let id = match input.update_id {
+                None => ActiveValue::NotSet,
+                Some(i) => {
+                    let already = Collection::find_by_id(i.clone())
+                        .one(&txn)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if DefaultCollection::iter()
+                        .map(|s| s.to_string())
+                        .contains(&already.name)
+                    {
+                        new_name = already.name;
                     }
-                    None => ActiveValue::NotSet,
-                },
-                last_updated_on: ActiveValue::Set(Utc::now()),
+                    ActiveValue::Unchanged(i.clone())
+                }
+            };
+            let col = collection::ActiveModel {
+                id,
                 name: ActiveValue::Set(new_name),
                 user_id: ActiveValue::Set(user_id.to_owned()),
+                last_updated_on: ActiveValue::Set(Utc::now()),
                 description: ActiveValue::Set(input.description),
                 information_template: ActiveValue::Set(input.information_template),
                 ..Default::default()
