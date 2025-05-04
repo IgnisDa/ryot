@@ -50,7 +50,7 @@ export const NameAndOtherInputs = (props: {
 
 	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
 	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
-	const [isCaloriesBurntModalOpen, setIsCaloriesBurntModalOpen] =
+	const [isExtraInformationModalOpen, setIsExtraInformationModalOpen] =
 		useState(false);
 	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(
 		currentWorkout.caloriesBurnt,
@@ -87,23 +87,29 @@ export const NameAndOtherInputs = (props: {
 		<>
 			<Modal
 				title="Additional details"
-				opened={isCaloriesBurntModalOpen}
-				onClose={() => setIsCaloriesBurntModalOpen(false)}
+				opened={isExtraInformationModalOpen}
+				onClose={() => setIsExtraInformationModalOpen(false)}
 			>
 				<Stack gap="xs">
-					<NumberInput
-						size="sm"
-						value={currentWorkout.caloriesBurnt}
-						label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
-						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
-					/>
+					{!props.isCreatingTemplate ? (
+						<NumberInput
+							size="sm"
+							value={currentWorkout.caloriesBurnt}
+							label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
+							onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
+						/>
+					) : null}
 					<Textarea
 						size="sm"
 						minRows={2}
 						label="Comments"
 						defaultValue={comment}
-						placeholder="Your thoughts about this workout"
 						onChange={(e) => setComment(e.currentTarget.value)}
+						placeholder={
+							props.isCreatingTemplate
+								? "Notes or description for this template"
+								: "Your thoughts about this workout"
+						}
 					/>
 				</Stack>
 			</Modal>
@@ -124,14 +130,12 @@ export const NameAndOtherInputs = (props: {
 				label={
 					<Group justify="space-between" mr="xs">
 						<Text size="sm">Name</Text>
-						{!props.isCreatingTemplate ? (
-							<Anchor
-								size="xs"
-								onClick={() => setIsCaloriesBurntModalOpen(true)}
-							>
-								More Information
-							</Anchor>
-						) : null}
+						<Anchor
+							size="xs"
+							onClick={() => setIsExtraInformationModalOpen(true)}
+						>
+							More Information
+						</Anchor>
 					</Group>
 				}
 			/>
