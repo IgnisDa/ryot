@@ -3,12 +3,14 @@ import {
 	Button,
 	Center,
 	Code,
+	ColorInput,
 	Container,
 	Flex,
 	Group,
 	Loader,
 	Modal,
 	Paper,
+	Select,
 	Stack,
 	Text,
 	Title,
@@ -28,7 +30,7 @@ import { EntitySchemaPropertiesBuilder } from "#/features/entity-schemas/propert
 import { useCreateEntitySchemaForm } from "#/features/entity-schemas/use-form";
 import { EventSchemasSection } from "#/features/event-schemas/section";
 import { useFacetsQuery } from "#/features/facets/hooks";
-import { FacetIcon } from "#/features/facets/icons";
+import { FacetIcon, facetIconSelectData } from "#/features/facets/icons";
 import type { AppFacet } from "#/features/facets/model";
 
 export const Route = createFileRoute("/_protected/tracking/$facetSlug/")({
@@ -130,10 +132,22 @@ function EntitySchemaList(props: {
 					<Paper key={entitySchema.id} p="lg" withBorder radius="md">
 						<Stack gap="md">
 							<Group justify="space-between" align="flex-start">
-								<Stack gap={2}>
-									<Text fw={600}>{entitySchema.name}</Text>
-									<Code>{entitySchema.slug}</Code>
-								</Stack>
+								<Group gap="sm" align="flex-start" wrap="nowrap">
+									<Box
+										style={{
+											paddingTop: 2,
+											display: "flex",
+											alignItems: "center",
+											color: entitySchema.accentColor,
+										}}
+									>
+										<FacetIcon icon={entitySchema.icon} size={18} />
+									</Box>
+									<Stack gap={2}>
+										<Text fw={600}>{entitySchema.name}</Text>
+										<Code>{entitySchema.slug}</Code>
+									</Stack>
+								</Group>
 								<Text c="dimmed" size="sm">
 									{propertyCount}{" "}
 									{propertyCount === 1 ? "property" : "properties"}
@@ -214,6 +228,45 @@ function EntitySchemaCreateModal(props: {
 								/>
 							)}
 						</entitySchemaForm.AppField>
+
+						<Group grow align="flex-start" wrap="nowrap">
+							<entitySchemaForm.AppField name="icon">
+								{(field) => (
+									<Select
+										required
+										searchable
+										limit={100}
+										label="Icon"
+										placeholder="Select icon"
+										onBlur={field.handleBlur}
+										disabled={props.isLoading}
+										data={facetIconSelectData}
+										value={field.state.value || null}
+										leftSection={<FacetIcon icon={field.state.value} />}
+										onChange={(value) => field.handleChange(value ?? "")}
+										renderOption={({ option }) => (
+											<Group gap={8} wrap="nowrap">
+												<FacetIcon icon={option.value} />
+												<span>{option.label}</span>
+											</Group>
+										)}
+									/>
+								)}
+							</entitySchemaForm.AppField>
+
+							<entitySchemaForm.AppField name="accentColor">
+								{(field) => (
+									<ColorInput
+										required
+										label="Accent Color"
+										value={field.state.value}
+										disabled={props.isLoading}
+										placeholder="Choose color"
+										onChange={(value) => field.handleChange(value)}
+									/>
+								)}
+							</entitySchemaForm.AppField>
+						</Group>
 
 						<EntitySchemaPropertiesBuilder
 							form={entitySchemaForm}
