@@ -124,6 +124,7 @@ import {
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useGetWatchProviders,
+	usePersonDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -1320,15 +1321,19 @@ const MetadataCreator = (props: {
 	id?: string | null;
 	image?: string | null;
 	character?: string | null;
-}) => (
-	<BaseEntityDisplay
-		image={props.image || undefined}
-		title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
-		link={
-			props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
-		}
-	/>
-);
+}) => {
+	usePersonDetails(props.id);
+
+	return (
+		<BaseEntityDisplay
+			image={props.image || undefined}
+			title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
+			link={
+				props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
+			}
+		/>
+	);
+};
 
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
