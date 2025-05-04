@@ -1571,6 +1571,11 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
+                                        op: "contains";
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
@@ -1659,6 +1664,11 @@ export interface paths {
                                 value?: unknown;
                                 field: string;
                                 /** @enum {string} */
+                                op: "contains";
+                            } | {
+                                value?: unknown;
+                                field: string;
+                                /** @enum {string} */
                                 op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                             })[];
                             entitySchemaSlugs: string[];
@@ -1725,6 +1735,11 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "isNull";
                                         field: string;
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "contains";
                                     } | {
                                         value?: unknown;
                                         field: string;
@@ -1847,6 +1862,11 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
+                                        op: "contains";
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
                                         op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
@@ -1940,6 +1960,11 @@ export interface paths {
                                 value?: unknown;
                                 field: string;
                                 /** @enum {string} */
+                                op: "contains";
+                            } | {
+                                value?: unknown;
+                                field: string;
+                                /** @enum {string} */
                                 op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                             })[];
                             entitySchemaSlugs: string[];
@@ -2006,6 +2031,11 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "isNull";
                                         field: string;
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "contains";
                                     } | {
                                         value?: unknown;
                                         field: string;
@@ -2123,6 +2153,11 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "isNull";
                                         field: string;
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "contains";
                                     } | {
                                         value?: unknown;
                                         field: string;
@@ -2253,6 +2288,11 @@ export interface paths {
                                         /** @enum {string} */
                                         op: "isNull";
                                         field: string;
+                                    } | {
+                                        value?: unknown;
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "contains";
                                     } | {
                                         value?: unknown;
                                         field: string;
@@ -2441,6 +2481,11 @@ export interface paths {
                             value?: unknown;
                             field: string;
                             /** @enum {string} */
+                            op: "contains";
+                        } | {
+                            value?: unknown;
+                            field: string;
+                            /** @enum {string} */
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
@@ -2476,6 +2521,11 @@ export interface paths {
                             value?: unknown;
                             field: string;
                             /** @enum {string} */
+                            op: "contains";
+                        } | {
+                            value?: unknown;
+                            field: string;
+                            /** @enum {string} */
                             op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
@@ -2507,6 +2557,11 @@ export interface paths {
                             /** @enum {string} */
                             op: "isNull";
                             field: string;
+                        } | {
+                            value?: unknown;
+                            field: string;
+                            /** @enum {string} */
+                            op: "contains";
                         } | {
                             value?: unknown;
                             field: string;
