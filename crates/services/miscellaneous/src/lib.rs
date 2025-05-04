@@ -73,12 +73,12 @@ use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
     GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator,
-    MetadataPartialDetails, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    PartialMetadataWithoutId, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
+    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -127,28 +127,6 @@ impl MiscellaneousService {
 
     pub async fn core_details(&self) -> Result<CoreDetails> {
         self.0.core_details().await
-    }
-
-    pub async fn metadata_partial_details(
-        &self,
-        metadata_id: &String,
-    ) -> Result<MetadataPartialDetails> {
-        let mut metadata = Metadata::find_by_id(metadata_id)
-            .select_only()
-            .columns([
-                metadata::Column::Id,
-                metadata::Column::Lot,
-                metadata::Column::Title,
-                metadata::Column::Assets,
-                metadata::Column::PublishYear,
-            ])
-            .into_model::<MetadataPartialDetails>()
-            .one(&self.0.db)
-            .await
-            .unwrap()
-            .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
-        transform_entity_assets(&mut metadata.assets, &self.0).await;
-        Ok(metadata)
     }
 
     pub async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
