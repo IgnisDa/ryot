@@ -120,39 +120,22 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             spoiler: Some(false),
             ..Default::default()
         });
-        if let Some(media) = media
-            .iter_mut()
-            .find(|m| m.source_id == record.common.title)
-        {
-            if review.is_some() {
-                if let Some(rating) = media.reviews.last_mut() {
-                    rating.review = review;
-                } else {
-                    media.reviews.push(ImportOrExportItemRating {
-                        review,
-                        ..Default::default()
-                    })
-                }
-            }
-            media.seen_history.push(seen_item);
-        } else {
-            let mut reviews = vec![];
-            if review.is_some() {
-                reviews.push(ImportOrExportItemRating {
-                    review,
-                    ..Default::default()
-                })
-            }
-            media.push(ImportOrExportMetadataItem {
-                source_id: record.common.title.clone(),
-                lot,
-                source,
-                identifier: record.common.tmdb_id.to_string(),
-                seen_history: vec![seen_item],
-                reviews,
+        let mut reviews = vec![];
+        if review.is_some() {
+            reviews.push(ImportOrExportItemRating {
+                review,
                 ..Default::default()
             })
         }
+        media.push(ImportOrExportMetadataItem {
+            lot,
+            source,
+            reviews,
+            seen_history: vec![seen_item],
+            source_id: record.common.title.clone(),
+            identifier: record.common.tmdb_id.to_string(),
+            ..Default::default()
+        });
     }
     Ok(ImportResult {
         failed,
