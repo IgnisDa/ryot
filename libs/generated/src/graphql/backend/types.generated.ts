@@ -193,7 +193,6 @@ export type CollectionExtraInformation = {
   description: Scalars['String']['output'];
   lot: CollectionExtraInformationLot;
   name: Scalars['String']['output'];
-  possibleValues?: Maybe<Array<Scalars['String']['output']>>;
   required?: Maybe<Scalars['Boolean']['output']>;
 };
 
@@ -202,7 +201,6 @@ export type CollectionExtraInformationInput = {
   description: Scalars['String']['input'];
   lot: CollectionExtraInformationLot;
   name: Scalars['String']['input'];
-  possibleValues?: InputMaybe<Array<Scalars['String']['input']>>;
   required?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -2772,10 +2770,12 @@ export enum UserTemplatesOrWorkoutsListSortBy {
 export type UserToCollectionExtraInformation = {
   __typename?: 'UserToCollectionExtraInformation';
   isHidden?: Maybe<Scalars['Boolean']['output']>;
+  possibleValues?: Maybe<Array<Scalars['String']['output']>>;
 };
 
 export type UserToCollectionExtraInformationInput = {
   isHidden?: InputMaybe<Scalars['Boolean']['input']>;
+  possibleValues?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type UserToEntity = {
