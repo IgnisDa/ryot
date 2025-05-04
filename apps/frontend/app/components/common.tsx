@@ -15,6 +15,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Loader,
 	type MantineStyleProp,
 	Modal,
 	Paper,
@@ -73,6 +74,7 @@ import {
 	IconMoodHappy,
 	IconMoodSad,
 	IconPlus,
+	IconRefresh,
 	IconRotateClockwise,
 	IconScaleOutline,
 	IconSearch,
@@ -81,12 +83,20 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
-import { Form, Link, useFetcher, useLocation, useNavigate } from "react-router";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useLocation,
+	useNavigate,
+	useRevalidator,
+} from "react-router";
 import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
@@ -169,9 +179,25 @@ export const MediaDetailsLayout = (props: {
 		source: MediaSource;
 		href?: string | null;
 	};
+	partialDetailsFetcher: {
+		entityId: string;
+		isAlreadyPartial?: boolean | null;
+		fn: () => Promise<boolean | undefined | null>;
+	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
+	const revalidator = useRevalidator();
+
+	const { data: isPartialData } = useQuery({
+		queryFn: props.partialDetailsFetcher.fn,
+		enabled: Boolean(props.partialDetailsFetcher.isAlreadyPartial),
+		queryKey: ["pollDetails", props.partialDetailsFetcher.entityId],
+		refetchInterval: (query) => {
+			if (query.state.data === true) return 500;
+			return false;
+		},
+	});
 
 	const images = [...props.assets.remoteImages, ...props.assets.s3Images];
 
@@ -229,7 +255,18 @@ export const MediaDetailsLayout = (props: {
 				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
-				<Title id="media-title">{props.title}</Title>
+				<Group wrap="nowrap">
+					{props.partialDetailsFetcher.isAlreadyPartial ? (
+						isPartialData ? (
+							<Loader size="sm" />
+						) : (
+							<ActionIcon size="sm" onClick={() => revalidator.revalidate()}>
+								<IconRefresh />
+							</ActionIcon>
+						)
+					) : null}
+					<Title id="media-title">{props.title}</Title>
+				</Group>
 				{props.children}
 			</Stack>
 		</Flex>
