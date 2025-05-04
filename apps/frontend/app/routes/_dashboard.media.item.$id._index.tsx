@@ -711,9 +711,9 @@ export default function Page() {
 														<Flex gap="md">
 															{c.items.map((creator) => (
 																<MetadataCreator
-																	id={creator.id}
 																	name={creator.name}
 																	image={creator.image}
+																	id={creator.id || undefined}
 																	character={creator.character}
 																	key={`${creator.id}-${creator.name}`}
 																/>
@@ -1327,19 +1327,21 @@ const DisplayShowSeasonEpisodes = (props: {
 };
 
 const MetadataCreator = (props: {
+	id?: string;
 	name: string;
-	id?: string | null;
 	image?: string | null;
 	character?: string | null;
-}) => (
-	<BaseEntityDisplay
-		image={props.image || undefined}
-		title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
-		link={
-			props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
-		}
-	/>
-);
+}) => {
+	return (
+		<BaseEntityDisplay
+			image={props.image || undefined}
+			title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
+			link={
+				props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
+			}
+		/>
+	);
+};
 
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];

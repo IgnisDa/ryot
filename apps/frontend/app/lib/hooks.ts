@@ -20,7 +20,11 @@ import {
 	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
+	getMetadataGroupDetailsQuery,
+	getPersonDetailsQuery,
 	getUserMetadataDetailsQuery,
+	getUserMetadataGroupDetailsQuery,
+	getUserPersonDetailsQuery,
 	selectRandomElement,
 } from "~/lib/common";
 import {
@@ -114,19 +118,44 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const useMetadataDetails = (
-	metadataId?: string | null,
-	enabled?: boolean,
-) => {
+export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 };
 
 export const useUserMetadataDetails = (
-	metadataId?: string | null,
+	metadataId?: string,
 	enabled?: boolean,
 ) => {
 	return useQuery({
 		...getUserMetadataDetailsQuery(metadataId),
+		enabled,
+	});
+};
+
+export const usePersonDetails = (personId?: string, enabled?: boolean) => {
+	return useQuery({ ...getPersonDetailsQuery(personId), enabled });
+};
+
+export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
+	return useQuery({ ...getUserPersonDetailsQuery(personId), enabled });
+};
+
+export const useMetadataGroupDetails = (
+	metadataGroupId?: string,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getMetadataGroupDetailsQuery(metadataGroupId),
+		enabled,
+	});
+};
+
+export const useUserMetadataGroupDetails = (
+	metadataGroupId?: string,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 	});
 };

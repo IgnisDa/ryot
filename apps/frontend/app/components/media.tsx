@@ -15,10 +15,7 @@ import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
 	MediaLot,
-	PersonDetailsDocument,
 	SeenState,
-	UserMetadataGroupDetailsDocument,
-	UserPersonDetailsDocument,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -30,7 +27,6 @@ import {
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useMemo } from "react";
 import { Form, Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -42,19 +38,19 @@ import {
 	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
 import {
-	clientGqlService,
-	getMetadataGroupDetailsQuery,
-	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
-	queryFactory,
 	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
+	useMetadataGroupDetails,
+	usePersonDetails,
 	useUserDetails,
 	useUserMetadataDetails,
+	useUserMetadataGroupDetails,
+	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
@@ -105,9 +101,7 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = useQuery(
-		getPartialMetadataDetailsQuery(props.metadataId),
-	);
+	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
@@ -353,20 +347,11 @@ export const MetadataGroupDisplayItem = (props: {
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useQuery({
-			...getMetadataGroupDetailsQuery(props.metadataGroupId),
-			enabled: inViewport,
-		});
-	const { data: userMetadataGroupDetails } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
-			.queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(UserMetadataGroupDetailsDocument, props)
-				.then((data) => data.userMetadataGroupDetails);
-		},
-	});
+		useMetadataGroupDetails(props.metadataGroupId, inViewport);
+	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
+		props.metadataGroupId,
+		inViewport,
+	);
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
@@ -418,24 +403,12 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(PersonDetailsDocument, props)
-				.then((data) => data.personDetails);
-		},
-	});
-	const { data: userPersonDetails } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.userPersonDetails(props.personId).queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(UserPersonDetailsDocument, props)
-				.then((data) => data.userPersonDetails);
-		},
-	});
+	const { data: personDetails, isLoading: isPersonDetailsLoading } =
+		usePersonDetails(props.personId, inViewport);
+	const { data: userPersonDetails } = useUserPersonDetails(
+		props.personId,
+		inViewport,
+	);
 
 	const averageRating = userPersonDetails?.averageRating;
 

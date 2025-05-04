@@ -90,7 +90,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
@@ -121,7 +121,6 @@ import {
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	forcedDashboardPath,
-	getMetadataDetailsQuery,
 	getVerb,
 	refreshEntityDetails,
 } from "~/lib/common";
@@ -1360,10 +1359,10 @@ const ReviewEntityForm = ({
 	>(
 		entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
 	);
-	const { data: metadataDetails } = useQuery({
-		...getMetadataDetailsQuery(entityToReview?.entityId),
-		enabled: entityToReview?.entityLot === EntityLot.Metadata,
-	});
+	const { data: metadataDetails } = useMetadataDetails(
+		entityToReview?.entityId,
+		entityToReview?.entityLot === EntityLot.Metadata,
+	);
 
 	const SmileySurround = (props: {
 		children: ReactNode;

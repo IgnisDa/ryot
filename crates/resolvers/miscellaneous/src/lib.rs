@@ -15,9 +15,8 @@ use dependent_models::{
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataPartialDetails, ProgressUpdateInput,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, ProgressUpdateInput, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -34,16 +33,6 @@ impl MiscellaneousQuery {
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
-    }
-
-    /// Get partial details about a media present in the database.
-    async fn metadata_partial_details(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_id: String,
-    ) -> Result<MetadataPartialDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_partial_details(&metadata_id).await
     }
 
     /// Get details about a media present in the database.

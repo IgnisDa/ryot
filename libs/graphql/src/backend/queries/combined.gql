@@ -147,18 +147,6 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
 	}
 }
 
-query MetadataPartialDetails($metadataId: String!) {
-	metadataPartialDetails(metadataId: $metadataId) {
-		id
-		lot
-		title
-		publishYear
-		assets {
-			...EntityAssetsPart
-		}
-	}
-}
-
 query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
 	userMetadataGroupsList(input: $input) {
 		cacheId

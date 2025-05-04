@@ -50,7 +50,6 @@ import {
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { Form, Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
@@ -70,13 +69,13 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
-	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 } from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWorkoutStarter,
+	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -645,10 +644,10 @@ const ConsumedMetadataDisplay = (props: {
 	metadataId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails } = useQuery({
-		...getPartialMetadataDetailsQuery(props.metadataId),
-		enabled: inViewport,
-	});
+	const { data: metadataDetails } = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>

@@ -12,11 +12,13 @@ import {
 	MediaSource,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
-	MetadataPartialDetailsDocument,
+	PersonDetailsDocument,
 	PresignedPutS3UrlDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
+	UserMetadataGroupDetailsDocument,
+	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange, isString } from "@ryot/ts-utils";
 import {
@@ -369,25 +371,22 @@ export function getSurroundingElements<T>(
 }
 
 const mediaQueryKeys = createQueryKeys("media", {
-	metadataPartialDetails: (metadataId: string) => ({
-		queryKey: ["metadataPartialDetails", metadataId],
-	}),
-	metadataDetails: (metadataId: string) => ({
+	metadataDetails: (metadataId?: string) => ({
 		queryKey: ["metadataDetails", metadataId],
 	}),
-	userMetadataDetails: (metadataId: string) => ({
+	userMetadataDetails: (metadataId?: string) => ({
 		queryKey: ["userMetadataDetails", metadataId],
 	}),
-	metadataGroupDetails: (metadataGroupId: string) => ({
+	metadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
-	userMetadataGroupDetails: (metadataGroupId: string) => ({
+	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
 	}),
-	personDetails: (personId: string) => ({
+	personDetails: (personId?: string) => ({
 		queryKey: ["personDetails", personId],
 	}),
-	userPersonDetails: (personId: string) => ({
+	userPersonDetails: (personId?: string) => ({
 		queryKey: ["userPersonDetails", personId],
 	}),
 	genreImages: (genreId: string) => ({
@@ -441,18 +440,9 @@ export const queryFactory = mergeQueryKeys(
 	miscellaneousQueryKeys,
 );
 
-export const getPartialMetadataDetailsQuery = (metadataId: string) =>
+export const getMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(MetadataPartialDetailsDocument, { metadataId })
-				.then((data) => data.metadataPartialDetails),
-	});
-
-export const getMetadataDetailsQuery = (metadataId?: string | null) =>
-	queryOptions({
-		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
+		queryKey: queryFactory.media.metadataDetails(metadataId).queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -461,9 +451,9 @@ export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 			: skipToken,
 	});
 
-export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
+export const getUserMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
+		queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -472,7 +462,29 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 			: skipToken,
 	});
 
-export const getMetadataGroupDetailsQuery = (metadataGroupId: string) =>
+export const getPersonDetailsQuery = (personId?: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.personDetails(personId).queryKey,
+		queryFn: personId
+			? () =>
+					clientGqlService
+						.request(PersonDetailsDocument, { personId })
+						.then((data) => data.personDetails)
+			: skipToken,
+	});
+
+export const getUserPersonDetailsQuery = (personId?: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.userPersonDetails(personId).queryKey,
+		queryFn: personId
+			? () =>
+					clientGqlService
+						.request(UserPersonDetailsDocument, { personId })
+						.then((data) => data.userPersonDetails)
+			: skipToken,
+	});
+
+export const getMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 	queryOptions({
 		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId).queryKey,
 		queryFn: metadataGroupId
@@ -480,6 +492,18 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId: string) =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, { metadataGroupId })
 						.then((data) => data.metadataGroupDetails)
+			: skipToken,
+	});
+
+export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
+	queryOptions({
+		queryKey:
+			queryFactory.media.userMetadataGroupDetails(metadataGroupId).queryKey,
+		queryFn: metadataGroupId
+			? () =>
+					clientGqlService
+						.request(UserMetadataGroupDetailsDocument, { metadataGroupId })
+						.then((data) => data.userMetadataGroupDetails)
 			: skipToken,
 	});
 
