@@ -35,7 +35,6 @@ export const listFacetsByUser = async (userId: string) => {
 
 	return rows.map((row) => ({
 		...row,
-		icon: row.icon ?? null,
 		enabled: row.enabled ?? false,
 		sortOrder: row.sortOrder ?? 0,
 		description: row.description ?? null,
@@ -118,7 +117,7 @@ export const getOwnedFacetById = async (input: {
 export const createFacetForUser = async (input: {
 	name: string;
 	slug: string;
-	icon?: string;
+	icon: string;
 	userId: string;
 	mode: FacetMode;
 	description?: string;
@@ -292,10 +291,10 @@ export const persistFacetOrderForUser = async (input: {
 
 export const updateFacetForUser = async (input: {
 	slug: string;
+	icon: string;
 	name: string;
 	userId: string;
 	facetId: string;
-	icon: string | null;
 	description: string | null;
 	accentColor: string | null;
 }) => {

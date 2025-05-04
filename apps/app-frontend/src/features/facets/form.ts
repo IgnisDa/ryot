@@ -1,6 +1,7 @@
 import {
 	trimmedOrNull,
 	trimmedOrUndefined,
+	zodNonEmptyTrimmedString,
 	zodRequiredName,
 	zodRequiredSlug,
 } from "@ryot/ts-utils";
@@ -21,11 +22,11 @@ export interface FacetFormValues {
 export type ResolveNextFacetSlugInput = ResolveNextSlugInput;
 
 export const createFacetFormSchema = z.object({
-	icon: z.string(),
 	name: zodRequiredName,
 	slug: zodRequiredSlug,
 	description: z.string(),
 	accentColor: z.string(),
+	icon: zodNonEmptyTrimmedString("Icon is required"),
 });
 
 export type CreateFacetFormValues = z.infer<typeof createFacetFormSchema>;
@@ -48,17 +49,17 @@ export const defaultCreateFacetFormValues: CreateFacetFormValues =
 export const resolveNextFacetSlug = resolveNextSlug;
 
 export interface CreateFacetPayload {
+	icon: string;
 	name: string;
 	slug: string;
-	icon?: string;
 	description?: string;
 	accentColor?: string;
 }
 
 export interface UpdateFacetPayload {
+	icon: string;
 	name: string;
 	slug: string;
-	icon?: string | null;
 	description?: string | null;
 	accentColor?: string | null;
 }
@@ -67,12 +68,10 @@ export function toCreateFacetPayload(
 	input: CreateFacetFormValues,
 ): CreateFacetPayload {
 	const payload: CreateFacetPayload = {
+		icon: input.icon.trim(),
 		name: input.name.trim(),
 		slug: input.slug.trim(),
 	};
-
-	const icon = trimmedOrUndefined(input.icon);
-	if (icon !== undefined) payload.icon = icon;
 
 	const description = trimmedOrUndefined(input.description);
 	if (description !== undefined) payload.description = description;
@@ -87,9 +86,9 @@ export function toUpdateFacetPayload(
 	input: CreateFacetFormValues,
 ): UpdateFacetPayload {
 	return {
+		icon: input.icon.trim(),
 		name: input.name.trim(),
 		slug: input.slug.trim(),
-		icon: input.icon !== undefined ? trimmedOrNull(input.icon) : undefined,
 		description:
 			input.description !== undefined
 				? trimmedOrNull(input.description)
