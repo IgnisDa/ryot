@@ -712,9 +712,9 @@ export default function Page() {
 														<Flex gap="md">
 															{c.items.map((creator) => (
 																<MetadataCreator
-																	id={creator.id}
 																	name={creator.name}
 																	image={creator.image}
+																	id={creator.id || undefined}
 																	character={creator.character}
 																	key={`${creator.id}-${creator.name}`}
 																/>
@@ -1328,8 +1328,8 @@ const DisplayShowSeasonEpisodes = (props: {
 };
 
 const MetadataCreator = (props: {
+	id?: string;
 	name: string;
-	id?: string | null;
 	image?: string | null;
 	character?: string | null;
 }) => {
