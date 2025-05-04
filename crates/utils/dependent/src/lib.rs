@@ -2295,11 +2295,11 @@ async fn create_collection_and_add_entity_to_it(
 ) {
     if let Err(e) = create_or_update_collection(
         user_id,
+        ss,
         CreateOrUpdateCollectionInput {
             name: collection_name.clone(),
             ..Default::default()
         },
-        ss,
     )
     .await
     {
@@ -2634,7 +2634,7 @@ where
                 }
             }
             ImportCompletedItem::Collection(col_details) => {
-                if let Err(e) = create_or_update_collection(user_id, col_details.clone(), ss).await
+                if let Err(e) = create_or_update_collection(user_id, ss, col_details.clone()).await
                 {
                     import.failed.push(ImportFailedItem {
                         error: Some(e.message),
@@ -2870,8 +2870,8 @@ pub async fn expire_user_collections_list_cache(
 
 pub async fn create_or_update_collection(
     user_id: &String,
-    input: CreateOrUpdateCollectionInput,
     ss: &Arc<SupportingService>,
+    input: CreateOrUpdateCollectionInput,
 ) -> Result<StringIdObject> {
     ryot_log!(debug, "Creating or updating collection: {:?}", input);
     let txn = ss.db.begin().await?;

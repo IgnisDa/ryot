@@ -440,13 +440,13 @@ ORDER BY RANDOM() LIMIT 10;
             let meta = col.meta().to_owned();
             create_or_update_collection(
                 &user.id,
+                &self.0,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
                     information_template: meta.0,
                     description: Some(meta.1.to_owned()),
                     ..Default::default()
                 },
-                &self.0,
             )
             .await
             .ok();

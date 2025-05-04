@@ -415,7 +415,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
-        create_or_update_collection(user_id, input, &self.0).await
+        create_or_update_collection(user_id, &self.0, input).await
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
