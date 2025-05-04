@@ -45,6 +45,7 @@ import { useMetadataGroupDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
+import { clientGqlService } from "~/lib/common";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -128,6 +129,16 @@ export default function Page() {
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.details.sourceUrl,
+				}}
+				partialDetailsFetcher={{
+					entityId: loaderData.personDetails.details.id,
+					isAlreadyPartial: loaderData.personDetails.details.isPartial,
+					fn: () =>
+						clientGqlService
+							.request(PersonDetailsDocument, {
+								personId: loaderData.personDetails.details.id,
+							})
+							.then((data) => data.personDetails.details.isPartial),
 				}}
 			>
 				{additionalPersonDetails.length > 0 ? (
