@@ -17,6 +17,7 @@ import {
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
+	UserMetadataGroupDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange, isString } from "@ryot/ts-utils";
@@ -492,6 +493,20 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId?: string | null) =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, { metadataGroupId })
 						.then((data) => data.metadataGroupDetails)
+			: skipToken,
+	});
+
+export const getUserMetadataGroupDetailsQuery = (
+	metadataGroupId?: string | null,
+) =>
+	queryOptions({
+		queryKey: queryFactory.media.userMetadataGroupDetails(metadataGroupId || "")
+			.queryKey,
+		queryFn: metadataGroupId
+			? () =>
+					clientGqlService
+						.request(UserMetadataGroupDetailsDocument, { metadataGroupId })
+						.then((data) => data.userMetadataGroupDetails)
 			: skipToken,
 	});
 

@@ -23,6 +23,7 @@ import {
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
 	getUserMetadataDetailsQuery,
+	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	selectRandomElement,
 } from "~/lib/common";
@@ -158,6 +159,16 @@ export const useMetadataGroupDetails = (
 ) => {
 	return useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
+		enabled,
+	});
+};
+
+export const useUserMetadataGroupDetails = (
+	metadataGroupId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 	});
 };

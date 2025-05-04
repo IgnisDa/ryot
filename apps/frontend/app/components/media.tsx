@@ -16,7 +16,6 @@ import {
 	EntityLot,
 	MediaLot,
 	SeenState,
-	UserMetadataGroupDetailsDocument,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -28,7 +27,6 @@ import {
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useMemo } from "react";
 import { Form, Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -40,9 +38,7 @@ import {
 	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
 import {
-	clientGqlService,
 	openConfirmationModal,
-	queryFactory,
 	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
@@ -53,6 +49,7 @@ import {
 	usePersonDetails,
 	useUserDetails,
 	useUserMetadataDetails,
+	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -351,16 +348,10 @@ export const MetadataGroupDisplayItem = (props: {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataGroupDetails(props.metadataGroupId, inViewport);
-	const { data: userMetadataGroupDetails } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
-			.queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(UserMetadataGroupDetailsDocument, props)
-				.then((data) => data.userMetadataGroupDetails);
-		},
-	});
+	const { data: userMetadataGroupDetails } = useUserMetadataGroupDetails(
+		props.metadataGroupId,
+		inViewport,
+	);
 
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
