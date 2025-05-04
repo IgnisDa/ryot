@@ -41,11 +41,11 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
+import { clientGqlService } from "~/lib/common";
 import { useMetadataGroupDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
-import { clientGqlService } from "~/lib/common";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
