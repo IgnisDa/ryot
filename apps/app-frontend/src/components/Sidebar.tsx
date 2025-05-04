@@ -345,8 +345,8 @@ export function Sidebar(props: SidebarProps) {
 								padding: "10px 14px",
 								borderLeft: "2px solid transparent",
 								"&:hover": {
-									backgroundColor: "rgba(212, 165, 116, 0.06)",
 									borderLeftColor: borderAccent,
+									backgroundColor: "rgba(212, 165, 116, 0.06)",
 								},
 							},
 						}}
@@ -359,9 +359,9 @@ export function Sidebar(props: SidebarProps) {
 							style={{ borderLeft: `2px solid ${borderAccent}` }}
 						>
 							<Text
-								c={textMuted}
 								fw={600}
 								size="xs"
+								c={textMuted}
 								ff="var(--mantine-headings-font-family)"
 								style={{ letterSpacing: "1px", textTransform: "uppercase" }}
 							>
@@ -371,12 +371,12 @@ export function Sidebar(props: SidebarProps) {
 					</Box>
 
 					<DndContext
-						collisionDetection={closestCenter}
 						onDragEnd={handleDragEnd}
+						collisionDetection={closestCenter}
 					>
 						<SortableContext
-							items={props.facets.map((facet) => facet.id)}
 							strategy={verticalListSortingStrategy}
+							items={props.facets.map((facet) => facet.id)}
 						>
 							{props.facets.map((facet) => {
 								const isExpanded =
