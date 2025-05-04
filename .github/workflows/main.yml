@@ -218,7 +218,7 @@ jobs:
       - pre-workflow-checks
       - build-docker
     if: needs.pre-workflow-checks.outputs.should-release == 'true'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
