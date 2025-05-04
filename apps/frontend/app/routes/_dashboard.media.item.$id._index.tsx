@@ -1322,10 +1322,12 @@ const MetadataCreator = (props: {
 	image?: string | null;
 	character?: string | null;
 }) => {
-	usePersonDetails(props.id);
+	const { ref, inViewport } = useInViewport();
+	usePersonDetails(props.id, inViewport);
 
 	return (
 		<BaseEntityDisplay
+			ref={ref}
 			image={props.image || undefined}
 			title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
 			link={
