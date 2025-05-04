@@ -87,7 +87,7 @@ describe("toAppEntity", () => {
 			properties: {},
 			externalId: null,
 			entitySchemaId: "schema-1",
-			detailsSandboxScriptId: null,
+			sandboxScriptId: null,
 			createdAt: "2026-03-08T10:15:00.000Z",
 			updatedAt: "2026-03-08T10:20:00.000Z",
 			image: { kind: "remote", url: "https://example.com/apple.jpg" },
