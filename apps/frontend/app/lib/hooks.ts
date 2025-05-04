@@ -20,6 +20,7 @@ import {
 	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
+	getPartialMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	selectRandomElement,
 } from "~/lib/common";
@@ -119,6 +120,17 @@ export const useMetadataDetails = (
 	enabled?: boolean,
 ) => {
 	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	return query;
+};
+
+export const usePartialMetadataDetails = (
+	metadataId?: string | null,
+	enabled?: boolean,
+) => {
+	const query = useQuery({
+		...getPartialMetadataDetailsQuery(metadataId),
+		enabled,
+	});
 	return query;
 };
 

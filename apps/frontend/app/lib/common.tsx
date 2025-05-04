@@ -441,13 +441,16 @@ export const queryFactory = mergeQueryKeys(
 	miscellaneousQueryKeys,
 );
 
-export const getPartialMetadataDetailsQuery = (metadataId: string) =>
+export const getPartialMetadataDetailsQuery = (metadataId?: string | null) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(MetadataPartialDetailsDocument, { metadataId })
-				.then((data) => data.metadataPartialDetails),
+		queryKey: queryFactory.media.metadataPartialDetails(metadataId || "")
+			.queryKey,
+		queryFn: metadataId
+			? () =>
+					clientGqlService
+						.request(MetadataPartialDetailsDocument, { metadataId })
+						.then((data) => data.metadataPartialDetails)
+			: skipToken,
 	});
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
