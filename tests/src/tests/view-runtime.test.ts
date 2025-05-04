@@ -470,6 +470,130 @@ describe("View runtime E2E", () => {
 		});
 	});
 
+	it("returns all results when search is omitted or empty", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const withoutSearch = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({ entitySchemaSlugs: [schema.slug] }),
+		);
+		const withEmptySearch = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({ entitySchemaSlugs: [schema.slug], search: "" }),
+		);
+
+		expect(withoutSearch.response.status).toBe(200);
+		expect(withoutSearch.data?.data.items).toHaveLength(5);
+		expect(withEmptySearch.response.status).toBe(200);
+		expect(withEmptySearch.data?.data.items).toHaveLength(5);
+	});
+
+	it("filters results by a single search term against entity names", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const scenarios = [
+			{ search: "fridge", expected: [] },
+			{ search: "alpha", expected: ["Alpha Phone"] },
+			{ search: "watch", expected: ["Delta Watch"] },
+			{ search: "phone", expected: ["Alpha Phone", "Gamma Phone"] },
+		];
+
+		for (const scenario of scenarios) {
+			const { data, response } = await executeViewRuntime(
+				client,
+				cookies,
+				buildGridRequest({
+					search: scenario.search,
+					entitySchemaSlugs: [schema.slug],
+				}),
+			);
+
+			expect(response.status).toBe(200);
+			expect(data?.data.items.map((item) => item.name)).toEqual(
+				scenario.expected,
+			);
+		}
+	});
+
+	it("applies English stemming so plurals match singular token in the tsvector", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				search: "phones",
+				entitySchemaSlugs: [schema.slug],
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+	});
+
+	it("searches across multiple schemas simultaneously", async () => {
+		const { client, cookies, smartphoneSlug, tabletSlug } =
+			await createCrossSchemaRuntimeFixture();
+		const phoneResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				search: "phone",
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+				}),
+			}),
+		);
+		const tabletResult = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				search: "tablet",
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+				}),
+			}),
+		);
+
+		expect(phoneResult.response.status).toBe(200);
+		expect(phoneResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+			"Omega Phone",
+		]);
+		expect(tabletResult.response.status).toBe(200);
+		expect(tabletResult.data?.data.items.map((item) => item.name)).toEqual([
+			"Beta Tablet",
+			"Delta Tablet",
+		]);
+	});
+
+	it("combines search with filters using AND semantics", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				search: "phone",
+				entitySchemaSlugs: [schema.slug],
+				filters: [{ op: "gte", field: `${schema.slug}.year`, value: 2020 }],
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual(["Gamma Phone"]);
+	});
+
 	it("rejects empty runtime sort fields at payload validation time", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();

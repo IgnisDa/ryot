@@ -22,13 +22,15 @@ export const LIST_LIMIT = 15;
 export const TABLE_LIMIT = 20;
 
 export function createViewRuntimeRequest(input: {
-	view: SavedView;
-	layout: ViewLayout;
 	page: number;
 	limit: number;
+	search?: string;
+	view: SavedView;
+	layout: ViewLayout;
 }): ViewRuntimeRequest {
 	const base = {
 		layout: input.layout,
+		search: input.search || undefined,
 		sort: input.view.queryDefinition.sort,
 		filters: input.view.queryDefinition.filters,
 		pagination: { page: input.page, limit: input.limit },
