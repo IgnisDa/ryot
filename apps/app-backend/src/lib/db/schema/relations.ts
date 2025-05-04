@@ -3,7 +3,7 @@ import { user } from "./auth";
 import {
 	entity,
 	entitySchema,
-	entitySchemaSandboxScript,
+	entitySchemaScript,
 	event,
 	eventSchema,
 	relationship,
@@ -41,7 +41,7 @@ export const entitySchemaRelations = relations(
 		entities: many(entity),
 		eventSchemas: many(eventSchema),
 		trackerEntitySchemas: many(trackerEntitySchema),
-		entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
+		entitySchemaScripts: many(entitySchemaScript),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
@@ -61,12 +61,7 @@ export const sandboxScriptRelations = relations(
 	sandboxScript,
 	({ one, many }) => ({
 		entities: many(entity),
-		searchProviderLinks: many(entitySchemaSandboxScript, {
-			relationName: "searchScript",
-		}),
-		detailsProviderLinks: many(entitySchemaSandboxScript, {
-			relationName: "detailsScript",
-		}),
+		entityScriptLinks: many(entitySchemaScript),
 		user: one(user, {
 			references: [user.id],
 			fields: [sandboxScript.userId],
@@ -74,22 +69,16 @@ export const sandboxScriptRelations = relations(
 	}),
 );
 
-export const entitySchemaSandboxScriptRelations = relations(
-	entitySchemaSandboxScript,
+export const entitySchemaScriptRelations = relations(
+	entitySchemaScript,
 	({ one }) => ({
 		entitySchema: one(entitySchema, {
 			references: [entitySchema.id],
-			fields: [entitySchemaSandboxScript.entitySchemaId],
+			fields: [entitySchemaScript.entitySchemaId],
 		}),
-		searchScript: one(sandboxScript, {
-			relationName: "searchScript",
+		sandboxScript: one(sandboxScript, {
 			references: [sandboxScript.id],
-			fields: [entitySchemaSandboxScript.searchSandboxScriptId],
-		}),
-		detailsScript: one(sandboxScript, {
-			relationName: "detailsScript",
-			references: [sandboxScript.id],
-			fields: [entitySchemaSandboxScript.detailsSandboxScriptId],
+			fields: [entitySchemaScript.sandboxScriptId],
 		}),
 	}),
 );
@@ -109,9 +98,9 @@ export const entityRelations = relations(entity, ({ one, many }) => ({
 		references: [entitySchema.id],
 		fields: [entity.entitySchemaId],
 	}),
-	detailsSandboxScript: one(sandboxScript, {
+	sandboxScript: one(sandboxScript, {
 		references: [sandboxScript.id],
-		fields: [entity.detailsSandboxScriptId],
+		fields: [entity.sandboxScriptId],
 	}),
 	user: one(user, {
 		references: [user.id],
