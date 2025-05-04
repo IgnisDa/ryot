@@ -1,10 +1,13 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
-import { useForceUpdate } from "@mantine/hooks";
-import type {
-	EntityLot,
-	MediaLot,
+import { useDidUpdate, useForceUpdate } from "@mantine/hooks";
+import {
+	DeployUpdateMetadataGroupJobDocument,
+	DeployUpdateMetadataJobDocument,
+	DeployUpdatePersonJobDocument,
+	type EntityLot,
+	type MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import {
@@ -18,6 +21,7 @@ import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	type FitnessAction,
+	clientGqlService,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
@@ -25,6 +29,8 @@ import {
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
+	queryClient,
+	queryFactory,
 	selectRandomElement,
 } from "~/lib/common";
 import {
@@ -123,6 +129,29 @@ export const useMetadataDetails = (
 	enabled?: boolean,
 ) => {
 	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	const mutation = useMutation({
+		mutationFn: () => {
+			return clientGqlService.request(DeployUpdateMetadataJobDocument, {
+				metadataId: metadataId || "",
+			});
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
+			});
+		},
+	});
+
+	useDidUpdate(() => {
+		if (
+			!query.isSuccess &&
+			(!query.data || !query.data.isPartial) &&
+			!mutation.isPending
+		)
+			return;
+		mutation.mutate();
+	}, [query.isSuccess, query.data]);
+
 	return query;
 };
 
@@ -140,10 +169,31 @@ export const usePersonDetails = (
 	personId?: string | null,
 	enabled?: boolean,
 ) => {
-	return useQuery({
-		...getPersonDetailsQuery(personId),
-		enabled,
+	const query = useQuery({ ...getPersonDetailsQuery(personId), enabled });
+	const mutation = useMutation({
+		mutationFn: () => {
+			return clientGqlService.request(DeployUpdatePersonJobDocument, {
+				personId: personId || "",
+			});
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.media.personDetails(personId || "").queryKey,
+			});
+		},
 	});
+
+	useDidUpdate(() => {
+		if (
+			!query.isSuccess &&
+			(!query.data || !query.data.details.isPartial) &&
+			!mutation.isPending
+		)
+			return;
+		mutation.mutate();
+	}, [query.isSuccess, query.data]);
+
+	return query;
 };
 
 export const useUserPersonDetails = (
@@ -157,10 +207,35 @@ export const useMetadataGroupDetails = (
 	metadataGroupId?: string | null,
 	enabled?: boolean,
 ) => {
-	return useQuery({
+	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
 	});
+	const mutation = useMutation({
+		mutationFn: () => {
+			return clientGqlService.request(DeployUpdateMetadataGroupJobDocument, {
+				metadataGroupId: metadataGroupId || "",
+			});
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId || "")
+					.queryKey,
+			});
+		},
+	});
+
+	useDidUpdate(() => {
+		if (
+			!query.isSuccess &&
+			(!query.data || !query.data.details.isPartial) &&
+			!mutation.isPending
+		)
+			return;
+		mutation.mutate();
+	}, [query.isSuccess, query.data]);
+
+	return query;
 };
 
 export const useUserMetadataGroupDetails = (
