@@ -75,7 +75,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWorkoutStarter,
-	usePartialMetadataDetails,
+	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -644,7 +644,7 @@ const ConsumedMetadataDisplay = (props: {
 	metadataId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: metadataDetails } = usePartialMetadataDetails(
+	const { data: metadataDetails } = useMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);

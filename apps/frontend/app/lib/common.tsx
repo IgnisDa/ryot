@@ -12,7 +12,6 @@ import {
 	MediaSource,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
-	MetadataPartialDetailsDocument,
 	PresignedPutS3UrlDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
@@ -369,9 +368,6 @@ export function getSurroundingElements<T>(
 }
 
 const mediaQueryKeys = createQueryKeys("media", {
-	metadataPartialDetails: (metadataId: string) => ({
-		queryKey: ["metadataPartialDetails", metadataId],
-	}),
 	metadataDetails: (metadataId: string) => ({
 		queryKey: ["metadataDetails", metadataId],
 	}),
@@ -440,18 +436,6 @@ export const queryFactory = mergeQueryKeys(
 	collectionQueryKeys,
 	miscellaneousQueryKeys,
 );
-
-export const getPartialMetadataDetailsQuery = (metadataId?: string | null) =>
-	queryOptions({
-		queryKey: queryFactory.media.metadataPartialDetails(metadataId || "")
-			.queryKey,
-		queryFn: metadataId
-			? () =>
-					clientGqlService
-						.request(MetadataPartialDetailsDocument, { metadataId })
-						.then((data) => data.metadataPartialDetails)
-			: skipToken,
-	});
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 	queryOptions({

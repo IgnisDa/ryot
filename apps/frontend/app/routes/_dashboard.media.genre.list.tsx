@@ -35,7 +35,7 @@ import {
 } from "~/components/common";
 import {
 	clientGqlService,
-	getPartialMetadataDetailsQuery,
+	getMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
 } from "~/lib/common";
@@ -144,7 +144,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 			for (const content of genreDetails.contents.items) {
 				if (images.length === 4) break;
 				const { assets } = await queryClient.ensureQueryData(
-					getPartialMetadataDetailsQuery(content),
+					getMetadataDetailsQuery(content),
 				);
 				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
 			}

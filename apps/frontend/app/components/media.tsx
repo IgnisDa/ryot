@@ -52,7 +52,6 @@ import {
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
-	usePartialMetadataDetails,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -105,7 +104,7 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = usePartialMetadataDetails(props.metadataId);
+	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
