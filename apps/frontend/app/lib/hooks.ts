@@ -118,15 +118,12 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const useMetadataDetails = (
-	metadataId?: string | null,
-	enabled?: boolean,
-) => {
+export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 };
 
 export const useUserMetadataDetails = (
-	metadataId?: string | null,
+	metadataId?: string,
 	enabled?: boolean,
 ) => {
 	return useQuery({
@@ -135,22 +132,16 @@ export const useUserMetadataDetails = (
 	});
 };
 
-export const usePersonDetails = (
-	personId?: string | null,
-	enabled?: boolean,
-) => {
+export const usePersonDetails = (personId?: string, enabled?: boolean) => {
 	return useQuery({ ...getPersonDetailsQuery(personId), enabled });
 };
 
-export const useUserPersonDetails = (
-	personId?: string | null,
-	enabled?: boolean,
-) => {
+export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
 	return useQuery({ ...getUserPersonDetailsQuery(personId), enabled });
 };
 
 export const useMetadataGroupDetails = (
-	metadataGroupId?: string | null,
+	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
 	return useQuery({
@@ -160,7 +151,7 @@ export const useMetadataGroupDetails = (
 };
 
 export const useUserMetadataGroupDetails = (
-	metadataGroupId?: string | null,
+	metadataGroupId?: string,
 	enabled?: boolean,
 ) => {
 	return useQuery({

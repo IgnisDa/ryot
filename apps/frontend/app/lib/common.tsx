@@ -371,22 +371,22 @@ export function getSurroundingElements<T>(
 }
 
 const mediaQueryKeys = createQueryKeys("media", {
-	metadataDetails: (metadataId: string) => ({
+	metadataDetails: (metadataId?: string) => ({
 		queryKey: ["metadataDetails", metadataId],
 	}),
-	userMetadataDetails: (metadataId: string) => ({
+	userMetadataDetails: (metadataId?: string) => ({
 		queryKey: ["userMetadataDetails", metadataId],
 	}),
-	metadataGroupDetails: (metadataGroupId: string) => ({
+	metadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
-	userMetadataGroupDetails: (metadataGroupId: string) => ({
+	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
 	}),
-	personDetails: (personId: string) => ({
+	personDetails: (personId?: string) => ({
 		queryKey: ["personDetails", personId],
 	}),
-	userPersonDetails: (personId: string) => ({
+	userPersonDetails: (personId?: string) => ({
 		queryKey: ["userPersonDetails", personId],
 	}),
 	genreImages: (genreId: string) => ({
@@ -440,9 +440,9 @@ export const queryFactory = mergeQueryKeys(
 	miscellaneousQueryKeys,
 );
 
-export const getMetadataDetailsQuery = (metadataId?: string | null) =>
+export const getMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
+		queryKey: queryFactory.media.metadataDetails(metadataId).queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -451,9 +451,9 @@ export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 			: skipToken,
 	});
 
-export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
+export const getUserMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
+		queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -462,9 +462,9 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 			: skipToken,
 	});
 
-export const getPersonDetailsQuery = (personId?: string | null) =>
+export const getPersonDetailsQuery = (personId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.personDetails(personId || "").queryKey,
+		queryKey: queryFactory.media.personDetails(personId).queryKey,
 		queryFn: personId
 			? () =>
 					clientGqlService
@@ -473,9 +473,9 @@ export const getPersonDetailsQuery = (personId?: string | null) =>
 			: skipToken,
 	});
 
-export const getUserPersonDetailsQuery = (personId?: string | null) =>
+export const getUserPersonDetailsQuery = (personId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.userPersonDetails(personId || "").queryKey,
+		queryKey: queryFactory.media.userPersonDetails(personId).queryKey,
 		queryFn: personId
 			? () =>
 					clientGqlService
@@ -484,10 +484,9 @@ export const getUserPersonDetailsQuery = (personId?: string | null) =>
 			: skipToken,
 	});
 
-export const getMetadataGroupDetailsQuery = (metadataGroupId?: string | null) =>
+export const getMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId || "")
-			.queryKey,
+		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId).queryKey,
 		queryFn: metadataGroupId
 			? () =>
 					clientGqlService
@@ -496,12 +495,10 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId?: string | null) =>
 			: skipToken,
 	});
 
-export const getUserMetadataGroupDetailsQuery = (
-	metadataGroupId?: string | null,
-) =>
+export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.userMetadataGroupDetails(metadataGroupId || "")
-			.queryKey,
+		queryKey:
+			queryFactory.media.userMetadataGroupDetails(metadataGroupId).queryKey,
 		queryFn: metadataGroupId
 			? () =>
 					clientGqlService
