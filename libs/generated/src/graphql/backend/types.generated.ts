@@ -1196,15 +1196,6 @@ export type MetadataLotSourceMappings = {
   sources: Array<MediaSource>;
 };
 
-export type MetadataPartialDetails = {
-  __typename?: 'MetadataPartialDetails';
-  assets: EntityAssets;
-  id: Scalars['String']['output'];
-  lot: MediaLot;
-  publishYear?: Maybe<Scalars['Int']['output']>;
-  title: Scalars['String']['output'];
-};
-
 export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
@@ -1818,8 +1809,6 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: IdResults;
-  /** Get partial details about a media present in the database. */
-  metadataPartialDetails: MetadataPartialDetails;
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
@@ -1932,11 +1921,6 @@ export type QueryRootMetadataGroupDetailsArgs = {
 
 export type QueryRootMetadataGroupSearchArgs = {
   input: MetadataGroupSearchInput;
-};
-
-
-export type QueryRootMetadataPartialDetailsArgs = {
-  metadataId: Scalars['String']['input'];
 };
 
 

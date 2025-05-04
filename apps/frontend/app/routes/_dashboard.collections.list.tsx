@@ -65,7 +65,7 @@ import {
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
-	getPartialMetadataDetailsQuery,
+	getMetadataDetailsQuery,
 	openConfirmationModal,
 	queryClient,
 	queryFactory,
@@ -336,7 +336,7 @@ const DisplayCollection = (props: {
 				if (images.length === 5) break;
 				if (content.entityLot !== EntityLot.Metadata) continue;
 				const { assets } = await queryClient.ensureQueryData(
-					getPartialMetadataDetailsQuery(content.entityId),
+					getMetadataDetailsQuery(content.entityId),
 				);
 				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
 			}

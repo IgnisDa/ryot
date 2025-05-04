@@ -24,7 +24,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
@@ -42,8 +41,8 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { clientGqlService, getMetadataGroupDetailsQuery } from "~/lib/common";
-import { useUserPreferences } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/common";
+import { useMetadataGroupDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
@@ -375,8 +374,8 @@ const MetadataDisplay = (props: {
 const MetadataGroupDisplay = (props: {
 	metadataGroupId: string;
 }) => {
-	const { data: metadataGroupDetails } = useQuery(
-		getMetadataGroupDetailsQuery(props.metadataGroupId),
+	const { data: metadataGroupDetails } = useMetadataGroupDetails(
+		props.metadataGroupId,
 	);
 
 	return (

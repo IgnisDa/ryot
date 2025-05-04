@@ -712,15 +712,6 @@ pub struct PartialMetadata {
     pub publish_year: Option<i32>,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
-pub struct MetadataPartialDetails {
-    pub id: String,
-    pub lot: MediaLot,
-    pub title: String,
-    pub assets: EntityAssets,
-    pub publish_year: Option<i32>,
-}
-
 #[derive(Debug, Default, InputObject)]
 pub struct CommitPersonInput {
     pub name: String,
