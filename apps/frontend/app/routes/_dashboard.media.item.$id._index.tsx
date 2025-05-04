@@ -112,7 +112,6 @@ import {
 import {
 	PRO_REQUIRED_MESSAGE,
 	Verb,
-	clientGqlService,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -427,16 +426,6 @@ export default function Page() {
 						lot: loaderData.metadataDetails.lot,
 						source: loaderData.metadataDetails.source,
 						href: loaderData.metadataDetails.sourceUrl,
-					}}
-					partialDetailsFetcher={{
-						entityId: loaderData.metadataDetails.id,
-						isAlreadyPartial: loaderData.metadataDetails.isPartial,
-						fn: () =>
-							clientGqlService
-								.request(MetadataDetailsDocument, {
-									metadataId: loaderData.metadataDetails.id,
-								})
-								.then((data) => data.metadataDetails.isPartial),
 					}}
 				>
 					{loaderData.userMetadataDetails.collections.length > 0 ? (

@@ -42,7 +42,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { clientGqlService, getMetadataGroupDetailsQuery } from "~/lib/common";
+import { getMetadataGroupDetailsQuery } from "~/lib/common";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
@@ -130,16 +130,6 @@ export default function Page() {
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.details.sourceUrl,
-				}}
-				partialDetailsFetcher={{
-					entityId: loaderData.personDetails.details.id,
-					isAlreadyPartial: loaderData.personDetails.details.isPartial,
-					fn: () =>
-						clientGqlService
-							.request(PersonDetailsDocument, {
-								personId: loaderData.personDetails.details.id,
-							})
-							.then((data) => data.personDetails.details.isPartial),
 				}}
 			>
 				{additionalPersonDetails.length > 0 ? (
