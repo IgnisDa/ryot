@@ -12,15 +12,15 @@ import {
 	sql,
 } from "drizzle-orm";
 import { match } from "ts-pattern";
-import type { FilterExpression } from "../saved-views/schemas";
-import { ViewRuntimeValidationError } from "./errors";
+import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import {
-	buildCastedValueExpression,
+	getPropertyType,
 	getSchemaForReference,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
-} from "./runtime-reference";
-import { getPropertyType } from "./schema-introspection";
+} from "~/lib/views/reference";
+import type { FilterExpression } from "../saved-views/schemas";
+import { buildCastedValueExpression } from "./runtime-reference";
 
 const buildPropertyFilterExpression = <
 	TSchema extends ViewRuntimeSchemaLike,

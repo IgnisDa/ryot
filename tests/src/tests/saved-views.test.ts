@@ -59,7 +59,9 @@ describe("Saved views E2E", () => {
 			queryDefinition: {
 				entitySchemaSlugs: ["anime", "manga"],
 				sort: { fields: ["@createdAt"], direction: "desc" },
-				filters: [{ op: "eq", field: "anime.status", value: "active" }],
+				filters: [
+					{ op: "eq", field: "anime.productionStatus", value: "active" },
+				],
 			},
 			displayConfiguration: {
 				grid: {
@@ -71,13 +73,13 @@ describe("Saved views E2E", () => {
 				list: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
-					badgeProperty: ["anime.status"],
-					subtitleProperty: ["manga.year"],
+					subtitleProperty: ["manga.publishYear"],
+					badgeProperty: ["anime.productionStatus"],
 				},
 				table: {
 					columns: [
 						{ label: "Name", property: ["@name"] },
-						{ label: "Status", property: ["anime.status"] },
+						{ label: "Status", property: ["anime.productionStatus"] },
 					],
 				},
 			},
@@ -542,5 +544,83 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toBe(
 			"Schema-qualified property references are required",
 		);
+	});
+
+	it("rejects a view referencing a property that does not exist in the schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const invalidQueryDefinition = {
+			filters: [],
+			entitySchemaSlugs: ["book"],
+			sort: {
+				direction: "asc" as const,
+				fields: ["book.nonexistent_property"],
+			},
+		};
+
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+		});
+
+		const createdView = await createSavedView(client, cookies);
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: createdView.id } },
+			body: buildUpdatedSavedViewBody({
+				queryDefinition: invalidQueryDefinition,
+			}),
+		});
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error?.message).toContain("not found in schema");
+		expect(updateResult.error?.error?.message).toContain("not found in schema");
+	});
+
+	it("rejects a view with an invalid built-in column in the display config", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const result = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({
+				displayConfiguration: {
+					table: { columns: [] },
+					grid: {
+						imageProperty: null,
+						badgeProperty: null,
+						subtitleProperty: null,
+						titleProperty: ["@nam"],
+					},
+					list: {
+						imageProperty: null,
+						badgeProperty: null,
+						subtitleProperty: null,
+						titleProperty: ["@name"],
+					},
+				},
+			}),
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain("Unsupported column '@nam'");
+	});
+
+	it("rejects a view referencing a schema slug that does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const result = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: ["does-not-exist"],
+					sort: { fields: ["@name"], direction: "asc" },
+				},
+			}),
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain("not found");
 	});
 });
