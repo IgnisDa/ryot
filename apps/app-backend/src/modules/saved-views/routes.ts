@@ -10,6 +10,10 @@ import {
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
+import {
+	ViewRuntimeNotFoundError,
+	ViewRuntimeValidationError,
+} from "~/lib/views/errors";
 import { validateSavedViewBody } from "~/lib/views/validator";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
@@ -144,6 +148,17 @@ const savedViewNotFoundResult = createNotFoundErrorResult(
 	"Saved view not found",
 );
 
+export const resolveSavedViewValidationErrorResult = (error: unknown) => {
+	if (
+		error instanceof ViewRuntimeNotFoundError ||
+		error instanceof ViewRuntimeValidationError
+	) {
+		return createValidationErrorResult(error.message);
+	}
+
+	throw error;
+};
+
 export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listSavedViewsRoute, async (c) => {
 		const user = c.get("user");
@@ -181,14 +196,25 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
+		const currentView = await getSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+		});
 
-		try {
-			await validateSavedViewBody(body, user.id);
-		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "Saved view body is invalid";
-			const result = createValidationErrorResult(message);
-			return c.json(result.body, result.status);
+		if (!currentView) {
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+		}
+
+		if (!currentView.isBuiltin) {
+			try {
+				await validateSavedViewBody(body, user.id);
+			} catch (error) {
+				const result = resolveSavedViewValidationErrorResult(error);
+				return c.json(result.body, result.status);
+			}
 		}
 
 		const result = await updateSavedView({
@@ -211,9 +237,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		try {
 			await validateSavedViewBody(body, user.id);
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "Saved view body is invalid";
-			const result = createValidationErrorResult(message);
+			const result = resolveSavedViewValidationErrorResult(error);
 			return c.json(result.body, result.status);
 		}
 
