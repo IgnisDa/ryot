@@ -43,13 +43,16 @@ import {
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionExtraInformationLot,
+	CreateUserMeasurementDocument,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
 	UserLot,
+	type UserMeasurementInput,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
 	Visibility,
@@ -1939,56 +1942,114 @@ const AddEntityToCollectionsForm = ({
 const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
 }) => {
-	const userPreferences = useUserPreferences();
+	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
-	const submit = useConfirmSubmit();
+	const userPreferences = useUserPreferences();
+
+	const [input, setInput] = useState<UserMeasurementInput>({
+		name: "",
+		comment: "",
+		timestamp: new Date().toISOString(),
+		information: {
+			statistics: [],
+			assets: {
+				s3Images: [],
+				s3Videos: [],
+				remoteVideos: [],
+				remoteImages: [],
+			},
+		},
+	});
+
+	const createMeasurementMutation = useMutation({
+		mutationFn: () =>
+			clientGqlService.request(CreateUserMeasurementDocument, { input }),
+	});
 
 	return (
-		<Form
-			replace
-			method="POST"
-			action={withQuery($path("/actions"), { intent: "createMeasurement" })}
-			onSubmit={(e) => {
-				submit(e);
-				events.createMeasurement();
-				props.closeMeasurementModal();
-			}}
-		>
-			<Stack>
-				<DateTimePicker
-					label="Timestamp"
-					defaultValue={new Date()}
-					name="timestamp"
-					required
-				/>
-				<TextInput label="Name" name="name" />
-				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-					{Object.keys(userPreferences.fitness.measurements.inbuilt)
-						.filter((n) => n !== "custom")
-						.filter(
-							(n) =>
-								// biome-ignore lint/suspicious/noExplicitAny: required
-								(userPreferences as any).fitness.measurements.inbuilt[n],
-						)
-						.map((v) => (
-							<NumberInput
-								decimalScale={3}
-								key={v}
-								label={changeCase(snakeCase(v))}
-								name={`stats.${v}`}
-							/>
-						))}
-					{userPreferences.fitness.measurements.custom.map(({ name }) => (
-						<NumberInput
-							key={name}
-							label={changeCase(snakeCase(name))}
-							name={`stats.custom.${name}`}
-						/>
-					))}
-				</SimpleGrid>
-				<Textarea label="Comment" name="comment" />
-				<Button type="submit">Submit</Button>
-			</Stack>
-		</Form>
+		<Stack>
+			<DateTimePicker
+				required
+				label="Timestamp"
+				value={new Date(input.timestamp)}
+				onChange={(v) =>
+					setInput(
+						produce(input, (draft) => {
+							draft.timestamp = v?.toISOString() ?? new Date().toISOString();
+						}),
+					)
+				}
+			/>
+			<TextInput
+				label="Name"
+				value={input.name ?? ""}
+				onChange={(e) =>
+					setInput(
+						produce(input, (draft) => {
+							draft.name = e.target.value;
+						}),
+					)
+				}
+			/>
+			<SimpleGrid cols={2} style={{ alignItems: "end" }}>
+				{userPreferences.fitness.measurements.statistics.map(({ name }) => (
+					<NumberInput
+						key={name}
+						decimalScale={3}
+						label={changeCase(snakeCase(name))}
+						value={
+							input.information.statistics.find((s) => s.name === name)?.value
+						}
+						onChange={(v) => {
+							setInput(
+								produce(input, (draft) => {
+									const idx = draft.information.statistics.findIndex(
+										(s) => s.name === name,
+									);
+									if (idx !== -1) {
+										draft.information.statistics[idx].value = v.toString();
+									} else {
+										draft.information.statistics.push({
+											name,
+											value: v.toString(),
+										});
+									}
+								}),
+							);
+						}}
+					/>
+				))}
+			</SimpleGrid>
+			<Textarea
+				label="Comment"
+				value={input.comment ?? ""}
+				onChange={(e) =>
+					setInput(
+						produce(input, (draft) => {
+							draft.comment = e.target.value;
+						}),
+					)
+				}
+			/>
+			<Button
+				loading={createMeasurementMutation.isPending}
+				disabled={
+					createMeasurementMutation.isPending ||
+					!input.information.statistics.some((s) => s.value)
+				}
+				onClick={async () => {
+					events.createMeasurement();
+					await createMeasurementMutation.mutateAsync();
+					revalidator.revalidate();
+					notifications.show({
+						color: "green",
+						message: "Your measurement has been created",
+					});
+					props.closeMeasurementModal();
+				}}
+			>
+				Submit
+			</Button>
+		</Stack>
 	);
 };

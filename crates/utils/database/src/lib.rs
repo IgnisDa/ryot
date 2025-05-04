@@ -176,14 +176,6 @@ pub async fn user_workout_details(
             "Workout with the given ID could not be found for this user.",
         ));
     };
-    if let Some(ref mut assets) = e.information.assets {
-        transform_entity_assets(assets, ss).await;
-    }
-    for exercise in e.information.exercises.iter_mut() {
-        if let Some(ref mut assets) = exercise.assets {
-            transform_entity_assets(assets, ss).await;
-        }
-    }
     let collections =
         entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
     let details = {

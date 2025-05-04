@@ -3,7 +3,6 @@ import type { FileUpload } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
-	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -217,14 +216,6 @@ export const uploadFileAndGetKey = async (
 		headers: { "Content-Type": contentType },
 	});
 	return presignedPutS3Url.key;
-};
-
-export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await serverGqlService.request(
-		GetPresignedS3UrlDocument,
-		{ key },
-	);
-	return getPresignedS3Url;
 };
 
 const fileUploadToFile = async (fileUpload: FileUpload) => {

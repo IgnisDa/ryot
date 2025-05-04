@@ -247,6 +247,9 @@ export default function Page() {
 		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
+	const images = loaderData.information.assets?.s3Images || [];
+	const videos = loaderData.information.assets?.s3Videos || [];
+	const hasAssets = images.length > 0 || videos.length > 0;
 
 	const performDecision = async (params: {
 		action: FitnessAction;
@@ -609,12 +612,16 @@ export default function Page() {
 							<Text span>{loaderData.information.comment}</Text>
 						</Box>
 					) : null}
-					{loaderData.information.assets &&
-					loaderData.information.assets.s3Images.length > 0 ? (
+					{hasAssets ? (
 						<Avatar.Group>
-							{loaderData.information.assets.s3Images.map((i) => (
+							{images.map((i) => (
 								<Anchor key={i} href={i} target="_blank">
 									<Avatar src={i} />
+								</Anchor>
+							))}
+							{videos.map((v) => (
+								<Anchor key={v} href={v} target="_blank">
+									<Avatar name="Video" />
 								</Anchor>
 							))}
 						</Avatar.Group>

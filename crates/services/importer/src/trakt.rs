@@ -179,6 +179,8 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         histories.extend(history);
     }
 
+    histories.sort_by_key(|h| h.watched_at.unwrap_or_default());
+
     for item in histories.iter() {
         match process_item(item) {
             Ok(mut d) => {

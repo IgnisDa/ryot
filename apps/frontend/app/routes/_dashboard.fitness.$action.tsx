@@ -13,6 +13,7 @@ import {
 	Drawer,
 	FileButton,
 	Flex,
+	FocusTrap,
 	Group,
 	Image,
 	Menu,
@@ -49,6 +50,7 @@ import {
 	CreateOrUpdateUserWorkoutTemplateDocument,
 	type ExerciseDetailsQuery,
 	ExerciseLot,
+	GetPresignedS3UrlDocument,
 	SetLot,
 	type UserExerciseDetailsQuery,
 	UserUnitSystem,
@@ -78,7 +80,6 @@ import {
 	IconDropletFilled,
 	IconDropletHalf2Filled,
 	IconHeartSpark,
-	IconInfoCircle,
 	IconLayersIntersect,
 	IconLibraryPhoto,
 	IconPhoto,
@@ -86,6 +87,7 @@ import {
 	IconReplace,
 	IconStopwatch,
 	IconTrash,
+	IconVideo,
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -113,6 +115,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	clientSideFileUpload,
 	dayjsLib,
 	getExerciseDetailsPath,
 	getSetColor,
@@ -664,7 +667,7 @@ export default function Page() {
 														for (const e of currentWorkout.exercises) {
 															const assets = [...e.images, ...e.videos];
 															for (const asset of assets)
-																deleteUploadedAsset(asset.key);
+																deleteUploadedAsset(asset);
 														}
 														navigate($path("/"), { replace: true });
 														setCurrentWorkout(RESET);
@@ -767,12 +770,11 @@ const NameAndOtherInputs = (props: {
 	}, [name]);
 
 	useDidUpdate(() => {
-		if (comment)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.comment = comment;
-				}),
-			);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.comment = comment || undefined;
+			}),
+		);
 	}, [comment]);
 
 	useDidUpdate(() => {
@@ -1015,10 +1017,28 @@ const StatInput = (props: {
 	) : null;
 };
 
-const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
+const AssetDisplay = (props: {
+	s3Key: string;
+	type: "video" | "image";
+	removeAsset: () => void;
+}) => {
+	const srcUrlQuery = useQuery({
+		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(GetPresignedS3UrlDocument, { key: props.s3Key })
+				.then((v) => v.getPresignedS3Url),
+	});
+
 	return (
 		<Box pos="relative">
-			<Avatar src={props.imageSrc} size="lg" />
+			{props.type === "video" ? (
+				<Link to={srcUrlQuery.data ?? ""} target="_blank">
+					<Avatar size="lg" name="Video" />
+				</Link>
+			) : (
+				<Avatar src={srcUrlQuery.data} size="lg" />
+			)}
 			<ActionIcon
 				top={0}
 				size="xs"
@@ -1027,8 +1047,8 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 				pos="absolute"
 				onClick={() => {
 					openConfirmationModal(
-						"Are you sure you want to remove this image?",
-						() => props.removeImage(),
+						"Are you sure you want to remove this video?",
+						() => props.removeAsset(),
 					);
 				}}
 			>
@@ -1316,7 +1336,10 @@ const UploadAssetsModal = (props: {
 
 	if (!currentWorkout) return null;
 
-	const afterFileSelected = async (file: File | null) => {
+	const afterFileSelected = async (
+		file: File | null,
+		type: "image" | "video",
+	) => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",
@@ -1326,26 +1349,23 @@ const UploadAssetsModal = (props: {
 		}
 		if (!file) return;
 		setIsFileUploading(true);
-		const imageSrc = URL.createObjectURL(file);
-		const toSubmitForm = new FormData();
-		toSubmitForm.append("file", file, "image.jpg");
 		try {
-			const resp = await fetch(
-				$path("/actions", { intent: "uploadWorkoutAsset" }),
-				{ method: "POST", body: toSubmitForm },
-			);
-			const data = await resp.json();
+			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const media = { imageSrc, key: data.key };
-					if (exercise) draft.exercises[exerciseIdx].images.push(media);
-					else draft.images.push(media);
+					if (type === "image") {
+						if (exercise) draft.exercises[exerciseIdx].images.push(key);
+						else draft.images.push(key);
+					} else {
+						if (exercise) draft.exercises[exerciseIdx].videos.push(key);
+						else draft.videos.push(key);
+					}
 				}),
 			);
 		} catch {
 			notifications.show({
 				color: "red",
-				message: "Error while uploading image",
+				message: `Error while uploading ${type}`,
 			});
 		} finally {
 			setIsFileUploading(false);
@@ -1363,6 +1383,41 @@ const UploadAssetsModal = (props: {
 		enabled: exercise !== null,
 	});
 
+	const imagesToDisplay = isString(props.modalOpenedBy)
+		? exercise?.images || []
+		: currentWorkout.images;
+
+	const videosToDisplay = isString(props.modalOpenedBy)
+		? exercise?.videos || []
+		: currentWorkout.videos;
+
+	const hasAssets = imagesToDisplay.length > 0 || videosToDisplay.length > 0;
+
+	const onRemoveAsset = (key: string, type: "image" | "video") => {
+		deleteUploadedAsset(key);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				if (type === "image") {
+					if (exerciseIdx !== -1) {
+						draft.exercises[exerciseIdx].images = draft.exercises[
+							exerciseIdx
+						].images.filter((i) => i !== key);
+					} else {
+						draft.images = draft.images.filter((i) => i !== key);
+					}
+					return;
+				}
+				if (exerciseIdx !== -1) {
+					draft.exercises[exerciseIdx].videos = draft.exercises[
+						exerciseIdx
+					].videos.filter((i) => i !== key);
+				} else {
+					draft.videos = draft.videos.filter((i) => i !== key);
+				}
+			}),
+		);
+	};
+
 	return (
 		<Modal
 			onClose={() => props.closeModal()}
@@ -1372,49 +1427,31 @@ const UploadAssetsModal = (props: {
 			<Stack>
 				{fileUploadAllowed ? (
 					<>
-						{isString(props.modalOpenedBy) ? (
-							exercise && exercise.images.length > 0 ? (
-								<Avatar.Group spacing="xs">
-									{exercise.images.map((i, imgIdx) => (
-										<ImageDisplay
-											key={i.key}
-											imageSrc={i.imageSrc}
-											removeImage={() => {
-												deleteUploadedAsset(i.key);
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														const images = draft.exercises[exerciseIdx].images;
-														images.splice(imgIdx, 1);
-														draft.exercises[exerciseIdx].images = images;
-													}),
-												);
-											}}
-										/>
-									))}
-								</Avatar.Group>
-							) : null
-						) : currentWorkout.images.length > 0 ? (
+						{hasAssets ? (
 							<Avatar.Group spacing="xs">
-								{currentWorkout.images.map((i, imgIdx) => (
-									<ImageDisplay
-										key={i.key}
-										imageSrc={i.imageSrc}
-										removeImage={() => {
-											deleteUploadedAsset(i.key);
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const images = draft.images;
-													images.splice(imgIdx, 1);
-													draft.images = images;
-												}),
-											);
-										}}
+								{imagesToDisplay.map((i) => (
+									<AssetDisplay
+										key={i}
+										s3Key={i}
+										type="image"
+										removeAsset={() => onRemoveAsset(i, "image")}
+									/>
+								))}
+								{videosToDisplay.map((i) => (
+									<AssetDisplay
+										key={i}
+										s3Key={i}
+										type="video"
+										removeAsset={() => onRemoveAsset(i, "video")}
 									/>
 								))}
 							</Avatar.Group>
 						) : null}
 						<Group justify="space-between">
-							<FileButton accept="image/*" onChange={afterFileSelected}>
+							<FileButton
+								accept="image/*"
+								onChange={(file) => afterFileSelected(file, "image")}
+							>
 								{(props) => (
 									<Button
 										{...props}
@@ -1424,14 +1461,13 @@ const UploadAssetsModal = (props: {
 										loading={isFileUploading}
 										leftSection={<IconLibraryPhoto />}
 									>
-										Select picture
+										Image
 									</Button>
 								)}
 							</FileButton>
 							<FileButton
-								accept="image/*"
-								capture="environment"
-								onChange={afterFileSelected}
+								accept="video/*"
+								onChange={(file) => afterFileSelected(file, "video")}
 							>
 								{(props) => (
 									<Button
@@ -1440,9 +1476,9 @@ const UploadAssetsModal = (props: {
 										color="cyan"
 										variant="outline"
 										loading={isFileUploading}
-										leftSection={<IconCamera />}
+										leftSection={<IconVideo />}
 									>
-										Take picture
+										Video
 									</Button>
 								)}
 							</FileButton>
@@ -1496,6 +1532,10 @@ const ExerciseDisplay = (props: {
 	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
+	const [
+		isDetailsModalOpen,
+		{ open: openDetailsModal, close: closeDetailsModal },
+	] = useDisclosure(false);
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -1544,23 +1584,25 @@ const ExerciseDisplay = (props: {
 		);
 	};
 
-	const toggleShowExerciseDetails = () => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.exercises[props.exerciseIdx].isShowDetailsOpen =
-					!exercise.isShowDetailsOpen;
-			}),
-		);
-	};
-
 	return (
 		<>
 			<Modal
 				size="lg"
-				opened={exercise.isShowDetailsOpen}
-				onClose={() => toggleShowExerciseDetails()}
-				title={`Exercise details for ${exerciseDetails?.name}`}
+				opened={isDetailsModalOpen}
+				onClose={closeDetailsModal}
+				title={
+					<Group gap={4} wrap="nowrap">
+						<Text>Exercise details for</Text>
+						<Anchor
+							component={Link}
+							to={getExerciseDetailsPath(exercise.exerciseId)}
+						>
+							{exerciseDetails?.name || "..."}
+						</Anchor>
+					</Group>
+				}
 			>
+				<FocusTrap.InitialFocus />
 				<Stack>
 					<Select
 						size="sm"
@@ -1667,10 +1709,13 @@ const ExerciseDisplay = (props: {
 					<Menu shadow="md" width={200} position="left-end">
 						<Group justify="space-between" pos="relative" wrap="nowrap">
 							<Anchor
+								c="blue"
 								fw="bold"
 								lineClamp={1}
-								component={Link}
-								to={getExerciseDetailsPath(exercise.exerciseId)}
+								onClick={(e) => {
+									e.preventDefault();
+									openDetailsModal();
+								}}
 							>
 								{exerciseDetails?.name || "Loading..."}
 							</Anchor>
@@ -1762,17 +1807,6 @@ const ExerciseDisplay = (props: {
 							>
 								Replace exercise
 							</Menu.Item>
-							{exerciseHasDetailsToShow(
-								exerciseDetails,
-								userExerciseDetails,
-							) ? (
-								<Menu.Item
-									leftSection={<IconInfoCircle size={14} />}
-									onClick={() => toggleShowExerciseDetails()}
-								>
-									Edit details
-								</Menu.Item>
-							) : null}
 							<Menu.Item
 								leftSection={<IconReorder size={14} />}
 								onClick={() => props.reorderDrawerToggle(exercise.identifier)}
@@ -1787,8 +1821,8 @@ const ExerciseDisplay = (props: {
 										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 										() => {
 											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets)
-												deleteUploadedAsset(asset.key);
+											for (const asset of assets) deleteUploadedAsset(asset);
+
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
 													const idx = draft.supersets.findIndex((s) =>

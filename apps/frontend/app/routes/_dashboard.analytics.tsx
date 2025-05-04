@@ -131,7 +131,7 @@ const useGetUserAnalytics = () => {
 	const input = { dateRange: { startDate, endDate } };
 
 	const { data: userAnalytics } = useQuery({
-		queryKey: queryFactory.analytics.user({ input }).queryKey,
+		queryKey: queryFactory.miscellaneous.userAnalytics({ input }).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
 				.request(UserAnalyticsDocument, { input })

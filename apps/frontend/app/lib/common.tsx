@@ -13,6 +13,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
+	PresignedPutS3UrlDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
@@ -424,17 +425,20 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
-const analyticsQueryKeys = createQueryKeys("analytics", {
-	user: (input: UserAnalyticsQueryVariables) => ({
-		queryKey: ["user", input],
+const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
+		queryKey: ["userAnalytics", input],
+	}),
+	presignedS3Url: (key: string) => ({
+		queryKey: ["presignedS3Url", key],
 	}),
 });
 
 export const queryFactory = mergeQueryKeys(
 	mediaQueryKeys,
 	fitnessQueryKeys,
-	analyticsQueryKeys,
 	collectionQueryKeys,
+	miscellaneousQueryKeys,
 );
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>
@@ -571,3 +575,17 @@ export const getStartTimeFromRange = (range: ApplicationTimeRange) =>
 			() => undefined,
 		)
 		.exhaustive();
+
+export const clientSideFileUpload = async (file: File, prefix: string) => {
+	const body = await file.arrayBuffer();
+	const { presignedPutS3Url } = await clientGqlService.request(
+		PresignedPutS3UrlDocument,
+		{ input: { fileName: file.name, prefix } },
+	);
+	await fetch(presignedPutS3Url.uploadUrl, {
+		method: "PUT",
+		body,
+		headers: { "Content-Type": file.type },
+	});
+	return presignedPutS3Url.key;
+};

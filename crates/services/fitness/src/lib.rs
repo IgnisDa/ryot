@@ -338,7 +338,7 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let m = UserMeasurement::find_by_id((timestamp, user_id))
+        let m = UserMeasurement::find_by_id((user_id, timestamp))
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Measurement does not exist"))?;

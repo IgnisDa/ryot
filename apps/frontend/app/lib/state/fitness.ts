@@ -50,18 +50,17 @@ export type ExerciseSet = {
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 
-type Media = { imageSrc: string; key: string };
+type S3Key = string;
 
 export type Exercise = {
 	lot: ExerciseLot;
 	identifier: string;
 	exerciseId: string;
 	notes: Array<string>;
-	videos: Array<Media>;
-	images: Array<Media>;
+	videos: Array<S3Key>;
+	images: Array<S3Key>;
 	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
-	isShowDetailsOpen: boolean;
 	scrollMarginRemoved?: true;
 	unitSystem: UserUnitSystem;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
@@ -78,8 +77,8 @@ export type InProgressWorkout = {
 	endTime?: string;
 	startTime: string;
 	templateId?: string;
-	images: Array<Media>;
-	videos: Array<string>;
+	images: Array<S3Key>;
+	videos: Array<S3Key>;
 	repeatedFrom?: string;
 	supersets: Superset[];
 	caloriesBurnt?: number;
@@ -221,8 +220,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			assets: {
 				remoteImages: [],
 				remoteVideos: [],
-				s3Videos: [...currentWorkout.videos],
-				s3Images: currentWorkout.images.map((m) => m.key),
+				s3Videos: currentWorkout.videos,
+				s3Images: currentWorkout.images,
 			},
 		},
 	};
@@ -256,8 +255,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 			assets: {
 				remoteImages: [],
 				remoteVideos: [],
-				s3Images: exercise.images.map((m) => m.key),
-				s3Videos: exercise.videos.map((m) => m.key),
+				s3Images: exercise.images,
+				s3Videos: exercise.videos,
 			},
 		});
 	}
@@ -333,7 +332,6 @@ export const duplicateOldWorkout = async (
 			notes: ex.notes,
 			exerciseId: ex.id,
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
 			unitSystem: ex.unitSystem,
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
@@ -416,7 +414,6 @@ export const addExerciseToCurrentWorkout = async (
 			alreadyDoneSets,
 			exerciseId: ex.name,
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
 			unitSystem: userFitnessPreferences.exercises.unitSystem,
 		});
 	}

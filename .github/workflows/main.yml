@@ -9,6 +9,9 @@ on:
     branches: ["main"]
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+
 env:
   GHCR_REGISTRY: ghcr.io
   DOCKER_USERNAME: ignisda
@@ -21,13 +24,13 @@ jobs:
       image-names: ${{ steps.set_outputs.outputs.image-names }}
       should-release: ${{ steps.set_outputs.outputs.should-release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 2
           persist-credentials: false
       - name: Set outputs
         id: set_outputs
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
             const repositoryName = context.payload.repository.name;
@@ -71,17 +74,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Generate changelog
         id: changelog
-        uses: metcalfc/changelog-generator@v4.3.1
+        uses: metcalfc/changelog-generator@d552ecf3366cf9d6da9fd7dbe425325d3d095aa8
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631
         with:
           body: |
             ## What's Changed
@@ -103,7 +106,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
           - target: aarch64-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
       - name: Extract build information
@@ -116,23 +119,23 @@ jobs:
       - name: Extract rust toolchain
         id: toolchain
         run: |
-          echo "channel=$(grep channel rust-toolchain.toml | awk -F' = ' '{printf $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@master
+          echo "channel=$(grep channel rust-toolchain.toml | awk -F' = ' '{printf $2}' | tr -d '"')" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           toolchain: ${{ steps.toolchain.outputs.channel }}
           targets: ${{ matrix.platform.target }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6
         with:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
           save-if: ${{ github.event_name != 'pull_request' }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
         with:
           path: target
           key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-
       - name: Install cross
-        uses: taiki-e/cache-cargo-install-action@v2.1.1
+        uses: taiki-e/cache-cargo-install-action@4d586f211d9b0bca9e7b59e57e2a0febf36c0929
         with:
           tool: cross
           git: https://github.com/cross-rs/cross
@@ -148,7 +151,7 @@ jobs:
         run: |
           cross build --locked --target ${{ matrix.platform.target }} --release
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: backend-${{ steps.build.outputs.docker-arch }}
           path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/backend
@@ -163,33 +166,33 @@ jobs:
     permissions:
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
       - name: Download build artifact for docker
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
         with:
           path: ${{ github.workspace }}/artifact/
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
       - name: Log in to the ghcr container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
         continue-on-error: true
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to the docker hub container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
         continue-on-error: true
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
         with:
           images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
@@ -201,7 +204,7 @@ jobs:
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=sha
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: .
           push: true
@@ -215,18 +218,18 @@ jobs:
       - pre-workflow-checks
       - build-docker
     if: needs.pre-workflow-checks.outputs.should-release == 'true'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
       - name: Setup Moon
-        uses: moonrepo/setup-toolchain@v0
+        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
           auto-install: true
       - name: Build plugin
@@ -245,20 +248,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55
         with:
           python-version: 3.x
       - name: Install poetry
-        uses: abatilo/actions-poetry@v2
+        uses: abatilo/actions-poetry@a5643c67b5fcc9ac5eddb395c7f61b1b66d86034
       - name: Install dependencies
         run: cd docs && poetry install
       - name: Build docs
         run: cd docs && poetry run mkdocs build
       - name: Push to deployment branch
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/site
