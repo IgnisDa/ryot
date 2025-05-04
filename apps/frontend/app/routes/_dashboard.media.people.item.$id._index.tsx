@@ -11,12 +11,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import {
-	DeployUpdatePersonJobDocument,
-	EntityLot,
-	PersonDetailsDocument,
-	UserPersonDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -42,9 +37,13 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { useMetadataGroupDetails, useUserPreferences } from "~/lib/hooks";
+import {
+	useMetadataGroupDetails,
+	usePersonDetails,
+	useUserPersonDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
-import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -59,76 +58,61 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		z.object({ id: z.string() }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
-		serverGqlService.request(PersonDetailsDocument, { personId }),
-		serverGqlService.authenticatedRequest(request, UserPersonDetailsDocument, {
-			personId,
-		}),
-	]);
-	if (personDetails.details.isPartial)
-		await serverGqlService.request(DeployUpdatePersonJobDocument, {
-			personId,
-		});
-	return { query, personId, userPersonDetails, personDetails };
-};
-
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
+	return { query, personId };
 };
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
+	const { data: personDetails } = usePersonDetails(loaderData.personId);
+	const { data: userPersonDetails } = useUserPersonDetails(loaderData.personId);
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
-		loaderData.personDetails.associatedMetadata.map((c) => c.name).at(0) ||
-			null,
+		personDetails?.associatedMetadata.map((c) => c.name).at(0) || null,
 	);
 	const [groupRoleFilter, setGroupRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
-		loaderData.personDetails.associatedMetadataGroups
-			.map((c) => c.name)
-			.at(0) || null,
+		personDetails?.associatedMetadataGroups.map((c) => c.name).at(0) || null,
 	);
 
-	const totalMetadata =
-		loaderData.personDetails.details.associatedMetadataCount;
+	const totalMetadata = personDetails?.details.associatedMetadataCount || 0;
 	const totalMetadataGroups =
-		loaderData.personDetails.details.associatedMetadataGroupsCount;
+		personDetails?.details.associatedMetadataGroupsCount || 0;
 	const additionalPersonDetails = [
 		totalMetadata ? `${totalMetadata} media items` : null,
 		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
-		loaderData.personDetails.details.birthDate &&
-			`Birth: ${loaderData.personDetails.details.birthDate}`,
-		loaderData.personDetails.details.deathDate &&
-			`Death: ${loaderData.personDetails.details.deathDate}`,
-		loaderData.personDetails.details.place &&
-			loaderData.personDetails.details.place,
-		loaderData.personDetails.details.gender,
-		loaderData.personDetails.details.alternateNames &&
-			loaderData.personDetails.details.alternateNames.length > 0 &&
-			`Also called ${loaderData.personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
-		loaderData.personDetails.details.website && (
+		personDetails?.details.birthDate &&
+			`Birth: ${personDetails.details.birthDate}`,
+		personDetails?.details.deathDate &&
+			`Death: ${personDetails.details.deathDate}`,
+		personDetails?.details.place && personDetails.details.place,
+		personDetails?.details.gender,
+		personDetails?.details.alternateNames &&
+			personDetails?.details.alternateNames.length > 0 &&
+			`Also called ${personDetails.details.alternateNames.slice(0, 5).join(", ")}`,
+		personDetails?.details.website && (
 			<Anchor
 				target="_blank"
 				referrerPolicy="no-referrer"
-				href={loaderData.personDetails.details.website}
+				href={personDetails?.details.website}
 			>
 				Website
 			</Anchor>
 		),
 	].filter(Boolean);
 
+	if (!personDetails || !userPersonDetails) return null;
+
 	return (
 		<Container>
 			<MediaDetailsLayout
-				title={loaderData.personDetails.details.name}
-				assets={loaderData.personDetails.details.assets}
+				title={personDetails.details.name}
+				assets={personDetails.details.assets}
 				externalLink={{
-					source: loaderData.personDetails.details.source,
-					href: loaderData.personDetails.details.sourceUrl,
+					source: personDetails.details.source,
+					href: personDetails.details.sourceUrl,
 				}}
 			>
 				{additionalPersonDetails.length > 0 ? (
@@ -138,9 +122,9 @@ export default function Page() {
 							.reduce((prev, curr) => [prev, " • ", curr])}
 					</Text>
 				) : null}
-				{loaderData.userPersonDetails.collections.length > 0 ? (
+				{userPersonDetails.collections.length > 0 ? (
 					<Group>
-						{loaderData.userPersonDetails.collections.map((col) => (
+						{userPersonDetails.collections.map((col) => (
 							<DisplayCollection
 								col={col}
 								key={col.id}
@@ -169,7 +153,7 @@ export default function Page() {
 								Groups
 							</Tabs.Tab>
 						) : null}
-						{loaderData.personDetails.details.description ? (
+						{personDetails.details.description ? (
 							<Tabs.Tab
 								value="overview"
 								leftSection={<IconInfoCircle size={16} />}
@@ -201,16 +185,14 @@ export default function Page() {
 											size="xs"
 											value={mediaRoleFilter}
 											onChange={(value) => setMediaRoleFilter(value)}
-											data={loaderData.personDetails.associatedMetadata.map(
-												(c) => ({
-													value: c.name,
-													label: `${c.name} (${c.count})`,
-												}),
-											)}
+											data={personDetails.associatedMetadata.map((c) => ({
+												value: c.name,
+												label: `${c.name} (${c.count})`,
+											}))}
 										/>
 									</Group>
 									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-										{loaderData.personDetails.associatedMetadata
+										{personDetails.associatedMetadata
 											.find((c) => c.name === mediaRoleFilter)
 											?.items.map((item) => (
 												<MetadataDisplay
@@ -236,16 +218,14 @@ export default function Page() {
 											size="xs"
 											value={groupRoleFilter}
 											onChange={(value) => setGroupRoleFilter(value)}
-											data={loaderData.personDetails.associatedMetadataGroups.map(
-												(c) => ({
-													value: c.name,
-													label: `${c.name} (${c.count})`,
-												}),
-											)}
+											data={personDetails.associatedMetadataGroups.map((c) => ({
+												value: c.name,
+												label: `${c.name} (${c.count})`,
+											}))}
 										/>
 									</Group>
 									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-										{loaderData.personDetails.associatedMetadataGroups
+										{personDetails.associatedMetadataGroups
 											.find((c) => c.name === groupRoleFilter)
 											?.items.map((item) => (
 												<MetadataGroupDisplay
@@ -258,13 +238,13 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 					) : null}
-					{loaderData.personDetails.details.description ? (
+					{personDetails.details.description ? (
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
 								<div
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
 									dangerouslySetInnerHTML={{
-										__html: loaderData.personDetails.details.description,
+										__html: personDetails.details.description,
 									}}
 								/>
 							</MediaScrollArea>
@@ -280,7 +260,7 @@ export default function Page() {
 										setEntityToReview({
 											entityId: loaderData.personId,
 											entityLot: EntityLot.Person,
-											entityTitle: loaderData.personDetails.details.name,
+											entityTitle: personDetails.details.name,
 										});
 									}}
 								>
@@ -292,10 +272,9 @@ export default function Page() {
 										setAddEntityToCollectionsData({
 											entityId: loaderData.personId,
 											entityLot: EntityLot.Person,
-											alreadyInCollections:
-												loaderData.userPersonDetails.collections.map(
-													(c) => c.id,
-												),
+											alreadyInCollections: userPersonDetails.collections.map(
+												(c) => c.id,
+											),
 										});
 									}}
 								>
@@ -307,7 +286,7 @@ export default function Page() {
 									</Menu.Target>
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
-											inCollections={loaderData.userPersonDetails.collections.map(
+											inCollections={userPersonDetails.collections.map(
 												(c) => c.name,
 											)}
 											formValue={loaderData.personId}
@@ -325,15 +304,15 @@ export default function Page() {
 					{!userPreferences.general.disableReviews ? (
 						<Tabs.Panel value="reviews">
 							<MediaScrollArea>
-								{loaderData.userPersonDetails.reviews.length > 0 ? (
+								{userPersonDetails.reviews.length > 0 ? (
 									<Stack>
-										{loaderData.userPersonDetails.reviews.map((r) => (
+										{userPersonDetails.reviews.map((r) => (
 											<ReviewItemDisplay
 												review={r}
 												key={r.id}
 												entityLot={EntityLot.Person}
 												entityId={loaderData.personId}
-												title={loaderData.personDetails.details.name}
+												title={personDetails.details.name}
 											/>
 										))}
 									</Stack>
