@@ -108,13 +108,19 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
+	const { ref, inViewport } = useInViewport();
+	const { data: metadataDetails } = useMetadataDetails(
+		props.metadataId,
+		inViewport,
+	);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
 	);
 
 	return (
 		<BaseEntityDisplay
+			ref={ref}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
 			hasInteracted={userMetadataDetails?.hasInteracted}
