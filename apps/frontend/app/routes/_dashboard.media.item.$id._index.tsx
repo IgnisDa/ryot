@@ -125,7 +125,6 @@ import {
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useGetWatchProviders,
-	usePersonDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -1333,8 +1332,6 @@ const MetadataCreator = (props: {
 	image?: string | null;
 	character?: string | null;
 }) => {
-	usePersonDetails(props.id);
-
 	return (
 		<BaseEntityDisplay
 			image={props.image || undefined}
