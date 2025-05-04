@@ -21,7 +21,7 @@ const smartphoneSchema = createSmartphoneSchema();
 const tabletSchema = createTabletSchema();
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
 const reviewEventPropertiesSchema: AppSchema = {
-	fields: { rating: { type: "number" } },
+	fields: { rating: { label: "Rating", type: "number" } },
 };
 const reviewJoin = {
 	key: "review",

@@ -3470,8 +3470,9 @@ export interface components {
             /** @enum {string} */
             operator: "not_in";
         };
-        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppDateTimeProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"];
+        AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"] | components["schemas"]["AppDateTimeProperty"];
         AppDateProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3483,15 +3484,8 @@ export interface components {
             /** @enum {boolean} */
             required?: true;
         };
-        AppDateTimeProperty: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "datetime";
-            validation?: components["schemas"]["AppRequiredPropertyValidation"];
-        };
         AppArrayProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3507,6 +3501,7 @@ export interface components {
             minItems?: number;
         };
         AppObjectProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3520,6 +3515,7 @@ export interface components {
             };
         };
         AppStringProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3535,6 +3531,7 @@ export interface components {
             minLength?: number;
         };
         AppNumberProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3561,6 +3558,7 @@ export interface components {
             exclusiveMinimum?: number;
         };
         AppIntegerProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3570,11 +3568,21 @@ export interface components {
             validation?: components["schemas"]["AppNumberPropertyValidation"];
         };
         AppBooleanProperty: {
+            label: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "boolean";
+            validation?: components["schemas"]["AppRequiredPropertyValidation"];
+        };
+        AppDateTimeProperty: {
+            label: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "datetime";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
         InternalServerError: {

@@ -43,6 +43,7 @@ type PropertySchemaValueField<TValue> = {
 type PropertySchemaFieldName =
 	| "properties"
 	| `properties[${number}].key`
+	| `properties[${number}].label`
 	| `properties[${number}].type`
 	| `properties[${number}].required`;
 
@@ -129,6 +130,36 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														onBlur={field.handleBlur}
 														disabled={props.isLoading}
 														placeholder={props.placeholder}
+														onChange={(event) =>
+															field.handleChange(event.currentTarget.value)
+														}
+													/>
+												);
+											}}
+										</props.form.AppField>
+
+										<props.form.AppField name={`properties[${index}].label`}>
+											{(labelField) => {
+												const field =
+													labelField as PropertySchemaValueField<string>;
+												const labelValue = field.state.value;
+												const labelError =
+													getErrorMessage(field.state.meta.errors) ??
+													(labelValue.trim().length === 0 &&
+													(field.state.meta.isBlurred ||
+														field.state.meta.isDirty)
+														? "Label is required"
+														: undefined);
+
+												return (
+													<TextInput
+														required
+														label="Label"
+														value={labelValue}
+														error={labelError}
+														onBlur={field.handleBlur}
+														disabled={props.isLoading}
+														placeholder="Display label"
 														onChange={(event) =>
 															field.handleChange(event.currentTarget.value)
 														}
