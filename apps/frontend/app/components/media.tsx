@@ -44,7 +44,6 @@ import {
 import {
 	clientGqlService,
 	getMetadataGroupDetailsQuery,
-	getPartialMetadataDetailsQuery,
 	openConfirmationModal,
 	queryFactory,
 	refreshEntityDetails,
@@ -53,6 +52,7 @@ import {
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
+	usePartialMetadataDetails,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -105,9 +105,7 @@ export const PartialMetadataDisplay = (props: {
 	metadataId: string;
 	extraText?: string;
 }) => {
-	const { data: metadataDetails } = useQuery(
-		getPartialMetadataDetailsQuery(props.metadataId),
-	);
+	const { data: metadataDetails } = usePartialMetadataDetails(props.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
