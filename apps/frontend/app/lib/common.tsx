@@ -12,10 +12,12 @@ import {
 	MediaSource,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
+	PersonDetailsDocument,
 	PresignedPutS3UrlDocument,
 	SetLot,
 	type UserAnalyticsQueryVariables,
 	UserMetadataDetailsDocument,
+	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { inRange, isString } from "@ryot/ts-utils";
 import {
@@ -456,6 +458,28 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 					clientGqlService
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
+			: skipToken,
+	});
+
+export const getPersonDetailsQuery = (personId?: string | null) =>
+	queryOptions({
+		queryKey: queryFactory.media.personDetails(personId || "").queryKey,
+		queryFn: personId
+			? () =>
+					clientGqlService
+						.request(PersonDetailsDocument, { personId })
+						.then((data) => data.personDetails)
+			: skipToken,
+	});
+
+export const getUserPersonDetailsQuery = (personId?: string | null) =>
+	queryOptions({
+		queryKey: queryFactory.media.userPersonDetails(personId || "").queryKey,
+		queryFn: personId
+			? () =>
+					clientGqlService
+						.request(UserPersonDetailsDocument, { personId })
+						.then((data) => data.userPersonDetails)
 			: skipToken,
 	});
 

@@ -20,7 +20,9 @@ import {
 	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
+	getPersonDetailsQuery,
 	getUserMetadataDetailsQuery,
+	getUserPersonDetailsQuery,
 	selectRandomElement,
 } from "~/lib/common";
 import {
@@ -130,6 +132,23 @@ export const useUserMetadataDetails = (
 		...getUserMetadataDetailsQuery(metadataId),
 		enabled,
 	});
+};
+
+export const usePersonDetails = (
+	personId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getPersonDetailsQuery(personId),
+		enabled,
+	});
+};
+
+export const useUserPersonDetails = (
+	personId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({ ...getUserPersonDetailsQuery(personId), enabled });
 };
 
 export const useDashboardLayoutData = () => {

@@ -15,10 +15,8 @@ import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
 	MediaLot,
-	PersonDetailsDocument,
 	SeenState,
 	UserMetadataGroupDetailsDocument,
-	UserPersonDetailsDocument,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -52,8 +50,10 @@ import {
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
+	usePersonDetails,
 	useUserDetails,
 	useUserMetadataDetails,
+	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
@@ -415,24 +415,12 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(PersonDetailsDocument, props)
-				.then((data) => data.personDetails);
-		},
-	});
-	const { data: userPersonDetails } = useQuery({
-		enabled: inViewport,
-		queryKey: queryFactory.media.userPersonDetails(props.personId).queryKey,
-		queryFn: async () => {
-			return clientGqlService
-				.request(UserPersonDetailsDocument, props)
-				.then((data) => data.userPersonDetails);
-		},
-	});
+	const { data: personDetails, isLoading: isPersonDetailsLoading } =
+		usePersonDetails(props.personId, inViewport);
+	const { data: userPersonDetails } = useUserPersonDetails(
+		props.personId,
+		inViewport,
+	);
 
 	const averageRating = userPersonDetails?.averageRating;
 
