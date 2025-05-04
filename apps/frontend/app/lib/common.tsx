@@ -483,9 +483,10 @@ export const getUserPersonDetailsQuery = (personId?: string | null) =>
 			: skipToken,
 	});
 
-export const getMetadataGroupDetailsQuery = (metadataGroupId: string) =>
+export const getMetadataGroupDetailsQuery = (metadataGroupId?: string | null) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId).queryKey,
+		queryKey: queryFactory.media.metadataGroupDetails(metadataGroupId || "")
+			.queryKey,
 		queryFn: metadataGroupId
 			? () =>
 					clientGqlService

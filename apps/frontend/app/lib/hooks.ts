@@ -20,6 +20,7 @@ import {
 	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
+	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
 	getUserMetadataDetailsQuery,
 	getUserPersonDetailsQuery,
@@ -149,6 +150,16 @@ export const useUserPersonDetails = (
 	enabled?: boolean,
 ) => {
 	return useQuery({ ...getUserPersonDetailsQuery(personId), enabled });
+};
+
+export const useMetadataGroupDetails = (
+	metadataGroupId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getMetadataGroupDetailsQuery(metadataGroupId),
+		enabled,
+	});
 };
 
 export const useDashboardLayoutData = () => {

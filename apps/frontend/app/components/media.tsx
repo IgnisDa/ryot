@@ -41,7 +41,6 @@ import {
 } from "~/components/common";
 import {
 	clientGqlService,
-	getMetadataGroupDetailsQuery,
 	openConfirmationModal,
 	queryFactory,
 	refreshEntityDetails,
@@ -50,6 +49,7 @@ import {
 import {
 	useConfirmSubmit,
 	useMetadataDetails,
+	useMetadataGroupDetails,
 	usePersonDetails,
 	useUserDetails,
 	useUserMetadataDetails,
@@ -350,10 +350,7 @@ export const MetadataGroupDisplayItem = (props: {
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useQuery({
-			...getMetadataGroupDetailsQuery(props.metadataGroupId),
-			enabled: inViewport,
-		});
+		useMetadataGroupDetails(props.metadataGroupId, inViewport);
 	const { data: userMetadataGroupDetails } = useQuery({
 		enabled: inViewport,
 		queryKey: queryFactory.media.userMetadataGroupDetails(props.metadataGroupId)
