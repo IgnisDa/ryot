@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createSavedViewFixture } from "#/features/test-fixtures";
+import { createSavedViewFixture } from "~/features/test-fixtures";
 import { sortSavedViewsByOrder } from "./model";
 
 describe("toAppSavedView", () => {

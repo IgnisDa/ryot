@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "#/hooks/api";
+import { useApiClient } from "~/hooks/api";
 import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
 
 export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {

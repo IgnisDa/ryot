@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, event, eventSchema } from "~/lib/db/schema";

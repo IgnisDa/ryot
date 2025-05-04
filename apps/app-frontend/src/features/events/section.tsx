@@ -11,10 +11,10 @@ import {
 	Text,
 } from "@mantine/core";
 import { useMemo } from "react";
-import { SectionHeader } from "#/components/SectionHeader";
-import type { AppEntity } from "#/features/entities/model";
-import { GeneratedPropertyField } from "#/features/generated-property-fields";
-import { useModalForm } from "#/hooks/modal-form";
+import { SectionHeader } from "~/components/SectionHeader";
+import type { AppEntity } from "~/features/entities/model";
+import { GeneratedPropertyField } from "~/features/generated-property-fields";
+import { useModalForm } from "~/hooks/modal-form";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildEventSchemaSelectionPatch,

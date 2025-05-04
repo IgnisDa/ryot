@@ -1,6 +1,6 @@
 import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 import type { z } from "zod";
-import type { ApiPostRequestBody } from "#/lib/api/types";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,

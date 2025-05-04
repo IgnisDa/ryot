@@ -1,5 +1,5 @@
 import { Badge, Box, Card, Text } from "@mantine/core";
-import { useThemeTokens } from "#/hooks/theme";
+import { useThemeTokens } from "~/hooks/theme";
 
 export interface EntityCardProps {
 	name: string;

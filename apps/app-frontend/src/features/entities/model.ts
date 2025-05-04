@@ -1,9 +1,9 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
 	ApiPostResponseData,
-} from "#/lib/api/types";
+} from "~/lib/api/types";
 
 type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;

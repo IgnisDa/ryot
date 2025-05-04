@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import type { AuthClient } from "#/lib/auth";
+import { dayjs } from "@ryot/ts-utils";
+import type { AuthClient } from "~/lib/auth";
 
 type SidebarApiKeyListResponse = Awaited<
 	ReturnType<AuthClient["apiKey"]["list"]>
