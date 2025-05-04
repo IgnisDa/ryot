@@ -39,6 +39,7 @@ import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
+import { clientGqlService } from "~/lib/common";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -94,6 +95,16 @@ export default function Page() {
 					lot: loaderData.metadataGroupDetails.details.lot,
 					source: loaderData.metadataGroupDetails.details.source,
 					href: loaderData.metadataGroupDetails.details.sourceUrl,
+				}}
+				partialDetailsFetcher={{
+					entityId: loaderData.metadataGroupDetails.details.id,
+					isAlreadyPartial: loaderData.metadataGroupDetails.details.isPartial,
+					fn: () =>
+						clientGqlService
+							.request(MetadataGroupDetailsDocument, {
+								metadataGroupId: loaderData.metadataGroupDetails.details.id,
+							})
+							.then((data) => data.metadataGroupDetails.details.isPartial),
 				}}
 			>
 				<Flex id="group-details" wrap="wrap" gap={4}>
